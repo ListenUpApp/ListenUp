@@ -33,7 +33,7 @@ import com.calypsan.listenup.api.dto.match.MatchReceipt
 import com.calypsan.listenup.client.presentation.match.BookMatchEvent
 import com.calypsan.listenup.client.presentation.match.MatchReceiptUiState
 import com.calypsan.listenup.client.presentation.match.PersonMatchEvent
-import com.calypsan.listenup.web.features.match.authorResults
+import com.calypsan.listenup.web.features.match.andyResults
 import com.calypsan.listenup.web.features.match.fixedPersonMatch
 import com.calypsan.listenup.web.features.match.noProfiles
 import com.calypsan.listenup.web.features.match.personReceipt
@@ -1600,7 +1600,7 @@ class WebAppRootTest :
                     "/contributor/c-king/match",
                     matchDetails =
                         fixedMatchDetails(person = {
-                            fixedPersonMatch(MutableStateFlow(authorResults()), events = applied.receiveAsFlow())
+                            fixedPersonMatch(MutableStateFlow(andyResults()), events = applied.receiveAsFlow())
                         }),
                 )
 

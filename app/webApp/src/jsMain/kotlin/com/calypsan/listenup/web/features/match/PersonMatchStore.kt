@@ -1,7 +1,6 @@
 package com.calypsan.listenup.web.features.match
 
 import androidx.lifecycle.ViewModelStore
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.ImageChoice
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
@@ -26,7 +25,6 @@ class PersonMatchSession(
     val reviewState: StateFlow<PersonReviewUiState>,
     val events: Flow<PersonMatchEvent>,
     val search: (String) -> Unit,
-    val switchRole: (ContributorRole) -> Unit,
     val retry: () -> Unit,
     val pick: (PersonCandidateKey) -> Unit,
     val backToResults: () -> Unit,
@@ -42,7 +40,7 @@ class PersonMatchSession(
 /** How the page gets its session for a contributor. */
 typealias OpenPersonMatch = (contributorId: String) -> PersonMatchSession
 
-/** The production source: [PersonMatchViewModel] for one contributor. It picks the role and starts Find itself. */
+/** The production source: [PersonMatchViewModel] for one contributor. It starts Find itself. */
 fun graphPersonMatch(koin: Koin): OpenPersonMatch =
     { contributorId ->
         val viewModel = koin.get<PersonMatchViewModel> { parametersOf(contributorId) }
@@ -52,7 +50,6 @@ fun graphPersonMatch(koin: Koin): OpenPersonMatch =
             reviewState = viewModel.reviewState,
             events = viewModel.events,
             search = viewModel::search,
-            switchRole = viewModel::switchRole,
             retry = viewModel::retry,
             pick = viewModel::pick,
             backToResults = viewModel::backToResults,
@@ -76,7 +73,6 @@ fun fixedPersonMatch(
     reviewState: StateFlow<PersonReviewUiState> = MutableStateFlow(PersonReviewUiState.NoneChosen),
     events: Flow<PersonMatchEvent> = emptyFlow(),
     search: (String) -> Unit = {},
-    switchRole: (ContributorRole) -> Unit = {},
     retry: () -> Unit = {},
     pick: (PersonCandidateKey) -> Unit = {},
     backToResults: () -> Unit = {},
@@ -92,7 +88,6 @@ fun fixedPersonMatch(
         reviewState = reviewState,
         events = events,
         search = search,
-        switchRole = switchRole,
         retry = retry,
         pick = pick,
         backToResults = backToResults,

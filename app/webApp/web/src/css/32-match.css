@@ -222,18 +222,9 @@
 
 /* ── Match details for people ────────────────────────────────────────────────
    /contributor/{id}/match (W-06, W-07). The same two panes, rows and Apply bar as a
-   book's; what differs is drawn here: the Match as switch, the coverage note, the
-   Your-library strip, round portraits, the Different role chip, and the photo and
-   biography sections. */
+   book's; what differs is drawn here: the Your-library strip, round portraits, and the
+   photo and biography sections. */
 
-.luw .pmx-role { min-width: 0; max-width: 100%; }
-.luw .pmx-role .bmx-seg { justify-content: center; }
-.luw .pmx-coverage {
-  margin: 0; display: flex; align-items: flex-start; gap: var(--sp-8);
-  padding: var(--sp-12); border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line);
-  font-size: var(--fs-small); font-weight: 600; line-height: 1.5; color: var(--ink-3); overflow-wrap: anywhere;
-}
-.luw .pmx-coverage svg { flex: none; margin-top: 2px; }
 .luw .pmx-lib { flex-wrap: wrap; }
 .luw .pmx-lib-covers { display: flex; flex: none; }
 .luw .pmx-lib-covers .bmx-art { width: 40px; height: 56px; box-shadow: 0 0 0 2px var(--surface-2); }
@@ -243,7 +234,6 @@
 .luw .pmx-row[aria-pressed="true"] { border-color: var(--coral); background: var(--coral-soft); }
 .luw .pmx-lib-line { display: inline-flex; align-items: center; gap: var(--sp-4); font-size: var(--fs-small); color: var(--ink-3); }
 .luw .pmx-lib-line.is-some { color: var(--success); font-weight: 650; }
-.luw .pmx-role-chip { background: var(--warn-soft); color: var(--warn); }
 .luw .pmx-face {
   flex: none; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; display: flex;
   align-items: center; justify-content: center; background: var(--surface-3);

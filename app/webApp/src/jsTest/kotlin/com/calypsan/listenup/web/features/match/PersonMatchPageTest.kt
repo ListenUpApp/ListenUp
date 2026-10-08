@@ -1,6 +1,5 @@
 package com.calypsan.listenup.web.features.match
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.HandEdit
@@ -18,6 +17,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +34,7 @@ private val hosts = mutableListOf<HTMLElement>()
 
 /** A live person page over [find] and [review], with every gesture written to [calls]. */
 internal class PersonMatchRig(
-    find: PersonFindUiState = authorResults(),
+    find: PersonFindUiState = andyResults(),
     review: PersonReviewUiState = PersonReviewUiState.NoneChosen,
 ) {
     val find = MutableStateFlow(find)
@@ -51,7 +51,6 @@ internal class PersonMatchRig(
             reviewState = this.review,
             events = events.receiveAsFlow(),
             search = { calls += "search:$it" },
-            switchRole = { calls += "role:$it" },
             retry = { calls += "retry" },
             pick = { calls += "pick:${it.refs.single().id}" },
             backToResults = { calls += "back" },
@@ -103,8 +102,8 @@ private fun Element.inputNamed(name: String): HTMLInputElement? =
 private fun focusedId(): String? = (document.activeElement as? HTMLElement)?.id
 
 /**
- * Person Match details on web (W-06, W-07): Find as author or narrator, the coverage note and Your library,
- * people rows that say who each one is, No profiles with Edit by hand, and Review with the photo and the
+ * Person Match details on web (W-06, W-07): Find for a person in every role, Your library with every role's
+ * evidence, people rows that say who each one is, No profiles with Edit by hand, and Review with the photo and the
  * biography chosen apart under one Apply. The keyboard path never drops to `<body>`.
  */
 class PersonMatchPageTest :
@@ -117,18 +116,17 @@ class PersonMatchPageTest :
 
         // MARK: Find
 
-        test("author Find: the title, the person, Your library, the steps and the count") {
+        test("Find: the title, the person, Your library, the steps and the count") {
             val host = PersonMatchRig().mount()
             awaitFrame()
 
             host.text(".page-t") shouldBe "Match details"
-            host.text(".page-h p") shouldBe "Andy Weir · author"
+            host.text(".page-h p") shouldBe "Andy Weir"
             host.text(".pmx-lib-t") shouldBe
-                "Wrote 3 books in your library: Project Hail Mary, The Martian, Artemis"
+                "Wrote 3 of your books: Project Hail Mary, The Martian, Artemis"
             host.querySelectorAll(".pmx-lib .bmx-art").length shouldBe 3
-            host.text(".bmx-note") shouldBe "Started from the 3 books Andy Weir wrote in your library."
+            host.text(".bmx-note") shouldBe "Started from the 3 books crediting Andy Weir in your library."
             host.text(".bmx-find .bmx-count") shouldBe "3 people"
-            host.querySelector(".pmx-coverage").shouldBeNull()
         }
 
         test("the search is a labelled field in a search form, and searches on submit") {
@@ -158,10 +156,10 @@ class PersonMatchPageTest :
             val best = host.rows().first()
             best.text(".bmx-row-t") shouldBe "Andy Weir"
             best.text(".bmx-row-meta") shouldBe "Author · The Martian, Artemis"
-            best.text(".pmx-lib-line") shouldBe "Wrote 3 books in your library"
+            best.text(".pmx-lib-line") shouldBe "Wrote 3 of your books"
             best.text(".bmx-row-found") shouldBe "Found in Audible and Hardcover"
             best.getAttribute("aria-label") shouldBe
-                "Best match. Andy Weir. Author · The Martian, Artemis. Wrote 3 books in your library. " +
+                "Best match. Andy Weir. Author · The Martian, Artemis. Wrote 3 of your books. " +
                 "Found in Audible and Hardcover."
             host.rows().map { it.getAttribute("aria-pressed") } shouldContainExactly listOf("false", "false", "false")
             host.rows()[2].text(".bmx-row-meta") shouldBe "Author · 1 book"
@@ -170,44 +168,41 @@ class PersonMatchPageTest :
 
         test("the open row is pressed") {
             val chosen = person(isBest = true)
-            val host = PersonMatchRig(find = authorResults(pickedKey = chosen.key)).mount()
+            val host = PersonMatchRig(find = andyResults(pickedKey = chosen.key)).mount()
             awaitFrame()
 
             host.rows().map { it.getAttribute("aria-pressed") } shouldContainExactly listOf("true", "false", "false")
         }
 
-        test("narrator Find: the coverage note, the narrator search and a Different role row") {
-            val host = PersonMatchRig(find = narratorResults()).mount()
+        test("every role they hold here is evidence, on the strip and on the row") {
+            val host = PersonMatchRig(find = rayResults()).mount()
             awaitFrame()
 
-            host.text(".page-h p") shouldBe "Ray Porter · narrator"
-            host.text(".pmx-coverage") shouldBe "Audible has no narrator profiles, so this search uses Hardcover."
-            host.querySelector("label[for=$SEARCH_ID]")?.textContent?.trim() shouldBe "Search for a narrator"
-            host.text(".pmx-lib-t") shouldBe "Narrated 5 books in your library: Project Hail Mary, Bobiverse"
-            host.text(".bmx-note") shouldBe "Started from the 5 books Ray Porter narrates in your library."
+            host.text(".page-h p") shouldBe "Ray Porter"
+            host.querySelector("label[for=$SEARCH_ID]")?.textContent?.trim() shouldBe "Search for a person"
+            host.text(".pmx-lib-t") shouldBe
+                "Narrated 5 of your books · Translated 1: Project Hail Mary, Bobiverse"
+            host.text(".bmx-note") shouldBe "Started from the 5 books crediting Ray Porter in your library."
+            val ray = host.rows().first()
+            ray.text(".bmx-row-meta") shouldBe "Narrator · Project Hail Mary, Bobiverse"
+            ray.text(".pmx-lib-line") shouldBe "Narrated 4 of your books · Translated 1"
             val other = host.rows().last()
-            other.text(".bmx-row-meta") shouldBe "Author · 1 book · Not a narrator"
-            other.text(".pmx-role-chip") shouldBe "Different role"
-            other.querySelector(".pmx-lib-line").shouldBeNull()
-            other.getAttribute("aria-label").shouldNotBeNull() shouldContain "Different role"
+            other.text(".bmx-row-meta") shouldBe "Author · 1 book"
+            other.text(".pmx-lib-line") shouldBe "No books in your library"
         }
 
-        test("Match as is a radio group, and choosing a role switches to it") {
-            val rig = PersonMatchRig(find = narratorResults())
-            val host = rig.mount()
+        test("there is no role to choose: no Match as group, no As author, no As narrator") {
+            val host = PersonMatchRig(find = rayResults()).mount()
             awaitFrame()
 
-            val group = host.querySelector("fieldset.pmx-role").shouldNotBeNull()
-            group.querySelector("legend")?.textContent?.trim() shouldBe "Match as"
-            host.inputNamed("As narrator").shouldNotBeNull().checked shouldBe true
-            host.inputNamed("As author").shouldNotBeNull().click()
-            awaitFrame()
-
-            rig.calls.said.last() shouldBe "role:AUTHOR"
+            host.querySelector("fieldset.pmx-role").shouldBeNull()
+            host.inputNamed("As author").shouldBeNull()
+            host.inputNamed("As narrator").shouldBeNull()
+            (host.textContent ?: "") shouldNotContain "Match as"
         }
 
         test("a search in flight keeps the last people, busy, and the live region counts them when they come") {
-            val rig = PersonMatchRig(find = personSearching(previous = authorResults()))
+            val rig = PersonMatchRig(find = personSearching(previous = andyResults()))
             val host = rig.mount()
             awaitFrame()
 
@@ -215,24 +210,23 @@ class PersonMatchPageTest :
             host.querySelector(".bmx-rows")?.getAttribute("aria-busy") shouldBe "true"
             host.live() shouldBe "Searching…"
 
-            rig.find.value = authorResults()
+            rig.find.value = andyResults()
             awaitFrame()
             awaitFrame()
 
             host.live() shouldBe "3 people"
         }
 
-        test("no profiles says so for the role, keeps the search, and offers Edit by hand") {
+        test("no profiles says so for the person, keeps the search, and offers Edit by hand") {
             val rig = PersonMatchRig(find = noProfiles())
             val host = rig.mount()
             awaitFrame()
             awaitFrame()
 
-            host.text(".bmx-find .empty :is(h2, h3, h4)") shouldBe "No source has a profile for this narrator"
+            host.text(".bmx-find .empty :is(h2, h3, h4)") shouldBe "No source has a profile for this person"
             host.text(".bmx-find .empty") shouldContain "You can add their photo and biography yourself."
             host.querySelector("#$SEARCH_ID").shouldNotBeNull()
-            host.inputNamed("As author").shouldNotBeNull()
-            host.live() shouldBe "No source has a profile for this narrator"
+            host.live() shouldBe "No source has a profile for this person"
             host.buttonNamed("Edit by hand").shouldNotBeNull().click()
 
             rig.editedByHand shouldBe 1
@@ -255,7 +249,7 @@ class PersonMatchPageTest :
             val partial =
                 com.calypsan.listenup.client.presentation.match
                     .PartialFailure(listOf(HARDCOVER), listOf(AUDIBLE))
-            val host = PersonMatchRig(find = authorResults(partialFailure = partial)).mount()
+            val host = PersonMatchRig(find = andyResults(partialFailure = partial)).mount()
             awaitFrame()
 
             host.text(".bmx-banner p") shouldBe "Hardcover didn't answer, so these results are from Audible."
@@ -287,7 +281,7 @@ class PersonMatchPageTest :
 
         test("Back to results returns focus to the row that was open") {
             val chosen = person(isBest = true)
-            val rig = PersonMatchRig(find = authorResults(pickedKey = chosen.key), review = personReady(candidate = chosen))
+            val rig = PersonMatchRig(find = andyResults(pickedKey = chosen.key), review = personReady(candidate = chosen))
             val host = rig.mount()
             awaitFrame()
 
@@ -321,7 +315,7 @@ class PersonMatchPageTest :
 
             host.text(".bmx-head-t") shouldBe "Andy Weir"
             host.text(".bmx-head .pmx-from") shouldBe "Author · from Audible and Hardcover"
-            host.text(".bmx-head .pmx-lib-line") shouldBe "Wrote 3 books in your library"
+            host.text(".bmx-head .pmx-lib-line") shouldBe "Wrote 3 of your books"
             host.text(".pmx-apart") shouldBe "Photo and biography, chosen separately."
             host.texts(".bmx-sec-t") shouldContainExactly listOf("Photo", "Biography")
         }
@@ -512,13 +506,11 @@ class PersonMatchPageTest :
             rig.openedContributor shouldBe 1
         }
 
-        test("the narrator's Review header uses their role") {
-            val host =
-                PersonMatchRig(find = narratorResults(), review = personReady(candidate = RAY, role = ContributorRole.NARRATOR))
-                    .mount()
+        test("Ray's Review header names the role the source credits him in, and every role he holds here") {
+            val host = PersonMatchRig(find = rayResults(), review = personReady(candidate = RAY)).mount()
             awaitFrame()
 
             host.text(".bmx-head .pmx-from") shouldBe "Narrator · from Hardcover"
-            host.text(".bmx-head .pmx-lib-line") shouldBe "Narrated 5 books in your library"
+            host.text(".bmx-head .pmx-lib-line") shouldBe "Narrated 4 of your books · Translated 1"
         }
     })

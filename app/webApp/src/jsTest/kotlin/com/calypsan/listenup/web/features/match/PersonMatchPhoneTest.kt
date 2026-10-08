@@ -43,7 +43,7 @@ class PersonMatchPhoneTest :
 
         test("on a phone, Review replaces Find, and Back brings Find back with focus on the row that was open") {
             val chosen = person(isBest = true)
-            val rig = PersonMatchRig(find = authorResults(pickedKey = chosen.key))
+            val rig = PersonMatchRig(find = andyResults(pickedKey = chosen.key))
             val frame = rig.mountIn(frames, PHONE)
             awaitFrame()
 
@@ -66,7 +66,7 @@ class PersonMatchPhoneTest :
         }
 
         test("at 320px with text at 200%, Review reflows: nothing scrolls sideways and Apply stays on screen") {
-            val rig = PersonMatchRig(find = narratorResults(), review = personReady(candidate = RAY))
+            val rig = PersonMatchRig(find = rayResults(), review = personReady(candidate = RAY))
             val frame = rig.mountIn(frames, SMALL_PHONE)
             frame.zoomTextTo200()
             awaitFrame()
@@ -76,8 +76,8 @@ class PersonMatchPhoneTest :
             frame.rect(apply).right shouldBeLessThanOrEqual frame.rect(frame.find(".shell-main")).right
         }
 
-        test("at 320px with text at 200%, Find reflows too — role switch, coverage note and rows") {
-            val rig = PersonMatchRig(find = narratorResults())
+        test("at 320px with text at 200%, Find reflows too — the evidence strip and rows") {
+            val rig = PersonMatchRig(find = rayResults())
             val frame = rig.mountIn(frames, SMALL_PHONE)
             frame.zoomTextTo200()
             awaitFrame()
@@ -85,12 +85,12 @@ class PersonMatchPhoneTest :
             withClue(frame.pastTheEdge().joinToString("\n")) { frame.contentOverflow() shouldBe 0 }
         }
 
-        test("the role switch, the photo tiles, the ticks and the source switch are at least 44px") {
+        test("the photo tiles, the ticks and the source switch are at least 44px") {
             val rig = PersonMatchRig(review = personReady())
             val frame = rig.mountIn(frames, PHONE)
             awaitFrame()
 
-            val targets = frame.findAll(".pmx-role .bmx-seg, .bmx-cover, .bmx-seg, .bmx-field-h .f-check")
+            val targets = frame.findAll(".bmx-cover, .bmx-seg, .bmx-field-h .f-check")
             withClue("no targets found") { (targets.size > 0) shouldBe true }
             targets.forEach { target ->
                 withClue("${target.className} '${target.textContent?.take(30)}'") {

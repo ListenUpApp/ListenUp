@@ -8,13 +8,13 @@ import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.FieldValue
 import com.calypsan.listenup.api.dto.match.HandEdit
 import com.calypsan.listenup.api.dto.match.ImageChoice
+import com.calypsan.listenup.api.dto.match.LibraryCredit
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.MetadataSource
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
 import com.calypsan.listenup.api.dto.match.PersonSearchStep
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.presentation.match.BiographyUi
-import com.calypsan.listenup.client.presentation.match.CoverageNote
 import com.calypsan.listenup.client.presentation.match.FieldOptionUi
 import com.calypsan.listenup.client.presentation.match.FindFailure
 import com.calypsan.listenup.client.presentation.match.InLibraryUi
@@ -37,12 +37,12 @@ import com.calypsan.listenup.client.presentation.match.PhotoUi
 internal fun personHeader(name: String = "Andy Weir"): PersonHeaderUi = PersonHeaderUi(name = name, imagePath = null)
 
 internal fun inLibrary(
-    role: ContributorRole = ContributorRole.AUTHOR,
     titles: List<String> = listOf("Project Hail Mary", "The Martian", "Artemis"),
     bookCount: Int = titles.size,
+    credits: List<LibraryCredit> = listOf(LibraryCredit(ContributorRole.AUTHOR, bookCount)),
 ): InLibraryUi =
     InLibraryUi(
-        role = role,
+        credits = credits,
         bookCount = bookCount,
         titles = titles,
         covers =
@@ -65,7 +65,8 @@ internal fun person(
     tier: MatchTier = MatchTier.STRONG,
     isBest: Boolean = false,
     isCurrentLink: Boolean = false,
-    isDifferentRole: Boolean = false,
+    libraryCredits: List<LibraryCredit> =
+        if (libraryCount > 0) listOf(LibraryCredit(ContributorRole.AUTHOR, libraryCount)) else emptyList(),
     noBooksInLibrary: Boolean = false,
     photoUrl: String? = "https://example.invalid/$id.jpg",
 ): PersonCandidateUi =
@@ -82,12 +83,12 @@ internal fun person(
         tier = tier,
         isBest = isBest,
         isCurrentLink = isCurrentLink,
-        isDifferentRole = isDifferentRole,
+        libraryCredits = libraryCredits,
         noBooksInLibrary = noBooksInLibrary,
     )
 
-/** W-06: Andy Weir as author — one Strong match, two Maybes. */
-internal fun authorResults(
+/** W-06: Andy Weir, who wrote three of your books — one Strong match, two Maybes. */
+internal fun andyResults(
     strong: List<PersonCandidateUi> = listOf(person(isBest = true)),
     maybe: List<PersonCandidateUi> =
         listOf(
@@ -116,12 +117,10 @@ internal fun authorResults(
     partialFailure: PartialFailure? = null,
 ): PersonFindUiState.Results =
     PersonFindUiState.Results(
-        role = ContributorRole.AUTHOR,
         header = personHeader(),
         inLibrary = inLibrary(),
         query = "Andy Weir",
         steps = listOf(PersonSearchStep.ViaYourBooks(3)),
-        coverageNote = null,
         strong = strong,
         maybe = maybe,
         partialFailure = partialFailure,
@@ -135,6 +134,11 @@ internal val RAY =
         shownRole = ContributorRole.NARRATOR,
         knownWorks = listOf("Project Hail Mary", "Bobiverse"),
         libraryCount = 5,
+        libraryCredits =
+            listOf(
+                LibraryCredit(ContributorRole.NARRATOR, 4),
+                LibraryCredit(ContributorRole.TRANSLATOR, 1),
+            ),
         foundIn = listOf(HARDCOVER),
         isBest = true,
     )
@@ -149,37 +153,35 @@ internal val RAY_THE_AUTHOR =
         libraryCount = 0,
         foundIn = listOf(HARDCOVER),
         tier = MatchTier.MAYBE,
-        isDifferentRole = true,
+        noBooksInLibrary = true,
         photoUrl = null,
     )
 
-internal val NARRATOR_COVERAGE = CoverageNote(withoutProfiles = listOf(AUDIBLE), using = listOf(HARDCOVER))
+/** The strip for Ray Porter: narrated five of your books, translated one. */
+internal val RAY_LIBRARY: List<LibraryCredit> =
+    listOf(LibraryCredit(ContributorRole.NARRATOR, 5), LibraryCredit(ContributorRole.TRANSLATOR, 1))
 
-/** W-07: Ray Porter as narrator — the coverage note, one Strong match and a Different role Maybe. */
-internal fun narratorResults(): PersonFindUiState.Results =
+/** W-07: Ray Porter, who narrated five of your books and translated one — one Strong match, one Maybe. */
+internal fun rayResults(): PersonFindUiState.Results =
     PersonFindUiState.Results(
-        role = ContributorRole.NARRATOR,
         header = personHeader("Ray Porter"),
-        inLibrary = inLibrary(ContributorRole.NARRATOR, listOf("Project Hail Mary", "Bobiverse"), bookCount = 5),
+        inLibrary = inLibrary(listOf("Project Hail Mary", "Bobiverse"), bookCount = 6, credits = RAY_LIBRARY),
         query = "Ray Porter",
         steps = listOf(PersonSearchStep.ViaYourBooks(5)),
-        coverageNote = NARRATOR_COVERAGE,
         strong = listOf(RAY),
         maybe = listOf(RAY_THE_AUTHOR),
         partialFailure = null,
         pickedKey = null,
     )
 
-internal fun personSearching(
-    role: ContributorRole = ContributorRole.AUTHOR,
-    previous: PersonFindUiState.Results? = null,
-): PersonFindUiState.Searching = PersonFindUiState.Searching(role, personHeader(), inLibrary(), "Andy Weir", previous)
+internal fun personSearching(previous: PersonFindUiState.Results? = null): PersonFindUiState.Searching =
+    PersonFindUiState.Searching(personHeader(), inLibrary(), "Andy Weir", previous)
 
-internal fun noProfiles(role: ContributorRole = ContributorRole.NARRATOR): PersonFindUiState.NoProfiles =
-    PersonFindUiState.NoProfiles(role, personHeader("Ray Porter"), inLibrary(role), "Ray Porter", NARRATOR_COVERAGE)
+internal fun noProfiles(): PersonFindUiState.NoProfiles =
+    PersonFindUiState.NoProfiles(personHeader("Ray Porter"), inLibrary(credits = RAY_LIBRARY), "Ray Porter")
 
 internal fun personFailed(failure: FindFailure): PersonFindUiState.Failed =
-    PersonFindUiState.Failed(ContributorRole.AUTHOR, personHeader(), inLibrary(), "Andy Weir", failure)
+    PersonFindUiState.Failed(personHeader(), inLibrary(), "Andy Weir", failure)
 
 internal fun photo(
     currentPath: String? = null,
@@ -230,7 +232,6 @@ internal fun biography(
 
 internal fun personReady(
     candidate: PersonCandidateUi = person(isBest = true),
-    role: ContributorRole = ContributorRole.AUTHOR,
     photo: PhotoUi? = photo(),
     biography: BiographyUi? = biography(),
     applying: Boolean = false,
@@ -238,7 +239,6 @@ internal fun personReady(
 ): PersonReviewUiState.Ready =
     PersonReviewUiState.Ready(
         candidate = candidate,
-        role = role,
         photo = photo,
         biography = biography,
         applyBar =

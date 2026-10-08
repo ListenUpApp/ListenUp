@@ -1,7 +1,6 @@
 package com.calypsan.listenup.web.features.match
 
 import androidx.lifecycle.ViewModelStore
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.client.presentation.match.FindUiState
 import com.calypsan.listenup.client.presentation.match.MatchReceiptUiState
 import com.calypsan.listenup.client.presentation.match.MatchReceiptViewModel
@@ -55,7 +54,6 @@ fun fixedMatchDetails(
         fixedPersonMatch(
             MutableStateFlow(
                 PersonFindUiState.Searching(
-                    role = ContributorRole.AUTHOR,
                     header = null,
                     inLibrary = null,
                     query = "",
