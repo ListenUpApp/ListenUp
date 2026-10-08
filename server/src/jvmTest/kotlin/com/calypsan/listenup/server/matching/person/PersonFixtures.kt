@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.matching.person
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
 import com.calypsan.listenup.api.metadata.MetadataLocale

@@ -120,7 +120,9 @@ class HardcoverPeopleTest :
 
                 hardcover.operations shouldBe listOf("people_search", "people_details")
                 answer.steps shouldBe setOf(PersonStep.NAME, PersonStep.VIA_BOOKS)
-                val porter = answer.people.single()
+                // The books' authors come back as co-credits, never found by name; the ranker drops them by name.
+                answer.people.filterNot { it.foundByName }.map { it.key }.toSet() shouldBe setOf("123645", "233077")
+                val porter = answer.people.single { it.foundByName }
                 porter.key shouldBe "250716"
                 porter.name shouldBe "Ray Porter"
                 porter.roles shouldBe setOf(ContributorRole.NARRATOR)
@@ -175,7 +177,8 @@ class HardcoverPeopleTest :
 
                 hardcover.operations shouldBe listOf("people_details")
                 answer.steps shouldBe setOf(PersonStep.VIA_BOOKS)
-                answer.people.single().creditedBookIds shouldBe setOf("b-phm", "b-hr")
+                answer.people.single { it.key == "250716" }.creditedBookIds shouldBe setOf("b-phm", "b-hr")
+                answer.people.single { it.key == "123645" }.creditedBookIds shouldBe setOf("b-phm")
             }
         }
 

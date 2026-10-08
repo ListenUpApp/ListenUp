@@ -43,7 +43,7 @@ private fun SqlTestDatabases.personService(people: PersonRig): MatchingServiceIm
         permissionPolicy = UserPermissionPolicy(sql),
         bookAccessPolicy = BookAccessPolicy(sql, driver),
         peopleFinder = PeopleFinder(MetadataProviderRegistry(emptyList()), EnrichmentRoutes.DEFAULT),
-        loadPeople = { _, _, _ -> null },
+        loadPeople = { _, _ -> null },
         peopleRegion = { PERSON_US },
         details = MatchDetails(books.reviewer, books.applier, books.undoer, books.receipts, people.people()),
     )
