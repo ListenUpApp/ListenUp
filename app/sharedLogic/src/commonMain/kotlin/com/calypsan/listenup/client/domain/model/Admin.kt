@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.api.dto.auth.Permission
+
 /**
  * The signed-in user's, or an administered user's, permission flags — the domain twin of the contract
  * `UserPermissions`, one field per known `Permission`. ROOT and ADMIN hold every permission whatever
@@ -14,7 +16,26 @@ package com.calypsan.listenup.client.domain.model
 data class UserPermissions(
     val canEditMetadata: Boolean = true,
     val canCurateLibrary: Boolean = false,
-)
+) {
+    /** Whether these flags grant [permission]. [Permission.UNKNOWN] is never granted. */
+    fun allows(permission: Permission): Boolean =
+        when (permission) {
+            Permission.EDIT_METADATA -> canEditMetadata
+            Permission.CURATE_LIBRARY -> canCurateLibrary
+            Permission.UNKNOWN -> false
+        }
+
+    /** These flags with [permission] set to [granted]. [Permission.UNKNOWN] changes nothing. */
+    fun granting(
+        permission: Permission,
+        granted: Boolean,
+    ): UserPermissions =
+        when (permission) {
+            Permission.EDIT_METADATA -> copy(canEditMetadata = granted)
+            Permission.CURATE_LIBRARY -> copy(canCurateLibrary = granted)
+            Permission.UNKNOWN -> this
+        }
+}
 
 /**
  * Domain model representing a user in the admin context.
