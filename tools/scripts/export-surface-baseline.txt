@@ -238,7 +238,6 @@ CoverError
 CoverError_SealedType
 CoverUi
 CoverUploadDelegate
-CoverageNote
 CreateEditShelfNavAction
 CreateEditShelfNavAction_SealedType
 CreateEditShelfUiState
@@ -478,6 +477,7 @@ LeaderboardUiState_SealedType
 LeaderboardViewModel
 Library
 LibraryCoverUi
+LibraryCredit
 LibraryError
 LibraryError_SealedType
 LibraryFolder
