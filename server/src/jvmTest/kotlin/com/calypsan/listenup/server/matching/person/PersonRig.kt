@@ -101,14 +101,13 @@ internal class PersonRig(
     suspend fun person(): ContributorSyncPayload = contributors.findById(rayId)!!
 
     suspend fun review(key: PersonCandidateKey = PERSON_KEY): PersonMatchReview =
-        reviewer.review(person(), key, ContributorRole.NARRATOR, PERSON_US).shouldSucceed().review
+        reviewer.review(person(), key, PERSON_US).shouldSucceed().review
 
     /** Everything Review ticks by default. */
     suspend fun defaultRequest(key: PersonCandidateKey = PERSON_KEY): PersonMatchApply {
         val review = review(key)
         return PersonMatchApply(
             candidate = key,
-            role = ContributorRole.NARRATOR,
             basedOnRevision = review.basedOnRevision,
             photo = review.photo.defaultChoice,
             biography = review.biography?.defaultChoice ?: FieldChoice.KeepCurrent,

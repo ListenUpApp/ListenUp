@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.matching.person
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.BiographyReview
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FieldOption
@@ -68,7 +67,6 @@ internal class PersonReviewer(
     suspend fun review(
         contributor: ContributorSyncPayload,
         key: PersonCandidateKey,
-        role: ContributorRole,
         locale: MetadataLocale,
     ): AppResult<PersonReviewModel> {
         val composed = coordinator.composeProfiles(key.refs, locale, deadline)
@@ -89,7 +87,6 @@ internal class PersonReviewer(
                 review =
                     PersonMatchReview(
                         candidate = key,
-                        role = role,
                         basedOnRevision = contributor.revision,
                         photo =
                             PhotoReview(

@@ -4,14 +4,14 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.ImageChoice
+import com.calypsan.listenup.api.dto.match.LibraryCredit
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
-import com.calypsan.listenup.api.dto.match.RoleCoverage
 import com.calypsan.listenup.api.dto.match.SourceStatus
-import com.calypsan.listenup.api.dto.match.UnavailableReason
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.RoleWithBookCount
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -29,9 +29,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * [PersonMatchViewModel] — one person Match details session. What matters: Find searches the right role, each
- * role keeps its own query and results, a role nobody has profiles for says so instead of guessing, photo and
- * biography stay separate decisions, and Apply is one request whose receipt reaches the contributor page.
+ * [PersonMatchViewModel] — one person Match details session. What matters: Find asks for the person in no role
+ * and shows what they did in your library in every role, nobody having a profile says so instead of guessing,
+ * photo and biography stay separate decisions, and Apply is one request whose receipt reaches the contributor page.
  */
 class PersonMatchViewModelTest :
     FunSpec({
@@ -55,7 +55,7 @@ class PersonMatchViewModelTest :
         val strongKey = personKey()
         val maybeKey = personKey(id = "hc-ray-author")
 
-        test("Find starts in the role the person has most books in, with the header and strip from Room first") {
+        test("Find starts at once, asking for no role, with the header and every role's strip from Room first") {
             runTest(dispatcher) {
                 val rig = Rig()
                 val gate = CompletableDeferred<Unit>()
@@ -65,11 +65,12 @@ class PersonMatchViewModelTest :
                 val searching =
                     rig.vm.findState.value
                         .shouldBeInstanceOf<PersonFindUiState.Searching>()
-                searching.role shouldBe ContributorRole.NARRATOR
                 searching.header shouldBe PersonHeaderUi("Ray Porter", null)
                 searching.query shouldBe "Ray Porter"
                 val strip = searching.inLibrary.shouldNotBeNull()
-                strip.bookCount shouldBe 5
+                strip.credits shouldBe
+                    listOf(LibraryCredit(ContributorRole.NARRATOR, 5), LibraryCredit(ContributorRole.AUTHOR, 1))
+                strip.bookCount shouldBe 6
                 strip.titles shouldBe listOf("Narrated 1", "Narrated 2", "Narrated 3")
                 strip.covers.map { it.coverPath } shouldBe listOf("covers/n-1.jpg", "covers/n-2.jpg", "covers/n-3.jpg")
                 gate.complete(Unit)
@@ -77,55 +78,53 @@ class PersonMatchViewModelTest :
                 rig.vm.findState.value
                     .shouldBeInstanceOf<PersonFindUiState.Results>()
                     .strong shouldHaveSize 1
-                rig.repo.personFindRequests shouldBe listOf(PersonFindRequest(ContributorRole.NARRATOR))
+                rig.repo.personFindRequests shouldBe listOf(PersonFindRequest())
             }
         }
 
-        test("an author with no narrations, or a tie, starts as author") {
+        test("the strip counts a book once however many roles they hold on it, and leads with their biggest role") {
             runTest(dispatcher) {
                 val rig = Rig()
+                rig.people.roles.value =
+                    listOf(
+                        RoleWithBookCount("author", 1),
+                        RoleWithBookCount("translator", 2),
+                        RoleWithBookCount("narrator", 1),
+                    )
                 rig.people.booksByRole.value =
-                    mapOf("author" to listOf(libraryBook("a-1", "A")), "narrator" to listOf(libraryBook("n-1", "N")))
+                    mapOf(
+                        "author" to listOf(libraryBook("both", "Both")),
+                        "narrator" to listOf(libraryBook("both", "Both")),
+                        "translator" to listOf(libraryBook("t-1", "Translated 1"), libraryBook("t-2", "Translated 2")),
+                    )
                 subscribe(rig.vm)
                 advanceUntilIdle()
-                rig.vm.findState.value.role shouldBe ContributorRole.AUTHOR
-                rig.repo.personFindRequests
-                    .single()
-                    .role shouldBe ContributorRole.AUTHOR
+                val strip = rig.vm.findState.value.inLibrary
+                    .shouldNotBeNull()
+                strip.credits.map { it.role } shouldBe
+                    listOf(ContributorRole.TRANSLATOR, ContributorRole.AUTHOR, ContributorRole.NARRATOR)
+                strip.bookCount shouldBe 3
+                strip.titles shouldBe listOf("Translated 1", "Translated 2", "Both")
             }
         }
 
-        test("switching role searches that role, keeps a separate query, and switching back never re-searches") {
+        test("a new search replaces the last; a blank one searches by their name again") {
             runTest(dispatcher) {
                 val rig = Rig()
                 subscribe(rig.vm)
                 advanceUntilIdle()
                 rig.vm.search("R. Porter")
                 advanceUntilIdle()
-                rig.vm.switchRole(ContributorRole.AUTHOR)
+                rig.vm.findState.value.query shouldBe "R. Porter"
+                rig.vm.search("  ")
                 advanceUntilIdle()
-                val author =
-                    rig.vm.findState.value
-                        .shouldBeInstanceOf<PersonFindUiState.Results>()
-                author.role shouldBe ContributorRole.AUTHOR
-                author.query shouldBe "Ray Porter"
-                author.inLibrary?.bookCount shouldBe 1
-                rig.vm.switchRole(ContributorRole.NARRATOR)
-                advanceUntilIdle()
-                val narrator =
-                    rig.vm.findState.value
-                        .shouldBeInstanceOf<PersonFindUiState.Results>()
-                narrator.query shouldBe "R. Porter"
+                rig.vm.findState.value.query shouldBe "Ray Porter"
                 rig.repo.personFindRequests shouldBe
-                    listOf(
-                        PersonFindRequest(ContributorRole.NARRATOR),
-                        PersonFindRequest(ContributorRole.NARRATOR, "R. Porter"),
-                        PersonFindRequest(ContributorRole.AUTHOR),
-                    )
+                    listOf(PersonFindRequest(), PersonFindRequest(query = "R. Porter"), PersonFindRequest())
             }
         }
 
-        test("the coverage note and the Different role flag reach the results") {
+        test("each row carries what they did in your library as its evidence") {
             runTest(dispatcher) {
                 val rig = Rig()
                 subscribe(rig.vm)
@@ -133,30 +132,23 @@ class PersonMatchViewModelTest :
                 val results =
                     rig.vm.findState.value
                         .shouldBeInstanceOf<PersonFindUiState.Results>()
-                results.coverageNote shouldBe CoverageNote(listOf(AUDIBLE), listOf(HARDCOVER))
-                results.maybe.single().isDifferentRole shouldBe true
+                results.strong.single().libraryCredits shouldBe listOf(LibraryCredit(ContributorRole.NARRATOR, 5))
+                results.maybe.single().noBooksInLibrary shouldBe true
                 results.maybe.single().tier shouldBe MatchTier.MAYBE
             }
         }
 
-        test("no profile anywhere for the role is its own state, not a failure and not a guess") {
+        test("no profile anywhere is its own state, not a failure and not a guess") {
             runTest(dispatcher) {
                 val rig = Rig()
-                rig.repo.personFindReply = {
-                    AppResult.Success(
-                        personFindResult(
-                            candidates = emptyList(),
-                            coverage = listOf(RoleCoverage(AUDIBLE, false), RoleCoverage(HARDCOVER, true)),
-                        ),
-                    )
-                }
+                rig.repo.personFindReply = { AppResult.Success(personFindResult(candidates = emptyList())) }
                 subscribe(rig.vm)
                 advanceUntilIdle()
                 val none =
                     rig.vm.findState.value
                         .shouldBeInstanceOf<PersonFindUiState.NoProfiles>()
-                none.role shouldBe ContributorRole.NARRATOR
                 none.header?.name shouldBe "Ray Porter"
+                none.inLibrary?.bookCount shouldBe 6
             }
         }
 
@@ -168,10 +160,7 @@ class PersonMatchViewModelTest :
                         personFindResult(
                             candidates = emptyList(),
                             sources =
-                                listOf(
-                                    SourceStatus.Unavailable(AUDIBLE, UnavailableReason.NO_PROFILES_FOR_ROLE),
-                                    SourceStatus.TimedOut(HARDCOVER),
-                                ),
+                                listOf(SourceStatus.Answered(AUDIBLE, 0), SourceStatus.TimedOut(HARDCOVER)),
                         ),
                     )
                 }
@@ -202,7 +191,7 @@ class PersonMatchViewModelTest :
             }
         }
 
-        test("Review asks for the role searched; Back keeps the results and marks the picked row") {
+        test("Review asks for the candidate alone; Back keeps the results and marks the picked row") {
             runTest(dispatcher) {
                 val rig = Rig()
                 subscribe(rig.vm)
@@ -212,7 +201,7 @@ class PersonMatchViewModelTest :
                 rig.vm.reviewState.value
                     .shouldBeInstanceOf<PersonReviewUiState.Ready>()
                     .candidate.key shouldBe maybeKey
-                rig.repo.personReviewRequests.single() shouldBe (maybeKey to ContributorRole.NARRATOR)
+                rig.repo.personReviewRequests.single() shouldBe maybeKey
                 rig.vm.backToResults()
                 advanceUntilIdle()
                 rig.vm.reviewState.value shouldBe PersonReviewUiState.NoneChosen
@@ -286,7 +275,7 @@ class PersonMatchViewModelTest :
                 val request = rig.repo.personApplyRequests.single()
                 request.photo shouldBe ImageChoice.Candidate("p-hc")
                 request.biography shouldBe FieldChoice.KeepCurrent
-                request.role shouldBe ContributorRole.NARRATOR
+                request.role shouldBe null
                 request.candidate shouldBe strongKey
                 rig.receipts.all.value[PERSON] shouldBe personReceipt()
             }
@@ -301,7 +290,7 @@ class PersonMatchViewModelTest :
                 advanceUntilIdle()
                 rig.vm.setPhotoTicked(false)
                 rig.repo.personApplyReply = { AppResult.Failure(MetadataError.ReviewOutdated()) }
-                rig.repo.personReviewReply = { key, role -> AppResult.Success(personReview(key, role = role, revision = 9L)) }
+                rig.repo.personReviewReply = { key -> AppResult.Success(personReview(key, revision = 9L)) }
                 rig.vm.events.test {
                     rig.vm.apply()
                     awaitItem() shouldBe PersonMatchEvent.ReviewReloaded
@@ -335,28 +324,6 @@ class PersonMatchViewModelTest :
                         .shouldBeInstanceOf<PersonReviewUiState.Ready>()
                 ready.applyError shouldBe MetadataError.CoverDownloadFailed()
                 rig.receipts.all.value shouldBe emptyMap()
-            }
-        }
-
-        test("choices are per role: the same person picked as author starts from the author Review's defaults") {
-            runTest(dispatcher) {
-                val rig = Rig()
-                rig.repo.personFindReply = { AppResult.Success(personFindResult(role = it.role)) }
-                subscribe(rig.vm)
-                advanceUntilIdle()
-                rig.vm.pick(strongKey)
-                advanceUntilIdle()
-                rig.vm.setPhotoTicked(false)
-                rig.vm.switchRole(ContributorRole.AUTHOR)
-                advanceUntilIdle()
-                rig.vm.reviewState.value shouldBe PersonReviewUiState.NoneChosen
-                rig.vm.pick(strongKey)
-                advanceUntilIdle()
-                rig.vm.reviewState.value
-                    .shouldBeInstanceOf<PersonReviewUiState.Ready>()
-                    .photo
-                    ?.isTicked shouldBe true
-                rig.repo.personReviewRequests.last() shouldBe (strongKey to ContributorRole.AUTHOR)
             }
         }
     })

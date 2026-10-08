@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
 import com.calypsan.listenup.api.dto.match.PersonSearchStep
 import com.calypsan.listenup.api.dto.match.RoleCoverage
-import com.calypsan.listenup.api.dto.match.UnavailableReason
 import com.calypsan.listenup.api.metadata.MetadataDomain
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
@@ -24,11 +23,11 @@ import kotlin.time.Duration
 private const val IN_LIBRARY_TITLES = 3
 
 /**
- * People Find (spec, *Find and Review for people*). Asks every people source routed to `CONTRIBUTORS` that has
- * profiles for the role, in parallel, each under its own [deadline] and failure containment; a source without
- * profiles for the role is never asked (narrators never reach Audnexus) and reads `NO_PROFILES_FOR_ROLE`. The
- * people found are merged conservatively and ranked by the subject's own books. Each source's full answer is kept
- * in [cache], so Retry re-asks only the sources that didn't answer.
+ * People Find (spec, *Find and Review for people*). Asks every people source routed to `CONTRIBUTORS`, in
+ * parallel, each under its own [deadline] and failure containment — whatever roles brought the person into the
+ * library, since a role on one book doesn't say who someone is. The people found are merged conservatively and
+ * ranked by the subject's own books. Each source's full answer is kept in [cache], so Retry re-asks only the
+ * sources that didn't answer. [PersonFindRequest.role], sent by older clients, is only echoed.
  */
 internal class PeopleFinder(
     private val registry: MetadataProviderRegistry,
@@ -46,17 +45,8 @@ internal class PeopleFinder(
         val asked =
             coroutineScope {
                 sources
-                    .map { source ->
-                        async {
-                            val outcome =
-                                if (subject.role in source.profileRoles) {
-                                    ask(source, subject, query, locale)
-                                } else {
-                                    SourceOutcome.Unavailable(UnavailableReason.NO_PROFILES_FOR_ROLE)
-                                }
-                            source to outcome
-                        }
-                    }.awaitAll()
+                    .map { source -> async { source to ask(source, subject, query, locale) } }
+                    .awaitAll()
             }
         val found =
             asked.flatMap { (source, outcome) ->
@@ -67,10 +57,10 @@ internal class PeopleFinder(
                     .map { SourcedPerson(source.id.presentedAs(), it) }
             }
         return PersonFindResult(
-            role = subject.role,
+            role = request.role,
             steps = steps(asked, subject, query),
             inLibrary = InLibrary(subject.books.size, subject.books.take(IN_LIBRARY_TITLES).map { it.title }),
-            coverage = sources.map { RoleCoverage(it.id.toMetadataSource(), subject.role in it.profileRoles) },
+            coverage = sources.map { RoleCoverage(it.id.toMetadataSource(), hasProfiles = true) },
             candidates = PeopleRanker.rank(subject, PeopleMerger.merge(found)),
             sources =
                 asked.map { (source, outcome) ->

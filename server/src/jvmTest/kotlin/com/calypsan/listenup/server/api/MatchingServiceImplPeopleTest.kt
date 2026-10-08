@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.ExternalRef
+import com.calypsan.listenup.api.dto.match.LibraryCredit
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
@@ -41,7 +42,7 @@ private class PeopleServiceRig(
     db: SqlTestDatabases,
 ) {
     val contributors = ContributorRepository(db = db.sql, bus = ChangeBus(), registry = SyncRegistry())
-    val hardcover = FakePeopleSource(MetadataProviderId.HARDCOVER, setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR))
+    val hardcover = FakePeopleSource(MetadataProviderId.HARDCOVER)
     private val loader = PeopleSubjectLoader(db.sql, contributors, BookAccessPolicy(db.sql, db.driver))
     val service =
         MatchingServiceImpl(
@@ -76,10 +77,19 @@ private suspend fun SqlTestDatabases.seedPorter(rig: PeopleServiceRig): Contribu
     return porter
 }
 
-/** `findPeople`'s gate, its input checks, and the subject it searches from: your books in that role, as you see them. */
+/** Ken Liu, who only ever translated: one book here, with an ASIN. */
+private suspend fun SqlTestDatabases.seedTranslator(rig: PeopleServiceRig): ContributorId {
+    sql.seedTestLibraryAndFolder()
+    sql.seedTestBook("3bp", asin = "B00P0RZ3A8")
+    val liu = rig.contributors.resolveOrCreate("Ken Liu", sortName = null)
+    sql.transaction { sql.bookContributorsQueries.insert("3bp", liu.value, "translator", null, 0) }
+    return liu
+}
+
+/** `findPeople`'s gate, its input checks, and the subject it searches from: your books in every role, as you see them. */
 class MatchingServiceImplPeopleTest :
     FunSpec({
-        test("a narrator Find reads the books he narrates, with their identifiers, and ranks by them") {
+        test("a Find reads every book they're credited on, in any role, and ranks by them") {
             withSqlDatabase {
                 val rig = PeopleServiceRig(this)
                 runTest {
@@ -92,7 +102,7 @@ class MatchingServiceImplPeopleTest :
                     val result =
                         rig.service
                             .copyWith(rootPrincipal())
-                            .findPeople(porter, PersonFindRequest(ContributorRole.NARRATOR))
+                            .findPeople(porter, PersonFindRequest())
                             .shouldBeInstanceOf<AppResult.Success<PersonFindResult>>()
                             .data
 
@@ -100,8 +110,59 @@ class MatchingServiceImplPeopleTest :
                     asked.name shouldBe "Ray Porter"
                     asked.books.map { it.bookId to (it.asin ?: it.refs.single().id) }.toSet() shouldBe
                         setOf("phm" to "B08G9RZBTT", "hr" to "428002")
-                    result.inLibrary.bookCount shouldBe 2
-                    result.candidates.single().tier shouldBe MatchTier.STRONG
+                    asked.books.map { it.roles }.toSet() shouldBe setOf(setOf(ContributorRole.NARRATOR))
+                    result.inLibrary.bookCount shouldBe 3
+                    result.role shouldBe null
+                    val porterFound = result.candidates.single()
+                    porterFound.tier shouldBe MatchTier.STRONG
+                    porterFound.libraryCredits shouldBe listOf(LibraryCredit(ContributorRole.NARRATOR, 2))
+                }
+            }
+        }
+
+        test("a contributor who only ever translated is found, and Strong on the book they translated") {
+            withSqlDatabase {
+                val rig = PeopleServiceRig(this)
+                runTest {
+                    val liu = seedTranslator(rig)
+                    rig.hardcover.answers(
+                        listOf(person("301002", "Ken Liu", setOf(ContributorRole.TRANSLATOR), setOf("3bp"))),
+                    )
+
+                    val result =
+                        rig.service
+                            .copyWith(rootPrincipal())
+                            .findPeople(liu, PersonFindRequest())
+                            .shouldBeInstanceOf<AppResult.Success<PersonFindResult>>()
+                            .data
+
+                    rig.hardcover.asked
+                        .single()
+                        .books
+                        .single()
+                        .roles shouldBe setOf(ContributorRole.TRANSLATOR)
+                    val found = result.candidates.single()
+                    found.tier shouldBe MatchTier.STRONG
+                    found.libraryCredits shouldBe listOf(LibraryCredit(ContributorRole.TRANSLATOR, 1))
+                }
+            }
+        }
+
+        test("an older client asking As narrator gets every role's books, and its role echoed") {
+            withSqlDatabase {
+                val rig = PeopleServiceRig(this)
+                runTest {
+                    val porter = seedPorter(rig)
+
+                    val result =
+                        rig.service
+                            .copyWith(rootPrincipal())
+                            .findPeople(porter, PersonFindRequest(role = ContributorRole.NARRATOR))
+                            .shouldBeInstanceOf<AppResult.Success<PersonFindResult>>()
+                            .data
+
+                    result.role shouldBe ContributorRole.NARRATOR
+                    result.inLibrary.bookCount shouldBe 3
                 }
             }
         }
@@ -116,7 +177,7 @@ class MatchingServiceImplPeopleTest :
                     val result =
                         rig.service
                             .copyWith(memberPrincipal("m"))
-                            .findPeople(porter, PersonFindRequest(ContributorRole.NARRATOR))
+                            .findPeople(porter, PersonFindRequest())
                             .shouldBeInstanceOf<AppResult.Success<PersonFindResult>>()
                             .data
 
@@ -136,7 +197,7 @@ class MatchingServiceImplPeopleTest :
                     sql.seedTestUser("viewer", UserRoleColumn.MEMBER, canEdit = false)
                     rig.service
                         .copyWith(memberPrincipal("viewer"))
-                        .findPeople(porter, PersonFindRequest(ContributorRole.NARRATOR))
+                        .findPeople(porter, PersonFindRequest())
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<AuthError.PermissionDenied>()
@@ -145,23 +206,23 @@ class MatchingServiceImplPeopleTest :
             }
         }
 
-        test("an unknown contributor is not found; another role or an overlong query is malformed") {
+        test("an unknown contributor is not found, whatever role an older client names; an overlong query is malformed") {
             withSqlDatabase {
                 val rig = PeopleServiceRig(this)
                 val admin = rig.service.copyWith(rootPrincipal())
                 runTest {
                     admin
-                        .findPeople(ContributorId("nobody"), PersonFindRequest(ContributorRole.AUTHOR))
+                        .findPeople(ContributorId("nobody"), PersonFindRequest())
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<MetadataError.NotFound>()
                     admin
-                        .findPeople(ContributorId("nobody"), PersonFindRequest(ContributorRole.TRANSLATOR))
+                        .findPeople(ContributorId("nobody"), PersonFindRequest(role = ContributorRole.TRANSLATOR))
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
-                        .shouldBeInstanceOf<MetadataError.Malformed>()
+                        .shouldBeInstanceOf<MetadataError.NotFound>()
                     admin
-                        .findPeople(ContributorId("nobody"), PersonFindRequest(ContributorRole.AUTHOR, "x".repeat(201)))
+                        .findPeople(ContributorId("nobody"), PersonFindRequest(query = "x".repeat(201)))
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<MetadataError.Malformed>()

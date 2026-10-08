@@ -50,9 +50,6 @@ import com.calypsan.listenup.server.matching.toFindSubject
 
 private const val MAX_FIND_QUERY_LENGTH = 200
 
-/** The roles a people Find offers (spec: only authors and narrators). */
-private val SEARCHABLE_ROLES = setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR)
-
 /** Match details' Review, Apply and Undo, bundled for [MatchingServiceImpl]. */
 internal class MatchDetails(
     val reviewer: BookReviewer,
@@ -84,7 +81,7 @@ internal class MatchingServiceImpl(
     private val permissionPolicy: UserPermissionPolicy,
     private val bookAccessPolicy: BookAccessPolicy,
     private val peopleFinder: PeopleFinder,
-    private val loadPeople: suspend (ContributorId, ContributorRole, UserPrincipal) -> PeopleSubject?,
+    private val loadPeople: suspend (ContributorId, UserPrincipal) -> PeopleSubject?,
     private val peopleRegion: suspend () -> MetadataLocale,
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val details: MatchDetails,
@@ -127,7 +124,7 @@ internal class MatchingServiceImpl(
         permissionPolicy.requireCanEdit(caller.userId, caller.role)?.let { return AppResult.Failure(it) }
         rejectUnusable(request)?.let { return AppResult.Failure(it) }
         val subject =
-            loadPeople(contributorId, request.role, caller)
+            loadPeople(contributorId, caller)
                 ?: return AppResult.Failure(
                     MetadataError.NotFound(debugInfo = "no contributor for id ${contributorId.value}"),
                 )
@@ -138,10 +135,6 @@ internal class MatchingServiceImpl(
         when {
             (request.query?.length ?: 0) > MAX_FIND_QUERY_LENGTH -> {
                 MetadataError.Malformed(debugInfo = "find query longer than $MAX_FIND_QUERY_LENGTH")
-            }
-
-            request.role !in SEARCHABLE_ROLES -> {
-                MetadataError.Malformed(debugInfo = "people are found as authors or narrators, not ${request.role}")
             }
 
             else -> {
@@ -176,15 +169,14 @@ internal class MatchingServiceImpl(
     override suspend fun reviewPersonMatch(
         contributorId: ContributorId,
         candidate: PersonCandidateKey,
-        role: ContributorRole,
+        role: ContributorRole?,
     ): AppResult<PersonMatchReview> {
         enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
         requireEditor()?.let { return AppResult.Failure(it) }
-        unsearchableRole(role)?.let { return AppResult.Failure(it) }
         val person = details.people.loadPerson(contributorId) ?: return AppResult.Failure(notFound(contributorId))
         return details.people.reviewer
-            .review(person, candidate, role, personLocale(candidate))
-            .map { it.review }
+            .review(person, candidate, personLocale(candidate))
+            .map { it.review.copy(role = role) }
     }
 
     override suspend fun applyPersonMatch(
@@ -192,7 +184,6 @@ internal class MatchingServiceImpl(
         request: PersonMatchApply,
     ): AppResult<Mutated<MatchReceipt>> {
         requireEditor()?.let { return AppResult.Failure(it) }
-        unsearchableRole(request.role)?.let { return AppResult.Failure(it) }
         val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
         val person = details.people.loadPerson(contributorId) ?: return AppResult.Failure(notFound(contributorId))
         val locale = personLocale(request.candidate)
@@ -225,13 +216,6 @@ internal class MatchingServiceImpl(
         val caller = principal.current() ?: return AuthError.PermissionDenied()
         return permissionPolicy.requireCanEdit(caller.userId, caller.role)
     }
-
-    private fun unsearchableRole(role: ContributorRole): AppError? =
-        if (role in SEARCHABLE_ROLES) {
-            null
-        } else {
-            MetadataError.Malformed(debugInfo = "people are matched as authors or narrators, not $role")
-        }
 
     /** The store a person Review reads: the Audible ref's own, else the library's. */
     private suspend fun personLocale(candidate: PersonCandidateKey): MetadataLocale =

@@ -15,8 +15,9 @@ private const val MAX_PEOPLE = 5
 
 /**
  * One Audnexus people Find over three cached reads: [search] by name, a [book]'s Audible credits by ASIN, and a
- * person's [profile] by ASIN. Every person is an author (Audnexus has no narrator profiles). A failed search or
- * book read fails the answer, as a Find source's sub-step does; a profile that can't be read just has no photo.
+ * person's [profile] by ASIN. Audnexus profiles are Audible's author pages, so everyone it finds is an author. A
+ * failed search or book read fails the answer, as a Find source's sub-step does; a profile that can't be read just
+ * has no photo.
  */
 internal class AudnexusPeople(
     private val search: suspend (String) -> AppResult<List<ContributorHitMeta>>,

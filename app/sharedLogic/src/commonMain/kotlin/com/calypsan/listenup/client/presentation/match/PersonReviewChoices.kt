@@ -124,7 +124,6 @@ internal data class PersonReviewChoices(
         val biography = review.biography?.let(::biographyUi)
         return PersonReviewUiState.Ready(
             candidate = candidate,
-            role = review.role,
             photo = photo,
             biography = biography,
             applyBar =
@@ -181,7 +180,6 @@ internal data class PersonReviewChoices(
     fun toApply(review: PersonMatchReview): PersonMatchApply =
         PersonMatchApply(
             candidate = review.candidate,
-            role = review.role,
             basedOnRevision = review.basedOnRevision,
             photo = photoFor(review.photo),
             biography = review.biography?.let(::biographyFor) ?: FieldChoice.KeepCurrent,

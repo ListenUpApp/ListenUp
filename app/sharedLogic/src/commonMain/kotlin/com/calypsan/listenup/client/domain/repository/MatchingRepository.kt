@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.dto.match.BookFindResult
 import com.calypsan.listenup.api.dto.match.BookMatchApply
 import com.calypsan.listenup.api.dto.match.BookMatchReview
 import com.calypsan.listenup.api.dto.match.MatchReceipt
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
@@ -33,8 +32,8 @@ internal interface MatchingRepository {
     ): AppResult<BookFindResult>
 
     /**
-     * Finds [contributorId] in every catalogue with profiles for the request's role, ranked by the books they're
-     * credited on here. Retry is this same call.
+     * Finds [contributorId] in every people catalogue, in every role it knows, ranked by the books they're credited
+     * on here in any role. Retry is this same call.
      */
     suspend fun findPeople(
         contributorId: ContributorId,
@@ -57,11 +56,10 @@ internal interface MatchingRepository {
         request: BookMatchApply,
     ): AppResult<MatchReceipt>
 
-    /** Reviews [candidate] against [contributorId] for [role]: photo and biography, each Yours → Proposed. */
+    /** Reviews [candidate] against [contributorId]: photo and biography, each Yours → Proposed. */
     suspend fun reviewPersonMatch(
         contributorId: ContributorId,
         candidate: PersonCandidateKey,
-        role: ContributorRole,
     ): AppResult<PersonMatchReview>
 
     /**

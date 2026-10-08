@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.dto.match.BookFindResult
 import com.calypsan.listenup.api.dto.match.BookMatchApply
 import com.calypsan.listenup.api.dto.match.BookMatchReview
 import com.calypsan.listenup.api.dto.match.MatchReceipt
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.PersonFindRequest
 import com.calypsan.listenup.api.dto.match.PersonFindResult
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
@@ -52,10 +51,9 @@ internal class MatchingRepositoryImpl(
     override suspend fun reviewPersonMatch(
         contributorId: ContributorId,
         candidate: PersonCandidateKey,
-        role: ContributorRole,
     ): AppResult<PersonMatchReview> =
         channel.call(idempotent = true) {
-            it.reviewPersonMatch(contributorId, candidate, role)
+            it.reviewPersonMatch(contributorId, candidate, role = null)
         }
 
     override suspend fun applyPersonMatch(

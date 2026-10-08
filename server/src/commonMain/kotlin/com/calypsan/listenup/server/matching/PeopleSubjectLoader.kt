@@ -14,30 +14,35 @@ import com.calypsan.listenup.server.services.ExternalRefKind
 import com.calypsan.listenup.server.services.readExternalRefs
 
 /**
- * Reads a people Find's subject: the contributor, their refs, and the live books crediting them in the role that
+ * Reads a people Find's subject: the contributor, their refs, and the live books crediting them in any role that
  * [caller] can see (decision D12: a restricted title never leaks through a person search), each with its ASIN,
- * ISBN and refs. Also the store to search in: the library's, else the server default.
+ * ISBN, refs and the roles the contributor holds on it. Also the store to search in: the library's, else the
+ * server default.
  */
 internal class PeopleSubjectLoader(
     private val db: ListenUpDatabase,
     private val contributors: ContributorRepository,
     private val accessPolicy: BookAccessPolicy,
 ) {
-    /** [contributorId]'s subject for [role], or null when there is no live contributor with that id. */
+    /** [contributorId]'s subject, or null when there is no live contributor with that id. */
     suspend fun load(
         contributorId: ContributorId,
-        role: ContributorRole,
         caller: UserPrincipal,
     ): PeopleSubject? {
         val contributor = contributors.findById(contributorId.value)?.takeIf { it.deletedAt == null } ?: return null
         val visible = accessPolicy.accessibleBookIds(caller.userId.value, caller.role)
         val books =
             suspendTransaction(db) {
-                val rows =
+                val credits =
                     db.bookContributorsQueries
-                        .creditedBooksForContributor(contributorId.value, role.apiValue)
+                        .creditedBooksForContributor(contributorId.value)
                         .executeAsList()
                         .filter { visible == null || it.id in visible }
+                val rows = credits.distinctBy { it.id }
+                val roles =
+                    credits
+                        .groupBy({ it.id }) { ContributorRole.fromApiValue(it.role) }
+                        .mapValues { (_, roles) -> roles.filterNotNull().toSet() }
                 val refs =
                     rows
                         .map { it.id }
@@ -53,13 +58,13 @@ internal class PeopleSubjectLoader(
                         asin = row.asin?.trim()?.takeIf { it.isNotEmpty() },
                         isbn = row.isbn?.trim()?.takeIf { it.isNotEmpty() },
                         refs = refs[row.id].orEmpty(),
+                        roles = roles[row.id].orEmpty(),
                     )
                 }
             }
         return PeopleSubject(
             contributorId = contributor.id,
             name = contributor.name,
-            role = role,
             refs = contributor.externalRefs,
             books = books,
         )

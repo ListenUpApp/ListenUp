@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.matching
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.PersonLibraryBook
@@ -11,13 +10,12 @@ import com.calypsan.listenup.server.metadata.spi.presentedAs
 internal const val MAX_LOOKUP_BOOKS = 5
 
 /**
- * The person a people Find is for: the contributor, the [role] searched, their refs, and every [books] in this
- * library (that the caller can see) crediting them in [role].
+ * The person a people Find is for: the contributor, their refs, and every [books] in this library (that the
+ * caller can see) crediting them, in any role.
  */
 internal data class PeopleSubject(
     val contributorId: String,
     val name: String,
-    val role: ContributorRole,
     val refs: List<ExternalRef>,
     val books: List<PersonLibraryBook>,
 ) {
@@ -32,7 +30,6 @@ internal data class PeopleSubject(
     ): PersonLookup =
         PersonLookup(
             name = query ?: name,
-            role = role,
             keys = refs.filter { it.provider == provider.presentedAs().value }.map { it.id },
             books = lookupBooks,
         )

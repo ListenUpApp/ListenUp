@@ -2,7 +2,6 @@
 
 package com.calypsan.listenup.server.metadata.provider
 
-import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -76,12 +75,9 @@ internal class AudnexusProvider(
     GenreSource {
     override val id: MetadataProviderId = MetadataProviderId.AUDNEXUS
 
-    /** Audnexus profiles are Audible's author pages: no narrators. */
-    override val profileRoles: Set<ContributorRole> = setOf(ContributorRole.AUTHOR)
-
     /**
-     * Audible authors in a people Find (matching redesign PR 4): the person's own ASIN, the author ASINs your
-     * books' Audible credits name, and a name search — each answer cached as the profile and book reads already
+     * Audible's author pages in a people Find (matching redesign PR 4): the person's own ASIN, the author ASINs
+     * your books' Audible credits name (whatever the person did on those books here), and a name search — each answer cached as the profile and book reads already
      * are. Photos come from the profiles of at most five people.
      */
     override suspend fun findPeople(

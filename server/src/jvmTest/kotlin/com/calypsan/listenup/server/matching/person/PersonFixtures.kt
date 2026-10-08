@@ -26,7 +26,6 @@ internal class FakeProfileSource(
     override val id: MetadataProviderId,
     var profiles: Map<String, AppResult<ContributorMeta?>> = emptyMap(),
     var slow: Duration = Duration.ZERO,
-    override val profileRoles: Set<ContributorRole> = setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR),
 ) : ContributorSource {
     val asked = mutableListOf<String>()
 

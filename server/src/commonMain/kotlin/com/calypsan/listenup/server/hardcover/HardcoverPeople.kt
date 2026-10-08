@@ -17,12 +17,12 @@ private const val HARDCOVER = "hardcover"
 
 /**
  * Hardcover in a people Find (matching redesign PR 4), behind [HardcoverMetadataSource]'s `PersonFindSource`.
- * Hardcover has profiles for narrators as well as authors: a narrator is an ordinary Hardcover author credited
- * on *editions* with a narrator role, an author is credited on *books*.
+ * Everyone Hardcover credits is in its author index: a narrator is an ordinary Hardcover author credited on
+ * *editions* with a narrator role, an author on *books*, a translator or editor on books with their role.
  *
  * At most two calls (the spec's Risks table): the author index searched by name, then one batched read of the
  * people found (and the person's own ref) with their role counts, plus the credits on the library's books —
- * by ASIN, ISBN and linked Hardcover book. A person credited there in the role searched counts that book.
+ * by ASIN, ISBN and linked Hardcover book. A person credited there, in any role, counts that book.
  */
 internal class HardcoverPeople(
     private val graphQl: HardcoverGraphQlClient,
@@ -65,14 +65,15 @@ internal class HardcoverPeople(
         details: HardcoverPeopleDetails,
     ): List<FoundPerson> {
         val credited = mutableMapOf<Long, MutableSet<String>>()
+        val creditedAs = mutableMapOf<Long, MutableSet<ContributorRole>>()
         val viaBooks = linkedMapOf<Long, HardcoverPerson>()
         lookup.books.forEach { book ->
             details.editions
                 .filter { book.matches(it) }
                 .flatMap { it.credits }
-                .filter { it.role.isRole(lookup.role) }
                 .forEach { credit ->
                     credited.getOrPut(credit.person.id) { mutableSetOf() } += book.bookId
+                    credit.role.toContributorRole()?.let { creditedAs.getOrPut(credit.person.id) { mutableSetOf() } += it }
                     viaBooks.getOrPut(credit.person.id) { credit.person }
                 }
         }
@@ -87,7 +88,7 @@ internal class HardcoverPeople(
             FoundPerson(
                 key = id.toString(),
                 name = name,
-                roles = rolesOf(profile, credited.containsKey(id), lookup.role),
+                roles = rolesOf(profile, creditedAs[id].orEmpty()),
                 photoUrl = profile?.imageUrl ?: hit?.imageUrl,
                 knownWorks = hit?.books.orEmpty().take(KNOWN_WORKS),
                 worksCount = profile?.booksCount ?: hit?.booksCount,
@@ -98,16 +99,15 @@ internal class HardcoverPeople(
         }
     }
 
-    /** The roles Hardcover credits [profile] in; a credit in [searched] on one of your books counts too. */
+    /** The roles Hardcover credits [profile] in, plus the roles of their [onYourBooks] credits. */
     private fun rolesOf(
         profile: HardcoverPerson?,
-        creditedInSearched: Boolean,
-        searched: ContributorRole,
+        onYourBooks: Set<ContributorRole>,
     ): Set<ContributorRole> =
         buildSet {
             if ((profile?.narrations ?: 0) > 0) add(ContributorRole.NARRATOR)
             if ((profile?.authorships ?: 0) > 0) add(ContributorRole.AUTHOR)
-            if (creditedInSearched) add(searched)
+            addAll(onYourBooks)
         }
 
     private suspend fun <T> read(call: suspend (String) -> HardcoverCall<T>): HardcoverCall<T>? =
@@ -156,10 +156,13 @@ private fun PersonLibraryBook.matches(edition: HardcoverCreditedEdition): Boolea
                 edition.bookId in hardcoverBookIds()
         )
 
-/** Whether a Hardcover role string is [role]: a narrator variant, or an author's (blank or "Author"). */
-private fun String?.isRole(role: ContributorRole): Boolean =
-    when (role) {
-        ContributorRole.NARRATOR -> this != null && NARRATOR_ROLES.any { it.equals(this, ignoreCase = true) }
-        ContributorRole.AUTHOR -> isNullOrBlank() || equals(AUTHOR_ROLE, ignoreCase = true)
-        else -> false
+/**
+ * A Hardcover role string as a role: a narrator spelling, an author's (blank or "Author"), or one of ours by name
+ * ("Translator", "Editor"…). Free text Hardcover spells some other way is no role — the credit still counts.
+ */
+private fun String?.toContributorRole(): ContributorRole? =
+    when {
+        isNullOrBlank() || equals(AUTHOR_ROLE, ignoreCase = true) -> ContributorRole.AUTHOR
+        NARRATOR_ROLES.any { it.equals(this, ignoreCase = true) } -> ContributorRole.NARRATOR
+        else -> ContributorRole.fromApiValue(trim())
     }

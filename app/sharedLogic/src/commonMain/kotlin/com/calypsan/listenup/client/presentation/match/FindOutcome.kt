@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.presentation.match
 import com.calypsan.listenup.api.dto.match.BookFindResult
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.PersonFindResult
-import com.calypsan.listenup.api.dto.match.RoleCoverage
 import com.calypsan.listenup.api.dto.match.SourceStatus
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
@@ -50,18 +49,15 @@ internal fun chooseFindOutcome(result: BookFindResult): FindOutcome {
 
 /** What one people Find produced: people to show, "No source has a profile", or the failure that explains none. */
 internal sealed interface PersonFindOutcome {
-    /** People to show, split by tier, with the coverage note and the partial-failure banner. */
+    /** People to show, split by tier, with the partial-failure banner. */
     data class Candidates(
         val strong: List<PersonCandidateUi>,
         val maybe: List<PersonCandidateUi>,
-        val coverageNote: CoverageNote?,
         val partialFailure: PartialFailure?,
     ) : PersonFindOutcome
 
-    /** No source has a profile for this person in the role: every covering source answered empty, or none covers it. */
-    data class NoProfiles(
-        val coverageNote: CoverageNote?,
-    ) : PersonFindOutcome
+    /** No source has a profile for this person: every source answered empty. */
+    data object NoProfiles : PersonFindOutcome
 
     /** No people because a source failed: the one failure that explains why. */
     data class Failure(
@@ -74,25 +70,15 @@ internal sealed interface PersonFindOutcome {
  * [PersonFindOutcome.NoProfiles] (decision 7) — never when a failed source might have had them, which keeps Retry.
  */
 internal fun choosePersonFindOutcome(result: PersonFindResult): PersonFindOutcome {
-    val note = coverageNoteOf(result.coverage)
     if (result.candidates.isNotEmpty()) {
-        val candidates = result.candidates.map { it.toUi(result.role) }
+        val candidates = result.candidates.map { it.toUi() }
         return PersonFindOutcome.Candidates(
             strong = candidates.filter { it.tier == MatchTier.STRONG },
             maybe = candidates.filter { it.tier == MatchTier.MAYBE },
-            coverageNote = note,
             partialFailure = partialFailureOf(result.sources),
         )
     }
-    return decidingFailureOf(result.sources)?.let(PersonFindOutcome::Failure) ?: PersonFindOutcome.NoProfiles(note)
-}
-
-/** "Audible has no narrator profiles, so this search uses Hardcover" — only when the first source lacks the role. */
-private fun coverageNoteOf(coverage: List<RoleCoverage>): CoverageNote? {
-    if (coverage.firstOrNull()?.hasProfiles != false) return null
-    val using = coverage.filter { it.hasProfiles }.map { it.source }
-    if (using.isEmpty()) return null
-    return CoverageNote(withoutProfiles = coverage.filterNot { it.hasProfiles }.map { it.source }, using = using)
+    return decidingFailureOf(result.sources)?.let(PersonFindOutcome::Failure) ?: PersonFindOutcome.NoProfiles
 }
 
 /** The partial banner: the failed sources, and the sources that answered with something. */

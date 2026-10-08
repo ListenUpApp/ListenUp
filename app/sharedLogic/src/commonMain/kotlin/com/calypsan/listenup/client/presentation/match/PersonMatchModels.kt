@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.dto.match.HandEdit
 import com.calypsan.listenup.api.dto.match.ImageChoice
+import com.calypsan.listenup.api.dto.match.LibraryCredit
 import com.calypsan.listenup.api.dto.match.MatchReceipt
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.MetadataSource
@@ -32,29 +33,21 @@ data class LibraryCoverUi(
 )
 
 /**
- * "Wrote 3 books in your library: Project Hail Mary, The Martian, Artemis" — the person's books here in the role
- * searched, read from Room. [titles] and [covers] hold at most [LIBRARY_STRIP_BOOKS].
+ * "Narrated 5 of your books · Wrote 1: Project Hail Mary, The Martian, Artemis" — what the person did in this
+ * library, every role, read from Room. [credits] are most books first; [bookCount] counts each book once however
+ * many roles they hold on it; [titles] and [covers] hold at most [LIBRARY_STRIP_BOOKS].
  */
 data class InLibraryUi(
-    val role: ContributorRole,
+    val credits: List<LibraryCredit>,
     val bookCount: Int,
     val titles: List<String>,
     val covers: List<LibraryCoverUi>,
 )
 
 /**
- * "Audible has no narrator profiles, so this search uses Hardcover." Present only when the route's first source
- * has no profiles for the role and another one has.
- */
-data class CoverageNote(
-    val withoutProfiles: List<MetadataSource>,
-    val using: List<MetadataSource>,
-)
-
-/**
  * One people-Find candidate as every platform renders it. [id] is a stable key for lists and test tags.
- * [shownRole] is the role the row names: the role searched when the sources credit them in it, else their first
- * role. [isDifferentRole] is the "Different role · Not a narrator" flag.
+ * [shownRole] is the role the row names: the source role they hold on the most of your books, else the source's
+ * first. [libraryCredits] are the row's evidence — "Narrated 3 of your books · Translated 1" — most first.
  */
 data class PersonCandidateUi(
     val id: String,
@@ -69,27 +62,26 @@ data class PersonCandidateUi(
     val tier: MatchTier,
     val isBest: Boolean,
     val isCurrentLink: Boolean,
-    val isDifferentRole: Boolean,
+    val libraryCredits: List<LibraryCredit>,
     val noBooksInLibrary: Boolean,
 )
 
-/** The Find step of person Match details. Every state carries the role searched and what Room already knows. */
+/**
+ * The Find step of person Match details. Every state carries what Room already knows. There is no role: Find looks
+ * for the person in every role any source knows.
+ */
 sealed interface PersonFindUiState {
-    /** The role this Find is for: the selected segment of As author | As narrator. */
-    val role: ContributorRole
-
     /** The person, or null for the instant before Room answers. */
     val header: PersonHeaderUi?
 
-    /** The person's books here in [role], or null before Room answers. */
+    /** What the person did in this library, or null before Room answers. */
     val inLibrary: InLibraryUi?
 
     /** The search box's text. */
     val query: String
 
-    /** A search is running; [previous] keeps this role's last results on screen. */
+    /** A search is running; [previous] keeps the last results on screen. */
     data class Searching(
-        override val role: ContributorRole,
         override val header: PersonHeaderUi?,
         override val inLibrary: InLibraryUi?,
         override val query: String,
@@ -98,12 +90,10 @@ sealed interface PersonFindUiState {
 
     /** People to choose from, Strong first. [pickedKey] is the row last opened in Review. */
     data class Results(
-        override val role: ContributorRole,
         override val header: PersonHeaderUi?,
         override val inLibrary: InLibraryUi?,
         override val query: String,
         val steps: List<PersonSearchStep>,
-        val coverageNote: CoverageNote?,
         val strong: List<PersonCandidateUi>,
         val maybe: List<PersonCandidateUi>,
         val partialFailure: PartialFailure?,
@@ -113,21 +103,15 @@ sealed interface PersonFindUiState {
         val all: List<PersonCandidateUi> get() = strong + maybe
     }
 
-    /**
-     * "No source has a profile for this narrator": every source covering [role] answered empty, or none covers
-     * it. The way forward is Edit by hand.
-     */
+    /** "No source has a profile for this person": every source answered empty. The way forward is Edit by hand. */
     data class NoProfiles(
-        override val role: ContributorRole,
         override val header: PersonHeaderUi?,
         override val inLibrary: InLibraryUi?,
         override val query: String,
-        val coverageNote: CoverageNote?,
     ) : PersonFindUiState
 
     /** Nothing to show because a source or the server failed, and why. */
     data class Failed(
-        override val role: ContributorRole,
         override val header: PersonHeaderUi?,
         override val inLibrary: InLibraryUi?,
         override val query: String,
@@ -208,7 +192,6 @@ sealed interface PersonReviewUiState {
      */
     data class Ready(
         val candidate: PersonCandidateUi,
-        val role: ContributorRole,
         val photo: PhotoUi?,
         val biography: BiographyUi?,
         val applyBar: PersonApplySummary,
@@ -234,13 +217,13 @@ sealed interface PersonMatchEvent {
     data object ReviewReloaded : PersonMatchEvent
 }
 
-internal fun PersonCandidate.toUi(searched: ContributorRole): PersonCandidateUi =
+internal fun PersonCandidate.toUi(): PersonCandidateUi =
     PersonCandidateUi(
         id = key.stableId(),
         key = key,
         name = name,
         photoUrl = photoUrl,
-        shownRole = if (searched in roles) searched else roles.firstOrNull(),
+        shownRole = libraryCredits.firstOrNull { it.role in roles }?.role ?: roles.firstOrNull(),
         knownWorks = knownWorks,
         worksCount = worksCount,
         libraryCount = libraryCount,
@@ -248,7 +231,7 @@ internal fun PersonCandidate.toUi(searched: ContributorRole): PersonCandidateUi 
         tier = tier,
         isBest = isBest,
         isCurrentLink = isCurrentLink,
-        isDifferentRole = reasons.any { it is PersonReason.DifferentRole },
+        libraryCredits = libraryCredits,
         noBooksInLibrary = reasons.any { it is PersonReason.NoBooksInLibrary },
     )
 
