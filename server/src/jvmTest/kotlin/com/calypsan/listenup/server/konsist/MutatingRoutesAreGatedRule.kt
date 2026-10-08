@@ -46,7 +46,10 @@ class MutatingRoutesAreGatedRule :
     }) {
     companion object {
         private val HANDLER_START =
-            Regex("""^[ \t]*(put|post|delete|patch)[ \t]*(<[^>\n]*>)?[ \t]*(\([^)\n]*\))?[ \t]*\{""", RegexOption.MULTILINE)
+            Regex(
+                """^[ \t]*(put|post|delete|patch)[ \t]*(<[^>\n]*>)?[ \t]*(\([^)\n]*\))?[ \t]*\{""",
+                RegexOption.MULTILINE,
+            )
 
         private val GATES =
             listOf(
@@ -69,16 +72,22 @@ class MutatingRoutesAreGatedRule :
         /** Every `put`/`post`/`delete`/`patch` handler block in [source]. */
         fun handlersIn(source: String): List<Handler> {
             val blanked = blankComments(source)
-            return HANDLER_START.findAll(blanked).map { match ->
-                val open = match.range.last
-                val close = matchingBrace(blanked, open)
-                Handler(
-                    header = match.value.trim().removeSuffix("{").trim(),
-                    line = source.substring(0, match.range.first).count { it == '\n' } + 1,
-                    raw = source.substring(open, close + 1),
-                    code = blanked.substring(open, close + 1),
-                )
-            }.toList()
+            return HANDLER_START
+                .findAll(blanked)
+                .map { match ->
+                    val open = match.range.last
+                    val close = matchingBrace(blanked, open)
+                    Handler(
+                        header =
+                            match.value
+                                .trim()
+                                .removeSuffix("{")
+                                .trim(),
+                        line = source.substring(0, match.range.first).count { it == '\n' } + 1,
+                        raw = source.substring(open, close + 1),
+                        code = blanked.substring(open, close + 1),
+                    )
+                }.toList()
         }
 
         /** `header @ path:line` for every handler that is neither gated nor marked open-to-all. */

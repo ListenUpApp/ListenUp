@@ -156,7 +156,12 @@ class AdminUserRosterDomainTest :
                 )
                 handler.onEvent(created(payload("u-old", canEdit = true, permissions = null)))
 
-                val rows = db.adminUserRosterDao().observeAll().first().associateBy { it.id }
+                val rows =
+                    db
+                        .adminUserRosterDao()
+                        .observeAll()
+                        .first()
+                        .associateBy { it.id }
                 rows.getValue("u-new").canEdit shouldBe false
                 rows.getValue("u-new").canCurateLibrary shouldBe true
                 rows.getValue("u-old").canEdit shouldBe true

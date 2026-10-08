@@ -103,8 +103,7 @@ class MutatingRpcsAreGatedRule :
                         .filter { it.hasOverrideModifier }
                         .filterNot { fn ->
                             isReadName(fn.name) && WRITE_MARKERS.none { it.containsMatchIn(stripComments(fn.text)) }
-                        }
-                        .filterNot { fn -> REASONED_ESCAPE.containsMatchIn(stripComments(fn.text)) }
+                        }.filterNot { fn -> REASONED_ESCAPE.containsMatchIn(stripComments(fn.text)) }
                         .filterNot { fn ->
                             val body = stripComments(fn.text)
                             GATE_CALLS.any { it in body } || ADMIN_DENIAL_SHAPE.containsMatchIn(body)

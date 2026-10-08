@@ -231,7 +231,10 @@ class AdminUserServiceImplTest :
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc.updateUser(UserId("m1"), patch).shouldSucceed().permissions shouldBe
                         UserPermissions(canEditMetadata = true, canCurateLibrary = false)
-                    svc.getUser(UserId("m1")).shouldSucceed().permissions.canEditMetadata shouldBe true
+                    svc
+                        .getUser(UserId("m1"))
+                        .shouldSucceed()
+                        .permissions.canEditMetadata shouldBe true
                 }
             }
         }

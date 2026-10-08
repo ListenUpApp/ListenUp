@@ -154,7 +154,11 @@ class AdminUserRosterRepository(
             role = role,
             status = status,
             canEdit = can_edit == 1L,
-            permissions = UserPermissions(canEditMetadata = can_edit == 1L, canCurateLibrary = can_curate_library == 1L),
+            permissions =
+                UserPermissions(
+                    canEditMetadata = can_edit == 1L,
+                    canCurateLibrary = can_curate_library == 1L,
+                ),
             accountCreatedAt = account_created_at,
             revision = revision,
             updatedAt = updated_at,

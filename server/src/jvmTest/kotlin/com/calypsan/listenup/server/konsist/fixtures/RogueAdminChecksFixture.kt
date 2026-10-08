@@ -12,7 +12,7 @@ import com.calypsan.listenup.server.auth.isAdmin
  * Four private admin checks, one per spelling — ROOT-first, ADMIN-first, a set, a `when` branch — and
  * one that defers to the shared `isAdmin()`, which passes.
  */
-internal object RogueAdminChecks {
+internal object RogueAdminChecksFixture {
     fun rootFirst(role: UserRole): Boolean = role == UserRole.ROOT || role == UserRole.ADMIN
 
     fun adminFirst(role: UserRole): Boolean = role == UserRole.ADMIN || role == UserRole.ROOT
