@@ -69,7 +69,7 @@ struct PermissionSectionModel: Identifiable {
 /// save state.
 struct UserPermissionsReadyModel {
     /// The presets an admin can pick, in menu order. Custom is arrived at, never picked.
-    static let pickablePresets: [PermissionPreset] = Array(PermissionPreset.Companion.shared.pickable)
+    static var pickablePresets: [PermissionPreset] { Array(PermissionPreset.Companion.shared.pickable) }
 
     let name: String
     let isOwner: Bool
