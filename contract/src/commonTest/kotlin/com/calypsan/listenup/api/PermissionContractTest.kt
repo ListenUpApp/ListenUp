@@ -138,7 +138,7 @@ class PermissionContractTest :
                     deletedAt = null,
                 )
             val json = contractJson.encodeToString(AdminUserRosterSyncPayload.serializer(), payload)
-            json shouldContain "\"permissions\":{\"canCurateLibrary\":true}"
+            json shouldContain """"permissions":{"canCurateLibrary":true}"""
             contractJson.decodeFromString(AdminUserRosterSyncPayload.serializer(), json) shouldBe payload
             val older =
                 """{"id":"u1","email":"a@x","displayName":"A","role":"MEMBER","status":"ACTIVE","canShare":true,""" +
