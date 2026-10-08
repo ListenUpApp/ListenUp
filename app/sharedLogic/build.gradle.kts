@@ -207,17 +207,23 @@ kotlin {
     }
 }
 
-// "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a
-// collapsed classpath (a source set silently dropped from the compilation, a broken dependency)
-// still reports BUILD SUCCESSFUL with zero failures, which is worse than a run that fails
-// outright. Registered on the Gradle `Test` task itself rather than a Kotest `afterProject`
-// listener so it always reads the TASK TOTAL: Gradle aggregates every forked worker's results
-// into one root suite (`desc.parent == null`), whereas a Kotest-side listener fires once per
-// worker JVM and only sees that worker's slice — the same trap the `io.kotest.provided.
-// ProjectConfig` retry-ledger KDoc documents for `:server:jvmTest`'s forked workers.
-// `failBelowDiscoveredTestCount` / `forwardKotestFilterProperties` live in `build-logic`
-// (`com.calypsan.listenup.gradle.TestDiscoveryFloor.kt`) — shared by every lane that carries this
-// floor, so the filtered-run stand-down logic lives in one place, not four.
+// "Did this lane actually run?" guards, not coverage targets (canon-alignment plan A3) — a collapsed
+// classpath (a source set silently dropped from the compilation, a broken dependency) still reports
+// BUILD SUCCESSFUL with zero failures, which is worse than a run that fails outright. A finalizer counts
+// each lane's JUnit XML after the run (build-logic's TestDiscoveryFloor.kt), so it reads the TASK TOTAL
+// across forked workers and still fires when a lane found nothing at all.
+//
+// Each catches COLLAPSE, not attrition: the counts that ran green are noted beside each floor, and every
+// bar sits well below, so an honest deletion never trips it. A floor hugging the current count is a
+// ratchet, and a ratchet just teaches people to edit the number without reading it.
+// 3,423 ran green on 2026-07-25.
+failBelowDiscoveredTestCount("jvmTest", floor = 2700)
+// 2,471 ran green on 2026-07-25.
+failBelowDiscoveredTestCount("testAndroidHostTest", floor = 1950)
+// The Apple lane needs one more than most: a native lane missing its Kotest entry point reports green
+// over zero discovered specs, which is indistinguishable from a healthy run. 2,827 ran green on
+// 2026-09-04.
+failBelowDiscoveredTestCount("iosSimulatorArm64Test", floor = 2200)
 
 // Kotest uses JUnit 5 as its runner on JVM
 tasks.named<Test>("jvmTest") {
@@ -230,10 +236,6 @@ tasks.named<Test>("jvmTest") {
     // Forward Kotest's native filter properties into the forked test JVM — see CLAUDE.md's
     // "Running a single test" section for the supported single-spec commands per lane.
     forwardKotestFilterProperties()
-    // Catches COLLAPSE, not attrition — 3,423 ran green on 2026-07-25 and the bar sits well below,
-    // so an honest deletion never trips it. A floor hugging the current count is a ratchet, and a
-    // ratchet here just teaches people to edit the number without reading it.
-    failBelowDiscoveredTestCount(2700, ":app:sharedLogic:jvmTest")
     // ⛔ Konsist reads the whole production tree off the filesystem at RUN time, through JVM file
     // APIs Gradle cannot see. Nothing here depends on `:app:webApp` or `:server`, so without this
     // a commit touching only those modules leaves this task UP-TO-DATE and every architectural
@@ -300,10 +302,6 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
         nativeTestTmpDir.deleteRecursively()
         nativeTestTmpDir.mkdirs()
     }
-    // Catches COLLAPSE, not attrition — see the jvmTest floor above for the reasoning. This lane
-    // needs one more than most: a native lane missing its Kotest entry point reports green over
-    // zero discovered specs, which is indistinguishable from a healthy run.
-    failBelowDiscoveredTestCount(2200, ":app:sharedLogic:$name")
 }
 
 tasks.matching { it.name == "testAndroidHostTest" }.configureEach {
@@ -314,8 +312,6 @@ tasks.matching { it.name == "testAndroidHostTest" }.configureEach {
         // still need the headroom.
         maxHeapSize = "4g"
         forwardKotestFilterProperties()
-        // Same posture as jvmTest above: 2,471 ran green on 2026-07-25; the bar catches collapse only.
-        failBelowDiscoveredTestCount(1950, ":app:sharedLogic:testAndroidHostTest")
     }
 }
 

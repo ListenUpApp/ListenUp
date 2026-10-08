@@ -1,4 +1,5 @@
 import com.calypsan.listenup.gradle.LISTENUP_FREE_COMPILER_ARGS
+import com.calypsan.listenup.gradle.useStrictKotestEquality
 
 /*
  * Convention for the native-server KMP module (:server): JDK-21 toolchain + the
@@ -30,3 +31,6 @@ kotlin {
         freeCompilerArgs.add("-Xskip-prerelease-check")
     }
 }
+
+// Kotest's shouldBe is plain equals in every JVM test task (see KotestEquality.kt).
+tasks.withType<Test>().configureEach { useStrictKotestEquality() }

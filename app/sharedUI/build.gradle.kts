@@ -312,30 +312,23 @@ tasks.withType<Test>().configureEach {
     if (name == "testAndroidHostTest" || name == "desktopTest") {
         useJUnitPlatform()
     }
-    // "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a
-    // collapsed classpath still reports BUILD SUCCESSFUL with zero failures, which is worse than
-    // a run that fails outright. Registered on the Gradle `Test` task itself rather than a Kotest
-    // `afterProject` listener so it always reads the TASK TOTAL, aggregated across any forked
-    // workers (`desc.parent == null`) — see `io.kotest.provided.ProjectConfig`'s retry-ledger
-    // KDoc for the per-worker trap this avoids.
-    //
-    // The floor catches COLLAPSE, not attrition: 255 tests ran green on 2026-07-25, and the bar sits
-    // far enough below that a normal deletion does not trip it. Deliberately not a ratchet — a floor
-    // set just under the current count fails honest deletions and trains people to edit the number
-    // without reading it.
-    if (name == "testAndroidHostTest") {
+    if (name == "testAndroidHostTest" || name == "desktopTest") {
         forwardKotestFilterProperties()
-        failBelowDiscoveredTestCount(200, ":app:sharedUI:testAndroidHostTest")
-    }
-    if (name == "desktopTest") {
-        forwardKotestFilterProperties()
-        // Same posture as the lane above — 62 tests across 7 specs ran green on 2026-09-09, and the
-        // bar sits far enough below that an honest deletion never trips it. This lane runs in CI's
-        // test-jvm job (ci.yml) and in verifyLocal (root build.gradle.kts), so a silent collapse
-        // here is a real hole, not a theoretical one.
-        failBelowDiscoveredTestCount(40, ":app:sharedUI:desktopTest")
     }
 }
+
+// "Did this lane actually run?" guards, not coverage targets (canon-alignment plan A3) — a collapsed
+// classpath still reports BUILD SUCCESSFUL with zero failures, which is worse than a run that fails
+// outright. A finalizer counts each lane's JUnit XML after the run (build-logic's TestDiscoveryFloor.kt),
+// so it reads the TASK TOTAL across forked workers and still fires when a lane found nothing at all.
+//
+// Each catches COLLAPSE, not attrition. Deliberately not a ratchet — a floor set just under the current
+// count fails honest deletions and trains people to edit the number without reading it.
+// 255 tests ran green on 2026-07-25.
+failBelowDiscoveredTestCount("testAndroidHostTest", floor = 200)
+// 62 tests across 7 specs ran green on 2026-09-09. This lane runs in CI's test-jvm job (ci.yml) and in
+// verifyLocal (root build.gradle.kts), so a silent collapse here is a real hole, not a theoretical one.
+failBelowDiscoveredTestCount("desktopTest", floor = 40)
 
 // Compose UI tooling for Android preview support
 dependencies {
