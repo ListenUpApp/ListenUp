@@ -49,13 +49,6 @@ final class PersonMatchObserver {
     func search(_ query: String) { viewModel.search(query: query) }
     func retry() { viewModel.retry() }
 
-    /// As author | As narrator. Each role keeps its own search; the open Review closes.
-    func switchRole(_ role: PersonMatchRole) {
-        guard role != find.role else { return }
-        showsReviewReloaded = false
-        viewModel.switchRole(role: role.contributorRole)
-    }
-
     /// Runs a failure's way forward. A person search has only Retry.
     func perform(_ action: MatchFailureAction) {
         switch action {

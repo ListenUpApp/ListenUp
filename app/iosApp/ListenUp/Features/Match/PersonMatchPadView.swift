@@ -50,7 +50,6 @@ struct PersonMatchPadView: View {
             List(selection: selection(observer)) {
                 PersonFindSections(
                     find: observer.find,
-                    onSwitchRole: { observer.switchRole($0) },
                     onRetrySource: { observer.retry() },
                     onFailureAction: { observer.perform($0) },
                     onEditByHand: { editingByHand = true }
@@ -68,7 +67,6 @@ struct PersonMatchPadView: View {
                 observer.search(draft ?? observer.find.query)
                 draft = nil
             }
-            .onChange(of: observer.find.role) { _, _ in draft = nil }
             .navigationTitle(String(localized: "match.title"))
             .navigationSubtitle(observer.find.subtitle)
             .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 440)

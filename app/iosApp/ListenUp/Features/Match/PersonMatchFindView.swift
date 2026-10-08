@@ -5,8 +5,8 @@ import SwiftUI
 /// Review pushed on top of it. Back from Review returns to the intact results.
 ///
 /// HIG, Searching: the search field lives in the navigation bar and the results are a list right under it.
-/// HIG, Segmented controls: As author | As narrator is a segmented picker at the top of the list — a mode of
-/// the same list, not a navigation. HIG, Lists and tables: each person is a row that pushes their Review.
+/// There is no role to choose — Find looks for the person in every role. HIG, Lists and tables: each person is
+/// a row that pushes their Review.
 struct PersonMatchPhoneView: View {
     let contributorId: String
     let onClose: () -> Void
@@ -59,7 +59,6 @@ private struct PersonFindScreen: View {
         List {
             PersonFindSections(
                 find: observer.find,
-                onSwitchRole: { observer.switchRole($0) },
                 onRetrySource: { observer.retry() },
                 onFailureAction: { observer.perform($0) },
                 onEditByHand: { editingByHand = true }
@@ -87,7 +86,6 @@ private struct PersonFindScreen: View {
             observer.search(query.wrappedValue)
             draft = nil
         }
-        .onChange(of: observer.find.role) { _, _ in draft = nil }
         .modifier(MatchFindAnnouncements(phase: observer.find.phase))
         .sheet(isPresented: $editingByHand) {
             ContributorEditView(contributorId: contributorId) { survivor in
@@ -99,25 +97,25 @@ private struct PersonFindScreen: View {
     }
 }
 
-/// Person Find's sections, shared by the iPhone list and the iPad sidebar: As author | As narrator, the
-/// Your-library strip, About this search, the partial banner, a failure or No profiles, then Strong match and
-/// Maybe. `row` draws each person, so each layout decides what a tap does.
+/// Person Find's sections, shared by the iPhone list and the iPad sidebar: the Your-library strip — what they
+/// did here, every role — how the search started, the partial banner, a failure or No profiles, then Strong
+/// match and Maybe. `row` draws each person, so each layout decides what a tap does.
 struct PersonFindSections<Row: View>: View {
     let find: PersonFind
-    let onSwitchRole: (PersonMatchRole) -> Void
     let onRetrySource: () -> Void
     let onFailureAction: (MatchFailureAction) -> Void
     let onEditByHand: () -> Void
     @ViewBuilder let row: (PersonCandidateRow) -> Row
 
     var body: some View {
-        Section {
-            PersonRolePicker(role: find.role, onChoose: onSwitchRole)
-            if let library = find.library {
-                PersonLibraryStripView(strip: library)
-            }
-            if find.coverageNote != nil || find.stepsLine != nil {
-                PersonAboutSearchView(coverageNote: find.coverageNote, stepsLine: find.stepsLine)
+        if find.library != nil || find.stepsLine != nil {
+            Section {
+                if let library = find.library {
+                    PersonLibraryStripView(strip: library)
+                }
+                if let stepsLine = find.stepsLine {
+                    PersonAboutSearchView(stepsLine: stepsLine)
+                }
             }
         }
 
@@ -193,23 +191,7 @@ extension PersonFindPhase: MatchAnnouncedFindPhase {
     }
 }
 
-/// As author | As narrator (HIG, Segmented controls): two segments, the whole width.
-struct PersonRolePicker: View {
-    let role: PersonMatchRole
-    let onChoose: (PersonMatchRole) -> Void
-
-    var body: some View {
-        Picker(String(localized: "match.match_as"), selection: Binding(get: { role }, set: { onChoose($0) })) {
-            ForEach(PersonMatchRole.allCases) { Text($0.segmentTitle).tag($0) }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .frame(minHeight: TapTarget.minimum)
-        .accessibilityLabel(String(localized: "match.match_as"))
-    }
-}
-
-/// The person's books here: up to three covers and "Wrote 3 books in your library: …".
+/// The person's books here: up to three covers and "Narrated 5 of your books · Wrote 1: …".
 struct PersonLibraryStripView: View {
     let strip: PersonLibraryStrip
 
@@ -232,27 +214,20 @@ struct PersonLibraryStripView: View {
     }
 }
 
-/// About this search: why it used the source it did, and how it started.
+/// About this search: how it started.
 struct PersonAboutSearchView: View {
-    let coverageNote: String?
-    let stepsLine: String?
+    let stepsLine: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
-            if let coverageNote {
-                Label(coverageNote, systemImage: "info.circle").font(.subheadline)
-            }
-            if let stepsLine {
-                Text(stepsLine).font(.footnote).foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, Spacing.xxs)
-        .accessibilityElement(children: .combine)
+        Text(stepsLine)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(.vertical, Spacing.xxs)
     }
 }
 
 /// No source has a profile for this person: say so, and offer Edit by Hand (HIG, Content unavailable).
-/// The role switch and the search stay above it, so another role or name is one tap away.
+/// The search stays above it, so another name is one tap away.
 struct PersonNoProfilesView: View {
     let noProfiles: PersonNoProfiles
     let onEditByHand: () -> Void
@@ -270,8 +245,8 @@ struct PersonNoProfilesView: View {
     }
 }
 
-/// One person: photo or initials, badges, name, role and works, books in your library, a Different role flag
-/// and where they were found. One VoiceOver stop that says it all.
+/// One person: photo or initials, badges, name, role and works, what they did in your library, and where they
+/// were found. One VoiceOver stop that says it all.
 struct PersonCandidateRowView: View {
     let row: PersonCandidateRow
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -290,15 +265,14 @@ struct PersonCandidateRowView: View {
                 if !row.roleLine.isEmpty {
                     Text(row.roleLine).font(.subheadline).foregroundStyle(.secondary)
                 }
-                if row.isStrong {
-                    Label(row.libraryLine, systemImage: "checkmark.circle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(Color.luStrongMatch)
-                } else {
-                    Text(row.libraryLine).font(.footnote).foregroundStyle(.secondary)
-                }
-                if let differentRole = row.differentRole {
-                    PersonDifferentRoleChip(title: differentRole)
+                if !row.libraryLine.isEmpty {
+                    if row.isStrong {
+                        Label(row.libraryLine, systemImage: "checkmark.circle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(Color.luStrongMatch)
+                    } else {
+                        Text(row.libraryLine).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 if !row.sourcesLine.isEmpty {
                     Text(row.sourcesLine).font(.caption).foregroundStyle(.secondary)
@@ -309,20 +283,6 @@ struct PersonCandidateRowView: View {
         .padding(.vertical, Spacing.xxs)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
-    }
-}
-
-/// "Different role", in words on its own fill — never colour alone.
-struct PersonDifferentRoleChip: View {
-    let title: String
-
-    var body: some View {
-        Label(title, systemImage: "person.fill.questionmark")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Color.luEditedInk)
-            .padding(.horizontal, Spacing.xs)
-            .padding(.vertical, 2)
-            .background(Capsule().fill(Color.luEditedFill))
     }
 }
 

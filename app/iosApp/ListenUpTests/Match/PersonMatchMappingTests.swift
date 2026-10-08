@@ -13,89 +13,82 @@ struct PersonMatchMappingTests {
 
     // MARK: - Find
 
-    @Test func theSubtitleAndSearchFieldFollowTheRole() {
-        let narrator = PersonMatchMapping.find(from: Fixture.results(role: .narrator))
-        #expect(narrator.role == .narrator)
-        #expect(narrator.subtitle == "Ray Porter · narrator")
-        #expect(narrator.searchPrompt == "Search for a narrator")
-
-        let author = PersonMatchMapping.find(from: Fixture.results(role: .author))
-        #expect(author.role == .author)
-        #expect(author.subtitle == "Ray Porter · author")
-        #expect(author.searchPrompt == "Search for a person")
+    @Test func theSubtitleIsTheNameAndTheSearchIsForAPerson() {
+        let find = PersonMatchMapping.find(from: Fixture.results())
+        #expect(find.subtitle == "Ray Porter")
+        #expect(find.searchPrompt == "Search for a person")
     }
 
-    @Test func theCoverageNoteSaysWhichSourceHasNoProfilesAndWhichIsUsed() {
-        let note = CoverageNote(withoutProfiles: [Fixture.storefront], using: [Fixture.shelfdata])
-        let find = PersonMatchMapping.find(from: Fixture.results(coverageNote: note))
-        #expect(find.coverageNote == "Storefront has no narrator profiles, so this search uses Shelfdata.")
-        #expect(PersonMatchMapping.find(from: Fixture.results(role: .author, coverageNote: note)).coverageNote
-            == "Storefront has no author profiles, so this search uses Shelfdata.")
-        #expect(PersonMatchMapping.find(from: Fixture.results()).coverageNote == nil)
-    }
-
-    @Test func theLibraryStripNamesTheBooksInTheRole() {
+    @Test func theLibraryStripSaysWhatTheyDidHereInEveryRole() {
         let titles = ["Project Hail Mary", "The Martian", "Artemis"]
         let wrote = PersonMatchMapping.library(
-            Fixture.inLibrary(role: .author, count: 3, titles: titles), role: .author
+            Fixture.inLibrary(credits: [LibraryCredit(role: .author, bookCount: 3)], count: 3, titles: titles)
         )
-        #expect(wrote?.line == "Wrote 3 books in your library: Project Hail Mary, The Martian, Artemis")
+        #expect(wrote?.line == "Wrote 3 of your books: Project Hail Mary, The Martian, Artemis")
         #expect(wrote?.covers.map(\.title) == titles)
 
-        let narrated = PersonMatchMapping.library(Fixture.inLibrary(count: 1, titles: ["Bobiverse"]), role: .narrator)
-        #expect(narrated?.line == "Narrated 1 book in your library: Bobiverse")
+        let ray = PersonMatchMapping.library(Fixture.inLibrary(titles: ["Bobiverse"]))
+        #expect(ray?.line == "Narrated 5 of your books · Translated 1: Bobiverse")
 
-        #expect(PersonMatchMapping.library(Fixture.inLibrary(count: 0), role: .narrator) == nil)
+        let foreword = PersonMatchMapping.library(
+            Fixture.inLibrary(credits: [LibraryCredit(role: .foreword, bookCount: 1)], count: 1)
+        )
+        #expect(foreword?.line == "Wrote the foreword for 1 of your books")
+
+        #expect(PersonMatchMapping.library(Fixture.inLibrary(credits: [], count: 0)) == nil)
     }
 
     @Test func theStepsLineSaysHowFindStarted() {
         let viaBooks = PersonMatchMapping.find(from: Fixture.results())
-        #expect(viaBooks.stepsLine == "Started from the 5 books Ray Porter narrates in your library.")
+        #expect(viaBooks.stepsLine == "Started from the 5 books crediting Ray Porter in your library.")
 
         let steps: [any PersonSearchStep] = [
             PersonSearchStepExistingLink(source: Fixture.storefront), PersonSearchStepByName(query: "Ray Porter")
         ]
-        let linked = PersonMatchMapping.find(from: Fixture.results(role: .author, steps: steps))
+        let linked = PersonMatchMapping.find(from: Fixture.results(steps: steps))
         #expect(linked.stepsLine == "Started from your Storefront link, then a search for “Ray Porter”.")
 
-        let oneBook = PersonMatchMapping.find(
-            from: Fixture.results(role: .author, steps: [PersonSearchStepViaYourBooks(bookCount: 1)])
-        )
-        #expect(oneBook.stepsLine == "Started from the book Ray Porter wrote in your library.")
+        let oneBook = PersonMatchMapping.find(from: Fixture.results(steps: [PersonSearchStepViaYourBooks(bookCount: 1)]))
+        #expect(oneBook.stepsLine == "Started from the book crediting Ray Porter in your library.")
     }
 
-    @Test func aPersonRowSaysRoleWorksLibraryAndSources() {
-        let row = PersonMatchMapping.candidate(Fixture.candidate(), searched: .narrator)
+    @Test func aPersonRowSaysRoleWorksEveryRoleTheyHoldHereAndSources() {
+        let row = PersonMatchMapping.candidate(
+            Fixture.candidate(libraryCredits: [
+                LibraryCredit(role: .narrator, bookCount: 4), LibraryCredit(role: .translator, bookCount: 1)
+            ])
+        )
         #expect(row.roleLine == "Narrator · Project Hail Mary, Bobiverse")
-        #expect(row.libraryLine == "Narrated 5 books in your library")
+        #expect(row.libraryLine == "Narrated 4 of your books · Translated 1")
         #expect(row.sourcesLine == "Shelfdata")
-        #expect(row.differentRole == nil)
         #expect(row.isStrong && row.isBest)
         #expect(row.accessibilityLabel == "Best match. Ray Porter. Narrator, Project Hail Mary and Bobiverse. "
-            + "Narrated 5 books in your library. Shelfdata.")
+            + "Narrated 4 of your books · Translated 1. Shelfdata.")
     }
 
     @Test func aPersonWithNoWorksNamedSaysHowManyBooks() {
         let row = PersonMatchMapping.candidate(
-            Fixture.candidate(shownRole: .author, knownWorks: [], worksCount: 1, isBest: false), searched: .author
+            Fixture.candidate(shownRole: .author, knownWorks: [], worksCount: 1, isBest: false)
         )
         #expect(row.roleLine == "Author · 1 book")
-        #expect(row.libraryLine == "Wrote 5 books in your library")
+        #expect(row.libraryLine == "Narrated 5 of your books")
     }
 
-    @Test func aPersonInAnotherRoleIsFlaggedDifferentRole() {
+    @Test func aTranslatorIsNamedAsOne() {
+        let row = PersonMatchMapping.candidate(Fixture.candidate(shownRole: .translator, knownWorks: ["Three Body"]))
+        #expect(row.roleLine == "Translator · Three Body")
+    }
+
+    @Test func aPersonOnNoneOfYourBooksSaysSoAndNothingElse() {
         let row = PersonMatchMapping.candidate(
             Fixture.candidate(
                 shownRole: .author, knownWorks: [], worksCount: 1, libraryCount: 0, foundIn: [Fixture.shelfdata],
-                isStrong: false, isBest: false, isDifferentRole: true, noBooksInLibrary: true
-            ),
-            searched: .narrator
+                isStrong: false, isBest: false, noBooksInLibrary: true
+            )
         )
-        #expect(row.roleLine == "Author · 1 book · Not a narrator")
-        #expect(row.differentRole == "Different role")
+        #expect(row.roleLine == "Author · 1 book")
         #expect(row.libraryLine == "No books in your library")
-        #expect(row.accessibilityLabel
-            == "Ray Porter. Author, 1 book. Not a narrator. Different role. No books in your library. Shelfdata.")
+        #expect(row.accessibilityLabel == "Ray Porter. Author, 1 book. No books in your library. Shelfdata.")
     }
 
     @Test func theRowLastOpenedInReviewIsMarked() {
@@ -107,9 +100,9 @@ struct PersonMatchMappingTests {
         #expect(find.phase.results?.maybe.first?.isStrong == false)
     }
 
-    @Test func searchingKeepsTheRolesPreviousResultsOnScreen() {
+    @Test func searchingKeepsThePreviousResultsOnScreen() {
         let state = PersonFindUiStateSearching(
-            role: .narrator, header: Fixture.header, inLibrary: nil, query: "porter", previous: Fixture.results()
+            header: Fixture.header, inLibrary: nil, query: "porter", previous: Fixture.results()
         )
         let find = PersonMatchMapping.find(from: state)
         guard case .searching(let shown) = find.phase else {
@@ -120,16 +113,15 @@ struct PersonMatchMappingTests {
         #expect(find.query == "porter")
     }
 
-    @Test func noProfilesSaysSoForTheRoleAndOffersEditByHand() {
-        let narrator = PersonMatchMapping.find(from: PersonFindUiStateNoProfiles(
-            role: .narrator, header: Fixture.header, inLibrary: nil, query: "", coverageNote: nil
+    @Test func noProfilesSaysSoForThePersonAndOffersEditByHand() {
+        let none = PersonMatchMapping.find(from: PersonFindUiStateNoProfiles(
+            header: Fixture.header, inLibrary: nil, query: ""
         ))
-        #expect(narrator.phase == .noProfiles(PersonNoProfiles(
-            title: "No source has a profile for this narrator",
+        #expect(none.phase == .noProfiles(PersonNoProfiles(
+            title: "No source has a profile for this person",
             message: "You can add their photo and biography yourself.",
             editTitle: "Edit by Hand"
         )))
-        #expect(PersonMatchMapping.noProfiles(.author).title == "No source has a profile for this author")
     }
 
     @Test func aFailureOffersOnlyRetryForAPerson() {
@@ -138,11 +130,21 @@ struct PersonMatchMappingTests {
         #expect(PersonMatchMapping.failure(FindFailureOffline.shared).actions == [.retry(title: "Try Again")])
     }
 
-    @Test func aMatchableRoleRoundTripsAndOtherRolesDont() {
-        #expect(PersonMatchRole(ContributorRole.narrator)?.contributorRole == .narrator)
-        #expect(PersonMatchRole(ContributorRole.author)?.contributorRole == .author)
-        #expect(PersonMatchRole(ContributorRole.editor) == nil)
-        #expect(PersonMatchRole.allCases.map(\.segmentTitle) == ["As author", "As narrator"])
+    @Test func everyRoleHasAWordAndAnEvidencePhrase() {
+        let roles: [ContributorRole] = [
+            .author, .narrator, .editor, .translator, .foreword, .introduction, .afterword, .producer, .adapter,
+            .illustrator
+        ]
+        for role in roles {
+            #expect(MatchCopy.roleWord(role)?.isEmpty == false, "\(role)")
+            let line = MatchCopy.creditsLine([LibraryCredit(role: role, bookCount: 2)])
+            #expect(line?.hasSuffix("2 of your books") == true, "\(role): \(line ?? "nil")")
+        }
+    }
+
+    @Test func aReviewHeaderWithNoRoleSaysOnlyWhereTheyWereFound() {
+        #expect(MatchCopy.personHeaderFrom(role: nil, sources: "Shelfdata") == "From Shelfdata")
+        #expect(MatchCopy.personHeaderFrom(role: "Narrator", sources: "Shelfdata") == "Narrator · from Shelfdata")
     }
 
     // MARK: - Review: photo
@@ -237,7 +239,7 @@ struct PersonMatchMappingTests {
         let review = PersonMatchMapping.review(Fixture.ready(), viewerId: nil)
         #expect(review.whatWillChange == "Photo and biography · from Shelfdata")
         #expect(review.header.roleLine == "Narrator · from Shelfdata")
-        #expect(review.header.libraryLine == "Narrated 5 books in your library")
+        #expect(review.header.libraryLine == "Narrated 5 of your books")
         #expect(review.photo != nil && review.biography != nil)
     }
 
@@ -308,7 +310,7 @@ struct PersonMatchMappingTests {
         let keys = PersonMatchObserver.candidateKeys(in: Fixture.results(maybe: [other]))
         #expect(Set(keys.keys) == ["shelfdata:P1:", "shelfdata:P2:"])
         #expect(PersonMatchObserver.candidateKeys(in: PersonFindUiStateNoProfiles(
-            role: .narrator, header: nil, inLibrary: nil, query: "", coverageNote: nil
+            header: nil, inLibrary: nil, query: ""
         )).isEmpty)
     }
 }

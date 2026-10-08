@@ -23,22 +23,31 @@ enum PersonMatchFixtures {
         isStrong: Bool = true,
         isBest: Bool = true,
         isCurrentLink: Bool = false,
-        isDifferentRole: Bool = false,
+        libraryCredits: [LibraryCredit]? = nil,
         noBooksInLibrary: Bool = false
     ) -> PersonCandidateUi {
         PersonCandidateUi(
             id: id, key: key(id), name: name, photoUrl: "https://example.com/p.jpg", shownRole: shownRole,
             knownWorks: knownWorks, worksCount: worksCount, libraryCount: libraryCount,
             foundIn: foundIn, tier: isStrong ? .strong : .maybe, isBest: isBest, isCurrentLink: isCurrentLink,
-            isDifferentRole: isDifferentRole, noBooksInLibrary: noBooksInLibrary
+            libraryCredits: libraryCredits
+                ?? (libraryCount > 0 ? [LibraryCredit(role: .narrator, bookCount: libraryCount)] : []),
+            noBooksInLibrary: noBooksInLibrary
         )
     }
 
     static var header: PersonHeaderUi { PersonHeaderUi(name: "Ray Porter", imagePath: nil) }
 
-    static func inLibrary(role: ContributorRole = .narrator, count: Int32 = 5, titles: [String] = []) -> InLibraryUi {
+    /// Ray Porter here: narrated five books and translated one, by default.
+    static let rayCredits = [
+        LibraryCredit(role: .narrator, bookCount: 5), LibraryCredit(role: .translator, bookCount: 1)
+    ]
+
+    static func inLibrary(
+        credits: [LibraryCredit] = rayCredits, count: Int32 = 6, titles: [String] = []
+    ) -> InLibraryUi {
         InLibraryUi(
-            role: role, bookCount: count, titles: titles,
+            credits: credits, bookCount: count, titles: titles,
             covers: titles.enumerated().map { index, title in
                 LibraryCoverUi(bookId: "b\(index)", title: title, coverPath: nil, coverHash: nil)
             }
@@ -46,16 +55,14 @@ enum PersonMatchFixtures {
     }
 
     static func results(
-        role: ContributorRole = .narrator,
         steps: [any PersonSearchStep] = [PersonSearchStepViaYourBooks(bookCount: 5)],
-        coverageNote: CoverageNote? = nil,
         strong: [PersonCandidateUi] = [candidate()],
         maybe: [PersonCandidateUi] = [],
         pickedKey: PersonCandidateKey? = nil
     ) -> PersonFindUiStateResults {
         PersonFindUiStateResults(
-            role: role, header: header, inLibrary: inLibrary(role: role), query: "", steps: steps,
-            coverageNote: coverageNote, strong: strong, maybe: maybe, partialFailure: nil, pickedKey: pickedKey
+            header: header, inLibrary: inLibrary(), query: "", steps: steps,
+            strong: strong, maybe: maybe, partialFailure: nil, pickedKey: pickedKey
         )
     }
 
@@ -103,7 +110,7 @@ enum PersonMatchFixtures {
         applyError: (any AppError)? = nil
     ) -> PersonReviewUiStateReady {
         PersonReviewUiStateReady(
-            candidate: candidate(), role: .narrator, photo: photo, biography: biography, applyBar: applyBar,
+            candidate: candidate(), photo: photo, biography: biography, applyBar: applyBar,
             applying: applying, applyError: applyError
         )
     }
