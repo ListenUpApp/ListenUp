@@ -163,7 +163,9 @@ class ClientKoinGraphE2ETest :
             // The Hardcover connection added rpcChannel<HardcoverService>() (connect, disconnect and
             // the live connection watch) — so 29 → 30.
             // Match details added rpcChannel<MatchingService>() (Find, then Review and Apply) — so 30 → 31.
-            defaultInvalidator.caches shouldHaveSize 31
+            // Story World added rpcChannel<EntityService>() (entity edits, merge, history, revert, and the
+            // entities outbox sender) — so 31 → 32.
+            defaultInvalidator.caches shouldHaveSize 32
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 
