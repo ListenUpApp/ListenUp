@@ -56,7 +56,7 @@ private val logger = KotlinLogging.logger {}
  * @property libraryAdminChannel Dispatches the [com.calypsan.listenup.api.LibraryAdminService] library-admin RPC.
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  * @property adminUserRosterDao Room DAO for the synced `admin_user_roster` sync domain, backing
- *   [observeRoster]
+ *   [observeRoster] and [observeUser]
  */
 internal class AdminRepositoryImpl(
     private val adminUserChannel: RpcChannel<AdminUserService>,
@@ -80,6 +80,9 @@ internal class AdminRepositoryImpl(
 
     override fun observeRoster(): Flow<List<AdminUserInfo>> =
         adminUserRosterDao.observeAll().map { rows -> rows.map { it.toAdminUserInfo() } }
+
+    override fun observeUser(userId: String): Flow<AdminUserInfo?> =
+        adminUserRosterDao.observeById(userId).map { it?.toAdminUserInfo() }
 
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
         // One RPC frame per call block: approve in its own frame, then re-fetch the user in its own

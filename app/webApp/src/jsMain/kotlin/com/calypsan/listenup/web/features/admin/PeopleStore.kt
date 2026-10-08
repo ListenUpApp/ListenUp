@@ -70,8 +70,8 @@ typealias OpenUserDetail = (userId: String) -> UserDetailSession
  * The production source: the shared [UserDetailViewModel] and [UserPermissionsViewModel], both
  * parametrized on the member.
  *
- * ⛔ The user id is a *constructor* parameter, not a `load()` call — each ViewModel loads in its
- * own `init`, so resolving one bare would fetch whoever the graph happened to hand back. And every
+ * ⛔ The user id is a *constructor* parameter, not a `load()` call — each ViewModel is bound to its
+ * member when it is built, so resolving one bare would read whoever the graph happened to hand back. And every
  * action is wired: a page that renders the draft but never reaches the ViewModel is a form that
  * cannot be saved.
  */

@@ -60,6 +60,15 @@ internal interface AdminUserRosterDao {
     fun observeAll(): Flow<List<AdminUserRosterEntity>>
 
     /**
+     * Observe one live roster row; null while it has not synced, or once it is tombstoned.
+     *
+     * @param id The user ID.
+     * @return Flow emitting the row whenever it changes.
+     */
+    @Query("SELECT * FROM admin_user_roster WHERE id = :id AND deletedAt IS NULL")
+    fun observeById(id: String): Flow<AdminUserRosterEntity?>
+
+    /**
      * Insert or update a roster row.
      *
      * @param entity The row to upsert.

@@ -35,7 +35,6 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 "PendingApprovalViewModel",
                 "RegisterViewModel",
                 "LibrarySetupViewModel",
-                "UserDetailViewModel",
                 "AdminBackupViewModel",
                 "AdminCollectionDetailViewModel",
                 "RestoreBackupViewModel",

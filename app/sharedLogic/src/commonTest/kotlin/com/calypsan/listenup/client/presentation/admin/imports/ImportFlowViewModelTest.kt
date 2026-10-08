@@ -1114,6 +1114,8 @@ private class FakeAdminRepository(
 
     override fun observeRoster(): Flow<List<AdminUserInfo>> = flowOf(emptyList())
 
+    override fun observeUser(userId: String): Flow<AdminUserInfo?> = flowOf(null)
+
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
         AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
 

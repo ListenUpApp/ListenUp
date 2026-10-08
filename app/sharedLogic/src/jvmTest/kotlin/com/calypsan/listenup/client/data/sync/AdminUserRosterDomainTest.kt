@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
@@ -60,6 +61,26 @@ class AdminUserRosterDomainTest :
                 row.role shouldBe "admin"
                 row.canEdit shouldBe false
                 row.revision shouldBe 2L
+            }
+        }
+
+        test("one observed user re-emits with new flags when an Updated frame lands") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("user-1", revision = 1L)))
+                db.adminUserRosterDao().observeById("user-1").test {
+                    awaitItem().shouldNotBeNull().canCurateLibrary shouldBe false
+                    handler.onEvent(
+                        updated(
+                            payload(
+                                "user-1",
+                                revision = 2L,
+                                permissions = UserPermissions(canEditMetadata = true, canCurateLibrary = true),
+                            ),
+                        ),
+                    )
+                    awaitItem().shouldNotBeNull().canCurateLibrary shouldBe true
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
 

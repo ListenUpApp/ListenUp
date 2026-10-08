@@ -59,6 +59,15 @@ interface AdminRepository {
     fun observeRoster(): Flow<List<AdminUserInfo>>
 
     /**
+     * Observe one user from the Room-backed roster, so their role and permissions follow every
+     * synced change — including the admin's own save on the permissions screen.
+     *
+     * @param userId The user to observe.
+     * @return [Flow] emitting the user, or null while the roster has not synced them.
+     */
+    fun observeUser(userId: String): Flow<AdminUserInfo?>
+
+    /**
      * Approve a pending user registration.
      *
      * @param userId The user ID to approve
