@@ -66,7 +66,7 @@ class CreateEditShelfViewModel(
                     if (shelf != null) {
                         CreateEditShelfUiState.Loaded(
                             name = shelf.name,
-                            description = shelf.description ?: "",
+                            description = shelf.description.orEmpty(),
                             isPrivate = shelf.isPrivate,
                         )
                     } else {
@@ -75,9 +75,12 @@ class CreateEditShelfViewModel(
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    errorBus.emit(ErrorMapper.map(e))
+                    // The typed error's message is the user-facing constant; a raw exception message
+                    // may be absent (rendering "null") or technical.
+                    val error = ErrorMapper.map(e)
+                    errorBus.emit(error)
                     logger.error(e) { "Failed to load shelf for edit: $shelfId" }
-                    CreateEditShelfUiState.Error("Failed to load shelf: ${e.message}")
+                    CreateEditShelfUiState.Error(error.message)
                 }
         }
     }

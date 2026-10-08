@@ -11,12 +11,14 @@ import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.core.ShelfId
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -111,6 +113,20 @@ class CreateEditShelfViewModelTest :
 
                 val loaded = vm.state.value.shouldBeInstanceOf<CreateEditShelfUiState.Loaded>()
                 loaded.isPrivate shouldBe true
+            }
+        }
+
+        test("initEdit failure with a message-less exception never shows the word null") {
+            runTest {
+                val repo: ShelfRepository =
+                    mock { everySuspend { getById(ShelfId("s1")) } throws IllegalStateException() }
+                val vm = viewModel(repo = repo)
+
+                vm.initEdit("s1")
+                advanceUntilIdle()
+
+                val error = vm.state.value.shouldBeInstanceOf<CreateEditShelfUiState.Error>()
+                error.message shouldNotContain "null"
             }
         }
 
