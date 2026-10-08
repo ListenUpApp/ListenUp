@@ -4,7 +4,10 @@ import com.calypsan.listenup.gradle.forwardKotestFilterProperties
 plugins {
     id("listenup.kmp.library")
     alias(libs.plugins.kotlinSerialization)
+    // KSP must be applied BEFORE the Kotest plugin — Kotest 6 generates the Kotlin/Native test entry point
+    // through KSP. Without the plugin the native lanes ran none of commonTest's Kotest specs.
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotest)
     alias(libs.plugins.kotlinxRpc)
     alias(libs.plugins.kover)
 }
@@ -93,22 +96,22 @@ tasks.named<org.gradle.api.tasks.testing.Test>("jvmTest") {
     // Forward Kotest's native filter properties into the forked test JVM — see CLAUDE.md's
     // "Running a single test" section for the supported single-spec commands per lane.
     forwardKotestFilterProperties()
-    // "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a
-    // collapsed classpath (a source set silently dropped from the compilation, a broken
-    // dependency) still reports BUILD SUCCESSFUL with zero failures, which is worse than a run
-    // that fails outright. Registered on the Gradle `Test` task itself rather than a Kotest
-    // `afterProject` listener so it always reads the TASK TOTAL: Gradle aggregates every forked
-    // worker's results into one root suite (`desc.parent == null`), whereas a Kotest-side listener
-    // fires once per worker JVM and only sees that worker's slice — the same trap the
-    // `io.kotest.provided.ProjectConfig` retry-ledger KDoc documents for `:server:jvmTest`'s
-    // forked workers.
-    //
-    // The floor catches COLLAPSE, not attrition: 108 tests ran green on 2026-07-25, and the bar sits
-    // far enough below that a normal deletion does not trip it. Deliberately not a ratchet — PR #1214
-    // removed ~180 server tests in one legitimate change, so a floor set just under the current count
-    // would fail honest work and train people to edit the number without reading it.
-    failBelowDiscoveredTestCount(85, ":contract:jvmTest")
 }
+
+// "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a collapsed
+// classpath (a source set silently dropped from the compilation, a broken dependency) still reports
+// BUILD SUCCESSFUL with zero failures, which is worse than a run that fails outright. A finalizer counts
+// the lane's JUnit XML after the run (build-logic's TestDiscoveryFloor.kt), so it reads the TASK TOTAL
+// across forked workers and still fires when the lane found nothing at all.
+//
+// The floor catches COLLAPSE, not attrition: 108 tests ran green on 2026-07-25, and the bar sits
+// far enough below that a normal deletion does not trip it. Deliberately not a ratchet — PR #1214
+// removed ~180 server tests in one legitimate change, so a floor set just under the current count
+// would fail honest work and train people to edit the number without reading it.
+failBelowDiscoveredTestCount("jvmTest", floor = 85)
+// The same commonTest specs on Kotlin/Native. Until the Kotest plugin was applied above, this lane ran
+// none of them and reported green. 333 ran green on 2026-10-08.
+failBelowDiscoveredTestCount("linuxX64Test", floor = 270)
 
 dependencies {
     // :tools:rpc-guard-ksp scans the @Rpc interfaces in this module's commonMain and

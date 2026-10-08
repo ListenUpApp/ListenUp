@@ -620,6 +620,12 @@ jobs:
         timeout-minutes: 10
         run: ./gradlew :server:linuxX64Test --no-daemon
 
+      # The contract's commonTest specs on Kotlin/Native: the wire types the native server serves with.
+      # Until 2026-10-08 this lane ran none of them (no Kotest plugin in :contract) and nothing noticed.
+      - name: Run :contract linuxX64 tests
+        timeout-minutes: 10
+        run: ./gradlew :contract:linuxX64Test --no-daemon
+
   build-android:
     name: Build (Android)
     runs-on: ubuntu-latest
