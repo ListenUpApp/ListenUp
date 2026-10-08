@@ -52,11 +52,14 @@ class ChapterListSearchTest {
                     selectedChapterId = null,
                     playheadMs = { null },
                     onSelect = {},
-                    onNudge = { _, _ -> },
-                    onSnapToPlayhead = {},
-                    onToggleLock = {},
+                    rowEdits =
+                        ChapterRowEdits(
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = {},
+                            onToggleLock = {},
+                            onEditTime = {},
+                        ),
                     rowMenu = ChapterRowMenuActions({}, {}, null, {}),
-                    onEditTime = {},
                     query = query,
                     onQueryChange = {},
                 )

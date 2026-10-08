@@ -11,6 +11,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * in `kotlinx-coroutines-play-services` for a single call site.
  */
 class FcmTokenProvider : PushTokenProvider {
+    // getToken() is deprecated for register()/onRegistered; moving to that callback is a push-flow redesign.
+    @Suppress("Deprecation")
     override suspend fun currentToken(): String? =
         try {
             suspendCancellableCoroutine { cont ->

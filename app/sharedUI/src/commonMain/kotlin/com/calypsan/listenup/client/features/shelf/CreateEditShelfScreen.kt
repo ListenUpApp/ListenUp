@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.shelf
 
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
@@ -23,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Visibility
@@ -563,7 +563,7 @@ private fun ShelfDetailsSection(
                     onValueChange = onNameChange,
                     label = stringResource(Res.string.shelf_form_name),
                     placeholder = stringResource(Res.string.common_shelf_name_hint),
-                    leadingIcon = Icons.Outlined.Label,
+                    leadingIcon = Icons.AutoMirrored.Outlined.Label,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
 

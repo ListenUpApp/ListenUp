@@ -102,14 +102,14 @@ fun UserAvatar(
         modifier
             .size(size.dp)
             .clip(CircleShape)
-            .let {
+            .let { clipped ->
                 if (onClick != null) {
-                    it.clickable {
+                    clipped.clickable {
                         haptics.press()
                         onClick()
                     }
                 } else {
-                    it
+                    clipped
                 }
             }
 
@@ -180,7 +180,7 @@ internal fun rememberUserAvatarState(
                     // stuck download is diagnosable instead of silently swallowed. (AppResult already
                     // folded the failure; there is no exception/cancellation to re-raise here.)
                     logger.debug {
-                        "Avatar download for $userId failed: [${result.error.code}] ${result.error.debugInfo}"
+                        "Avatar download for $userId failed: [${result.error.code}] ${result.error.debugInfo ?: "no debug info"}"
                     }
                 }
             }

@@ -109,9 +109,7 @@ fun BookVisibilitySection(
             }
         }
 
-        BookVisibility.Public, BookVisibility.Held -> {
-            Unit
-        }
+        BookVisibility.Public, BookVisibility.Held -> {}
     }
 }
 
@@ -126,7 +124,7 @@ private fun VisibilityCard(
     Surface(shape = RoundedCornerShape(CardCorner), color = container, modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(glyph, contentDescription = null, tint = titleColor, modifier = Modifier.size(18.dp))
+                Icon(imageVector = glyph, contentDescription = null, tint = titleColor, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(Spacing.sm))
                 Text(
                     text = stringResource(Res.string.book_visibility_title),

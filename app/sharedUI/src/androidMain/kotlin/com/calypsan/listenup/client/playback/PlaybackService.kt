@@ -119,9 +119,6 @@ class PlaybackService :
      */
     private var meterBookId: BookId? = null
 
-    /** Offers a way back in when the platform refuses a background start. */
-    private val refusalNotifier by lazy { PlaybackRefusalNotifier(this, systemStrings) }
-
     /** Attached to the cast player for the length of a cast session; see [handoffToCast]. */
     private val castPlaybackListener by lazy { CastPlaybackListener() }
 
@@ -149,6 +146,9 @@ class PlaybackService :
     private val uriPermissionGranter: UriPermissionGranter by inject()
     private val systemStrings: SystemStringsHolder by inject()
     private val skipIntervals: SkipIntervalsHolder by inject()
+
+    /** Offers a way back in when the platform refuses a background start. */
+    private val refusalNotifier by lazy { PlaybackRefusalNotifier(this, systemStrings) }
 
     // Current book ID is read from PlaybackManager (single source of truth)
     private val currentBookId: BookId?
@@ -179,7 +179,7 @@ class PlaybackService :
      */
     private fun getBookDurationMs(): Long =
         playbackManager.currentTimeline.value?.totalDurationMs
-            ?: activeTransportPlayer()?.duration?.takeIf { it > 0 }
+            ?: activeTransportPlayer()?.run { duration.takeIf { it > 0 } }
             ?: 0L
 
     /**
@@ -431,7 +431,7 @@ class PlaybackService :
                 skipIntervals = skipIntervals,
                 // Read off the transport player, never the session player: the session is
                 // presented by ChapterWindowPlayer, whose title is the current chapter.
-                bookTitle = { activeTransportPlayer()?.mediaMetadata?.title },
+                bookTitle = { activeTransportPlayer()?.run { mediaMetadata.title } },
                 strings = systemStrings,
             )
         val provider = notificationProvider ?: return
@@ -886,7 +886,12 @@ class PlaybackService :
         logger.debug { "Is playing: $isPlaying (source=$source)" }
 
         val transition =
-            playbackTransitionFor(source, isPlaying, casting, spanOpen = refusalTracker.isAudioSounding)
+            playbackTransitionFor(
+                source = source,
+                isPlaying = isPlaying,
+                casting = casting,
+                spanOpen = refusalTracker.isAudioSounding,
+            )
         if (transition == PlaybackTransition.IGNORE) {
             logger.debug { "Ignoring is-playing=$isPlaying from $source (casting=$casting)" }
             return
@@ -1038,7 +1043,7 @@ class PlaybackService :
         override fun onIsPlayingChanged(isPlaying: Boolean) = handleIsPlayingChanged(source, isPlaying)
 
         override fun onPlayerError(error: PlaybackException) {
-            logger.error(error) { "Playback error: ${error.message}" }
+            logger.error(error) { "Playback error: ${error.message ?: "no message"}" }
 
             // Surface stuck-player as a typed PlaybackError.Stalled so the global
             // error bus and UI can offer a retry affordance.
@@ -1087,7 +1092,7 @@ class PlaybackService :
             mediaItem: MediaItem?,
             reason: Int,
         ) {
-            logger.debug { "Media item transition: ${mediaItem?.mediaId}, reason: $reason" }
+            logger.debug { "Media item transition: ${mediaItem?.mediaId ?: "none"}, reason: $reason" }
         }
 
         /**

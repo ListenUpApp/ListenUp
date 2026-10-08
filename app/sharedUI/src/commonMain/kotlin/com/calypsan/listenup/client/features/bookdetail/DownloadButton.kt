@@ -111,7 +111,7 @@ fun DownloadButton(
                                         trackColor = contentColor.copy(alpha = 0.3f),
                                     )
                                     Icon(
-                                        Icons.Outlined.Close,
+                                        imageVector = Icons.Outlined.Close,
                                         contentDescription = stringResource(Res.string.book_detail_cancel_download),
                                         modifier = Modifier.size(12.dp),
                                         tint = contentColor.copy(alpha = 0.6f),

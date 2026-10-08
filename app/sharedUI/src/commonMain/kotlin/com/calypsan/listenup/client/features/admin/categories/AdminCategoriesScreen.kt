@@ -168,8 +168,8 @@ fun AdminCategoriesScreen(
     // Show transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminCategoriesUiState.Ready)?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it.localizedString())
+        readyError?.let { error ->
+            snackbarHostState.showSnackbar(error.localizedString())
             viewModel.clearError()
         }
     }
@@ -482,7 +482,7 @@ private fun MergeGenreDialogHost(
 
     if (showMergeDialog) {
         val ready = state as? AdminCategoriesUiState.Ready
-        val source = ready?.genres?.firstOrNull { it.id == mergeSourceId }
+        val source = ready?.run { genres.firstOrNull { it.id == mergeSourceId } }
         MergeGenreDialog(
             sourceName = mergeSourceName,
             // source is only null if the genre vanished from the live list mid-dialog (this
@@ -513,10 +513,11 @@ private fun MoveGenreDialogHost(
 
     if (showMoveDialog) {
         val ready = state as? AdminCategoriesUiState.Ready
-        val source = ready?.genres?.firstOrNull { it.id == moveSourceId }
+        val source = ready?.run { genres.firstOrNull { it.id == moveSourceId } }
         MoveGenreDialog(
             sourceName = moveSourceName,
-            candidates = if (source != null) genreMoveCandidates(ready.genres, source) else emptyList(),
+            candidates =
+                if (ready != null && source != null) genreMoveCandidates(ready.genres, source) else emptyList(),
             onConfirmTarget = { targetId ->
                 viewModel.moveGenre(moveSourceId, targetId)
                 showMoveDialog = false

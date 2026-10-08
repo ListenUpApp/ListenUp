@@ -62,12 +62,12 @@ fun ListenUpDatePicker(
 
     // Parse the current value to display and for initial picker state
     val currentDate = parseIsoDate(value)
-    val displayValue = currentDate?.let { formatForDisplay(it) } ?: ""
+    val displayValue = currentDate?.let { formatForDisplay(it) }.orEmpty()
 
     // Initial selection for the date picker (in millis since epoch)
     val initialSelectionMillis =
-        currentDate?.let {
-            it.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+        currentDate?.run {
+            atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
         }
 
     Box(modifier = modifier.fillMaxWidth()) {

@@ -110,7 +110,7 @@ fun HomeScreen(
         containerColor = Color.Transparent,
         // The shell owns the system-bar/nav insets and passes them in as [contentPadding]; this
         // inner Scaffold must not re-add them, or the top/bottom would be inset twice.
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         modifier = modifier.fillMaxSize(),
     ) { paddingValues ->
         when (val s = state) {

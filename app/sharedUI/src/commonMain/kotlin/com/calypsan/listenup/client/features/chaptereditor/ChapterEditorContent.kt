@@ -48,7 +48,6 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 
 private val PANE_SHAPE = ContentShapes.card
 private val LIST_PANE_WIDTH = 480.dp
-private const val MINIMAP_BUCKETS = 90
 
 /**
  * A chapter, paired with the number it carries in the whole book.
@@ -89,16 +88,13 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  *   than a value, so a playback tick redraws only what shows the playhead — the lane's line and the
  *   row whose "Now" badge actually changes — instead of the whole editor.
  * @param onSelect focus a boundary.
- * @param onNudge move a boundary by a signed step.
- * @param onSnapToPlayhead take the playhead's exact millisecond.
- * @param onToggleLock pin a boundary against drift.
+ * @param rowEdits the edits each row makes in place: nudge, snap, lock and exact time.
  * @param lockedChapterIds boundaries currently pinned, so the row's lock reads as state rather
  *   than as a button that does nothing visible.
  * @param query narrows the list only — the timeline keeps showing the whole book, because the lane
  *   is a picture of the audio and hiding parts of it would misrepresent what is there.
  * @param onQueryChange the search box changed.
  * @param rowMenu what each row's overflow menu offers.
- * @param onEditTime type a row's start exactly.
  * @param onRetime a boundary was dragged to a new start — once per drag, on release.
  * @param lane the timeline's window and any drag in progress; [onLaneChange] receives the next one.
  * @param modifier Modifier for the content.
@@ -116,11 +112,8 @@ fun ChapterEditorContent(
     selectedChapterId: String?,
     playheadMs: () -> Long?,
     onSelect: (String) -> Unit,
-    onNudge: (String, Long) -> Unit,
-    onSnapToPlayhead: (String) -> Unit,
-    onToggleLock: (String) -> Unit,
+    rowEdits: ChapterRowEdits,
     rowMenu: ChapterRowMenuActions,
-    onEditTime: (String) -> Unit,
     modifier: Modifier = Modifier,
     onAddAtPlayhead: (() -> Unit)? = null,
     onRetime: (String, Long) -> Unit = { _, _ -> },
@@ -152,12 +145,9 @@ fun ChapterEditorContent(
             selectedChapterId = selectedChapterId,
             playheadMs = playheadMs,
             onSelect = onSelect,
-            onNudge = onNudge,
             onAddAtPlayhead = onAddAtPlayhead,
-            onSnapToPlayhead = onSnapToPlayhead,
-            onToggleLock = onToggleLock,
+            rowEdits = rowEdits,
             rowMenu = rowMenu,
-            onEditTime = onEditTime,
             lockedChapterIds = lockedChapterIds,
             query = query,
             onQueryChange = onQueryChange,
@@ -200,11 +190,8 @@ private fun ChapterListPane(
     selectedChapterId: String?,
     playheadMs: () -> Long?,
     onSelect: (String) -> Unit,
-    onNudge: (String, Long) -> Unit,
-    onSnapToPlayhead: (String) -> Unit,
-    onToggleLock: (String) -> Unit,
+    rowEdits: ChapterRowEdits,
     rowMenu: ChapterRowMenuActions,
-    onEditTime: (String) -> Unit,
     lockedChapterIds: Set<String>,
     query: String,
     onQueryChange: (String) -> Unit,
@@ -243,7 +230,7 @@ private fun ChapterListPane(
 
         if (visible.isEmpty()) {
             Text(
-                stringResource(Res.string.chapter_editor_no_matches, query.trim()),
+                text = stringResource(Res.string.chapter_editor_no_matches, query.trim()),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 12.dp),
@@ -261,11 +248,11 @@ private fun ChapterListPane(
                     isSelected = numbered.chapter.id == selectedChapterId,
                     isPlaying = numbered.chapter.id in playingIds,
                     onSelect = { onSelect(numbered.chapter.id) },
-                    onNudge = { step -> onNudge(numbered.chapter.id, step) },
-                    onSnapToPlayhead = { onSnapToPlayhead(numbered.chapter.id) },
-                    onToggleLock = { onToggleLock(numbered.chapter.id) },
+                    onNudge = { step -> rowEdits.onNudge(numbered.chapter.id, step) },
+                    onSnapToPlayhead = { rowEdits.onSnapToPlayhead(numbered.chapter.id) },
+                    onToggleLock = { rowEdits.onToggleLock(numbered.chapter.id) },
                     menu = rowMenu,
-                    onEditTime = { onEditTime(numbered.chapter.id) },
+                    onEditTime = { rowEdits.onEditTime(numbered.chapter.id) },
                     isLocked = numbered.chapter.id in lockedChapterIds,
                 )
             }

@@ -70,9 +70,9 @@ fun LibrarySection(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        datePickerState.selectedDateMillis?.let {
+                        datePickerState.selectedDateMillis?.let { selectedMillis ->
                             haptics.commit()
-                            onAddedAtChange(it)
+                            onAddedAtChange(selectedMillis)
                         }
                         showDatePicker = false
                     },
@@ -120,7 +120,7 @@ private fun DatePickerField(
     }
 
     OutlinedTextField(
-        value = value?.let { formatDateLong(it) } ?: "",
+        value = value?.let { formatDateLong(it) }.orEmpty(),
         onValueChange = {},
         label = { Text(label) },
         placeholder = { Text(stringResource(Res.string.book_edit_not_set)) },

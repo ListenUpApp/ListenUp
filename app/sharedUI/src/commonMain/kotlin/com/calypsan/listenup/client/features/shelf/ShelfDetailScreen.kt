@@ -142,7 +142,7 @@ fun ShelfDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             ListenUpTopAppBar(
-                title = readyState?.detail?.name ?: stringResource(Res.string.shelf_title_fallback),
+                title = readyState?.run { detail.name } ?: stringResource(Res.string.shelf_title_fallback),
                 onBack = onBack,
                 actions = {
                     if (readyState?.isOwner == true && onEditClick != null) {
@@ -360,13 +360,14 @@ private fun ShelfDetailContent(
         } else {
             itemsIndexed(items = sortedBooks, key = { _, book -> book.id.value }) { index, book ->
                 val reorderActions =
-                    if (canReorder) {
-                        shelfReorderActions(sortedBooks, index, moveEarlierLabel, moveLaterLabel) { reordered ->
-                            onReorder(reordered.map { it.id.value })
-                        }
-                    } else {
-                        emptyList()
-                    }
+                    shelfReorderActions(
+                        items = sortedBooks,
+                        index = index,
+                        moveEarlierLabel = moveEarlierLabel,
+                        moveLaterLabel = moveLaterLabel,
+                    ) { reordered -> onReorder(reordered.map { it.id.value }) }
+                        .takeIf { canReorder }
+                        .orEmpty()
                 ShelfBookGridItem(
                     book = book,
                     isLifted = book.id.value == draggingKey,

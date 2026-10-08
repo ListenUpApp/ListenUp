@@ -42,5 +42,7 @@ internal fun rememberBackupDownloadNotices(): BackupDownloadNotices {
     val scope = rememberCoroutineScope()
     val saved = stringResource(Res.string.admin_backup_downloaded)
     val failed = stringResource(Res.string.admin_backup_download_failed)
-    return remember(snackbar, scope, saved, failed) { BackupDownloadNotices(snackbar, scope, saved, failed) }
+    return remember(snackbar, scope, saved, failed) {
+        BackupDownloadNotices(snackbar = snackbar, scope = scope, savedMessage = saved, failedMessage = failed)
+    }
 }

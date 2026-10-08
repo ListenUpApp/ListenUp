@@ -71,7 +71,7 @@ fun DailyListeningChart(
                 .height(chartHeight),
     ) {
         val labelHeight = 16.dp.toPx()
-        val chartHeight = size.height - labelHeight - 4.dp.toPx()
+        val plotHeight = size.height - labelHeight - 4.dp.toPx()
         val barCount = chartData.size
         val barSpacing = 8.dp.toPx()
         val totalSpacing = barSpacing * (barCount - 1)
@@ -87,10 +87,10 @@ fun DailyListeningChart(
             // An empty day is a small stub on the baseline, so the row reads as days with nothing in
             // them — never a full-width circle that looks like listening.
             val markWidth = if (isEmpty) stubSize.width else barWidth
-            val fullHeight = if (isEmpty) stubSize.height else bar.totalSeconds / maxSeconds * chartHeight
+            val fullHeight = if (isEmpty) stubSize.height else bar.totalSeconds / maxSeconds * plotHeight
             val barProgress = ((growth.value - index * barStagger) / BAR_GROW_FRACTION).coerceIn(0f, 1f)
             val barHeight = fullHeight * LinearOutSlowInEasing.transform(barProgress)
-            val barTop = chartHeight - barHeight
+            val barTop = plotHeight - barHeight
             // Today reads as the coral accent; on an empty today that is only the small stub, a quiet mark.
             val color =
                 when {
@@ -110,7 +110,7 @@ fun DailyListeningChart(
             // Draw day label centered below bar
             val labelResult = textMeasurer.measure(bar.label, labelStyle)
             val labelX = x + (barWidth - labelResult.size.width) / 2
-            val labelY = chartHeight + 4.dp.toPx()
+            val labelY = plotHeight + 4.dp.toPx()
             drawText(labelResult, topLeft = Offset(labelX, labelY))
         }
     }

@@ -170,7 +170,7 @@ fun AdminBackupScreen(
             )
             AdminBackupBody(
                 state = backupState,
-                absImports = absListReady?.imports ?: emptyList(),
+                absImports = absListReady?.imports.orEmpty(),
                 isLoadingImports = absImportListState is ABSImportListUiState.Loading,
                 modifier = Modifier.fillMaxSize(),
                 onRestoreClick = onRestoreClick,
@@ -468,7 +468,7 @@ private fun BackupCard(
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(
-                        Icons.Outlined.Archive,
+                        imageVector = Icons.Outlined.Archive,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp),

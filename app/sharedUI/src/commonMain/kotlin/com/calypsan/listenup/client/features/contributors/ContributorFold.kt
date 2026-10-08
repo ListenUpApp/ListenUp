@@ -68,7 +68,7 @@ fun ClickableContributorLine(
             if (folded) {
                 modifier.clickable {
                     haptics.press()
-                    onOverflowClick?.invoke()
+                    onOverflowClick()
                 }
             } else {
                 modifier

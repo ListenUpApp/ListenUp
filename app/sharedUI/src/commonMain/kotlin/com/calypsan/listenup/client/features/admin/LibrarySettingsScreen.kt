@@ -98,8 +98,8 @@ fun LibrarySettingsScreen(
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? LibrarySettingsUiState.Ready)?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it.localizedString())
+        readyError?.let { error ->
+            snackbarHostState.showSnackbar(error.localizedString())
             viewModel.clearError()
         }
     }

@@ -138,8 +138,8 @@ fun AdminInboxScreen(
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminInboxUiState.Ready)?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it)
+        readyError?.let { message ->
+            snackbarHostState.showSnackbar(message)
             viewModel.clearError()
         }
     }
@@ -149,7 +149,7 @@ fun AdminInboxScreen(
     val readyUnreleasedCount = (state as? AdminInboxUiState.Ready)?.lastUnreleasedCount ?: 0
     val confirmation = releaseConfirmation(released = readyReleasedCount ?: 0, unreleased = readyUnreleasedCount)
     LaunchedEffect(readyReleasedCount) {
-        readyReleasedCount?.let {
+        if (readyReleasedCount != null) {
             snackbarHostState.showSnackbar(confirmation)
             viewModel.clearReleaseResult()
         }

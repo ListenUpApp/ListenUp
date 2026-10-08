@@ -424,8 +424,7 @@ private fun LoginNavigation(
         // restart, so only a fresh answer is meaningful. On failure the entry simply stays hidden.
         rootResetArmed =
             (instanceRepository.getServerInfo(forceRefresh = true) as? AppResult.Success)
-                ?.data
-                ?.rootResetArmed == true
+                ?.run { data.rootResetArmed } == true
     }
 
     NavDisplay(
@@ -694,11 +693,7 @@ private fun AuthenticatedNavigation(
     // the single sign-out choke point (engine stop, RPC invalidation, library-data + pending-op
     // clear, token clear, user clear) — so this nav-level action can't drift from what Settings'
     // own sign-out does.
-    val onSignOut: () -> Unit = {
-        scope.launch {
-            logoutUseCase()
-        }
-    }
+    val onSignOut: () -> Unit = { scope.launch { logoutUseCase() } }
 
     // Resolve a pending BOOK share-link target against the connected server.
     // Invite targets are handled at the top level; this block ignores them.
@@ -776,13 +771,14 @@ private fun AuthenticatedNavigation(
                                 entryProvider =
                                     authenticatedNavEntries(
                                         backStack = backStack,
-                                        // Deferred reads: the entry content reads these inside the Shell composable so
-                                        // tab/readiness changes recompose it (NavDisplay won't re-invoke the builder).
-                                        currentShellDestination = { currentShellDestination },
-                                        onShellDestinationChange = { currentShellDestination = it },
+                                        shell =
+                                            ShellWiring(
+                                                currentDestination = { currentShellDestination },
+                                                onDestinationChange = { currentShellDestination = it },
+                                                readiness = { readiness },
+                                                onSignOut = onSignOut,
+                                            ),
                                         nowPlayingViewModel = nowPlayingViewModel,
-                                        readiness = { readiness },
-                                        onSignOut = onSignOut,
                                         startupViewModel = startupViewModel,
                                         scope = scope,
                                         syncRepository = syncRepository,
@@ -890,6 +886,17 @@ private fun shortcutActionDispatcher(
     }
 
 /**
+ * The shell's live wiring, read lazily so tab and readiness changes recompose the Shell entry
+ * (NavDisplay won't re-invoke the entry builder).
+ */
+private data class ShellWiring(
+    val currentDestination: () -> ShellDestination,
+    val onDestinationChange: (ShellDestination) -> Unit,
+    val readiness: () -> LibraryReadiness,
+    val onSignOut: () -> Unit,
+)
+
+/**
  * Builds the [entryProvider] block for all authenticated navigation destinations.
  *
  * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
@@ -898,11 +905,8 @@ private fun shortcutActionDispatcher(
  */
 private fun authenticatedNavEntries(
     backStack: NavBackStack<NavKey>,
-    currentShellDestination: () -> ShellDestination,
-    onShellDestinationChange: (ShellDestination) -> Unit,
+    shell: ShellWiring,
     nowPlayingViewModel: NowPlayingViewModel,
-    readiness: () -> LibraryReadiness,
-    onSignOut: () -> Unit,
     startupViewModel: AppStartupViewModel,
     scope: CoroutineScope,
     syncRepository: SyncRepository,
@@ -915,15 +919,20 @@ private fun authenticatedNavEntries(
 ) = entryProvider {
     shellEntry(
         backStack = backStack,
-        currentShellDestination = currentShellDestination,
-        onDestinationChange = onShellDestinationChange,
+        currentShellDestination = shell.currentDestination,
+        onDestinationChange = shell.onDestinationChange,
         nowPlayingViewModel = nowPlayingViewModel,
-        readiness = readiness,
-        onSignOut = onSignOut,
+        readiness = shell.readiness,
+        onSignOut = shell.onSignOut,
         onContinueToPartialLibrary = startupViewModel::onContinueToPartialLibrary,
         pendingSelectionExit = pendingSelectionExit,
     )
-    librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
+    librarySetupEntry(
+        backStack = backStack,
+        startupViewModel = startupViewModel,
+        scope = scope,
+        syncRepository = syncRepository,
+    )
     destinationEntries(
         backStack = backStack,
         scope = scope,
@@ -937,7 +946,7 @@ private fun authenticatedNavEntries(
                 homeRepository = homeRepository,
                 nowPlayingViewModel = nowPlayingViewModel,
                 backStack = backStack,
-                onSelectShellDestination = onShellDestinationChange,
+                onSelectShellDestination = shell.onDestinationChange,
             ),
     )
     // Re-auth entry pushed by the shell banner's "Sign in" action while SessionLapsed.
@@ -984,7 +993,12 @@ internal fun EntryProviderScope<NavKey>.destinationEntries(
     onProfileRefreshed: () -> Unit,
     onNotificationAction: (ShortcutAction) -> Unit,
 ) {
-    bookEntries(backStack, scope, snackbarHostState, pendingSelectionExit)
+    bookEntries(
+        backStack = backStack,
+        scope = scope,
+        snackbarHostState = snackbarHostState,
+        pendingSelectionExit = pendingSelectionExit,
+    )
     seriesEntries(backStack)
     contributorEntries(backStack)
     matchEntries(backStack)

@@ -118,9 +118,9 @@ fun SettingRow(
                         MaterialTheme.colorScheme.onSurface
                     },
             )
-            subtitle?.let {
+            subtitle?.let { subtitleText ->
                 Text(
-                    text = it,
+                    text = subtitleText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -269,7 +269,13 @@ fun SettingToggleRow(
         subtitle = subtitle,
         icon = icon,
         accent = accent,
-        modifier = modifier.switchRow(checked = checked, haptics = haptics, enabled = enabled, onCheckedChange),
+        modifier =
+            modifier.switchRow(
+                checked = checked,
+                haptics = haptics,
+                enabled = enabled,
+                onCheckedChange = onCheckedChange,
+            ),
     ) {
         Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }

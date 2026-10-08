@@ -310,7 +310,7 @@ fun SettingsScreen(
  * The setting changes the Settings sections make, bound once to [SettingsViewModel] by
  * [SettingsScreen] — so [SettingsContent] renders from state alone and can be hosted without Koin.
  */
-internal class SettingsActions(
+internal data class SettingsActions(
     val onThemeModeChange: (ThemeMode) -> Unit,
     val onDynamicColorsChange: (Boolean) -> Unit,
     val onPlaybackSpeedChange: (Float) -> Unit,
@@ -602,7 +602,11 @@ private fun LibrarySection(
 
 /** Settings → Library → Categories: only for those who may curate the library (a null [onOpenCategories] draws nothing). */
 @Composable
-internal fun CurationRow(onOpenCategories: (() -> Unit)?) {
+internal fun CurationRow(
+    // Nullable on purpose: null draws nothing for those who may not curate.
+    @Suppress("CanBeNonNullable")
+    onOpenCategories: (() -> Unit)?,
+) {
     if (onOpenCategories == null) return
     SettingNavigationRow(
         icon = Icons.Default.Category,

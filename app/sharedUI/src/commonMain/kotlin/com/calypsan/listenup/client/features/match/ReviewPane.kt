@@ -144,10 +144,21 @@ internal fun ReviewPane(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (state) {
-                ReviewUiState.NoneChosen -> CenteredMessage(stringResource(Res.string.match_none_chosen))
-                is ReviewUiState.Loading -> ReviewLoading()
-                is ReviewUiState.Failed -> ReviewFailed(state.error, onRetry = { actions.pick(state.candidate.key) })
-                is ReviewUiState.Ready -> ReviewContent(state, bookId, viewerId, actions)
+                ReviewUiState.NoneChosen -> {
+                    CenteredMessage(stringResource(Res.string.match_none_chosen))
+                }
+
+                is ReviewUiState.Loading -> {
+                    ReviewLoading()
+                }
+
+                is ReviewUiState.Failed -> {
+                    ReviewFailed(state.error, onRetry = { actions.pick(state.candidate.key) })
+                }
+
+                is ReviewUiState.Ready -> {
+                    ReviewContent(ready = state, bookId = bookId, viewerId = viewerId, actions = actions)
+                }
             }
         }
     }
@@ -173,13 +184,53 @@ private fun ReviewContent(
         sections.forEach { section ->
             item(key = section.name) {
                 when (section) {
-                    ReviewSection.COVER -> CoverSection(bookId, ready.cover, actions::chooseCover)
-                    ReviewSection.CHANGES -> FieldSection(FieldGroup.CHANGES, ready.changes, viewerId, actions)
-                    ReviewSection.FILLS_GAP -> FieldSection(FieldGroup.FILLS_GAP, ready.fillsGap, viewerId, actions)
-                    ReviewSection.YOU_EDITED -> FieldSection(FieldGroup.YOU_EDITED, ready.youEdited, viewerId, actions)
-                    ReviewSection.LABELS -> LabelsSection(ready.genres, ready.moods, ready.summary, actions)
-                    ReviewSection.CHAPTER_NAMES -> ChapterNamesSection(ready.chapterNames, actions)
-                    ReviewSection.ALREADY_SAME -> AlreadySameSection(ready.alreadySame, ready.lengthAlreadySame)
+                    ReviewSection.COVER -> {
+                        CoverSection(bookId, ready.cover, actions::chooseCover)
+                    }
+
+                    ReviewSection.CHANGES -> {
+                        FieldSection(
+                            group = FieldGroup.CHANGES,
+                            fields = ready.changes,
+                            viewerId = viewerId,
+                            actions = actions,
+                        )
+                    }
+
+                    ReviewSection.FILLS_GAP -> {
+                        FieldSection(
+                            group = FieldGroup.FILLS_GAP,
+                            fields = ready.fillsGap,
+                            viewerId = viewerId,
+                            actions = actions,
+                        )
+                    }
+
+                    ReviewSection.YOU_EDITED -> {
+                        FieldSection(
+                            group = FieldGroup.YOU_EDITED,
+                            fields = ready.youEdited,
+                            viewerId = viewerId,
+                            actions = actions,
+                        )
+                    }
+
+                    ReviewSection.LABELS -> {
+                        LabelsSection(
+                            genres = ready.genres,
+                            moods = ready.moods,
+                            summary = ready.summary,
+                            actions = actions,
+                        )
+                    }
+
+                    ReviewSection.CHAPTER_NAMES -> {
+                        ChapterNamesSection(ready.chapterNames, actions)
+                    }
+
+                    ReviewSection.ALREADY_SAME -> {
+                        AlreadySameSection(ready.alreadySame, ready.lengthAlreadySame)
+                    }
                 }
             }
         }
@@ -238,11 +289,11 @@ private fun WhatWillChangeSummary(
     val haptics = LocalHaptics.current
     val items =
         buildList {
-            summary.coverSource?.let {
+            summary.coverSource?.let { coverSource ->
                 add(
                     SummaryItem(
                         stringResource(Res.string.match_sum_cover),
-                        stringResource(Res.string.match_sum_from, it.label),
+                        stringResource(Res.string.match_sum_from, coverSource.label),
                         ReviewSection.COVER,
                     ),
                 )

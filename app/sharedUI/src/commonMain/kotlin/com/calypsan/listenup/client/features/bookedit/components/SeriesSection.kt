@@ -147,7 +147,7 @@ private fun SeriesChipWithSequence(
         )
 
         ListenUpTextField(
-            value = series.sequence ?: "",
+            value = series.sequence.orEmpty(),
             onValueChange = onSequenceChange,
             label = "#",
             // Decimal, not Number: half-numbered entries ("1.5") are ordinary in book series, and a

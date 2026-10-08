@@ -18,11 +18,11 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -225,8 +225,18 @@ internal fun LabelsSection(
     ) {
         SectionSegment {
             Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                LabelSet(stringResource(Res.string.match_genres), genres, LabelKind.GENRES, actions)
-                LabelSet(stringResource(Res.string.match_moods), moods, LabelKind.MOODS, actions)
+                LabelSet(
+                    title = stringResource(Res.string.match_genres),
+                    set = genres,
+                    kind = LabelKind.GENRES,
+                    actions = actions,
+                )
+                LabelSet(
+                    title = stringResource(Res.string.match_moods),
+                    set = moods,
+                    kind = LabelKind.MOODS,
+                    actions = actions,
+                )
                 Text(
                     text = stringResource(Res.string.match_tags_note),
                     style = MaterialTheme.typography.bodySmall,
@@ -266,7 +276,12 @@ private fun LabelSet(
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 set.suggested.forEach { suggestion ->
-                    SuggestionChip(suggestion, showSources = sharedSource == null, kind = kind, actions = actions)
+                    SuggestionChip(
+                        suggestion = suggestion,
+                        showSources = sharedSource == null,
+                        kind = kind,
+                        actions = actions,
+                    )
                 }
             }
         }
@@ -303,7 +318,7 @@ private fun YourLabelChip(
         label = { Text(label.label, textDecoration = if (label.removed) TextDecoration.LineThrough else null) },
         trailingIcon = {
             Icon(
-                if (label.removed) Icons.Filled.Undo else Icons.Filled.Close,
+                if (label.removed) Icons.AutoMirrored.Filled.Undo else Icons.Filled.Close,
                 contentDescription = null,
             )
         },
@@ -351,9 +366,7 @@ internal fun ChapterNamesSection(
     actions: BookMatchActions,
 ) {
     when (chapterNames) {
-        ChapterNamesUi.Hidden -> {
-            Unit
-        }
+        ChapterNamesUi.Hidden -> {}
 
         is ChapterNamesUi.CountMismatch -> {
             SectionGroup(label = stringResource(Res.string.match_section_chapter_names)) {
@@ -404,9 +417,9 @@ private fun AvailableChapterNames(
                             .fillMaxWidth()
                             .heightIn(
                                 min = 48.dp,
-                            ).toggleable(value = names.included, role = Role.Checkbox) {
-                                haptics.toggle(on = it)
-                                actions.setChapterNamesIncluded(it)
+                            ).toggleable(value = names.included, role = Role.Checkbox) { included ->
+                                haptics.toggle(on = included)
+                                actions.setChapterNamesIncluded(included)
                             },
                     horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                     verticalAlignment = Alignment.CenterVertically,
@@ -462,8 +475,8 @@ private fun ChapterRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
-                .toggleable(value = row.selected, enabled = enabled, role = Role.Checkbox) {
-                    haptics.toggle(on = it)
+                .toggleable(value = row.selected, enabled = enabled, role = Role.Checkbox) { selected ->
+                    haptics.toggle(on = selected)
                     onToggle()
                 }.semantics { contentDescription = accessibleName },
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),

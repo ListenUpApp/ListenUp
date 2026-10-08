@@ -132,7 +132,8 @@ internal fun FindPane(
                 )
             }
             region?.let { item(key = "store") { StoreButton(region = it, onChoose = actions::chooseStore) } }
-            state.yourCopy?.let { copy ->
+            val copy = state.yourCopy
+            if (copy != null) {
                 item(
                     key = "your-copy",
                 ) { YourCopyStrip(bookId = bookId, copy = copy, steps = results?.let { stepsLine(it.steps) }) }
@@ -295,9 +296,9 @@ private fun YourCopyStrip(
             )
             val facts = copy.factsLine()
             if (facts.isNotEmpty()) Text(facts, style = MaterialTheme.typography.bodyMedium)
-            steps?.let {
+            steps?.let { stepsText ->
                 Text(
-                    text = it,
+                    text = stepsText,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

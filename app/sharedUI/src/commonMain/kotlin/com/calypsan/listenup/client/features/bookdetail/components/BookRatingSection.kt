@@ -171,22 +171,22 @@ fun BookRatingSection(
                 modifier = Modifier.semantics { heading() },
             )
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val you: @Composable (Modifier) -> Unit = {
+                val you: @Composable (Modifier) -> Unit = { cardModifier ->
                     RatingsYouCard(
                         mine = ready.mine,
                         onSetStars = onSetStars,
                         onEditNote = onEditNote,
                         onRemove = onRemove,
-                        modifier = it,
+                        modifier = cardModifier,
                         isContained = !isCard,
                     )
                 }
-                val everyone: @Composable (Modifier) -> Unit = {
+                val everyone: @Composable (Modifier) -> Unit = { rowsModifier ->
                     RatingsEveryoneRows(
                         ready = ready,
                         onOpenSources = onOpenSources,
                         onRefreshExternal = onRefreshExternal,
-                        modifier = it,
+                        modifier = rowsModifier,
                     )
                 }
                 if (maxWidth >= RatingsSplitMinWidth) {

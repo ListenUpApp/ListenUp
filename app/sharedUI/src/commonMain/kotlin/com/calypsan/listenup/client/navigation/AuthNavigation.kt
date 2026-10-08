@@ -189,7 +189,7 @@ private fun ServerSetupNavigation() {
             }
         },
         predictivePopTransitionSpec = {
-            slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+            slideInHorizontally { width -> -width } togetherWith slideOutHorizontally { width -> width }
         },
         entryProvider =
             entryProvider {
@@ -232,7 +232,7 @@ private fun SetupNavigation() {
                 rememberViewModelStoreNavEntryDecorator(),
             ),
         predictivePopTransitionSpec = {
-            slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+            slideInHorizontally { width -> -width } togetherWith slideOutHorizontally { width -> width }
         },
         entryProvider =
             entryProvider {
@@ -264,8 +264,7 @@ private fun LoginNavigation(
         // restart, so only a fresh answer is meaningful. On failure the entry simply stays hidden.
         rootResetArmed =
             (instanceRepository.getServerInfo(forceRefresh = true) as? AppResult.Success)
-                ?.data
-                ?.rootResetArmed == true
+                ?.run { data.rootResetArmed } == true
     }
 
     NavDisplay(
@@ -281,7 +280,7 @@ private fun LoginNavigation(
             }
         },
         predictivePopTransitionSpec = {
-            slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+            slideInHorizontally { width -> -width } togetherWith slideOutHorizontally { width -> width }
         },
         entryProvider =
             entryProvider {

@@ -144,23 +144,23 @@ fun ListenUpTextField(
         },
         label = label?.let { { Text(it) } },
         placeholder =
-            placeholder?.let {
+            placeholder?.let { placeholderText ->
                 {
                     when {
                         placeholderStyle != null -> {
-                            Text(text = it, style = placeholderStyle)
+                            Text(text = placeholderText, style = placeholderStyle)
                         }
 
                         isHero -> {
                             Text(
-                                text = it,
+                                text = placeholderText,
                                 style = heroTextStyle,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
 
                         else -> {
-                            Text(it)
+                            Text(placeholderText)
                         }
                     }
                 }

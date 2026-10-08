@@ -29,7 +29,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -74,7 +74,6 @@ internal fun PageGridOverlay(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHaptics.current
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.surfaceDim,
@@ -123,13 +122,14 @@ private fun PageGridCell(
     pageCount: Int,
     isCurrent: Boolean,
     onSelect: (Int) -> Unit,
+    renderDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     val pageDescription = stringResource(Res.string.book_detail_document_viewer_page_of, index + 1, pageCount)
     val loadingDescription = stringResource(Res.string.book_detail_document_viewer_loading)
 
     val bitmapState by produceState<ImageBitmap?>(initialValue = null, index) {
         value =
-            withContext(Dispatchers.Default) {
+            withContext(renderDispatcher) {
                 renderMutex.withLock {
                     runCatching { wrapper.renderPage(index, THUMBNAIL_TARGET_WIDTH_PX).asImageBitmap() }.getOrNull()
                 }

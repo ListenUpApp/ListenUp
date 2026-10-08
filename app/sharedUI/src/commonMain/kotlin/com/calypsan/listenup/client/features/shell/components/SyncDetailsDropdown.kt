@@ -140,9 +140,9 @@ private fun SyncStatusSection(
                         text = stringResource(Res.string.shell_syncing),
                         style = MaterialTheme.typography.titleSmall,
                     )
-                    currentOperation?.let {
+                    currentOperation?.let { operation ->
                         Text(
-                            text = it,
+                            text = operation,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

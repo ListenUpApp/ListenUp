@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -90,7 +91,7 @@ internal class ListenUpSessionCallback(
             listOf(
                 CommandButton
                     .Builder(SkipCommandIcons.backward(backwardSec))
-                    .setDisplayName(copy.carBack.format(backwardSec))
+                    .setDisplayName(copy.carBack.format(Locale.getDefault(), backwardSec))
                     .setSessionCommand(
                         SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK, Bundle.EMPTY),
                     ).build(),
@@ -102,7 +103,7 @@ internal class ListenUpSessionCallback(
                     .build(),
                 CommandButton
                     .Builder(SkipCommandIcons.forward(forwardSec))
-                    .setDisplayName(copy.carForward.format(forwardSec))
+                    .setDisplayName(copy.carForward.format(Locale.getDefault(), forwardSec))
                     .setSessionCommand(
                         SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD, Bundle.EMPTY),
                     ).build(),
@@ -120,7 +121,12 @@ internal class ListenUpSessionCallback(
         if (mayAccessCoverArt(trust)) {
             grantCoverArtAccess(controller.packageName)
         }
-        return session.buildConnectionResultFor(controller, trust, customCommands, customLayout)
+        return session.buildConnectionResultFor(
+            controller = controller,
+            trust = trust,
+            customSessionCommands = customCommands,
+            customLayout = customLayout,
+        )
     }
 
     /**
@@ -309,7 +315,7 @@ internal class ListenUpSessionCallback(
                         focus = extras?.getString(MediaStore.EXTRA_MEDIA_FOCUS)?.toMediaFocus(),
                     )
 
-                logger.debug { "Search hints: title=${hints.title}, artist=${hints.artist}, focus=${hints.focus}" }
+                logger.debug { "Search hints: ${hints.logLine()}" }
 
                 val intent = voiceIntentResolver.resolve(query, hints)
                 logger.info { "Search resolved to: $intent" }
@@ -399,7 +405,7 @@ internal class ListenUpSessionCallback(
             )
         }
 
-        val items = searchResultsCache[query] ?: emptyList()
+        val items = searchResultsCache[query].orEmpty()
         val pageItems = paginate(items, page, pageSize)
 
         // Clean up cache after the last page is retrieved
@@ -601,7 +607,7 @@ internal class ListenUpSessionCallback(
                 focus = extras?.getString(MediaStore.EXTRA_MEDIA_FOCUS)?.toMediaFocus(),
             )
 
-        logger.debug { "Voice hints: title=${hints.title}, artist=${hints.artist}, focus=${hints.focus}" }
+        logger.debug { "Voice hints: ${hints.logLine()}" }
 
         val intent = voiceIntentResolver.resolve(searchQuery, hints)
         logger.debug { "Resolved voice intent: $intent" }
@@ -772,38 +778,6 @@ internal class ListenUpSessionCallback(
 
     // ========== Custom Commands ==========
 
-    /**
-     * Seeks the transport player and publishes where it landed.
-     *
-     * Publishing is not optional bookkeeping. The in-app position is fed by a poll that runs
-     * only while audio is playing, so a notification skip taken while paused moved the player
-     * and left [PlaybackManager] holding the old position — and the next in-app skip, computed
-     * from that stale value, silently undid the one the listener just made.
-     *
-     * The landing coordinates are the ones just resolved rather than read back from the player,
-     * so the published position cannot drift from the seek that produced it.
-     */
-    private fun seekAndPublish(
-        player: Player,
-        mediaItemIndex: Int,
-        positionInFileMs: Long,
-    ) {
-        player.seekTo(mediaItemIndex, positionInFileMs)
-        playbackManager.updatePositionFromMediaItem(mediaItemIndex, positionInFileMs)
-    }
-
-    /**
-     * The file-relative fallback taken when no [PlaybackTimeline] is loaded: the seek stays
-     * within the current media item, so that item's index is the one to publish against.
-     */
-    private fun seekAndPublish(
-        player: Player,
-        positionInFileMs: Long,
-    ) {
-        player.seekTo(positionInFileMs)
-        playbackManager.updatePositionFromMediaItem(player.currentMediaItemIndex, positionInFileMs)
-    }
-
     override fun onCustomCommand(
         session: MediaSession,
         controller: MediaSession.ControllerInfo,
@@ -834,11 +808,11 @@ internal class ListenUpSessionCallback(
                 // Resolve new position to mediaItemIndex and filePosition
                 if (timeline != null) {
                     val resolved = timeline.resolve(newPosition)
-                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
+                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                 } else {
                     // Fallback to simple seek within current file
                     val newFilePosition = (p.currentPosition - backwardMs).coerceAtLeast(0)
-                    seekAndPublish(p, newFilePosition)
+                    playbackManager.seekAndPublish(p, newFilePosition)
                 }
                 logger.debug { "Skip back ${backwardMs}ms: $currentBookPosition -> $newPosition" }
             }
@@ -851,10 +825,10 @@ internal class ListenUpSessionCallback(
 
                 if (timeline != null) {
                     val resolved = timeline.resolve(newPosition)
-                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
+                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                 } else {
                     val newFilePosition = (p.currentPosition + forwardMs).coerceAtMost(p.duration)
-                    seekAndPublish(p, newFilePosition)
+                    playbackManager.seekAndPublish(p, newFilePosition)
                 }
                 logger.debug { "Skip forward ${forwardMs}ms: $currentBookPosition -> $newPosition" }
             }
@@ -867,7 +841,7 @@ internal class ListenUpSessionCallback(
                     val target =
                         previousChapterTarget(chapters, transport.bookRelativePositionMs(), timeline.totalDurationMs)
                     val resolved = timeline.resolve(target)
-                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
+                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Previous chapter target: ${target}ms" }
                 } else {
                     // Honest-over-silent: no chapter data means nothing happened. Telling the head
@@ -885,7 +859,7 @@ internal class ListenUpSessionCallback(
                     val target =
                         nextChapterTarget(chapters, transport.bookRelativePositionMs(), timeline.totalDurationMs)
                     val resolved = timeline.resolve(target)
-                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
+                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Next chapter target: ${target}ms" }
                 } else {
                     logger.debug { "Next chapter requested with no chapter data available — skipping" }
@@ -916,9 +890,9 @@ internal class ListenUpSessionCallback(
                 }
                 if (timeline != null) {
                     val resolved = timeline.resolve(target.coerceIn(0L, timeline.totalDurationMs))
-                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
+                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                 } else {
-                    seekAndPublish(p, target)
+                    playbackManager.seekAndPublish(p, target)
                 }
                 logger.debug { "Seek to book position: ${target}ms" }
             }
@@ -947,3 +921,39 @@ private suspend fun PlaybackManager.prepareForSilentStart(
     startedBy: String,
 ): PlaybackManager.PrepareResult? =
     prepareForPlayback(bookId).valueOrNull { logger.warn { "$startedBy not started for ${bookId.value}: ${it.code}" } }
+
+/** The hints a voice search arrived with, for the debug log; an absent hint reads "none", not "null". */
+private fun VoiceHints.logLine(): String =
+    "title=${title ?: "none"}, artist=${artist ?: "none"}, focus=${focus ?: "none"}"
+
+/**
+ * Seeks the transport player and publishes where it landed.
+ *
+ * Publishing is not optional bookkeeping. The in-app position is fed by a poll that runs
+ * only while audio is playing, so a notification skip taken while paused moved the player
+ * and left [PlaybackManager] holding the old position — and the next in-app skip, computed
+ * from that stale value, silently undid the one the listener just made.
+ *
+ * The landing coordinates are the ones just resolved rather than read back from the player,
+ * so the published position cannot drift from the seek that produced it.
+ */
+private fun PlaybackManager.seekAndPublish(
+    player: Player,
+    mediaItemIndex: Int,
+    positionInFileMs: Long,
+) {
+    player.seekTo(mediaItemIndex, positionInFileMs)
+    updatePositionFromMediaItem(mediaItemIndex, positionInFileMs)
+}
+
+/**
+ * The file-relative fallback taken when no [PlaybackTimeline] is loaded: the seek stays
+ * within the current media item, so that item's index is the one to publish against.
+ */
+private fun PlaybackManager.seekAndPublish(
+    player: Player,
+    positionInFileMs: Long,
+) {
+    player.seekTo(positionInFileMs)
+    updatePositionFromMediaItem(player.currentMediaItemIndex, positionInFileMs)
+}

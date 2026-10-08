@@ -17,6 +17,8 @@ class DesktopPlaybackController(
     private val audioPlayer: AudioPlayer,
     private val playbackManager: PlaybackManager,
 ) : PlaybackController {
+    // The name is fixed by sharedLogic's PlaybackController (a Swift Export surface).
+    @Suppress("NonBooleanPropertyPrefixedWithIs")
     override val isReady: StateFlow<Boolean>
         field = MutableStateFlow(true)
 
@@ -24,13 +26,21 @@ class DesktopPlaybackController(
 
     override fun releasePlayer() = Unit
 
-    override fun play() = audioPlayer.play()
+    override fun play() {
+        audioPlayer.play()
+    }
 
-    override fun pause() = audioPlayer.pause()
+    override fun pause() {
+        audioPlayer.pause()
+    }
 
-    override fun seekTo(positionMs: Long) = audioPlayer.seekTo(positionMs)
+    override fun seekTo(positionMs: Long) {
+        audioPlayer.seekTo(positionMs)
+    }
 
-    override fun setPlaybackSpeed(speed: Float) = audioPlayer.setSpeed(speed)
+    override fun setPlaybackSpeed(speed: Float) {
+        audioPlayer.setSpeed(speed)
+    }
 
     override fun stop() {
         audioPlayer.pause()

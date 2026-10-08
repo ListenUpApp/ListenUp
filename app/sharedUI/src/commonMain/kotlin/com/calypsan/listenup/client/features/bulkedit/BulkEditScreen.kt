@@ -203,7 +203,12 @@ internal fun BulkEditContent(
             // The docked bar gets its separation from a tonal-elevated surface; a corner action has
             // no bar to sit on, so it casts its own shadow instead of floating flat over the cards.
             if (editing != null && wide) {
-                ConfirmButton(editing, onApply, Modifier.shadow(CornerActionElevation, CircleShape), false)
+                ConfirmButton(
+                    state = editing,
+                    onApply = onApply,
+                    modifier = Modifier.shadow(CornerActionElevation, CircleShape),
+                    fillWidth = false,
+                )
             }
         },
     ) { padding ->

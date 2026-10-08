@@ -363,9 +363,9 @@ private fun StatusRow(
             style = MaterialTheme.typography.bodySmall,
             color = onRowMuted,
         )
-        version.takeIf { it != "unknown" }?.let {
+        version.takeIf { it != "unknown" }?.let { knownVersion ->
             Text(
-                text = stringResource(Res.string.connect_version_prefix, it),
+                text = stringResource(Res.string.connect_version_prefix, knownVersion),
                 style = MaterialTheme.typography.bodySmall,
                 color = onRowMuted.copy(alpha = 0.8f),
             )
@@ -392,7 +392,7 @@ private fun ServerRowTrailing(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Outlined.Check,
+                        imageVector = Icons.Outlined.Check,
                         contentDescription = stringResource(Res.string.common_selected),
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(20.dp),

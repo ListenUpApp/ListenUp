@@ -438,8 +438,18 @@ private fun SearchResultsList(
             }
         }
 
-        contributorGroup(contributors, query, onResultClick, onSeeAll)
-        seriesGroup(series, query, onResultClick, onSeeAll)
+        contributorGroup(
+            contributors = contributors,
+            query = query,
+            onResultClick = onResultClick,
+            onSeeAll = onSeeAll,
+        )
+        seriesGroup(
+            series = series,
+            query = query,
+            onResultClick = onResultClick,
+            onSeeAll = onSeeAll,
+        )
         tagGroup(tags, query, onResultClick)
     }
 }
@@ -555,8 +565,18 @@ private fun WideSearchResults(
                 contentPadding = PaddingValues(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                contributorGroup(contributors, query, onResultClick, onSeeAll)
-                seriesGroup(series, query, onResultClick, onSeeAll)
+                contributorGroup(
+                    contributors = contributors,
+                    query = query,
+                    onResultClick = onResultClick,
+                    onSeeAll = onSeeAll,
+                )
+                seriesGroup(
+                    series = series,
+                    query = query,
+                    onResultClick = onResultClick,
+                    onSeeAll = onSeeAll,
+                )
                 tagGroup(tags, query, onResultClick)
             }
         }
@@ -674,7 +694,7 @@ private fun SeeAllAction(
                 color = MaterialTheme.colorScheme.primary,
             )
             Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
@@ -1015,7 +1035,7 @@ private fun TagFlow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        Icons.Default.Tag,
+                        imageVector = Icons.Default.Tag,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),

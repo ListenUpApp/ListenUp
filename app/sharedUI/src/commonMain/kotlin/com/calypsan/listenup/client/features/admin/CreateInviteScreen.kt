@@ -138,13 +138,13 @@ fun CreateInviteScreen(
                         is CreateInviteErrorType.NetworkError -> type.detail ?: "Network error"
                         is CreateInviteErrorType.ServerError -> type.detail ?: "Server error"
                     }
-                message?.let {
-                    snackbarHostState.showSnackbar(it)
+                message?.let { errorMessage ->
+                    snackbarHostState.showSnackbar(errorMessage)
                     viewModel.clearError()
                 }
             }
 
-            else -> {}
+            CreateInviteStatus.Idle, CreateInviteStatus.Submitting, null -> {}
         }
     }
 

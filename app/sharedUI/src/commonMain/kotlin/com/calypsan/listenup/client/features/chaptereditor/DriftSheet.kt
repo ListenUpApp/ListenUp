@@ -208,9 +208,7 @@ private fun DriftMessage(
             )
         }
 
-        else -> {
-            Unit
-        }
+        else -> {}
     }
 }
 

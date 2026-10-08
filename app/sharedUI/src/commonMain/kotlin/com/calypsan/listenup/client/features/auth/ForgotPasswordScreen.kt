@@ -353,8 +353,8 @@ private fun EnterCodeContent(
     ) {
         CodeBoxes(
             value = code,
-            onValueChange = {
-                code = it
+            onValueChange = { enteredCode ->
+                code = enteredCode
                 errorDismissed = true
             },
             isError = displayedError != null,

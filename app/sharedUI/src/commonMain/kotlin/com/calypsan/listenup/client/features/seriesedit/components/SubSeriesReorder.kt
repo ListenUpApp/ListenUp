@@ -30,7 +30,8 @@ internal fun slotUnder(
     if (rows.isEmpty()) return null
     if (y < rows.first().top) return 0
     if (y >= rows.last().bottom) return rows.lastIndex
-    val key = cellKeyAt(rows.map { ShelfCellBounds(it.id, 0f, it.top, 1f, it.bottom) }, 0f, y) ?: return null
+    val bounds = rows.map { ShelfCellBounds(key = it.id, left = 0f, top = it.top, right = 1f, bottom = it.bottom) }
+    val key = cellKeyAt(bounds, 0f, y) ?: return null
     return rows.indexOfFirst { it.id == key }
 }
 

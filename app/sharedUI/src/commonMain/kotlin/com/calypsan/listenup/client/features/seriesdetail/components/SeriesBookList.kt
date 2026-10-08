@@ -56,7 +56,7 @@ import org.jetbrains.compose.resources.stringResource
 internal enum class SeriesBookLayout { Rows, Cards }
 
 /** What the book list does when tapped. */
-internal class SeriesBookListActions(
+internal data class SeriesBookListActions(
     val onBookClick: (String) -> Unit,
     val onSeriesClick: (String) -> Unit,
     val onToggleSection: (String) -> Unit,
@@ -66,7 +66,7 @@ internal class SeriesBookListActions(
  * Where the group headings pin: [gridState] is the grid they scroll in, and [topInset] how far below
  * the grid's top edge the window's own top bar reaches — the status bar, on the edge-to-edge page.
  */
-internal class StickyHeadings(
+internal data class StickyHeadings(
     val gridState: LazyGridState,
     val topInset: Dp,
 )
@@ -93,7 +93,15 @@ internal fun LazyGridScope.seriesBookList(
         )
     }
     if (!state.isGrouped) {
-        bookItems(state, state.books, keyPrefix = "flat", sectionSeriesId = null, layout, actions, gutter)
+        bookItems(
+            state = state,
+            books = state.books,
+            keyPrefix = "flat",
+            sectionSeriesId = null,
+            layout = layout,
+            actions = actions,
+            gutter = gutter,
+        )
         return
     }
     state.bookSections.forEach { section ->
@@ -116,7 +124,15 @@ internal fun LazyGridScope.seriesBookList(
                 )
             }
         } else {
-            bookItems(state, section.books, keyPrefix = section.key, section.seriesId, layout, actions, gutter)
+            bookItems(
+                state = state,
+                books = section.books,
+                keyPrefix = section.key,
+                sectionSeriesId = section.seriesId,
+                layout = layout,
+                actions = actions,
+                gutter = gutter,
+            )
         }
     }
 }
@@ -150,14 +166,13 @@ private fun StickyHeadingSurface(
             val items = sticky.gridState.layoutInfo.visibleItemsInfo
             shift =
                 stickyHeadingShift(
-                    headingOffset = items.firstOrNull { it.index == index }?.offset?.y ?: 0,
+                    headingOffset = items.firstOrNull { it.index == index }?.run { offset.y } ?: 0,
                     nextHeadingOffset =
                         items
-                            .firstOrNull {
-                                it.index > index &&
-                                    (it.key as? String)?.startsWith(HEADING_KEY_PREFIX) == true
-                            }?.offset
-                            ?.y,
+                            .firstOrNull { item ->
+                                item.index > index &&
+                                    (item.key as? String)?.startsWith(HEADING_KEY_PREFIX) == true
+                            }?.run { offset.y },
                     headingHeight = placeable.height,
                     topInset = insetPx,
                 )
@@ -297,10 +312,10 @@ private fun HeadingLink(
             stringResource(Res.string.series_also_in, section.title)
         }
     val clickModifier =
-        onClick?.let {
+        onClick?.let { click ->
             Modifier.clickable {
                 haptics.press()
-                it()
+                click()
             }
         } ?: Modifier
     Row(

@@ -46,11 +46,14 @@ class ChapterEditorPlayheadTest {
                     selectedChapterId = null,
                     playheadMs = { position.longValue },
                     onSelect = {},
-                    onNudge = { _, _ -> },
-                    onSnapToPlayhead = {},
-                    onToggleLock = {},
+                    rowEdits =
+                        ChapterRowEdits(
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = {},
+                            onToggleLock = {},
+                            onEditTime = {},
+                        ),
                     rowMenu = ChapterRowMenuActions({}, {}, null, {}),
-                    onEditTime = {},
                 )
             }
         }

@@ -87,7 +87,7 @@ fun SeriesDetailScreen(
     var showAuthorsSheet by remember { mutableStateOf(false) }
 
     // Immersive: let the color hero bleed behind the status bar (HeroNavRow self-insets its controls).
-    ListenUpScaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) { paddingValues ->
+    ListenUpScaffold(contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0)) { paddingValues ->
         Box(
             modifier =
                 Modifier
@@ -164,7 +164,7 @@ fun SeriesDetailScreen(
 // region layouts
 
 /** What a series page's hierarchy parts do: open another series, fold a group, add a sub-series. */
-internal class SeriesPageHierarchyActions(
+internal data class SeriesPageHierarchyActions(
     val onSeriesClick: (String) -> Unit = {},
     val onToggleSection: (String) -> Unit = {},
     val onAddSubSeries: () -> Unit = {},

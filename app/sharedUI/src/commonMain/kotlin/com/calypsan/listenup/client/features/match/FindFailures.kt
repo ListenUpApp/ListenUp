@@ -60,7 +60,11 @@ private const val SECONDS_PER_MINUTE = 60
 internal fun FindFailureContent(
     failure: FindFailure,
     onRetry: () -> Unit,
+    // Nullable on purpose: null means this way forward is not offered.
+    @Suppress("CanBeNonNullable")
     onChooseStore: ((MetadataLocale) -> Unit)? = null,
+    // Nullable on purpose: null means this way forward is not offered.
+    @Suppress("CanBeNonNullable")
     onSearchByTitle: (() -> Unit)? = null,
 ) {
     when (failure) {
@@ -187,7 +191,7 @@ internal fun FailureMessage(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         Icon(
-            icon,
+            imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,

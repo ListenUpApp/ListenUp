@@ -230,6 +230,22 @@ private fun ChapterRowActions(
 }
 
 /**
+ * The edits a chapter row makes in place, keyed by chapter id so one instance serves the whole list.
+ *
+ * @property onNudge move a boundary by a signed step.
+ * @property onSnapToPlayhead take the playhead's exact millisecond.
+ * @property onToggleLock pin a boundary against drift.
+ * @property onEditTime type a row's start exactly.
+ */
+@Immutable
+data class ChapterRowEdits(
+    val onNudge: (String, Long) -> Unit,
+    val onSnapToPlayhead: (String) -> Unit,
+    val onToggleLock: (String) -> Unit,
+    val onEditTime: (String) -> Unit,
+)
+
+/**
  * What a chapter row's overflow menu offers — the set the spec gives every row (§7.4). Keyed by
  * chapter id, so one instance serves the whole list.
  *
@@ -240,7 +256,7 @@ private fun ChapterRowActions(
  * @property onDelete remove the boundary (the caller confirms first).
  */
 @Immutable
-class ChapterRowMenuActions(
+data class ChapterRowMenuActions(
     val onRename: (String) -> Unit,
     val onInsertBelow: (String) -> Unit,
     val onPlayFromHere: ((String) -> Unit)?,

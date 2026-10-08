@@ -121,8 +121,8 @@ fun AdminCollectionsScreen(
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminCollectionsUiState.Ready)?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it)
+        readyError?.let { message ->
+            snackbarHostState.showSnackbar(message)
             viewModel.clearError()
         }
     }

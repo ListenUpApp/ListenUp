@@ -22,7 +22,7 @@ enum class LocalNetworkRecoveryAction {
  * @property recover Takes [action]: shows the permission dialog, or opens the app's Settings page.
  */
 @Immutable
-class LocalNetworkPermissionRecovery(
+data class LocalNetworkPermissionRecovery(
     val isGranted: Boolean,
     val action: LocalNetworkRecoveryAction,
     val recover: () -> Unit,

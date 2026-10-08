@@ -48,34 +48,94 @@ data class CategoryColor(
  */
 object CategoryPalette {
     /** Blue — phones, Apache-2.0. */
-    val Blue = categoryColor(0xFF1F52A1, 0xFFD6E9FF, 0xFFBCD9FF, 0xFF223554)
+    val Blue =
+        categoryColor(
+            lightContent = 0xFF1F52A1,
+            lightContainer = 0xFFD6E9FF,
+            darkContent = 0xFFBCD9FF,
+            darkContainer = 0xFF223554,
+        )
 
     /** Sky — desktops and laptops. */
-    val Sky = categoryColor(0xFF005992, 0xFFD0ECFF, 0xFFB2DDFF, 0xFF183852)
+    val Sky =
+        categoryColor(
+            lightContent = 0xFF005992,
+            lightContainer = 0xFFD0ECFF,
+            darkContent = 0xFFB2DDFF,
+            darkContainer = 0xFF183852,
+        )
 
     /** Periwinkle — BSD-2-Clause. */
-    val Periwinkle = categoryColor(0xFF374DA2, 0xFFDCE7FF, 0xFFC5D6FF, 0xFF293354)
+    val Periwinkle =
+        categoryColor(
+            lightContent = 0xFF374DA2,
+            lightContainer = 0xFFDCE7FF,
+            darkContent = 0xFFC5D6FF,
+            darkContainer = 0xFF293354,
+        )
 
     /** Violet — tablets, BSD-3-Clause. */
-    val Violet = categoryColor(0xFF52449E, 0xFFE5E4FF, 0xFFD3D1FF, 0xFF333053)
+    val Violet =
+        categoryColor(
+            lightContent = 0xFF52449E,
+            lightContainer = 0xFFE5E4FF,
+            darkContent = 0xFFD3D1FF,
+            darkContainer = 0xFF333053,
+        )
 
     /** Green — cast targets, MIT. */
-    val Green = categoryColor(0xFF00683C, 0xFFD0F2DD, 0xFFB1E6C7, 0xFF143F2A)
+    val Green =
+        categoryColor(
+            lightContent = 0xFF00683C,
+            lightContainer = 0xFFD0F2DD,
+            darkContent = 0xFFB1E6C7,
+            darkContainer = 0xFF143F2A,
+        )
 
     /** Teal — ISC. */
-    val Teal = categoryColor(0xFF006465, 0xFFC6F2F1, 0xFFA0E7E6, 0xFF003F3F)
+    val Teal =
+        categoryColor(
+            lightContent = 0xFF006465,
+            lightContainer = 0xFFC6F2F1,
+            darkContent = 0xFFA0E7E6,
+            darkContainer = 0xFF003F3F,
+        )
 
     /** Orange — speakers, LGPL. */
-    val Orange = categoryColor(0xFF923100, 0xFFFFDFD1, 0xFFFFC9B4, 0xFF4F2A1C)
+    val Orange =
+        categoryColor(
+            lightContent = 0xFF923100,
+            lightContainer = 0xFFFFDFD1,
+            darkContent = 0xFFFFC9B4,
+            darkContainer = 0xFF4F2A1C,
+        )
 
     /** Red — GPL-3.0. */
-    val Red = categoryColor(0xFF932B2B, 0xFFFFDDD9, 0xFFFFC6C0, 0xFF502825)
+    val Red =
+        categoryColor(
+            lightContent = 0xFF932B2B,
+            lightContainer = 0xFFFFDDD9,
+            darkContent = 0xFFFFC6C0,
+            darkContainer = 0xFF502825,
+        )
 
     /** Magenta — OFL-1.1. */
-    val Magenta = categoryColor(0xFF862E6B, 0xFFFEDDF1, 0xFFF9C6E5, 0xFF4A283E)
+    val Magenta =
+        categoryColor(
+            lightContent = 0xFF862E6B,
+            lightContainer = 0xFFFEDDF1,
+            darkContent = 0xFFF9C6E5,
+            darkContainer = 0xFF4A283E,
+        )
 
     /** Neutral — the unknown or unrecognised category. */
-    val Neutral = categoryColor(0xFF555555, 0xFFE8E8E8, 0xFFD7D7D7, 0xFF353535)
+    val Neutral =
+        categoryColor(
+            lightContent = 0xFF555555,
+            lightContainer = 0xFFE8E8E8,
+            darkContent = 0xFFD7D7D7,
+            darkContainer = 0xFF353535,
+        )
 
     /** Every palette entry, for exhaustive contrast checks. */
     val all: List<CategoryColor> = listOf(Blue, Sky, Periwinkle, Violet, Green, Teal, Orange, Red, Magenta, Neutral)

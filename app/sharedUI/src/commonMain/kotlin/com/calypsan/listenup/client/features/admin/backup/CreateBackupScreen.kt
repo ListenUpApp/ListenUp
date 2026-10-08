@@ -21,7 +21,6 @@ import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -66,7 +65,6 @@ fun CreateBackupScreen(
     onBackClick: () -> Unit,
     onSuccess: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     var includeImages by remember { mutableStateOf(false) }
     var hasStartedCreation by remember { mutableStateOf(false) }
@@ -246,7 +244,7 @@ private fun IncludeOptionsCard(
                         modifier = Modifier.padding(top = 4.dp),
                     ) {
                         Icon(
-                            Icons.Outlined.Warning,
+                            imageVector = Icons.Outlined.Warning,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.height(16.dp),

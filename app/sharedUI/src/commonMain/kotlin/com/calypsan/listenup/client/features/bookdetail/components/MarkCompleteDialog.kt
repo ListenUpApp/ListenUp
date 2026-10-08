@@ -108,9 +108,9 @@ fun MarkCompleteDialog(
                 timeZone = timeZone,
                 onClick = { showFinishDatePicker = true },
             )
-            problem?.let {
+            problem?.let { dateProblem ->
                 Text(
-                    text = stringResource(it.message),
+                    text = stringResource(dateProblem.message),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )

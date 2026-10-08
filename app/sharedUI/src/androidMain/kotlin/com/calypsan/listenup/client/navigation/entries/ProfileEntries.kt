@@ -18,7 +18,7 @@ import com.calypsan.listenup.client.navigation.EditProfile
 import com.calypsan.listenup.client.navigation.ShelfDetail
 import com.calypsan.listenup.client.navigation.UserProfile
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.core.IODispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.compose.viewmodel.koinViewModel
@@ -96,7 +96,7 @@ private suspend fun compressAvatar(
     context: Context,
     uri: Uri,
 ): ByteArray? =
-    withContext(Dispatchers.IO) {
+    withContext(IODispatcher) {
         try {
             val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext null
             val original = BitmapFactory.decodeStream(inputStream)

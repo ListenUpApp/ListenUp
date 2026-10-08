@@ -28,7 +28,7 @@ interface ControllerHolder {
 
     fun release()
 
-    val isConnected: StateFlow<Boolean>
+    val connected: StateFlow<Boolean>
     val controller: MediaController?
 
     /** See [MediaControllerHolder.awaitController]. */
@@ -57,11 +57,17 @@ class AndroidPlaybackController(
 ) : PlaybackController {
     private var cachedQueue: List<PlaybackMediaItem> = emptyList()
 
-    override fun acquire() = holder.acquire()
+    override fun acquire() {
+        holder.acquire()
+    }
 
-    override fun releasePlayer() = holder.release()
+    override fun releasePlayer() {
+        holder.release()
+    }
 
-    override val isReady: StateFlow<Boolean> = holder.isConnected
+    // The name is fixed by sharedLogic's PlaybackController (a Swift Export surface).
+    @Suppress("NonBooleanPropertyPrefixedWithIs")
+    override val isReady: StateFlow<Boolean> = holder.connected
 
     override fun play() {
         scope.launch {
@@ -229,7 +235,7 @@ fun MediaControllerHolder.asControllerHolder(): ControllerHolder =
 
         override fun release() = this@asControllerHolder.release()
 
-        override val isConnected: StateFlow<Boolean> = this@asControllerHolder.isConnected
+        override val connected: StateFlow<Boolean> = this@asControllerHolder.connected
         override val controller: MediaController? get() = this@asControllerHolder.controller
 
         override suspend fun awaitController(): MediaController? = this@asControllerHolder.awaitController()
