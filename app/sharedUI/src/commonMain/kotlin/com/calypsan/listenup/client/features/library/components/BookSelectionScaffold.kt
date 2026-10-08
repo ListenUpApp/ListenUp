@@ -56,11 +56,11 @@ fun BookSelectionScaffold(
     modifier: Modifier = Modifier,
 ) {
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
-    val isAdmin by multiSelect.isAdmin.collectAsStateWithLifecycle()
+    val isAdmin by multiSelect.adminAccess.collectAsStateWithLifecycle()
     val collections by multiSelect.collections.collectAsStateWithLifecycle()
     val myShelves by multiSelect.myShelves.collectAsStateWithLifecycle()
-    val isAddingToShelf by multiSelect.isAddingToShelf.collectAsStateWithLifecycle()
-    val isAddingToCollection by multiSelect.isAddingToCollection.collectAsStateWithLifecycle()
+    val isAddingToShelf by multiSelect.addingToShelf.collectAsStateWithLifecycle()
+    val isAddingToCollection by multiSelect.addingToCollection.collectAsStateWithLifecycle()
 
     val isInSelectionMode = selectionMode is SelectionMode.Active
     val selectedIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()

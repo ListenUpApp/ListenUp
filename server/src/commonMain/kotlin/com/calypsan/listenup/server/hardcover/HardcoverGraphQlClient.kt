@@ -122,10 +122,10 @@ class HardcoverGraphQlClient(
     /** The account [accessToken] belongs to. Hardcover answers `me` as a list; the first entry is the owner. */
     suspend fun me(accessToken: String): MeResult =
         execute(
-            accessToken,
-            ME_QUERY,
-            JsonObject(emptyMap()),
-            "me",
+            accessToken = accessToken,
+            query = ME_QUERY,
+            variables = JsonObject(emptyMap()),
+            label = "me",
             unauthorized = MeResult.Unauthorized,
             unavailable = { MeResult.Unavailable(it) },
         ) { body ->
@@ -166,7 +166,7 @@ class HardcoverGraphQlClient(
 
             is HardcoverCall.MissingScope -> {
                 HardcoverCandidatesResult.Unavailable(
-                    "booksTitled: missing scope ${result.scope}",
+                    "booksTitled: missing scope ${result.scope ?: "unknown"}",
                 )
             }
 
@@ -185,11 +185,11 @@ class HardcoverGraphQlClient(
         asin: String,
     ): HardcoverCall<HardcoverEditionHit?> =
         fetch(
-            accessToken,
-            EDITION_BY_ASIN_QUERY,
-            buildJsonObject { put("asin", asin) },
-            "editionByAsin",
-            ::firstEdition,
+            accessToken = accessToken,
+            query = EDITION_BY_ASIN_QUERY,
+            variables = buildJsonObject { put("asin", asin) },
+            label = "editionByAsin",
+            decode = ::firstEdition,
         )
 
     /** The edition with [isbn] as its ISBN-13 or ISBN-10, and its book, or null when Hardcover has none. */
@@ -198,11 +198,11 @@ class HardcoverGraphQlClient(
         isbn: String,
     ): HardcoverCall<HardcoverEditionHit?> =
         fetch(
-            accessToken,
-            EDITION_BY_ISBN_QUERY,
-            buildJsonObject { put("isbn", isbn) },
-            "editionByIsbn",
-            ::firstEdition,
+            accessToken = accessToken,
+            query = EDITION_BY_ISBN_QUERY,
+            variables = buildJsonObject { put("isbn", isbn) },
+            label = "editionByIsbn",
+            decode = ::firstEdition,
         )
 
     /** Up to five books titled exactly [title], most-rated first. */
@@ -210,14 +210,25 @@ class HardcoverGraphQlClient(
         accessToken: String,
         title: String,
     ): HardcoverCall<List<HardcoverCatalogBook>> =
-        fetch(accessToken, BOOKS_BY_TITLE_QUERY, buildJsonObject { put("title", title) }, "booksTitled", ::books)
+        fetch(
+            accessToken = accessToken,
+            query = BOOKS_BY_TITLE_QUERY,
+            variables = buildJsonObject { put("title", title) },
+            label = "booksTitled",
+            decode = ::books,
+        )
 
     /** Books Hardcover's search finds for [query], best first. Costs the request's one `search`. */
     suspend fun searchBooks(
         accessToken: String,
         query: String,
     ): HardcoverCall<List<HardcoverSearchHit>> =
-        fetch(accessToken, SEARCH_QUERY, buildJsonObject { put("query", query) }, "searchBooks") { body ->
+        fetch(
+            accessToken = accessToken,
+            query = SEARCH_QUERY,
+            variables = buildJsonObject { put("query", query) },
+            label = "searchBooks",
+        ) { body ->
             hardcoverJson
                 .decodeFromString<SearchResponse>(body)
                 .data
@@ -228,7 +239,12 @@ class HardcoverGraphQlClient(
                 .mapNotNull { hit ->
                     val document = hit.document
                     document.id.content.toLongOrNull()?.let { id ->
-                        HardcoverSearchHit(id, document.title, document.authorNames, document.releaseYear)
+                        HardcoverSearchHit(
+                            bookId = id,
+                            title = document.title,
+                            authors = document.authorNames,
+                            releaseYear = document.releaseYear,
+                        )
                     }
                 }
         }
@@ -239,28 +255,27 @@ class HardcoverGraphQlClient(
         ids: List<Long>,
     ): HardcoverCall<List<HardcoverCatalogBook>> =
         fetch(
-            accessToken,
-            BOOKS_BY_IDS_QUERY,
-            buildJsonObject { putJsonArray("ids") { ids.forEach { add(it) } } },
-            "booksByIds",
-            ::books,
+            accessToken = accessToken,
+            query = BOOKS_BY_IDS_QUERY,
+            variables = buildJsonObject { putJsonArray("ids") { ids.forEach { add(it) } } },
+            label = "booksByIds",
+            decode = ::books,
         )
 
-    private fun firstEdition(body: String): HardcoverEditionHit? =
-        hardcoverJson
-            .decodeFromString<EditionsResponse>(body)
-            .data
-            ?.editions
-            ?.firstOrNull()
-            ?.let { edition ->
-                edition.book?.let {
-                    HardcoverEditionHit(
-                        edition.id,
-                        edition.readingFormatId == AUDIOBOOK_READING_FORMAT,
-                        it.toCatalogBook(),
-                    )
-                }
-            }
+    private fun firstEdition(body: String): HardcoverEditionHit? {
+        val edition =
+            hardcoverJson
+                .decodeFromString<EditionsResponse>(body)
+                .data
+                ?.run { editions.firstOrNull() }
+                ?: return null
+        val book = edition.book ?: return null
+        return HardcoverEditionHit(
+            edition.id,
+            edition.readingFormatId == AUDIOBOOK_READING_FORMAT,
+            book.toCatalogBook(),
+        )
+    }
 
     private fun books(body: String): List<HardcoverCatalogBook> =
         hardcoverJson
@@ -278,7 +293,12 @@ class HardcoverGraphQlClient(
                 if (book == null || average == null || book.count <= 0) {
                     HardcoverRatingResult.NotFound
                 } else {
-                    HardcoverRatingResult.Found(average, book.count, book.title, book.author)
+                    HardcoverRatingResult.Found(
+                        average = average,
+                        count = book.count,
+                        title = book.title,
+                        author = book.author,
+                    )
                 }
             }
 
@@ -287,7 +307,7 @@ class HardcoverGraphQlClient(
             }
 
             is HardcoverCall.MissingScope -> {
-                HardcoverRatingResult.Unavailable("edition rating: missing scope $scope")
+                HardcoverRatingResult.Unavailable("edition rating: missing scope ${scope ?: "unknown"}")
             }
 
             is HardcoverCall.Throttled -> {
@@ -342,11 +362,12 @@ class HardcoverGraphQlClient(
         label: String,
         decode: (String) -> T,
     ): HardcoverCall<T> {
-        val body = call(accessToken, query, variables, label).valueOr { return it }
+        val body =
+            call(accessToken = accessToken, query = query, variables = variables, label = label).valueOr { return it }
         return try {
             HardcoverCall.Ok(decode(body))
         } catch (e: IllegalArgumentException) {
-            HardcoverCall.Failed("$label: undecodable answer (${e.message})")
+            HardcoverCall.Failed("$label: undecodable answer (${e.message.orEmpty()})")
         }
     }
 
@@ -359,10 +380,19 @@ class HardcoverGraphQlClient(
         unavailable: (String) -> T,
         onSuccess: (String) -> T,
     ): T =
-        when (val result = fetch(accessToken, query, variables, label, onSuccess)) {
+        when (
+            val result =
+                fetch(
+                    accessToken = accessToken,
+                    query = query,
+                    variables = variables,
+                    label = label,
+                    decode = onSuccess,
+                )
+        ) {
             is HardcoverCall.Ok -> result.value
             HardcoverCall.Unauthorized -> unauthorized
-            is HardcoverCall.MissingScope -> unavailable("$label: missing scope ${result.scope}")
+            is HardcoverCall.MissingScope -> unavailable("$label: missing scope ${result.scope ?: "unknown"}")
             is HardcoverCall.Throttled -> unavailable("$label: throttled")
             is HardcoverCall.Failed -> unavailable(result.detail)
         }

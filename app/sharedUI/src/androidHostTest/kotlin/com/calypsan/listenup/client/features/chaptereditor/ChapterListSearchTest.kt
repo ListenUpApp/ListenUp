@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.features.chaptereditor
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry
@@ -52,11 +52,14 @@ class ChapterListSearchTest {
                     selectedChapterId = null,
                     playheadMs = { null },
                     onSelect = {},
-                    onNudge = { _, _ -> },
-                    onSnapToPlayhead = {},
-                    onToggleLock = {},
+                    rowEdits =
+                        ChapterRowEdits(
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = {},
+                            onToggleLock = {},
+                            onEditTime = {},
+                        ),
                     rowMenu = ChapterRowMenuActions({}, {}, null, {}),
-                    onEditTime = {},
                     query = query,
                     onQueryChange = {},
                 )

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback.loudness
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.doubles.shouldBeGreaterThan
@@ -84,6 +85,8 @@ private fun round1(value: Double): Double = (value * 10).toInt() / 10.0
  * reproduces almost nothing below a few hundred Hz, so the fundamental that would otherwise mask
  * those harmonics is simply absent. The defect is route-independent; only its audibility is not.
  */
+private val logger = KotlinLogging.logger {}
+
 class NormalizationClippingTest :
     FunSpec({
         val fs = 48_000
@@ -109,15 +112,15 @@ class NormalizationClippingTest :
                         val clipped = signal.count { abs(VolumeGain.applySample(it, linear)) >= 1f }
                         "+${boost.toInt()}dB:$clipped"
                     }
-                println(
+                logger.info {
                     """
                     |
                     |--- $label
                     |  integrated : ${round1(integrated)} LUFS   peak: ${round1(peakDbfs)} dBFS   PLR: ${round1(plr)} dB
                     |  normalization asks for : ${round1(gainDb.toDouble())} dB
                     |  clipped samples by user boost : $row   (of ${signal.size})
-                    """.trimMargin(),
-                )
+                    """.trimMargin()
+                }
             }
             true shouldBe true
         }

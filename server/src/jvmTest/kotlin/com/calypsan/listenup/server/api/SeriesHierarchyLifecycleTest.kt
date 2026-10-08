@@ -389,7 +389,7 @@ class SeriesHierarchyLifecycleTest :
                         )
                     fromDelete
                         .filterIsInstance<SyncEvent.Updated<*>>()
-                        .map { (it.payload as SeriesSyncPayload).parentId } shouldContainExactly
+                        .map { it.payload.shouldBeInstanceOf<SeriesSyncPayload>().parentId } shouldContainExactly
                         listOf(cosmere.value, cosmere.value)
                 }
             }

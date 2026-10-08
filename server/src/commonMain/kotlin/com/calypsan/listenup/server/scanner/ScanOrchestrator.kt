@@ -74,7 +74,7 @@ internal class ScanOrchestrator(
     private var bundle: ScannerBundle? = null
 
     /** True if the library currently has a scan in flight. */
-    suspend fun isScanning(): Boolean = mutex.withLock { bundle?.coordinator?.isScanning() == true }
+    suspend fun isScanning(): Boolean = mutex.withLock { bundle?.run { coordinator.isScanning() } == true }
 
     /**
      * Registers [library] with the orchestrator: creates a [Scanner] +
@@ -131,12 +131,12 @@ internal class ScanOrchestrator(
             }
         // Close the old coordinator outside the lock — closes the incremental channel,
         // letting its worker coroutine drain and exit without cancelling the shared scope.
-        stale?.coordinator?.close()
+        stale?.run { coordinator.close() }
         if (watchEnabled) {
             watcherSupervisor.mount(libraryId, folder) { libId, path -> onFileChanged(libId, path) }
         }
         logger.info {
-            "Folder registered: library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath}" +
+            "Folder registered: library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath ?: "(redacted)"}" +
                 if (watchEnabled) "" else " (real-time watching disabled)"
         }
     }
@@ -167,7 +167,7 @@ internal class ScanOrchestrator(
             }
         // Close the old coordinator outside the lock — closes the incremental channel,
         // letting its worker coroutine drain and exit without cancelling the shared scope.
-        stale?.coordinator?.close()
+        stale?.run { coordinator.close() }
         watcherSupervisor.unmount(folderId)
         logger.info { "Folder removed: folder=${folderId.value}" }
     }
@@ -227,10 +227,10 @@ internal class ScanOrchestrator(
      * scan has completed yet or the library is not registered.
      */
     fun lastResult(libraryId: LibraryId): ScanResult? =
-        bundle?.takeIf { it.library.id == libraryId }?.scanner?.lastResult()
+        bundle?.takeIf { it.library.id == libraryId }?.run { scanner.lastResult() }
 
     /** The registered library id, or null before the library is configured. */
-    fun registeredLibraryId(): LibraryId? = bundle?.library?.id
+    fun registeredLibraryId(): LibraryId? = bundle?.run { library.id }
 
     /**
      * Triggers an incremental re-analysis of the subtree at [subtreePath] — the same work a
@@ -244,7 +244,7 @@ internal class ScanOrchestrator(
      * every registered folder is ignored here for the same reason [onFileChanged] ignores one.
      */
     fun reanalyzeSubtree(subtreePath: Path) {
-        val libraryId = bundle?.library?.id ?: return
+        val libraryId = bundle?.run { library.id } ?: return
         onFileChanged(libraryId, subtreePath)
     }
 
@@ -258,7 +258,7 @@ internal class ScanOrchestrator(
         // subtree the library doesn't own.
         val owns =
             active.library.folders.any { folder ->
-                folder.rootPath?.let { subtreePath.isUnder(Path(it)) } ?: false
+                folder.rootPath?.let { subtreePath.isUnder(Path(it)) } == true
             }
         if (!owns) {
             logger.debug { "ignoring filesystem event outside all registered folders: $subtreePath" }

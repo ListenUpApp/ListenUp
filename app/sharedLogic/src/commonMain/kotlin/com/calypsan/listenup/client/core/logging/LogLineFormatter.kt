@@ -56,9 +56,9 @@ fun formatLogLine(
         append(loggerName)
         append(" - ")
         append(message)
-        throwable?.let {
+        throwable?.let { cause ->
             append('\n')
-            append(it.stackTraceToString().trimEnd())
+            append(cause.stackTraceToString().trimEnd())
         }
     }
 }

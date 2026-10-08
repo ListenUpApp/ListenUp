@@ -159,9 +159,9 @@ class ShelfRepositoryOfflineTest :
                 row3.sortOrder shouldBe 2
                 val ops = db.pendingOperationV2Dao().nextDispatchable()
                 ops.map { it.entityId }.toSet() shouldBe setOf("s1:b2", "s1:b3")
-                ops.forEach {
-                    it.domainName shouldBe "shelf_books"
-                    it.opType shouldBe "create"
+                ops.forEach { op ->
+                    op.domainName shouldBe "shelf_books"
+                    op.opType shouldBe "create"
                 }
                 db.close()
             }

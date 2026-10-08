@@ -16,7 +16,6 @@ import com.calypsan.listenup.server.embeddedmeta.format.mp3.Mp3Parser
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
@@ -75,7 +74,9 @@ class ScannerEmbeddedmetaIntegrationTest :
                     book1.title shouldBe "The Embedded Title"
                     book1.authors shouldBe listOf("Author One")
                     book1.embeddedStatus shouldBe MetadataStatus.Available
-                    book1.embedded?.chapters?.size shouldBe 2
+                    book1.embedded
+                        .shouldNotBeNull()
+                        .chapters.size shouldBe 2
                     val cover1 = book1.cover.shouldBeInstanceOf<CoverSource.Embedded>()
                     cover1.artwork.mime shouldBe "image/jpeg"
                     book1.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.EMBEDDED
@@ -85,8 +86,9 @@ class ScannerEmbeddedmetaIntegrationTest :
                     val book2 = first.books.single { it.candidate.rootRelPath == "Author2/Title Two" }
                     book2.title shouldBe "Sidecar Title Two"
                     book2.authors shouldBe listOf("Sidecar Author Two")
-                    book2.embedded?.tags?.title shouldBe "Embedded Title Two"
-                    book2.embedded?.tags?.authors shouldBe listOf("Embedded Author Two")
+                    val book2Tags = book2.embedded.shouldNotBeNull().tags
+                    book2Tags.title shouldBe "Embedded Title Two"
+                    book2Tags.authors shouldBe listOf("Embedded Author Two")
                     // metadata.json wins the resolved title/authors; the embedded values survive as raw
                     // signal on `book2.embedded` (asserted above), winner-based provenance records ABS.
                     book2.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.ABS_METADATA

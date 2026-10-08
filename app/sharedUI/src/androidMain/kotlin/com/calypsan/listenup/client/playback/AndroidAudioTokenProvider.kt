@@ -31,7 +31,9 @@ class AndroidAudioTokenProvider(
 
     override fun currentToken(): String? = core.getToken()
 
-    override suspend fun refresh() = core.refreshToken()
+    override suspend fun refresh() {
+        core.refreshToken()
+    }
 }
 
 /**

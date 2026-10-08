@@ -26,7 +26,6 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec

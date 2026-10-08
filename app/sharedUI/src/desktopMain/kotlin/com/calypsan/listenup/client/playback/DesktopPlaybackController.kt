@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
  * (typically [FfmpegAudioPlayer] in production).
  *
  * `acquire`/`release` are no-ops — the AudioPlayer is constructed eagerly and
- * has no service-lifecycle. `isReady` is a constant `true` for the same reason.
+ * has no service-lifecycle. `ready` is a constant `true` for the same reason.
  *
  * Note: `releasePlayer` here does NOT call [AudioPlayer.releasePlayer]; that would tear down the
  * player permanently.
@@ -17,20 +17,28 @@ class DesktopPlaybackController(
     private val audioPlayer: AudioPlayer,
     private val playbackManager: PlaybackManager,
 ) : PlaybackController {
-    override val isReady: StateFlow<Boolean>
+    override val ready: StateFlow<Boolean>
         field = MutableStateFlow(true)
 
     override fun acquire() = Unit
 
     override fun releasePlayer() = Unit
 
-    override fun play() = audioPlayer.play()
+    override fun play() {
+        audioPlayer.play()
+    }
 
-    override fun pause() = audioPlayer.pause()
+    override fun pause() {
+        audioPlayer.pause()
+    }
 
-    override fun seekTo(positionMs: Long) = audioPlayer.seekTo(positionMs)
+    override fun seekTo(positionMs: Long) {
+        audioPlayer.seekTo(positionMs)
+    }
 
-    override fun setPlaybackSpeed(speed: Float) = audioPlayer.setSpeed(speed)
+    override fun setPlaybackSpeed(speed: Float) {
+        audioPlayer.setSpeed(speed)
+    }
 
     override fun stop() {
         audioPlayer.pause()

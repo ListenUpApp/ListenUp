@@ -408,7 +408,7 @@ private fun CollectionError.withCorrelationId(id: String?): CollectionError =
 
 /**
  * Re-dispatches the grouped `ShelfError`/`ReadingOrderError` branch of [withCorrelationId] to each
- * family's own exhaustive stamping. The `else` is unreachable (only called from that branch).
+ * family's own exhaustive stamping.
  */
 private fun AppError.bookListWithCorrelationId(id: String?): AppError =
     when (this) {

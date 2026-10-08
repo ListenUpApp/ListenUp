@@ -61,7 +61,7 @@ internal class ImageApi(
      */
     private suspend fun buildFullUrl(relativePath: String): String {
         // Active url, not local: covers/avatars must load from the remote host after a roam.
-        val serverUrl = serverConfig.getActiveUrl()?.value ?: ""
+        val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
         val path = relativePath.trimStart('/')
         return "$serverUrl/$path"
     }

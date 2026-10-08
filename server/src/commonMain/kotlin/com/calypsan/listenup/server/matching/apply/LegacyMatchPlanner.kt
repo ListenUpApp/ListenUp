@@ -56,12 +56,12 @@ internal object LegacyMatchPlanner {
             }
             stamp(draft, BookField.PUBLISH_YEAR, providerOf(BookField.PUBLISH_YEAR))
         }
-        match.authors.selected(selection.authorAsins).takeIf { it.isNotEmpty() }?.let {
-            draft.authors = it
+        match.authors.selected(selection.authorAsins).takeIf { it.isNotEmpty() }?.let { authors ->
+            draft.authors = authors
             stamp(draft, BookField.AUTHORS, providerOf(BookField.AUTHORS))
         }
-        match.narrators.selected(selection.narratorAsins).takeIf { it.isNotEmpty() }?.let {
-            draft.narrators = it
+        match.narrators.selected(selection.narratorAsins).takeIf { it.isNotEmpty() }?.let { narrators ->
+            draft.narrators = narrators
             stamp(draft, BookField.NARRATORS, providerOf(BookField.NARRATORS))
         }
         match.series

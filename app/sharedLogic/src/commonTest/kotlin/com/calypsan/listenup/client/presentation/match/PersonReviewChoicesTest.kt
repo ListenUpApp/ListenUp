@@ -15,7 +15,7 @@ import io.kotest.matchers.shouldBe
  */
 class PersonReviewChoicesTest :
     FunSpec({
-        val candidate = choosePersonFindOutcome(personFindResult()).let { (it as PersonFindOutcome.Candidates).strong.single() }
+        val candidate = (choosePersonFindOutcome(personFindResult()) as PersonFindOutcome.Candidates).strong.single()
 
         fun PersonReviewChoices.ready(review: com.calypsan.listenup.api.dto.match.PersonMatchReview = personReview()) =
             project(candidate, review, applying = false, applyError = null)
@@ -74,8 +74,7 @@ class PersonReviewChoicesTest :
             choices
                 .ready(review)
                 .biography
-                ?.proposed
-                ?.optionId shouldBe "b-hc"
+                ?.run { proposed.optionId } shouldBe "b-hc"
         }
 
         test("a hand-set photo is flagged you-edited and defaults to Keep current") {

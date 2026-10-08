@@ -232,7 +232,7 @@ internal class GenreDomainSeeder(
     override suspend fun seed() {
         val now = clock.now().toEpochMilliseconds()
         for (root in DEFAULT_GENRES) {
-            seedRecursive(root, parentId = null, parentPath = "", depth = 0, now = now)
+            seedRecursive(seed = root, parentId = null, parentPath = "", depth = 0, now = now)
         }
     }
 
@@ -286,7 +286,7 @@ internal class GenreDomainSeeder(
             }
 
         for (child in seed.children) {
-            seedRecursive(child, parentId = id, parentPath = path, depth = depth + 1, now = now)
+            seedRecursive(seed = child, parentId = id, parentPath = path, depth = depth + 1, now = now)
         }
     }
 }

@@ -11,7 +11,6 @@ import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 /**
  * Round-trip every metadata DTO and the provider-neutral [MetadataLocale] through

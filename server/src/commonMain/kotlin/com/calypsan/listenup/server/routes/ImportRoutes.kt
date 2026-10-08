@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.ImportRoutePaths
 import com.calypsan.listenup.api.dto.imports.ImportStatus
 import com.calypsan.listenup.api.dto.imports.ImportSummary
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.core.ImportId
@@ -19,13 +18,10 @@ import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.io.streamFirstFilePartTo
 import com.calypsan.listenup.server.io.writeText
 import com.calypsan.listenup.server.plugins.respondAppError
-import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
-import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
-import io.ktor.server.plugins.callid.callId
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
@@ -35,7 +31,6 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -86,8 +81,8 @@ fun Route.importRoutes(
 ) {
     post(ImportRoutePaths.ABS_UPLOAD) {
         val p = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
-        if (!p.role.isAdmin()) return@post call.respondAppError(AuthError.PermissionDenied())
-        call.handleImportUpload(paths, clock)
+        if (!p.role.isAdmin()) return@post respondAppError(call, AuthError.PermissionDenied())
+        handleImportUpload(call, paths, clock)
     }
 }
 
@@ -96,7 +91,8 @@ fun Route.importRoutes(
  * a fresh import directory, and responds an [ImportSummary]. The temp zip is always removed in a
  * `finally`; on any failure the partial import directory is removed too.
  */
-private suspend fun ApplicationCall.handleImportUpload(
+private suspend fun handleImportUpload(
+    call: ApplicationCall,
     paths: ImportPaths,
     clock: Clock,
 ) {
@@ -104,8 +100,8 @@ private suspend fun ApplicationCall.handleImportUpload(
     // Stream the upload to a temp file — never buffer a multi-hundred-MB ABS backup into memory.
     val tmpZip = createTempFileIn(paths.tmpDir, "abs-upload-", ".audiobookshelf")
     try {
-        if (!streamFirstFilePartTo(tmpZip, MAX_BACKUP_UPLOAD_BYTES)) {
-            respondAppError(ImportError.UploadFailed(debugInfo = "missing file part"))
+        if (!streamFirstFilePartTo(call, tmpZip, MAX_BACKUP_UPLOAD_BYTES)) {
+            respondAppError(call, ImportError.UploadFailed(debugInfo = "missing file part"))
             return
         }
 
@@ -113,11 +109,13 @@ private suspend fun ApplicationCall.handleImportUpload(
         val importId = "abs-${Uuid.random()}"
         val importDir = paths.dirFor(importId)
         SystemFileSystem.createDirectories(importDir)
+        // Cancellation IS rethrown — after deleting the half-written import dir, so none is left behind.
+        @Suppress("SuspendFunSwallowedCancellation")
         try {
             extractAbsDatabase(tmpZip, importDir, paths.absDbFor(importId))
             val createdAt = clock.now().toEpochMilliseconds()
             paths.metaFor(importId).writeText(metaJson.encodeToString(UploadMeta(createdAt = createdAt)))
-            respond(
+            call.respond(
                 HttpStatusCode.OK,
                 ImportSummary(
                     id = ImportId(importId),
@@ -129,16 +127,16 @@ private suspend fun ApplicationCall.handleImportUpload(
             )
         } catch (e: AbsDatabaseMissingException) {
             deleteRecursively(importDir)
-            respondAppError(ImportError.UploadFailed(debugInfo = e.message))
+            respondAppError(call, ImportError.UploadFailed(debugInfo = e.message))
         } catch (e: AbsDatabaseUnextractableException) {
             deleteRecursively(importDir)
-            respondAppError(ImportError.UploadFailed(debugInfo = e.message))
+            respondAppError(call, ImportError.UploadFailed(debugInfo = e.message))
         } catch (e: CancellationException) {
             deleteRecursively(importDir)
             throw e
         } catch (e: Exception) {
             deleteRecursively(importDir)
-            respondAppError(ImportError.UploadFailed(debugInfo = e.message))
+            respondAppError(call, ImportError.UploadFailed(debugInfo = e.message))
         }
     } finally {
         SystemFileSystem.delete(tmpZip, mustExist = false)

@@ -30,10 +30,10 @@ internal class DefaultBookAvailability(
 ) : BookAvailability {
     override fun observe(bookId: BookId): Flow<BookAvailability.State> =
         combine(
-            downloadRepository.observeBookStatus(bookId),
-            serverReachability.state,
-            networkMonitor.isOnUnmeteredNetworkFlow,
-            localPreferences.wifiOnlyDownloads,
+            flow = downloadRepository.observeBookStatus(bookId),
+            flow2 = serverReachability.state,
+            flow3 = networkMonitor.onUnmeteredNetworkFlow,
+            flow4 = localPreferences.wifiOnlyDownloads,
         ) { downloadStatus, reachability, unmetered, wifiOnly ->
             val isFullyDownloaded = downloadStatus is BookDownloadStatus.Completed
 

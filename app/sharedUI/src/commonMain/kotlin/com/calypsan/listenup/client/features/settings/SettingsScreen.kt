@@ -64,7 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SettingNavigationRow
 import com.calypsan.listenup.client.design.components.SettingRow
@@ -310,7 +310,7 @@ fun SettingsScreen(
  * The setting changes the Settings sections make, bound once to [SettingsViewModel] by
  * [SettingsScreen] — so [SettingsContent] renders from state alone and can be hosted without Koin.
  */
-internal class SettingsActions(
+internal data class SettingsActions(
     val onThemeModeChange: (ThemeMode) -> Unit,
     val onDynamicColorsChange: (Boolean) -> Unit,
     val onPlaybackSpeedChange: (Float) -> Unit,
@@ -349,7 +349,7 @@ internal fun SettingsContent(
     onNavigateToCategories: (() -> Unit)? = null,
 ) {
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     val appearance: @Composable () -> Unit = {
@@ -602,7 +602,11 @@ private fun LibrarySection(
 
 /** Settings → Library → Categories: only for those who may curate the library (a null [onOpenCategories] draws nothing). */
 @Composable
-internal fun CurationRow(onOpenCategories: (() -> Unit)?) {
+internal fun CurationRow(
+    // Nullable on purpose: null draws nothing for those who may not curate.
+    @Suppress("CanBeNonNullable")
+    onOpenCategories: (() -> Unit)?,
+) {
     if (onOpenCategories == null) return
     SettingNavigationRow(
         icon = Icons.Default.Category,

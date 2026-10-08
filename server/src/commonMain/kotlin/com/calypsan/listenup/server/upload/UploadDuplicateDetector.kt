@@ -97,8 +97,7 @@ internal class UploadDuplicateDetector(
         val targetAuthor =
             analyzed.authors
                 .firstOrNull()
-                ?.let(::normalizeText)
-                ?.takeIf { it.isNotEmpty() }
+                ?.let { author -> normalizeText(author).takeIf { it.isNotEmpty() } }
         return sql.booksQueries
             .selectLiveIdsAndTitlesForLibrary(libraryId.value)
             .executeAsList()

@@ -37,6 +37,7 @@ import io.ktor.serialization.kotlinx.json.json
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.exists
+import java.util.Locale
 
 /**
  * The upload REST surface end to end through the real [module]: session lifecycle, the admin
@@ -226,7 +227,7 @@ private fun String.urlEncoded(): String =
             if (c.isLetterOrDigit() || c in "-._~%") {
                 append(c)
             } else {
-                c.toString().encodeToByteArray().forEach { b -> append('%').append("%02X".format(b)) }
+                c.toString().encodeToByteArray().forEach { b -> append('%').append("%02X".format(Locale.ROOT, b)) }
             }
         }
     }

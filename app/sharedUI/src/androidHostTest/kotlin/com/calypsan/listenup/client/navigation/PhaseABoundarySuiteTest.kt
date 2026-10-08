@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.calypsan.listenup.client.testing.FakeNavViewModel
 import com.calypsan.listenup.client.testing.NavDisplayTestHarness
 import org.junit.After

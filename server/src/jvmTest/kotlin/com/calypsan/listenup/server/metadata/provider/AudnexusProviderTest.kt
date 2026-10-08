@@ -186,7 +186,7 @@ class AudnexusProviderTest :
                     val genres =
                         provider.getGenres(identity(), US).shouldBeInstanceOf<AppResult.Success<List<*>?>>().data
                     genres.shouldNotBeNull()
-                    genres.map { (it as GenreMeta).kind } shouldBe
+                    genres.map { it.shouldBeInstanceOf<GenreMeta>().kind } shouldBe
                         listOf(GenreKind.GENRE, GenreKind.TAG)
                 }
             }
@@ -243,7 +243,7 @@ class AudnexusProviderTest :
                             .searchContributors("rothfuss", US)
                             .shouldBeInstanceOf<AppResult.Success<List<*>>>()
                             .data
-                    hits.map { (it as ContributorHitMeta).key } shouldBe listOf("A1")
+                    hits.map { it.shouldBeInstanceOf<ContributorHitMeta>().key } shouldBe listOf("A1")
 
                     val profile =
                         provider
@@ -282,7 +282,7 @@ class AudnexusProviderTest :
                             .searchContributors("tim curry", US)
                             .shouldBeInstanceOf<AppResult.Success<List<*>>>()
                             .data
-                    hits.map { (it as ContributorHitMeta).key } shouldBe listOf("A1", "A2")
+                    hits.map { it.shouldBeInstanceOf<ContributorHitMeta>().key } shouldBe listOf("A1", "A2")
                 }
             }
         }

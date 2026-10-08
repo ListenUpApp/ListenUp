@@ -75,7 +75,7 @@ class NoBridgedEnumCollectionsInUiStateRule :
                 bridgedPresentationProperties
                     .filter { it.name !in ALLOWED_ENUM_COLLECTION_MEMBERS }
                     .filter { prop -> exposesEnumCollection(prop.type?.text, enumNames) }
-                    .map { "${it.name}: ${it.type?.text} in ${it.path}" }
+                    .map { "${it.name}: ${it.type?.text ?: "untyped"} in ${it.path}" }
 
             offenders.shouldBeEmpty()
         }

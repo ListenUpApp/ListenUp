@@ -57,9 +57,13 @@ class FakeAuthSession(
 
     override suspend fun updateAccessToken(token: AccessToken) = Unit
 
-    override suspend fun clearAuthTokens() = onClearAuthTokens()
+    override suspend fun clearAuthTokens() {
+        onClearAuthTokens()
+    }
 
-    override suspend fun clearSessionCredentials() = onClearSessionCredentials()
+    override suspend fun clearSessionCredentials() {
+        onClearSessionCredentials()
+    }
 
     override suspend fun isAuthenticated(): Boolean = true
 

@@ -35,7 +35,7 @@ class RegistrationPolicyRpcTest :
         val pepper = "x".repeat(32).toByteArray()
         val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
 
-        class Fixture(
+        data class Fixture(
             val svc: AuthServiceImpl,
             val broadcaster: RegistrationPolicyBroadcaster,
             val settings: ServerSettingsRepository,
@@ -106,8 +106,8 @@ class RegistrationPolicyRpcTest :
                     fix.svc
                         .observeRegistrationPolicy()
                         .policies()
-                        .onEach {
-                            if (it == RegistrationPolicy.OPEN) {
+                        .onEach { policy ->
+                            if (policy == RegistrationPolicy.OPEN) {
                                 // Re-broadcast of the current value, then a real change. Without dedup
                                 // the duplicate OPEN would be the second collected item.
                                 fix.broadcaster.notify(RegistrationPolicy.OPEN)
@@ -128,10 +128,10 @@ class RegistrationPolicyRpcTest :
                     fix.svc
                         .observeRegistrationPolicy()
                         .policies()
-                        .onEach {
-                            // Persist a change WITHOUT a broadcast — only the poll can deliver it.
+                        .onEach { policy ->
+                            // Persist a change WITHOUT a broadcast — only the poll can deliver policy.
                             // runTest's virtual time skips the poll cadence instantly.
-                            if (it == RegistrationPolicy.OPEN) {
+                            if (policy == RegistrationPolicy.OPEN) {
                                 fix.settings.setRegistrationPolicy(RegistrationPolicy.CLOSED)
                             }
                         }.take(2)

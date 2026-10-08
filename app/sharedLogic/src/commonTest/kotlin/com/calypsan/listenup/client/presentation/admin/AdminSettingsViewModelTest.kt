@@ -204,7 +204,7 @@ class AdminSettingsViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 // The optimistic flip reverts to the server-confirmed value on failure.
                 ready.holdNewBooksForReview shouldBe false
-                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
+                (ready.error?.run { message.contains("Forbidden") } == true) shouldBe true
             }
         }
 
@@ -246,7 +246,7 @@ class AdminSettingsViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 // The optimistic flip reverts to the server-confirmed value on failure.
                 ready.pushNotificationsEnabled shouldBe true
-                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
+                (ready.error?.run { message.contains("Forbidden") } == true) shouldBe true
             }
         }
 
@@ -316,7 +316,7 @@ class AdminSettingsViewModelTest :
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 ready.isSaving shouldBe false
-                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
+                (ready.error?.run { message.contains("Forbidden") } == true) shouldBe true
                 // Dirty remains true because buffer diverges from baseline after failed save.
                 ready.isDirty shouldBe true
             }
@@ -405,7 +405,7 @@ class AdminSettingsViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 // The optimistic flip reverts to the server-confirmed list on failure.
                 ready.ratingSources shouldBe listOf(before)
-                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
+                (ready.error?.run { message.contains("Forbidden") } == true) shouldBe true
             }
         }
 
@@ -576,7 +576,7 @@ class AdminSettingsViewModelTest :
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 ready.metadataRegion shouldBe "uk"
-                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
+                (ready.error?.run { message.contains("Forbidden") } == true) shouldBe true
             }
         }
     })

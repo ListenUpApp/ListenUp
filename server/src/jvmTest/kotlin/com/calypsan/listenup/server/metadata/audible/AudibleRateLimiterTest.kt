@@ -5,7 +5,6 @@ package com.calypsan.listenup.server.metadata.audible
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.currentTime
@@ -86,16 +85,7 @@ class AudibleRateLimiterTest :
                 limiter.await(AudibleRegion.US)
                 clock.epochMs = currentTime
 
-                var caughtCancellation = false
-                val job =
-                    launch {
-                        try {
-                            limiter.await(AudibleRegion.US)
-                        } catch (e: CancellationException) {
-                            caughtCancellation = true
-                            throw e
-                        }
-                    }
+                val job = launch { limiter.await(AudibleRegion.US) }
 
                 // Advance 500ms — not enough to unblock (needs 10s).
                 advanceTimeBy(500.milliseconds)
@@ -104,7 +94,8 @@ class AudibleRateLimiterTest :
                 job.cancel()
                 job.join()
 
-                caughtCancellation shouldBe true
+                // Cancelled, not completed: the await was still suspended in its delay when cancel landed.
+                job.isCancelled shouldBe true
             }
         }
     })

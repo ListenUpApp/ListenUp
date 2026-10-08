@@ -88,20 +88,20 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onUserClick = { userId ->
                 backStack.add(AdminUserDetail(userId))
             },
-            serverName = readySettings?.serverName ?: "",
-            onServerNameChange = { settingsViewModel.setServerName(it) },
-            remoteUrl = readySettings?.remoteUrl ?: "",
-            onRemoteUrlChange = { settingsViewModel.setRemoteUrl(it) },
-            holdNewBooksForReview = readySettings?.holdNewBooksForReview ?: false,
-            onHoldNewBooksForReviewChange = { settingsViewModel.setHoldNewBooksForReview(it) },
-            pushNotificationsEnabled = readySettings?.pushNotificationsEnabled ?: true,
-            onPushNotificationsEnabledChange = { settingsViewModel.setPushNotificationsEnabled(it) },
-            ratingSources = readySettings?.ratingSources ?: emptyList(),
+            serverName = readySettings?.serverName.orEmpty(),
+            onServerNameChange = { name -> settingsViewModel.setServerName(name) },
+            remoteUrl = readySettings?.remoteUrl.orEmpty(),
+            onRemoteUrlChange = { url -> settingsViewModel.setRemoteUrl(url) },
+            holdNewBooksForReview = readySettings?.holdNewBooksForReview == true,
+            onHoldNewBooksForReviewChange = { hold -> settingsViewModel.setHoldNewBooksForReview(hold) },
+            pushNotificationsEnabled = readySettings?.pushNotificationsEnabled != false,
+            onPushNotificationsEnabledChange = { enabled -> settingsViewModel.setPushNotificationsEnabled(enabled) },
+            ratingSources = readySettings?.ratingSources.orEmpty(),
             onRatingSourceEnabledChange = { source, enabled ->
                 settingsViewModel.setRatingSourceEnabled(source, enabled)
             },
             metadataRegion = readySettings?.metadataRegion ?: MetadataLocale.DEFAULT.region,
-            onMetadataRegionChange = { settingsViewModel.setMetadataRegion(it) },
+            onMetadataRegionChange = { region -> settingsViewModel.setMetadataRegion(region) },
             hardcoverSource = readySettings?.hardcoverSource,
             hardcoverTokenSave = readySettings?.hardcoverTokenSave ?: HardcoverTokenSave.Idle,
             hardcoverActions =

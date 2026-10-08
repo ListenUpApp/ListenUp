@@ -57,13 +57,11 @@ class TitleSortUtilsTest :
         }
 
         test("sortableTitle ensures 2 sorts before 12") {
-            val sort2 = TitleSortUtils.sortableTitle("2001: A Space Odyssey", ignoreArticles = false)
+            // Unpadded, "2" sorts after "12" as text; the padding is what puts it first.
+            val sort2 = TitleSortUtils.sortableTitle("2 States", ignoreArticles = false)
             val sort12 = TitleSortUtils.sortableTitle("12 Angry Men", ignoreArticles = false)
+            (sort2 < sort12) shouldBe true
 
-            // 0000002001 < 0000000012 is false, but sorted numerically 2001 > 12
-            // Actually we're checking padding - let me verify the comparison
-            // "0000002001" > "0000000012" because 2001 > 12 when padded
-            // But the test should be that single-digit numbers sort before double-digit
             val sort1 = TitleSortUtils.sortableTitle("1 Fish 2 Fish", ignoreArticles = false)
             val sort100 = TitleSortUtils.sortableTitle("100 Years of Solitude", ignoreArticles = false)
 

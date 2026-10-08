@@ -19,7 +19,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,7 +34,6 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
-import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
 import com.calypsan.listenup.client.playback.PlaybackManager
@@ -99,11 +98,8 @@ fun ChapterEditorScreen(
     var pendingDiscard by remember { mutableStateOf(false) }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
     var lane by remember { mutableStateOf<TimelineLane?>(null) }
-    var query by remember { mutableStateOf("") }
 
     val editing = state as? ChapterEditorUiState.Editing
-    // From the shared state, which already knows whether this book is the one in the player.
-    val fileBoundaries = editing?.fileBoundaries.orEmpty()
     val isDirty = editing?.isDirty == true
     val leave = { if (isDirty) pendingDiscard = true else onBack() }
 
@@ -119,10 +115,7 @@ fun ChapterEditorScreen(
     LaunchedEffect(isThisBookLoaded) {
         if (isThisBookLoaded) {
             // Not yet opened: the lane opens around the playhead on its own (TimelineLane.opening).
-            lane =
-                lane?.let { current ->
-                    editing?.let { current.centredOn(position.value, it.bookDurationMs) } ?: current
-                }
+            lane = lane.centredOnPlayhead(position.value, editing)
         }
     }
 
@@ -187,11 +180,8 @@ fun ChapterEditorScreen(
             padding = padding,
             playheadMs = playheadMs,
             hasPlayhead = isThisBookLoaded,
-            fileBoundaries = fileBoundaries,
             lane = lane,
             onLaneChange = { lane = it },
-            query = query,
-            onQueryChange = { query = it },
             onPinAnchor = {
                 val selected = editing?.selectedChapterId
                 val at = playheadMs()
@@ -217,7 +207,7 @@ fun ChapterEditorScreen(
 
     RowActionDialogs(
         action = rowAction,
-        chapterOf = { id -> editing?.chapters?.firstOrNull { it.id == id } },
+        chapterOf = { id -> editing?.run { chapters.firstOrNull { it.id == id } } },
         onAction = { rowAction = it },
         onRename = viewModel::retitle,
         onRetime = viewModel::retime,
@@ -286,8 +276,8 @@ private fun RowActionDialogs(
         is RowAction.EditingTime -> {
             ChapterTimeDialog(
                 initialMs = chapterOf(action.chapterId)?.startTime ?: 0L,
-                onConfirm = {
-                    onRetime(action.chapterId, it)
+                onConfirm = { startMs ->
+                    onRetime(action.chapterId, startMs)
                     onAction(null)
                 },
                 onDismiss = { onAction(null) },
@@ -297,8 +287,8 @@ private fun RowActionDialogs(
         is RowAction.Renaming -> {
             RenameChapterDialog(
                 initialTitle = chapterOf(action.chapterId)?.title.orEmpty(),
-                onConfirm = {
-                    onRename(action.chapterId, it)
+                onConfirm = { title ->
+                    onRename(action.chapterId, title)
                     onAction(null)
                 },
                 onDismiss = { onAction(null) },
@@ -329,17 +319,15 @@ private fun ChapterEditorBody(
     padding: PaddingValues,
     playheadMs: () -> Long?,
     hasPlayhead: Boolean,
-    fileBoundaries: List<TimelineFileBoundary>,
     lane: TimelineLane?,
     onLaneChange: (TimelineLane) -> Unit,
-    query: String,
-    onQueryChange: (String) -> Unit,
     onPinAnchor: () -> Unit,
     newChapterTitle: String,
     viewModel: ChapterEditorViewModel,
     rowMenu: ChapterRowMenuActions,
     onEditTime: (String) -> Unit,
 ) {
+    var query by remember { mutableStateOf("") }
     when (state) {
         ChapterEditorUiState.Loading -> {
             Box(Modifier.fillMaxSize().padding(padding), Alignment.Center) { ListenUpLoadingIndicator() }
@@ -384,26 +372,30 @@ private fun ChapterEditorBody(
                         lane = currentLane,
                         onLaneChange = onLaneChange,
                         isWide =
-                            currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                            currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
                                 WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
                             ),
                         selectedChapterId = state.selectedChapterId,
                         playheadMs = playheadMs,
                         onSelect = viewModel::select,
-                        // The row already speaks milliseconds (COARSE_NUDGE_MS); nothing scales it here.
-                        onNudge = viewModel::nudge,
                         onAddAtPlayhead = { viewModel.addAt(playheadMs() ?: 0L, newChapterTitle) },
-                        onSnapToPlayhead = { id -> playheadMs()?.let { viewModel.snapToPlayhead(id, it) } },
-                        onToggleLock = viewModel::toggleLock,
+                        rowEdits =
+                            ChapterRowEdits(
+                                // The row already speaks milliseconds (COARSE_NUDGE_MS); nothing scales it here.
+                                onNudge = viewModel::nudge,
+                                onSnapToPlayhead = { id -> playheadMs()?.let { viewModel.snapToPlayhead(id, it) } },
+                                onToggleLock = viewModel::toggleLock,
+                                onEditTime = onEditTime,
+                            ),
                         rowMenu = rowMenu,
-                        onEditTime = onEditTime,
-                        fileBoundaries = fileBoundaries,
+                        // From the shared state, which already knows whether this book is the one in the player.
+                        fileBoundaries = state.fileBoundaries,
                         // The corrected positions, drawn beside the current ones. This is the
                         // parameter the lane has always accepted and nothing ever supplied.
                         ghosts = driftGhosts(state),
                         lockedChapterIds = state.lockedChapterIds,
                         query = query,
-                        onQueryChange = onQueryChange,
+                        onQueryChange = { query = it },
                         // Clamped between neighbours by the ViewModel, so a drag can never push a
                         // boundary past the one beside it however far the finger travels.
                         onRetime = viewModel::retime,
@@ -438,11 +430,17 @@ private fun EditorStatus(editing: ChapterEditorUiState.Editing?) {
             editing.isDirty -> stringResource(Res.string.chapter_editor_unsaved)
             else -> null
         }
-    label?.let {
+    label?.let { statusLabel ->
         Text(
-            it,
+            statusLabel,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
+
+/** An opened lane re-centred on the playhead; an unopened one (null) is left to open there itself. */
+private fun TimelineLane?.centredOnPlayhead(
+    positionMs: Long,
+    editing: ChapterEditorUiState.Editing?,
+): TimelineLane? = if (this == null || editing == null) this else centredOn(positionMs, editing.bookDurationMs)

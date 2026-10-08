@@ -1,8 +1,9 @@
 package com.calypsan.listenup.client.features.admin.organize
 
+import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SectionColumns
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,8 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DriveFileMove
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -103,8 +102,8 @@ fun OrganizeSettingsScreen(
 
     val readyError = (state as? OrganizeSettingsUiState.Ready)?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it.localizedString())
+        readyError?.let { error ->
+            snackbarHostState.showSnackbar(error.localizedString())
             viewModel.clearError()
         }
     }
@@ -127,7 +126,7 @@ fun OrganizeSettingsScreen(
         topBar = {
             ColorBlockHero(
                 title = stringResource(Res.string.admin_organize),
-                badgeIcon = Icons.Outlined.DriveFileMove,
+                badgeIcon = Icons.AutoMirrored.Outlined.DriveFileMove,
                 onBack = onBackClick,
                 actions =
                     ready?.let {
@@ -195,7 +194,7 @@ internal fun OrganizeSettingsContent(
 ) {
     val settings = state.settings
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     val structure: @Composable () -> Unit = { StructurePicker(settings = settings, onPresetChange = onPresetChange) }

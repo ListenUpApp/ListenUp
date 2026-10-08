@@ -4,7 +4,8 @@ import com.calypsan.listenup.api.dto.organize.OrganizeRunEvent
 import com.calypsan.listenup.api.dto.organize.OrganizeRunId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -57,16 +58,19 @@ class OrganizeRunState {
      * [id]'s events from the start of the run, completing after the terminal
      * [OrganizeRunEvent.Completed]. An unknown/superseded id yields an empty flow.
      */
-    suspend fun eventsFor(id: OrganizeRunId): Flow<OrganizeRunEvent> {
-        val flow = mutex.withLock { if (runId == id) events else null } ?: return emptyFlow()
-        // transformWhile (not takeWhile): the terminal event itself must be emitted, and the
-        // hot SharedFlow never produces anything after it — a takeWhile would hang forever
-        // waiting for the first non-matching element.
-        return flow.transformWhile { event ->
-            emit(event)
-            event !is OrganizeRunEvent.Completed
+    fun eventsFor(id: OrganizeRunId): Flow<OrganizeRunEvent> =
+        flow {
+            val source = mutex.withLock { if (runId == id) events else null } ?: return@flow
+            // transformWhile (not takeWhile): the terminal event itself must be emitted, and the
+            // hot SharedFlow never produces anything after it — a takeWhile would hang forever
+            // waiting for the first non-matching element.
+            emitAll(
+                source.transformWhile { event ->
+                    emit(event)
+                    event !is OrganizeRunEvent.Completed
+                },
+            )
         }
-    }
 
     /** The in-flight run's id, or `null` when idle / the last run already completed. */
     suspend fun activeRunId(): OrganizeRunId? = mutex.withLock { if (terminal) null else runId }

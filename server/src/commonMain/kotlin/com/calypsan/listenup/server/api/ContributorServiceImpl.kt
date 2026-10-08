@@ -20,10 +20,6 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.logging.loggerFor
-import kotlinx.coroutines.CancellationException
-
-private val logger = loggerFor<ContributorServiceImpl>()
 
 /**
  * Thin [ContributorService] implementation.
@@ -108,7 +104,14 @@ internal class ContributorServiceImpl(
 ) : ContributorService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ContributorServiceImpl =
-        ContributorServiceImpl(contributorRepo, bookRepo, sqlDb, accessPolicy, permissionPolicy, principal)
+        ContributorServiceImpl(
+            contributorRepo = contributorRepo,
+            bookRepo = bookRepo,
+            sqlDb = sqlDb,
+            accessPolicy = accessPolicy,
+            permissionPolicy = permissionPolicy,
+            principal = principal,
+        )
 
     /**
      * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
@@ -150,13 +153,14 @@ internal class ContributorServiceImpl(
         val current =
             contributorRepo.findById(id.value)
                 ?: return contributorNotFound(id)
+        val editorId = principal.current()?.run { userId.value }
         val patched =
-            current.applyPatch(patch).let {
-                it.copy(
+            current.applyPatch(patch).let { applied ->
+                applied.copy(
                     fieldProvenance =
-                        it.fieldProvenance.stampUser(
+                        applied.fieldProvenance.stampUser(
                             patch.touchedFields(),
-                            principal.current()?.userId?.value,
+                            editorId,
                         ),
                 )
             }
@@ -390,7 +394,13 @@ fun createContributorService(
     bookRepo: BookRepository,
     sqlDb: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
-): ContributorService = ContributorServiceImpl(contributorRepo, bookRepo, sqlDb, BookAccessPolicy(sqlDb, driver))
+): ContributorService =
+    ContributorServiceImpl(
+        contributorRepo = contributorRepo,
+        bookRepo = bookRepo,
+        sqlDb = sqlDb,
+        accessPolicy = BookAccessPolicy(sqlDb, driver),
+    )
 
 /**
  * Scopes a [ContributorService] built by [createContributorService] to [principal] for one

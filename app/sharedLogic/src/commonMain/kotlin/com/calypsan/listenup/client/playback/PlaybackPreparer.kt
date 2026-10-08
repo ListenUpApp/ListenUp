@@ -178,7 +178,7 @@ class PlaybackPreparer internal constructor(
             // An escaping throw — e.g. a transport exception from the streaming-prepare RPC when the
             // book isn't downloaded — is folded to a typed failure and logged with its real cause.
             logger.error(e) { "Playback prepare failed for ${bookId.value}" }
-            AppResult.Failure(PlaybackError.CouldNotStart(debugInfo = "bookId=${bookId.value}: ${e.message}"))
+            AppResult.Failure(PlaybackError.CouldNotStart(debugInfo = "bookId=${bookId.value}: $e"))
         }
 
     /**
@@ -214,7 +214,7 @@ class PlaybackPreparer internal constructor(
         // Get series name + id (first series if multiple) — id feeds the player's "Go to Series".
         val firstSeries = bookWithContributors.series.firstOrNull()
         val seriesName = firstSeries?.name
-        val seriesId = firstSeries?.id?.value
+        val seriesId = firstSeries?.run { id.value }
         val authorRefs =
             contributorRefs(bookWithContributors.contributors, bookWithContributors.contributorRoles, ContributorRole.AUTHOR)
         val narratorRefs =
@@ -304,7 +304,7 @@ class PlaybackPreparer internal constructor(
             }
 
         logger.debug {
-            "Resume position: ${resumePositionMs}ms, speed: ${resumeSpeed}x (hasCustomSpeed=${savedPosition?.hasCustomSpeed})"
+            "Resume position: ${resumePositionMs}ms, speed: ${resumeSpeed}x (hasCustomSpeed=${savedPosition?.hasCustomSpeed == true})"
         }
 
         if (resumePositionMs < 0) {
@@ -548,7 +548,7 @@ class PlaybackPreparer internal constructor(
                             durationMs = file.duration,
                             size = file.size,
                             localPath = localPaths[file.id],
-                            streamingUrl = preparedUrls.direct[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
+                            streamingUrl = preparedUrls.direct[file.id].orEmpty(), // "" when downloaded — localPath wins in playbackUri
                             hlsUrl = preparedUrls.hls[file.id],
                         )
                     },
@@ -729,16 +729,16 @@ internal data class ResolvedResumePosition(
 internal fun resolveResumePosition(
     local: PlaybackPosition?,
     server: PlaybackPositionSyncPayload?,
-): ResolvedResumePosition? =
-    when {
-        local == null && server == null -> null
-        server == null ->
-            ResolvedResumePosition(local!!.positionMs, local.isFinished, local.effectiveLastPlayedAtMs)
-        local == null -> ResolvedResumePosition(server.positionMs, server.finished, server.lastPlayedAt)
-        server.lastPlayedAt > local.effectiveLastPlayedAtMs ->
-            ResolvedResumePosition(server.positionMs, server.finished, server.lastPlayedAt)
-        else -> ResolvedResumePosition(local.positionMs, local.isFinished, local.effectiveLastPlayedAtMs)
+): ResolvedResumePosition? {
+    val fromLocal = local?.run { ResolvedResumePosition(positionMs, isFinished, effectiveLastPlayedAtMs) }
+    val fromServer = server?.run { ResolvedResumePosition(positionMs, finished, lastPlayedAt) }
+    return when {
+        fromLocal == null -> fromServer
+        fromServer == null -> fromLocal
+        fromServer.lastPlayedAtMs > fromLocal.lastPlayedAtMs -> fromServer
+        else -> fromLocal
     }
+}
 
 // ========== Type Conversions ==========
 

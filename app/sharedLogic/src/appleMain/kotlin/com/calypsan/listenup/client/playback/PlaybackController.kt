@@ -7,7 +7,7 @@ actual interface PlaybackController {
 
     actual fun releasePlayer()
 
-    actual val isReady: StateFlow<Boolean>
+    actual val ready: StateFlow<Boolean>
 
     actual fun play()
 

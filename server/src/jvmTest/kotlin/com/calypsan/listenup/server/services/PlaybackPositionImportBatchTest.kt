@@ -114,17 +114,17 @@ private suspend fun positionSnapshot(
 ): List<String> =
     repo
         .listForUser(UserId(userId), limit = 1_000)
-        .map {
+        .map { position ->
             listOf(
-                it.bookId,
-                it.positionMs,
-                it.lastPlayedAt,
-                it.finished,
-                it.playbackSpeed,
-                it.currentChapterId,
-                it.revision,
-                it.createdAt,
-                it.updatedAt,
-                it.deletedAt,
+                position.bookId,
+                position.positionMs,
+                position.lastPlayedAt,
+                position.finished,
+                position.playbackSpeed,
+                position.currentChapterId,
+                position.revision,
+                position.createdAt,
+                position.updatedAt,
+                position.deletedAt,
             ).joinToString("|")
         }.sorted()

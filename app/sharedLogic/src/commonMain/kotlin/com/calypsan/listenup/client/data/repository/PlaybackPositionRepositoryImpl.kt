@@ -193,7 +193,7 @@ internal class PlaybackPositionRepositoryImpl(
         // variant that doesn't heal it) would look absent here and push a blank-defaults request.
         val entity = dao.get(bookId)
         val request =
-            requestFor(bookId, update, entity, now = currentEpochMilliseconds())
+            requestFor(bookId = bookId, update = update, entity = entity, now = currentEpochMilliseconds())
                 ?.carryingPickedStartOf(bookId)
                 ?: return false
 
@@ -249,7 +249,13 @@ internal class PlaybackPositionRepositoryImpl(
     ): RecordPositionRequest? =
         when (update) {
             is PlaybackUpdate.Position -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
+                snapshotRequest(
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.positionMs,
+                    lastPlayedAt = now,
+                    playbackSpeed = update.speed,
+                )
             }
 
             // The four flag-changing variants state the flag explicitly rather than inheriting it
@@ -257,10 +263,10 @@ internal class PlaybackPositionRepositoryImpl(
             // even if the row snapshot were read before the handler's write landed.
             is PlaybackUpdate.Speed -> {
                 snapshotRequest(
-                    bookId,
-                    entity,
-                    update.positionMs,
-                    now,
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.positionMs,
+                    lastPlayedAt = now,
                     playbackSpeed = update.speed,
                     hasCustomSpeed = update.custom,
                 )
@@ -268,10 +274,10 @@ internal class PlaybackPositionRepositoryImpl(
 
             is PlaybackUpdate.SpeedReset -> {
                 snapshotRequest(
-                    bookId,
-                    entity,
-                    update.positionMs,
-                    now,
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.positionMs,
+                    lastPlayedAt = now,
                     playbackSpeed = update.defaultSpeed,
                     hasCustomSpeed = false,
                 )
@@ -279,10 +285,10 @@ internal class PlaybackPositionRepositoryImpl(
 
             is PlaybackUpdate.VolumeBoost -> {
                 snapshotRequest(
-                    bookId,
-                    entity,
-                    update.positionMs,
-                    now,
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.positionMs,
+                    lastPlayedAt = now,
                     volumeBoostDb = update.boostDb,
                     hasCustomBoost = update.custom,
                 )
@@ -290,24 +296,30 @@ internal class PlaybackPositionRepositoryImpl(
 
             is PlaybackUpdate.BoostReset -> {
                 snapshotRequest(
-                    bookId,
-                    entity,
-                    update.positionMs,
-                    now,
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.positionMs,
+                    lastPlayedAt = now,
                     volumeBoostDb = update.defaultBoostDb,
                     hasCustomBoost = false,
                 )
             }
 
             is PlaybackUpdate.MeasuredGain -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, measuredGainDb = update.gainDb)
+                snapshotRequest(
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.positionMs,
+                    lastPlayedAt = now,
+                    measuredGainDb = update.gainDb,
+                )
             }
 
             is PlaybackUpdate.PlaybackStarted -> {
                 snapshotRequest(
-                    bookId,
-                    entity,
-                    update.positionMs,
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.positionMs,
                     // The row's own value, which handlePlaybackStarted deliberately left at the
                     // last REAL listening (see there). Sending `now` would push a stale position
                     // as globally-newest and discard another device's newer progress. `?: now`
@@ -318,15 +330,33 @@ internal class PlaybackPositionRepositoryImpl(
             }
 
             is PlaybackUpdate.PlaybackPaused -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
+                snapshotRequest(
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.positionMs,
+                    lastPlayedAt = now,
+                    playbackSpeed = update.speed,
+                )
             }
 
             is PlaybackUpdate.PeriodicUpdate -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
+                snapshotRequest(
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.positionMs,
+                    lastPlayedAt = now,
+                    playbackSpeed = update.speed,
+                )
             }
 
             is PlaybackUpdate.BookFinished -> {
-                snapshotRequest(bookId, entity, update.finalPositionMs, now, finished = true)
+                snapshotRequest(
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = update.finalPositionMs,
+                    lastPlayedAt = now,
+                    finished = true,
+                )
             }
 
             // The start rides the wire only here, and only when the reader picked it: the server
@@ -334,10 +364,10 @@ internal class PlaybackPositionRepositoryImpl(
             // and the row's own startedAt (local playback bookkeeping) is never sent.
             is PlaybackUpdate.MarkComplete -> {
                 snapshotRequest(
-                    bookId,
-                    entity,
-                    entity?.positionMs ?: 0L,
-                    now,
+                    bookId = bookId,
+                    entity = entity,
+                    positionMs = entity?.positionMs ?: 0L,
+                    lastPlayedAt = now,
                     finished = true,
                     startedAt = update.startedAt,
                 )
@@ -352,12 +382,12 @@ internal class PlaybackPositionRepositoryImpl(
             PlaybackUpdate.DiscardProgress,
             PlaybackUpdate.Restart,
             -> {
-                entity?.let {
+                entity?.let { row ->
                     snapshotRequest(
-                        bookId,
-                        it,
-                        it.positionMs,
-                        lastPlayedAt = it.lastPlayedAt ?: now,
+                        bookId = bookId,
+                        entity = row,
+                        positionMs = row.positionMs,
+                        lastPlayedAt = row.lastPlayedAt ?: now,
                         finished = false,
                     )
                 }
@@ -374,13 +404,13 @@ internal class PlaybackPositionRepositoryImpl(
         entity: PlaybackPositionEntity?,
         positionMs: Long,
         lastPlayedAt: Long,
-        finished: Boolean = entity?.isFinished ?: false,
+        finished: Boolean = entity?.isFinished == true,
         playbackSpeed: Float = entity?.playbackSpeed ?: 1.0f,
         volumeBoostDb: Float = entity?.volumeBoostDb ?: 0f,
         measuredGainDb: Float? = entity?.measuredGainDb,
         finishedAt: Long? = entity?.finishedAt,
-        hasCustomSpeed: Boolean = entity?.hasCustomSpeed ?: false,
-        hasCustomBoost: Boolean = entity?.hasCustomBoost ?: false,
+        hasCustomSpeed: Boolean = entity?.hasCustomSpeed == true,
+        hasCustomBoost: Boolean = entity?.hasCustomBoost == true,
         startedAt: Long? = null,
     ): RecordPositionRequest =
         RecordPositionRequest(
@@ -410,7 +440,9 @@ internal class PlaybackPositionRepositoryImpl(
         // updates 0 rows — insert a fresh blank row in that case only, so the fallback
         // can never race a concurrent speed/boost writer (C-C05).
         val now = currentEpochMilliseconds()
-        if (dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now) == 0) {
+        if (dao.updatePositionOnly(bookId = bookId, positionMs = u.positionMs, updatedAt = now, lastPlayedAt = now) ==
+            0
+        ) {
             dao.save(blank(bookId, now).copy(positionMs = u.positionMs, lastPlayedAt = now))
         }
     }
@@ -569,7 +601,9 @@ internal class PlaybackPositionRepositoryImpl(
         // updatePositionOnly (per dao contract). See handlePosition for the insert-if-zero
         // fallback rationale (C-C05).
         val now = currentEpochMilliseconds()
-        if (dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now) == 0) {
+        if (dao.updatePositionOnly(bookId = bookId, positionMs = u.positionMs, updatedAt = now, lastPlayedAt = now) ==
+            0
+        ) {
             dao.save(blank(bookId, now).copy(positionMs = u.positionMs, lastPlayedAt = now))
         }
     }
@@ -580,7 +614,9 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         // See handlePosition for the insert-if-zero fallback rationale (C-C05).
         val now = currentEpochMilliseconds()
-        if (dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now) == 0) {
+        if (dao.updatePositionOnly(bookId = bookId, positionMs = u.positionMs, updatedAt = now, lastPlayedAt = now) ==
+            0
+        ) {
             dao.save(blank(bookId, now).copy(positionMs = u.positionMs, lastPlayedAt = now))
         }
     }

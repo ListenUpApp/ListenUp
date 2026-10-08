@@ -23,6 +23,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import java.util.Locale
 
 /**
  * Adversarial test suite for [RestoreOrchestrator].
@@ -62,7 +63,7 @@ class RestoreOrchestratorTest :
                         "INSERT INTO restore_test(v) VALUES ('row-A')",
                     )
 
-                    val archivePath = fixture.archive.create("rt1", includeImages = false, onEvent = {})
+                    fixture.archive.create("rt1", includeImages = false, onEvent = {})
                     val backupId = BackupId("rt1")
 
                     // Mutate to row B after backup
@@ -380,7 +381,7 @@ class RestoreOrchestratorTest :
 private fun sha256OfBytes(bytes: ByteArray): String {
     val digest = java.security.MessageDigest.getInstance("SHA-256")
     digest.update(bytes)
-    return digest.digest().joinToString("") { "%02x".format(it) }
+    return digest.digest().joinToString("") { "%02x".format(Locale.ROOT, it) }
 }
 
 /**

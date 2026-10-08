@@ -7,7 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -132,7 +132,7 @@ class HardcoverSettingsContentTest {
         clipboard.primaryClip
             ?.getItemAt(0)
             ?.text
-            .toString() shouldBe "ABCD-1234"
+            ?.toString() shouldBe "ABCD-1234"
     }
 
     @Test

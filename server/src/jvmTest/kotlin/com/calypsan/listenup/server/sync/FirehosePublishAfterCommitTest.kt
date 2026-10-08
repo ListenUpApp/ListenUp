@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import io.kotest.assertions.throwables.shouldThrowAny
 
 class FirehosePublishAfterCommitTest :
     FunSpec({
@@ -27,7 +28,7 @@ class FirehosePublishAfterCommitTest :
                 // violates the partial-unique index, the insert throws inside the repo's
                 // transactionWithResult, SQLDelight rolls back, and the afterCommit emit
                 // never fires — its event must NEVER reach the firehose.
-                runCatching {
+                shouldThrowAny {
                     tagRepo.upsert(Tag("rolled-back", "ghost", "dup-slug", 0, 0))
                 }
                 // A committed control the subscriber WILL receive — proves the stream is live.
@@ -39,11 +40,11 @@ class FirehosePublishAfterCommitTest :
                 val frame =
                     rpcFirehose(bus, rootPrincipal("test-user"))
                         .domainFrames()
-                        .first {
-                            it.domain == "tags" &&
+                        .first { candidate ->
+                            candidate.domain == "tags" &&
                                 (
-                                    it.json.contains(""""name":"real"""") ||
-                                        it.json.contains(""""name":"ghost"""")
+                                    candidate.json.contains(""""name":"real"""") ||
+                                        candidate.json.contains(""""name":"ghost"""")
                                 )
                         }
                 frame.json.contains(""""name":"real"""") shouldBe true

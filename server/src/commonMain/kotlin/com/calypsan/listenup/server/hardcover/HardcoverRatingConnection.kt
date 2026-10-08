@@ -46,6 +46,6 @@ class HardcoverRatingConnection(
         when (this) {
             is TokenLookup.Broken -> 2
             TokenLookup.Unavailable -> 1
-            else -> 0
+            is TokenLookup.Valid, TokenLookup.NotConnected -> 0
         }
 }

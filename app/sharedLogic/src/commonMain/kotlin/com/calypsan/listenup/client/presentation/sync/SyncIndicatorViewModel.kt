@@ -100,17 +100,17 @@ sealed interface SyncIndicatorUiEvent {
  */
 class SyncIndicatorViewModel(
     private val pendingOperationRepository: PendingOperationRepository,
-    private val syncRepository: SyncRepository,
+    syncRepository: SyncRepository,
 ) : ViewModel() {
-    val isExpanded: StateFlow<Boolean>
+    val expanded: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     val state: StateFlow<SyncIndicatorUiState> =
         combine(
-            pendingOperationRepository.observeVisibleOperations(),
-            pendingOperationRepository.observeInProgressOperation(),
-            pendingOperationRepository.observeFailedOperations(),
-            syncRepository.syncState,
+            flow = pendingOperationRepository.observeVisibleOperations(),
+            flow2 = pendingOperationRepository.observeInProgressOperation(),
+            flow3 = pendingOperationRepository.observeFailedOperations(),
+            flow4 = syncRepository.syncState,
         ) { visibleOps, inProgress, failedOps, pullSyncState ->
             val pendingCount =
                 visibleOps.count {
@@ -135,9 +135,16 @@ class SyncIndicatorViewModel(
             val pullSyncDescription =
                 when (pullSyncState) {
                     is SyncState.Progress -> pullSyncState.message
+
                     is SyncState.Syncing -> "Syncing library…"
+
                     is SyncState.Retrying -> "Retrying sync (${pullSyncState.attempt}/${pullSyncState.maxAttempts})…"
-                    else -> null
+
+                    SyncState.Idle,
+                    is SyncState.Success,
+                    is SyncState.Error,
+                    is SyncState.LibraryMismatch,
+                    -> null
                 }
 
             SyncIndicatorUiState(
@@ -165,7 +172,7 @@ class SyncIndicatorViewModel(
     }
 
     fun toggleExpanded() {
-        isExpanded.value = !isExpanded.value
+        expanded.value = !expanded.value
     }
 
     private fun retryOperation(id: String) {

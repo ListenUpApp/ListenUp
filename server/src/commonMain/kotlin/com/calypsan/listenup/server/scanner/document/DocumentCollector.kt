@@ -37,6 +37,7 @@ internal class DocumentCollector {
         files: List<FileEntry>,
     ): List<AnalyzedDocument> =
         files
+            .asSequence()
             .filter { it.fileType == FileType.EBOOK }
             .map { entry -> entry to Path(libraryRoot, entry.relPath) }
             .sortedBy { (_, absolutePath) -> absolutePath.toString() }
@@ -53,5 +54,5 @@ internal class DocumentCollector {
                     size = statFile(absolutePath)?.size ?: error("file vanished during scan: $absolutePath"),
                     hash = hashFileSha256(absolutePath),
                 )
-            }
+            }.toList()
 }

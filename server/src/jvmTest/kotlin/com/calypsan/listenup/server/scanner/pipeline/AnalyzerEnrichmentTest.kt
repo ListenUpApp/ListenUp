@@ -19,7 +19,6 @@ import com.calypsan.listenup.server.scanner.audioLibrary
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -79,7 +78,9 @@ class AnalyzerEnrichmentTest :
                     book.embeddedStatus shouldBe MetadataStatus.Available
                     book.embedded.shouldNotBeNull()
                     book.embedded?.format shouldBe AudioFormat.Mp3
-                    book.embedded?.tags?.title shouldBe "Words of Radiance"
+                    book.embedded
+                        .shouldNotBeNull()
+                        .tags.title shouldBe "Words of Radiance"
                     book.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.EMBEDDED
                 }
             }
@@ -191,7 +192,9 @@ class AnalyzerEnrichmentTest :
                             .getOrThrow()
 
                     book.title shouldBe "Sidecar Title"
-                    book.embedded?.tags?.title shouldBe "Embedded Title"
+                    book.embedded
+                        .shouldNotBeNull()
+                        .tags.title shouldBe "Embedded Title"
                     // Winner-based provenance: metadata.json wins the title over the embedded tag (the
                     // embedded value is still preserved on `book.embedded` as raw signal, asserted above).
                     book.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.ABS_METADATA
@@ -269,7 +272,9 @@ class AnalyzerEnrichmentTest :
                     book.title shouldBe "Folder Title"
                     // Embedded tags are still parsed and preserved verbatim — only the
                     // resolved view skips them.
-                    book.embedded?.tags?.title shouldBe "Embedded Title"
+                    book.embedded
+                        .shouldNotBeNull()
+                        .tags.title shouldBe "Embedded Title"
                 }
             }
         }
@@ -327,11 +332,9 @@ class AnalyzerEnrichmentTest :
                     book.chapters[2].index shouldBe 3
                     book.chaptersSource shouldBe BookChapterSource.AbsMetadata
                     // embedded chapters preserved verbatim on `embedded`
-                    book.embedded?.chapters?.shouldHaveSize(2)
-                    book.embedded
-                        ?.chapters
-                        ?.get(0)
-                        ?.title shouldBe "Embedded Chapter A"
+                    val embeddedChapters = book.embedded.shouldNotBeNull().chapters
+                    embeddedChapters.shouldHaveSize(2)
+                    embeddedChapters[0].title shouldBe "Embedded Chapter A"
                 }
             }
         }

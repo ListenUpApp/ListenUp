@@ -20,7 +20,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
-import kotlinx.io.write
 import java.io.File
 
 /**
@@ -84,6 +83,8 @@ class DownloadCancellationTest :
 
                     val job =
                         launch {
+                            // Models DownloadWorker's handler: persist the cancellation, then rethrow it.
+                            @Suppress("SuspendFunSwallowedCancellation")
                             try {
                                 awaitCancellation()
                             } catch (e: CancellationException) {

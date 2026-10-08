@@ -45,6 +45,10 @@ complexity:
   NamedArguments:
     active: true
     allowedArguments: 3
+    # Production code only. In tests the bulk is fixture construction (`payload("u1", true, …)`), where
+    # naming every argument buried the case under labels: 3,513 hits once type resolution switched the
+    # rule on (2026-10-08), most of them there.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   NestedBlockDepth:
     active: true
     allowedDepth: 4
@@ -81,6 +85,9 @@ coroutines:
     active: true
   InjectDispatcher:
     active: true
+    # Production code only: a test that runs on a real dispatcher chose it on purpose, and has no graph to
+    # inject one from.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   RedundantSuspendModifier:
     active: true
   SleepInsteadOfDelay:
@@ -89,6 +96,8 @@ coroutines:
     active: true
   SuspendFunWithCoroutineScopeReceiver:
     active: true
+    # Production code only: test helpers extend Ktor's HttpClient/HttpResponse, CoroutineScopes only incidentally.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   SuspendFunWithFlowReturnType:
     active: true
 
@@ -188,8 +197,11 @@ exceptions:
 
 naming:
   active: true
+  # Off: it only ever ran once type resolution reached it (2026-10-08), and then flagged 869 properties,
+  # most of them @Serializable wire fields (`setupRequired`, `hidden`) whose Kotlin names mirror the
+  # contract on every platform. Renaming them is churn across Swift and web for no reader's benefit.
   BooleanPropertyNaming:
-    active: true
+    active: false
     allowedPattern: '^(is|has|are|can|should|may|will)'
   ClassNaming:
     active: true
@@ -294,6 +306,11 @@ potential-bugs:
     active: true
   ElseCaseInsteadOfExhaustiveWhen:
     active: true
+    # AppError is open-ended by design (35+ families, forward-compatible UNKNOWN decoding), so a `when`
+    # over any AppError with a fallback is correct. Matched against the subject's static type by exact
+    # fully-qualified name: a simple name ('AppError') never matches, and subtypes are not covered
+    # (a `when (e: AuthError)` still fires). Verified by experiment, detekt 2.0.0-alpha.6.
+    ignoredSubjectTypes: ['com.calypsan.listenup.api.error.AppError']
   EqualsAlwaysReturnsTrueOrFalse:
     active: true
   EqualsWithHashCodeExist:
@@ -306,6 +323,8 @@ potential-bugs:
     active: true
   IgnoredReturnValue:
     active: true
+    # Production code only: in tests a Mokkery `verify {}` names a Flow-returning call it never collects.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   ImplicitDefaultLocale:
     active: true
   ImplicitUnitReturnType:

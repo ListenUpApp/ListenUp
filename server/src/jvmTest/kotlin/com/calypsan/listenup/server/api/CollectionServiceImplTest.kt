@@ -37,6 +37,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import io.kotest.matchers.nulls.shouldNotBeNull
 
 /**
  * Integration tests for [CollectionServiceImpl].
@@ -191,15 +192,15 @@ class CollectionServiceImplTest :
 
                     db.makeBooksVisibleTo("u1", "book1")
                     service.addBookToCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
-                    service.listCollectionBooks(collectionId).let {
-                        require(it is AppResult.Success)
-                        it.data shouldBe listOf(BookId("book1"))
+                    service.listCollectionBooks(collectionId).let { books ->
+                        require(books is AppResult.Success)
+                        books.data shouldBe listOf(BookId("book1"))
                     }
 
                     service.removeBookFromCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
-                    service.listCollectionBooks(collectionId).let {
-                        require(it is AppResult.Success)
-                        it.data shouldHaveSize 0
+                    service.listCollectionBooks(collectionId).let { books ->
+                        require(books is AppResult.Success)
+                        books.data shouldHaveSize 0
                     }
                 }
             }
@@ -246,9 +247,9 @@ class CollectionServiceImplTest :
                     require(created is AppResult.Success)
                     service.deleteCollection(created.data.id) shouldBe AppResult.Success(Unit)
                     // Gone from listing.
-                    service.listCollections().let {
-                        require(it is AppResult.Success)
-                        it.data shouldHaveSize 0
+                    service.listCollections().let { collections ->
+                        require(collections is AppResult.Success)
+                        collections.data shouldHaveSize 0
                     }
 
                     // Seed an inbox collection directly; deleting it is rejected.
@@ -309,7 +310,7 @@ class CollectionServiceImplTest :
 
                     // Preconditions: cascade targets exist and are live.
                     collectionBookRepo.countLiveForCollection(collectionId.value) shouldBe 1L
-                    require(grantRepo.findActiveGrant(collectionId.value, "u2") != null)
+                    grantRepo.findActiveGrant(collectionId.value, "u2").shouldNotBeNull()
 
                     service.deleteCollection(collectionId) shouldBe AppResult.Success(Unit)
 
@@ -581,16 +582,16 @@ class CollectionServiceImplTest :
                         require(it is AppResult.Success)
                     }
                     // Precondition: u2 sees it.
-                    service.actAs("u2").listCollections().let {
-                        require(it is AppResult.Success)
-                        it.data shouldHaveSize 1
+                    service.actAs("u2").listCollections().let { collections ->
+                        require(collections is AppResult.Success)
+                        collections.data shouldHaveSize 1
                     }
 
                     owner.revokeShare(collectionId, "u2") shouldBe AppResult.Success(Unit)
 
-                    service.actAs("u2").listCollections().let {
-                        require(it is AppResult.Success)
-                        it.data shouldHaveSize 0
+                    service.actAs("u2").listCollections().let { collections ->
+                        require(collections is AppResult.Success)
+                        collections.data shouldHaveSize 0
                     }
                 }
             }

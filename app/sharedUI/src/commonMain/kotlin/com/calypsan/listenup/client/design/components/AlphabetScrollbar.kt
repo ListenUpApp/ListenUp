@@ -262,7 +262,8 @@ fun AlphabetScrollbar(
                 selectedLetter = letter
                 selectedLetterIndex = index
                 selectedLetterY = centerY
-                alphabetIndex.letterToIndex[letter]?.let(onLetterSelected)
+                val itemIndex = alphabetIndex.letterToIndex[letter]
+                if (itemIndex != null) onLetterSelected(itemIndex)
 
                 // Haptic feedback - stronger for initial touch, tick for subsequent
                 if (isInitialTouch) {

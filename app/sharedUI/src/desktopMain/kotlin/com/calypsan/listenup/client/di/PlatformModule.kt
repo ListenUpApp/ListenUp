@@ -19,7 +19,6 @@ import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.FfmpegAudioPlayer
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -47,7 +46,7 @@ val platformModule: Module =
 
         // Application-scoped coroutine scope for background operations
         single {
-            CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            CoroutineScope(SupervisorJob() + IODispatcher)
         }
 
         // Playback-scoped coroutine scope

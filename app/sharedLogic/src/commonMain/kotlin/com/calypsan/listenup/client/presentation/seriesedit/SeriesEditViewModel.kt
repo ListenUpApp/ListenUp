@@ -16,7 +16,6 @@ import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.SeriesUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -74,7 +73,7 @@ class SeriesEditViewModel internal constructor(
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
     private val seriesEditRepository: SeriesEditRepository,
-    private val seriesDao: SeriesDao,
+    seriesDao: SeriesDao,
     private val errorBus: ErrorBus,
     private val networkMonitor: NetworkMonitor,
     private val permissionsRepository: PermissionsRepository,
@@ -182,11 +181,13 @@ class SeriesEditViewModel internal constructor(
     val addSubSeries: StateFlow<AddSubSeriesUiState> = subSeries.state
 
     /** Handle the "Add sub-series" sheet's events. */
-    fun onAddSubSeriesEvent(event: AddSubSeriesEvent) = subSeries.onEvent(event)
+    fun onAddSubSeriesEvent(event: AddSubSeriesEvent) {
+        subSeries.onEvent(event)
+    }
 
     init {
         viewModelScope.launch {
-            networkMonitor.isOnlineFlow.collect { online -> state.update { it.copy(isOnline = online) } }
+            networkMonitor.onlineFlow.collect { online -> state.update { it.copy(isOnline = online) } }
         }
         permissionsRepository
             .observeCan(Permission.CURATE_LIBRARY)
@@ -234,14 +235,14 @@ class SeriesEditViewModel internal constructor(
 
             // Store original values
             originalName = series.name
-            originalDescription = series.description ?: ""
+            originalDescription = series.description.orEmpty()
             originalCoverPath = coverPath
 
-            state.update {
-                it.copy(
+            state.update { current ->
+                current.copy(
                     isLoading = false,
                     name = series.name,
-                    description = series.description ?: "",
+                    description = series.description.orEmpty(),
                     coverPath = coverPath,
                     bookCount = bookCount,
                     hasChanges = false,
@@ -383,8 +384,8 @@ class SeriesEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to merge series: ${result.message}" }
-                    state.update {
-                        it.copy(
+                    state.update { current ->
+                        current.copy(
                             mergeInProgress = false,
                             error =
                                 when (result.error) {
@@ -437,8 +438,8 @@ class SeriesEditViewModel internal constructor(
                     logger.info { "Cover saved to staging for preview: $stagingPath" }
 
                     // Store pending data for upload when Save Changes is clicked
-                    state.update {
-                        it.copy(
+                    state.update { current ->
+                        current.copy(
                             isUploadingCover = false,
                             stagingCoverPath = stagingPath,
                             pendingCoverData = imageData,
@@ -451,8 +452,8 @@ class SeriesEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(saveResult.error)
                     logger.error { "Failed to save cover to staging: ${saveResult.message}" }
-                    state.update {
-                        it.copy(
+                    state.update { current ->
+                        current.copy(
                             isUploadingCover = false,
                             error = "Failed to save cover: ${saveResult.message}",
                         )
@@ -477,8 +478,8 @@ class SeriesEditViewModel internal constructor(
             imageStagingRepository.requestSeriesCoverStagingCleanup(seriesId)
         }
 
-        state.update {
-            it.copy(
+        state.update { current ->
+            current.copy(
                 stagingCoverPath = null,
                 pendingCoverData = null,
                 pendingCoverFilename = null,
@@ -520,8 +521,8 @@ class SeriesEditViewModel internal constructor(
 
             when (result) {
                 is AppResult.Success -> {
-                    state.update {
-                        it.copy(
+                    state.update { saving ->
+                        saving.copy(
                             isSaving = false,
                             hasChanges = false,
                             pendingCoverData = null,

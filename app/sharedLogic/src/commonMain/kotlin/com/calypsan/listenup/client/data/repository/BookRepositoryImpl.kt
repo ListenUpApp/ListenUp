@@ -190,6 +190,7 @@ internal class BookRepositoryImpl(
             rows
                 .groupBy { it.id }
                 .values
+                .asSequence()
                 .filter { bookRows ->
                     val sequences = bookRows.mapNotNull { it.sequence }
                     sequences.isEmpty() || sequences.any { isFirstInSeries(it) }
@@ -197,6 +198,7 @@ internal class BookRepositoryImpl(
                 .shuffled()
                 .take(limit)
                 .map { it.toDiscoveryBook(imageStorage) }
+                .toList()
         }
 
     /**
@@ -290,13 +292,19 @@ internal class BookRepositoryImpl(
         val bookId = BookId(id)
         var attemptedFetch = false
         return combine(
-            bookDao.observeByIdWithContributors(bookId),
-            joinSources.genreRepository.observeGenresForBook(id),
-            joinSources.tagRepository.observeTagsForBook(id),
-            joinSources.moodRepository.observeMoodsForBook(id),
+            flow = bookDao.observeByIdWithContributors(bookId),
+            flow2 = joinSources.genreRepository.observeGenresForBook(id),
+            flow3 = joinSources.tagRepository.observeTagsForBook(id),
+            flow4 = joinSources.moodRepository.observeMoodsForBook(id),
         ) { row, genres, tags, moods ->
             val audioFiles = if (row != null) audioFileDao.getForBook(id).map { it.toAudioFile() } else emptyList()
-            row?.toDetail(imageStorage, genres, tags, moods, audioFiles)
+            row?.toDetail(
+                imageStorage = imageStorage,
+                genres = genres,
+                tags = tags,
+                moods = moods,
+                audioFiles = audioFiles,
+            )
         }.onEach { detail ->
             if (detail == null && !attemptedFetch && networkMonitor.isOnline()) {
                 attemptedFetch = true
@@ -342,7 +350,13 @@ internal class BookRepositoryImpl(
         val tags = joinSources.tagRepository.observeTagsForBook(id).first()
         val moods = joinSources.moodRepository.observeMoodsForBook(id).first()
         val audioFiles = audioFileDao.getForBook(id).map { it.toAudioFile() }
-        return row.toDetail(imageStorage, genres, tags, moods, audioFiles)
+        return row.toDetail(
+            imageStorage = imageStorage,
+            genres = genres,
+            tags = tags,
+            moods = moods,
+            audioFiles = audioFiles,
+        )
     }
 
     /**

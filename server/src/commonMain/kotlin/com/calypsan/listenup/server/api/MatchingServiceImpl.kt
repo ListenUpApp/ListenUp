@@ -52,7 +52,7 @@ import com.calypsan.listenup.server.matching.toFindSubject
 private const val MAX_FIND_QUERY_LENGTH = 200
 
 /** Match details' Review, Apply and Undo, bundled for [MatchingServiceImpl]. */
-internal class MatchDetails(
+internal data class MatchDetails(
     val reviewer: BookReviewer,
     val applier: BookMatchApplier,
     val undoer: MatchUndoer,
@@ -61,7 +61,7 @@ internal class MatchDetails(
 )
 
 /** Match details' person Review, Apply and Undo. [loadPerson] reads a live contributor, or null. */
-internal class PersonMatchDetails(
+internal data class PersonMatchDetails(
     val reviewer: PersonReviewer,
     val applier: PersonMatchApplier,
     val undoer: PersonMatchUndoer,
@@ -160,7 +160,9 @@ internal class MatchingServiceImpl(
         val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
         val book = loadBook(bookId) ?: return AppResult.Failure(notFound(bookId))
         val locale = matchLocale(request.candidate, request.region, book)
-        return withCapturedFrames { details.applier.apply(book, request, locale, caller.userId.value) }
+        return withCapturedFrames {
+            details.applier.apply(book = book, request = request, locale = locale, appliedBy = caller.userId.value)
+        }
     }
 
     override suspend fun reviewPersonMatch(
@@ -184,7 +186,14 @@ internal class MatchingServiceImpl(
         val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
         val person = details.people.loadPerson(contributorId) ?: return AppResult.Failure(notFound(contributorId))
         val locale = personLocale(request.candidate)
-        return withCapturedFrames { details.people.applier.apply(person, request, locale, caller.userId.value) }
+        return withCapturedFrames {
+            details.people.applier.apply(
+                contributor = person,
+                request = request,
+                locale = locale,
+                appliedBy = caller.userId.value,
+            )
+        }
     }
 
     override suspend fun undoMatch(receiptId: String): AppResult<Mutated<UndoResult>> {
@@ -254,8 +263,8 @@ internal class MatchingServiceImpl(
     /** Per-user throttle; a no-op when no limiter or no principal is bound (direct-construction tests). */
     private suspend fun enforceRate(bucket: MetadataRateBucket = MetadataRateBucket.SEARCH): AppError? {
         val limiter = rateLimiter ?: return null
-        val userId = principal.current()?.userId?.value ?: return null
-        return when (val decision = limiter.check(bucket, userId)) {
+        val callerId = principal.current()?.run { userId.value } ?: return null
+        return when (val decision = limiter.check(bucket, callerId)) {
             RateDecision.Allowed -> null
             is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
         }

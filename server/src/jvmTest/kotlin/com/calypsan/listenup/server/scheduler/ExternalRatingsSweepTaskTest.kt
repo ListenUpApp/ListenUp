@@ -33,6 +33,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import java.util.Locale
 
 /**
  * Tests for [ExternalRatingsSweepTask.runOnce] — the nightly 1/30th-of-the-library sweep. The
@@ -95,7 +96,7 @@ class ExternalRatingsSweepTaskTest :
                 sql.seedTestLibraryAndFolder()
                 // 31 books, none with an ASIN — ceil(31 / 30) = 2. Hardcover can rate
                 // a book by ISBN or title, so an ASIN-less book is as eligible as any other.
-                (1..31).forEach { sql.seedTestBook("book%02d".format(it)) }
+                (1..31).forEach { sql.seedTestBook("book%02d".format(Locale.ROOT, it)) }
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val books = sql.bookRepo(bus, registry, driver)
@@ -129,7 +130,7 @@ class ExternalRatingsSweepTaskTest :
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 // 31 ASIN'd books, none ever fetched — ceil(31 / 30) = 2, never floor's 1.
-                val ids = (1..31).map { "book%02d".format(it) }
+                val ids = (1..31).map { "book%02d".format(Locale.ROOT, it) }
                 ids.forEach { id -> sql.seedTestBook(id, asin = "$id-asin") }
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
@@ -169,7 +170,7 @@ class ExternalRatingsSweepTaskTest :
                 sql.seedTestBook("fine", asin = "B-FINE")
                 // 29 filler books, already fetched recently, so the sweep's 2 candidates (ceil(31/30))
                 // are "boom" and "fine" — both never-touched, sorting ahead of the fillers.
-                val fillerIds = (1..29).map { "filler%02d".format(it) }
+                val fillerIds = (1..29).map { "filler%02d".format(Locale.ROOT, it) }
                 fillerIds.forEach { id -> sql.seedTestBook(id, asin = "$id-asin") }
                 val bus = ChangeBus()
                 val registry = SyncRegistry()

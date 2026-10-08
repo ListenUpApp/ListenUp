@@ -17,8 +17,8 @@ private fun lookupFixture(name: String): String =
     checkNotNull(HardcoverCatalogLookupsTest::class.java.getResource("/hardcover/$name")) { "missing fixture $name" }.readText()
 
 private class RecordingCatalog(
-    private val reply: String,
-    private val status: HttpStatusCode = HttpStatusCode.OK,
+    reply: String,
+    status: HttpStatusCode = HttpStatusCode.OK,
 ) {
     var sentBody = ""
     val client =

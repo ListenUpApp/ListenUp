@@ -199,9 +199,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
 
     /** A user-scoped domain's writes must name their user. */
     private fun requireUserForScopedWrite(userId: String?) {
-        if (userScoped) {
-            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
-        }
+        require(!userScoped || userId != null) { "user-scoped write on '$domainName' requires a userId" }
     }
 
     /**
@@ -271,7 +269,14 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         val capture = currentCoroutineContext()[FrameCapture.Key]
         val result =
             suspendTransaction(db) {
-                AppResult.Success(upsertEventInOpenTransaction(value, suppressed, clientOpId, userId))
+                AppResult.Success(
+                    upsertEventInOpenTransaction(
+                        value = value,
+                        suppressed = suppressed,
+                        clientOpId = clientOpId,
+                        userId = userId,
+                    ),
+                )
             }
         if (capture != null && !suppressed && result is AppResult.Success) {
             capture.add(toSyncFrame(result.data.second))
@@ -310,7 +315,13 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         suppressed: Boolean,
         clientOpId: String? = null,
         userId: String? = null,
-    ): T = upsertEventInOpenTransaction(value, suppressed, clientOpId, userId).first
+    ): T =
+        upsertEventInOpenTransaction(
+            value = value,
+            suppressed = suppressed,
+            clientOpId = clientOpId,
+            userId = userId,
+        ).first
 
     /**
      * [upsertInOpenTransaction], returning the event it defers alongside the saved aggregate, so a caller that
@@ -332,7 +343,14 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
 
         val existed = substrate.existsById(idStr)
 
-        writePayload(value, rev, now, clientOpId, userId, existed)
+        writePayload(
+            value = value,
+            rev = rev,
+            now = now,
+            clientOpId = clientOpId,
+            userId = userId,
+            existed = existed,
+        )
 
         val saved =
             readPayload(idStr)
@@ -485,7 +503,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         val capture = currentCoroutineContext()[FrameCapture.Key]
         val result =
             suspendTransaction(db) {
-                softDeleteInOpenTransaction(id, suppressed, clientOpId, userId)
+                softDeleteInOpenTransaction(id = id, suppressed = suppressed, clientOpId = clientOpId, userId = userId)
                     ?.let { AppResult.Success(it) }
                     ?: AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idAsString(id)))
             }

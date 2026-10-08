@@ -50,7 +50,9 @@ internal class CustomMetadataClient(
         author: String?,
         region: String,
     ): AppResult<CustomBookJson?> =
-        apiGet("/book", asin, title, author, region) { json.decodeFromString<CustomBookJson>(it) }
+        apiGet(path = "/book", asin = asin, title = title, author = author, region = region) {
+            json.decodeFromString<CustomBookJson>(it)
+        }
 
     suspend fun getCharacters(
         asin: String?,
@@ -58,11 +60,11 @@ internal class CustomMetadataClient(
         region: String,
     ): AppResult<List<CustomCharacterJson>?> =
         apiGet(
-            "/characters",
-            asin,
-            title,
+            path = "/characters",
+            asin = asin,
+            title = title,
             author = null,
-            region,
+            region = region,
         ) { json.decodeFromString<List<CustomCharacterJson>>(it) }
 
     suspend fun getCovers(
@@ -71,21 +73,27 @@ internal class CustomMetadataClient(
         author: String?,
         region: String,
     ): AppResult<List<CustomCoverJson>?> =
-        apiGet("/cover", asin, title, author, region) { json.decodeFromString<List<CustomCoverJson>>(it) }
+        apiGet(path = "/cover", asin = asin, title = title, author = author, region = region) {
+            json.decodeFromString<List<CustomCoverJson>>(it)
+        }
 
     suspend fun getGenres(
         asin: String?,
         title: String?,
         region: String,
     ): AppResult<List<CustomGenreJson>?> =
-        apiGet("/genres", asin, title, author = null, region) { json.decodeFromString<List<CustomGenreJson>>(it) }
+        apiGet(path = "/genres", asin = asin, title = title, author = null, region = region) {
+            json.decodeFromString<List<CustomGenreJson>>(it)
+        }
 
     suspend fun getSeries(
         asin: String?,
         title: String?,
         region: String,
     ): AppResult<List<CustomSeriesJson>?> =
-        apiGet("/series", asin, title, author = null, region) { json.decodeFromString<List<CustomSeriesJson>>(it) }
+        apiGet(path = "/series", asin = asin, title = title, author = null, region = region) {
+            json.decodeFromString<List<CustomSeriesJson>>(it)
+        }
 
     /**
      * Issues a GET to [path] on [baseUrl] with the non-blank lookup params plus `region`,

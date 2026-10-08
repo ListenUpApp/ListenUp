@@ -53,7 +53,13 @@ internal object GuardedClassWriter {
         val source = render(model)
         codeGenerator
             .createNewFile(
-                dependencies = Dependencies(aggregating = false, model.declaration.containingFile!!),
+                dependencies =
+                    Dependencies(
+                        aggregating = false,
+                        checkNotNull(model.declaration.containingFile) {
+                            "@Rpc service ${model.simpleName} has no source file to generate beside"
+                        },
+                    ),
                 packageName = PACKAGE,
                 fileName = "${model.simpleName}Guarded",
             ).bufferedWriter()
@@ -223,7 +229,7 @@ private fun KSType.qualifiedRender(): String {
     } else {
         name +
             arguments.joinToString(prefix = "<", postfix = ">") { arg ->
-                arg.type?.resolve()?.qualifiedRender() ?: "*"
+                arg.type?.run { resolve().qualifiedRender() } ?: "*"
             } + nullable
     }
 }

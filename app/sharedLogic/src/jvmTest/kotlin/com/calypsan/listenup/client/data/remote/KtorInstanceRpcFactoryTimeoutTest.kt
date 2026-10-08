@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.client.core.suspendRunCatching
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.withTimeoutOrNull
@@ -45,7 +46,7 @@ class KtorInstanceRpcFactoryTimeoutTest :
                 // way it COMPLETES, so the outer guard yields a non-null result.
                 val completed =
                     withTimeoutOrNull(10_000) {
-                        runCatching { factory.getServerInfo("ws://127.0.0.1:${blackHole.localPort}") }
+                        suspendRunCatching { factory.getServerInfo("ws://127.0.0.1:${blackHole.localPort}") }
                     }
 
                 completed shouldNotBe null

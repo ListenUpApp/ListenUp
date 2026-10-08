@@ -55,8 +55,8 @@ internal class PeopleSubjectLoader(
                     PersonLibraryBook(
                         bookId = row.id,
                         title = row.title,
-                        asin = row.asin?.trim()?.takeIf { it.isNotEmpty() },
-                        isbn = row.isbn?.trim()?.takeIf { it.isNotEmpty() },
+                        asin = row.asin?.run { trim().takeIf { it.isNotEmpty() } },
+                        isbn = row.isbn?.run { trim().takeIf { it.isNotEmpty() } },
                         refs = refs[row.id].orEmpty(),
                         roles = roles[row.id].orEmpty(),
                     )

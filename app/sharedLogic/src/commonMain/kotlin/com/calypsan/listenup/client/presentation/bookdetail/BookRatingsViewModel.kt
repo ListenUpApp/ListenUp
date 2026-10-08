@@ -54,8 +54,8 @@ class BookRatingsViewModel(
      */
     val ratingLabels: RatingLabels = RatingLabels
 
-    private val isRefreshingExternal = MutableStateFlow(false)
-    private val isCheckingExternal = MutableStateFlow(false)
+    private val refreshingExternal = MutableStateFlow(false)
+    private val checkingExternal = MutableStateFlow(false)
     private val pendingStars = MutableStateFlow<Int?>(null)
 
     private val eventChannel = Channel<BookRatingsEvent>(Channel.BUFFERED)
@@ -69,11 +69,11 @@ class BookRatingsViewModel(
     /** The block's state. */
     val state: StateFlow<BookRatingsUiState> =
         combine(
-            repository.observeForBook(bookId).combine(pendingStars, ::Pair),
-            currentUserId,
-            repository.observeExternalForBook(bookId).combine(repository.observeCombinedScore(bookId), ::Pair),
-            userRepository.observeIsAdmin(),
-            isRefreshingExternal.combine(isCheckingExternal, ::Pair),
+            flow = repository.observeForBook(bookId).combine(pendingStars, ::Pair),
+            flow2 = currentUserId,
+            flow3 = repository.observeExternalForBook(bookId).combine(repository.observeCombinedScore(bookId), ::Pair),
+            flow4 = userRepository.observeIsAdmin(),
+            flow5 = refreshingExternal.combine(checkingExternal, ::Pair),
         ) { (ratings, pending), me, (external, score), isAdmin, (refreshing, checking) ->
             BookRatingsUiState.Ready(
                 listeners =
@@ -107,10 +107,10 @@ class BookRatingsViewModel(
                 repository
                     .observeExternalCheck(bookId)
                     .catch { emit(false) }
-                    .collect { isCheckingExternal.value = it }
+                    .collect { checkingExternal.value = it }
             }
         } finally {
-            isCheckingExternal.value = false
+            checkingExternal.value = false
         }
     }
 
@@ -203,12 +203,12 @@ class BookRatingsViewModel(
      * ([BookRatingsUiState.Ready.canRefresh]). A tap while one is already in flight is ignored.
      */
     fun refreshExternal() {
-        if (!isRefreshingExternal.compareAndSet(expect = false, update = true)) return
+        if (!refreshingExternal.compareAndSet(expect = false, update = true)) return
         viewModelScope.launch {
             try {
                 report(repository.refreshExternal(bookId))
             } finally {
-                isRefreshingExternal.value = false
+                refreshingExternal.value = false
             }
         }
     }

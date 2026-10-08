@@ -4,7 +4,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -45,7 +45,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.HeldLabel
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
@@ -94,7 +93,6 @@ fun StorageScreen(
     onNavigateBack: () -> Unit,
     viewModel: StorageViewModel = koinViewModel(),
 ) {
-    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     // Handle delete confirmation dialogs
@@ -198,7 +196,7 @@ internal fun StorageContent(
         return
     }
 
-    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     when {
         windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> {
             StorageWideLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)

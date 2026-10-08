@@ -11,6 +11,8 @@ dependencies {
     // precompiled script plugins can apply them by id.
     implementation(libs.kotlin.gradlePlugin)
     implementation(libs.android.kmpLibrary.gradlePlugin)
+    // The detekt plugin, so `listenup.detekt` can run each module's type-resolved analysis.
+    implementation(libs.detekt.gradlePlugin)
 
     // Runtime JSON parsing for the localization generator (parseToJsonElement;
     // no serialization compiler plugin needed).

@@ -92,8 +92,8 @@ class CandidateRankerTest :
 
         test("Strong ranks above Maybe, then by score; the current link is labelled, not pinned") {
             val ranked = rank(audible("LINK", minutes = 600, viaLink = true), audible("NEAR", minutes = 975), audible("EXACT"))
-            ranked.map {
-                it.key.refs
+            ranked.map { entry ->
+                entry.key.refs
                     .single()
                     .id
             } shouldBe listOf("EXACT", "NEAR", "LINK")
@@ -120,8 +120,8 @@ class CandidateRankerTest :
                 )
             val ranked = rank(audible("B1", minutes = 971), lengthless)
 
-            ranked.map {
-                it.key.refs
+            ranked.map { entry ->
+                entry.key.refs
                     .single()
                     .provider
             } shouldBe listOf("audible", "hardcover")

@@ -37,7 +37,8 @@ object SeriesTagParser {
                 return names.mapIndexed { i, n -> SeriesEntry(name = n, sequence = parts[i]) }
             }
         }
-        return listOf(SeriesEntry(name = trimmedName, sequence = part?.trim()?.ifEmpty { null }))
+        val sequence = part?.run { trim().ifEmpty { null } }
+        return listOf(SeriesEntry(name = trimmedName, sequence = sequence))
     }
 
     /**

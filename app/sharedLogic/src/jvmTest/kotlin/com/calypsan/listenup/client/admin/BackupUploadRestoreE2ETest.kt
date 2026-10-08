@@ -27,16 +27,11 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BearerTokens
 import io.ktor.client.plugins.auth.providers.bearer
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.testApplication
@@ -114,7 +109,6 @@ class BackupUploadRestoreE2ETest :
                     }
                     application { module() }
 
-                    val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val accessToken = setupRootForBackup()
 
                     val authedRestClient =
@@ -203,7 +197,7 @@ class BackupUploadRestoreE2ETest :
  * by the server's `AuthServicePublic.setupRoot` RPC (the full [module] is booted), so the bearer-gated
  * RPC surface authenticates correctly.
  */
-private suspend fun HttpClient.backupServiceProxy(accessToken: String): BackupService =
+private fun HttpClient.backupServiceProxy(accessToken: String): BackupService =
     rpc("ws://localhost/api/rpc/authed") {
         rpcConfig { serialization { krpcJson(contractJson) } }
         bearerAuth(accessToken)

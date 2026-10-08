@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -48,9 +48,9 @@ class ChapterTimelinePaneTest {
                     chapters = chapters.mapIndexed { i, c -> NumberedChapter(c, i + 1) },
                     bookDurationMs = 100_000L,
                     lane = lane,
-                    onLaneChange = {
-                        lane = it
-                        onLane(it)
+                    onLaneChange = { newLane ->
+                        lane = newLane
+                        onLane(newLane)
                     },
                     selectedChapterId = null,
                     playheadMs = { null },

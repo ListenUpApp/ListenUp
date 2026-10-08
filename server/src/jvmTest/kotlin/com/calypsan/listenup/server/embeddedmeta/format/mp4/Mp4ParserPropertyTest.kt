@@ -23,6 +23,7 @@ import io.kotest.property.arbitrary.long
 import io.kotest.property.arbitrary.string
 import io.kotest.property.checkAll
 import kotlinx.coroutines.runBlocking
+import io.kotest.matchers.nulls.shouldNotBeNull
 
 /**
  * Property tests for [Mp4Parser]: build random MP4 fixtures via
@@ -276,8 +277,9 @@ class Mp4ParserPropertyTest :
                     require(result is AppResult.Success<EmbeddedAudioMetadata>)
                     result.data.artwork?.mime shouldBe mime
                     result.data.artwork
-                        ?.bytes
-                        ?.toList() shouldBe image.toList()
+                        .shouldNotBeNull()
+                        .bytes
+                        .toList() shouldBe image.toList()
                 }
             }
         }

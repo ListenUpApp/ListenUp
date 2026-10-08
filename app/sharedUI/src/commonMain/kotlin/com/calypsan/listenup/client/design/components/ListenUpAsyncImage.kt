@@ -48,7 +48,8 @@ fun ListenUpAsyncImage(
         value =
             withContext(IODispatcher) {
                 path?.let { filePath ->
-                    fileLastModifiedMillis(filePath)?.let { "$filePath:$it" } ?: filePath
+                    val lastModifiedMillis = fileLastModifiedMillis(filePath)
+                    if (lastModifiedMillis != null) "$filePath:$lastModifiedMillis" else filePath
                 }
             }
     }

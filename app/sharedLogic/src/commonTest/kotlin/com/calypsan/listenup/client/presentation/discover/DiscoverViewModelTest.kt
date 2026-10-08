@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -594,6 +595,19 @@ class DiscoverViewModelTest :
                 verifySuspend(dev.mokkery.verify.VerifyMode.not) {
                     fixture.shelfRepository.discoverShelves()
                 }
+            }
+        }
+
+        test("discover shelves loaded without suspending on an eager Main dispatcher do not crash construction") {
+            runTest {
+                // Main.immediate runs init's launch synchronously; a shelves read that completes
+                // without suspending writes the shelves state while the constructor is still running.
+                Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+                val fixture = createFixture(discoveredShelves = listOf(createShelf()))
+
+                val viewModel = fixture.build()
+
+                viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Ready>()
             }
         }
 

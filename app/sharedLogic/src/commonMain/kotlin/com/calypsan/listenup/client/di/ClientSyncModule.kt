@@ -22,7 +22,6 @@ import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
-import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
@@ -96,7 +95,6 @@ import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.TagId
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /** Logs position writes the server superseded — see [describeSupersededPositionWrite]. */
@@ -272,8 +270,8 @@ internal val clientSyncModule =
 
                             is ContributorMutation.Delete -> {
                                 contributorChannel
-                                    .call {
-                                        it.deleteContributor(
+                                    .call { service ->
+                                        service.deleteContributor(
                                             ContributorId(id),
                                         )
                                     }.orSuccessIfNotFound()
@@ -325,8 +323,8 @@ internal val clientSyncModule =
                             }
 
                             is BookMoodMutation.Remove -> {
-                                moodChannel.call {
-                                    it.removeMoodFromBook(
+                                moodChannel.call { service ->
+                                    service.removeMoodFromBook(
                                         BookId(mutation.bookId),
                                         MoodId(mutation.moodId),
                                     )
@@ -337,8 +335,8 @@ internal val clientSyncModule =
                     outboxBinding(OutboxChannels.BookRatings) { _, mutation ->
                         when (mutation) {
                             is BookRatingMutation.Set -> {
-                                bookRatingChannel.call {
-                                    it.rate(
+                                bookRatingChannel.call { service ->
+                                    service.rate(
                                         BookId(mutation.bookId),
                                         RateBookRequest(
                                             candidateId = mutation.candidateId,
@@ -358,8 +356,13 @@ internal val clientSyncModule =
                     outboxBinding(OutboxChannels.Shelves) { id, mutation ->
                         when (mutation) {
                             is ShelfMutation.Update -> {
-                                shelfChannel.call {
-                                    it.updateShelf(ShelfId(id), mutation.name, mutation.description, mutation.isPrivate)
+                                shelfChannel.call { service ->
+                                    service.updateShelf(
+                                        shelfId = ShelfId(id),
+                                        name = mutation.name,
+                                        description = mutation.description,
+                                        isPrivate = mutation.isPrivate,
+                                    )
                                 }
                             }
 
@@ -384,8 +387,8 @@ internal val clientSyncModule =
                             }
 
                             is ShelfBookMutation.Reorder -> {
-                                shelfChannel.call {
-                                    it.reorderShelfBooks(
+                                shelfChannel.call { service ->
+                                    service.reorderShelfBooks(
                                         ShelfId(mutation.shelfId),
                                         mutation.orderedBookIds.map(::BookId),
                                     )
@@ -393,7 +396,6 @@ internal val clientSyncModule =
                             }
                         }
                     },
-                    *readingOrderOutboxBindings(readingOrderChannel).toTypedArray(),
                     // The op's entityId is the collectionId; the sender reconstructs the CollectionId from it.
                     outboxBinding(OutboxChannels.Collections) { id, mutation ->
                         when (mutation) {
@@ -424,8 +426,8 @@ internal val clientSyncModule =
                             }
 
                             is CollectionBookMutation.Remove -> {
-                                collectionChannel.call {
-                                    it.removeBookFromCollection(
+                                collectionChannel.call { service ->
+                                    service.removeBookFromCollection(
                                         CollectionId(mutation.collectionId),
                                         BookId(mutation.bookId),
                                     )
@@ -447,7 +449,7 @@ internal val clientSyncModule =
                             }
                         }
                     },
-                ),
+                ) + readingOrderOutboxBindings(readingOrderChannel),
             )
         }
         single {

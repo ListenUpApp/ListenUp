@@ -53,20 +53,26 @@ internal class ReadingOrderServiceImpl(
     private val principal: PrincipalProvider,
     private val clock: Clock = Clock.System,
 ) : ReadingOrderService {
-    private val membership = ReadingOrderMembership(members, seriesRepo, sqlDb, accessPolicy)
+    private val membership =
+        ReadingOrderMembership(
+            members = members,
+            seriesRepo = seriesRepo,
+            sqlDb = sqlDb,
+            accessPolicy = accessPolicy,
+        )
 
     /** A copy bound to the authenticated caller — called by the RPC route per request. */
     fun copyWith(principal: PrincipalProvider): ReadingOrderServiceImpl =
         ReadingOrderServiceImpl(
-            orders,
-            members,
-            follows,
-            seriesRepo,
-            sqlDb,
-            accessPolicy,
-            permissionPolicy,
-            principal,
-            clock,
+            orders = orders,
+            members = members,
+            follows = follows,
+            seriesRepo = seriesRepo,
+            sqlDb = sqlDb,
+            accessPolicy = accessPolicy,
+            permissionPolicy = permissionPolicy,
+            principal = principal,
+            clock = clock,
         )
 
     override suspend fun createReadingOrder(
@@ -84,8 +90,18 @@ internal class ReadingOrderServiceImpl(
         }
         val now = clock.now().toEpochMilliseconds()
         return orders
-            .upsert(ReadingOrderSyncPayload(id.value, seriesId.value, valid, caller.userId.value, 0, now, now, null))
-            .map { }
+            .upsert(
+                ReadingOrderSyncPayload(
+                    id = id.value,
+                    seriesId = seriesId.value,
+                    name = valid,
+                    createdBy = caller.userId.value,
+                    revision = 0,
+                    updatedAt = now,
+                    createdAt = now,
+                    deletedAt = null,
+                ),
+            ).map { }
     }
 
     /**
@@ -142,8 +158,18 @@ internal class ReadingOrderServiceImpl(
         membershipId: String,
     ): AppResult<Unit> =
         when (val gate = requireEditor(id)) {
-            is EditGate.Denied -> gate.failure
-            is EditGate.Allowed -> membership.add(gate.order, gate.caller, bookId, membershipId)
+            is EditGate.Denied -> {
+                gate.failure
+            }
+
+            is EditGate.Allowed -> {
+                membership.add(
+                    order = gate.order,
+                    caller = gate.caller,
+                    bookId = bookId,
+                    membershipId = membershipId,
+                )
+            }
         }
 
     override suspend fun removeBookFromReadingOrder(
@@ -183,7 +209,16 @@ internal class ReadingOrderServiceImpl(
         val followId = follows.followId(caller.userId.value, seriesId.value)
         return follows
             .upsert(
-                ReadingOrderFollowSyncPayload(followId, seriesId.value, choice.kind, orderId?.value, 0, now, now, null),
+                ReadingOrderFollowSyncPayload(
+                    id = followId,
+                    seriesId = seriesId.value,
+                    choice = choice.kind,
+                    readingOrderId = orderId?.value,
+                    revision = 0,
+                    updatedAt = now,
+                    createdAt = now,
+                    deletedAt = null,
+                ),
                 userId = caller.userId.value,
             ).map { }
     }
@@ -231,7 +266,7 @@ internal class ReadingOrderServiceImpl(
     }
 
     private suspend fun seriesIsLive(seriesId: String): Boolean =
-        seriesRepo.findById(seriesId)?.let { it.deletedAt == null } ?: false
+        seriesRepo.findById(seriesId)?.let { it.deletedAt == null } == true
 
     private fun notFound(debugInfo: String): AppResult.Failure =
         AppResult.Failure(ReadingOrderError.NotFound(debugInfo = debugInfo))

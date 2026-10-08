@@ -59,14 +59,14 @@ class BookRepositoryServerPrivateColumnsTest :
         }
     })
 
-private class WriteContext(
+private data class WriteContext(
     val service: BookServiceImpl,
     val repo: BookRepository,
     val db: SqlTestDatabases,
     val bookId: BookId,
 )
 
-private class WritePath(
+private data class WritePath(
     val label: String,
     val mayChange: Set<String> = emptySet(),
     val apply: suspend WriteContext.() -> Unit,

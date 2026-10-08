@@ -39,6 +39,7 @@ class SyncWritesGoThroughRepositoryRule :
             val offenders =
                 productionScope()
                     .files
+                    .asSequence()
                     .filter { it.path.contains("/server/") }
                     .filterNot { it.path.contains("/server/sync/") }
                     .filterNot { it.path.contains("/server/services/") }
@@ -48,8 +49,7 @@ class SyncWritesGoThroughRepositoryRule :
                             .findAll(stripComments(file.text))
                             .filter { it.groupValues[1] in syncableQueries }
                             .map { "${it.groupValues[1]}Queries.${it.groupValues[2]}( in ${file.path}" }
-                            .toList()
-                    }
+                    }.toList()
 
             offenders.shouldBeEmpty()
         }

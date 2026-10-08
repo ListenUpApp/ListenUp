@@ -29,10 +29,10 @@ class ReadingOrderDomainsTest :
             withDb { db ->
                 val handler = readingOrdersDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
                 handler.onEvent(created("ro", order("ro", revision = 1))).shouldBeInstanceOf<AppResult.Success<Unit>>()
-                db.readingOrderDao().findById("ro")!!.let {
-                    it.name shouldBe "Ultimate Read Order"
-                    it.seriesId shouldBe "cosmere"
-                    it.createdBy shouldBe "simon"
+                db.readingOrderDao().findById("ro")!!.let { order ->
+                    order.name shouldBe "Ultimate Read Order"
+                    order.seriesId shouldBe "cosmere"
+                    order.createdBy shouldBe "simon"
                 }
                 handler.onEvent(SyncEvent.Deleted(id = "ro", revision = 2, occurredAt = 900))
                 db.readingOrderDao().findById("ro")!!.deletedAt shouldBe 900L
@@ -97,10 +97,10 @@ class ReadingOrderDomainsTest :
             withDb { db ->
                 val handler = readingOrderFollowsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
                 handler.onEvent(created("u1:mistborn", follow(ReadingOrderChoiceKind.ORDER, "ro", revision = 1)))
-                db.readingOrderFollowDao().findById("u1:mistborn")!!.let {
-                    it.choice shouldBe "ORDER"
-                    it.readingOrderId shouldBe "ro"
-                    it.seriesId shouldBe "mistborn"
+                db.readingOrderFollowDao().findById("u1:mistborn")!!.let { follow ->
+                    follow.choice shouldBe "ORDER"
+                    follow.readingOrderId shouldBe "ro"
+                    follow.seriesId shouldBe "mistborn"
                 }
                 handler.onEvent(SyncEvent.Deleted(id = "u1:mistborn", revision = 2, occurredAt = 800))
                 db.readingOrderFollowDao().findById("u1:mistborn")!!.deletedAt shouldBe 800L

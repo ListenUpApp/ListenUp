@@ -1,6 +1,5 @@
 package com.calypsan.listenup.api
 
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe

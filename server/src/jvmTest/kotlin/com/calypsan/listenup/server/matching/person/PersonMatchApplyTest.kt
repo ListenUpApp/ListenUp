@@ -22,6 +22,7 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import io.kotest.assertions.throwables.shouldThrowAny
 
 private fun AppResult<*>.error() = (this as AppResult.Failure).error
 
@@ -245,7 +246,7 @@ class PersonMatchApplyTest :
                     val rig = PersonRig(this@withSqlDatabase)
                     val before = rig.seedRay()
                     rig.fault = { error("injected") }
-                    runCatching { rig.apply(rig.mixedRequest()) }
+                    shouldThrowAny { rig.apply(rig.mixedRequest()) }
                     rig.person() shouldBe before
                     rig.receipts.pinnedPhotoPaths() shouldBe emptySet()
                 }

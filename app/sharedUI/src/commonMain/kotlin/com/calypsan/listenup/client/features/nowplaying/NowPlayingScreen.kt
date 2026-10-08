@@ -8,7 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,8 +29,9 @@ import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.foldable.LocalFold
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration
 
 // Drag-to-dismiss: release past a third of the screen height collapses the player.
@@ -87,18 +88,20 @@ fun NowPlayingScreen(
     var presented by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { presented = true }
     PlatformPredictiveBackHandler(enabled = presented) { gesture ->
+        var committed = false
         try {
             gesture.collect { frame ->
                 backEdge = frame.edge
                 backProgress.snapTo(frame.progress)
             }
+            committed = true
             onCollapse()
-        } catch (cancellation: CancellationException) {
-            // Gesture abandoned — rewind the dismissal animation. On commit the
-            // screen is already exiting, so progress is intentionally left as-is
-            // to avoid a scale pop mid exit-transition.
-            backProgress.snapTo(0f)
-            throw cancellation
+        } finally {
+            // Gesture abandoned (the progress flow ends in cancellation) — rewind the dismissal
+            // animation, NonCancellable so the rewind still runs inside the cancelled handler. On
+            // commit the screen is already exiting, so progress is intentionally left as-is to
+            // avoid a scale pop mid exit-transition.
+            if (!committed) withContext(NonCancellable) { backProgress.snapTo(0f) }
         }
     }
 
@@ -153,7 +156,7 @@ fun NowPlayingScreen(
     // The corners the sheet rounds toward as the back preview shrinks it off the window's edges.
     val backPreviewCorner = MaterialTheme.shapes.extraLarge.topStart
     val fold = LocalFold.current
-    val layout = nowPlayingLayout(currentWindowAdaptiveInfo().windowSizeClass, fold)
+    val layout = nowPlayingLayout(currentWindowAdaptiveInfoV2().windowSizeClass, fold)
 
     Surface(
         modifier =
@@ -313,9 +316,14 @@ fun Duration.formatPlaybackTime(): String {
     val minutes = inWholeMinutes % 60
     val seconds = inWholeSeconds % 60
 
-    return if (hours > 0) {
-        "%d:%02d:%02d".format(hours, minutes, seconds)
+    // ASCII digits in every locale, like DurationFormatter, so one screen never mixes two numeral
+    // systems; and plain padding rather than String.format, which commonMain cannot reach.
+    val clock = "$minutes:${seconds.toString().padStart(2, '0')}"
+    return if (hours >
+        0
+    ) {
+        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
     } else {
-        "%d:%02d".format(minutes, seconds)
+        clock
     }
 }

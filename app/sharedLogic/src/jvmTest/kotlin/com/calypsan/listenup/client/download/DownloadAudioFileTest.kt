@@ -26,7 +26,6 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
-import kotlinx.io.write
 import java.io.File
 
 /**
@@ -79,7 +78,7 @@ class DownloadAudioFileTest :
                 var capturedPath: String? = null
                 val engine =
                     MockEngine { request ->
-                        capturedPath = request.url.encodedPath + "?" + (request.url.encodedQuery ?: "")
+                        capturedPath = request.url.encodedPath + "?" + request.url.encodedQuery
                         respond(
                             content = ByteArray(1000) { 0x42 },
                             status = HttpStatusCode.OK,

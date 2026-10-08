@@ -212,7 +212,7 @@ class AuthServiceImpl(
         defaultGrantIssuer?.grantDefaultAllBooks(user.id, user.role)
         return AppResult.Success(
             sessionIssuer.issue(
-                user,
+                user = user,
                 label = request.sessionLabel,
                 deviceInfo = request.deviceInfo,
                 userAgent = requestUserAgent,
@@ -281,7 +281,7 @@ class AuthServiceImpl(
             } else {
                 RegisterResult.Authenticated(
                     sessionIssuer.issue(
-                        user,
+                        user = user,
                         label = request.sessionLabel,
                         deviceInfo = request.deviceInfo,
                         userAgent = requestUserAgent,
@@ -379,7 +379,7 @@ class AuthServiceImpl(
         activityRecorder?.record(user.id, ActivityType.USER_JOINED)
         return AppResult.Success(
             sessionIssuer.issue(
-                user,
+                user = user,
                 label = request.sessionLabel,
                 deviceInfo = request.deviceInfo,
                 userAgent = requestUserAgent,
@@ -456,8 +456,8 @@ class AuthServiceImpl(
             // C3-style per-IP throttle (mirrors login/register/refresh): each open subscription
             // runs a poll loop for as long as the registration stays pending, so an unbounded
             // stream of subscribe attempts is a resource-exhaustion vector on its own.
-            enforceRate(AuthRateBucket.OBSERVE_REGISTRATION_STATUS)?.let {
-                emit(RpcEvent.Error(it))
+            enforceRate(AuthRateBucket.OBSERVE_REGISTRATION_STATUS)?.let { rateError ->
+                emit(RpcEvent.Error(rateError))
                 return@flow
             }
             val initial = readRegistrationStatus(db, userId)
@@ -489,8 +489,8 @@ class AuthServiceImpl(
             // Same C3-style per-IP throttle as observeRegistrationStatus: each open subscription
             // holds a poll loop for the connection's lifetime, so an unbounded stream of subscribe
             // attempts is a resource-exhaustion vector of its own.
-            enforceRate(AuthRateBucket.OBSERVE_REGISTRATION_POLICY)?.let {
-                emit(RpcEvent.Error(it))
+            enforceRate(AuthRateBucket.OBSERVE_REGISTRATION_POLICY)?.let { rateError ->
+                emit(RpcEvent.Error(rateError))
                 return@flow
             }
             // Emit the current policy the instant the broadcaster collector registers
@@ -565,8 +565,8 @@ class AuthServiceImpl(
             // Same C3-style per-IP throttle as observeRegistrationStatus/Policy: each open
             // subscription holds a poll loop that never completes while the ticket is pending, so
             // an unbounded stream of subscribe attempts is a resource-exhaustion vector of its own.
-            enforceRate(AuthRateBucket.OBSERVE_PASSWORD_RESET_STATUS)?.let {
-                emit(RpcEvent.Error(it))
+            enforceRate(AuthRateBucket.OBSERVE_PASSWORD_RESET_STATUS)?.let { rateError ->
+                emit(RpcEvent.Error(rateError))
                 return@flow
             }
             emitAll(passwordResetService.observeStatus(ticketId).map { RpcEvent.Data(it) })
@@ -583,7 +583,12 @@ class AuthServiceImpl(
         newPassword: String,
     ): AppResult<Unit> {
         enforceRate(AuthRateBucket.COMPLETE_PASSWORD_RESET)?.let { return AppResult.Failure(it) }
-        return passwordResetService.complete(ticketId, claimSecret, code, newPassword)
+        return passwordResetService.complete(
+            ticketId = ticketId,
+            claimSecret = claimSecret,
+            code = code,
+            newPassword = newPassword,
+        )
     }
 
     /** Delegates to [RootPasswordResetService.resetRoot]. */

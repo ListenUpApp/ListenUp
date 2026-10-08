@@ -45,8 +45,9 @@ fun PostureProvider(content: @Composable () -> Unit) {
 
 private fun fold(features: List<DisplayFeature>): Fold {
     val folding = features.filterIsInstance<FoldingFeature>().firstOrNull()
-    val bounds = folding?.bounds?.let { IntRect(it.left, it.top, it.right, it.bottom) }
-    return classifyFold(folding?.state, folding?.orientation, bounds)
+    val foldBounds =
+        folding?.run { IntRect(left = bounds.left, top = bounds.top, right = bounds.right, bottom = bounds.bottom) }
+    return classifyFold(folding?.state, folding?.orientation, foldBounds)
 }
 
 /**

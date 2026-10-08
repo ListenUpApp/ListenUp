@@ -168,7 +168,7 @@ class EntityBookRemovalTest :
     })
 
 /** A [BookRepository] wired to an [EntityRepository], both on one advanceable clock. */
-private class RemovalRig(
+private data class RemovalRig(
     val books: BookRepository,
     val entities: EntityRepository,
     val clock: MutableClock,

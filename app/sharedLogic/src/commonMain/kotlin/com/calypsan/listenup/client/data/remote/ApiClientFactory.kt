@@ -162,7 +162,13 @@ internal fun createApiClientFactory(
     clientIdentity: ClientIdentity,
     onPeerVersion: suspend (version: String, api: String) -> Unit = { _, _ -> },
 ): ApiClientFactory =
-    KtorApiClientFactory(serverConfig, authSession, refreshAccessToken, clientIdentity, onPeerVersion = onPeerVersion)
+    KtorApiClientFactory(
+        serverConfig = serverConfig,
+        authSession = authSession,
+        refreshAccessToken = refreshAccessToken,
+        clientIdentity = clientIdentity,
+        onPeerVersion = onPeerVersion,
+    )
 
 /**
  * Public seam to eagerly prime the authenticated HTTP client from outside `:app:sharedLogic`.
@@ -385,8 +391,10 @@ internal class KtorApiClientFactory(
         val cause =
             try {
                 return execute(request)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                if (e is CancellationException || !isNetworkError(e)) throw e
+                if (!isNetworkError(e)) throw e
                 e
             }
 
@@ -411,8 +419,9 @@ internal class KtorApiClientFactory(
     ): HttpClientCall =
         try {
             execute(request)
+        } catch (retryError: CancellationException) {
+            throw retryError
         } catch (retryError: Exception) {
-            if (retryError is CancellationException) throw retryError
             original.addSuppressed(retryError)
             throw original
         }

@@ -8,7 +8,6 @@ import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.BookOriginalState

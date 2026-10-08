@@ -1,6 +1,5 @@
 package com.calypsan.listenup.api
 
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.dto.RecordPositionRequest

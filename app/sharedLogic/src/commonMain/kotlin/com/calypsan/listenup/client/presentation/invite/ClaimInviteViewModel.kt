@@ -10,7 +10,6 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.core.ServerUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -96,7 +95,7 @@ class ClaimInviteViewModel(
                 return@launch
             }
             val reachable = instanceRepository.findReachableUrl(candidates) ?: candidates.first()
-            val currentHost = serverConfig.getServerUrl()?.value?.hostOfUrl()
+            val currentHost = serverConfig.getServerUrl()?.run { value.hostOfUrl() }
             if (currentHost != null && currentHost == reachable.hostOfUrl()) {
                 // Already pointed at this host — no move, nothing to confirm.
                 applyServerAndLookUp(reachable)

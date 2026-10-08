@@ -41,7 +41,15 @@ internal class StoryWorldHistory(
             before_json = before?.let { contractJson.encodeToString(EntitySyncPayload.serializer(), it) },
             after_json = after?.let { contractJson.encodeToString(EntitySyncPayload.serializer(), it) },
         )
-        return EntityChange(StoryWorldHistoryId(id), EntityId(entityId), op, actor?.value, occurredAt, before, after)
+        return EntityChange(
+            id = StoryWorldHistoryId(id),
+            entityId = EntityId(entityId),
+            op = op,
+            actorId = actor?.value,
+            occurredAt = occurredAt,
+            before = before,
+            after = after,
+        )
     }
 
     /** [entityId]'s history, newest first. Call inside a transaction. */

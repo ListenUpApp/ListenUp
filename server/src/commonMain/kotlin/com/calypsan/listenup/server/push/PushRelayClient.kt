@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.push
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.header
-import io.ktor.client.statement.HttpResponse
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -17,7 +16,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 /**
  * Thin protocol client for the ListenUp push relay (`ListenUpApp/relay`, see its `PROTOCOL.md`).

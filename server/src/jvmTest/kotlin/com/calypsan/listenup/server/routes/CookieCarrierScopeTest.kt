@@ -97,7 +97,7 @@ class CookieCarrierScopeTest :
                 val blobReadMounts = application.plugin(RoutingRoot).authSubtreesFor(BLOB_READ_PROVIDER)
                 blobReadMounts.shouldNotBeEmpty()
 
-                val methods = blobReadMounts.flatMap { it.methodsBelow() }
+                val methods = blobReadMounts.flatMap { mount -> mount.methodsBelow() }
                 methods.shouldNotBeEmpty()
                 methods.forEach { method ->
                     withClue("$method is mounted behind $BLOB_READ_PROVIDER") {
@@ -160,7 +160,7 @@ private fun RoutingNode.nodesBelow(): List<RoutingNode> {
 /** The `authenticate([provider])` mounts in this tree — one per block that names [provider]. */
 private fun RoutingNode.authSubtreesFor(provider: String): List<RoutingNode> =
     nodesBelow().filter { node ->
-        (node.selector as? AuthenticationRouteSelector)?.names?.contains(provider) == true
+        (node.selector as? AuthenticationRouteSelector)?.run { provider in names } == true
     }
 
 /**

@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import io.kotest.assertions.throwables.shouldThrow
 
 /**
  * Focused spec for [BookPersister]'s server-authoritative first-scan gate: the clean-completion path
@@ -73,7 +74,7 @@ class BookPersisterInitialScanTest :
                     val persister = persister(fake, scope = this)
                     val libId = LibraryRegistry(sql).currentLibrary()
 
-                    runCatching {
+                    shouldThrow<OutOfMemoryError> {
                         persister.persist(
                             scanResult(
                                 books = listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c")),

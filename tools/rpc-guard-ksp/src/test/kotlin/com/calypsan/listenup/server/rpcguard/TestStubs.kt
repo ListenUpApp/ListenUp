@@ -15,6 +15,7 @@ package com.calypsan.listenup.server.rpcguard
  * tests against `<Service>Guarded` live in `:server` (Tasks 11-13).
  */
 
+@Suppress("RedundantSuspendModifier") // Mirrors the production helper's suspend signature.
 suspend fun currentCorrelationId(): String? = null
 
 fun newCorrelationId(): String = "test-correlation-id"

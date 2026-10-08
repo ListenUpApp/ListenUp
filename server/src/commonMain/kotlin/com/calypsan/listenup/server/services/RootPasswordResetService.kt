@@ -65,9 +65,7 @@ class RootPasswordResetService(
         newPassword: String,
     ): AppResult<Unit> {
         when (val outcome = rootResetToken.consume(token, clock.now())) {
-            is ConsumeOutcome.Consumed -> {
-                Unit
-            }
+            is ConsumeOutcome.Consumed -> {}
 
             is ConsumeOutcome.Rejected -> {
                 logger.info { "root password reset rejected: ${outcome.reason}" }

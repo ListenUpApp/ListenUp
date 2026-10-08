@@ -1,5 +1,6 @@
 package io.kotest.provided
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.core.config.AbstractProjectConfig
 import io.kotest.core.extensions.Extension
 import io.kotest.core.extensions.TestCaseExtension
@@ -18,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.stopKoin
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Kotest project configuration for the JVM test run (auto-discovered by Kotest as
@@ -201,10 +204,10 @@ private object HeavyweightE2ERetryExtension :
                 } else {
                     "failed transiently"
                 }
-            println(
-                "[E2E-RETRY] ${testCase.spec::class.simpleName} › ${testCase.name.name} " +
-                    "$cause; retry $attempt/$MAX_ATTEMPTS",
-            )
+            logger.warn {
+                "[E2E-RETRY] ${testCase.spec::class.simpleName ?: "UnknownSpec"} › ${testCase.name.name} " +
+                    "$cause; retry $attempt/$MAX_ATTEMPTS"
+            }
             stopGlobalKoinIfRunning()
             delay(RETRY_DELAY_MS)
             result = execute(testCase)
@@ -222,7 +225,7 @@ private object HeavyweightE2ERetryExtension :
         val testName = testCase.name.name.singleLine()
         val error =
             failed.errorOrNull
-                ?.let { "${it::class.simpleName}: ${it.message}" }
+                ?.let { "${it::class.simpleName ?: "Throwable"}: ${it.message ?: "no message"}" }
                 .orEmpty()
                 .ifBlank { "unknown error" }
                 .singleLine()

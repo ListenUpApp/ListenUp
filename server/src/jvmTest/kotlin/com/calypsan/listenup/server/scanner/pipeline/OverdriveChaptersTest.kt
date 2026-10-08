@@ -25,16 +25,16 @@ class OverdriveChaptersTest :
 
             val chapters = OverdriveChapters.parse(listOf(track)) { meta }
 
-            chapters.shouldNotBeNullAnd {
-                it shouldHaveSize 2
-                it[0].index shouldBe 1
-                it[0].title shouldBe "Chapter 1"
-                it[0].startMs shouldBe 0L
-                it[0].endMs shouldBe 951_000L
-                it[1].index shouldBe 2
-                it[1].title shouldBe "Chapter 2"
-                it[1].startMs shouldBe 951_000L
-                it[1].endMs shouldBe 1_800_000L // last chapter runs to the book's end
+            chapters.shouldNotBeNullAnd { parsed ->
+                parsed shouldHaveSize 2
+                parsed[0].index shouldBe 1
+                parsed[0].title shouldBe "Chapter 1"
+                parsed[0].startMs shouldBe 0L
+                parsed[0].endMs shouldBe 951_000L
+                parsed[1].index shouldBe 2
+                parsed[1].title shouldBe "Chapter 2"
+                parsed[1].startMs shouldBe 951_000L
+                parsed[1].endMs shouldBe 1_800_000L // last chapter runs to the book's end
             }
         }
 
@@ -48,12 +48,12 @@ class OverdriveChaptersTest :
 
             val chapters = OverdriveChapters.parse(tracks) { byTrack[it] }
 
-            chapters.shouldNotBeNullAnd {
-                it shouldHaveSize 2
-                it[0].startMs shouldBe 0L
-                it[0].endMs shouldBe 60_000L
-                it[1].startMs shouldBe 60_000L // offset by track 1's duration
-                it[1].endMs shouldBe 180_000L
+            chapters.shouldNotBeNullAnd { parsed ->
+                parsed shouldHaveSize 2
+                parsed[0].startMs shouldBe 0L
+                parsed[0].endMs shouldBe 60_000L
+                parsed[1].startMs shouldBe 60_000L // offset by track 1's duration
+                parsed[1].endMs shouldBe 180_000L
             }
         }
 
@@ -90,10 +90,10 @@ class OverdriveChaptersTest :
 
             val chapters = OverdriveChapters.parse(listOf(track)) { meta }
 
-            chapters.shouldNotBeNullAnd {
-                it shouldHaveSize 1
-                it[0].title shouldBe "Chapter 1"
-                it[0].endMs shouldBe 60_000L
+            chapters.shouldNotBeNullAnd { parsed ->
+                parsed shouldHaveSize 1
+                parsed[0].title shouldBe "Chapter 1"
+                parsed[0].endMs shouldBe 60_000L
             }
         }
 
@@ -133,10 +133,10 @@ class OverdriveChaptersTest :
                         ),
                 )
 
-            OverdriveChapters.parse(listOf(track)) { meta }.shouldNotBeNullAnd {
-                it.map { c -> c.title } shouldBe listOf("Chapter 1 alt", "Chapter 2")
-                it.map { c -> c.index } shouldBe listOf(1, 2)
-                it[0].startMs shouldBe 0L // leading ghost absorbed — no uncovered head
+            OverdriveChapters.parse(listOf(track)) { meta }.shouldNotBeNullAnd { parsed ->
+                parsed.map { c -> c.title } shouldBe listOf("Chapter 1 alt", "Chapter 2")
+                parsed.map { c -> c.index } shouldBe listOf(1, 2)
+                parsed[0].startMs shouldBe 0L // leading ghost absorbed — no uncovered head
             }
         }
 
@@ -145,9 +145,9 @@ class OverdriveChaptersTest :
             val xml = "<Markers><Marker><Name>Chapter 1</Name><Time>0:00.000</Time></Marker></Markers>"
             val meta = embeddedNoMarkers(60_000L).let { it.copy(tags = it.tags.copy(custom = mapOf("OVERDRIVE MEDIAMARKERS" to xml))) }
 
-            OverdriveChapters.parse(listOf(track)) { meta }.shouldNotBeNullAnd {
-                it shouldHaveSize 1
-                it[0].title shouldBe "Chapter 1"
+            OverdriveChapters.parse(listOf(track)) { meta }.shouldNotBeNullAnd { parsed ->
+                parsed shouldHaveSize 1
+                parsed[0].title shouldBe "Chapter 1"
             }
         }
 

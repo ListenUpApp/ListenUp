@@ -11,7 +11,6 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readByteArray
-import kotlinx.io.write
 
 /**
  * Shared implementation of [ImageStorage] using kotlinx-io.

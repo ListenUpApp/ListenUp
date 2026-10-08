@@ -76,7 +76,7 @@ internal fun resolvedForContainment(
         if (SystemFileSystem.exists(cursor)) {
             if (".." in tail) return null
             val resolved = realPathOrNull(cursor) ?: return null
-            return Path(resolved, *tail.toTypedArray()).lexicallyNormalized()
+            return tail.fold(resolved) { parent, segment -> Path(parent, segment) }.lexicallyNormalized()
         }
         if (isSymlink(cursor)) return null
         tail.addFirst(cursor.name)

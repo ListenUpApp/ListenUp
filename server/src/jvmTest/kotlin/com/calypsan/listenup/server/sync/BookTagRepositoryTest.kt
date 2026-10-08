@@ -302,32 +302,6 @@ class BookTagRepositoryTest :
             }
         }
 
-        // ── findBookIdsForTag ─────────────────────────────────────────────────────
-
-        test("findBookIdsForTag returns book IDs for non-tombstoned rows") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1")
-                sql.seedTestBook("book2")
-                sql.seedTestBook("book3")
-                val registry = SyncRegistry()
-                val bus = ChangeBus()
-                val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
-
-                runTest {
-                    tagRepo.upsert(Tag("t1", "Fantasy", "fantasy", 0, 0))
-                    bookTagRepo.upsert(BookTagSyncPayload("book1:t1", "book1", "t1", 1000L, 0L))
-                    bookTagRepo.upsert(BookTagSyncPayload("book2:t1", "book2", "t1", 2000L, 0L))
-                    bookTagRepo.upsert(BookTagSyncPayload("book3:t1", "book3", "t1", 3000L, 0L))
-                    bookTagRepo.softDelete("book3", "t1")
-
-                    val bookIds = bookTagRepo.findBookIdsForTag("t1")
-                    bookIds.toSet() shouldBe setOf("book1", "book2")
-                }
-            }
-        }
-
         // ── reviveAllForBooks (folder re-add cascade) ─────────────────────────────
 
         test("reviveAllForBooks revives only junctions tombstoned at or after the cascade floor") {

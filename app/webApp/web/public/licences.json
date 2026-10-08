@@ -12,7 +12,7 @@
     },
     {
       "uniqueId": "npm:@sqlite.org/sqlite-wasm",
-      "artifactVersion": "3.50.1-build1",
+      "artifactVersion": "3.53.4-build2",
       "name": "@sqlite.org/sqlite-wasm",
       "description": "SQLite Wasm conveniently wrapped as an ES Module.",
       "website": "https://github.com/sqlite/sqlite-wasm#readme",
@@ -92,7 +92,7 @@
     },
     {
       "uniqueId": "npm:hls.js",
-      "artifactVersion": "1.7.1",
+      "artifactVersion": "1.7.3",
       "name": "hls.js",
       "description": "JavaScript HLS client using MediaSourceExtension",
       "website": "https://github.com/video-dev/hls.js",
@@ -722,7 +722,7 @@
     },
     {
       "uniqueId": "npm:ws",
-      "artifactVersion": "8.21.3",
+      "artifactVersion": "8.22.0",
       "name": "ws",
       "description": "Simple to use, blazing fast and thoroughly tested websocket client and server for Node.js",
       "website": "https://github.com/websockets/ws",

@@ -75,7 +75,14 @@ internal class BookReviewer(
 
         val routes = coordinator.routes
         val fields = FieldReviewer.review(book, options, routes) { handEdit(it.by, it.at) }.let { resolveNames(it) }
-        val cover = CoverReviewer.review(book, options.covers, routes, keyProviders, probe)
+        val cover =
+            CoverReviewer.review(
+                book = book,
+                covers = options.covers,
+                routes = routes,
+                candidateProviders = keyProviders,
+                probe = probe,
+            )
         val moods = currentMoods(book.id)
         val (genreReview, genres) =
             LabelReviewer.review(

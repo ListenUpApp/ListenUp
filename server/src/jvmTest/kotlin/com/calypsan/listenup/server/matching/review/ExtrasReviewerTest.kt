@@ -141,7 +141,7 @@ class ExtrasReviewerTest :
             val (review, reviewed) = ChapterNamesReviewer.review(yours, AUDNEXUS to theirs)
             review shouldBe
                 ChapterNamesReview.Available(
-                    source = review.let { (it as ChapterNamesReview.Available).source },
+                    source = (review as ChapterNamesReview.Available).source,
                     rows = listOf(ChapterNameChange(0, "Chapter 1", "Opening")),
                     unchangedCount = 2,
                 )

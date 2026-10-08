@@ -208,7 +208,7 @@ class UserStatsRepository(
         extraWhere: SqlFragment?,
     ): Page<UserStatsSyncPayload> {
         if (userId != null) healStatsIfStale(userId)
-        return super.pullSince(userId, cursor, limit, extraWhere)
+        return super.pullSince(userId = userId, cursor = cursor, limit = limit, extraWhere = extraWhere)
     }
 
     /**

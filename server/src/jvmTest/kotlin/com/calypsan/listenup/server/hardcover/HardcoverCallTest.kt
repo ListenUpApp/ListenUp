@@ -26,7 +26,7 @@ private fun clientAnswering(
                     status,
                     headersOf(
                         *(
-                            headers.map { it.first to listOf(it.second) } +
+                            headers.map { (name, value) -> name to listOf(value) } +
                                 (HttpHeaders.ContentType to listOf("application/json"))
                         ).toTypedArray(),
                     ),

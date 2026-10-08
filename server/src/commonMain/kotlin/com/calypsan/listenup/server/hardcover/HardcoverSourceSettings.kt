@@ -41,7 +41,7 @@ class HardcoverSourceSettings(
 
     /** Whether Hardcover may fill gaps when a book is matched. On unless an admin switched it off. */
     suspend fun metadataEnabled(): Boolean =
-        settings.getValue(HARDCOVER_METADATA_ENABLED_KEY)?.toBooleanStrictOrNull() ?: true
+        settings.getValue(HARDCOVER_METADATA_ENABLED_KEY)?.toBooleanStrictOrNull() != false
 
     /** Switches Hardcover metadata on or off. */
     suspend fun setMetadataEnabled(enabled: Boolean): HardcoverSourceStatus {

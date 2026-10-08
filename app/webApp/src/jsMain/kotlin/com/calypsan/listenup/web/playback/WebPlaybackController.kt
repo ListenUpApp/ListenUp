@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Browser implementation of [PlaybackController]. Wraps the shared [HtmlAudioPlayer], the same
  * way [com.calypsan.listenup.client.playback.DesktopPlaybackController] wraps `FfmpegAudioPlayer`
  * — both are eagerly-ready `AudioPlayer` instances with no service-lifecycle, so `acquire`/
- * `releasePlayer` are no-ops and `isReady` is a constant `true`.
+ * `releasePlayer` are no-ops and `ready` is a constant `true`.
  *
  * Depends on the concrete [HtmlAudioPlayer] rather than the shared `AudioPlayer` interface,
  * specifically so [setVolume] can reach [HtmlAudioPlayer.setVolume] — the one behavior that is
@@ -25,7 +25,7 @@ internal class WebPlaybackController(
     private val audioPlayer: HtmlAudioPlayer,
     private val playbackManager: PlaybackManager,
 ) : PlaybackController {
-    override val isReady: StateFlow<Boolean>
+    override val ready: StateFlow<Boolean>
         field = MutableStateFlow(true)
 
     override fun acquire() = Unit

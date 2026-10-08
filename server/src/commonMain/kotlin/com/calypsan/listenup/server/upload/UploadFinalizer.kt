@@ -140,8 +140,7 @@ internal class UploadFinalizer(
                 .listByLibrary(libraryId.value)
                 .executeAsList()
                 .firstOrNull()
-                ?.root_path
-                ?.let(::Path)
+                ?.let { folder -> Path(folder.root_path) }
         }
 
     /**
@@ -205,10 +204,19 @@ internal class UploadFinalizer(
             )
         }
 
-        val manifest = manifestFor(sessionId, index, sessionDir, destDir, moves)
+        val manifest =
+            manifestFor(
+                sessionId = sessionId,
+                index = index,
+                sessionDir = sessionDir,
+                destDir = destDir,
+                moves = moves,
+            )
         return when (val outcome = broker.executeManifest(manifest)) {
             is AppResult.Failure -> {
-                logger.warn { "upload $sessionId: move failed for '${book.title}': ${outcome.error.debugInfo}" }
+                logger.warn {
+                    "upload $sessionId: move failed for '${book.title}': ${outcome.error.debugInfo ?: outcome.error.code}"
+                }
                 UploadedBook(title = book.title, status = UploadedBookStatus.FAILED, detail = outcome.error.message)
             }
 

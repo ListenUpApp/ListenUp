@@ -61,12 +61,17 @@ class HardcoverHistorySender(
                         queries
                             .selectHistory(userId)
                             .executeAsOneOrNull()
-                            ?.state
-                            ?.let(::hardcoverHistoryState)
+                            ?.run { hardcoverHistoryState(state) }
                     ) {
                         HardcoverHistoryState.OFFERED -> HardcoverHistoryState.DECLINED
+
                         HardcoverHistoryState.DONE -> HardcoverHistoryState.DISMISSED
-                        else -> null
+
+                        HardcoverHistoryState.DECLINED,
+                        HardcoverHistoryState.SENDING,
+                        HardcoverHistoryState.DISMISSED,
+                        null,
+                        -> null
                     }
                 next?.let { queries.updateHistoryState(it.name, at, userId) } != null
             }

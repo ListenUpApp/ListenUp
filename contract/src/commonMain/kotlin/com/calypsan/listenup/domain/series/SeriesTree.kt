@@ -42,8 +42,9 @@ class SeriesTree(
 
     private val childIds: Map<String, List<String>> =
         nodes
-            .filter { it.parentId != null && it.parentId in byId && it.parentId != it.id }
-            .groupBy { it.parentId!! }
+            .mapNotNull { node -> node.parentId?.let { parentId -> parentId to node } }
+            .filter { (parentId, node) -> parentId in byId && parentId != node.id }
+            .groupBy(keySelector = { it.first }, valueTransform = { it.second })
             .mapValues { (_, children) ->
                 children
                     .sortedWith(compareBy<SeriesNode> { it.parentPosition ?: Int.MAX_VALUE }.thenBy { it.id })
@@ -129,9 +130,11 @@ class SeriesTree(
             groups[seriesId] =
                 bySeries[seriesId]
                     .orEmpty()
+                    .asSequence()
                     .sortedWith(BOOK_ORDER)
                     .map { it.bookId }
                     .filter(emitted::add)
+                    .toList()
         }
         walk(rootId)
         return groups

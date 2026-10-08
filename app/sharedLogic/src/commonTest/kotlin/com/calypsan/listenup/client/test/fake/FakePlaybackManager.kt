@@ -58,11 +58,13 @@ class FakePlaybackManager : PlaybackManager {
     val volumeBoostDbFlow = MutableStateFlow(0f)
     override val volumeBoostDb: StateFlow<Float> = volumeBoostDbFlow.asStateFlow()
 
-    val isPlayingFlow = MutableStateFlow(false)
-    override val isPlaying: StateFlow<Boolean> = isPlayingFlow.asStateFlow()
+    val playingFlow = MutableStateFlow(false)
 
-    val isBufferingFlow = MutableStateFlow(false)
-    override val isBuffering: StateFlow<Boolean> = isBufferingFlow.asStateFlow()
+    override val playing: StateFlow<Boolean> = playingFlow.asStateFlow()
+
+    val bufferingFlow = MutableStateFlow(false)
+
+    override val buffering: StateFlow<Boolean> = bufferingFlow.asStateFlow()
 
     val playbackStateFlow = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
     override val playbackState: StateFlow<PlaybackState> = playbackStateFlow.asStateFlow()
@@ -184,19 +186,19 @@ class FakePlaybackManager : PlaybackManager {
     override fun clearPlayback() {
         clearPlaybackCalls += 1
         currentBookIdFlow.value = null
-        isPlayingFlow.value = false
+        playingFlow.value = false
     }
 
     // === PlaybackStateWriter overrides ===
 
     override fun setPlaying(playing: Boolean) {
         setPlayingCalls += playing
-        isPlayingFlow.value = playing
+        playingFlow.value = playing
     }
 
     override fun setBuffering(buffering: Boolean) {
         setBufferingCalls += buffering
-        isBufferingFlow.value = buffering
+        bufferingFlow.value = buffering
     }
 
     override fun setPlaybackState(state: PlaybackState) {

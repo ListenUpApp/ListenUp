@@ -118,8 +118,8 @@ fun LoginScreen(
                     is LoginErrorType.ServerError -> type.detail ?: "Server error. Please try again."
                     is LoginErrorType.ValidationError -> null // Handled inline.
                 }
-            message?.let {
-                snackbarHostState.showSnackbar(it)
+            message?.let { errorText ->
+                snackbarHostState.showSnackbar(errorText)
                 viewModel.clearError()
             }
         }
@@ -354,8 +354,8 @@ private fun RootResetDialog(
             )
             ListenUpTextField(
                 value = token,
-                onValueChange = {
-                    token = it
+                onValueChange = { enteredToken ->
+                    token = enteredToken
                     errorMessage = null
                 },
                 label = stringResource(Res.string.auth_reset_root_token_label),
@@ -364,8 +364,8 @@ private fun RootResetDialog(
             )
             ListenUpTextField(
                 value = newPassword,
-                onValueChange = {
-                    newPassword = it
+                onValueChange = { enteredPassword ->
+                    newPassword = enteredPassword
                     errorMessage = null
                 },
                 label = stringResource(Res.string.auth_password_label),

@@ -5,7 +5,7 @@ import androidx.compose.material3.CardDefaults
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SectionColumns
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
@@ -99,8 +98,8 @@ fun LibrarySettingsScreen(
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? LibrarySettingsUiState.Ready)?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it.localizedString())
+        readyError?.let { error ->
+            snackbarHostState.showSnackbar(error.localizedString())
             viewModel.clearError()
         }
     }
@@ -209,7 +208,7 @@ internal fun LibrarySettingsContent(
     }
 
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     val onRemoveRequest: (LibraryFolderRef) -> Unit = { folderToRemove = it }

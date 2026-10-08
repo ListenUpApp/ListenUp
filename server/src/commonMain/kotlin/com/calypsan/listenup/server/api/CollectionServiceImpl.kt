@@ -123,7 +123,12 @@ private suspend fun CollectionBookRepository.upsertOrLog(
 ): Boolean {
     val result = upsert(payload)
     if (result is AppResult.Failure) {
-        logFailedMembershipWrite(op, payload.bookId, payload.collectionId, result.error)
+        logFailedMembershipWrite(
+            op = op,
+            bookId = payload.bookId,
+            collectionId = payload.collectionId,
+            error = result.error,
+        )
         return false
     }
     return true
@@ -156,7 +161,10 @@ private suspend fun CollectionBookRepository.releaseHeldBook(
     createdAt: Long,
 ): BookRelease =
     try {
-        val released = lock.withLock { releaseFromInbox(bookId, inboxId, targetIds, createdAt) }
+        val released =
+            lock.withLock {
+                releaseFromInbox(bookId = bookId, inboxId = inboxId, targetIds = targetIds, createdAt = createdAt)
+            }
         if (released) BookRelease.RELEASED else BookRelease.NOT_HELD
     } catch (e: CancellationException) {
         throw e
@@ -217,25 +225,24 @@ private data class ListableCollections(
  * owned collections plus any collection actively shared to them, with system collections filtered
  * out (spec §3.2 — a member's default ALL_BOOKS grant must not leak ALL_BOOKS/INBOX into their list).
  */
-private suspend fun listableCollectionsFor(
-    collectionRepo: CollectionRepository,
+private suspend fun CollectionRepository.listableCollectionsFor(
     grantRepo: CollectionGrantRepository,
     callerUserId: String,
     callerRole: UserRoleColumn,
 ): ListableCollections {
     if (callerRole.isAdmin()) {
-        return ListableCollections(collectionRepo.listAll(), emptyMap())
+        return ListableCollections(listAll(), emptyMap())
     }
-    val owned = collectionRepo.listOwnedBy(callerUserId)
+    val owned = listOwnedBy(callerUserId)
     val grants = grantRepo.listActiveGrantsForUser(callerUserId)
-    val shared = grants.map { it.collectionId }.mapNotNull { collectionRepo.findById(it) }
-    val systemIds = collectionRepo.systemCollectionIds()
+    val shared = grants.map { it.collectionId }.mapNotNull { findById(it) }
+    val systemIds = systemCollectionIds()
     val collections = (owned + shared).distinctBy { it.id }.filterNot { it.id in systemIds }
     return ListableCollections(collections, grants.associateBy({ it.collectionId }, { it.permission }))
 }
 
 /**
- * Reconstructs the [CollectionAccessPolicy.Decision] for [collection] from data already in hand
+ * Reconstructs the [CollectionAccessPolicy.Decision] for this collection from data already in hand
  * — [CollectionServiceImpl.listCollections]'s batched replacement for calling
  * [CollectionAccessPolicy.decide] (and its redundant `collectionRepo.findById` re-read) once per
  * listed collection. Mirrors `decide`'s owner → admin → active-share precedence exactly. Safe to
@@ -244,14 +251,13 @@ private suspend fun listableCollectionsFor(
  * unconditionally true here. [grantsByCollectionId] backs the active-share branch only — never
  * consulted for an owner or an admin/root caller, matching `decide`'s short-circuit order.
  */
-private fun decisionFor(
-    collection: CollectionSyncPayload,
+private fun CollectionSyncPayload.decisionFor(
     callerUserId: String,
     callerRole: UserRoleColumn,
     grantsByCollectionId: Map<String, SharePermission>,
 ): CollectionAccessPolicy.Decision =
     when {
-        collection.ownerId == callerUserId -> {
+        ownerId == callerUserId -> {
             CollectionAccessPolicy.Decision(true, SharePermission.Write, true)
         }
 
@@ -262,7 +268,7 @@ private fun decisionFor(
         else -> {
             CollectionAccessPolicy.Decision(
                 canAccess = true,
-                permission = grantsByCollectionId[collection.id] ?: SharePermission.Read,
+                permission = grantsByCollectionId[id] ?: SharePermission.Read,
                 isOwner = false,
             )
         }
@@ -346,16 +352,16 @@ internal class CollectionServiceImpl(
     override suspend fun listCollections(): AppResult<List<CollectionSummary>> {
         val caller = resolveCaller() ?: return noPrincipal()
         val (collections, grantsByCollectionId) =
-            listableCollectionsFor(collectionRepo, grantRepo, caller.userId, caller.role)
+            collectionRepo.listableCollectionsFor(grantRepo, caller.userId, caller.role)
 
         // One batched count round trip instead of one countLiveForCollection call per collection.
         val counts = collectionBookRepo.countLiveForCollections(collections.map { it.id })
         val summaries =
             collections.map { collection ->
                 summarize(
-                    collection,
-                    caller,
-                    decision = decisionFor(collection, caller.userId, caller.role, grantsByCollectionId),
+                    collection = collection,
+                    caller = caller,
+                    decision = collection.decisionFor(caller.userId, caller.role, grantsByCollectionId),
                     bookCount = counts[collection.id] ?: 0L,
                 )
             }
@@ -891,23 +897,23 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         adminGate(caller.role)?.let { return AppResult.Failure(it) }
 
-        val libraryId = libraryId.value
-        val assignments =
+        val libraryIdValue = libraryId.value
+        val targetsByBookId =
             assignments.entries.associate { (bookId, targets) ->
                 bookId.value to
                     targets.map(CollectionId::value)
             }
 
-        val inbox = getOrCreateInbox(libraryId).getOrElse { return AppResult.Failure(it) }
+        val inbox = getOrCreateInbox(libraryIdValue).getOrElse { return AppResult.Failure(it) }
         val inboxId = inbox.id.value
 
         // Books released with no explicit target join ALL_BOOKS (the public substrate). Resolve
         // (or create) it once, up front, only when at least one book needs it — keeping the
         // common "release into explicit collections" path free of system-collection lookups.
-        val needsAllBooks = assignments.values.any { it.isEmpty() }
+        val needsAllBooks = targetsByBookId.values.any { it.isEmpty() }
         val allBooksId =
             if (needsAllBooks) {
-                getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS)
+                getOrCreateSystemCollection(libraryIdValue, SystemCollectionType.ALL_BOOKS)
                     .getOrElse { return AppResult.Failure(it) }
                     .id.value
             } else {
@@ -918,12 +924,12 @@ internal class CollectionServiceImpl(
         // before mutating anything: a bad id otherwise surfaces as an opaque FK violation, and
         // a tombstoned target would be silently resurrected by upsert. Validating before any write
         // keeps the common failure typed and leaves every book held when it fires.
-        val explicitTargetIds = assignments.values.flatten().toSet()
+        val explicitTargetIds = targetsByBookId.values.flatten().toSet()
         for (targetId in explicitTargetIds) {
             val target =
                 collectionRepo.findById(targetId)
                     ?: return AppResult.Failure(CollectionError.NotFound())
-            if (target.libraryId != libraryId) {
+            if (target.libraryId != libraryIdValue) {
                 return AppResult.Failure(
                     CollectionError.InvalidInput(debugInfo = "Target collection $targetId is in a different library"),
                 )
@@ -937,7 +943,7 @@ internal class CollectionServiceImpl(
         val releasedBookIds = mutableListOf<String>()
         val releasedTargetIds = mutableSetOf<String>()
         val failedBookIds = mutableListOf<String>()
-        for ((bookId, targetCollectionIds) in assignments) {
+        for ((bookId, targetCollectionIds) in targetsByBookId) {
             // Empty target → release to ALL_BOOKS so the book stays publicly visible.
             val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
             val step =
@@ -985,7 +991,7 @@ internal class CollectionServiceImpl(
         }
         for (bookId in failedBookIds) logSkippedReconcile("releaseBooks", bookId)
 
-        return releaseOutcome(failedBookIds, requested = assignments.size)
+        return releaseOutcome(failedBookIds, requested = targetsByBookId.size)
     }
 
     /**
@@ -997,12 +1003,12 @@ internal class CollectionServiceImpl(
      * the same loop see it exactly as a fresh per-book lookup would.
      */
     private inner class SystemMembershipLookups {
-        private var systemIds: MutableSet<String>? = null
+        private var systemIds: Set<String>? = null
         private val inboxIdByLibrary = mutableMapOf<String, String?>()
         private val allBooksIdByLibrary = mutableMapOf<String, String>()
 
         suspend fun systemIds(): Set<String> =
-            systemIds ?: collectionRepo.systemCollectionIds().toMutableSet().also { systemIds = it }
+            systemIds ?: collectionRepo.systemCollectionIds().toSet().also { systemIds = it }
 
         suspend fun inboxId(libraryId: String): String? {
             if (libraryId !in inboxIdByLibrary) {
@@ -1011,19 +1017,19 @@ internal class CollectionServiceImpl(
             return inboxIdByLibrary[libraryId]
         }
 
-        suspend fun allBooksId(libraryId: String): String? =
-            allBooksIdByLibrary[libraryId]
-                ?: collectionRepo
-                    .findSystemCollection(libraryId, SYSTEM_TYPE_ALL_BOOKS)
-                    ?.id
-                    ?.also { allBooksIdByLibrary[libraryId] = it }
+        suspend fun allBooksId(libraryId: String): String? {
+            allBooksIdByLibrary[libraryId]?.let { cached -> return cached }
+            val allBooks = collectionRepo.findSystemCollection(libraryId, SYSTEM_TYPE_ALL_BOOKS) ?: return null
+            allBooksIdByLibrary[libraryId] = allBooks.id
+            return allBooks.id
+        }
 
         fun noteAllBooksCreated(
             libraryId: String,
             id: String,
         ) {
             allBooksIdByLibrary[libraryId] = id
-            systemIds?.add(id)
+            systemIds = systemIds?.plus(id)
         }
     }
 
@@ -1145,7 +1151,7 @@ internal class CollectionServiceImpl(
             .minus(SYSTEM_OWNER_ID)
 
     /** Publishes the recipient-agnostic [AccessChanged][SyncControl.AccessChanged] frame carrying [scope] to each of [userIds]. */
-    private suspend fun publishAccessChanged(
+    private fun publishAccessChanged(
         userIds: Set<String>,
         scope: AccessScope?,
     ) {
@@ -1164,8 +1170,7 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         adminGate(caller.role)?.let { return AppResult.Failure(it) }
 
-        val libraryId = libraryId.value
-        val inbox = collectionRepo.findInboxForLibrary(libraryId) ?: return AppResult.Success(emptyList())
+        val inbox = collectionRepo.findInboxForLibrary(libraryId.value) ?: return AppResult.Success(emptyList())
         val bookIds = collectionBookRepo.findBookIdsForCollection(inbox.id).map { BookId(it) }
         return AppResult.Success(bookIds)
     }
@@ -1270,11 +1275,6 @@ internal class CollectionServiceImpl(
             sharedWithUserId = UserId(sharedWithUserId),
             permission = permission,
         )
-
-    private suspend fun CollectionRepository.softDelete(id: String): AppResult<Unit> = softDelete(id, clientOpId = null)
-
-    private suspend fun CollectionGrantRepository.softDelete(id: String): AppResult<Unit> =
-        softDelete(id, clientOpId = null)
 }
 
 /** Admin gate: null = allowed (ROOT/ADMIN); [AuthError.PermissionDenied] for everyone else. */

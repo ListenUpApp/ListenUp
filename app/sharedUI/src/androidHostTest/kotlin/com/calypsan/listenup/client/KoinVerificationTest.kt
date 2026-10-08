@@ -19,8 +19,8 @@ class KoinVerificationTest :
             // Should not throw — every resolver returns without error.
             checkCriticalKoinBindings(
                 listOf(
-                    "A" to { Unit },
-                    "B" to { Unit },
+                    "A" to {},
+                    "B" to {},
                 ),
             )
         }

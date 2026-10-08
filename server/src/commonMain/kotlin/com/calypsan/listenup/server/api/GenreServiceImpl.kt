@@ -25,12 +25,8 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
-import com.calypsan.listenup.server.util.runCatchingCancellable
-import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
-
-private val logger = loggerFor<GenreServiceImpl>()
 
 private const val MIN_BROWSE_LIMIT = 1
 private const val MAX_BROWSE_LIMIT = 1000
@@ -80,11 +76,25 @@ internal class GenreServiceImpl(
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val clock: Clock = Clock.System,
 ) : GenreService {
-    private val mergeReceipts = GenreMergeReceipts(sqlDb, genreRepository, bookRepository, clock)
+    private val mergeReceipts =
+        GenreMergeReceipts(
+            sqlDb = sqlDb,
+            genreRepository = genreRepository,
+            bookRepository = bookRepository,
+            clock = clock,
+        )
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): GenreServiceImpl =
-        GenreServiceImpl(genreRepository, bookRepository, sqlDb, accessPolicy, permissionPolicy, principal, clock)
+        GenreServiceImpl(
+            genreRepository = genreRepository,
+            bookRepository = bookRepository,
+            sqlDb = sqlDb,
+            accessPolicy = accessPolicy,
+            permissionPolicy = permissionPolicy,
+            principal = principal,
+            clock = clock,
+        )
 
     /**
      * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
@@ -288,7 +298,6 @@ internal class GenreServiceImpl(
             return AppResult.Failure(genreNotFound(id))
         }
         val patched = current.applyPatch(patch)
-        val nameChanged = patched.name != current.name
         val result =
             when (val upsertResult = genreRepository.upsert(patched)) {
                 is AppResult.Success -> AppResult.Success(Unit)
@@ -360,7 +369,8 @@ internal class GenreServiceImpl(
         target: GenreId,
     ): AppResult<Unit> {
         requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
-        val mergedBy = principal.current()?.userId?.value ?: return AppResult.Failure(AuthError.PermissionDenied())
+        val mergedBy =
+            principal.current()?.run { userId.value } ?: return AppResult.Failure(AuthError.PermissionDenied())
         // Sequential single-engine cutover (see deleteGenre): synchronous relink + alias-repoint
         // commit first, the source genre soft-delete runs through the substrate, then the affected
         // books are re-upserted. All SQLDelight, run sequentially — no SQLITE_BUSY.
@@ -411,7 +421,7 @@ internal class GenreServiceImpl(
                     UnmappedStringSummary(
                         rawString = agg.raw_string,
                         bookCount = agg.book_count.toInt(),
-                        firstSeenAt = agg.first_seen ?: 0L,
+                        firstSeenAt = agg.first_seen,
                     )
                 }
             AppResult.Success(summaries)
@@ -541,7 +551,7 @@ internal class GenreServiceImpl(
         }
 
         val oldPathPrefix = genre.path
-        val newPathPrefix = (newParent?.path ?: "") + "/" + genre.slug
+        val newPathPrefix = newParent?.path.orEmpty() + "/" + genre.slug
         if (newPathPrefix == oldPathPrefix) return MovePlanResult.NoOp
 
         if (genreRepository.findByPath(newPathPrefix) != null) {
@@ -650,7 +660,13 @@ fun createGenreService(
     bookRepository: BookRepository,
     sqlDb: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
-): GenreService = GenreServiceImpl(genreRepository, bookRepository, sqlDb, BookAccessPolicy(sqlDb, driver))
+): GenreService =
+    GenreServiceImpl(
+        genreRepository = genreRepository,
+        bookRepository = bookRepository,
+        sqlDb = sqlDb,
+        accessPolicy = BookAccessPolicy(sqlDb, driver),
+    )
 
 /**
  * Scopes a [GenreService] built by [createGenreService] to [principal] for one request.

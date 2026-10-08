@@ -43,7 +43,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 /**
- * Verifies the isBuffering and playbackState flows,
+ * Verifies the buffering and playbackState flows,
  * and the AudioPlayer state observation.
  *
  * These flows serve as the receiving end for platform-specific state pushes:
@@ -146,19 +146,19 @@ class PlaybackManagerBufferingStateTest :
             )
         }
 
-        test("setBuffering updates isBuffering flow") {
+        test("setBuffering updates buffering flow") {
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
                     val sut = createPlaybackManager(db)
 
-                    sut.isBuffering.value shouldBe false
+                    sut.buffering.value shouldBe false
 
                     sut.setBuffering(true)
-                    sut.isBuffering.value shouldBe true
+                    sut.buffering.value shouldBe true
 
                     sut.setBuffering(false)
-                    sut.isBuffering.value shouldBe false
+                    sut.buffering.value shouldBe false
                 }
             } finally {
                 db.close()
@@ -232,14 +232,14 @@ class PlaybackManagerBufferingStateTest :
 
                     // After play(), FakePlayer emits Playing — expect state forwarded.
                     sut.playbackState.value shouldBe PlaybackState.Playing
-                    withClue("Playing state must clear isBuffering") { sut.isBuffering.value shouldBe false }
+                    withClue("Playing state must clear buffering") { sut.buffering.value shouldBe false }
 
                     // Now drive the player to Buffering and verify forwarding.
                     player.emitState(PlaybackState.Buffering)
                     advanceUntilIdle()
 
                     sut.playbackState.value shouldBe PlaybackState.Buffering
-                    sut.isBuffering.value shouldBe true
+                    sut.buffering.value shouldBe true
 
                     // clearPlayback must cancel observations — further emissions must not propagate.
                     sut.clearPlayback()
@@ -248,7 +248,7 @@ class PlaybackManagerBufferingStateTest :
 
                     // clearPlayback resets to Idle regardless of what the player emits.
                     sut.playbackState.value shouldBe PlaybackState.Idle
-                    withClue("clearPlayback must reset isBuffering to false") { sut.isBuffering.value shouldBe false }
+                    withClue("clearPlayback must reset buffering to false") { sut.buffering.value shouldBe false }
 
                     // Cancel to stop the infinite collect coroutines and let runTest complete.
                     managerScope.coroutineContext[Job]?.cancel()

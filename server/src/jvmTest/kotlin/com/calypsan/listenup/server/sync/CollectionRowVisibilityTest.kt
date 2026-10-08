@@ -2,7 +2,6 @@
 
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -27,14 +26,6 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -131,7 +122,7 @@ class CollectionRowVisibilityTest :
                 sql.seedTestBook("b1")
                 sql.seedTestBook("b2")
                 runTest {
-                    val (collections, shares, memberships) = makeRepos(this@withSqlDatabase)
+                    val (collections, _, memberships) = makeRepos(this@withSqlDatabase)
 
                     collections.upsert(collectionFixture("owned", owner = "member"))
                     collections.upsert(collectionFixture("private", owner = "stranger"))
@@ -180,7 +171,6 @@ class CollectionRowVisibilityTest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = jsonClient()
 
                     mintRootToken()
                     val memberId = registerMemberId()
@@ -218,11 +208,6 @@ class CollectionRowVisibilityTest :
             }
         }
     })
-
-private fun io.ktor.server.testing.ApplicationTestBuilder.jsonClient(): HttpClient =
-    createClient {
-        install(ContentNegotiation) { json(contractJson) }
-    }
 
 private suspend fun ApplicationTestBuilder.mintRootToken(): String =
     publicAuthService()

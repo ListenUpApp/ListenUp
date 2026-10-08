@@ -54,6 +54,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.files.Path as IoPath
+import java.util.Locale
 
 private const val E2E_TIMEOUT_MS = 60_000L
 
@@ -204,7 +205,7 @@ private fun seedBookDir(
     val dir = libraryRoot.resolve(relPath)
     Files.createDirectories(dir)
     repeat(tracks) { i ->
-        Files.writeString(dir.resolve("%02d.m4b".format(i + 1)), "")
+        Files.writeString(dir.resolve("%02d.m4b".format(Locale.ROOT, i + 1)), "")
     }
     if (withCover) Files.writeString(dir.resolve("cover.jpg"), "img")
     // Series pinned via ABS metadata (highest precedence) so the messy nesting can't leak a

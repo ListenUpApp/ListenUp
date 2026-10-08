@@ -9,17 +9,6 @@ package com.calypsan.listenup.server.scanner.pipeline
  * common English language names ("English" -> "en").
  */
 object LanguageNormalizer {
-    fun normalize(raw: String): String? {
-        var s = raw.trim().lowercase()
-        if (s.isEmpty()) return null
-        val sep = s.indexOfFirst { it == '-' || it == '_' }
-        if (sep > 0) s = s.substring(0, sep)
-        if (s.length == 2 && s in valid6391) return s
-        if (s.length == 3) iso6392to1[s]?.let { return it }
-        languageNameToCode[s]?.let { return it }
-        return null
-    }
-
     private val iso6392to1: Map<String, String> =
         mapOf(
             "eng" to "en",
@@ -399,4 +388,15 @@ object LanguageNormalizer {
             "zh",
             "zu",
         )
+
+    fun normalize(raw: String): String? {
+        var s = raw.trim().lowercase()
+        if (s.isEmpty()) return null
+        val sep = s.indexOfFirst { it == '-' || it == '_' }
+        if (sep > 0) s = s.substring(0, sep)
+        if (s.length == 2 && s in valid6391) return s
+        if (s.length == 3) iso6392to1[s]?.let { return it }
+        languageNameToCode[s]?.let { return it }
+        return null
+    }
 }

@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
-import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
@@ -47,8 +46,9 @@ class DefaultBookAvailabilityTest :
                 object : NetworkMonitor {
                     override fun isOnline(): Boolean = true
 
-                    override val isOnlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
-                    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(unmetered)
+                    override val onlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
+
+                    override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(unmetered)
                 }
 
             return DefaultBookAvailability(

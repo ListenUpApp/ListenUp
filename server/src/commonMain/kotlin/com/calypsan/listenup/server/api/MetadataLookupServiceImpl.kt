@@ -28,7 +28,6 @@ import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RateDecision
 import com.calypsan.listenup.server.auth.PermissionPolicy
-import com.calypsan.listenup.server.metadata.audible.toAudibleRegion
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ComposedBook
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
@@ -37,7 +36,6 @@ import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ContributorHitRanker
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import com.calypsan.listenup.api.metadata.MetadataLocale
-import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -141,8 +139,8 @@ internal class MetadataLookupServiceImpl(
      */
     private suspend fun enforceRate(bucket: MetadataRateBucket): AppError? {
         val limiter = rateLimiter ?: return null
-        val userId = principal.current()?.userId?.value ?: return null
-        return when (val decision = limiter.check(bucket, userId)) {
+        val callerId = principal.current()?.run { userId.value } ?: return null
+        return when (val decision = limiter.check(bucket, callerId)) {
             RateDecision.Allowed -> null
             is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
         }
@@ -274,7 +272,7 @@ internal class MetadataLookupServiceImpl(
 
     /** Compose → probe the applied cover's dimensions → attach [com.calypsan.listenup.api.dto.MatchProvenance]. */
     private suspend fun ComposedBook.toMetadataBookWithProvenance(): MetadataBook {
-        val dims = probeDimensions(coverUrlMaxSize ?: coverUrl ?: "")
+        val dims = probeDimensions((coverUrlMaxSize ?: coverUrl).orEmpty())
         return toMetadataBook().copy(matchProvenance = buildMatchProvenance(this, coordinator.routes, dims))
     }
 
@@ -301,7 +299,8 @@ internal class MetadataLookupServiceImpl(
         selection: MetadataApplySelection,
     ): AppResult<Mutated<Unit>> {
         requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
-        val appliedBy = principal.current()?.userId?.value ?: return AppResult.Failure(AuthError.PermissionDenied())
+        val appliedBy =
+            principal.current()?.run { userId.value } ?: return AppResult.Failure(AuthError.PermissionDenied())
         val genreAutoCreator = GenreAutoCreator(genreRepository)
         // Echo-in-response: withCapturedFrames collects EVERY frame the match emits — the book plus any
         // newly-created contributors/series/moods/tags/genres and the cover — so the originating device
@@ -327,7 +326,7 @@ internal class MetadataLookupServiceImpl(
                     externalRatingsFetcher?.let { fetcher ->
                         { id, locale -> fetcher.fetch(id, locale, refresh = true) }
                     },
-            ).apply(bookId, asin, region, selection)
+            ).apply(bookId = bookId, asin = asin, locale = region, selection = selection)
         }
     }
 
@@ -344,7 +343,7 @@ internal class MetadataLookupServiceImpl(
             ChapterNameApplier(
                 bookRepository = bookRepository,
                 coordinator = coordinator,
-            ).apply(bookId, asin, region, ordinals)
+            ).apply(bookId = bookId, asin = asin, locale = region, ordinals = ordinals)
         }
     }
 
@@ -401,16 +400,16 @@ internal class MetadataLookupServiceImpl(
                 val stored = imageDeps.coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
                 val relPath = "covers/${stored.path.name}"
                 bookRepository.setManagedCover(
-                    bookId,
-                    relPath,
-                    stored.sha256,
-                    CoverSource.UPLOADED,
+                    id = bookId,
+                    relPath = relPath,
+                    hash = stored.sha256,
+                    source = CoverSource.UPLOADED,
                     // A cover picked from the search results by a person is a hand choice.
                     provenance =
                         FieldProvenance(
                             FieldSourceKind.USER,
                             at = currentEpochMilliseconds(),
-                            by = principal.current()?.userId?.value,
+                            by = principal.current()?.run { userId.value },
                         ),
                 )
             } catch (e: CancellationException) {

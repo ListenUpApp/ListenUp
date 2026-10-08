@@ -74,6 +74,7 @@ class WebSessionCoversItsViewModelRule :
                         vm.name to
                             vm
                                 .functions()
+                                .asSequence()
                                 .filter { it.hasPublicOrDefaultModifier }
                                 .filterNot { it.hasOverrideModifier }
                                 // Commands, not queries. A session wires actions; a function that
@@ -82,6 +83,7 @@ class WebSessionCoversItsViewModelRule :
                                 // mention it would teach the reader to allowlist noise.
                                 .filter { it.returnType == null || it.returnType?.name == "Unit" }
                                 .map { it.name }
+                                .toList()
                     }
 
             val offenders =
@@ -178,8 +180,7 @@ internal fun actionCoverage(
                 val reachEnd =
                     Regex("""\b(?:val|var)\s+${Regex.escape(name)}\b""")
                         .find(code, binding.range.last + 1)
-                        ?.range
-                        ?.first ?: code.length
+                        ?.run { range.first } ?: code.length
                 Regex("""\b${Regex.escape(name)}\s*(?:\?\.|\.|::)\s*${Regex.escape(action)}\b""")
                     .containsMatchIn(code.substring(binding.range.first, reachEnd))
             }

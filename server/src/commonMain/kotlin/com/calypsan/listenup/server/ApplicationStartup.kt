@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -200,11 +201,10 @@ internal fun Application.startBackgroundTasks(
     // test harness can opt out — no test should bind multicast sockets or run a receive loop.
     if (environment.config
             .propertyOrNull("mdns.enabled")
-            ?.getString()
-            ?.toBooleanStrictOrNull() != false
+            ?.run { getString().toBooleanStrictOrNull() } != false
     ) {
         scope.launch {
-            runCatching {
+            runCatchingCancellable {
                 val advertiser = koinGet<MdnsAdvertiser>()
                 advertiser.start()
                 // Re-announce when an admin changes the server name / remote URL: that path broadcasts
@@ -215,7 +215,6 @@ internal fun Application.startBackgroundTasks(
                     scope.launch { advertiser.stop() }
                 }
             }.onFailure { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
                 logger.warn(e) { "mDNS advertisement failed to start — server keeps running" }
             }
         }
@@ -224,15 +223,14 @@ internal fun Application.startBackgroundTasks(
 
 /**
  * Runs [task] as a startup step that must never break server boot: any non-cancellation
- * failure is logged (prefixed with [description]) and swallowed.
+ * exception is logged (prefixed with [description]) and swallowed.
  * [kotlinx.coroutines.CancellationException] is re-raised to honor structured concurrency.
  */
 private suspend fun runNeverFatal(
     description: String,
     task: suspend () -> Unit,
 ) {
-    runCatching { task() }.onFailure { e ->
-        if (e is kotlinx.coroutines.CancellationException) throw e
+    runCatchingCancellable { task() }.onFailure { e ->
         logger.error(e) { "$description — server keeps running" }
     }
 }

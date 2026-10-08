@@ -2,8 +2,6 @@
 
 package com.calypsan.listenup.server.services
 
-import app.cash.sqldelight.db.QueryResult
-import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry

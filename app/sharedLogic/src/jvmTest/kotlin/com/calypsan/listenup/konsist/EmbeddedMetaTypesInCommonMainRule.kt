@@ -68,7 +68,7 @@ class EmbeddedMetaTypesInCommonMainRule :
 
             val misplaced =
                 implementations.filterNot { cls ->
-                    cls.fullyQualifiedName?.startsWith("com.calypsan.listenup.server.embeddedmeta.") ?: false
+                    cls.fullyQualifiedName?.startsWith("com.calypsan.listenup.server.embeddedmeta.") == true
                 }
             misplaced.map { it.fullyQualifiedName }.shouldBeEmpty()
         }

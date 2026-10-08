@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -55,11 +55,14 @@ class ChapterEditorContentLockTest {
                     selectedChapterId = null,
                     playheadMs = { null },
                     onSelect = {},
-                    onNudge = { _, _ -> },
-                    onSnapToPlayhead = {},
-                    onToggleLock = onToggleLock,
+                    rowEdits =
+                        ChapterRowEdits(
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = {},
+                            onToggleLock = onToggleLock,
+                            onEditTime = {},
+                        ),
                     rowMenu = ChapterRowMenuActions({}, {}, null, {}),
-                    onEditTime = {},
                     lockedChapterIds = locked,
                 )
             }

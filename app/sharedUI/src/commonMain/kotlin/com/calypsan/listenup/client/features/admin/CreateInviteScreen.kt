@@ -53,7 +53,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ColorBlockHero
@@ -138,13 +138,13 @@ fun CreateInviteScreen(
                         is CreateInviteErrorType.NetworkError -> type.detail ?: "Network error"
                         is CreateInviteErrorType.ServerError -> type.detail ?: "Server error"
                     }
-                message?.let {
-                    snackbarHostState.showSnackbar(it)
+                message?.let { errorMessage ->
+                    snackbarHostState.showSnackbar(errorMessage)
                     viewModel.clearError()
                 }
             }
 
-            else -> {}
+            CreateInviteStatus.Idle, CreateInviteStatus.Submitting, null -> {}
         }
     }
 
@@ -232,7 +232,7 @@ private fun CreateInviteForm(
             ?.field
 
     val isExpanded =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
@@ -440,7 +440,7 @@ private fun SuccessContent(
     modifier: Modifier = Modifier,
 ) {
     val isExpanded =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
     val horizontalPadding = if (isExpanded) 24.dp else 16.dp

@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract

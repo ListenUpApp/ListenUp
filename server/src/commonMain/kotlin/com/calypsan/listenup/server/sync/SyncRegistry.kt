@@ -21,13 +21,13 @@ class SyncRegistry {
     private val lock = SynchronizedObject()
     private val byDomain = mutableMapOf<String, SyncableRepo<*>>()
 
-    fun register(repo: SyncableRepo<*>) =
+    fun register(repo: SyncableRepo<*>): Unit =
         synchronized(lock) {
             val existing = byDomain[repo.domainName]
             if (existing != null) {
                 error(
                     "domainName '${repo.domainName}' already registered with " +
-                        "${existing::class.simpleName}; registering ${repo::class.simpleName} " +
+                        "${existing::class.simpleName.orEmpty()}; registering ${repo::class.simpleName.orEmpty()} " +
                         "would overwrite (per-Koin registry should be 1:1)",
                 )
             }

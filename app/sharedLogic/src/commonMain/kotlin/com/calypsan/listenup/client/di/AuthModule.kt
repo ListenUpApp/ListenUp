@@ -16,7 +16,6 @@ import com.calypsan.listenup.client.data.repository.RegistrationStatusStreamImpl
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InviteRepository
-import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
@@ -28,7 +27,6 @@ import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
 import com.calypsan.listenup.client.playback.PlaybackManager
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module

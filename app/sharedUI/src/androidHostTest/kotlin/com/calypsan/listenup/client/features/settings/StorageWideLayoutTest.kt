@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.features.settings
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.presentation.storage.StorageUiState

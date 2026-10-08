@@ -14,7 +14,6 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -54,7 +53,6 @@ class GenreServiceImplReadCreateTest :
             val contributorRepo = ContributorRepository(sql, bus, registry)
             val seriesRepo = SeriesRepository(sql, bus, registry)
             val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
-            val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
             val bookRepo =
                 BookRepository(
                     db = sql,

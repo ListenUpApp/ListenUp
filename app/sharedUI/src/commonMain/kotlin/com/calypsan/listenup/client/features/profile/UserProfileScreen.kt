@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.features.profile
 
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.ui.unit.Dp
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -128,7 +128,7 @@ fun UserProfileScreen(
 
     ListenUpScaffold(
         modifier = modifier,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
     ) { paddingValues ->
         Box(
             modifier =
@@ -153,7 +153,7 @@ fun UserProfileScreen(
 
                 is UserProfileUiState.Ready -> {
                     val wide =
-                        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
                             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
                         )
                     if (wide) {
@@ -454,10 +454,11 @@ private fun ProfileHeroIdentity(state: UserProfileUiState.Ready) {
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() },
         )
-        if (!state.tagline.isNullOrBlank()) {
+        val tagline = state.tagline
+        if (!tagline.isNullOrBlank()) {
             Spacer(Modifier.height(6.dp))
             Text(
-                text = state.tagline!!,
+                text = tagline,
                 style = MaterialTheme.typography.bodyLarge,
                 color = HeroInk.muted(),
                 textAlign = TextAlign.Center,
@@ -617,7 +618,12 @@ private fun StatTile(
             modifier = Modifier.size(38.dp).clip(cookieScallopShape()).background(data.onContainer.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(data.icon, null, tint = data.iconTint, modifier = Modifier.size(21.dp))
+            Icon(
+                imageVector = data.icon,
+                contentDescription = null,
+                tint = data.iconTint,
+                modifier = Modifier.size(21.dp),
+            )
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
@@ -743,7 +749,12 @@ private fun ShelfTile(
             shape = BlobShape,
         )
         Column(modifier = Modifier.fillMaxSize().padding(Spacing.lg), verticalArrangement = Arrangement.SpaceBetween) {
-            Icon(Icons.Default.Bookmarks, null, tint = onContainer, modifier = Modifier.size(24.dp))
+            Icon(
+                imageVector = Icons.Default.Bookmarks,
+                contentDescription = null,
+                tint = onContainer,
+                modifier = Modifier.size(24.dp),
+            )
             Column {
                 Text(
                     text = shelf.name,
@@ -782,7 +793,12 @@ private fun AddShelfTile(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+        Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(26.dp),
+        )
         Spacer(Modifier.height(6.dp))
         Text(
             text = stringResource(Res.string.profile_create_shelf),

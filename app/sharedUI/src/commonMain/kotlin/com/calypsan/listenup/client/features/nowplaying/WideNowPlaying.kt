@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.window.core.layout.WindowSizeClass
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -142,7 +142,7 @@ fun WideNowPlaying(
     modifier: Modifier = Modifier,
 ) {
     val isShort =
-        !currentWindowAdaptiveInfo().windowSizeClass.isHeightAtLeastBreakpoint(
+        !currentWindowAdaptiveInfoV2().windowSizeClass.isHeightAtLeastBreakpoint(
             WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND,
         )
     Surface(

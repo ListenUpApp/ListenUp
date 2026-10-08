@@ -18,11 +18,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -233,21 +234,21 @@ private fun receiptMessage(
 internal fun receiptText(receipt: MatchReceiptUi): String {
     val parts =
         listOfNotNull(
-            receipt.fieldCount.takeIf { it > 0 }?.let {
-                if (it ==
+            receipt.fieldCount.takeIf { it > 0 }?.let { fieldCount ->
+                if (fieldCount ==
                     1
                 ) {
                     stringResource(Res.string.match_receipt_field_one)
                 } else {
-                    stringResource(Res.string.match_receipt_fields, it)
+                    stringResource(Res.string.match_receipt_fields, fieldCount)
                 }
             },
             receipt.coverSource?.let { stringResource(Res.string.match_receipt_cover_from, it.label) },
-            receipt.chapterNameCount.takeIf { it > 0 }?.let {
-                if (it == 1) {
+            receipt.chapterNameCount.takeIf { it > 0 }?.let { chapterNameCount ->
+                if (chapterNameCount == 1) {
                     stringResource(Res.string.match_receipt_chapter_name_one)
                 } else {
-                    stringResource(Res.string.match_receipt_chapter_names, it)
+                    stringResource(Res.string.match_receipt_chapter_names, chapterNameCount)
                 }
             },
         )
@@ -268,7 +269,11 @@ private fun WhatChangedSheet(
     val title = stringResource(Res.string.match_what_changed_title)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState =
+            rememberBottomSheetState(
+                initialValue = SheetValue.Hidden,
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+            ),
         modifier = Modifier.semantics { paneTitle = title },
     ) {
         Column(
@@ -309,10 +314,10 @@ private fun AppliedChange.lines(): List<String> =
 
         is AppliedChange.Genres -> {
             listOfNotNull(
-                added.takeIf { it.isNotEmpty() }?.let {
+                added.takeIf { it.isNotEmpty() }?.let { addedNames ->
                     stringResource(
                         Res.string.match_change_genres_added,
-                        it.joinToString(", "),
+                        addedNames.joinToString(", "),
                     )
                 },
                 removed
@@ -324,10 +329,10 @@ private fun AppliedChange.lines(): List<String> =
 
         is AppliedChange.Moods -> {
             listOfNotNull(
-                added.takeIf { it.isNotEmpty() }?.let {
+                added.takeIf { it.isNotEmpty() }?.let { addedNames ->
                     stringResource(
                         Res.string.match_change_moods_added,
-                        it.joinToString(", "),
+                        addedNames.joinToString(", "),
                     )
                 },
                 removed

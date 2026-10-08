@@ -41,15 +41,19 @@ class HardcoverBookMatcher(
         accessToken: String,
         book: BookIdentity,
     ): HardcoverCall<HardcoverMatch?> {
-        book.asin?.let { asin ->
+        val asin = book.asin
+        if (asin != null) {
             rateLimiter.await()
-            graphQl.editionByAsin(accessToken, asin).valueOr { return it }?.let { hit ->
+            val hit = graphQl.editionByAsin(accessToken, asin).valueOr { return it }
+            if (hit != null) {
                 return HardcoverCall.Ok(HardcoverMatch(hit.book.id, hit.editionId, HardcoverMatchMethod.ASIN))
             }
         }
-        book.isbn?.let { isbn ->
+        val isbn = book.isbn
+        if (isbn != null) {
             rateLimiter.await()
-            graphQl.editionByIsbn(accessToken, isbn).valueOr { return it }?.let { hit ->
+            val hit = graphQl.editionByIsbn(accessToken, isbn).valueOr { return it }
+            if (hit != null) {
                 val edition = if (hit.isAudiobook) hit.editionId else hit.book.defaultAudioEditionId ?: hit.editionId
                 return HardcoverCall.Ok(HardcoverMatch(hit.book.id, edition, HardcoverMatchMethod.ISBN))
             }
@@ -63,10 +67,10 @@ class HardcoverBookMatcher(
                     return it
                 }.filter { it.isConfidentMatchFor(book) }
         return HardcoverCall.Ok(
-            confident.clearWinner()?.let {
+            confident.clearWinner()?.let { winner ->
                 HardcoverMatch(
-                    it.id,
-                    it.defaultAudioEditionId,
+                    winner.id,
+                    winner.defaultAudioEditionId,
                     HardcoverMatchMethod.SEARCH,
                 )
             },
@@ -91,7 +95,7 @@ private const val WINNER_MIN_READERS = 50
  */
 internal fun List<HardcoverCatalogBook>.clearWinner(): HardcoverCatalogBook? {
     if (size < 2) return singleOrNull()
-    filter { it.defaultAudioEditionId != null }.singleOrNull()?.let { return it }
+    singleOrNull { it.defaultAudioEditionId != null }?.let { return it }
     val (top, runnerUp) = sortedByDescending { it.readers }
     return top.takeIf { it.readers >= WINNER_MIN_READERS && it.readers >= runnerUp.readers * WINNER_READER_RATIO }
 }

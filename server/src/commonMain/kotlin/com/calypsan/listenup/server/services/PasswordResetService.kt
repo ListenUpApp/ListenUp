@@ -166,7 +166,7 @@ class PasswordResetService(
                         true
                     }
                 }
-            } ?: false
+            } == true
 
         if (!decided) return AppResult.Failure(AuthError.ResetRequestNotFound())
         return if (code != null) {
@@ -286,7 +286,7 @@ class PasswordResetService(
      * round-trips through [decide] to the same row. There is no separate "admin id" identifier
      * space to keep track of.
      */
-    suspend fun listPending(): List<PasswordResetRequest> {
+    fun listPending(): List<PasswordResetRequest> {
         val now = clock.now().toEpochMilliseconds()
         return db.passwordResetRequestsQueries.selectPending(now).executeAsList().map { row ->
             val user = db.usersQueries.selectById(row.user_id).executeAsOneOrNull()

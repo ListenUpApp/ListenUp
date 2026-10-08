@@ -36,7 +36,12 @@ open class SetupUseCase(
         val trimmedEmail = email.trim()
         val trimmedFirstName = firstName.trim()
         val trimmedLastName = lastName.trim()
-        validate(trimmedEmail, password, trimmedFirstName, trimmedLastName)?.let { return it }
+        validate(
+            email = trimmedEmail,
+            password = password,
+            firstName = trimmedFirstName,
+            lastName = trimmedLastName,
+        )?.let { return it }
 
         val displayName = "$trimmedFirstName $trimmedLastName".trim()
         val request =

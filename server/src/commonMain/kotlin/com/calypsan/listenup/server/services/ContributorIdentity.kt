@@ -27,7 +27,7 @@ internal object ContributorIdentity {
         asin: String?,
         refs: List<ExternalRef>,
     ): List<ExternalRef> {
-        val column = asin?.trim()?.takeIf { it.isNotEmpty() }
+        val column = asin?.run { trim().takeIf { it.isNotEmpty() } }
         val hardcoverId =
             column
                 ?.takeIf {

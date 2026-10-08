@@ -1,21 +1,15 @@
 package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.module
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.cio.CIO as ServerCIO
 import io.ktor.server.config.MapApplicationConfig
@@ -62,7 +56,7 @@ internal class ScannerEndToEndFixture private constructor(
     val baseUrl: String,
 ) : AutoCloseable {
     /** An authed [ScannerService] proxy against the live server — the transport the app uses. */
-    suspend fun scannerService(): ScannerService =
+    fun scannerService(): ScannerService =
         client
             .rpc(baseUrl.replace("http://", "ws://") + "/api/rpc/authed") {
                 rpcConfig { serialization { json(contractJson) } }
@@ -76,6 +70,11 @@ internal class ScannerEndToEndFixture private constructor(
     }
 
     companion object {
+        private const val JWT_SECRET_LENGTH = 32
+        private const val REFRESH_PEPPER_LENGTH = 32
+        private const val REQUEST_TIMEOUT_MS = 10_000L
+        private const val MIN_PASSWORD_LENGTH = 8
+
         fun start(populate: AudioLibraryFixture.() -> Unit = {}): ScannerEndToEndFixture {
             val tmpDb = Files.createTempFile("listenup-scanner-e2e-", ".db").toFile().apply { deleteOnExit() }
             val libraryRoot = Files.createTempDirectory("listenup-scanner-e2e-lib-")
@@ -149,10 +148,5 @@ internal class ScannerEndToEndFixture private constructor(
 
             return ScannerEndToEndFixture(libraryRoot, server, client, baseUrl)
         }
-
-        private const val JWT_SECRET_LENGTH = 32
-        private const val REFRESH_PEPPER_LENGTH = 32
-        private const val REQUEST_TIMEOUT_MS = 10_000L
-        private const val MIN_PASSWORD_LENGTH = 8
     }
 }

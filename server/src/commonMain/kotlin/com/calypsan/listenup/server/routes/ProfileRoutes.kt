@@ -48,7 +48,7 @@ fun Route.profileRoutes(
 
         val data =
             try {
-                call.receiveFirstFilePartBytes(AVATAR_MAX_BYTES)
+                receiveFirstFilePartBytes(call, AVATAR_MAX_BYTES)
             } catch (e: MultipartPartTooLargeException) {
                 return@post call.respond(HttpStatusCode.PayloadTooLarge, "image exceeds ${e.limit} bytes")
             } ?: return@post call.respond(HttpStatusCode.BadRequest, "missing file part")

@@ -178,7 +178,7 @@ internal object FieldReviewer {
         options: ComposedOptions,
     ): Pair<FieldValue, OptionWrite>? {
         if (field == BookField.SERIES) {
-            val series = options.series[provider]?.filter { it.title.isNotBlank() }?.takeIf { it.isNotEmpty() }
+            val series = options.series[provider]?.run { filter { it.title.isNotBlank() }.takeIf { it.isNotEmpty() } }
             return series?.let { entries ->
                 FieldValue.SeriesEntries(entries.map { MatchSeriesEntry(it.title.trim(), it.sequence?.trim()) }) to
                     OptionWrite.Series(entries)
@@ -187,9 +187,28 @@ internal object FieldReviewer {
         val core = options.cores[provider] ?: return null
         return when (field) {
             BookField.AUTHORS -> people(core.authors)
+
             BookField.NARRATORS -> people(core.narrators)
+
             BookField.PUBLISH_YEAR -> year(core.releaseDate)
-            else -> text(field, core)
+
+            BookField.TITLE,
+            BookField.SORT_TITLE,
+            BookField.SUBTITLE,
+            BookField.DESCRIPTION,
+            BookField.PUBLISHER,
+            BookField.LANGUAGE,
+            BookField.ISBN,
+            BookField.ASIN,
+            BookField.ABRIDGED,
+            BookField.EXPLICIT,
+            BookField.SERIES,
+            BookField.GENRES,
+            BookField.MOODS,
+            BookField.TAGS,
+            BookField.COVER,
+            BookField.CHAPTERS,
+            -> text(field, core)
         }
     }
 
@@ -210,12 +229,31 @@ internal object FieldReviewer {
         val raw =
             when (field) {
                 BookField.TITLE -> core.title
+
                 BookField.SUBTITLE -> core.subtitle
+
                 BookField.DESCRIPTION -> core.description
+
                 BookField.PUBLISHER -> core.publisher
+
                 BookField.LANGUAGE -> core.language
-                else -> null
-            }?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+
+                BookField.SORT_TITLE,
+                BookField.PUBLISH_YEAR,
+                BookField.ISBN,
+                BookField.ASIN,
+                BookField.ABRIDGED,
+                BookField.EXPLICIT,
+                BookField.AUTHORS,
+                BookField.NARRATORS,
+                BookField.SERIES,
+                BookField.GENRES,
+                BookField.MOODS,
+                BookField.TAGS,
+                BookField.COVER,
+                BookField.CHAPTERS,
+                -> null
+            }?.run { trim().takeIf { it.isNotEmpty() } } ?: return null
         return FieldValue.Text(raw) to OptionWrite.Text(raw)
     }
 
@@ -265,7 +303,17 @@ internal object FieldReviewer {
                     }
             }
 
-            else -> {
+            BookField.SORT_TITLE,
+            BookField.ISBN,
+            BookField.ASIN,
+            BookField.ABRIDGED,
+            BookField.EXPLICIT,
+            BookField.GENRES,
+            BookField.MOODS,
+            BookField.TAGS,
+            BookField.COVER,
+            BookField.CHAPTERS,
+            -> {
                 null
             }
         }

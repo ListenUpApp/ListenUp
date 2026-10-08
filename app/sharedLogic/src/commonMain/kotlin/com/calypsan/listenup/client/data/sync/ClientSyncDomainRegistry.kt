@@ -30,7 +30,7 @@ internal class ClientSyncDomainRegistry : SynchronizedObject() {
             if (existing != null && existing !== handler) {
                 error(
                     "Two handlers registered for domain '${handler.domainName}': " +
-                        "${existing::class.simpleName} and ${handler::class.simpleName}",
+                        "$existing and $handler",
                 )
             }
             handlers[handler.domainName] = handler
@@ -82,9 +82,11 @@ internal class ClientSyncDomainRegistry : SynchronizedObject() {
     fun accessFilteredHandlers(): List<SyncDomainHandler<*>> =
         synchronized(this) {
             handlers.entries
+                .asSequence()
                 .sortedBy { it.key }
                 .map { it.value }
                 .filterIsInstance<AccessFilteredSyncHandler>()
                 .map { it as SyncDomainHandler<*> }
+                .toList()
         }
 }

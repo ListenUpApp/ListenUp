@@ -102,7 +102,7 @@ class ChapterEditorDriftTest :
             ) to saved
         }
 
-        suspend fun editing(vm: ChapterEditorViewModel): ChapterEditorUiState.Editing =
+        fun editing(vm: ChapterEditorViewModel): ChapterEditorUiState.Editing =
             vm.state.value as? ChapterEditorUiState.Editing
                 ?: error("expected Editing")
 
@@ -285,7 +285,7 @@ class ChapterEditorDriftTest :
 
                     val proposal =
                         awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().drift?.proposal
-                    proposal?.first?.chapterId shouldBe "c1"
+                    proposal?.run { first.chapterId } shouldBe "c1"
                     proposal?.second?.chapterId shouldBe "c3"
                     cancelAndIgnoreRemainingEvents()
                 }

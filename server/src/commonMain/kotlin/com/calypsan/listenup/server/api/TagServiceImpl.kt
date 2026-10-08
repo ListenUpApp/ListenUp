@@ -64,7 +64,15 @@ internal class TagServiceImpl(
 ) : TagService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): TagServiceImpl =
-        TagServiceImpl(tagRepository, bookTagRepository, sql, accessPolicy, clock, permissionPolicy, principal)
+        TagServiceImpl(
+            tagRepository = tagRepository,
+            bookTagRepository = bookTagRepository,
+            sql = sql,
+            accessPolicy = accessPolicy,
+            clock = clock,
+            permissionPolicy = permissionPolicy,
+            principal = principal,
+        )
 
     /**
      * The caller's reachable book-id set, or null when the caller is ROOT/ADMIN (unfiltered).
@@ -247,9 +255,6 @@ internal class TagServiceImpl(
             return AppResult.Failure(TagError.NotFound())
         }
 
-        // Collect affected book IDs before tombstoning so we can reindex after.
-        val affectedBookIds = bookTagRepository.findBookIdsForTag(tagId.value)
-
         // Cascade: tombstone all junctions, then the tag itself. Both are suspend repo
         // calls that each open their own SQLDelight transaction, so they run sequentially
         // (they cannot nest inside one another's non-suspend transaction body). Sequential
@@ -268,13 +273,6 @@ internal class TagServiceImpl(
 
     private suspend fun countLiveJunctionsForTag(tagId: String): Long =
         suspendTransaction(sql) { sql.bookTagsQueries.countLiveForTag(tagId).executeAsOne() }
-
-    private suspend fun TagRepository.softDelete(tagId: String): AppResult<Unit> = softDelete(tagId, clientOpId = null)
-
-    private suspend fun BookTagRepository.softDelete(
-        bookId: String,
-        tagId: String,
-    ): AppResult<Unit> = softDelete(bookId, tagId, clientOpId = null)
 }
 
 /**

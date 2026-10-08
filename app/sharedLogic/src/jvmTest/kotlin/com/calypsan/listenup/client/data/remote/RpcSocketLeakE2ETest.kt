@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.InstanceService
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.di.e2e.TestServerConfig
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -17,6 +18,7 @@ import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
@@ -84,7 +86,7 @@ class RpcSocketLeakE2ETest :
                                 sessionsOpened.incrementAndGet()
                                 openSessions.incrementAndGet()
                                 try {
-                                    for (frame in incoming) Unit
+                                    incoming.consumeEach { }
                                 } finally {
                                     openSessions.decrementAndGet()
                                 }
@@ -237,7 +239,7 @@ class RpcSocketLeakE2ETest :
                 try {
                     val factory = KtorInstanceRpcFactory(requestTimeoutMillis = 800, socketTimeoutMillis = 800)
 
-                    runCatching { factory.getServerInfo("ws://127.0.0.1:${silent.port}") }
+                    suspendRunCatching { factory.getServerInfo("ws://127.0.0.1:${silent.port}") }
 
                     awaitCount(silent.upgradesReached, atLeast = 1) shouldBe 1
                     awaitCount(silent.sessionsOpened, atLeast = 1) shouldBe 1
@@ -254,7 +256,7 @@ class RpcSocketLeakE2ETest :
                 try {
                     val factory = KtorInstanceRpcFactory(requestTimeoutMillis = 800, socketTimeoutMillis = 800)
 
-                    runCatching { factory.getServerInfo("ws://127.0.0.1:${silent.port}") }
+                    suspendRunCatching { factory.getServerInfo("ws://127.0.0.1:${silent.port}") }
                     awaitCount(silent.upgradesReached, atLeast = 1) shouldBe 1
 
                     silent.upgradeGate.complete(Unit)

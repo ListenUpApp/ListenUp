@@ -54,8 +54,9 @@ private fun fakeLocalPreferences(
 private class FakeNetworkMonitor : NetworkMonitor {
     override fun isOnline(): Boolean = true
 
-    override val isOnlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val onlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
+
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 }
 
 private fun buildStore(

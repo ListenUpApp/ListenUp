@@ -34,11 +34,11 @@ class ProgressTrackerBoostTest :
                 verifySuspend(VerifyMode.exactly(1)) {
                     positionRepository.savePlaybackState(
                         any(),
-                        matches<PlaybackUpdate>({ "VolumeBoost(boostDb=6.0, custom=true, positionMs=5000)" }) {
-                            it is PlaybackUpdate.VolumeBoost &&
-                                it.boostDb == 6f &&
-                                it.custom &&
-                                it.positionMs == 5_000L
+                        matches<PlaybackUpdate>({ "VolumeBoost(boostDb=6.0, custom=true, positionMs=5000)" }) { update ->
+                            update is PlaybackUpdate.VolumeBoost &&
+                                update.boostDb == 6f &&
+                                update.custom &&
+                                update.positionMs == 5_000L
                         },
                     )
                 }
@@ -56,10 +56,10 @@ class ProgressTrackerBoostTest :
                 verifySuspend(VerifyMode.exactly(1)) {
                     positionRepository.savePlaybackState(
                         any(),
-                        matches<PlaybackUpdate>({ "BoostReset(defaultBoostDb=3.0, positionMs=7000)" }) {
-                            it is PlaybackUpdate.BoostReset &&
-                                it.defaultBoostDb == 3f &&
-                                it.positionMs == 7_000L
+                        matches<PlaybackUpdate>({ "BoostReset(defaultBoostDb=3.0, positionMs=7000)" }) { update ->
+                            update is PlaybackUpdate.BoostReset &&
+                                update.defaultBoostDb == 3f &&
+                                update.positionMs == 7_000L
                         },
                     )
                 }
@@ -77,10 +77,10 @@ class ProgressTrackerBoostTest :
                 verifySuspend(VerifyMode.exactly(1)) {
                     positionRepository.savePlaybackState(
                         any(),
-                        matches<PlaybackUpdate>({ "MeasuredGain(gainDb=-2.5, positionMs=9000)" }) {
-                            it is PlaybackUpdate.MeasuredGain &&
-                                it.gainDb == -2.5f &&
-                                it.positionMs == 9_000L
+                        matches<PlaybackUpdate>({ "MeasuredGain(gainDb=-2.5, positionMs=9000)" }) { update ->
+                            update is PlaybackUpdate.MeasuredGain &&
+                                update.gainDb == -2.5f &&
+                                update.positionMs == 9_000L
                         },
                     )
                 }

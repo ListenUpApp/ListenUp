@@ -35,15 +35,17 @@ class DtosLiveInCommonMainRule :
 
             val offenders =
                 serializableClasses
+                    .asSequence()
                     .filter { !it.path.contains("/commonMain/") }
                     // Allowlist: see KDoc on this rule for justification.
                     .filter { !it.path.contains("/server/src/jvmMain/") }
                     .filter { !it.path.contains("/sharedUI/") }
-                    .filter {
-                        !it.path.contains(
+                    .filter { declaration ->
+                        !declaration.path.contains(
                             "/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/licences/",
                         )
-                    }.map { "${it.fullyQualifiedName} @ ${it.path}" }
+                    }.map { "${it.fullyQualifiedName ?: it.name} @ ${it.path}" }
+                    .toList()
 
             offenders.shouldBeEmpty()
         }

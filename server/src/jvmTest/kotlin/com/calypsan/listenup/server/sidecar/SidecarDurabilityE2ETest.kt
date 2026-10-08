@@ -118,9 +118,9 @@ class SidecarDurabilityE2ETest :
                             if (candidate.exists()) {
                                 val parsed = SidecarJson.parseOrNull(candidate.readBytes())
                                 val settled =
-                                    parsed?.metadata?.title == CURATED_TITLE &&
-                                        parsed.chapters?.entries?.size == 2 &&
-                                        parsed.chapters?.bookTierLabel == "Volume"
+                                    parsed != null &&
+                                        parsed.metadata.title == CURATED_TITLE &&
+                                        parsed.chapters?.run { entries.size == 2 && bookTierLabel == "Volume" } == true
                                 if (settled) {
                                     sidecarFile = candidate
                                     break
@@ -136,13 +136,11 @@ class SidecarDurabilityE2ETest :
                     parsed.shouldNotBeNull()
                     // The provenance is recorded per field, at the tier the edit carried.
                     parsed.fieldProvenance["TITLE"]?.kind shouldBe FieldSourceKind.USER
-                    parsed.chapters?.source shouldBe "USER"
+                    val chapters = parsed.chapters.shouldNotBeNull()
+                    chapters.source shouldBe "USER"
                     // The structure the user built is on disk, not just its chapter titles.
-                    parsed.chapters?.partTierLabel shouldBe "Sequence"
-                    parsed.chapters
-                        ?.entries
-                        ?.get(1)
-                        ?.bookTitle shouldBe "Book One"
+                    chapters.partTierLabel shouldBe "Sequence"
+                    chapters.entries[1].bookTitle shouldBe "Book One"
 
                     // The write-state row records exactly the landed file's content hash.
                     val state = SidecarWriteStateRepository(db).findByBookId(bookId)

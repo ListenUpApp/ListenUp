@@ -56,7 +56,7 @@ internal class AbsBackupReader {
                     "WHERE ${AbsSchema.USER_TYPE} IS NULL OR ${AbsSchema.USER_TYPE} != ?"
             return read(sql, { bindString(1, AbsSchema.USER_TYPE_GUEST) }) { row ->
                 AbsUser(
-                    id = row.getString(AbsSchema.USER_ID)!!,
+                    id = row.requiredString(AbsSchema.USER_ID),
                     username = row.getString(AbsSchema.USER_USERNAME).orEmpty(),
                     email = row.getString(AbsSchema.USER_EMAIL),
                 )
@@ -79,7 +79,7 @@ internal class AbsBackupReader {
                     "WHERE li.${AbsSchema.LIBRARY_ITEM_MEDIA_TYPE} = ?"
             return read(sql, { bindString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { row ->
                 AbsItem(
-                    id = row.getString("bookId")!!,
+                    id = row.requiredString("bookId"),
                     title = row.getString("title").orEmpty(),
                     asin = row.getString("asin")?.ifBlank { null },
                     isbn = row.getString("isbn")?.ifBlank { null },
@@ -105,8 +105,8 @@ internal class AbsBackupReader {
                 val currentTime = row.getDouble("currentTime")
                 val duration = row.getDouble("duration")
                 AbsProgress(
-                    userId = row.getString("userId")!!,
-                    itemId = row.getString("itemId")!!,
+                    userId = row.requiredString("userId"),
+                    itemId = row.requiredString("itemId"),
                     currentTimeSeconds = currentTime,
                     isFinished = row.getBoolean("isFinished"),
                     progress = if (duration > 0.0) (currentTime / duration).coerceIn(0.0, 1.0) else 0.0,
@@ -136,9 +136,9 @@ internal class AbsBackupReader {
                     "WHERE ${AbsSchema.SESSION_MEDIA_ITEM_TYPE} = ?"
             return read(sql, { bindString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { row ->
                 AbsSession(
-                    id = row.getString("id")!!,
-                    userId = row.getString("userId")!!,
-                    itemId = row.getString("itemId")!!,
+                    id = row.requiredString("id"),
+                    userId = row.requiredString("userId"),
+                    itemId = row.requiredString("itemId"),
                     startPositionSeconds = row.getDouble("startTime"),
                     endPositionSeconds = row.getDouble("currentTime"),
                     timeListeningSeconds = row.getDouble("timeListening"),
@@ -156,6 +156,10 @@ internal class AbsBackupReader {
                 throw AbsReadException("Failed to close ABS database", e)
             }
         }
+
+        /** A key column ABS never leaves null; a null one is a malformed row, surfaced by [read]. */
+        private fun SqlRow.requiredString(column: String): String =
+            checkNotNull(getString(column)) { "ABS row has no $column" }
 
         private fun <T> read(
             sql: String,

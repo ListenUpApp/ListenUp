@@ -71,17 +71,20 @@ class UserPermissionsViewModel(
     }
 
     /** Fill the draft's advertised flags from [preset]. */
-    fun selectPreset(preset: PermissionPreset) =
+    fun selectPreset(preset: PermissionPreset) {
         editDraft { it.copy(draftFlags = preset.applyTo(it.draftFlags, it.advertised)) }
+    }
 
     /** Set one flag in the draft. */
     fun setPermission(
         permission: Permission,
         granted: Boolean,
-    ) = editDraft { it.copy(draftFlags = it.draftFlags.granting(permission, granted)) }
+    ) {
+        editDraft { it.copy(draftFlags = it.draftFlags.granting(permission, granted)) }
+    }
 
     /** Change the drafted role. Admin is confirmed first; Member applies at once; Owner is never offered. */
-    fun requestRole(role: UserRole) =
+    fun requestRole(role: UserRole) {
         editDraft { current ->
             when {
                 role == UserRole.ROOT -> {
@@ -99,22 +102,28 @@ class UserPermissionsViewModel(
                 }
             }
         }
+    }
 
     /** Confirm the Admin promotion. An admin's flags are moot, so the draft's flags go back to the saved ones. */
-    fun confirmAdminPromotion() =
-        editDraft {
-            it.copy(
+    fun confirmAdminPromotion() {
+        editDraft { current ->
+            current.copy(
                 draftRole = UserRole.ADMIN,
-                draftFlags = it.savedFlags,
+                draftFlags = current.savedFlags,
                 isConfirmingAdminPromotion = false,
             )
         }
+    }
 
     /** Keep the current role. */
-    fun cancelAdminPromotion() = editDraft { it.copy(isConfirmingAdminPromotion = false) }
+    fun cancelAdminPromotion() {
+        editDraft { it.copy(isConfirmingAdminPromotion = false) }
+    }
 
     /** Throw the draft away. */
-    fun discard() = editDraft { it.copy(draftRole = it.savedRole, draftFlags = it.savedFlags, error = null) }
+    fun discard() {
+        editDraft { it.copy(draftRole = it.savedRole, draftFlags = it.savedFlags, error = null) }
+    }
 
     /** Send the changed role and flags. On success the saved user is the new baseline. */
     fun save() {
@@ -216,7 +225,14 @@ class UserPermissionsViewModel(
                 ): Loaded {
                     val role =
                         UserRole.entries.firstOrNull { it.name.equals(user.role, ignoreCase = true) } ?: UserRole.MEMBER
-                    return Loaded(user, advertised, role, user.permissions, role, user.permissions)
+                    return Loaded(
+                        user = user,
+                        advertised = advertised,
+                        savedRole = role,
+                        savedFlags = user.permissions,
+                        draftRole = role,
+                        draftFlags = user.permissions,
+                    )
                 }
             }
         }
@@ -247,11 +263,13 @@ class UserPermissionsViewModel(
                                             PermissionSection(
                                                 group = group,
                                                 rows =
-                                                    permissions.map {
+                                                    permissions.map { permission ->
                                                         PermissionRow(
-                                                            permission = it,
-                                                            granted = draftFlags.allows(it),
-                                                            isUnsaved = draftFlags.allows(it) != savedFlags.allows(it),
+                                                            permission = permission,
+                                                            granted = draftFlags.allows(permission),
+                                                            isUnsaved =
+                                                                draftFlags.allows(permission) !=
+                                                                    savedFlags.allows(permission),
                                                         )
                                                     },
                                             )

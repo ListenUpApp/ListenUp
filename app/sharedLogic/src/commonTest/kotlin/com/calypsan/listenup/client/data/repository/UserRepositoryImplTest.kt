@@ -357,7 +357,7 @@ class UserRepositoryImplTest :
                 val user = repository.getCurrentUser()
 
                 // Then
-                user?.id?.value shouldBe "unique-user-id-123"
+                user?.run { id.value } shouldBe "unique-user-id-123"
             }
         }
 

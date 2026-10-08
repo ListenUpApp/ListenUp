@@ -35,7 +35,13 @@ internal class EntityServiceImpl(
 ) : EntityService {
     /** A copy bound to [principal]; route handlers call this per request. */
     fun copyWith(principal: PrincipalProvider): EntityServiceImpl =
-        EntityServiceImpl(entityRepo, permissionPolicy, accessPolicy, principal, clock)
+        EntityServiceImpl(
+            entityRepo = entityRepo,
+            permissionPolicy = permissionPolicy,
+            accessPolicy = accessPolicy,
+            principal = principal,
+            clock = clock,
+        )
 
     override suspend fun upsertEntity(upsert: EntityUpsert): AppResult<EntitySyncPayload> {
         val caller = principal.current() ?: return denied()
@@ -54,7 +60,7 @@ internal class EntityServiceImpl(
                 id = upsert.id.value,
                 kind = upsert.kind,
                 name = upsert.name.trim(),
-                descriptor = upsert.descriptor?.trim()?.ifEmpty { null },
+                descriptor = upsert.descriptor?.run { trim().ifEmpty { null } },
                 parentId = upsert.parentId?.value,
                 homeSeriesId = upsert.homeSeriesId?.value,
                 homeBookId = upsert.homeBookId?.value,
@@ -140,7 +146,7 @@ internal class EntityServiceImpl(
                 ValidationError(message = "Keep the name to $MAX_NAME characters.", field = "name")
             }
 
-            (upsert.descriptor?.trim()?.length ?: 0) > MAX_DESCRIPTOR -> {
+            (upsert.descriptor?.run { trim().length } ?: 0) > MAX_DESCRIPTOR -> {
                 ValidationError(message = "Keep the description to $MAX_DESCRIPTOR characters.", field = "descriptor")
             }
 
@@ -165,7 +171,13 @@ internal class EntityServiceImpl(
         caller: UserPrincipal,
         homeSeriesId: String?,
         homeBookId: String?,
-    ): Boolean = accessPolicy.canSeeEntityHome(caller.userId.value, caller.role, homeSeriesId, homeBookId)
+    ): Boolean =
+        accessPolicy.canSeeEntityHome(
+            userId = caller.userId.value,
+            role = caller.role,
+            homeSeriesId = homeSeriesId,
+            homeBookId = homeBookId,
+        )
 
     private fun <T> denied(): AppResult<T> = AppResult.Failure(AuthError.PermissionDenied())
 

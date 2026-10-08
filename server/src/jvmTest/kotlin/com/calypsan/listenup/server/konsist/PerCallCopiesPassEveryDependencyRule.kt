@@ -103,7 +103,7 @@ class PerCallCopiesPassEveryDependencyRule :
 
             val offenders =
                 copies.mapNotNull { (cls, fn, passed) ->
-                    val declared = cls.primaryConstructor?.parameters?.size ?: 0
+                    val declared = cls.primaryConstructor?.run { parameters.size } ?: 0
                     if (passed < declared) {
                         "${cls.name}.${fn.name}() passes $passed of $declared constructor parameters @ ${fn.path}"
                     } else {

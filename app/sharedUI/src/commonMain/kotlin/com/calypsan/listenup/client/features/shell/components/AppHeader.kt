@@ -23,7 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -137,7 +137,7 @@ fun AppHeader(
     // The persistent inline search box needs real room beside the hero + avatar — only show it on
     // genuinely wide (expanded) chrome. Medium widths (e.g. tablet portrait) keep the compact icon.
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
     AnimatedContent(
@@ -310,9 +310,9 @@ private fun HeaderSearchField(
     }
     TextField(
         value = query,
-        onValueChange = {
-            onQueryChange(it)
-            onExpandedChange(it.isNotBlank())
+        onValueChange = { text ->
+            onQueryChange(text)
+            onExpandedChange(text.isNotBlank())
         },
         placeholder = { Text(stringResource(Res.string.common_search)) },
         leadingIcon = {
@@ -391,8 +391,11 @@ private fun SyncIndicator(
                 )
             }
 
-            else -> {
-                // Idle, Success - show nothing
+            SyncState.Idle,
+            is SyncState.Success,
+            is SyncState.LibraryMismatch,
+            -> {
+                // Idle, Success, LibraryMismatch - show nothing
             }
         }
 

@@ -162,8 +162,8 @@ internal class GenreMergeReceipts(
                 ?.takeIf { it.deleted_at == null }
         return GenreUndoDecision.Allowed(
             sourceId = GenreId(receipt.source_id),
-            parentId = parent?.id?.let { GenreId(it) },
-            path = (parent?.path ?: "") + "/" + source.slug,
+            parentId = parent?.run { GenreId(id) },
+            path = parent?.path.orEmpty() + "/" + source.slug,
             depth = parent?.let { it.depth.toInt() + 1 } ?: 0,
             restoredAtTopLevel = source.parent_id != null && parent == null,
         )

@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.features.admin.backup
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,7 +21,6 @@ import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -66,7 +65,6 @@ fun CreateBackupScreen(
     onBackClick: () -> Unit,
     onSuccess: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     var includeImages by remember { mutableStateOf(false) }
     var hasStartedCreation by remember { mutableStateOf(false) }
@@ -126,7 +124,7 @@ internal fun CreateBackupForm(
     onCreateClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
         val hasRoomForPanel = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
         Row(
@@ -246,7 +244,7 @@ private fun IncludeOptionsCard(
                         modifier = Modifier.padding(top = 4.dp),
                     ) {
                         Icon(
-                            Icons.Outlined.Warning,
+                            imageVector = Icons.Outlined.Warning,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.height(16.dp),

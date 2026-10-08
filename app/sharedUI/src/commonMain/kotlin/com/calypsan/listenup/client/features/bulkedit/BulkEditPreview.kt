@@ -109,13 +109,13 @@ private fun PreviewRow(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    stringResource(labelOf(row.edit)),
+                    text = stringResource(labelOf(row.edit)),
                     style = MaterialTheme.typography.titleMedium,
                     color = ink,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    affectsText(affectedCount = row.affectedCount, bookCount = bookCount),
+                    text = affectsText(affectedCount = row.affectedCount, bookCount = bookCount),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = accent,
@@ -163,7 +163,7 @@ private fun NothingToChangeYet(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            stringResource(Res.string.bulk_edit_nothing_to_do_hint),
+            text = stringResource(Res.string.bulk_edit_nothing_to_do_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

@@ -22,6 +22,9 @@ import com.calypsan.listenup.server.services.GenreNormalizer
  * would miss this renamed-genre case and leak the genre back in as a trope.
  */
 object ProductTagClassifier {
+    private const val MOOD = "mood"
+    private const val THEME = "theme"
+
     /** The result of classifying a book's product tags into moods and tropes. */
     data class Classified(
         val moods: List<String>,
@@ -59,7 +62,4 @@ object ProductTagClassifier {
         themeName: String,
         appliedGenreSlugs: Set<String>,
     ): Boolean = GenreNormalizer.normalizeToSlugs(themeName).any { it in appliedGenreSlugs }
-
-    private const val MOOD = "mood"
-    private const val THEME = "theme"
 }

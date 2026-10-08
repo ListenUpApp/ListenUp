@@ -23,7 +23,7 @@ interface NetworkMonitor {
      * Current online status.
      *
      * Returns true if the device's active network offers a usable route.
-     * This is a snapshot—use [isOnlineFlow] for reactive updates.
+     * This is a snapshot—use [onlineFlow] for reactive updates.
      */
     fun isOnline(): Boolean
 
@@ -33,7 +33,7 @@ interface NetworkMonitor {
      * Emits true when a usable route is available on the active network, false when it is lost.
      * Use this for reactive UI updates (e.g., showing offline indicator).
      */
-    val isOnlineFlow: StateFlow<Boolean>
+    val onlineFlow: StateFlow<Boolean>
 
     /**
      * Observable unmetered network state (WiFi, ethernet).
@@ -44,5 +44,5 @@ interface NetworkMonitor {
      * Used by download queue to show "Waiting for WiFi" state when
      * WiFi-only downloads is enabled but device is on cellular.
      */
-    val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
+    val onUnmeteredNetworkFlow: StateFlow<Boolean>
 }

@@ -12,10 +12,10 @@ import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -76,7 +76,7 @@ class ListenUpShortcutManager(
      * fire-and-forget, so its propagation is otherwise unobservable).
      */
     internal suspend fun updateShortcutsInternal() =
-        withContext(Dispatchers.IO) {
+        withContext(IODispatcher) {
             try {
                 // Get recent books from local database
                 val result = homeRepository.getContinueListening(ShortcutActions.MAX_BOOK_SHORTCUTS)
@@ -113,7 +113,7 @@ class ListenUpShortcutManager(
      * @param book The book to create a shortcut for
      * @return ShortcutInfoCompat or null if creation fails
      */
-    private suspend fun createBookShortcut(book: ContinueListeningBook): ShortcutInfoCompat? =
+    private fun createBookShortcut(book: ContinueListeningBook): ShortcutInfoCompat? =
         try {
             val shortcutId = "${ShortcutActions.SHORTCUT_ID_BOOK_PREFIX}${book.bookId}"
 

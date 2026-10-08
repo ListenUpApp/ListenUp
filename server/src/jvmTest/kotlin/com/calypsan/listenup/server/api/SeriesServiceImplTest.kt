@@ -3,8 +3,6 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
-import app.cash.sqldelight.db.QueryResult
-
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
@@ -21,10 +19,8 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -246,8 +242,6 @@ private fun makeSeriesServiceAndDeps(dbs: SqlTestDatabases): SeriesServiceDeps {
             seriesRepository = seriesRepo,
             genreRepository = GenreRepository(db = dbs.sql, bus = bus, registry = syncRegistry),
         )
-    val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = syncRegistry, driver = dbs.driver)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
@@ -258,55 +252,6 @@ private fun makeSeriesServiceAndDeps(dbs: SqlTestDatabases): SeriesServiceDeps {
             principal = rootPrincipal(),
         )
     return SeriesServiceDeps(service, seriesRepo, bookRepo)
-}
-
-private suspend fun overwriteFtsSeriesNames(
-    dbs: SqlTestDatabases,
-    rowid: Int,
-    sentinel: String,
-) {
-    withContext(Dispatchers.IO) {
-        dbs.driver.execute(identifier = null, sql = "DELETE FROM book_search WHERE rowid = $rowid", parameters = 0)
-        dbs.driver.execute(
-            identifier = null,
-            sql =
-                "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names, tags) " +
-                    "VALUES ($rowid, ?, '', '', '', ?, '')",
-            parameters = 2,
-            binders = {
-                bindString(0, "Test Book b$rowid")
-                bindString(1, sentinel)
-            },
-        )
-    }
-}
-
-/**
- * Returns true if a MATCH on `series_names` for [searchTerm] finds [rowid].
- *
- * Uses a column-specific MATCH so the assertion is scoped to series_names
- * only — not a cross-column hit.
- */
-private suspend fun ftsSeriesNamesMatch(
-    dbs: SqlTestDatabases,
-    rowid: Int,
-    searchTerm: String,
-): Boolean {
-    val dq = '"'
-    val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    return withContext(Dispatchers.IO) {
-        dbs.driver
-            .executeQuery(
-                identifier = null,
-                sql = "SELECT rowid FROM book_search WHERE series_names MATCH ? AND rowid = ?",
-                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
-                parameters = 2,
-                binders = {
-                    bindString(0, quotedTerm)
-                    bindLong(1, rowid.toLong())
-                },
-            ).value
-    }
 }
 
 /** Distinct book IDs currently linked to [seriesId] via any junction row. */

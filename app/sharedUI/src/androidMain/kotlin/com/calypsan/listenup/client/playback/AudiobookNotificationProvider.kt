@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.notifications.NotificationChannels
+import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
 import com.google.common.collect.ImmutableList
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -159,7 +160,7 @@ class AudiobookNotificationProvider(
                         null
                     }
                 }
-            bitmap?.let { builder.setLargeIcon(it) }
+            if (bitmap != null) builder.setLargeIcon(bitmap)
         }
 
         // Actions: 5 total, compact view shows 3 (indices 1, 2, 3)
@@ -187,7 +188,7 @@ class AudiobookNotificationProvider(
                 mediaSession,
                 CommandButton
                     .Builder(SkipCommandIcons.backward(backwardSec))
-                    .setDisplayName(copy.playerSkipBackward.format(backwardSec))
+                    .setDisplayName(copy.playerSkipBackward.format(Locale.getDefault(), backwardSec))
                     .setSessionCommand(SessionCommand(COMMAND_SKIP_BACK, Bundle.EMPTY))
                     .build(),
             ),
@@ -216,7 +217,7 @@ class AudiobookNotificationProvider(
                 mediaSession,
                 CommandButton
                     .Builder(SkipCommandIcons.forward(forwardSec))
-                    .setDisplayName(copy.playerSkipForward.format(forwardSec))
+                    .setDisplayName(copy.playerSkipForward.format(Locale.getDefault(), forwardSec))
                     .setSessionCommand(SessionCommand(COMMAND_SKIP_FORWARD, Bundle.EMPTY))
                     .build(),
             ),
@@ -277,8 +278,8 @@ class AudiobookNotificationProvider(
         bookTitle: CharSequence?,
         sessionTitle: CharSequence?,
     ): String =
-        bookTitle?.toString()?.takeIf { it.isNotBlank() }
-            ?: sessionTitle?.toString()?.takeIf { it.isNotBlank() }
+        bookTitle?.run { toString().takeIf { it.isNotBlank() } }
+            ?: sessionTitle?.run { toString().takeIf { it.isNotBlank() } }
             ?: copy.playerUnknownBook
 
     /**
@@ -296,13 +297,13 @@ class AudiobookNotificationProvider(
 
         val chapterText =
             if (chapterInfo.isGenericTitle) {
-                copy.playerChapterOf.format(chapterInfo.index + 1, chapterInfo.totalChapters)
+                copy.playerChapterOf.format(Locale.getDefault(), chapterInfo.index + 1, chapterInfo.totalChapters)
             } else {
                 chapterInfo.title
             }
 
         val timeRemaining = formatDuration(chapterInfo.remainingMs)
-        return copy.playerChapterRemaining.format(chapterText, timeRemaining)
+        return copy.playerChapterRemaining.format(Locale.getDefault(), chapterText, timeRemaining)
     }
 
     /**

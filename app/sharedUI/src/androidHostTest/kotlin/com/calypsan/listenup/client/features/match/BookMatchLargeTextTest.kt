@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.features.match
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import com.calypsan.listenup.client.testing.AtFontScale
 import com.calypsan.listenup.client.testing.Windows

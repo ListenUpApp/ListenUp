@@ -72,7 +72,9 @@ class CoverSearchService(
         locale: MetadataLocale,
     ): List<CoverOption> {
         val source = coverOptionSourceFor(provider.id)
-        log.debug { "cover search: source=${source.name} title='${book.title}' author='${book.primaryAuthor}'" }
+        log.debug {
+            "cover search: source=${source.name} title='${book.title}' author='${book.primaryAuthor.orEmpty()}'"
+        }
         return when (val r = provider.searchCovers(book, locale)) {
             is AppResult.Failure -> {
                 throw SourceException(r.error)
@@ -104,7 +106,9 @@ class CoverSearchService(
         } catch (e: CancellationException) {
             throw e
         } catch (e: SourceException) {
-            log.warn { "cover search: $source source failed (${e.error.code}: ${e.error.debugInfo}) — skipping" }
+            log.warn {
+                "cover search: $source source failed (${e.error.code}: ${e.error.debugInfo ?: "no detail"}) — skipping"
+            }
             emptyList()
         } catch (e: Exception) {
             log.warn(e) { "cover search: $source source threw" }

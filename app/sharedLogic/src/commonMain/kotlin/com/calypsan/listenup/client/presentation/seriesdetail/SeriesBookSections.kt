@@ -71,7 +71,14 @@ internal fun seriesBookSections(
 ): List<SeriesBookSection> {
     if (lineage.children.isEmpty()) {
         return listOf(
-            ownBooksSection(pageId, pageName, path = emptyList(), depth = 1, flatBooks, finishedBookIds),
+            ownBooksSection(
+                seriesId = pageId,
+                seriesName = pageName,
+                path = emptyList(),
+                depth = 1,
+                books = flatBooks,
+                finishedBookIds = finishedBookIds,
+            ),
         )
     }
 
@@ -108,14 +115,28 @@ internal fun seriesBookSections(
         child.children.forEach { addBranch(it, path, depth + 1) }
         if (child.ownBookIds.isNotEmpty()) {
             sections +=
-                ownBooksSection(id, child.series.name, path, depth + 1, books(child.ownBookIds), finishedBookIds)
+                ownBooksSection(
+                    seriesId = id,
+                    seriesName = child.series.name,
+                    path = path,
+                    depth = depth + 1,
+                    books = books(child.ownBookIds),
+                    finishedBookIds = finishedBookIds,
+                )
         }
     }
 
     lineage.children.forEach { addBranch(it, parentPath = emptyList(), depth = 1) }
     if (lineage.ownBookIds.isNotEmpty()) {
         sections +=
-            ownBooksSection(pageId, pageName, emptyList(), depth = 1, books(lineage.ownBookIds), finishedBookIds)
+            ownBooksSection(
+                seriesId = pageId,
+                seriesName = pageName,
+                path = emptyList(),
+                depth = 1,
+                books = books(lineage.ownBookIds),
+                finishedBookIds = finishedBookIds,
+            )
     }
     return sections
 }

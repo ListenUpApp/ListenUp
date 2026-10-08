@@ -57,6 +57,7 @@ private val PHM =
     )
 
 /** A source over [HardcoverCatalogRig], a fake catalogue, a real link store and a table of book identities. */
+@Suppress("UseDataClass") // A rig of live, mutable fakes, not a value; identity equality is the right semantics.
 private class SourceRig(
     val rig: HardcoverCatalogRig,
 ) {

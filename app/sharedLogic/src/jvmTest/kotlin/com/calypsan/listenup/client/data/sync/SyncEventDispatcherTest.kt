@@ -265,6 +265,8 @@ class SyncEventDispatcherTest :
 
         test("control: SyncControl.UserDeleted invokes onUserDeleted with the reason") {
             runTest {
+                // Explicit: onUserDeleted hands over a String?, assigned inside a lambda detekt does not follow.
+                @Suppress("RedundantExplicitType")
                 var deletedReason: String? = "UNSET"
                 val dispatcher =
                     SyncEventDispatcher(

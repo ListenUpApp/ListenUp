@@ -20,6 +20,7 @@ import java.nio.file.Files
 import java.nio.file.Path as NioPath
 import java.security.MessageDigest
 import kotlinx.io.files.Path
+import java.util.Locale
 
 /**
  * EBOOK collection wired through the REAL [Analyzer]: a book folder containing an audio
@@ -139,4 +140,7 @@ private fun NioPath.writeFile(
     return target
 }
 
-private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+private fun sha256Hex(bytes: ByteArray): String =
+    MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") {
+        "%02x".format(Locale.ROOT, it)
+    }

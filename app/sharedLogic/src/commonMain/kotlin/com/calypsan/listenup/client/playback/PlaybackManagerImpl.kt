@@ -54,23 +54,23 @@ private const val POSITION_PERSIST_INTERVAL_MS = 10_000L
  */
 @Suppress("LongParameterList")
 internal class PlaybackManagerImpl(
-    private val serverConfig: ServerConfig,
-    private val playbackPreferences: PlaybackPreferences,
-    private val bookDao: BookDao,
-    private val audioFileDao: AudioFileDao,
-    private val chapterDao: ChapterDao,
-    private val imageStorage: ImageStorage,
-    private val progressTracker: ProgressTracker,
+    serverConfig: ServerConfig,
+    playbackPreferences: PlaybackPreferences,
+    bookDao: BookDao,
+    audioFileDao: AudioFileDao,
+    chapterDao: ChapterDao,
+    imageStorage: ImageStorage,
+    progressTracker: ProgressTracker,
     private val reporter: PlaybackProgressReporter,
-    private val tokenProvider: AudioTokenProvider,
-    private val deviceContext: DeviceContext,
-    private val downloadService: DownloadService,
-    private val prepareRepository: PlaybackPrepareRepository,
-    private val channel: RpcChannel<BookService>,
+    tokenProvider: AudioTokenProvider,
+    deviceContext: DeviceContext,
+    downloadService: DownloadService,
+    prepareRepository: PlaybackPrepareRepository,
+    channel: RpcChannel<BookService>,
     private val scope: CoroutineScope,
-    private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
+    bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
-    private val localPreferences: LocalPreferences,
+    localPreferences: LocalPreferences,
     /**
      * When true, this instance is the reporter-based persistence owner: [setPlaybackState]
      * routes Playing/Paused transitions through [reporter] (position + listening span), and
@@ -118,7 +118,7 @@ internal class PlaybackManagerImpl(
     override val currentTimeline: StateFlow<PlaybackTimeline?>
         field = MutableStateFlow<PlaybackTimeline?>(null)
 
-    override val isPlaying: StateFlow<Boolean>
+    override val playing: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     override val currentPositionMs: StateFlow<Long>
@@ -138,7 +138,7 @@ internal class PlaybackManagerImpl(
     override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?>
         field = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)
 
-    override val isBuffering: StateFlow<Boolean>
+    override val buffering: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     override val playbackState: StateFlow<PlaybackState>
@@ -351,7 +351,7 @@ internal class PlaybackManagerImpl(
                             // persists it anyway via [setPlaybackState].
                             lastPersistedPositionMs = position
                         } else if (persistTransitionsViaReporter &&
-                            isPlaying.value &&
+                            playing.value &&
                             // Second defence behind the cancel-before-load above: never file this
                             // session's position under whatever book happens to be active now.
                             currentBookId.value == bookId &&
@@ -416,7 +416,7 @@ internal class PlaybackManagerImpl(
      * (Android: MediaControllerHolder's Player.Listener; Desktop: PlaybackManager's
      * own AudioPlayer.state observation in startPlayback).
      *
-     * The single shared isPlaying-transition seam for #1220's in-session auto-rewind: a
+     * The single shared playing-transition seam for #1220's in-session auto-rewind: a
      * Playing→Paused edge marks the pause moment ([PlaybackProgressReporter.notePlaybackPaused]),
      * a Paused→Playing edge applies the graduated ladder for however long that pause lasted
      * ([PlaybackProgressReporter.notePlaybackResumed]). Unconditional — unlike
@@ -425,8 +425,8 @@ internal class PlaybackManagerImpl(
      * why Android is safe here too, and why iOS needs its own native wiring).
      */
     override fun setPlaying(playing: Boolean) {
-        val wasPlaying = isPlaying.value
-        isPlaying.value = playing
+        val wasPlaying = this.playing.value
+        this.playing.value = playing
         when {
             wasPlaying && !playing -> reporter.notePlaybackPaused()
             !wasPlaying && playing -> reporter.notePlaybackResumed()
@@ -439,7 +439,7 @@ internal class PlaybackManagerImpl(
      * own AudioPlayer.state observation in startPlayback).
      */
     override fun setBuffering(buffering: Boolean) {
-        isBuffering.value = buffering
+        this.buffering.value = buffering
         // Feed the "playback preempts downloads" signal: yield bandwidth only when a
         // NOT-fully-downloaded book is buffering — a local book needs no help, a stream does.
         val streaming = currentTimeline.value?.isFullyDownloaded != true
@@ -466,9 +466,9 @@ internal class PlaybackManagerImpl(
                 if (persistTransitionsViaReporter) {
                     currentBookId.value?.let { activeBookId ->
                         reporter.onPlaybackStarted(
-                            activeBookId,
-                            currentPositionMs.value,
-                            playbackSpeed.value,
+                            bookId = activeBookId,
+                            positionMs = currentPositionMs.value,
+                            speed = playbackSpeed.value,
                             durationMs = totalDurationMs.value,
                         )
                     }
@@ -479,16 +479,20 @@ internal class PlaybackManagerImpl(
                 if (persistTransitionsViaReporter) {
                     currentBookId.value?.let { activeBookId ->
                         reporter.onPlaybackPaused(
-                            activeBookId,
-                            currentPositionMs.value,
-                            playbackSpeed.value,
+                            bookId = activeBookId,
+                            positionMs = currentPositionMs.value,
+                            speed = playbackSpeed.value,
                             durationMs = totalDurationMs.value,
                         )
                     }
                 }
             }
 
-            else -> {}
+            PlaybackState.Idle,
+            PlaybackState.Buffering,
+            PlaybackState.Ended,
+            is PlaybackState.Error,
+            -> {}
         }
     }
 
@@ -598,7 +602,7 @@ internal class PlaybackManagerImpl(
         currentTimeline.value = null
         chapters.value = emptyList()
         currentChapter.value = null
-        isPlaying.value = false
+        playing.value = false
         currentPositionMs.value = 0L
         totalDurationMs.value = 0L
         playbackSpeed.value = 1.0f
@@ -607,8 +611,8 @@ internal class PlaybackManagerImpl(
         measuredGainDb = null
         normalizationGainDb = null
         playbackError.value = null
-        isBuffering.value = false
-        // Release the download-yield signal on teardown too — this path clears `isBuffering`
+        buffering.value = false
+        // Release the download-yield signal on teardown too — this path clears `buffering`
         // directly (not via `setBuffering`), so tell the coordinator explicitly or a clear while
         // buffering could leave downloads yielded until some later state change.
         playbackBandwidthCoordinator.setStreamingBuffering(false)

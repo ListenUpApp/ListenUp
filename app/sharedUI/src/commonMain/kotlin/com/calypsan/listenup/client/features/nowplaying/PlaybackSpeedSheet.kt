@@ -35,6 +35,7 @@ import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_playback_speed
 import listenup.composeapp.generated.resources.player_reset_to_default
@@ -59,8 +60,16 @@ fun formatPlaybackSpeed(speed: Float): String =
     if (speed == speed.toInt().toFloat()) {
         "${speed.toInt()}.0x"
     } else {
-        val formatted = "%.2f".format(speed).trimEnd('0').trimEnd('.')
-        "${formatted}x"
+        // Plain arithmetic, not String.format: commonMain may not reach java.util, and a locale-aware
+        // format put a comma in "1,25x" beside "1.0x" on a comma-decimal phone.
+        val hundredths = (speed * 100).roundToInt()
+        val fraction =
+            (hundredths % 100)
+                .toString()
+                .padStart(2, '0')
+                .trimEnd('0')
+                .ifEmpty { "0" }
+        "${hundredths / 100}.${fraction}x"
     }
 
 /**

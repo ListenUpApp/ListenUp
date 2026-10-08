@@ -6,7 +6,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
@@ -40,6 +40,7 @@ import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
 import org.koin.core.context.stopKoin
 import org.koin.core.module.dsl.viewModel
+import org.koin.dsl.koinConfiguration
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -101,16 +102,17 @@ class BookDetailPaneWidthTest {
             }
         composeRule.setContent {
             KoinApplication(
-                application = {
-                    modules(
-                        module {
-                            viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId) }
-                            viewModel { (bookId: String) ->
-                                BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus(), users)
-                            }
-                        },
-                    )
-                },
+                configuration =
+                    koinConfiguration {
+                        modules(
+                            module {
+                                viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId) }
+                                viewModel { (bookId: String) ->
+                                    BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus(), users)
+                                }
+                            },
+                        )
+                    },
             ) {
                 // Book Detail's rating block offers Undo through the app's snackbar host.
                 MaterialTheme {

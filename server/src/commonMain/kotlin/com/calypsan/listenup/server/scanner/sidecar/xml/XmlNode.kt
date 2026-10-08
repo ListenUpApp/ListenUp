@@ -4,12 +4,12 @@ package com.calypsan.listenup.server.scanner.sidecar.xml
 internal sealed interface XmlNode
 
 /** A run of character data (element text or CDATA), already entity-decoded. */
-internal class XmlText(
+internal data class XmlText(
     val value: String,
 ) : XmlNode
 
 /** An XML element: its (literal, prefix-included) [tag], its [attributes], and ordered [children]. */
-internal class XmlElement(
+internal data class XmlElement(
     val tag: String,
     val attributes: Map<String, String>,
     val children: List<XmlNode>,
@@ -66,7 +66,7 @@ private fun XmlElement.pushChildrenReversed(pending: ArrayDeque<XmlNode>) {
 }
 
 /** Attribute value for [name], or `""` when absent (matches DOM `getAttribute`). */
-internal fun XmlElement.getAttribute(name: String): String = attributes[name] ?: ""
+internal fun XmlElement.getAttribute(name: String): String = attributes[name].orEmpty()
 
 /** Concatenated text of the DIRECT text-node children only (not nested elements). */
 internal fun XmlElement.directText(): String = children.filterIsInstance<XmlText>().joinToString("") { it.value }
@@ -75,9 +75,7 @@ internal fun XmlElement.directText(): String = children.filterIsInstance<XmlText
 internal fun XmlElement.firstText(tag: String): String? =
     getElementsByTagName(tag)
         .firstOrNull()
-        ?.textContent
-        ?.trim()
-        ?.ifBlank { null }
+        ?.run { textContent.trim().ifBlank { null } }
 
 /** Trimmed text of every `<tag>` descendant, blanks dropped. */
 internal fun XmlElement.allText(tag: String): List<String> =

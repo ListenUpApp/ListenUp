@@ -140,7 +140,7 @@ internal fun <T : Any> rememberListDetailSceneStrategy(): ListDetailSceneStrateg
 /**
  * Lays [content] out in a pane and tells it the pane is its window.
  *
- * Screens choose between their compact and wide layouts from `currentWindowAdaptiveInfo()`, which
+ * Screens choose between their compact and wide layouts from `currentWindowAdaptiveInfoV2()`, which
  * reads [LocalWindowInfo]'s container size. Inside a pane that is the wrong question: a book detail
  * in the right 60% of a 1280dp window has 768dp, not 1280dp, and its wide layout needs 840dp.
  * Overriding the container size here answers every such screen with its pane's size at once, instead

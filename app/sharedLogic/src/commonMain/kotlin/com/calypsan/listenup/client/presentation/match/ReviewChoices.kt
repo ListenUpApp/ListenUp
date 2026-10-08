@@ -143,8 +143,13 @@ private fun ReviewChoices.chapterNamesFor(review: ChapterNamesReview): ChapterNa
                 ChapterNamesUi.Available(
                     source = review.source,
                     rows =
-                        review.rows.map {
-                            ChapterRowUi(it.ordinal, it.yours, it.theirs, selected = it.ordinal !in deselectedChapters)
+                        review.rows.map { row ->
+                            ChapterRowUi(
+                                ordinal = row.ordinal,
+                                yours = row.yours,
+                                theirs = row.theirs,
+                                selected = row.ordinal !in deselectedChapters,
+                            )
                         },
                     unchangedCount = review.unchangedCount,
                     included = chapterNamesIncluded,
@@ -177,7 +182,13 @@ internal fun ReviewChoices.project(
     val changes = fieldUis.filter { it.state == FieldState.CHANGES }
     val fillsGap = fieldUis.filter { it.state == FieldState.FILLS_GAP }
     val youEdited = fieldUis.filter { it.state == FieldState.USER_EDITED }
-    val cover = CoverUi(review.cover.current, currentCoverPath, review.cover.options, coverFor(review))
+    val cover =
+        CoverUi(
+            current = review.cover.current,
+            currentCoverPath = currentCoverPath,
+            options = review.cover.options,
+            choice = coverFor(review),
+        )
     val genres = labelsFor(LabelKind.GENRES, review.genres)
     val moods = labelsFor(LabelKind.MOODS, review.moods)
     val chapterNames = chapterNamesFor(review.chapterNames)
@@ -233,9 +244,7 @@ internal fun ReviewChoices.toApply(review: BookMatchReview): BookMatchApply {
         chapterOrdinals =
             chapters
                 ?.takeIf { it.included }
-                ?.rows
-                ?.filter { it.selected }
-                ?.map { it.ordinal }
+                ?.run { rows.filter { it.selected }.map { it.ordinal } }
                 .orEmpty(),
     )
 }

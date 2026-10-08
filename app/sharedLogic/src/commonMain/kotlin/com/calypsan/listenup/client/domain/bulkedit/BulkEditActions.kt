@@ -61,16 +61,12 @@ private fun List<BulkEdit>.scalarUpdate(book: BookDetail): BookMutation.Update? 
     val publisher =
         filterIsInstance<BulkEdit.SetPublisher>()
             .lastOrNull()
-            ?.publisher
-            ?.trim()
-            ?.takeIf { it != book.publisher }
-    val year = filterIsInstance<BulkEdit.SetPublishYear>().lastOrNull()?.year?.takeIf { it != book.publishYear }
+            ?.run { publisher.trim().takeIf { it != book.publisher } }
+    val year = filterIsInstance<BulkEdit.SetPublishYear>().lastOrNull()?.run { year.takeIf { it != book.publishYear } }
     val language =
         filterIsInstance<BulkEdit.SetLanguage>()
             .lastOrNull()
-            ?.language
-            ?.trim()
-            ?.takeIf { it != book.language }
+            ?.run { language.trim().takeIf { it != book.language } }
 
     if (publisher == null && year == null && language == null) return null
     return BookMutation.Update(
@@ -185,21 +181,25 @@ private fun List<BulkEdit>.genreMutation(book: BookDetail): BookMutation.SetGenr
  */
 private fun List<BulkEdit>.tagActions(book: BookDetail): List<BulkAction.AddTag> {
     val existing = book.tags.flatMap { listOf(it.name.dedupKey(), it.slug.dedupKey()) }.toSet()
-    return filterIsInstance<BulkEdit.AddTags>()
+    return asSequence()
+        .filterIsInstance<BulkEdit.AddTags>()
         .flatMap { it.names }
         .map { it.trim() }
         .distinctBy { it.dedupKey() }
         .filter { it.dedupKey() !in existing }
         .map { BulkAction.AddTag(it) }
+        .toList()
 }
 
 /** One action per mood the book does not already carry. Additive and name-carrying, like tags. */
 private fun List<BulkEdit>.moodActions(book: BookDetail): List<BulkAction.AddMood> {
     val existing = book.moods.flatMap { listOf(it.name.dedupKey(), it.slug.dedupKey()) }.toSet()
-    return filterIsInstance<BulkEdit.AddMoods>()
+    return asSequence()
+        .filterIsInstance<BulkEdit.AddMoods>()
         .flatMap { it.names }
         .map { it.trim() }
         .distinctBy { it.dedupKey() }
         .filter { it.dedupKey() !in existing }
         .map { BulkAction.AddMood(it) }
+        .toList()
 }

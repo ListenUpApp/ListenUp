@@ -91,10 +91,12 @@ class ViewModelUsesStateInWhileSubscribedRule :
 
             val offenders =
                 viewModels
+                    .asSequence()
                     .filterNot { it.name in legacyExclusions }
                     .filter { vm -> vm.text.contains("StateFlow<") && vm.text.contains("UiState>") }
                     .filter { vm -> !vm.text.contains("WhileSubscribed") }
                     .map { it.name }
+                    .toList()
             offenders shouldBe emptyList()
         }
     })

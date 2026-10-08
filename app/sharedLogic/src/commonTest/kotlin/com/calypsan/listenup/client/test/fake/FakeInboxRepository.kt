@@ -53,8 +53,16 @@ class FakeInboxRepository : InboxRepository {
         val result = releaseResult
         val stayed =
             when (result) {
-                is AppResult.Success -> emptySet()
-                is AppResult.Failure -> (result.error as? CollectionError.ReleaseIncomplete)?.failedBookIds?.toSet()
+                is AppResult.Success -> {
+                    emptySet()
+                }
+
+                is AppResult.Failure -> {
+                    (result.error as? CollectionError.ReleaseIncomplete)?.run {
+                        failedBookIds
+                            .toSet()
+                    }
+                }
             }
         if (stayed != null) {
             held.update { current -> current.filterNot { it.value in assignments.keys && it.value !in stayed }.toSet() }

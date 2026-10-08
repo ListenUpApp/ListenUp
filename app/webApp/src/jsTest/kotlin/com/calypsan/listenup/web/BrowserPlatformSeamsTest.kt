@@ -62,8 +62,8 @@ class BrowserPlatformSeamsTest :
             // Headless Chromium in the test harness is online; the flow must agree with the
             // snapshot rather than defaulting independently.
             monitor.isOnline() shouldBe true
-            monitor.isOnlineFlow.value shouldBe monitor.isOnline()
-            monitor.isOnUnmeteredNetworkFlow.value shouldBe monitor.isOnline()
+            monitor.onlineFlow.value shouldBe monitor.isOnline()
+            monitor.onUnmeteredNetworkFlow.value shouldBe monitor.isOnline()
         }
 
         test("device detection classifies a fine-pointer browser as desktop") {

@@ -67,7 +67,12 @@ internal class SeriesEditRepositoryImpl(
      */
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
         val now = currentEpochMilliseconds()
-        return offlineEditor.edit(OutboxChannels.Series, id.value, SeriesMutation.Delete, op = OpKind.Delete) {
+        return offlineEditor.edit(
+            channel = OutboxChannels.Series,
+            entityId = id.value,
+            patch = SeriesMutation.Delete,
+            op = OpKind.Delete,
+        ) {
             seriesDao.getById(id.value)?.let { seriesDao.softDelete(id = id, deletedAt = now, revision = it.revision) }
             seriesDao.deleteAllBookSeriesForSeries(id.value)
         }

@@ -28,7 +28,7 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
@@ -51,6 +51,11 @@ import org.robolectric.RobolectricTestRunner
 class ShellKeyboardShortcutsTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    private val fieldFocus = FocusRequester()
+    private val buttonFocus = FocusRequester()
+    private var typed = ""
+    private var buttonClicks = 0
 
     // ── The key map ──────────────────────────────────────────────────────────
 
@@ -147,8 +152,8 @@ class ShellKeyboardShortcutsTest {
             ) {
                 ShellKeyboardShortcuts(
                     enabled = true,
-                    onShortcut = {
-                        dispatched += it
+                    onShortcut = { shortcut ->
+                        dispatched += shortcut
                         false
                     },
                 ) { Text("Library") }
@@ -163,28 +168,23 @@ class ShellKeyboardShortcutsTest {
 
     // ── Harness ──────────────────────────────────────────────────────────────
 
-    private val fieldFocus = FocusRequester()
-    private val buttonFocus = FocusRequester()
-    private var typed = ""
-    private var buttonClicks = 0
-
     private fun setShell(enabled: Boolean = true): List<ShellShortcut> {
         val dispatched = mutableListOf<ShellShortcut>()
         composeRule.setContent {
             var text by remember { mutableStateOf("") }
             ShellKeyboardShortcuts(
                 enabled = enabled,
-                onShortcut = {
-                    dispatched += it
+                onShortcut = { shortcut ->
+                    dispatched += shortcut
                     true
                 },
             ) {
                 Column {
                     TextField(
                         value = text,
-                        onValueChange = {
-                            text = it
-                            typed = it
+                        onValueChange = { newText ->
+                            text = newText
+                            typed = newText
                         },
                         modifier = Modifier.focusRequester(fieldFocus).testTag("field"),
                     )

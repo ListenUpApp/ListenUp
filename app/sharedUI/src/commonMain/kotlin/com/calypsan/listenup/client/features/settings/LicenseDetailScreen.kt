@@ -9,7 +9,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.material3.Text
@@ -32,14 +31,13 @@ fun LicenseDetailScreen(
     uniqueId: String,
     onNavigateBack: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     val rows by rememberLicenseRows()
     val row = rows.firstOrNull { it.uniqueId == uniqueId }
 
     ListenUpScaffold(
         topBar = {
             ListenUpTopAppBar(
-                title = row?.name ?: "",
+                title = row?.name.orEmpty(),
                 onBack = onNavigateBack,
             )
         },

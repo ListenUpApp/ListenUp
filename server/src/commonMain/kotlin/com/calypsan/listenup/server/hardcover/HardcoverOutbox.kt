@@ -85,7 +85,15 @@ class HardcoverOutbox(
         listenThrough: Long,
         startedAt: Long,
         isReread: Boolean,
-    ) = insert(userId, bookId, listenThrough, HardcoverPushPayload.Start(startedAt, isReread), dueAt = now())
+    ) {
+        insert(
+            userId = userId,
+            bookId = bookId,
+            listenThrough = listenThrough,
+            payload = HardcoverPushPayload.Start(startedAt, isReread),
+            dueAt = now(),
+        )
+    }
 
     /**
      * Queues PROGRESS — or, when one is already queued for the book, folds [positionSeconds] into it,
@@ -160,14 +168,14 @@ class HardcoverOutbox(
 
     /** The next row [userId]'s lane may run now, or null. */
     suspend fun head(userId: String): HardcoverOutboxRow? =
-        suspendTransaction(sql) { queries.selectHead(user_id = userId, now = now()).executeAsOneOrNull() }?.let {
+        suspendTransaction(sql) { queries.selectHead(user_id = userId, now = now()).executeAsOneOrNull() }?.let { row ->
             HardcoverOutboxRow(
-                it.id,
-                it.user_id,
-                it.book_id,
-                it.listen_through_started_at,
-                decode(it.payload),
-                it.attempts.toInt(),
+                id = row.id,
+                userId = row.user_id,
+                bookId = row.book_id,
+                listenThrough = row.listen_through_started_at,
+                payload = decode(row.payload),
+                attempts = row.attempts.toInt(),
             )
         }
 
@@ -222,14 +230,14 @@ class HardcoverOutbox(
 
     /** Every queued row of [userId], in queue order. */
     suspend fun pendingFor(userId: String): List<HardcoverOutboxRow> =
-        suspendTransaction(sql) { queries.selectForUser(userId).executeAsList() }.map {
+        suspendTransaction(sql) { queries.selectForUser(userId).executeAsList() }.map { row ->
             HardcoverOutboxRow(
-                it.id,
-                it.user_id,
-                it.book_id,
-                it.listen_through_started_at,
-                decode(it.payload),
-                it.attempts.toInt(),
+                id = row.id,
+                userId = row.user_id,
+                bookId = row.book_id,
+                listenThrough = row.listen_through_started_at,
+                payload = decode(row.payload),
+                attempts = row.attempts.toInt(),
             )
         }
 

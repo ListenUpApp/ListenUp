@@ -79,7 +79,7 @@ class ContributorCreditedAsRoundTripTest :
 
                 // When — load the book for editing.
                 val loaded = loadUseCase("book-1").shouldBeInstanceOf<AppResult.Success<*>>()
-                val editData = loaded.data as com.calypsan.listenup.client.domain.model.BookEditData
+                val editData = loaded.data.shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.BookEditData>()
 
                 // The loaded editable contributor must carry the alias forward.
                 val loadedAuthor = editData.contributors.single { it.id == "c1" }

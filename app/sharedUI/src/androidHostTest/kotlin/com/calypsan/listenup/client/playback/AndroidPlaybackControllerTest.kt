@@ -17,7 +17,7 @@ import kotlinx.coroutines.test.runTest
  * a JVM host test. Tests therefore cover:
  *
  * 1. acquire/release delegate to [ControllerHolder]
- * 2. isReady mirrors holder.isConnected
+ * 2. ready mirrors holder.connected
  * 3. All command methods are no-throw when the controller never becomes available (bounded
  *    [ControllerHolder.awaitController] exhausts its bound and resolves to null) — including
  *    [AndroidPlaybackController.seekTo], which now sends a `SEEK_TO_BOOK_POSITION` custom
@@ -63,30 +63,30 @@ class AndroidPlaybackControllerTest :
         }
 
         // ---------------------------------------------------------------------------
-        // isReady mirrors isConnected
+        // ready mirrors isConnected
         // ---------------------------------------------------------------------------
 
-        test("isReady reflects holder isConnected initial value true") {
+        test("ready reflects holder isConnected initial value true") {
             val holder = FakeControllerHolder(initialConnected = true)
             val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
-            sut.isReady.value shouldBe true
+            sut.ready.value shouldBe true
         }
 
-        test("isReady reflects holder isConnected initial value false") {
+        test("ready reflects holder isConnected initial value false") {
             val holder = FakeControllerHolder(initialConnected = false)
             val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
-            sut.isReady.value shouldBe false
+            sut.ready.value shouldBe false
         }
 
-        test("isReady updates when holder isConnected changes") {
+        test("ready updates when holder isConnected changes") {
             val holder = FakeControllerHolder(initialConnected = true)
             val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             holder.setConnected(false)
 
-            sut.isReady.value shouldBe false
+            sut.ready.value shouldBe false
         }
 
         // ---------------------------------------------------------------------------
@@ -349,8 +349,8 @@ internal class FakeControllerHolder(
 ) : ControllerHolder {
     var acquireCount = 0
     var releaseCount = 0
-    private val _isConnected = MutableStateFlow(initialConnected)
-    override val isConnected: StateFlow<Boolean> = _isConnected
+    private val _connected = MutableStateFlow(initialConnected)
+    override val connected: StateFlow<Boolean> = _connected
 
     /** Always null — MediaController cannot be instantiated in JVM host tests. */
     override val controller: androidx.media3.session.MediaController? = null
@@ -378,6 +378,6 @@ internal class FakeControllerHolder(
     }
 
     fun setConnected(value: Boolean) {
-        _isConnected.value = value
+        _connected.value = value
     }
 }

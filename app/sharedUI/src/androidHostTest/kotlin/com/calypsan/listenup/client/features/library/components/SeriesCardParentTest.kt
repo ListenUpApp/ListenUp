@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.features.library.components
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesProgress

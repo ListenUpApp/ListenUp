@@ -137,11 +137,11 @@ class ErrorMapperTest :
             (internalError.debugInfo?.contains("RuntimeException") == true) shouldBe true
         }
 
-        test("map unknown exception with null message produces ClassName-null debug info") {
+        test("map unknown exception with null message produces bare ClassName debug info") {
             val error = ErrorMapper.map(RuntimeException())
 
             val internalError = error.shouldBeInstanceOf<InternalError>()
-            internalError.debugInfo shouldBe "RuntimeException: null"
+            internalError.debugInfo shouldBe "RuntimeException"
         }
 
         test("map custom exception returns InternalError") {

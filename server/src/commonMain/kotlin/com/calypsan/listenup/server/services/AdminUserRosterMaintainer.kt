@@ -71,9 +71,9 @@ class AdminUserRosterMaintainer(
      */
     suspend fun refreshBestEffort(userId: String) {
         runCatchingCancellable { refresh(userId) }
-            .onFailure {
+            .onFailure { failure ->
                 logger.warn(
-                    it,
+                    failure,
                 ) { "admin_user_roster refresh failed for $userId; projection will self-heal on next backfill" }
             }
     }
@@ -81,9 +81,9 @@ class AdminUserRosterMaintainer(
     /** Best-effort [remove]; see [refreshBestEffort]. */
     suspend fun removeBestEffort(userId: String) {
         runCatchingCancellable { remove(userId) }
-            .onFailure {
+            .onFailure { failure ->
                 logger.warn(
-                    it,
+                    failure,
                 ) { "admin_user_roster remove failed for $userId; projection will self-heal on next backfill" }
             }
     }

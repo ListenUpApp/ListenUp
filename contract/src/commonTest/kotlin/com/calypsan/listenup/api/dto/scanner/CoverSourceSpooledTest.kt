@@ -3,7 +3,6 @@ package com.calypsan.listenup.api.dto.scanner
 import com.calypsan.listenup.api.contractJson
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 class CoverSourceSpooledTest :
     FunSpec({

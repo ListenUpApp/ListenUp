@@ -62,9 +62,6 @@ SELECT * FROM book_tags WHERE book_id IN :ids AND deleted_at IS NULL;
 selectByTagId:
 SELECT * FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
 
-selectBookIdsForTag:
-SELECT book_id FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
-
 insert:
 INSERT INTO book_tags (id, book_id, tag_id, created_at, updated_at, revision, deleted_at, client_op_id)
 VALUES (:id, :book_id, :tag_id, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);

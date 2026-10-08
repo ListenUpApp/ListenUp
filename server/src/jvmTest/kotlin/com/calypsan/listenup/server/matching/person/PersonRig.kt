@@ -78,6 +78,9 @@ internal class PersonRig(
     val applier = PersonMatchApplier(reviewer, photoFiles, writer, now = { 1_000L })
     val undoer = PersonMatchUndoer(db.sql, contributors, receipts, now = { 2_000L })
 
+    /** Ray Porter's id, once [seedRay] has created him. */
+    lateinit var rayId: String
+
     /** Ray Porter as you have him: an old bio and photo, linked to an old Audible profile and a custom ref. */
     suspend fun seedRay(): ContributorSyncPayload {
         rayId = contributors.resolveOrCreate("Ray Porter", null).value
@@ -93,9 +96,6 @@ internal class PersonRig(
             ).shouldSucceed()
         return person()
     }
-
-    /** Ray Porter's id, once [seedRay] has created him. */
-    lateinit var rayId: String
 
     suspend fun person(): ContributorSyncPayload = contributors.findById(rayId)!!
 
@@ -136,8 +136,8 @@ internal class PersonRig(
     /** The rig's person Review, Apply and Undo, as the matching service takes them. */
     fun people() =
         PersonMatchDetails(reviewer, applier, undoer) { id ->
-            contributors.findById(id.value)?.takeIf {
-                it.deletedAt ==
+            contributors.findById(id.value)?.takeIf { contributor ->
+                contributor.deletedAt ==
                     null
             }
         }

@@ -147,7 +147,7 @@ internal fun AudibleBook.toExternalRatingMeta(region: AudibleRegion = AudibleReg
 internal fun List<AudibleSearchResult>.toCoverMetas(): List<CoverMeta> =
     firstOrNull { it.coverUrl.isNotBlank() }
         ?.let { listOf(CoverMeta(url = it.coverUrl, sourceKey = it.asin)) }
-        ?: emptyList()
+        .orEmpty()
 
 /** An Audible search hit as Find reads it, found in [region]'s store. */
 internal fun AudibleSearchResult.toFoundBook(region: AudibleRegion): FoundBook =

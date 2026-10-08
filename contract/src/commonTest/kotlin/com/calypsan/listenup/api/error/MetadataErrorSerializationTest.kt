@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.contractJson
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.serialization.encodeToString
 
 class MetadataErrorSerializationTest :
     FunSpec({

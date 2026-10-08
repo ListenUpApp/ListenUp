@@ -60,6 +60,8 @@ class StorageViewModelTest :
             override fun clearPlayback() = Unit
         }
 
+        // Holds mutable fakes and a mutable walk counter; it is a rig, not a value.
+        @Suppress("UseDataClass")
         class Fixture(
             val downloadRepository: StorageViewModelFakeDownloadRepository,
             val downloadService: DownloadService,

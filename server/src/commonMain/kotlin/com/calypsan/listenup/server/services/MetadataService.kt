@@ -243,11 +243,17 @@ internal class MetadataService(
                     AppResult.Success(json.decodeFromString(serializer, cachedJson))
                 } catch (_: SerializationException) {
                     // Stale schema in cache — treat as miss and re-fetch.
-                    fetchAndStore(region, cacheKey, ttl, fetch, serializer)
+                    fetchAndStore(
+                        region = region,
+                        cacheKey = cacheKey,
+                        ttl = ttl,
+                        fetch = fetch,
+                        serializer = serializer,
+                    )
                 }
             }
         }
-        return fetchAndStore(region, cacheKey, ttl, fetch, serializer)
+        return fetchAndStore(region = region, cacheKey = cacheKey, ttl = ttl, fetch = fetch, serializer = serializer)
     }
 
     /**
@@ -266,10 +272,23 @@ internal class MetadataService(
         if (!refresh) {
             val cachedJson = cache.get(MetadataProviderId.AUDIBLE, region.code, cacheKey)
             if (cachedJson != null) {
-                return decodeNullableOrRefetch(cachedJson, serializer, region, cacheKey, ttl, fetch)
+                return decodeNullableOrRefetch(
+                    cachedJson = cachedJson,
+                    serializer = serializer,
+                    region = region,
+                    cacheKey = cacheKey,
+                    ttl = ttl,
+                    fetch = fetch,
+                )
             }
         }
-        return fetchAndStoreNullable(region, cacheKey, ttl, fetch, serializer)
+        return fetchAndStoreNullable(
+            region = region,
+            cacheKey = cacheKey,
+            ttl = ttl,
+            fetch = fetch,
+            serializer = serializer,
+        )
     }
 
     /**
@@ -292,7 +311,13 @@ internal class MetadataService(
                 AppResult.Success(json.decodeFromString(serializer, cachedJson))
             }
         } catch (_: SerializationException) {
-            fetchAndStoreNullable(region, cacheKey, ttl, fetch, serializer)
+            fetchAndStoreNullable(
+                region = region,
+                cacheKey = cacheKey,
+                ttl = ttl,
+                fetch = fetch,
+                serializer = serializer,
+            )
         }
 
     private suspend fun <T> fetchAndStore(
@@ -306,11 +331,11 @@ internal class MetadataService(
         if (result is AppResult.Success) {
             val expiresAt = (clock.now() + ttl).toEpochMilliseconds()
             cache.put(
-                MetadataProviderId.AUDIBLE,
-                region.code,
-                cacheKey,
-                json.encodeToString(serializer, result.data),
-                expiresAt,
+                provider = MetadataProviderId.AUDIBLE,
+                region = region.code,
+                cacheKey = cacheKey,
+                payloadJson = json.encodeToString(serializer, result.data),
+                expiresAt = expiresAt,
             )
         }
         return result
@@ -328,7 +353,13 @@ internal class MetadataService(
             val expiresAt = (clock.now() + ttl).toEpochMilliseconds()
             val data = result.data
             val payload = if (data == null) "null" else json.encodeToString(serializer, data)
-            cache.put(MetadataProviderId.AUDIBLE, region.code, cacheKey, payload, expiresAt)
+            cache.put(
+                provider = MetadataProviderId.AUDIBLE,
+                region = region.code,
+                cacheKey = cacheKey,
+                payloadJson = payload,
+                expiresAt = expiresAt,
+            )
         }
         return result
     }

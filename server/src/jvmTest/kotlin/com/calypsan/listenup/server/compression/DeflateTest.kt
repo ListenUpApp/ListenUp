@@ -204,11 +204,11 @@ class DeflateTest :
             // fallback a real backup hits on its already-compressed (m4b/mp3) regions.
             val rep1 = ByteArray(1024 * 1024) { (it % 8).toByte() }
             val incompressible =
-                ByteArray(1024 * 1024).also {
+                ByteArray(1024 * 1024).also { bytes ->
                     var s = 0x5BD1_E995
-                    for (i in it.indices) {
+                    for (i in bytes.indices) {
                         s = s * 1_103_515_245 + 12345
-                        it[i] = (s ushr 16).toByte()
+                        bytes[i] = (s ushr 16).toByte()
                     }
                 }
             val rep2 = ByteArray(512 * 1024) { (it % 8 + 1).toByte() }

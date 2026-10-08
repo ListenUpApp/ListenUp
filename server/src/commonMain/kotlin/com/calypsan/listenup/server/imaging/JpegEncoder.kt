@@ -29,7 +29,7 @@ internal fun encodeJpeg(
     out.writeFrameHeader(image.width, image.height)
     out.writeHuffmanTables()
     out.writeScanHeader()
-    writeScan(out, planes, quantLuma, quantChroma)
+    writeScan(out = out, planes = planes, quantLuma = quantLuma, quantChroma = quantChroma)
     out.writeMarker(MARKER_EOI_BYTE)
     return out.readByteArray()
 }
@@ -40,7 +40,10 @@ internal fun encodeJpeg(
  * Chroma is averaged over each 2x2 group rather than sampled, for the same reason [resizedTo]
  * averages: dropping three of every four samples aliases the edges of type, and a cover is mostly
  * type. The eye's low chroma acuity is what makes 4:2:0 free; sampling artefacts are not.
+ *
+ * Holds IntArrays: data-class equality would compare the planes by identity, which is misleading.
  */
+@Suppress("UseDataClass")
 private class YCbCrPlanes(
     val luma: IntArray,
     val blueDiff: IntArray,
@@ -88,13 +91,13 @@ private class YCbCrPlanes(
                 }
             }
             return YCbCrPlanes(
-                luma,
-                blueDiff,
-                redDiff,
-                image.width,
-                image.height,
-                chromaWidth,
-                chromaHeight,
+                luma = luma,
+                blueDiff = blueDiff,
+                redDiff = redDiff,
+                width = image.width,
+                height = image.height,
+                chromaWidth = chromaWidth,
+                chromaHeight = chromaHeight,
             )
         }
     }
@@ -132,33 +135,57 @@ private fun writeScan(
                 for (h in 0 until 2) {
                     val block =
                         gather(
-                            planes.luma,
-                            planes.width,
-                            planes.height,
-                            (mcuColumn * 2 + h) * DCT_SIZE,
-                            (mcuRow * 2 + v) * DCT_SIZE,
+                            plane = planes.luma,
+                            width = planes.width,
+                            height = planes.height,
+                            originX = (mcuColumn * 2 + h) * DCT_SIZE,
+                            originY = (mcuRow * 2 + v) * DCT_SIZE,
                         )
-                    lumaPredictor = writeBlock(writer, block, quantLuma, dcLuma, acLuma, lumaPredictor)
+                    lumaPredictor =
+                        writeBlock(
+                            writer = writer,
+                            block = block,
+                            quant = quantLuma,
+                            dcTable = dcLuma,
+                            acTable = acLuma,
+                            predictor = lumaPredictor,
+                        )
                 }
             }
             val blue =
                 gather(
-                    planes.blueDiff,
-                    planes.chromaWidth,
-                    planes.chromaHeight,
-                    mcuColumn * DCT_SIZE,
-                    mcuRow * DCT_SIZE,
+                    plane = planes.blueDiff,
+                    width = planes.chromaWidth,
+                    height = planes.chromaHeight,
+                    originX = mcuColumn * DCT_SIZE,
+                    originY = mcuRow * DCT_SIZE,
                 )
-            bluePredictor = writeBlock(writer, blue, quantChroma, dcChroma, acChroma, bluePredictor)
+            bluePredictor =
+                writeBlock(
+                    writer = writer,
+                    block = blue,
+                    quant = quantChroma,
+                    dcTable = dcChroma,
+                    acTable = acChroma,
+                    predictor = bluePredictor,
+                )
             val red =
                 gather(
-                    planes.redDiff,
-                    planes.chromaWidth,
-                    planes.chromaHeight,
-                    mcuColumn * DCT_SIZE,
-                    mcuRow * DCT_SIZE,
+                    plane = planes.redDiff,
+                    width = planes.chromaWidth,
+                    height = planes.chromaHeight,
+                    originX = mcuColumn * DCT_SIZE,
+                    originY = mcuRow * DCT_SIZE,
                 )
-            redPredictor = writeBlock(writer, red, quantChroma, dcChroma, acChroma, redPredictor)
+            redPredictor =
+                writeBlock(
+                    writer = writer,
+                    block = red,
+                    quant = quantChroma,
+                    dcTable = dcChroma,
+                    acTable = acChroma,
+                    predictor = redPredictor,
+                )
         }
     }
     writer.flush()

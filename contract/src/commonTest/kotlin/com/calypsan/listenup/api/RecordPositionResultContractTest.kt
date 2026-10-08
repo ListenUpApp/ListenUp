@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 class RecordPositionResultContractTest :
     FunSpec({

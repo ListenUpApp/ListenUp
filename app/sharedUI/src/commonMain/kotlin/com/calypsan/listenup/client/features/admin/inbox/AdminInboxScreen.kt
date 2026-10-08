@@ -44,7 +44,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -138,8 +138,8 @@ fun AdminInboxScreen(
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminInboxUiState.Ready)?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it)
+        readyError?.let { message ->
+            snackbarHostState.showSnackbar(message)
             viewModel.clearError()
         }
     }
@@ -149,13 +149,13 @@ fun AdminInboxScreen(
     val readyUnreleasedCount = (state as? AdminInboxUiState.Ready)?.lastUnreleasedCount ?: 0
     val confirmation = releaseConfirmation(released = readyReleasedCount ?: 0, unreleased = readyUnreleasedCount)
     LaunchedEffect(readyReleasedCount) {
-        readyReleasedCount?.let {
+        if (readyReleasedCount != null) {
             snackbarHostState.showSnackbar(confirmation)
             viewModel.clearReleaseResult()
         }
     }
 
-    val isWide = currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(TwoPaneMinWidth.value.toInt())
+    val isWide = currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(TwoPaneMinWidth.value.toInt())
 
     ListenUpScaffold(
         modifier = modifier,

@@ -415,10 +415,10 @@
         },
         {
             "uniqueId": "androidx.compose.material3.adaptive:adaptive",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.2.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.3.0",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -440,10 +440,10 @@
         },
         {
             "uniqueId": "androidx.compose.material3.adaptive:adaptive-layout",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.2.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.3.0",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -465,10 +465,10 @@
         },
         {
             "uniqueId": "androidx.compose.material3.adaptive:adaptive-navigation",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.2.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.3.0",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -3227,7 +3227,7 @@
         },
         {
             "uniqueId": "com.google.android.datatransport:transport-api",
-            "artifactVersion": "3.1.0",
+            "artifactVersion": "5.0.0",
             "name": "com.google.android.datatransport:transport-api",
             "description": "",
             "developers": [
@@ -3246,7 +3246,7 @@
         },
         {
             "uniqueId": "com.google.android.datatransport:transport-backend-cct",
-            "artifactVersion": "3.1.9",
+            "artifactVersion": "5.0.0",
             "name": "com.google.android.datatransport:transport-backend-cct",
             "description": "",
             "developers": [
@@ -3265,7 +3265,7 @@
         },
         {
             "uniqueId": "com.google.android.datatransport:transport-runtime",
-            "artifactVersion": "3.1.9",
+            "artifactVersion": "5.0.0",
             "name": "com.google.android.datatransport:transport-runtime",
             "description": "",
             "developers": [
@@ -3431,7 +3431,7 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-annotations",
-            "artifactVersion": "17.0.0",
+            "artifactVersion": "18.0.0",
             "name": "com.google.firebase:firebase-annotations",
             "description": "",
             "developers": [
@@ -3450,7 +3450,7 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-common",
-            "artifactVersion": "22.0.1",
+            "artifactVersion": "23.0.0",
             "name": "com.google.firebase:firebase-common",
             "description": "",
             "developers": [
@@ -3469,7 +3469,7 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-components",
-            "artifactVersion": "19.0.0",
+            "artifactVersion": "20.0.0",
             "name": "com.google.firebase:firebase-components",
             "description": "",
             "developers": [
@@ -3488,7 +3488,7 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-datatransport",
-            "artifactVersion": "18.2.0",
+            "artifactVersion": "21.0.0",
             "name": "com.google.firebase:firebase-datatransport",
             "description": "",
             "developers": [
@@ -3507,12 +3507,16 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-encoders",
-            "artifactVersion": "17.0.0",
-            "name": "firebase-encoders",
+            "artifactVersion": "18.0.0",
+            "name": "com.google.firebase:firebase-encoders",
             "description": "",
             "developers": [
                 
             ],
+            "scm": {
+                "connection": "scm:git:https://github.com/firebase/firebase-android-sdk.git",
+                "url": "https://github.com/firebase/firebase-android-sdk"
+            },
             "licenses": [
                 "Apache-2.0"
             ],
@@ -3522,12 +3526,16 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-encoders-json",
-            "artifactVersion": "18.0.0",
-            "name": "firebase-encoders-json",
+            "artifactVersion": "19.0.0",
+            "name": "com.google.firebase:firebase-encoders-json",
             "description": "",
             "developers": [
                 
             ],
+            "scm": {
+                "connection": "scm:git:https://github.com/firebase/firebase-android-sdk.git",
+                "url": "https://github.com/firebase/firebase-android-sdk"
+            },
             "licenses": [
                 "Apache-2.0"
             ],
@@ -3537,12 +3545,16 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-encoders-proto",
-            "artifactVersion": "16.0.0",
-            "name": "firebase-encoders-proto",
+            "artifactVersion": "17.0.0",
+            "name": "com.google.firebase:firebase-encoders-proto",
             "description": "",
             "developers": [
                 
             ],
+            "scm": {
+                "connection": "scm:git:https://github.com/firebase/firebase-android-sdk.git",
+                "url": "https://github.com/firebase/firebase-android-sdk"
+            },
             "licenses": [
                 "Apache-2.0"
             ],
@@ -3567,7 +3579,7 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-installations",
-            "artifactVersion": "19.1.1",
+            "artifactVersion": "20.0.0",
             "name": "com.google.firebase:firebase-installations",
             "description": "",
             "developers": [
@@ -3586,7 +3598,7 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-installations-interop",
-            "artifactVersion": "17.3.0",
+            "artifactVersion": "18.0.0",
             "name": "com.google.firebase:firebase-installations-interop",
             "description": "",
             "developers": [
@@ -3620,7 +3632,7 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-messaging",
-            "artifactVersion": "25.1.3",
+            "artifactVersion": "26.0.0",
             "name": "com.google.firebase:firebase-messaging",
             "description": "",
             "developers": [
@@ -5295,7 +5307,7 @@
         },
         {
             "uniqueId": "org.jetbrains.androidx.window:window-core",
-            "artifactVersion": "1.4.0",
+            "artifactVersion": "1.5.0",
             "name": "WindowManager Core",
             "description": "WindowManager Core Library.",
             "website": "https://github.com/JetBrains/compose-jb",
@@ -5367,7 +5379,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.annotation-internal:annotation",
-            "artifactVersion": "1.9.0",
+            "artifactVersion": "1.10.0",
             "name": "Annotation",
             "description": "Provides source annotations for tooling and readability.",
             "website": "https://github.com/JetBrains/compose-jb",
@@ -5691,10 +5703,10 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.material3.adaptive:adaptive",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://github.com/JetBrains/compose-jb",
+            "website": "https://github.com/JetBrains/compose-multiplatform",
             "developers": [
                 {
                     "name": "Compose Multiplatform Team",
@@ -5702,9 +5714,9 @@
                 }
             ],
             "scm": {
-                "connection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "developerConnection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "url": "https://github.com/JetBrains/compose-jb"
+                "connection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "developerConnection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "url": "https://github.com/JetBrains/compose-multiplatform"
             },
             "licenses": [
                 "Apache-2.0"
@@ -5715,10 +5727,10 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.material3.adaptive:adaptive-layout",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://github.com/JetBrains/compose-jb",
+            "website": "https://github.com/JetBrains/compose-multiplatform",
             "developers": [
                 {
                     "name": "Compose Multiplatform Team",
@@ -5726,9 +5738,9 @@
                 }
             ],
             "scm": {
-                "connection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "developerConnection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "url": "https://github.com/JetBrains/compose-jb"
+                "connection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "developerConnection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "url": "https://github.com/JetBrains/compose-multiplatform"
             },
             "licenses": [
                 "Apache-2.0"
@@ -5739,10 +5751,10 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.material3.adaptive:adaptive-navigation",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://github.com/JetBrains/compose-jb",
+            "website": "https://github.com/JetBrains/compose-multiplatform",
             "developers": [
                 {
                     "name": "Compose Multiplatform Team",
@@ -5750,9 +5762,9 @@
                 }
             ],
             "scm": {
-                "connection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "developerConnection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "url": "https://github.com/JetBrains/compose-jb"
+                "connection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "developerConnection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "url": "https://github.com/JetBrains/compose-multiplatform"
             },
             "licenses": [
                 "Apache-2.0"
@@ -6267,7 +6279,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
-            "artifactVersion": "1.8.22",
+            "artifactVersion": "2.1.21",
             "name": "Kotlin Stdlib Jdk7",
             "description": "Kotlin Standard Library JDK 7 extension",
             "website": "https://kotlinlang.org/",
@@ -6291,7 +6303,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
-            "artifactVersion": "1.8.22",
+            "artifactVersion": "2.1.21",
             "name": "Kotlin Stdlib Jdk8",
             "description": "Kotlin Standard Library JDK 8 extension",
             "website": "https://kotlinlang.org/",

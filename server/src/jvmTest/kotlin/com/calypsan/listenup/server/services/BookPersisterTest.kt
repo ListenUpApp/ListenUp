@@ -40,11 +40,11 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.instanceOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
+import io.kotest.assertions.throwables.shouldThrow
 
 class BookPersisterTest :
     FunSpec({
@@ -436,22 +436,20 @@ class BookPersisterTest :
                     val persister = persister(fake, scope = this, eventBus = eventBus)
 
                     // OOM rethrows — expect it to propagate
-                    val thrown =
-                        runCatching {
-                            persister.persist(
-                                scanResult(
-                                    books = listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c")),
-                                    changes =
-                                        listOf(
-                                            ChangeEventDto.Added(analyzedBook("a")),
-                                            ChangeEventDto.Added(analyzedBook("b")),
-                                            ChangeEventDto.Added(analyzedBook("c")),
-                                        ),
-                                    scope = ScanScope.Full,
-                                ),
-                            )
-                        }
-                    thrown.exceptionOrNull() shouldBe instanceOf(OutOfMemoryError::class)
+                    shouldThrow<OutOfMemoryError> {
+                        persister.persist(
+                            scanResult(
+                                books = listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c")),
+                                changes =
+                                    listOf(
+                                        ChangeEventDto.Added(analyzedBook("a")),
+                                        ChangeEventDto.Added(analyzedBook("b")),
+                                        ChangeEventDto.Added(analyzedBook("c")),
+                                    ),
+                                scope = ScanScope.Full,
+                            ),
+                        )
+                    }
 
                     // A Completed event is still emitted before the rethrow so clients get honest counts
                     val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()

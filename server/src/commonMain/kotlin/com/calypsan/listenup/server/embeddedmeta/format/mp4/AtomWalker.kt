@@ -169,7 +169,7 @@ internal object AtomWalker {
         var end = bytes.size
         var found: Atom? = null
         for (segment in segments) {
-            val atom = findChild(bytes, start, end, segment) ?: return null
+            val atom = findChild(bytes = bytes, start = start, end = end, type = segment) ?: return null
             found = atom
             start = atom.dataOffset
             end = atom.end

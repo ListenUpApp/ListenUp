@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
@@ -23,8 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,7 +67,7 @@ fun PlayerPanelScaffold(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val expanded =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
     if (expanded) {
@@ -93,7 +94,11 @@ private fun PlayerPanelBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState =
+            rememberBottomSheetState(
+                initialValue = SheetValue.Hidden,
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+            ),
         shape = BottomSheetDefaults.ExpandedShape,
     ) {
         Column(

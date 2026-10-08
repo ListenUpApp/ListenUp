@@ -16,7 +16,11 @@ import java.io.File
  * - Recursive deletion (no kotlinx-io equivalent)
  * - Storage calculation with walkTopDown (no kotlinx-io equivalent)
  * - Available space query (platform-specific)
+ *
+ * detekt's single-module analysis resolves this actual's bodies against the `expect` class, which has no
+ * private members, so it reads storagePaths/downloadDir as unresolved (unused, possibly-null). The compiler does not.
  */
+@Suppress("UnusedPrivateProperty", "NullableToStringCall")
 actual open class DownloadFileManager(
     private val storagePaths: StoragePaths,
 ) {

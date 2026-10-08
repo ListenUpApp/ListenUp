@@ -79,14 +79,13 @@ internal fun assembleBookPayload(
     documents: List<BookDocumentPayload>,
     externalRefs: List<ExternalRef> = emptyList(),
 ): BookSyncPayload {
-    val cover =
-        bookRow.cover_hash?.let { hash ->
-            val coverSrc =
-                bookRow.cover_source?.let { raw ->
-                    CoverSource.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
-                }
-            coverSrc?.let { CoverPayload(source = it, hash = hash) }
+    val coverHash = bookRow.cover_hash
+    val coverSource =
+        bookRow.cover_source?.let { raw ->
+            CoverSource.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
         }
+    val cover =
+        if (coverHash != null && coverSource != null) CoverPayload(source = coverSource, hash = coverHash) else null
 
     return BookSyncPayload(
         id = bookRow.id,

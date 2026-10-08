@@ -263,8 +263,9 @@ class AnalyzerListenUpSidecarTest :
 
                         val curation = book.sidecarCuration
                         curation.shouldNotBeNull()
-                        curation.userChapters?.single()?.partTitle shouldBe null
-                        curation.userChapters?.single()?.bookTitle shouldBe "Book One"
+                        val userChapter = curation.userChapters.shouldNotBeNull().single()
+                        userChapter.partTitle shouldBe null
+                        userChapter.bookTitle shouldBe "Book One"
                         curation.bookTierLabel shouldBe null
                         curation.partTierLabel shouldBe "Sequence"
                     }

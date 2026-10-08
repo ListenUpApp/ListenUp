@@ -32,7 +32,11 @@ internal fun Route.coverCastRoutes(
         val exp = call.request.queryParameters["exp"]?.toLongOrNull()
         val sig = call.request.queryParameters["sig"]
         val userId = call.request.queryParameters["u"]
-        if (exp == null || sig == null || userId == null || !signer.verify(userId, bookId, exp, sig)) {
+        if (exp == null ||
+            sig == null ||
+            userId == null ||
+            !signer.verify(userId = userId, bookId = bookId, exp = exp, sig = sig)
+        ) {
             return@get call.respond(HttpStatusCode.Forbidden)
         }
         val role = roleLookup.roleOf(userId) ?: return@get call.respond(HttpStatusCode.NotFound)

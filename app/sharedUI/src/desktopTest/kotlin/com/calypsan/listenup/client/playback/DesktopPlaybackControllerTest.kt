@@ -42,13 +42,13 @@ class DesktopPlaybackControllerTest :
         }
 
         // ---------------------------------------------------------------------------
-        // isReady is constant true
+        // ready is constant true
         // ---------------------------------------------------------------------------
 
-        test("isReady is always true") {
+        test("ready is always true") {
             val sut = newController(FakeAudioPlayer())
 
-            sut.isReady.value shouldBe true
+            sut.ready.value shouldBe true
         }
 
         // ---------------------------------------------------------------------------

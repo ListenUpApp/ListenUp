@@ -24,7 +24,10 @@ private val logger = KotlinLogging.logger("com.calypsan.listenup.server.routes.R
  * Declared `internal` so the inline function can access the `internal` helpers
  * [toHttpStatus] and [withCorrelationId] from the `plugins` package (same module).
  */
-internal suspend inline fun <reified T : Any> ApplicationCall.respondAppResult(result: AppResult<T>) {
+internal suspend inline fun <reified T : Any> respondAppResult(
+    call: ApplicationCall,
+    result: AppResult<T>,
+) {
     val status: HttpStatusCode
     val body: AppResult<T>
     when (result) {
@@ -34,13 +37,13 @@ internal suspend inline fun <reified T : Any> ApplicationCall.respondAppResult(r
         }
 
         is AppResult.Failure -> {
-            val typed = result.error.withCorrelationId(callId)
+            val typed = result.error.withCorrelationId(call.callId)
             status = typed.toHttpStatus()
             body = AppResult.Failure(typed)
-            logAppErrorResponse(typed, status, request.uri)
+            logAppErrorResponse(typed, status, call.request.uri)
         }
     }
-    respond(status, body)
+    call.respond(status, body)
 }
 
 /** Logs a domain-error response: 5xx → ERROR, else DEBUG. Non-inline so it can hold the private logger. */
@@ -49,7 +52,7 @@ internal fun logAppErrorResponse(
     status: HttpStatusCode,
     path: String,
 ) {
-    val msg = "domain error: code=${error.code} status=${status.value} path=$path correlationId=${error.correlationId}"
+    val msg = "domain error: code=${error.code} status=${status.value} path=$path correlationId=${error.correlationId ?: "none"}"
     if (status.value >= HTTP_SERVER_ERROR_FLOOR) {
         logger.error { msg }
     } else {

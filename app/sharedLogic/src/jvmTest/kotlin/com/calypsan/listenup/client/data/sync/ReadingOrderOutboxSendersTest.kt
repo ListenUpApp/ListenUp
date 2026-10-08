@@ -18,7 +18,6 @@ import com.calypsan.listenup.core.ReadingOrderId
 import com.calypsan.listenup.core.SeriesId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 

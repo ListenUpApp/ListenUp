@@ -63,7 +63,12 @@ class CoverResponder internal constructor(
                 ?.toIntOrNull()
                 ?.let { derivatives.rungFor(it) }
 
-        if (rung != null && hash != null && respondDerivative(call, id, info, hash, rung)) return
+        if (rung != null &&
+            hash != null &&
+            respondDerivative(call = call, id = id, info = info, hash = hash, rung = rung)
+        ) {
+            return
+        }
         respondOriginal(call, id, info)
     }
 

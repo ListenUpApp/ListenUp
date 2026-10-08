@@ -54,9 +54,18 @@ private fun mockBook(
 
 private fun mockContinue() =
     listOf(
-        ContinueListeningItem.Ready("1", mockBook("1", "The Institute", "Stephen King", 0.5f)),
-        ContinueListeningItem.Ready("2", mockBook("2", "North! Or Be Eaten", "Andrew Peterson", 0.1f)),
-        ContinueListeningItem.Ready("3", mockBook("3", "Project Hail Mary", "Andy Weir", 0.22f)),
+        ContinueListeningItem.Ready(
+            "1",
+            mockBook(id = "1", title = "The Institute", author = "Stephen King", progress = 0.5f),
+        ),
+        ContinueListeningItem.Ready(
+            "2",
+            mockBook(id = "2", title = "North! Or Be Eaten", author = "Andrew Peterson", progress = 0.1f),
+        ),
+        ContinueListeningItem.Ready(
+            "3",
+            mockBook(id = "3", title = "Project Hail Mary", author = "Andy Weir", progress = 0.22f),
+        ),
     )
 
 private fun mockShelf(

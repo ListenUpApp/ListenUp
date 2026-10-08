@@ -51,7 +51,14 @@ class HardcoverPushExecutor(
     private val clock: Clock = Clock.System,
     rateLimiter: HardcoverRateLimiter = HardcoverRateLimiter(),
 ) {
-    private val history = HardcoverHistoryPush(userBooks, links, sql, clock, rateLimiter)
+    private val history =
+        HardcoverHistoryPush(
+            userBooks = userBooks,
+            links = links,
+            sql = sql,
+            clock = clock,
+            rateLimiter = rateLimiter,
+        )
 
     /** Runs [row] for LINKED [link] with [accessToken]. */
     suspend fun execute(
@@ -62,13 +69,21 @@ class HardcoverPushExecutor(
         val hcBookId = checkNotNull(link.hcBookId) { "only a LINKED book is pushed" }
         return when (val payload = row.payload) {
             // A finished read of its own (#1540): no listen-through to continue, so the deletion rule has nothing to act on.
-            is HardcoverPushPayload.History -> history.send(row, payload, link, hcBookId, accessToken)
+            is HardcoverPushPayload.History -> {
+                history.send(row = row, payload = payload, link = link, hcBookId = hcBookId, token = accessToken)
+            }
 
-            is HardcoverPushPayload.Start -> live(row, link, hcBookId, accessToken) { start(payload) }
+            is HardcoverPushPayload.Start -> {
+                live(row = row, link = link, hcBookId = hcBookId, accessToken = accessToken) { start(payload) }
+            }
 
-            is HardcoverPushPayload.Progress -> live(row, link, hcBookId, accessToken) { progress(payload) }
+            is HardcoverPushPayload.Progress -> {
+                live(row = row, link = link, hcBookId = hcBookId, accessToken = accessToken) { progress(payload) }
+            }
 
-            is HardcoverPushPayload.Finish -> live(row, link, hcBookId, accessToken) { finish(payload) }
+            is HardcoverPushPayload.Finish -> {
+                live(row = row, link = link, hcBookId = hcBookId, accessToken = accessToken) { finish(payload) }
+            }
         }
     }
 
@@ -84,7 +99,9 @@ class HardcoverPushExecutor(
         val shelf = userBooks.userBookFor(accessToken, hcBookId).valueOr { return PushOutcome.Failed(it) }
         if (deletedOnHardcover(link, row.listenThrough, shelf)) return suppress(row)
         val zone = sql.homeTimeZone(row.userId)
-        return Target(row, link, hcBookId, shelf, accessToken, zone).operation()
+        val target =
+            Target(row = row, link = link, hcBookId = hcBookId, shelf = shelf, token = accessToken, zone = zone)
+        return target.operation()
     }
 
     /** Everything one row's operation needs, so the three operations read as the spec does. */
@@ -154,7 +171,12 @@ class HardcoverPushExecutor(
             }
             links.clearOpenRead(row.userId, row.bookId)
             // The read is on Hardcover now: it is never history to offer again, even after a reconnect (#1540).
-            sql.recordLiveFinish(row.userId, row.bookId, row.listenThrough, clock.now().toEpochMilliseconds())
+            sql.recordLiveFinish(
+                userId = row.userId,
+                bookId = row.bookId,
+                listenThrough = row.listenThrough,
+                at = clock.now().toEpochMilliseconds(),
+            )
             return PushOutcome.Done
         }
 
@@ -180,37 +202,51 @@ class HardcoverPushExecutor(
                         links.markShelving(row.userId, row.bookId, row.listenThrough)
                         userBooks
                             .createUserBook(
-                                token,
-                                hcBookId,
-                                link.hcEditionId,
-                                HardcoverStatus.READING,
+                                accessToken = token,
+                                hcBookId = hcBookId,
+                                hcEditionId = link.hcEditionId,
+                                statusId = HardcoverStatus.READING,
                             ).valueOr { return it }
                     }
             val shelvedJustNow = shelf == null || link.isShelvingFor(row.listenThrough)
             val read =
                 (if (shelvedJustNow) adoptReadHardcoverOpened(startedAt).valueOr { return it } else null)
                     ?: shelf?.openRead
-                    ?: run {
-                        val startedOn = startedAt?.let(::dateOf)
-                        val readId =
-                            userBooks
-                                .openRead(
-                                    token,
-                                    userBookId,
-                                    startedOn,
-                                    link.hcEditionId,
-                                ).valueOr { return it }
-                        HardcoverRead(
-                            readId,
-                            startedOn?.toString(),
-                            finishedAt = null,
-                            progressSeconds = null,
-                            editionId = link.hcEditionId,
-                        )
-                    }
-            links.recordOpenRead(row.userId, row.bookId, userBookId, read.id, row.listenThrough)
+                    ?: openNewRead(userBookId, startedAt).valueOr { return it }
+            links.recordOpenRead(
+                userId = row.userId,
+                bookId = row.bookId,
+                userBookId = userBookId,
+                readId = read.id,
+                listenThrough = row.listenThrough,
+            )
             links.recordPushedRead(row.userId, read.id, row.bookId)
             return HardcoverCall.Ok(OpenRead(userBookId, read, opened = true))
+        }
+
+        /** Opens a new read on shelf entry [userBookId], dated [startedAt] when it is known. */
+        private suspend fun openNewRead(
+            userBookId: Long,
+            startedAt: Long?,
+        ): HardcoverCall<HardcoverRead> {
+            val startedOn = startedAt?.let(::dateOf)
+            val readId =
+                userBooks
+                    .openRead(
+                        accessToken = token,
+                        userBookId = userBookId,
+                        startedAt = startedOn,
+                        hcEditionId = link.hcEditionId,
+                    ).valueOr { return it }
+            return HardcoverCall.Ok(
+                HardcoverRead(
+                    id = readId,
+                    startedAt = startedOn?.toString(),
+                    finishedAt = null,
+                    progressSeconds = null,
+                    editionId = link.hcEditionId,
+                ),
+            )
         }
 
         /**

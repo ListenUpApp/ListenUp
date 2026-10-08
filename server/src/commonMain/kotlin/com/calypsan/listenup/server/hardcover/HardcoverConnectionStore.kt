@@ -22,7 +22,7 @@ val HARDCOVER_REFRESH_TOKEN_LIFETIME: Duration = 182.days
  * A decrypted token pair and when the access token stops working (epoch ms). Plaintext secrets:
  * [toString] never prints them, so a stray log line can't leak someone's Hardcover account.
  */
-class StoredCredentials(
+data class StoredCredentials(
     val accessToken: String,
     val accessExpiresAt: Long,
     val refreshToken: String,
@@ -162,8 +162,8 @@ class HardcoverConnectionStore(
         }
         // The share mode and the history offer outlive the connection row this just replaced, so a reconnect reports both.
         return HardcoverConnection.Connected(
-            me.username,
-            now,
+            hardcoverUsername = me.username,
+            since = now,
             shareMode = sql.hardcoverShareMode(userId),
             history = sql.hardcoverHistory(userId, now),
             keptOffBookCount = sql.keptOffBookCount(userId),

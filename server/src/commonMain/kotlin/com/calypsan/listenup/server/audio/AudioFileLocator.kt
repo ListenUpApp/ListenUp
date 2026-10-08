@@ -91,13 +91,13 @@ class AudioFileLocator(
             sql.bookAudioFilesQueries
                 .selectTranscodeInfoForBook(book_id = bookId, id = fileId)
                 .executeAsOneOrNull()
-                ?.let {
+                ?.let { row ->
                     TranscodeSourceInfo(
-                        durationMs = it.duration,
-                        sampleRate = it.sampleRate?.toInt(),
-                        codec = it.codec,
-                        codecProfile = it.codecProfile,
-                        channels = it.channels?.toInt(),
+                        durationMs = row.duration,
+                        sampleRate = row.sampleRate?.toInt(),
+                        codec = row.codec,
+                        codecProfile = row.codecProfile,
+                        channels = row.channels?.toInt(),
                     )
                 }
         }

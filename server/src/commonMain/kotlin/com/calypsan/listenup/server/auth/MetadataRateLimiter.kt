@@ -56,6 +56,8 @@ class MetadataRateLimiter(
     private val clock: Clock,
     private val refillPeriod: Duration = 1.minutes,
 ) {
+    // Mutable token-bucket state updated in place under the mutex; a data class adds nothing.
+    @Suppress("UseDataClass")
     private class Bucket(
         var tokens: Double,
         var lastRefillMillis: Long,

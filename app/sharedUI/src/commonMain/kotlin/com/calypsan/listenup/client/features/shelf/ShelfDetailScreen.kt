@@ -49,7 +49,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -142,7 +142,7 @@ fun ShelfDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             ListenUpTopAppBar(
-                title = readyState?.detail?.name ?: stringResource(Res.string.shelf_title_fallback),
+                title = readyState?.run { detail.name } ?: stringResource(Res.string.shelf_title_fallback),
                 onBack = onBack,
                 actions = {
                     if (readyState?.isOwner == true && onEditClick != null) {
@@ -264,7 +264,7 @@ private fun ShelfDetailContent(
         }
     }
 
-    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     val gridWidth =
         when {
             windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> {
@@ -360,13 +360,14 @@ private fun ShelfDetailContent(
         } else {
             itemsIndexed(items = sortedBooks, key = { _, book -> book.id.value }) { index, book ->
                 val reorderActions =
-                    if (canReorder) {
-                        shelfReorderActions(sortedBooks, index, moveEarlierLabel, moveLaterLabel) { reordered ->
-                            onReorder(reordered.map { it.id.value })
-                        }
-                    } else {
-                        emptyList()
-                    }
+                    shelfReorderActions(
+                        items = sortedBooks,
+                        index = index,
+                        moveEarlierLabel = moveEarlierLabel,
+                        moveLaterLabel = moveLaterLabel,
+                    ) { reordered -> onReorder(reordered.map { it.id.value }) }
+                        .takeIf { canReorder }
+                        .orEmpty()
                 ShelfBookGridItem(
                     book = book,
                     isLifted = book.id.value == draggingKey,

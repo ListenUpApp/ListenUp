@@ -39,8 +39,8 @@ private fun PullRig.aftersFrom(from: Int): List<String> =
     hardcover.requests
         .drop(from)
         .filter { it.operation == "user_books_changed" }
-        .map {
-            it.variables
+        .map { request ->
+            request.variables
                 .getValue("after")
                 .jsonPrimitive.content
         }

@@ -11,16 +11,16 @@ import io.kotest.matchers.shouldBe
 class NowPlayingSheetStateTest :
     FunSpec({
         test("starts collapsed") {
-            NowPlayingSheetState().isExpanded.value shouldBe false
+            NowPlayingSheetState().expanded.value shouldBe false
         }
 
         test("expand and collapse update the shared flow") {
             val state = NowPlayingSheetState()
 
             state.expand()
-            state.isExpanded.value shouldBe true
+            state.expanded.value shouldBe true
 
             state.collapse()
-            state.isExpanded.value shouldBe false
+            state.expanded.value shouldBe false
         }
     })

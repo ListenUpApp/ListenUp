@@ -140,7 +140,7 @@ class BookServiceImplSetChaptersTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = failure.error.shouldBeInstanceOf<BookError.InvalidInput>()
-                    (error.debugInfo ?: "") shouldContain "strictly increasing"
+                    error.debugInfo.orEmpty() shouldContain "strictly increasing"
                 }
             }
         }
@@ -185,7 +185,7 @@ class BookServiceImplSetChaptersTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = failure.error.shouldBeInstanceOf<BookError.NotFound>()
-                    (error.debugInfo ?: "") shouldContain "does-not-exist"
+                    error.debugInfo.orEmpty() shouldContain "does-not-exist"
                 }
             }
         }

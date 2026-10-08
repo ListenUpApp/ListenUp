@@ -116,8 +116,12 @@ internal class SocialServiceImpl(
             }
 
         return AppResult.Success(
-            live.mapNotNull { row(it.userId, it.bookId, it.startedAt, isLive = true) } +
-                recent.mapNotNull { row(it.userId, it.bookId, it.lastPlayedAt, isLive = false) },
+            live.mapNotNull {
+                row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.startedAt, isLive = true)
+            } +
+                recent.mapNotNull {
+                    row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.lastPlayedAt, isLive = false)
+                },
         )
     }
 
@@ -143,18 +147,18 @@ internal class SocialServiceImpl(
         val entries =
             userIds.mapNotNull { uid ->
                 val identity = identities[uid] ?: return@mapNotNull null
-                val listenedAt = finishesByUser[uid]?.map { it.finishedAt } ?: emptyList()
+                val listenedAt = finishesByUser[uid]?.map { it.finishedAt }.orEmpty()
                 // A listen logged both here and on Hardcover is one row, badged — not two.
                 val paired =
                     pairWithHardcover(
                         own = listenedAt,
-                        hardcover = hardcoverByUser[uid]?.map { it.finishedAt } ?: emptyList(),
+                        hardcover = hardcoverByUser[uid]?.map { it.finishedAt }.orEmpty(),
                         zone = sql.homeTimeZone(uid),
                     )
                 val positionMs = inProgress.firstOrNull { it.first == uid }?.second
                 val pct =
-                    positionMs?.let {
-                        if (totalDuration > 0) (it * 100 / totalDuration).toInt().coerceIn(0, 100) else null
+                    positionMs?.let { position ->
+                        if (totalDuration > 0) (position * 100 / totalDuration).toInt().coerceIn(0, 100) else null
                     }
                 BookReaderEntry(
                     userId = uid,
@@ -170,10 +174,10 @@ internal class SocialServiceImpl(
         val ordered =
             entries.sortedWith(
                 compareByDescending<BookReaderEntry> { it.currentProgressPct != null }
-                    .thenByDescending {
+                    .thenByDescending { reader ->
                         maxOf(
-                            it.finishes.firstOrNull() ?: Long.MIN_VALUE,
-                            it.hardcoverFinishes.firstOrNull() ?: Long.MIN_VALUE,
+                            reader.finishes.firstOrNull() ?: Long.MIN_VALUE,
+                            reader.hardcoverFinishes.firstOrNull() ?: Long.MIN_VALUE,
                         )
                     },
             )

@@ -88,19 +88,19 @@ internal class SyncEngineState {
     /** Record a typed engine error; bumps [EngineSnapshot.recentErrorCount] and re-evaluates the threshold. */
     @Suppress("UnusedParameter")
     fun recordError(error: AppError) {
-        flow.update {
-            val newCount = it.recentErrorCount + 1
-            it.copy(
+        flow.update { snapshot ->
+            val newCount = snapshot.recentErrorCount + 1
+            snapshot.copy(
                 recentErrorCount = newCount,
-                meaningfulErrorActive = it.meaningfulErrorActive || newCount >= ERROR_COUNT_THRESHOLD,
+                meaningfulErrorActive = snapshot.meaningfulErrorActive || newCount >= ERROR_COUNT_THRESHOLD,
             )
         }
     }
 
     /** Record a successful interaction. Clears [EngineSnapshot.recentErrorCount] and refreshes [EngineSnapshot.lastSuccessAtMillis]. */
     fun recordSuccess(nowMillis: Long) {
-        flow.update {
-            it.copy(
+        flow.update { snapshot ->
+            snapshot.copy(
                 recentErrorCount = 0,
                 lastSuccessAtMillis = nowMillis,
                 meaningfulErrorActive = false,
@@ -114,13 +114,13 @@ internal class SyncEngineState {
      * period without errors still surfaces as "something's wrong" to the UI.
      */
     fun evaluateMeaningfulError(nowMillis: Long) {
-        flow.update {
-            val lastSuccess = it.lastSuccessAtMillis ?: return@update it
+        flow.update { snapshot ->
+            val lastSuccess = snapshot.lastSuccessAtMillis ?: return@update snapshot
             val ageSeconds = (nowMillis - lastSuccess) / 1000L
             if (ageSeconds >= SUCCESS_AGE_THRESHOLD_SECONDS) {
-                it.copy(meaningfulErrorActive = true)
+                snapshot.copy(meaningfulErrorActive = true)
             } else {
-                it
+                snapshot
             }
         }
     }

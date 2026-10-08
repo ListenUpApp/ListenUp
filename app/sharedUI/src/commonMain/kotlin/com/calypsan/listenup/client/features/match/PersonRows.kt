@@ -147,10 +147,10 @@ private fun PersonRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                libraryLine?.let {
+                libraryLine?.let { line ->
                     val here = person.libraryCount > 0
                     Text(
-                        text = it,
+                        text = line,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = if (here) FontWeight.SemiBold else null,
                         color = if (here) MaterialTheme.extendedColors.success else MaterialTheme.colorScheme.onSurfaceVariant,

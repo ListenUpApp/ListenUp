@@ -108,7 +108,7 @@ private data class InboxOverlay(
 class AdminInboxViewModel internal constructor(
     private val inboxRepository: InboxRepository,
     private val libraryRepository: LibraryRepository,
-    private val eventStreamRepository: EventStreamRepository,
+    eventStreamRepository: EventStreamRepository,
     private val bookDao: BookDao,
     private val imageStorage: ImageStorage,
     private val errorBus: ErrorBus,
@@ -121,9 +121,12 @@ class AdminInboxViewModel internal constructor(
     private val heldReadAttempts = MutableStateFlow(0)
     private val scanIssueLoadAttempts = MutableStateFlow(0)
 
+    // [state] is read only in onStart, once collection begins — long after construction — so the
+    // forward reference is safe; declaring [state] first would hand combine() a null flow.
+    @Suppress("PropertyUsedBeforeDeclaration")
     private val heldLoad: Flow<HeldLoad> =
         heldReadAttempts
-            .flatMapLatest {
+            .flatMapLatest { _ ->
                 heldBooks()
                     // While the inbox is observed, a book that stops being held drops out of the stored
                     // selection, so if it is held again later it comes back unselected rather than
@@ -156,7 +159,12 @@ class AdminInboxViewModel internal constructor(
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val state: StateFlow<AdminInboxUiState> =
-        combine(heldLoad, scanIssues, dismissedIssueIds, overlay) { held, issues, dismissed, ov ->
+        combine(
+            flow = heldLoad,
+            flow2 = scanIssues,
+            flow3 = dismissedIssueIds,
+            flow4 = overlay,
+        ) { held, issues, dismissed, ov ->
             when (held) {
                 HeldLoad.Loading -> {
                     AdminInboxUiState.Loading
@@ -216,7 +224,8 @@ class AdminInboxViewModel internal constructor(
     private fun List<BookWithContributors>.toInboxItems(ids: List<String>): List<InboxBookItem> {
         val byId = associateBy { it.book.id.value }
         return ids.mapNotNull { id ->
-            byId[id]?.toListItem(imageStorage)?.let { item ->
+            byId[id]?.let { row ->
+                val item = row.toListItem(imageStorage)
                 InboxBookItem(
                     id = item.id.value,
                     title = item.title,

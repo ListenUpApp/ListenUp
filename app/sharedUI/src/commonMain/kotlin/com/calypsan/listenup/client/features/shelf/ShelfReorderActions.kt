@@ -24,10 +24,26 @@ internal fun <T> shelfReorderActions(
 ): List<CustomAccessibilityAction> =
     buildList {
         if (index > 0) {
-            add(moveAction(moveEarlierLabel, items, from = index, to = index - 1, onReorder))
+            add(
+                moveAction(
+                    label = moveEarlierLabel,
+                    items = items,
+                    from = index,
+                    to = index - 1,
+                    onReorder = onReorder,
+                ),
+            )
         }
         if (index < items.lastIndex) {
-            add(moveAction(moveLaterLabel, items, from = index, to = index + 1, onReorder))
+            add(
+                moveAction(
+                    label = moveLaterLabel,
+                    items = items,
+                    from = index,
+                    to = index + 1,
+                    onReorder = onReorder,
+                ),
+            )
         }
     }
 

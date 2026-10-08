@@ -35,7 +35,7 @@ internal suspend fun TransactionRunner.applyEventAtomically(
         throw e
     } catch (e: Exception) {
         log.warn(e) { "Failed to apply $domain sync event for $entityId" }
-        return AppResult.Failure(SyncError.SyncFailed(debugInfo = "$domain/$entityId: ${e.message}"))
+        return AppResult.Failure(SyncError.SyncFailed(debugInfo = "$domain/$entityId: $e"))
     }
 
     try {

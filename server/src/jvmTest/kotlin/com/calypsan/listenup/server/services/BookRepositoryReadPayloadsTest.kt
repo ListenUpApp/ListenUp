@@ -12,6 +12,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import java.util.Locale
 
 class BookRepositoryReadPayloadsTest :
     FunSpec({
@@ -188,7 +189,7 @@ class BookRepositoryReadPayloadsTest :
                 val repo = newRepo()
                 runTest {
                     sql.seedTestLibraryAndFolder()
-                    val ids = (0 until 1000).map { "book-%04d".format(it) }
+                    val ids = (0 until 1000).map { "book-%04d".format(Locale.ROOT, it) }
                     sql.transaction {
                         ids.forEach { bookId -> sql.seedBook(bookId) }
                     }

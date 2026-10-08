@@ -79,7 +79,7 @@ class BookChaptersE2ETest :
                 // drain runs on the same Dispatchers.Default pool the test polls on, so a tight
                 // busy-spin would starve it (mirrors SetBookCollectionsReconcileE2ETest).
                 withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
-                    while (serverBookRepository.findById(BookId("chapters-b1"))?.chapters?.size != 2) {
+                    while (serverBookRepository.findById(BookId("chapters-b1"))?.run { chapters.size } != 2) {
                         delay(50)
                     }
                 }
@@ -167,7 +167,7 @@ class BookChaptersE2ETest :
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
-                    while (serverBookRepository.findById(BookId("sections-b1"))?.chapters?.size != 2) {
+                    while (serverBookRepository.findById(BookId("sections-b1"))?.run { chapters.size } != 2) {
                         delay(50)
                     }
                 }

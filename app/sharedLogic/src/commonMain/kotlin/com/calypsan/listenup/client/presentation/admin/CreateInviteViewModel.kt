@@ -85,7 +85,9 @@ class CreateInviteViewModel(
     private fun classifyError(error: AppError): CreateInviteErrorType {
         // debugInfo is per-instance technical detail (and, post-guard, null on the wire for guard
         // errors). It is for LOGS, never the UI — surface the user-facing `message` constant instead.
-        logger.warn { "Create-invite failed: [${error.code}] cid=${error.correlationId} debug=${error.debugInfo}" }
+        logger.warn {
+            "Create-invite failed: [${error.code}] cid=${error.correlationId ?: "none"} debug=${error.debugInfo ?: "none"}"
+        }
         return when (error) {
             is ValidationError -> {
                 if (error.field == ValidationField.EMAIL) {

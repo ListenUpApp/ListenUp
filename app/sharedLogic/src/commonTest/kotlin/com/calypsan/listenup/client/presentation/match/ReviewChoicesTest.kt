@@ -74,9 +74,15 @@ class ReviewChoicesTest :
             val choices =
                 ReviewChoices()
                     .let { it.copy(removedYours = it.toggleLabel(it.removedYours, LabelKind.GENRES, "Space Opera", on = true)) }
-                    .let {
-                        it.copy(
-                            deselectedSuggestions = it.toggleLabel(it.deselectedSuggestions, LabelKind.MOODS, "Hopeful", on = true),
+                    .let { choices ->
+                        choices.copy(
+                            deselectedSuggestions =
+                                choices.toggleLabel(
+                                    choices.deselectedSuggestions,
+                                    LabelKind.MOODS,
+                                    "Hopeful",
+                                    on = true,
+                                ),
                         )
                     }
             val state = ready(choices)

@@ -65,7 +65,7 @@ internal class HardcoverRepositoryImpl(
         channel
             .call(idempotent = true) { it.linkBook(bookId, hcBookId, hcEditionId) }
             .onSuccess {
-                linkTimes.update { it + (bookId to clock.now()) }
+                linkTimes.update { times -> times + (bookId to clock.now()) }
                 matchChangesFlow.tryEmit(bookId)
             }
 
@@ -77,15 +77,21 @@ internal class HardcoverRepositoryImpl(
         method: HardcoverMatchMethod,
     ): AppResult<Unit> =
         channel
-            .call(idempotent = true) { it.restoreMatch(bookId, hcBookId, hcEditionId, method) }
-            .onSuccess {
-                linkTimes.update { it - bookId }
+            .call(idempotent = true) { service ->
+                service.restoreMatch(
+                    bookId = bookId,
+                    hcBookId = hcBookId,
+                    hcEditionId = hcEditionId,
+                    method = method,
+                )
+            }.onSuccess {
+                linkTimes.update { times -> times - bookId }
                 matchChangesFlow.tryEmit(bookId)
             }
 
     override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> =
         channel.call(idempotent = true) { it.unlinkBook(bookId) }.onSuccess {
-            linkTimes.update { it - bookId }
+            linkTimes.update { times -> times - bookId }
             matchChangesFlow.tryEmit(bookId)
         }
 
@@ -125,9 +131,7 @@ internal class HardcoverRepositoryImpl(
                             logger.warn { "Hardcover connection watch errored (${event.error.code}); resubscribing" }
                         }
 
-                        is RpcEvent.Complete -> {
-                            Unit
-                        }
+                        is RpcEvent.Complete -> {}
                     }
                 }
                 delay(backoffMs)

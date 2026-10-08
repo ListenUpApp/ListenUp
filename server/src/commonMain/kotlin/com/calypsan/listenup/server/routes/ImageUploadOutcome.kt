@@ -45,14 +45,15 @@ internal sealed interface ImageUploadOutcome {
  * The caller persists the path through the principal-scoped service so its internal `requirePermission(Permission.EDIT_METADATA)`
  * gate + revision bump + sync-event publication fire — this helper does not gate permissions.
  */
-internal suspend fun ApplicationCall.storeMultipartImage(
+internal suspend fun storeMultipartImage(
+    call: ApplicationCall,
     subdir: String,
     imageHome: Path,
     imageStorage: ImageStorage,
 ): ImageUploadOutcome {
     val data =
         try {
-            receiveFirstFilePartBytes(IMAGE_MAX_BYTES)
+            receiveFirstFilePartBytes(call, IMAGE_MAX_BYTES)
         } catch (e: MultipartPartTooLargeException) {
             return ImageUploadOutcome.Rejected(HttpStatusCode.PayloadTooLarge, "file exceeds ${e.limit} bytes")
         } ?: return ImageUploadOutcome.Rejected(HttpStatusCode.BadRequest, "missing file part")

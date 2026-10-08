@@ -122,6 +122,13 @@
             </intent-filter>
         </service>
 
+        <!-- Register with FCM by Firebase installation ID: FirebaseMessaging.register() and
+             FirebaseMessagingService.onRegistered. Without it register() fails, and with it the
+             deprecated getToken()/onNewToken path fails instead. -->
+        <meta-data
+            android:name="firebase_messaging_installation_id_enabled"
+            android:value="true" />
+
         <!-- Android Auto support -->
         <meta-data
             android:name="com.google.android.gms.car.application"

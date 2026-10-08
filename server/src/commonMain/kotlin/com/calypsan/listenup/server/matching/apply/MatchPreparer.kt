@@ -39,7 +39,7 @@ internal data class MatchWritePlan(
  * runs before the match's transaction — as the scanner pre-resolves. A failed apply can leave an unused new
  * contributor, series, genre or mood row; every link to it rolls back.
  */
-internal class MatchCatalogs(
+internal data class MatchCatalogs(
     val contributorId: suspend (String) -> String,
     val seriesId: suspend (String) -> String,
     val genreIds: suspend (String) -> List<String>,
@@ -71,24 +71,26 @@ internal class MatchPreparer(
         currentMoods: List<BookMood>,
     ): AppResult<MatchWritePlan> {
         var changes = draft.changes
-        val cover =
-            draft.cover?.let { wanted ->
-                covers.store(book.id, wanted.url) ?: run {
-                    if (wanted.required) {
-                        return AppResult.Failure(MetadataError.CoverDownloadFailed(debugInfo = "cover fetch or store failed"))
-                    }
-                    log.warn { "Match cover for ${book.id} couldn't be fetched — applying without it" }
-                    changes = changes.filterNot { it is AppliedChange.Cover }
-                    null
-                }
+        val wanted = draft.cover
+        val cover = wanted?.let { covers.store(book.id, it.url) }
+        if (wanted != null && cover == null) {
+            if (wanted.required) {
+                return AppResult.Failure(MetadataError.CoverDownloadFailed(debugInfo = "cover fetch or store failed"))
             }
+            log.warn { "Match cover for ${book.id} couldn't be fetched — applying without it" }
+            changes = changes.filterNot { it is AppliedChange.Cover }
+        }
         val at = now()
         val stamps =
             draft.provenance.mapValues { (_, provider) ->
                 FieldProvenance(FieldSourceKind.ENRICHMENT, provider = provider.value, at = at)
             } +
                 listOfNotNull(
-                    cover?.let { BookField.COVER to FieldProvenance(FieldSourceKind.ENRICHMENT, draft.cover.provider.value, at) },
+                    if (cover != null && wanted != null) {
+                        BookField.COVER to FieldProvenance(FieldSourceKind.ENRICHMENT, wanted.provider.value, at)
+                    } else {
+                        null
+                    },
                 )
         val updated =
             book.withTexts(draft.texts).withYear(draft).copy(
@@ -148,7 +150,15 @@ internal class MatchPreparer(
         ) {
             names ?: return
             val credits =
-                names.map { BookContributorPayload(catalogs.contributorId(it), it, null, role.apiValue, null) }
+                names.map { name ->
+                    BookContributorPayload(
+                        id = catalogs.contributorId(name),
+                        name = name,
+                        sortName = null,
+                        role = role.apiValue,
+                        creditedAs = null,
+                    )
+                }
             merged = merged.filterNot { it.role.equals(role.apiValue, ignoreCase = true) } + credits
         }
         replace(ContributorRole.AUTHOR, draft.authors)

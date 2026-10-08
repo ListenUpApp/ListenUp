@@ -289,7 +289,7 @@ class PlaybackErrorHandlerTest {
             val player = FakeExoPlayer()
             val errors = mutableListOf<String>()
 
-            repeat(RECOVERY_ATTEMPT_BUDGET) {
+            repeat(RECOVERY_ATTEMPT_BUDGET) { _ ->
                 handler.handle(
                     error = PlaybackErrorHandler.ClassifiedError.Network("net"),
                     player = player,
@@ -327,7 +327,7 @@ class PlaybackErrorHandlerTest {
             val player = FakeExoPlayer()
             val errors = mutableListOf<String>()
 
-            repeat(RECOVERY_ATTEMPT_BUDGET + 1) {
+            repeat(RECOVERY_ATTEMPT_BUDGET + 1) { _ ->
                 handler.handle(
                     error = PlaybackErrorHandler.ClassifiedError.Network("net"),
                     player = player,
@@ -366,7 +366,7 @@ class PlaybackErrorHandlerTest {
 
             // A book that stalls, recovers, and stalls again is failing repeatedly whatever the
             // reported cause — so a mix of the two must not double the effective budget.
-            repeat(RECOVERY_ATTEMPT_BUDGET) {
+            repeat(RECOVERY_ATTEMPT_BUDGET) { _ ->
                 handler.handle(
                     error = PlaybackErrorHandler.ClassifiedError.Network("net"),
                     player = player,
@@ -514,7 +514,7 @@ class PlaybackErrorHandlerTest {
             val player = FakeExoPlayer()
             val errors = mutableListOf<String>()
 
-            repeat(RECOVERY_ATTEMPT_BUDGET) {
+            repeat(RECOVERY_ATTEMPT_BUDGET) { _ ->
                 handler.handle(
                     error = PlaybackErrorHandler.ClassifiedError.AuthExpired("401"),
                     player = player,
@@ -1055,7 +1055,7 @@ internal class FakeExoPlayer(
 
     override fun getCurrentTracks(): Tracks = Tracks.EMPTY
 
-    override fun getTrackSelectionParameters(): TrackSelectionParameters = TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
+    override fun getTrackSelectionParameters(): TrackSelectionParameters = TrackSelectionParameters.DEFAULT
 
     override fun setTrackSelectionParameters(parameters: TrackSelectionParameters) = Unit
 

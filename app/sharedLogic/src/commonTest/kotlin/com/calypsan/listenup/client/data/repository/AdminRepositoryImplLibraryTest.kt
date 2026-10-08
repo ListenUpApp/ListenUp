@@ -11,7 +11,6 @@ import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -43,12 +42,12 @@ private fun contractLibrary(
  */
 private class FakeLibraryAdminService : LibraryAdminService {
     val libraries = mutableMapOf<String, Library>()
-    var addFolderCalls = mutableListOf<String>()
-    var removedFolderIds = mutableListOf<String>()
-    var scannedFolderIds = mutableListOf<String>()
+    val addFolderCalls = mutableListOf<String>()
+    val removedFolderIds = mutableListOf<String>()
+    val scannedFolderIds = mutableListOf<String>()
     var scanFolderResult: AppResult<Unit> = AppResult.Success(Unit)
     var scanLibraryCount = 0
-    var browsePaths = mutableListOf<String>()
+    val browsePaths = mutableListOf<String>()
     var browseResult: List<DirectoryEntry> = emptyList()
     private var folderSeq = 0
 

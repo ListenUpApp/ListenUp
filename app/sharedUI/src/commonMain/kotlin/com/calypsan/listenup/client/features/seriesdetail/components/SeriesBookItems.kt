@@ -102,8 +102,8 @@ internal fun SeriesBookRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.Default.Check,
-                        null,
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.size(15.dp),
                     )
@@ -175,7 +175,7 @@ private fun BookRowAction(
         modifier = Modifier.size(44.dp).clip(CircleShape).background(bg),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
+        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
     }
 }
 

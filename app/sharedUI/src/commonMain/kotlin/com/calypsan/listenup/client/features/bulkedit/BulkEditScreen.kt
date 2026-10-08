@@ -25,7 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -183,7 +183,7 @@ internal fun BulkEditContent(
 ) {
     val editing = state as? BulkEditUiState.Editing
     val wide =
-        currentWindowAdaptiveInfo()
+        currentWindowAdaptiveInfoV2()
             .windowSizeClass
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 
@@ -203,7 +203,12 @@ internal fun BulkEditContent(
             // The docked bar gets its separation from a tonal-elevated surface; a corner action has
             // no bar to sit on, so it casts its own shadow instead of floating flat over the cards.
             if (editing != null && wide) {
-                ConfirmButton(editing, onApply, Modifier.shadow(CornerActionElevation, CircleShape), false)
+                ConfirmButton(
+                    state = editing,
+                    onApply = onApply,
+                    modifier = Modifier.shadow(CornerActionElevation, CircleShape),
+                    fillWidth = false,
+                )
             }
         },
     ) { padding ->

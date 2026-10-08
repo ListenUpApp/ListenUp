@@ -122,7 +122,7 @@ fun ContributorCoverImage(
                         // the platform HTTP cache), not just Coil's key. The server ignores the `?v` param.
                         val versioned =
                             "$baseUrl/api/v1/contributors/$contributorId/photo" +
-                                (imagePath?.let { "?v=$it" } ?: "")
+                                imagePath?.let { "?v=$it" }.orEmpty()
                         builder.data(versioned)
                         if (token != null) {
                             builder.httpHeaders(
@@ -140,9 +140,9 @@ fun ContributorCoverImage(
             }
     }
 
-    imageRequest?.let {
+    imageRequest?.let { request ->
         AsyncImage(
-            model = it,
+            model = request,
             contentDescription = contentDescription,
             modifier = modifier.heroElement(heroKey, heroClipShape),
             contentScale = contentScale,

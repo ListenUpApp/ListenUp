@@ -34,7 +34,7 @@ private val logger = KotlinLogging.logger {}
 class UserDetailViewModel(
     private val userId: String,
     private val adminRepository: AdminRepository,
-    private val instanceRepository: InstanceRepository,
+    instanceRepository: InstanceRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<UserDetailUiState> =

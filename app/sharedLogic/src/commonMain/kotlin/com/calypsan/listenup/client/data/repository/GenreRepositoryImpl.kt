@@ -120,7 +120,12 @@ internal class GenreRepositoryImpl(
             return AppResult.Failure(GenreError.HasDescendants(debugInfo = id.value))
         }
         val now = currentEpochMilliseconds()
-        return offlineEditor.edit(OutboxChannels.Genres, id.value, GenreMutation.Delete, op = OpKind.Delete) {
+        return offlineEditor.edit(
+            channel = OutboxChannels.Genres,
+            entityId = id.value,
+            patch = GenreMutation.Delete,
+            op = OpKind.Delete,
+        ) {
             dao.getById(id.value)?.let { dao.softDelete(id = id.value, deletedAt = now, revision = it.revision) }
             dao.deleteAllBookGenresForGenre(id.value)
         }

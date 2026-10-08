@@ -29,6 +29,8 @@ import kotlinx.serialization.SerializationException
  * exception interceptor, not via this mapper).
  */
 internal object ErrorMapper {
+    private val TLS_CLASS_MARKERS = listOf("SSL", "TLS", "Certificate")
+
     fun map(exception: Throwable): AppError =
         when {
             // A transient refresh failure during a 401-heal (C5): the refresh outcome was network /
@@ -143,7 +145,9 @@ internal object ErrorMapper {
             }
 
             else -> {
-                InternalError(debugInfo = "${exception::class.simpleName}: ${exception.message}")
+                InternalError(
+                    debugInfo = listOfNotNull(exception::class.simpleName, exception.message).joinToString(": "),
+                )
             }
         }
 
@@ -165,6 +169,4 @@ internal object ErrorMapper {
             .mapNotNull { it::class.simpleName }
             .any { name -> TLS_CLASS_MARKERS.any { marker -> name.contains(marker, ignoreCase = true) } }
     }
-
-    private val TLS_CLASS_MARKERS = listOf("SSL", "TLS", "Certificate")
 }

@@ -54,7 +54,7 @@ fun DeleteBookDialog(
                 "\n\n" + stringResource(Res.string.book_detail_delete_book_blocked, error.otherBookTitle)
             }
 
-            else -> {
+            is AppError -> {
                 "\n\n" + error.localized()
             }
         }

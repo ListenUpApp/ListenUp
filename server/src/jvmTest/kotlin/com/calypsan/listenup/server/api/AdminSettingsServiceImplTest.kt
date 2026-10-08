@@ -90,7 +90,7 @@ class AdminSettingsServiceImplTest :
         test("getServerSettings returns default server name and null remoteUrl when unset") {
             withSqlDatabase {
                 runTest {
-                    val (svc, _, libraryRegistry) =
+                    val (svc, _, _) =
                         makeAdminSettingsService(
                             db = this@withSqlDatabase,
                             principal = principalFor("root1", UserRole.ROOT),

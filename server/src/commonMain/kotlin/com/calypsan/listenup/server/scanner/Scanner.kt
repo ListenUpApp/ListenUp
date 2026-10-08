@@ -32,7 +32,6 @@ import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.io.relativeTo
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -158,16 +157,14 @@ internal class Scanner(
             candidatesPerFolder += candidates
         }
 
-        emitProgress(correlationId, ScanPhase.WALKING, totalFileCount, 0, 0)
+        emitProgress(correlationId, ScanPhase.WALKING, totalFileCount)
 
-        emitProgress(correlationId, ScanPhase.GROUPING, totalFileCount, 0, 0)
+        emitProgress(correlationId, ScanPhase.GROUPING, totalFileCount)
 
         emitProgress(
-            correlationId,
-            ScanPhase.ANALYZING,
-            totalFileCount,
-            0,
-            0,
+            correlationId = correlationId,
+            phase = ScanPhase.ANALYZING,
+            filesWalked = totalFileCount,
             totalFiles = totalFileCount,
             booksTotal = totalCandidateCount,
         )
@@ -196,22 +193,22 @@ internal class Scanner(
                     .associateBy { it.candidate.rootRelPath }
             val analyzer =
                 Analyzer(
-                    folderRoots[i],
-                    metadataReader,
-                    embeddedMetadataParser,
-                    parseSubtitle,
-                    sidecarParsers,
-                    metadataPrecedence,
+                    rootPath = folderRoots[i],
+                    metadataReader = metadataReader,
+                    embeddedMetadataParser = embeddedMetadataParser,
+                    parseSubtitle = parseSubtitle,
+                    sidecarParsers = sidecarParsers,
+                    precedence = metadataPrecedence,
                     listenUpSidecarReader = listenUpSidecarReader,
                 )
             val pass =
                 collectAnalyzed(
-                    analyzer,
-                    candidatesPerFolder[i],
-                    correlationId,
-                    totalFileCount,
-                    folderRoots[i],
-                    previousByPath,
+                    analyzer = analyzer,
+                    candidates = candidatesPerFolder[i],
+                    correlationId = correlationId,
+                    fileCount = totalFileCount,
+                    errorRoot = folderRoots[i],
+                    previousByPath = previousByPath,
                 )
             // Stamp every book in this pass (fresh AND fingerprint-cache reuses) with its owning
             // folder's root so the persister attributes it to the correct library_folders row.
@@ -225,11 +222,11 @@ internal class Scanner(
         }
 
         emitProgress(
-            correlationId,
-            ScanPhase.DIFFING,
-            totalFileCount,
-            allBooks.size,
-            allErrors.size,
+            correlationId = correlationId,
+            phase = ScanPhase.DIFFING,
+            filesWalked = totalFileCount,
+            booksAnalyzed = allBooks.size,
+            errors = allErrors.size,
             totalFiles = totalFileCount,
             booksTotal = totalCandidateCount,
             authorsMatched = authorsMatched,
@@ -321,7 +318,7 @@ internal class Scanner(
         // Identify which folder owns this subtree to compute the relative path.
         val owningFolder =
             library.folders.firstOrNull { folder ->
-                folder.rootPath?.let { bookRoot.isUnder(Path(it)) } ?: false
+                folder.rootPath?.let { bookRoot.isUnder(Path(it)) } == true
             }
         // The ORIGINAL configured root-path string (exact library_folders.root_path) this subtree
         // belongs to — stamped onto each book so the persister resolves the right folder_id.
@@ -339,20 +336,25 @@ internal class Scanner(
                 if (prefix.isEmpty()) entry else entry.copy(relPath = "$prefix/${entry.relPath}")
             }
 
-        emitProgress(correlationId, ScanPhase.WALKING, rebasedFiles.size, 0, 0)
+        emitProgress(correlationId, ScanPhase.WALKING, rebasedFiles.size)
         val grouper = Grouper()
-        emitProgress(correlationId, ScanPhase.GROUPING, rebasedFiles.size, 0, 0)
+        emitProgress(correlationId, ScanPhase.GROUPING, rebasedFiles.size)
         val candidates = grouper.group(rebasedFiles.asFlow()).toList()
 
-        emitProgress(correlationId, ScanPhase.ANALYZING, rebasedFiles.size, 0, 0, totalFiles = rebasedFiles.size)
+        emitProgress(
+            correlationId = correlationId,
+            phase = ScanPhase.ANALYZING,
+            filesWalked = rebasedFiles.size,
+            totalFiles = rebasedFiles.size,
+        )
         val analyzer =
             Analyzer(
-                folderRoot,
-                metadataReader,
-                embeddedMetadataParser,
-                parseSubtitle,
-                sidecarParsers,
-                metadataPrecedence,
+                rootPath = folderRoot,
+                metadataReader = metadataReader,
+                embeddedMetadataParser = embeddedMetadataParser,
+                parseSubtitle = parseSubtitle,
+                sidecarParsers = sidecarParsers,
+                precedence = metadataPrecedence,
                 listenUpSidecarReader = listenUpSidecarReader,
             )
         // For incremental scans the dirty-check only covers the affected subtree;
@@ -367,17 +369,25 @@ internal class Scanner(
                 .orEmpty()
                 .filter { it.folderRootPath == folderRootPath }
                 .associateBy { it.candidate.rootRelPath }
-        val pass = collectAnalyzed(analyzer, candidates, correlationId, rebasedFiles.size, folderRoot, previousByPath)
+        val pass =
+            collectAnalyzed(
+                analyzer = analyzer,
+                candidates = candidates,
+                correlationId = correlationId,
+                fileCount = rebasedFiles.size,
+                errorRoot = folderRoot,
+                previousByPath = previousByPath,
+            )
         // Stamp each book with its owning folder's root so the persister attributes it correctly.
         val books = pass.books.map { it.copy(folderRootPath = folderRootPath) }
         val errors = pass.errors
 
         val (previousAffected, previousUntouched) =
             partitionBooksUnder(
-                bookRoot,
-                folderRoot,
-                folderRootPath,
-                lastResult?.books.orEmpty(), // already stripped from previous scan
+                bookRoot = bookRoot,
+                folderRoot = folderRoot,
+                folderRootPath = folderRootPath,
+                books = lastResult?.books.orEmpty(), // already stripped from previous scan
             )
         // Strip artwork from the new books before diffing so both sides are comparable without
         // artwork bytes (previousAffected is already stripped; strip books to match).
@@ -511,7 +521,7 @@ internal class Scanner(
                     // analysis faults keep the full throwable so they stay diagnosable.
                     val skip = (t as? BookAnalysisFailure)?.cause as? NoRecognizedAudio
                     if (skip != null) {
-                        logger.warn { "skipped: path=$relPath library=${library.id.value} — ${skip.message}" }
+                        logger.warn { "skipped: path=$relPath library=${library.id.value} — ${skip.message.orEmpty()}" }
                     } else {
                         logger.warn(t) { "analyze failed: path=$relPath library=${library.id.value}" }
                     }
@@ -525,11 +535,11 @@ internal class Scanner(
             val now = clock()
             if (now - lastEmit >= PROGRESS_THROTTLE_MS) {
                 emitProgress(
-                    correlationId,
-                    ScanPhase.ANALYZING,
-                    fileCount,
-                    books.size,
-                    errors.size,
+                    correlationId = correlationId,
+                    phase = ScanPhase.ANALYZING,
+                    filesWalked = fileCount,
+                    booksAnalyzed = books.size,
+                    errors = errors.size,
                     totalFiles = fileCount,
                     booksTotal = candidates.size,
                     authorsMatched = authorsSeen.size,
@@ -542,11 +552,11 @@ internal class Scanner(
         }
         // Final ANALYZING tick so the last batch's stats land even when under the throttle window.
         emitProgress(
-            correlationId,
-            ScanPhase.ANALYZING,
-            fileCount,
-            books.size,
-            errors.size,
+            correlationId = correlationId,
+            phase = ScanPhase.ANALYZING,
+            filesWalked = fileCount,
+            booksAnalyzed = books.size,
+            errors = errors.size,
             totalFiles = fileCount,
             booksTotal = candidates.size,
             authorsMatched = authorsSeen.size,
@@ -640,8 +650,8 @@ internal class Scanner(
         correlationId: String,
         phase: ScanPhase,
         filesWalked: Int,
-        booksAnalyzed: Int,
-        errors: Int,
+        booksAnalyzed: Int = 0,
+        errors: Int = 0,
         totalFiles: Int = 0,
         booksTotal: Int = 0,
         authorsMatched: Int = 0,
@@ -783,7 +793,10 @@ internal fun formatScanCompleteLog(summary: ScanResultSummary): String =
         if (e.unsupported > 0) {
             append(", ").append(e.unsupported).append(" unsupported")
             if (e.unsupportedFormats.isNotEmpty()) {
-                val breakdown = e.unsupportedFormats.joinToString(",") { "${it.format::class.simpleName}=${it.count}" }
+                val breakdown =
+                    e.unsupportedFormats.joinToString(
+                        ",",
+                    ) { "${it.format::class.simpleName.orEmpty()}=${it.count}" }
                 append(" [").append(breakdown).append("]")
             }
             if (e.unrecognisedMagic > 0) append(", ").append(e.unrecognisedMagic).append(" unrecognised")

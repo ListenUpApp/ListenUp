@@ -81,8 +81,7 @@ sealed interface BulkEditUiState {
                 edits
                     .filterIsInstance<BulkEdit.SetPublishYear>()
                     .lastOrNull()
-                    ?.year
-                    ?.toString()
+                    ?.run { year.toString() }
                     .orEmpty()
 
         /** What the language field shows, as [publisherInput]. */

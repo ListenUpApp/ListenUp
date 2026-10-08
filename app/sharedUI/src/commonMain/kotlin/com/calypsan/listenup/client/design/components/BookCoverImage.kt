@@ -112,10 +112,10 @@ private fun rememberCoverRequest(
     // Build the request synchronously — no IO dispatch, no frame delay.
     val syncRequest =
         remember(bookId, coverPath, coverHash) {
-            coverPath?.let {
+            coverPath?.let { localCoverPath ->
                 ImageRequest
                     .Builder(context)
-                    .data(it)
+                    .data(localCoverPath)
                     .memoryCacheKey(cacheKey)
                     .diskCacheKey(cacheKey)
                     .build()
@@ -154,7 +154,15 @@ private fun rememberCoverRequest(
                         // No durable file yet — kick off a background download so this streamed
                         // cover is persisted on disk for offline use, then stream from the server now.
                         imageRepository.ensureBookCoverCached(BookId(bookId))
-                        serverCoverRequest(context, bookId, serverConfig, authSession, localPath, cacheKey, coverHash)
+                        serverCoverRequest(
+                            context = context,
+                            bookId = bookId,
+                            serverConfig = serverConfig,
+                            authSession = authSession,
+                            localPath = localPath,
+                            cacheKey = cacheKey,
+                            coverHash = coverHash,
+                        )
                     }
                 }
         }
@@ -182,14 +190,14 @@ private suspend fun serverCoverRequest(
 ): ImageRequest {
     val baseUrl = serverConfig.getActiveUrl()?.value
     val token = authSession.getAccessToken()?.value
-    logger.debug { "BookCoverImage: fallback bookId=$bookId, url=$baseUrl/api/v1/covers/$bookId" }
+    logger.debug { "BookCoverImage: fallback bookId=$bookId, url=${baseUrl ?: "none"}/api/v1/covers/$bookId" }
     return if (baseUrl != null) {
         // Content-address the URL with the coverHash so a re-covered book changes the URL itself —
         // busting EVERY cache layer (Coil disk + the platform HTTP cache), not just Coil's key. The
         // server ignores the `?v` param.
         ImageRequest
             .Builder(context)
-            .data("$baseUrl/api/v1/covers/$bookId" + (coverHash?.let { "?v=$it" } ?: ""))
+            .data("$baseUrl/api/v1/covers/$bookId" + coverHash?.let { "?v=$it" }.orEmpty())
             .memoryCacheKey(cacheKey)
             .diskCacheKey(cacheKey)
             .apply {

@@ -211,7 +211,9 @@ class RpcProxyCacheStreamingTest :
 
         test("a genuine caller cancellation of the stream re-raises without invalidating") {
             runTest {
-                val (cache, connects) =
+                // A vararg element cannot be a trailing lambda; the braces are required.
+                @Suppress("UnnecessaryBracesAroundTrailingLambda")
+                    val (cache, connects) =
                     scriptedStreamCache(
                         ArrayDeque(
                             listOf(

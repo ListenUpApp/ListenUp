@@ -1,11 +1,11 @@
 package com.calypsan.listenup.core
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.encodeToString
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -39,9 +39,11 @@ private const val SALT_LENGTH = 16
  * - Linux: ~/.local/share/listenup/auth.enc
  *
  * @param storageFile The file where encrypted data is stored
+ * @param ioDispatcher Dispatcher for the blocking file I/O; tests may substitute their own.
  */
 class JvmSecureStorage(
     private val storageFile: File,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SecureStorage {
     private val json = appJson
     private val secretKey: SecretKeySpec by lazy { deriveKey() }
@@ -173,34 +175,38 @@ class JvmSecureStorage(
     override suspend fun save(
         key: String,
         value: String,
-    ) = withContext(Dispatchers.IO) {
-        writeMutex.withLock {
-            val store = loadStore()
-            store[key] = value
-            saveStore(store)
+    ) {
+        withContext(ioDispatcher) {
+            writeMutex.withLock {
+                val store = loadStore()
+                store[key] = value
+                saveStore(store)
+            }
         }
     }
 
     override suspend fun read(key: String): String? =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             loadStore()[key]
         }
 
-    override suspend fun delete(key: String) =
-        withContext(Dispatchers.IO) {
+    override suspend fun delete(key: String) {
+        withContext(ioDispatcher) {
             writeMutex.withLock {
                 val store = loadStore()
                 store.remove(key)
                 saveStore(store)
             }
         }
+    }
 
-    override suspend fun clear() =
-        withContext(Dispatchers.IO) {
+    override suspend fun clear() {
+        withContext(ioDispatcher) {
             writeMutex.withLock {
                 if (storageFile.exists()) {
                     storageFile.delete()
                 }
             }
         }
+    }
 }

@@ -11,7 +11,7 @@ internal sealed interface RefreshStrategy {
      * fire-and-forget — a dropped ping is harmless (the collector re-fetches on the
      * next one, or on reconnect).
      */
-    class Ping(
+    data class Ping(
         val ping: () -> Unit,
     ) : RefreshStrategy
 
@@ -20,7 +20,7 @@ internal sealed interface RefreshStrategy {
      * non-cancellation failures so a refresh re-fetch can never take the firehose dispatch
      * loop down.
      */
-    class Refetch(
+    data class Refetch(
         val refetch: suspend () -> Unit,
     ) : RefreshStrategy
 }

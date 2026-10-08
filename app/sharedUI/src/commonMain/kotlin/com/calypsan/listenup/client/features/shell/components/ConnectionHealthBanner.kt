@@ -17,10 +17,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,9 +48,7 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
  *
  * **[ConnectionHealthUi.SessionExpired] is not dismissible** — it is the only sign-in affordance in
  * the authenticated shell, so hiding it strands the user in a session they cannot repair. Only
- * [ConnectionHealthUi.Outdated] can be dismissed: UI-locally here, plus a persisted dismissal via
- * [onDismiss]. Note the UI-local `remember(state)` reset only works for states that change identity
- * — the `data object` states never re-key, which is precisely why the lapse banner must not use it.
+ * [ConnectionHealthUi.Outdated] can be dismissed, through the persisted dismissal [onDismiss].
  * Visual language follows the book-detail OfflineBanner (color-container pill).
  */
 @Composable
@@ -64,9 +58,6 @@ fun ConnectionHealthBanner(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var dismissed by remember(state) { mutableStateOf(false) }
-    if (dismissed) return
-
     when (state) {
         ConnectionHealthUi.Hidden -> {
             return

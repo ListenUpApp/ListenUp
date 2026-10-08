@@ -88,7 +88,7 @@ class MediaControllerHolder(
             override fun onDisconnected(controller: MediaController) = handleDisconnect()
         }
 
-    val isConnected: StateFlow<Boolean>
+    val connected: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     private val refCount = AtomicInt(0)
@@ -128,7 +128,7 @@ class MediaControllerHolder(
                     }
                 playbackManager.reportError(message = message, isRecoverable = isNetworkError)
                 playbackManager.setPlaying(false)
-                logger.error { "ExoPlayer error: ${error.errorCodeName} - ${error.message}" }
+                logger.error { "ExoPlayer error: ${error.errorCodeName} - ${error.message ?: "no message"}" }
             }
 
             override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
@@ -148,7 +148,7 @@ class MediaControllerHolder(
     /**
      * Acquire a reference to the controller.
      * Establishes connection on first acquire.
-     * Returns immediately; check [isConnected] or use [awaitController] for async access.
+     * Returns immediately; check [connected] or use [awaitController] for async access.
      */
     @Synchronized
     fun acquire() {
@@ -186,7 +186,7 @@ class MediaControllerHolder(
     suspend fun awaitController(): MediaController? {
         controller?.let { return it }
 
-        if (!awaitReady(isConnected, CONTROLLER_CONNECT_TIMEOUT_MS)) {
+        if (!awaitReady(connected, CONTROLLER_CONNECT_TIMEOUT_MS)) {
             logger.error { "MediaControllerHolder.awaitController: timed out waiting for connection" }
             playbackManager.reportError(
                 message = "Couldn't start playback. Please try again.",
@@ -210,12 +210,12 @@ class MediaControllerHolder(
         future.addListener({
             try {
                 _controller = future.get()
-                isConnected.value = true
+                connected.value = true
                 _controller?.addListener(playerListener)
                 logger.info { "MediaControllerHolder: connected" }
             } catch (e: Exception) {
                 logger.error(e) { "MediaControllerHolder: connection failed" }
-                isConnected.value = false
+                connected.value = false
             }
         }, MoreExecutors.directExecutor())
     }
@@ -229,7 +229,7 @@ class MediaControllerHolder(
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null
 
-        isConnected.value = false
+        connected.value = false
     }
 
     private fun disconnect() {

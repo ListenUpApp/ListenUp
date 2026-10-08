@@ -187,7 +187,12 @@ internal fun SubSeriesCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (child.isFinished) {
-                Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(14.dp))
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(14.dp),
+                )
             }
             Text(
                 text = progressLabel,

@@ -149,14 +149,14 @@ private data class BookSeriesSortKey(
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel(
     private val bookRepository: BookRepository,
-    private val seriesRepository: SeriesRepository,
-    private val contributorRepository: ContributorRepository,
-    private val playbackPositionRepository: PlaybackPositionRepository,
-    private val syncRepository: SyncRepository,
+    seriesRepository: SeriesRepository,
+    contributorRepository: ContributorRepository,
+    playbackPositionRepository: PlaybackPositionRepository,
+    syncRepository: SyncRepository,
     private val authSession: AuthSession,
     private val libraryPreferences: LibraryPreferences,
     private val syncStatusRepository: SyncStatusRepository,
-    private val bookRatingRepository: BookRatingRepository,
+    bookRatingRepository: BookRatingRepository,
     // CPU-bound sort/filter of the library runs on this dispatcher, off the main thread. Defaulted
     // for production; tests inject their scheduler-backed dispatcher so the pipeline stays controllable.
     private val backgroundDispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -173,37 +173,42 @@ class LibraryViewModel(
 
     private val rawContent: SharedFlow<RawContent> =
         combine(
-            bookRepository
-                .observeBookListItems()
-                .fallbackTo { e ->
-                    logger.error(e) { "observeBookListItems failed; emitting empty list" }
-                    emptyList()
-                },
-            seriesRepository
-                .observeRootSeriesWithBooks()
-                .fallbackTo { e ->
-                    logger.error(e) { "observeRootSeriesWithBooks failed; emitting empty list" }
-                    emptyList()
-                },
-            contributorRepository
-                .observeContributorsByRole(ContributorRole.AUTHOR.apiValue)
-                .fallbackTo { e ->
-                    logger.error(e) { "observeContributorsByRole(AUTHOR) failed; emitting empty list" }
-                    emptyList()
-                },
-            contributorRepository
-                .observeContributorsByRole(ContributorRole.NARRATOR.apiValue)
-                .fallbackTo { e ->
-                    logger.error(e) { "observeContributorsByRole(NARRATOR) failed; emitting empty list" }
-                    emptyList()
-                },
-            bookRatingRepository
-                .observeAverages()
-                .fallbackTo { e ->
-                    logger.error(e) { "observeAverages failed; emitting empty map" }
-                    emptyMap()
-                },
-            ::RawContent,
+            flow =
+                bookRepository
+                    .observeBookListItems()
+                    .fallbackTo { e ->
+                        logger.error(e) { "observeBookListItems failed; emitting empty list" }
+                        emptyList()
+                    },
+            flow2 =
+                seriesRepository
+                    .observeRootSeriesWithBooks()
+                    .fallbackTo { e ->
+                        logger.error(e) { "observeRootSeriesWithBooks failed; emitting empty list" }
+                        emptyList()
+                    },
+            flow3 =
+                contributorRepository
+                    .observeContributorsByRole(ContributorRole.AUTHOR.apiValue)
+                    .fallbackTo { e ->
+                        logger.error(e) { "observeContributorsByRole(AUTHOR) failed; emitting empty list" }
+                        emptyList()
+                    },
+            flow4 =
+                contributorRepository
+                    .observeContributorsByRole(ContributorRole.NARRATOR.apiValue)
+                    .fallbackTo { e ->
+                        logger.error(e) { "observeContributorsByRole(NARRATOR) failed; emitting empty list" }
+                        emptyList()
+                    },
+            flow5 =
+                bookRatingRepository
+                    .observeAverages()
+                    .fallbackTo { e ->
+                        logger.error(e) { "observeAverages failed; emitting empty map" }
+                        emptyMap()
+                    },
+            transform = ::RawContent,
         ).shareIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -238,11 +243,11 @@ class LibraryViewModel(
                 intent = intentValue,
                 books =
                     sortBooks(
-                        content.books,
-                        intentValue.booksSortState,
-                        intentValue.ignoreTitleArticles,
-                        content.listenerAverages,
-                        scores,
+                        books = content.books,
+                        state = intentValue.booksSortState,
+                        ignoreArticles = intentValue.ignoreTitleArticles,
+                        listenerAverages = content.listenerAverages,
+                        combinedScores = scores,
                     ),
                 series = sortSeries(visibleSeries, intentValue.seriesSortState, intentValue.ignoreTitleArticles),
                 authors = sortContributors(content.authors, intentValue.authorsSortState),
@@ -273,11 +278,11 @@ class LibraryViewModel(
 
     private val syncSnapshot: Flow<SyncSnapshot> =
         combine(
-            syncRepository.syncState,
-            syncRepository.isServerScanning,
-            syncRepository.scanProgress,
-            syncRepository.isBuildingInitialLibrary,
-            ::SyncSnapshot,
+            flow = syncRepository.syncState,
+            flow2 = syncRepository.serverScanning,
+            flow3 = syncRepository.scanProgress,
+            flow4 = syncRepository.buildingInitialLibrary,
+            transform = ::SyncSnapshot,
             // SyncSnapshot is a data class — structural equality prevents re-sorting the library
             // on every firehose heartbeat or scan-progress tick when the values haven't actually changed.
         ).distinctUntilChanged()
@@ -344,8 +349,8 @@ class LibraryViewModel(
             libraryPreferences.getNarratorsSortState()?.let { SortState.fromPersistenceKey(it) }?.let { loaded ->
                 intent.update { it.copy(narratorsSortState = loaded) }
             }
-            intent.update {
-                it.copy(
+            intent.update { current ->
+                current.copy(
                     ignoreTitleArticles = libraryPreferences.getIgnoreTitleArticles(),
                     hideSingleBookSeries = libraryPreferences.getHideSingleBookSeries(),
                 )
@@ -367,8 +372,8 @@ class LibraryViewModel(
     fun onScreenVisible() {
         // Reload preferences in case user changed them in Settings
         viewModelScope.launch {
-            intent.update {
-                it.copy(
+            intent.update { current ->
+                current.copy(
                     hideSingleBookSeries = libraryPreferences.getHideSingleBookSeries(),
                     ignoreTitleArticles = libraryPreferences.getIgnoreTitleArticles(),
                 )
@@ -668,12 +673,12 @@ class LibraryViewModel(
                 val nullSeriesName = if (isAsc) "￿" else ""
                 val nullSequence = if (isAsc) Double.MAX_VALUE else 0.0
                 val keyed =
-                    books.map {
+                    books.map { book ->
                         BookSeriesSortKey(
-                            book = it,
-                            seriesName = it.seriesName?.lowercase() ?: nullSeriesName,
-                            sequence = it.seriesSequence ?: nullSequence,
-                            title = it.title.lowercase(),
+                            book = book,
+                            seriesName = book.seriesName?.lowercase() ?: nullSeriesName,
+                            sequence = book.seriesSequence ?: nullSequence,
+                            title = book.title.lowercase(),
                         )
                     }
                 val sorted =
@@ -707,8 +712,11 @@ class LibraryViewModel(
         isAsc: Boolean,
         averageFor: (BookListItem) -> Double?,
     ): List<BookListItem> {
-        val (rated, unrated) = books.partition { averageFor(it) != null }
-        val keyed = rated.map { Triple(it, averageFor(it)!!, it.title.lowercase()) }
+        val keyed =
+            books.mapNotNull { book ->
+                averageFor(book)?.let { average -> Triple(book, average, book.title.lowercase()) }
+            }
+        val unrated = books.filter { averageFor(it) == null }
         val sorted =
             if (isAsc) {
                 keyed.sortedWith(compareBy({ it.second }, { it.third }))
@@ -748,7 +756,14 @@ class LibraryViewModel(
             }
 
             // Default to name sort for unsupported categories
-            else -> {
+            SortCategory.TITLE,
+            SortCategory.AUTHOR,
+            SortCategory.DURATION,
+            SortCategory.YEAR,
+            SortCategory.RATING,
+            SortCategory.LISTENER_RATING,
+            SortCategory.SERIES,
+            -> {
                 val keyed = series.map { it to it.series.name.sortableTitle(ignoreArticles) }
                 keyed.sortedBy { it.second }.map { it.first }
             }
@@ -774,7 +789,15 @@ class LibraryViewModel(
             }
 
             // Default to name sort for unsupported categories
-            else -> {
+            SortCategory.TITLE,
+            SortCategory.AUTHOR,
+            SortCategory.DURATION,
+            SortCategory.YEAR,
+            SortCategory.ADDED,
+            SortCategory.RATING,
+            SortCategory.LISTENER_RATING,
+            SortCategory.SERIES,
+            -> {
                 val keyed = contributors.map { it to it.contributor.name.lowercase() }
                 keyed.sortedBy { it.second }.map { it.first }
             }

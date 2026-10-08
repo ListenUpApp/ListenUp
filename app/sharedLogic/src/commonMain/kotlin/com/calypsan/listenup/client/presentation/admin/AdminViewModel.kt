@@ -166,8 +166,8 @@ class AdminViewModel(
                 }
 
                 is AppResult.Failure -> {
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             deletingUserId = null,
                             error = result.message,
                         )
@@ -192,8 +192,8 @@ class AdminViewModel(
                 }
 
                 is AppResult.Failure -> {
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             revokingInviteId = null,
                             error = result.message,
                         )
@@ -233,8 +233,8 @@ class AdminViewModel(
                 }
 
                 is AppResult.Failure -> {
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             approvingUserId = null,
                             error = result.message,
                         )
@@ -259,8 +259,8 @@ class AdminViewModel(
                 }
 
                 is AppResult.Failure -> {
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             denyingUserId = null,
                             error = result.message,
                         )
@@ -312,8 +312,8 @@ class AdminViewModel(
                 }
 
                 is AppResult.Failure -> {
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             decidingPasswordResetId = null,
                             error = result.message,
                         )
@@ -337,8 +337,8 @@ class AdminViewModel(
 
             when (val result = setRegistrationPolicyUseCase(policy)) {
                 is AppResult.Success -> {
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isTogglingRegistrationPolicy = false,
                             registrationPolicy = policy,
                         )
@@ -346,8 +346,8 @@ class AdminViewModel(
                 }
 
                 is AppResult.Failure -> {
-                    updateReady {
-                        it.copy(
+                    updateReady { ready ->
+                        ready.copy(
                             isTogglingRegistrationPolicy = false,
                             error = result.message,
                         )

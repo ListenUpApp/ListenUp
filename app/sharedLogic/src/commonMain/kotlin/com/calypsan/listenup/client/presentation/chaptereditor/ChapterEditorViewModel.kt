@@ -82,7 +82,14 @@ class ChapterEditorViewModel(
 
     /** The parts of the editor the user drives directly, combined once to stay inside `combine`'s arity. */
     private val session =
-        combine(draft, selectedChapterId, saving, lockedChapterIds, driftAnchors, ::EditorSession)
+        combine(
+            flow = draft,
+            flow2 = selectedChapterId,
+            flow3 = saving,
+            flow4 = lockedChapterIds,
+            flow5 = driftAnchors,
+            transform = ::EditorSession,
+        )
 
     private val eventChannel = Channel<ChapterEditorEvent>(Channel.BUFFERED)
 
@@ -91,10 +98,10 @@ class ChapterEditorViewModel(
 
     val state: StateFlow<ChapterEditorUiState> =
         combine(
-            bookRepository.observeChapters(bookId),
-            bookRepository.observeBookDetail(bookId),
-            session,
-            playbackManager.currentTimeline,
+            flow = bookRepository.observeChapters(bookId),
+            flow2 = bookRepository.observeBookDetail(bookId),
+            flow3 = session,
+            flow4 = playbackManager.currentTimeline,
         ) { mirrored, book, current, loaded ->
             if (book == null) {
                 ChapterEditorUiState.Loading
@@ -117,7 +124,15 @@ class ChapterEditorViewModel(
                     // Intersected rather than pruned on removal: a lock naming a chapter that is
                     // no longer there cannot survive, by construction rather than by remembering.
                     lockedChapterIds = locked,
-                    drift = current.driftAnchors?.let { driftStateFor(it, chapters, locked, book.duration) },
+                    drift =
+                        current.driftAnchors?.let { anchors ->
+                            driftStateFor(
+                                anchors = anchors,
+                                chapters = chapters,
+                                lockedIds = locked,
+                                bookDurationMs = book.duration,
+                            )
+                        },
                     fileBoundaries = fileBoundariesOf(loaded),
                 )
             }
@@ -149,28 +164,36 @@ class ChapterEditorViewModel(
     fun retime(
         chapterId: String,
         newStartMs: Long,
-    ) = edit { chapters, duration -> chapters.retimed(chapterId, newStartMs, duration) }
+    ) {
+        edit { chapters, duration -> chapters.retimed(chapterId, newStartMs, duration) }
+    }
 
     /** Nudges [chapterId] by [deltaMs] — the ± buttons and the arrow keys. */
     fun nudge(
         chapterId: String,
         deltaMs: Long,
-    ) = edit { chapters, duration ->
-        val current = chapters.firstOrNull { it.id == chapterId } ?: return@edit chapters
-        chapters.retimed(chapterId, current.startTime + deltaMs, duration)
+    ) {
+        edit { chapters, duration ->
+            val current = chapters.firstOrNull { it.id == chapterId } ?: return@edit chapters
+            chapters.retimed(chapterId, current.startTime + deltaMs, duration)
+        }
     }
 
     /** Takes the playhead's exact millisecond as [chapterId]'s start — snap-to-playhead. */
     fun snapToPlayhead(
         chapterId: String,
         playheadMs: Long,
-    ) = edit { chapters, duration -> chapters.retimed(chapterId, playheadMs, duration) }
+    ) {
+        edit { chapters, duration -> chapters.retimed(chapterId, playheadMs, duration) }
+    }
 
     /** Retitles [chapterId]. Blank titles are refused rather than stored. */
     fun retitle(
         chapterId: String,
         title: String,
-    ) = edit { chapters, _ -> chapters.retitled(chapterId, title) }
+    ) {
+        edit { chapters, _ -> chapters.retitled(chapterId, title) }
+    }
 
     /**
      * Inserts a boundary at [atMs], splitting the chapter there.
@@ -181,7 +204,11 @@ class ChapterEditorViewModel(
     fun addAt(
         atMs: Long,
         title: String,
-    ) = edit { chapters, duration -> chapters.added(Uuid.random().toString(), title, atMs, duration) }
+    ) {
+        edit { chapters, duration ->
+            chapters.added(id = Uuid.random().toString(), title = title, atMs = atMs, bookDurationMs = duration)
+        }
+    }
 
     /**
      * Inserts a boundary halfway through [chapterId]'s span — the row overflow's "Insert below".
@@ -191,10 +218,12 @@ class ChapterEditorViewModel(
     fun insertBelow(
         chapterId: String,
         title: String,
-    ) = edit { chapters, duration ->
-        val chapter = chapters.firstOrNull { it.id == chapterId } ?: return@edit chapters
-        val midpoint = chapter.startTime + chapter.duration / 2
-        chapters.added(Uuid.random().toString(), title, midpoint, duration)
+    ) {
+        edit { chapters, duration ->
+            val chapter = chapters.firstOrNull { it.id == chapterId } ?: return@edit chapters
+            val midpoint = chapter.startTime + chapter.duration / 2
+            chapters.added(id = Uuid.random().toString(), title = title, atMs = midpoint, bookDurationMs = duration)
+        }
     }
 
     /**
@@ -216,7 +245,9 @@ class ChapterEditorViewModel(
     }
 
     /** Removes [chapterId], merging its span into the chapter before it. */
-    fun remove(chapterId: String) = edit { chapters, duration -> chapters.removed(chapterId, duration) }
+    fun remove(chapterId: String) {
+        edit { chapters, duration -> chapters.removed(chapterId, duration) }
+    }
 
     /**
      * Replaces the whole set — the commit step of drift correction.

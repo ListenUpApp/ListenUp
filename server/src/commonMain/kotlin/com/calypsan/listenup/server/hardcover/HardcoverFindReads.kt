@@ -93,7 +93,7 @@ suspend fun HardcoverGraphQlClient.findBooks(
             asin?.let { put("asin", it) }
             isbn?.let { put("isbn", it) }
         }
-    return fetch(accessToken, query, variables, "findBooks") { body ->
+    return fetch(accessToken = accessToken, query = query, variables = variables, label = "findBooks") { body ->
         val data = hardcoverJson.decodeFromString<FindResponse>(body).data
         HardcoverFindResult(
             books = data?.books.orEmpty().map { it.toFindBook() },

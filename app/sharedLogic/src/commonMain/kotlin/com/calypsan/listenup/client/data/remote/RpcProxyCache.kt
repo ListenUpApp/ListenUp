@@ -140,7 +140,10 @@ internal class RpcProxyCache<T : Any>(
      * `KtorRpcClient.close()` cannot reach it (its transport never became ready). Cancelling the
      * connection's own client is what kills that orphan — and a client shared across connections could
      * not be cancelled without killing its siblings.
+     *
+     * Holds mutable lease state and is tracked by identity; a data class would compare by value.
      */
+    @Suppress("UseDataClass")
     private class TrackedConnection<T>(
         val connection: RpcConnection<T>,
         val httpClient: HttpClient,
@@ -181,7 +184,11 @@ internal class RpcProxyCache<T : Any>(
      * auto-retries ONCE on a fresh lease instead of surfacing outcome-unknown. The retry is
      * at-most-once — a second lost response goes through the ordinary [surface] path. When `false`
      * (the default, every mutation) behaviour is exactly as before: surface, never re-fire.
+     *
+     * Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
+     * re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
      */
+    @Suppress("SuspendFunSwallowedCancellation")
     override suspend fun <R> call(
         timeout: Duration,
         idempotent: Boolean,
@@ -198,9 +205,21 @@ internal class RpcProxyCache<T : Any>(
                 release(lease)
             }
         return if (failure is TimeoutCancellationException) {
-            timedOut(failure, lease.generation, timeout, idempotent, block)
+            timedOut(
+                e = failure,
+                leasedGeneration = lease.generation,
+                timeout = timeout,
+                idempotent = idempotent,
+                block = block,
+            )
         } else {
-            recover(failure, lease.generation, timeout, idempotent, block)
+            recover(
+                e = failure,
+                leasedGeneration = lease.generation,
+                timeout = timeout,
+                idempotent = idempotent,
+                block = block,
+            )
         }
     }
 
@@ -252,7 +271,11 @@ internal class RpcProxyCache<T : Any>(
      * wrapped by [pipe] in a private marker and re-raised **unchanged** here: it must never
      * invalidate a healthy generation (which would tear down sibling streams/calls on the shared
      * client) nor be rewrapped as [RpcOutcomeUnknownException].
+     *
+     * Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
+     * re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
      */
+    @Suppress("SuspendFunSwallowedCancellation")
     override fun <R> streaming(subscribe: suspend (T) -> Flow<R>): Flow<R> =
         flow {
             var emitted = false
@@ -349,7 +372,11 @@ internal class RpcProxyCache<T : Any>(
      * The single at-most-once stream retry, on a FRESH lease so a herd converges on the one
      * reconnected proxy. Its failure is terminal: a still-active caller cancellation re-raises plain
      * (no invalidate); any other from-below cancellation becomes an outcome-unknown value.
+     *
+     * Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
+     * re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
      */
+    @Suppress("SuspendFunSwallowedCancellation")
     private suspend fun <R> FlowCollector<R>.resubscribe(subscribe: suspend (T) -> Flow<R>) {
         val second = lease()
         try {
@@ -382,7 +409,12 @@ internal class RpcProxyCache<T : Any>(
         when {
             // Stale-session handshake 401 — refresh + rebuild, then retry once (or surface if refresh fails).
             isWsHandshake401(e) -> {
-                return retryAfterAuthRefresh(e, leasedGeneration, timeout, block)
+                return retryAfterAuthRefresh(
+                    e = e,
+                    leasedGeneration = leasedGeneration,
+                    timeout = timeout,
+                    block = block,
+                )
             }
 
             // Same heal, reached the only way the browser allows. There a 401 is invisible, so this
@@ -392,14 +424,19 @@ internal class RpcProxyCache<T : Any>(
             // lapse a session over a plain network fault.
             isAuthedMount && isWsHandshakeOfUnknownStatus(e, handshakeStatusVisible) -> {
                 logger.info { "RPC handshake failed with no readable status; asking the refresh which it was" }
-                return retryAfterAuthRefresh(e, leasedGeneration, timeout, block)
+                return retryAfterAuthRefresh(
+                    e = e,
+                    leasedGeneration = leasedGeneration,
+                    timeout = timeout,
+                    block = block,
+                )
             }
 
             // Provably pre-delivery: handshake, connect, or a dead-client ISE ("RpcClient was cancelled",
             // thrown BEFORE send). The frame never left — retry cannot double-apply.
             isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> {
                 logger.info {
-                    "RPC pre-delivery transport failure (${e::class.simpleName}); reconnecting + retrying once"
+                    "RPC pre-delivery transport failure ($e); reconnecting + retrying once"
                 }
                 retire(leasedGeneration)
                 // Let a cold/just-opened socket settle before the single retry so a freshly-discovered
@@ -498,7 +535,11 @@ internal class RpcProxyCache<T : Any>(
      * The single at-most-once retry, on a FRESH lease so a herd converges on the one reconnected
      * proxy. Whatever the retry produces is final — its own failures go through [surface], so a
      * second post-delivery drop becomes an outcome-unknown value, never a re-fired mutation.
+     *
+     * Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
+     * re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
      */
+    @Suppress("SuspendFunSwallowedCancellation")
     private suspend fun <R> retryOnce(
         timeout: Duration,
         block: suspend (T) -> R,
@@ -531,7 +572,7 @@ internal class RpcProxyCache<T : Any>(
         // (C1) whether this was our own retry-leg timeout or a provable transport drop.
         if (!callerCancelled) retire(leasedGeneration)
         if (e is CancellationException && !callerCancelled) {
-            logger.warn { "RPC frame sent but outcome unknown (${e.message}); surfacing as a typed failure (no retry)" }
+            logger.warn { "RPC frame sent but outcome unknown ($e); surfacing as a typed failure (no retry)" }
             throw RpcOutcomeUnknownException(e)
         }
         throw e
@@ -556,7 +597,9 @@ internal class RpcProxyCache<T : Any>(
                             httpClient.cancel()
                             throw e
                         }
-                    TrackedConnection(connection, httpClient).also { current = it }
+                    val created = TrackedConnection(connection, httpClient)
+                    current = created
+                    created
                 }
             tracked.uses++
             Lease(tracked, generation)

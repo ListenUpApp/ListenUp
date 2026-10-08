@@ -48,10 +48,15 @@ open class UpdateShelfUseCase(
             return validationError("Shelf name is required")
         }
 
-        val trimmedDescription = description?.trim()?.takeIf { it.isNotEmpty() }
+        val trimmedDescription = description?.run { trim().takeIf { it.isNotEmpty() } }
 
         logger.info { "Updating shelf $shelfId: $trimmedName" }
 
-        return shelfRepository.updateShelf(shelfId, trimmedName, trimmedDescription, isPrivate)
+        return shelfRepository.updateShelf(
+            shelfId = shelfId,
+            name = trimmedName,
+            description = trimmedDescription,
+            isPrivate = isPrivate,
+        )
     }
 }

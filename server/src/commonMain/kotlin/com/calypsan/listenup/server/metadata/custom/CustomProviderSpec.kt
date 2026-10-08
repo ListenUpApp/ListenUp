@@ -113,7 +113,12 @@ data class CustomProviderSpec(
                 logger.warn { "Custom provider '$name' declares no supported capabilities — skipping." }
                 return null
             }
-            return CustomProviderSpec(MetadataProviderId.custom(name), name, baseUrl, capabilities)
+            return CustomProviderSpec(
+                id = MetadataProviderId.custom(name),
+                name = name,
+                baseUrl = baseUrl,
+                capabilities = capabilities,
+            )
         }
 
         private fun parseCapabilities(

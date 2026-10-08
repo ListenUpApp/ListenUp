@@ -88,7 +88,7 @@ class RegistrationPolicyStreamImplTest :
                     listOf(
                         flow {
                             emit(RpcEvent.Data(RegistrationPolicy.OPEN))
-                            throw IllegalStateException("socket dropped")
+                            error("socket dropped")
                         },
                         flowOf(RpcEvent.Data(RegistrationPolicy.CLOSED)),
                     )

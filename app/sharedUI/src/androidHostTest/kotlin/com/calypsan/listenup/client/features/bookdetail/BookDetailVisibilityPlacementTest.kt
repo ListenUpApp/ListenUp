@@ -6,7 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -46,6 +46,7 @@ import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
 import org.koin.core.context.stopKoin
 import org.koin.core.module.dsl.viewModel
+import org.koin.dsl.koinConfiguration
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -69,6 +70,9 @@ class BookDetailVisibilityPlacementTest {
     private var opened: String? = null
     private var restores = 0
     private var pickers = 0
+
+    private val restrictedToKids =
+        BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)
 
     @Test
     fun `a restricted book's detail shows the card, and a name opens its collection`() {
@@ -177,9 +181,6 @@ class BookDetailVisibilityPlacementTest {
         composeRule.runOnIdle { opened shouldBe "c1" }
     }
 
-    private val restrictedToKids =
-        BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)
-
     private fun ready(
         visibility: BookVisibility?,
         publisher: String? = null,
@@ -217,16 +218,17 @@ class BookDetailVisibilityPlacementTest {
         val users = mock<UserRepository>(MockMode.autoUnit) { every { observeIsAdmin() } returns flowOf(true) }
         composeRule.setContent {
             KoinApplication(
-                application = {
-                    modules(
-                        module {
-                            viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId) }
-                            viewModel { (bookId: String) ->
-                                BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus(), users)
-                            }
-                        },
-                    )
-                },
+                configuration =
+                    koinConfiguration {
+                        modules(
+                            module {
+                                viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId) }
+                                viewModel { (bookId: String) ->
+                                    BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus(), users)
+                                }
+                            },
+                        )
+                    },
             ) {
                 // Book Detail's rating block offers Undo through the app's snackbar host.
                 MaterialTheme {

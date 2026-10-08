@@ -66,7 +66,9 @@ internal class AudnexusPeople(
             keys.mapNotNull { key ->
                 val profile = (profile(key) as? AppResult.Success)?.data
                 val name =
-                    profile?.name?.takeIf { it.isNotBlank() } ?: hitNames[key] ?: creditNames[key]
+                    profile?.run { this.name.takeIf { it.isNotBlank() } }
+                        ?: hitNames[key]
+                        ?: creditNames[key]
                         ?: return@mapNotNull null
                 FoundPerson(
                     key = key,

@@ -44,7 +44,7 @@ class MultipartUploadNativeTest :
                 embeddedServer(CIO, port = 0) {
                     routing {
                         post("/upload") {
-                            val received = call.streamFirstFilePartTo(dest, formFieldLimit = 1L shl 20)
+                            val received = streamFirstFilePartTo(call, dest, formFieldLimit = 1L shl 20)
                             call.respondText(if (received) RECEIVED else EMPTY)
                         }
                     }
@@ -93,7 +93,7 @@ class MultipartUploadNativeTest :
                 embeddedServer(CIO, port = 0) {
                     routing {
                         post("/avatar") {
-                            received = call.receiveFirstFilePartBytes(formFieldLimit = 1L shl 20)
+                            received = receiveFirstFilePartBytes(call, formFieldLimit = 1L shl 20)
                             call.respondText(if (received != null) RECEIVED else EMPTY)
                         }
                     }

@@ -165,7 +165,7 @@ class LiveCorpusBooksPersistenceTest :
                         val blankTitles = persistedBooks.filter { it.deletedAt == null && it.title.isBlank() }
                         withClue(
                             "${blankTitles.size} persisted book(s) have a blank title. " +
-                                "First offender rootRelPath: ${blankTitles.firstOrNull()?.rootRelPath}",
+                                "First offender rootRelPath: ${blankTitles.firstOrNull()?.rootRelPath ?: "none"}",
                         ) {
                             blankTitles.size shouldBe 0
                         }
@@ -176,7 +176,7 @@ class LiveCorpusBooksPersistenceTest :
                         val noAudio = persistedBooks.filter { it.deletedAt == null && it.audioFiles.isEmpty() }
                         withClue(
                             "${noAudio.size} persisted book(s) have zero audio files. " +
-                                "First offender: ${noAudio.firstOrNull()?.title}",
+                                "First offender: ${noAudio.firstOrNull()?.title ?: "none"}",
                         ) {
                             noAudio.size shouldBe 0
                         }

@@ -39,11 +39,11 @@ class DomainModelIdsAreTypedRule :
                     .flatMap { cls ->
                         cls
                             .properties()
-                            .filter {
-                                it.name == "id" || (
-                                    it.name.endsWith(
+                            .filter { property ->
+                                property.name == "id" || (
+                                    property.name.endsWith(
                                         "Id",
-                                    ) && it.name !in ALLOWED_STRING_ID_NAMES
+                                    ) && property.name !in ALLOWED_STRING_ID_NAMES
                                 )
                             }.filter { it.type?.name == "String" }
                             .map { "${cls.name}.${it.name} in ${it.path}" }

@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.testing.SyncTestScope

@@ -72,6 +72,15 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class ListenUpSessionCallbackTest {
+    private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    /**
+     * The player the [MediaSession] is built over — deliberately a separate instance from the
+     * one under assertion, so a seek accidentally routed to the session player instead of the
+     * transport player shows up as a missing call rather than passing unnoticed.
+     */
+    private val sessionPlayer = FakeExoPlayer(canAdvertiseSession = true)
+
     // ── Publishing the landing position ───────────────────────────────────────
     //
     // Seeking the player is only half the job: the in-app position comes from a poll that runs
@@ -583,15 +592,6 @@ class ListenUpSessionCallbackTest {
             session.release()
         }
     }
-
-    private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
-
-    /**
-     * The player the [MediaSession] is built over — deliberately a separate instance from the
-     * one under assertion, so a seek accidentally routed to the session player instead of the
-     * transport player shows up as a missing call rather than passing unnoticed.
-     */
-    private val sessionPlayer = FakeExoPlayer(canAdvertiseSession = true)
 
     /**
      * Three 60_000 ms files, so the book runs 0..180_000 ms and every file boundary is a

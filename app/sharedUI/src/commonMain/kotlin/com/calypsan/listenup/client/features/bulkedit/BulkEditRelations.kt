@@ -221,7 +221,7 @@ internal fun <T> BulkRelationField(
             // typed name silently would be the one lie this screen cannot tell.
             // Enter creates when creating is on offer; otherwise it does nothing, because there
             // would be nothing for it to do but swallow the name silently.
-            onSubmit = { if (creatable) onCreate?.invoke(trimmed) },
+            onSubmit = { if (creatable) onCreate(trimmed) },
             resultContent = { match ->
                 AutocompleteResultItem(
                     name = matchLabel(match),
@@ -249,7 +249,7 @@ internal fun <T> BulkRelationField(
         )
         if (creatable) {
             AssistChip(
-                onClick = { onCreate?.invoke(trimmed) },
+                onClick = { onCreate(trimmed) },
                 label = { Text(stringResource(Res.string.bulk_edit_add_trimmed, trimmed)) },
                 leadingIcon = {
                     Icon(
@@ -332,9 +332,9 @@ internal fun BulkEditCredits(
             label = stringResource(Res.string.bulk_edit_series),
             placeholder = stringResource(Res.string.bulk_edit_search_series),
             query = seriesQuery,
-            onQueryChange = {
-                seriesQuery = it
-                actions.onSeriesQueryChange(it)
+            onQueryChange = { query ->
+                seriesQuery = query
+                actions.onSeriesQueryChange(query)
             },
             matches = offers.seriesMatches,
             matchLabel = { it.name },
@@ -365,9 +365,9 @@ internal fun BulkEditCredits(
                 label = stringResource(Res.string.bulk_edit_contributors),
                 placeholder = stringResource(Res.string.bulk_edit_search_contributors),
                 query = contributorQuery,
-                onQueryChange = {
-                    contributorQuery = it
-                    actions.onContributorQueryChange(it)
+                onQueryChange = { query ->
+                    contributorQuery = query
+                    actions.onContributorQueryChange(query)
                 },
                 matches = offers.contributorMatches,
                 matchLabel = { it.name },

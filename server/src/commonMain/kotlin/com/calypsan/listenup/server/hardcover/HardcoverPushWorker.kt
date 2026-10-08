@@ -72,7 +72,9 @@ class HardcoverPushWorker(
      * Wakes [userId]'s lane, starting one when none runs. Before [start] this is a no-op: the rows are
      * already in the outbox, and [start] starts a lane for every user who has any.
      */
-    override fun nudge(userId: String) = lanes.nudge(userId)
+    override fun nudge(userId: String) {
+        lanes.nudge(userId)
+    }
 
     /** One step of [userId]'s lane: run (or match, or wait for) the next row, as the user's only Hardcover conversation. */
     internal suspend fun step(userId: String): LaneStep = gate.withUser(userId) { stepHoldingGate(userId) }
@@ -140,10 +142,10 @@ class HardcoverPushWorker(
         if (identity == null) {
             // Not dropped: the book may come back. It waits, visibly, like any other failing row.
             outbox.reschedule(
-                row.id,
-                row.attempts + 1,
-                now() + CAPPED_RETRY_INTERVAL.inWholeMilliseconds,
-                "book not in the library",
+                id = row.id,
+                attempts = row.attempts + 1,
+                nextAttemptAt = now() + CAPPED_RETRY_INTERVAL.inWholeMilliseconds,
+                lastError = "book not in the library",
             )
         } else {
             val match = matcher.match(token, identity).valueOr { return onFailure(row, token, it) }
@@ -179,7 +181,12 @@ class HardcoverPushWorker(
                 val wait =
                     failure.retryAfterMs
                         ?: exponentialBackoff(attempts, THROTTLE_BACKOFF_BASE, BACKOFF_CAP).inWholeMilliseconds
-                outbox.reschedule(row.id, attempts, now + wait, "throttled by Hardcover")
+                outbox.reschedule(
+                    id = row.id,
+                    attempts = attempts,
+                    nextAttemptAt = now + wait,
+                    lastError = "throttled by Hardcover",
+                )
                 gate.pause(row.userId, now + wait)
                 LaneStep.Sleep(now + wait)
             }
@@ -197,7 +204,12 @@ class HardcoverPushWorker(
                         )
                     }
                 if (capped) connections.recordPushError(row.userId, failure.detail)
-                outbox.reschedule(row.id, attempts, now + wait.inWholeMilliseconds, failure.detail)
+                outbox.reschedule(
+                    id = row.id,
+                    attempts = attempts,
+                    nextAttemptAt = now + wait.inWholeMilliseconds,
+                    lastError = failure.detail,
+                )
                 LaneStep.Continue
             }
         }

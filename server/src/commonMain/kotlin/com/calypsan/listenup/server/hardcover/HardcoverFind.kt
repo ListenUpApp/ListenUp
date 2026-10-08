@@ -55,7 +55,10 @@ internal class HardcoverFind(
         val ids = (linked + searched).distinct()
         if (ids.isEmpty() && asin == null && isbn == null) return AppResult.Success(FindAnswer(emptyList(), steps))
         val found =
-            when (val answer = read { token -> graphQl.findBooks(token, ids, asin, isbn) }) {
+            when (
+                val answer =
+                    read { token -> graphQl.findBooks(accessToken = token, ids = ids, asin = asin, isbn = isbn) }
+            ) {
                 is HardcoverCall.Ok -> answer.value
                 else -> return failure(answer)
             }
@@ -86,7 +89,7 @@ internal class HardcoverFind(
                 )
             }
 
-            else -> {
+            is HardcoverCall.Ok, HardcoverCall.Unauthorized, is HardcoverCall.MissingScope, is HardcoverCall.Failed -> {
                 AppResult.Failure(HardcoverError.Unavailable(debugInfo = "hardcover find: ${answer.describe()}"))
             }
         }
@@ -111,7 +114,7 @@ private fun HardcoverFindResult.toFoundBooks(
     linked: Set<Long>,
 ): List<FoundBook> {
     val byId = (books + listOfNotNull(byAsin?.book, byIsbn?.book)).associateBy { it.id }
-    val identified = listOfNotNull(byAsin?.book?.id, byIsbn?.book?.id)
+    val identified = listOfNotNull(byAsin?.run { book.id }, byIsbn?.run { book.id })
     val ids = (order.filter { it in linked } + identified + order).distinct()
     return ids.mapNotNull { id ->
         val book = byId[id] ?: return@mapNotNull null

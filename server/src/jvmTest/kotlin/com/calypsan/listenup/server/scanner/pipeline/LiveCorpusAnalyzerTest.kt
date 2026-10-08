@@ -21,6 +21,9 @@ import java.nio.file.Path as NioPath
 import kotlinx.io.files.Path
 import kotlin.io.path.isDirectory
 import kotlin.io.path.listDirectoryEntries
+import com.calypsan.listenup.server.logging.loggerFor
+
+private val logger = loggerFor<LiveCorpusAnalyzerTest>()
 
 /**
  * Env-gated live corpus regression guard for the chapter-synthesis branch.
@@ -103,11 +106,11 @@ private suspend fun assertSynthesis(
             .single()
             .getOrThrow()
 
-    println(
+    logger.info {
         "[live-corpus] '${book.title}' tracks=${book.tracks.size} " +
             "chapters=${book.chapters.size} source=${book.chaptersSource} " +
-            "first=${book.chapters.firstOrNull()?.title}",
-    )
+            "first=${book.chapters.firstOrNull()?.title ?: "none"}"
+    }
 
     withClue(
         "book='${book.title}' tracks=${book.tracks.size} " +

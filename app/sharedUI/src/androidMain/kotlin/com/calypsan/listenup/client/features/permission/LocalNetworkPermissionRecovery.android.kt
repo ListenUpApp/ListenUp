@@ -47,7 +47,7 @@ actual fun rememberLocalNetworkPermissionRecovery(): LocalNetworkPermissionRecov
 
     fun readGranted() = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
-    fun readCanAsk() = activity?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, permission) } ?: false
+    fun readCanAsk() = activity?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, permission) } == true
 
     var granted by remember { mutableStateOf(readGranted()) }
     var canAsk by remember { mutableStateOf(readCanAsk()) }

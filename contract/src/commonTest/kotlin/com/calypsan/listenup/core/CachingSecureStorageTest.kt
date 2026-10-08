@@ -54,7 +54,12 @@ private class FlakyCredentialStorage(
         value: String,
     ) = Unit
 
-    override suspend fun read(key: String): String? = runCatching { readCredential(key) }.getOrNull()
+    override suspend fun read(key: String): String? =
+        try {
+            readCredential(key)
+        } catch (_: SecureStorageUnavailableException) {
+            null
+        }
 
     override suspend fun readCredential(key: String): String? {
         if (key != this.key) return null
@@ -85,7 +90,7 @@ class CachingSecureStorageTest :
             runTest {
                 val caching = CachingSecureStorage(FlakyCredentialStorage("refresh_token", "rt", failures = 1))
 
-                runCatching { caching.readCredential("refresh_token") }
+                shouldThrow<SecureStorageUnavailableException> { caching.readCredential("refresh_token") }
 
                 caching.readCredential("refresh_token") shouldBe "rt"
                 caching.read("refresh_token") shouldBe "rt"

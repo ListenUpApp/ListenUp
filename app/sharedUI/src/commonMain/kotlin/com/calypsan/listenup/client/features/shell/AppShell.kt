@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -173,7 +173,7 @@ fun AppShell(
     val searchState = searchViewModel.state.collectAsStateWithLifecycle()
     val searchQuery = remember(searchState) { derivedStateOf { searchState.value.query } }
     val syncIndicatorState by syncIndicatorViewModel.state.collectAsStateWithLifecycle()
-    val isSyncDetailsExpanded by syncIndicatorViewModel.isExpanded.collectAsStateWithLifecycle()
+    val isSyncDetailsExpanded by syncIndicatorViewModel.expanded.collectAsStateWithLifecycle()
     val unreadNotificationCount by notificationBellViewModel.unreadCount.collectAsStateWithLifecycle()
     val heldBookCount by inboxBadgeViewModel.heldCount.collectAsStateWithLifecycle()
 
@@ -271,7 +271,7 @@ fun AppShell(
     )
 
     // Adaptive navigation surface for the current window size.
-    val navType = shellNavType(currentWindowAdaptiveInfo().windowSizeClass)
+    val navType = shellNavType(currentWindowAdaptiveInfoV2().windowSizeClass)
 
     // The custom header that screens place at the top of their own scroll, so it scrolls away with
     // content. The shell binds the trailing actions; the screen supplies the leading hero.
@@ -295,7 +295,7 @@ fun AppShell(
             onAdminClick = onAdminClick,
             onSettingsClick = onSettingsClick,
             onSignOutClick = signOutConfirmation::request,
-            onMyProfileClick = { user?.id?.value?.let(onUserProfileClick) },
+            onMyProfileClick = { user?.run { onUserProfileClick(id.value) } },
             unreadNotificationCount = unreadNotificationCount,
             onNotificationsClick = onNotificationsClick,
             onSyncIndicatorClick = { syncIndicatorViewModel.toggleExpanded() },

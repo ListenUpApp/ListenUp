@@ -63,10 +63,10 @@ internal suspend fun resolveSignedDownloadUrl(
         }
 
         is AppResult.Success -> {
-            urls.data[audioFileId]?.let {
+            urls.data[audioFileId]?.let { signedUrl ->
                 // The URL itself is a live credential (HMAC-signed query) — log the id, never the URL.
                 logger.debug { "Resolved signed download URL for $audioFileId" }
-                AppResult.Success(it)
+                AppResult.Success(signedUrl)
             }
                 ?: run {
                     logger.warn { "prepare() response for book=$bookId is missing audioFileId=$audioFileId" }

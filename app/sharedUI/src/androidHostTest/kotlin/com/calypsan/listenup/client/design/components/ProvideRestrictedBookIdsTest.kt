@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.material3.Text
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
@@ -16,6 +16,7 @@ import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
 import org.koin.core.context.stopKoin
 import org.koin.core.module.dsl.viewModel
+import org.koin.dsl.koinConfiguration
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 
@@ -39,7 +40,7 @@ class ProvideRestrictedBookIdsTest {
                 override fun observeBookVisibility(bookId: BookId): Flow<BookVisibility?> = flowOf(null)
             }
         composeRule.setContent {
-            KoinApplication(application = { modules(module { viewModel { RestrictedBooksViewModel(repository) } }) }) {
+            KoinApplication(configuration = koinConfiguration { modules(module { viewModel { RestrictedBooksViewModel(repository) } }) }) {
                 ProvideRestrictedBookIds {
                     Text(LocalRestrictedBookIds.current.sorted().joinToString())
                 }

@@ -36,5 +36,7 @@ class ListenUpAndroidLogProvider : SLF4JServiceProvider {
 
     override fun getRequestedApiVersion(): String = ServiceProvider.REQUESTED_API_VERSION
 
-    override fun initialize() = delegate.initialize()
+    override fun initialize() {
+        delegate.initialize()
+    }
 }

@@ -641,6 +641,7 @@ PlaybackController
 PlaybackDynamics
 PlaybackError
 PlaybackError_SealedType
+PlaybackIntent
 PlaybackIntent_SealedType
 PlaybackManager
 PlaybackMediaItem
@@ -765,6 +766,7 @@ SeriesGroup
 SeriesHierarchy
 SeriesId
 SeriesLineage
+SeriesNavigation
 SeriesNavigationDetector
 SeriesNavigation_SealedType
 SeriesProgress

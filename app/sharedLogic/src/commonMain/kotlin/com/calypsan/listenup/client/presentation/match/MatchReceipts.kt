@@ -96,9 +96,9 @@ class MatchReceiptViewModel internal constructor(
                 }
 
                 is Outcome.Idle, is Outcome.Undoing, is Outcome.UndoFailed -> {
-                    receipts[subjectId]?.let {
+                    receipts[subjectId]?.let { receipt ->
                         MatchReceiptUiState.Shown(
-                            receipt = it.toUi(),
+                            receipt = receipt.toUi(),
                             undoing = outcome is Outcome.Undoing,
                             undoError = (outcome as? Outcome.UndoFailed)?.error,
                         )

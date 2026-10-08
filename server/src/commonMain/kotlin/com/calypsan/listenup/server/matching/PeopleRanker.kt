@@ -31,9 +31,9 @@ internal object PeopleRanker {
         val unidentified = subject.books.filterNot { it.isIdentified() }
         val ranked =
             people
-                .filter {
-                    it.viaLink || it.foundByName ||
-                        ContributorHitRanker.nameSimilarity(it.name, subject.name) >= CO_CREDIT_NAME_SIMILARITY
+                .filter { person ->
+                    person.viaLink || person.foundByName ||
+                        ContributorHitRanker.nameSimilarity(person.name, subject.name) >= CO_CREDIT_NAME_SIMILARITY
                 }.map { person ->
                     val byTitle =
                         unidentified
@@ -42,11 +42,11 @@ internal object PeopleRanker {
                     val books = person.creditedBookIds + byTitle
                     val tier = if (person.viaLink || books.isNotEmpty()) MatchTier.STRONG else MatchTier.MAYBE
                     Ranked(
-                        person,
-                        books.size,
-                        creditsOn(subject, books),
-                        tier,
-                        ContributorHitRanker.nameSimilarity(person.name, subject.name),
+                        person = person,
+                        libraryCount = books.size,
+                        libraryCredits = creditsOn(subject, books),
+                        tier = tier,
+                        similarity = ContributorHitRanker.nameSimilarity(person.name, subject.name),
                     ) to listOfNotNull(PersonReason.NoBooksInLibrary.takeIf { books.isEmpty() })
                 }.sortedWith(
                     compareBy<Pair<Ranked, List<PersonReason>>> { it.first.tier.ordinal }
@@ -87,7 +87,7 @@ internal object PeopleRanker {
             .map { (role, count) -> LibraryCredit(role, count) }
             .sortedWith(compareByDescending<LibraryCredit> { it.bookCount }.thenBy { it.role.ordinal })
 
-    private class Ranked(
+    private data class Ranked(
         val person: MergedPerson,
         val libraryCount: Int,
         val libraryCredits: List<LibraryCredit>,

@@ -9,7 +9,10 @@ package com.calypsan.listenup.server.compression
  * three length-limited Huffman code tables (literal/length, distance, code-length), run-length
  * encodes the code-length table, and reports the exact bit cost; [emitDynamicBlock] then replays
  * that plan onto a [BitWriter].
+ *
+ * Holds IntArrays: data-class equality would compare them by identity (and trips ArrayInDataClass).
  */
+@Suppress("UseDataClass")
 internal class DynamicBlockPlan(
     val litlenLengths: IntArray,
     val distLengths: IntArray,
@@ -54,8 +57,8 @@ internal fun planDynamicBlock(tokens: IntArray): DynamicBlockPlan {
 
     // Code lengths form one sequence (litlen then dist); repeats may cross the boundary (RFC §3.2.7).
     val combined = IntArray(numLitLen + numDist)
-    litlenLengths.copyInto(combined, 0, 0, numLitLen)
-    distLengths.copyInto(combined, numLitLen, 0, numDist)
+    litlenLengths.copyInto(destination = combined, destinationOffset = 0, startIndex = 0, endIndex = numLitLen)
+    distLengths.copyInto(destination = combined, destinationOffset = numLitLen, startIndex = 0, endIndex = numDist)
     val (rleSymbols, rleExtras) = runLengthEncode(combined)
 
     val codeLengthFreq = IntArray(CODE_LENGTH_SYMBOLS)
@@ -64,7 +67,14 @@ internal fun planDynamicBlock(tokens: IntArray): DynamicBlockPlan {
     val numCodeLength = trimmedCodeLengthCount(codeLengthLengths)
 
     val totalBits =
-        dynamicBitCost(tokens, litlenLengths, distLengths, codeLengthLengths, rleSymbols, numCodeLength)
+        dynamicBitCost(
+            tokens = tokens,
+            litlenLengths = litlenLengths,
+            distLengths = distLengths,
+            codeLengthLengths = codeLengthLengths,
+            rleSymbols = rleSymbols,
+            numCodeLength = numCodeLength,
+        )
 
     return DynamicBlockPlan(
         litlenLengths = litlenLengths,

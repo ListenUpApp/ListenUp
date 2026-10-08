@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin.collections
 
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetState
 import listenup.composeapp.generated.resources.common_remove_name
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.IconButton
@@ -48,7 +50,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -63,7 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
@@ -163,7 +164,11 @@ fun AdminCollectionDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState =
+        rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        )
 
     var bookToRemove by remember { mutableStateOf<CollectionBookItem?>(null) }
     var shareToRemove by remember { mutableStateOf<CollectionShareItem?>(null) }
@@ -173,8 +178,8 @@ fun AdminCollectionDetailScreen(
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = ready?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it)
+        readyError?.let { message ->
+            snackbarHostState.showSnackbar(message)
             viewModel.clearError()
         }
     }
@@ -188,7 +193,7 @@ fun AdminCollectionDetailScreen(
         }
     }
 
-    val isWide = currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(TwoPaneMinWidth.value.toInt())
+    val isWide = currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(TwoPaneMinWidth.value.toInt())
 
     ListenUpScaffold(
         modifier = modifier,
@@ -785,7 +790,7 @@ private fun MemberRow(
         .observeProfile(share.userId)
         .collectAsStateWithLifecycle(initialValue = null)
 
-    val memberName = profile?.displayName?.ifBlank { null } ?: share.userId
+    val memberName = profile?.run { displayName.ifBlank { null } } ?: share.userId
     SettingRow(
         title = memberName,
         subtitle = share.permission,
@@ -934,7 +939,11 @@ private fun AddBooksToCollectionSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState =
+            rememberBottomSheetState(
+                initialValue = SheetValue.Hidden,
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+            ),
         shape = MaterialTheme.shapes.large,
     ) {
         Column(

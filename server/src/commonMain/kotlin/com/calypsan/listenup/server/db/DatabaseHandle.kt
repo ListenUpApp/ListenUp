@@ -23,10 +23,14 @@ class DatabaseHandle(
     }
 
     /** Hard-closes the repos' SQLDelight driver before the db file is swapped. Pair with [reopenPool]. */
-    fun closePool() = sqlDriver.closeUnderlying()
+    fun closePool() {
+        sqlDriver.closeUnderlying()
+    }
 
     /** Rebuilds the SQLDelight driver on the (possibly just-swapped) db file; driver identity preserved. */
-    fun reopenPool() = sqlDriver.installUnderlying(DriverFactory().createDriver(dbPath))
+    fun reopenPool() {
+        sqlDriver.installUnderlying(DriverFactory().createDriver(dbPath))
+    }
 
     /** Runs migrations forward against the current db file. Returns the post-migration version. */
     fun migrate(): String? = MigrationRunner(dbPath).migrate()

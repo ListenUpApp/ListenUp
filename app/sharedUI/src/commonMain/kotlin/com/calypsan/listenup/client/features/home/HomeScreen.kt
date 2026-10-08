@@ -20,7 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -99,7 +99,7 @@ fun HomeScreen(
         viewModel.snackbarMessages.collect { snackbarHostState.showSnackbar(it) }
     }
 
-    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     val isWide =
         windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
@@ -110,7 +110,7 @@ fun HomeScreen(
         containerColor = Color.Transparent,
         // The shell owns the system-bar/nav insets and passes them in as [contentPadding]; this
         // inner Scaffold must not re-add them, or the top/bottom would be inset twice.
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         modifier = modifier.fillMaxSize(),
     ) { paddingValues ->
         when (val s = state) {

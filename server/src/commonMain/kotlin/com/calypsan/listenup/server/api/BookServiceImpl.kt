@@ -45,7 +45,6 @@ import com.calypsan.listenup.server.services.contributorDedupKey
 import com.calypsan.listenup.server.services.normalizeForDedup
 import kotlinx.coroutines.withContext
 
-private const val MAX_SEARCH_LIMIT = 200
 private const val MAX_CONTRIBUTORS_PER_BOOK = 200
 private const val MAX_SERIES_PER_BOOK = 200
 private const val MAX_GENRES_PER_BOOK = 200
@@ -107,7 +106,7 @@ internal class BookServiceImpl(
     private val bookDeleter: BookDeleter? = null,
 ) : BookService {
     /** The signed-in editor's user id, recorded on every hand-edit stamp; null only for an unbound principal. */
-    private fun editorId(): String? = principal.current()?.userId?.value
+    private fun editorId(): String? = principal.current()?.run { userId.value }
 
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val p =
@@ -313,14 +312,14 @@ internal class BookServiceImpl(
         val current = repo.findById(id) ?: return bookNotFound(id)
         validateChapterSet(chapters, current.totalDuration)?.let { return AppResult.Failure(it) }
         val payloadChapters =
-            chapters.map {
+            chapters.map { chapter ->
                 BookChapterPayload(
-                    id = it.id,
-                    title = it.title,
-                    duration = it.duration,
-                    startTime = it.startTime,
-                    partTitle = it.partTitle,
-                    bookTitle = it.bookTitle,
+                    id = chapter.id,
+                    title = chapter.title,
+                    duration = chapter.duration,
+                    startTime = chapter.startTime,
+                    partTitle = chapter.partTitle,
+                    bookTitle = chapter.bookTitle,
                 )
             }
         return when (
@@ -526,10 +525,10 @@ internal class BookServiceImpl(
         // stored.path lives under homeDir/covers/<bookId>.<ext>; the repo stores covers/<filename>.
         val relPath = "covers/${stored.path.name}"
         return repo.setManagedCover(
-            id,
-            relPath,
-            stored.sha256,
-            CoverSource.UPLOADED,
+            id = id,
+            relPath = relPath,
+            hash = stored.sha256,
+            source = CoverSource.UPLOADED,
             provenance = FieldProvenance(FieldSourceKind.USER, at = currentEpochMilliseconds(), by = editorId()),
         )
     }
@@ -540,11 +539,11 @@ internal class BookServiceImpl(
         // Read the payload first to determine the cover source (authoritative) and
         // whether the cover is managed (UPLOADED/ENRICHED) or filesystem-side.
         val current = repo.findById(id) ?: return bookNotFound(id)
-        if (current.cover == null) {
-            return AppResult.Failure(CoverError.NotPresent(debugInfo = "bookId=${id.value}"))
-        }
+        val currentCover =
+            current.cover
+                ?: return AppResult.Failure(CoverError.NotPresent(debugInfo = "bookId=${id.value}"))
 
-        val coverSource = current.cover!!.source
+        val coverSource = currentCover.source
         // Managed covers live in $LISTENUP_HOME/covers/ — determined by cover source,
         // not by whether coverInfo() resolves (which depends on homeDir being configured).
         val isManagedCover = coverSource == CoverSource.UPLOADED || coverSource == CoverSource.ENRICHED
@@ -561,7 +560,7 @@ internal class BookServiceImpl(
         // `covers/<bookId>-<sha>.<ext>` (decision D1) — resolved before the row forgets it.
         val managedKey =
             if (isManagedCover) {
-                (repo.coverInfo(id) as? CoverInfo.Managed)?.path?.name?.substringBeforeLast('.')
+                (repo.coverInfo(id) as? CoverInfo.Managed)?.run { path.name.substringBeforeLast('.') }
             } else {
                 null
             }
@@ -595,7 +594,7 @@ internal class BookServiceImpl(
             // Remove the managed file the row named from $LISTENUP_HOME/covers/ — ImageStore.delete probes
             // all extensions (jpg, png, webp). A file it couldn't resolve is left to the orphan sweep.
             if (managedKey != null) {
-                coverImageStore?.store?.delete(managedKey)
+                coverImageStore?.run { store.delete(managedKey) }
             }
         }
         return result
@@ -621,15 +620,15 @@ fun createBookService(
         PrincipalProvider { error("Unscoped BookService — call bookServiceScopedTo at the route") },
 ): BookService =
     BookServiceImpl(
-        repo,
-        contributorRepo,
-        seriesRepo,
-        coverStorage,
-        sql,
-        genreRepo,
-        BookAccessPolicy(db = sql, driver = driver),
-        PermissionPolicy(sql),
-        principal,
+        repo = repo,
+        contributorRepo = contributorRepo,
+        seriesRepo = seriesRepo,
+        coverStorage = coverStorage,
+        sql = sql,
+        genreRepo = genreRepo,
+        accessPolicy = BookAccessPolicy(db = sql, driver = driver),
+        permissionPolicy = PermissionPolicy(sql),
+        principal = principal,
     )
 
 /**

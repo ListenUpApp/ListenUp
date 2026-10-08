@@ -46,7 +46,7 @@ private val SEP_20 = Instant.parse("2026-09-20T12:00:00Z").toEpochMilliseconds()
 private val SEP_30 = Instant.parse("2026-09-30T12:00:00Z").toEpochMilliseconds()
 
 /** A connected reader, a matched book, and the fake Hardcover behind it. */
-private class PickedStartRig(
+private data class PickedStartRig(
     val hardcover: FakeHardcoverLibrary,
     val playback: PlaybackService,
 )

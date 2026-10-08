@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.design.motion
 import android.content.Context
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import io.kotest.matchers.shouldBe
 import org.junit.Rule

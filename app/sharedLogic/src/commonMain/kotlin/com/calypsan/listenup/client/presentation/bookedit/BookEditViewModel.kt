@@ -4,7 +4,6 @@ package com.calypsan.listenup.client.presentation.bookedit
 import androidx.lifecycle.ViewModel
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookMetadata
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
@@ -62,7 +61,7 @@ class BookEditViewModel(
     private val bookEditRepository: BookEditRepository,
     userRepository: UserRepository,
     private val inboxRepository: InboxRepository,
-    private val imageStagingRepository: ImageStagingRepository,
+    imageStagingRepository: ImageStagingRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     // Use explicit backing field for mutable state shared with delegates
@@ -172,8 +171,8 @@ class BookEditViewModel(
                         contributorDelegate.setupRoleSearch(role)
                     }
 
-                    state.update {
-                        it.copy(
+                    state.update { editState ->
+                        editState.copy(
                             isLoading = false,
                             coverPath = editData.coverPath,
                             coverHash = editData.coverHash,
@@ -481,8 +480,8 @@ class BookEditViewModel(
                         return@launch
                     }
 
-                    state.update {
-                        it.copy(
+                    state.update { editState ->
+                        editState.copy(
                             isSaving = false,
                             hasChanges = false,
                             pendingCoverData = null,

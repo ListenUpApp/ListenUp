@@ -34,7 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.features.match.MatchReceiptHost
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
@@ -629,7 +628,7 @@ fun BookDetailContent(
     /** Opens a collection from the Visibility card; null (the frozen desktop) shows plain names. */
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
 ) {
-    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
 
     // Two-pane only at EXPANDED width (~840dp+): the wide hero band + About/Credits + Readers/Chapters
     // columns need real room. At medium width (portrait tablets, unfolded-foldable portrait) the
@@ -1071,7 +1070,7 @@ private fun BookDownloadStatus.downloadedOrTotalBytes(): Long =
         is BookDownloadStatus.Completed -> totalBytes
         is BookDownloadStatus.InProgress -> downloadedBytes
         is BookDownloadStatus.Paused -> downloadedBytes
-        else -> 0L
+        is BookDownloadStatus.NotDownloaded, is BookDownloadStatus.Failed -> 0L
     }
 
 /**
@@ -1098,7 +1097,7 @@ fun BookDetailScanWarning(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Default.Warning,
+                imageVector = Icons.Default.Warning,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onErrorContainer,

@@ -87,7 +87,12 @@ suspend fun HardcoverGraphQlClient.searchPeople(
     accessToken: String,
     name: String,
 ): HardcoverCall<List<HardcoverPersonHit>> =
-    fetch(accessToken, PEOPLE_SEARCH_QUERY, buildJsonObject { put("query", name) }, "searchPeople") { body ->
+    fetch(
+        accessToken = accessToken,
+        query = PEOPLE_SEARCH_QUERY,
+        variables = buildJsonObject { put("query", name) },
+        label = "searchPeople",
+    ) { body ->
         hardcoverJson
             .decodeFromString<PeopleSearchResponse>(body)
             .data
@@ -95,9 +100,11 @@ suspend fun HardcoverGraphQlClient.searchPeople(
             ?.results
             ?.hits
             .orEmpty()
+            .asSequence()
             .mapNotNull { it.document.toHit() }
             .filter { it.booksCount > 0 }
             .take(MAX_PEOPLE_HITS)
+            .toList()
     }
 
 /**
@@ -142,7 +149,7 @@ suspend fun HardcoverGraphQlClient.peopleDetails(
             }
             if (bookIds.isNotEmpty()) putJsonArray("books") { bookIds.forEach { add(it) } }
         }
-    return fetch(accessToken, query, variables, "peopleDetails") { body ->
+    return fetch(accessToken = accessToken, query = query, variables = variables, label = "peopleDetails") { body ->
         val data = hardcoverJson.decodeFromString<PeopleDetailsResponse>(body).data
         HardcoverPeopleDetails(
             people = data?.people.orEmpty().map { it.toPerson() },
@@ -252,9 +259,9 @@ internal data class CreditedBookWire(
 )
 
 private fun PeopleSearchDocumentWire.toHit(): HardcoverPersonHit? =
-    id.content.toLongOrNull()?.let {
+    id.content.toLongOrNull()?.let { personId ->
         HardcoverPersonHit(
-            id = it,
+            id = personId,
             name = name.trim(),
             books = books,
             booksCount = booksCount,
@@ -266,7 +273,7 @@ internal fun PersonWire.toPerson(): HardcoverPerson =
     HardcoverPerson(
         id = id,
         name = name.trim(),
-        bio = bio?.trim()?.takeIf { it.isNotEmpty() },
+        bio = bio?.run { trim().takeIf { it.isNotEmpty() } },
         imageUrl = image?.url?.takeIf { it.isNotBlank() },
         booksCount = booksCount,
         narrations = narrations?.aggregate?.count ?: 0,
@@ -278,7 +285,7 @@ private fun List<PersonCreditWire>.toCredits(): List<HardcoverCredit> =
 
 private fun CreditedEditionWire.toCredited(): HardcoverCreditedEdition =
     HardcoverCreditedEdition(
-        asin = asin?.trim()?.takeIf { it.isNotEmpty() },
+        asin = asin?.run { trim().takeIf { it.isNotEmpty() } },
         isbns = listOfNotNull(isbn13, isbn10).map { it.trim() }.filter { it.isNotEmpty() },
         bookId = book?.id,
         credits = (contributions + book?.contributions.orEmpty()).toCredits(),

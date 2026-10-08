@@ -21,6 +21,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.io.IOException
 import kotlinx.io.buffered
+import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
 private val logger = KotlinLogging.logger {}
@@ -83,8 +84,7 @@ internal suspend fun downloadAudioFile(
                 )
             val url = resolved.url
 
-            val destPath = fileManager.getAudioFilePath(bookId, audioFileId, filename, isTemp = false)
-            val tempPath = fileManager.getAudioFilePath(bookId, audioFileId, filename, isTemp = true)
+            val (destPath, tempPath) = fileManager.downloadPaths(bookId, audioFileId, filename)
 
             // Resume support: if a partial tempFile exists, send Range header.
             val startByte =
@@ -211,9 +211,7 @@ internal suspend fun downloadAudioFile(
                                 completedAt = currentEpochMilliseconds(),
                             )
                     ) {
-                        is AppResult.Success -> {
-                            Unit
-                        }
+                        is AppResult.Success -> {}
 
                         is AppResult.Failure -> {
                             logger.error {
@@ -254,3 +252,12 @@ private suspend fun resolveDownloadUrl(
             error("prepare() failed for book=$bookId audioFile=$audioFileId: ${resolved.error.message}")
         }
     }
+
+/** The final destination path and the in-progress temp path (which supports resume) for one audio file. */
+private fun DownloadFileManager.downloadPaths(
+    bookId: String,
+    audioFileId: String,
+    filename: String,
+): Pair<Path, Path> =
+    getAudioFilePath(bookId = bookId, audioFileId = audioFileId, filename = filename, isTemp = false) to
+        getAudioFilePath(bookId = bookId, audioFileId = audioFileId, filename = filename, isTemp = true)

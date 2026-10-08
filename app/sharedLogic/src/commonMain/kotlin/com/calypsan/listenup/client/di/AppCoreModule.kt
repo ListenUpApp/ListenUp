@@ -48,6 +48,8 @@ internal val appCoreModule: Module =
             qualifier =
                 named(APP_SCOPE),
         ) {
+            // This module is the composition root: it is where the app scope's dispatcher is chosen.
+            @Suppress("InjectDispatcher")
             CoroutineScope(
                 SupervisorJob() + Dispatchers.Default + appCoroutineExceptionHandler,
             )

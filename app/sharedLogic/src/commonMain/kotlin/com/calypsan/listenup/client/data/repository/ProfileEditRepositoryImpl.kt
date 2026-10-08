@@ -140,7 +140,7 @@ internal class ProfileEditRepositoryImpl(
         // Password requires immediate server validation — never queue it. A password-bearing
         // change stays fully synchronous online; a pure name/tagline change is offline-first.
         if (password != null) {
-            updateProfileOnline(firstName, lastName, tagline, password)
+            updateProfileOnline(firstName = firstName, lastName = lastName, tagline = tagline, password = password)
         } else {
             updateProfileOffline(firstName, lastName, tagline)
         }
@@ -170,8 +170,8 @@ internal class ProfileEditRepositoryImpl(
             if (firstName != null || lastName != null) {
                 userDao.updateName(
                     userId = user.id.value,
-                    firstName = firstName ?: user.firstName ?: "",
-                    lastName = lastName ?: user.lastName ?: "",
+                    firstName = firstName ?: user.firstName.orEmpty(),
+                    lastName = lastName ?: user.lastName.orEmpty(),
                     displayName = displayName ?: user.displayName,
                     updatedAt = now,
                 )
@@ -208,8 +208,8 @@ internal class ProfileEditRepositoryImpl(
             val displayName = mergedDisplayName(firstName, lastName, user)
 
             channel
-                .call {
-                    it.updateMyProfile(
+                .call { service ->
+                    service.updateMyProfile(
                         UpdateProfileRequest(
                             displayName = displayName,
                             tagline = tagline,
@@ -222,8 +222,8 @@ internal class ProfileEditRepositoryImpl(
                         if (firstName != null || lastName != null) {
                             userDao.updateName(
                                 userId = user.id.value,
-                                firstName = firstName ?: user.firstName ?: "",
-                                lastName = lastName ?: user.lastName ?: "",
+                                firstName = firstName ?: user.firstName.orEmpty(),
+                                lastName = lastName ?: user.lastName.orEmpty(),
                                 displayName = displayName ?: user.displayName,
                                 updatedAt = now,
                             )

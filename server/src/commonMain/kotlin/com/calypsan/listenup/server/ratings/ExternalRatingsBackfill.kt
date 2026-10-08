@@ -104,7 +104,12 @@ internal class ExternalRatingsBackfill(
         val missing = runnable - ratings.attemptedSources(id)
         if (missing.isEmpty()) return
         runCatchingCancellable {
-            fetcher.fetch(BookId(id), ratings.localeFor(id, defaultLocale), refresh = true, sources = missing)
+            fetcher.fetch(
+                bookId = BookId(id),
+                locale = ratings.localeFor(id, defaultLocale),
+                refresh = true,
+                sources = missing,
+            )
         }.onFailure { e ->
             log.warn(e) { "ExternalRatingsBackfill: fetch failed for $id — continuing pass" }
             // fetch() records its own attempts on every normal path, even a fully-failed one (see

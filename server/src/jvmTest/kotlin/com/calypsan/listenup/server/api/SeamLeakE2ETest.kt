@@ -48,16 +48,11 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
-import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -291,8 +286,6 @@ class SeamLeakE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = jsonClient()
-
                     val admin = runSetup()
                     val m2 = registerMember("m2")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
@@ -348,9 +341,7 @@ class SeamLeakE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = jsonClient()
-
-                    val admin = runSetup()
+                    runSetup()
                     val m1 = registerMember("m1")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                     writeAudioFile(libraryRoot, "G")
@@ -525,7 +516,7 @@ private suspend fun io.ktor.server.testing.ApplicationTestBuilder.seedCollection
     return CollectionId(id)
 }
 
-private suspend fun <T> AppResult<T>.requireSuccess(): T {
+private fun <T> AppResult<T>.requireSuccess(): T {
     require(this is AppResult.Success) { "expected Success but got $this" }
     return data
 }

@@ -88,9 +88,22 @@ fun AuthScaffold(
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         BoxWithConstraints {
             if (maxWidth >= TwoPaneMinWidth) {
-                AuthSplitLayout(maxWidth, title, subtitle, badge, onBack, content)
+                AuthSplitLayout(
+                    availableWidth = maxWidth,
+                    title = title,
+                    subtitle = subtitle,
+                    badge = badge,
+                    onBack = onBack,
+                    content = content,
+                )
             } else {
-                AuthHeroLayout(title, subtitle, badge, onBack, content)
+                AuthHeroLayout(
+                    title = title,
+                    subtitle = subtitle,
+                    badge = badge,
+                    onBack = onBack,
+                    content = content,
+                )
             }
         }
     }
@@ -125,7 +138,7 @@ private fun AuthHeroLayout(
             ) {
                 BrandRow(onBack = onBack, onColor = true)
                 Spacer(Modifier.height(30.dp))
-                AuthTitleBlock(title, subtitle, badge, onColor = true)
+                AuthTitleBlock(title = title, subtitle = subtitle, badge = badge, onColor = true)
             }
         }
         // Form — centered + capped so wide single-column windows stay readable.
@@ -203,7 +216,7 @@ private fun AuthSplitLayout(
                     BackButton(onBack)
                     Spacer(Modifier.height(20.dp))
                 }
-                AuthTitleBlock(title, subtitle, badge, onColor = false)
+                AuthTitleBlock(title = title, subtitle = subtitle, badge = badge, onColor = false)
                 Spacer(Modifier.height(28.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(20.dp), content = content)
             }
@@ -357,7 +370,7 @@ fun AuthHelperCard(
     ) {
         Row(modifier = Modifier.padding(Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(
-                icon,
+                imageVector = icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.size(22.dp),

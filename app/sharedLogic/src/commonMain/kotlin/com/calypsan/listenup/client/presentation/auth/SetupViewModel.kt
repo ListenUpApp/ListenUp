@@ -63,7 +63,7 @@ class SetupViewModel(
 
         viewModelScope.launch {
             state.value = SetupUiState.Loading
-            val result = setupUseCase(email, password, firstName, lastName)
+            val result = setupUseCase(email = email, password = password, firstName = firstName, lastName = lastName)
             state.value =
                 when (result) {
                     is AppResult.Success -> SetupUiState.Success

@@ -94,7 +94,12 @@ internal fun PersonFindPane(
                 item(key = "library") {
                     LibraryStrip(
                         library = library,
-                        steps = results?.let { found -> name?.let { personStepsLine(found.steps, it) } },
+                        steps =
+                            if (results != null && name != null) {
+                                personStepsLine(results.steps, name)
+                            } else {
+                                null
+                            },
                     )
                 }
             }
@@ -149,9 +154,9 @@ private fun LibraryStrip(
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(library.sentence(), style = MaterialTheme.typography.bodyMedium)
-                steps?.let {
+                steps?.let { stepsText ->
                     Text(
-                        text = it,
+                        text = stepsText,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

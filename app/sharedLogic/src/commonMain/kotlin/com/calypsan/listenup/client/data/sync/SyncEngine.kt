@@ -20,14 +20,12 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.onSubscription
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -118,7 +116,8 @@ internal class SyncEngine(
     // The post-drain targeted-reconcile pair (reconcile-on-drain + DRIFT-1 heal). Shares [catchUpMutex]
     // so its by-id fetches serialize with every other cursor-advancing pull; both its passes run only
     // after queue.drain() returns, never under the drain mutex (no lock-order inversion).
-    private val drainReconciler = DrainReconciler(queue, registry, catchUp, catchUpMutex)
+    private val drainReconciler =
+        DrainReconciler(queue = queue, registry = registry, catchUp = catchUp, catchUpMutex = catchUpMutex)
 
     // Serializes the start/stop handshake so concurrent re-entries (e.g.
     // MainActivity.onResume firing twice in quick succession → two
@@ -1218,9 +1217,9 @@ private sealed interface PendingAccessChange {
 private object AlwaysOnlineNetworkMonitor : NetworkMonitor {
     override fun isOnline(): Boolean = true
 
-    override val isOnlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val onlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
 
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 }
 
 /**

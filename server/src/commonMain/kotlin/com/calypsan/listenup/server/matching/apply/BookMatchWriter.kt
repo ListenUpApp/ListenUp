@@ -51,10 +51,13 @@ internal class BookMatchWriter(
             val revision = books.revisionInTransaction(bookId)
             if (revision == null || (basedOnRevision != null && revision != basedOnRevision)) {
                 return@suspendTransaction AppResult.Failure(
-                    MetadataError.ReviewOutdated(debugInfo = "book $bookId is at $revision, not $basedOnRevision"),
+                    MetadataError.ReviewOutdated(
+                        debugInfo = "book $bookId is at ${revision ?: "no revision"}, not ${basedOnRevision ?: "any"}",
+                    ),
                 )
             }
-            val before = books.readPayloadInTransaction(bookId)!!
+            val before =
+                checkNotNull(books.readPayloadInTransaction(bookId)) { "book $bookId has a revision but no payload" }
             val cover = db.booksQueries.selectCoverColumnsById(bookId).executeAsOne()
             val snapshot =
                 BookMatchSnapshot(
@@ -66,10 +69,32 @@ internal class BookMatchWriter(
                 )
             // Mood links take their revisions first, so the book's — taken last — is the highest this commit
             // emits, and frames go out in revision order.
-            plan.moodsToUnlink.forEach { moods.unlinkInTransaction(this, bookId, it, suppressed, capture) }
-            plan.moodsToLink.forEach { moods.linkInTransaction(this, bookId, it, suppressed, capture) }
+            plan.moodsToUnlink.forEach { moodId ->
+                moods.unlinkInTransaction(
+                    tx = this,
+                    bookId = bookId,
+                    moodId = moodId,
+                    suppressed = suppressed,
+                    capture = capture,
+                )
+            }
+            plan.moodsToLink.forEach { moodId ->
+                moods.linkInTransaction(
+                    tx = this,
+                    bookId = bookId,
+                    moodId = moodId,
+                    suppressed = suppressed,
+                    capture = capture,
+                )
+            }
             val revisionAfter = books.allocateRevision()
-            val receipt = MatchReceipt(Uuid.random().toString(), now(), plan.changes, undoable = true)
+            val receipt =
+                MatchReceipt(
+                    receiptId = Uuid.random().toString(),
+                    appliedAt = now(),
+                    changes = plan.changes,
+                    undoable = true,
+                )
             receipts.replaceLiveInTransaction(
                 MatchReceiptRow(
                     id = receipt.receiptId,

@@ -138,9 +138,9 @@ class GenreMergeUndoTest :
 
                     result.shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>().data shouldBe
                         MergeUndoResult("g-s", booksRestored = 2, booksSkipped = 0, restoredAtTopLevel = false)
-                    f.genres.findById("g-s").shouldNotBeNull().let {
-                        it.deletedAt.shouldBeNull()
-                        it.path shouldBe "/space-opera"
+                    f.genres.findById("g-s").shouldNotBeNull().let { genre ->
+                        genre.deletedAt.shouldBeNull()
+                        genre.path shouldBe "/space-opera"
                     }
                     sql.genreIdsOf("book1") shouldBe listOf("g-s")
                     sql.genreIdsOf("book2") shouldContainExactlyInAnyOrder listOf("g-s", "g-t")
@@ -223,10 +223,10 @@ class GenreMergeUndoTest :
                     val result = f.service.undoGenreMerge(f.onlyReceiptInto("g-t"))
 
                     result.shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>().data.restoredAtTopLevel shouldBe true
-                    f.genres.findById("g-s").shouldNotBeNull().let {
-                        it.parentId.shouldBeNull()
-                        it.path shouldBe "/space-opera"
-                        it.depth shouldBe 0
+                    f.genres.findById("g-s").shouldNotBeNull().let { genre ->
+                        genre.parentId.shouldBeNull()
+                        genre.path shouldBe "/space-opera"
+                        genre.depth shouldBe 0
                     }
                 }
             }
@@ -248,10 +248,10 @@ class GenreMergeUndoTest :
                         .shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
                         .data.restoredAtTopLevel shouldBe false
 
-                    f.genres.findById("g-s").shouldNotBeNull().let {
-                        it.parentId shouldBe "g-p"
-                        it.path shouldBe "/speculative/fiction/space-opera"
-                        it.depth shouldBe 2
+                    f.genres.findById("g-s").shouldNotBeNull().let { genre ->
+                        genre.parentId shouldBe "g-p"
+                        genre.path shouldBe "/speculative/fiction/space-opera"
+                        genre.depth shouldBe 2
                     }
                 }
             }

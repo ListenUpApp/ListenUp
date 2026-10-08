@@ -79,12 +79,9 @@ class BookEditRepositoryOfflineTest :
                     val book = db.bookDao().getById(bookId)
                     book?.title shouldBe "New Title"
                     book?.description shouldBe "New Desc"
-                    book?.fieldProvenance?.keys shouldBe setOf(BookField.TITLE, BookField.DESCRIPTION)
+                    book?.run { fieldProvenance.keys } shouldBe setOf(BookField.TITLE, BookField.DESCRIPTION)
                     book
-                        ?.fieldProvenance
-                        ?.values
-                        ?.map { it.kind }
-                        ?.toSet() shouldBe setOf(FieldSourceKind.USER)
+                        ?.run { fieldProvenance.values.map { it.kind }.toSet() } shouldBe setOf(FieldSourceKind.USER)
 
                     val op = db.singleQueuedBooksOp()
                     val mutation = op.decodeMutation()
@@ -134,8 +131,7 @@ class BookEditRepositoryOfflineTest :
                     db
                         .bookDao()
                         .getByIdWithContributors(bookId)
-                        ?.series
-                        ?.map { it.id.value } shouldContainExactly
+                        ?.run { this.series.map { it.id.value } } shouldContainExactly
                         listOf("s1")
                     db.singleQueuedBooksOp().decodeMutation().shouldBeInstanceOf<BookMutation.SetSeries>()
                 } finally {

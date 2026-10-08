@@ -15,14 +15,15 @@ import kotlinx.io.files.Path
  * `404 Not Found` when the file is missing. The caller sets any `Content-Disposition` / `ETag` /
  * `Last-Modified` headers before calling — exactly as the `respondFile` call sites do today.
  */
-internal suspend fun ApplicationCall.respondSeekable(
+internal suspend fun respondSeekable(
+    call: ApplicationCall,
     path: Path,
     contentType: ContentType,
 ) {
     val size = statFile(path)?.size
     if (size == null) {
-        respond(HttpStatusCode.NotFound)
+        call.respond(HttpStatusCode.NotFound)
         return
     }
-    respond(SeekableSourceContent(size, contentType) { openSeekableSource(path) })
+    call.respond(SeekableSourceContent(size, contentType) { openSeekableSource(path) })
 }

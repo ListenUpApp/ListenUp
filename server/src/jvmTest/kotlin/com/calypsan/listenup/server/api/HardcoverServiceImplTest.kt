@@ -12,7 +12,6 @@ import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.hardcover.HARDCOVER_SCOPES

@@ -106,10 +106,10 @@ class DownloadManager internal constructor(
         // in-flight progress. Mirrors the iOS AppleDownloadService skip-set.
         val activeIds =
             existing
-                .filter {
-                    it.state == DownloadState.COMPLETED ||
-                        it.state == DownloadState.DOWNLOADING ||
-                        it.state == DownloadState.QUEUED
+                .filter { download ->
+                    download.state == DownloadState.COMPLETED ||
+                        download.state == DownloadState.DOWNLOADING ||
+                        download.state == DownloadState.QUEUED
                 }.map { it.audioFileId }
                 .toSet()
 

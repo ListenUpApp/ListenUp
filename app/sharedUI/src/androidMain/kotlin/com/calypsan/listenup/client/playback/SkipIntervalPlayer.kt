@@ -43,9 +43,13 @@ class SkipIntervalPlayer(
 
     override fun getSeekForwardIncrement(): Long = forwardMs()
 
-    override fun seekBack() = seekToOffset(-backwardMs())
+    override fun seekBack() {
+        seekToOffset(-backwardMs())
+    }
 
-    override fun seekForward() = seekToOffset(forwardMs())
+    override fun seekForward() {
+        seekToOffset(forwardMs())
+    }
 
     /** `BasePlayer.seekToOffset`, re-expressed over the configured increment. */
     private fun seekToOffset(offsetMs: Long) {

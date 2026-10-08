@@ -135,16 +135,24 @@ internal class PasswordResetRepositoryImpl(
             val claim =
                 secureStorage.read(CLAIM_KEY)
                     ?: return AppResult.Failure(AuthError.ResetRequestNotFound())
-            channel.call { it.completePasswordReset(ticketId, claim, code, newPassword) }.also { result ->
-                // Only a SUCCESS clears the retained state. On failure — including a simply-wrong
-                // code — both keys are deliberately left in place so a retry with the correct code
-                // can still complete; clearing unconditionally here would strand the user exactly
-                // like the bug this file's requestReset fix addresses.
-                if (result is AppResult.Success) {
-                    secureStorage.delete(CLAIM_KEY)
-                    secureStorage.delete(TICKET_KEY)
+            channel
+                .call { service ->
+                    service.completePasswordReset(
+                        ticketId = ticketId,
+                        claimSecret = claim,
+                        code = code,
+                        newPassword = newPassword,
+                    )
+                }.also { result ->
+                    // Only a SUCCESS clears the retained state. On failure — including a simply-wrong
+                    // code — both keys are deliberately left in place so a retry with the correct code
+                    // can still complete; clearing unconditionally here would strand the user exactly
+                    // like the bug this file's requestReset fix addresses.
+                    if (result is AppResult.Success) {
+                        secureStorage.delete(CLAIM_KEY)
+                        secureStorage.delete(TICKET_KEY)
+                    }
                 }
-            }
         }
 
     override suspend fun resetRootPassword(

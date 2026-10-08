@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.features.admin
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AccessLabel
@@ -26,6 +26,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
 import org.koin.core.context.stopKoin
+import org.koin.dsl.koinConfiguration
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 
@@ -68,15 +69,16 @@ class AdminUserRowTest {
                 everySuspend { downloadUserAvatar(any(), any()) } returns AppResult.Success(false)
             }
         KoinApplication(
-            application = {
-                modules(
-                    module {
-                        single { profiles }
-                        single { storage }
-                        single { images }
-                    },
-                )
-            },
+            configuration =
+                koinConfiguration {
+                    modules(
+                        module {
+                            single { profiles }
+                            single { storage }
+                            single { images }
+                        },
+                    )
+                },
         ) {
             MaterialTheme { content() }
         }

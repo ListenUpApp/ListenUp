@@ -3,20 +3,20 @@ package com.calypsan.listenup.client.voice
 /**
  * Result of series navigation detection.
  */
-sealed class SeriesNavigation {
+sealed interface SeriesNavigation {
     /** Play the next book in the current series */
-    data object Next : SeriesNavigation()
+    data object Next : SeriesNavigation
 
     /** Play the first book in the current series */
-    data object First : SeriesNavigation()
+    data object First : SeriesNavigation
 
     /** Play a specific book by sequence number (e.g., "book 2", "1.5") */
     data class BySequence(
         val sequence: String,
-    ) : SeriesNavigation()
+    ) : SeriesNavigation
 
     /** Query is not a series navigation request */
-    data object NotSeriesNavigation : SeriesNavigation()
+    data object NotSeriesNavigation : SeriesNavigation
 }
 
 /**
@@ -90,12 +90,12 @@ object SeriesNavigationDetector {
         }
 
         // Check for word sequence (e.g., "second book")
-        WORD_SEQUENCE_REGEX.find(normalized)?.let { match ->
-            val word = match.groupValues[1].lowercase()
-            WORD_TO_NUMBER[word]?.let { number ->
-                return SeriesNavigation.BySequence(number)
+        val wordNumber =
+            WORD_SEQUENCE_REGEX.find(normalized)?.let { match ->
+                val word = match.groupValues[1].lowercase()
+                WORD_TO_NUMBER[word]
             }
-        }
+        if (wordNumber != null) return SeriesNavigation.BySequence(wordNumber)
 
         return SeriesNavigation.NotSeriesNavigation
     }

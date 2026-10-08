@@ -60,7 +60,11 @@ private const val FTS_LIVE_REFRESH_DEBOUNCE_MS = 1_000L
  * [com.calypsan.listenup.client.data.local.db.ListeningEventEntity]. Subsequent calls
  * (sync triggers, reconnects) skip recovery — the tentative_span table is a singleton and
  * will be empty after the first successful recovery.
+ *
+ * LongParameterList suppressed: thirteen unrelated collaborators (engine, auth, scanner RPC, three DAOs, FTS, covers…); a parameter
+ * object would only bag them, the precedent PlaybackManagerImpl and PlaybackPreparer document.
  */
+@Suppress("LongParameterList")
 internal class SyncRepositoryImpl(
     private val syncEngine: SyncEngine,
     // Re-resolve the reachable server URL (LAN-first, mDNS relocate) — wired to
@@ -130,7 +134,7 @@ internal class SyncRepositoryImpl(
                 initialValue = SyncState.Idle,
             )
 
-    override val isServerScanning: StateFlow<Boolean>
+    override val serverScanning: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     override val scanProgress: StateFlow<ScanProgressState?>
@@ -143,9 +147,9 @@ internal class SyncRepositoryImpl(
      * (synced into [LibraryDao.observeHasIncompleteInitialScan]) or any book lands, it clears — so a
      * rescan of a populated library, or a fresh device joining an existing one, never re-shows it.
      */
-    override val isBuildingInitialLibrary: StateFlow<Boolean> =
+    override val buildingInitialLibrary: StateFlow<Boolean> =
         combine(
-            isServerScanning,
+            serverScanning,
             libraryDao.observeHasIncompleteInitialScan(),
             bookDao.observeIsEmpty(),
         ) { scanning, hasIncompleteInitialScan, isEmpty ->
@@ -341,7 +345,7 @@ internal class SyncRepositoryImpl(
      *
      * The live firehose tail that delivers scanned books is best-effort (the server's change bus
      * drops events under a large-scan burst), so a freshly-scanned library can finish with the
-     * client still missing rows. This observer drives the [isServerScanning]/[scanProgress] UI
+     * client still missing rows. This observer drives the [serverScanning]/[scanProgress] UI
      * state from the scan event stream and, on [ScanEvent.Completed], forces a catch-up
      * reconcile ([SyncEngine.handleCursorStale]) so every scanned book lands in Room — no app
      * restart required. Runs on the long-lived [scope]; failures are logged and the stream is
@@ -428,14 +432,14 @@ internal class SyncRepositoryImpl(
             awaitServerConnected(syncEngineState.observe())
             collectScanProgressUntilStreamEnds()
             recoverFromScanStreamEnd(
-                isScanning = { isServerScanning.value },
+                isScanning = { serverScanning.value },
                 confirmScanFinished = { isInitialScanFinishedOnServer() },
                 reconcile = {
                     val watermark = snapshotSearchWatermark()
                     syncEngine.handleCursorStale()
                     refreshSearchIndex(watermark)
                 },
-                setScanning = { isServerScanning.value = it },
+                setScanning = { serverScanning.value = it },
                 setProgress = { scanProgress.value = it },
             )
             delay(SCAN_STREAM_RESUBSCRIBE_DELAY_MS)
@@ -456,8 +460,8 @@ internal class SyncRepositoryImpl(
                         // never re-reading the flag, so the independent library-Updated (firehose) and
                         // scanner-Completed (RPC) streams can't strand each other on ordering.
                         initialScanComplete = { libraryDao.initialScanCompletedAt() != null },
-                        isGateArmed = { isServerScanning.value },
-                        setScanning = { isServerScanning.value = it },
+                        isGateArmed = { serverScanning.value },
+                        setScanning = { serverScanning.value = it },
                         setProgress = { scanProgress.value = it },
                         // Awaited, not fire-and-forget: the initial populating gate must stay up
                         // until this reconcile actually lands the books in Room (see applyScanEvent).
@@ -503,7 +507,7 @@ internal class SyncRepositoryImpl(
 
     /** Never-stranded reset: a dropped progress stream must not leave the shell blocked. */
     private suspend fun resetScanObserver() {
-        isServerScanning.value = false
+        serverScanning.value = false
         scanProgress.value = null
         scanObserverMutex.withLock { scanObserverStarted = false }
     }
@@ -528,8 +532,8 @@ internal suspend fun awaitServerConnected(snapshots: Flow<EngineSnapshot>) {
  * live tail may have dropped during the scan burst. Extracted as a top-level function so it is
  * testable without mocking the final [SyncEngine]: tests drive it with recording lambdas.
  *
- * **Initial-population semantics.** `isServerScanning` re-armed by a scan feeds the
- * server-authoritative [SyncRepository.isBuildingInitialLibrary] gate the navigation layer reads. It
+ * **Initial-population semantics.** `serverScanning` re-armed by a scan feeds the
+ * server-authoritative [SyncRepository.buildingInitialLibrary] gate the navigation layer reads. It
  * must reflect **only the initial population**. A later watcher-driven incremental scan emits its own
  * `Started`/`Progress` (a fresh `correlationId`) — if those re-armed the flag they would slam the
  * populating screen back over an already-usable library. So Started/Progress arm the flag only while
@@ -539,7 +543,7 @@ internal suspend fun awaitServerConnected(snapshots: Flow<EngineSnapshot>) {
  * **Completed drives off [isGateArmed], not the flag.** The library `Updated` that stamps the flag
  * (firehose) and this scanner `Completed` (RPC) are independent streams with independent ordering, so
  * reading the flag at Completed time would race. Instead Completed acts iff THIS run armed the gate
- * ([isGateArmed] — did Started/Progress set `isServerScanning`?). That is immune to when the flag lands.
+ * ([isGateArmed] — did Started/Progress set `serverScanning`?). That is immune to when the flag lands.
  *
  * **Completed ≠ ready.** `ScanEvent.Completed` means the *server* persisted the books, not that the
  * *client's* Room reflects them — the catch-up [reconcile] still has to pull them in. So on the
@@ -686,7 +690,7 @@ internal fun scanResultHasChanges(result: ScanResultSummary): Boolean =
  * Never-stranded recovery for the initial-population gate when the scan-progress stream terminates
  * (drops with an error OR completes) before delivering [ScanEvent.Completed]. That terminal event
  * rides a `replay = 0` bus (see `ScannerServiceImpl.observeProgress`), so a subscription that drops
- * or silently re-establishes mid-scan can miss it — which would hold `isServerScanning` up forever and
+ * or silently re-establishes mid-scan can miss it — which would hold `serverScanning` up forever and
  * strand the user on the "Building your library" screen.
  *
  * **Confirm-then-clear.** Only acts while the local gate is still armed ([isScanning]). It confirms the

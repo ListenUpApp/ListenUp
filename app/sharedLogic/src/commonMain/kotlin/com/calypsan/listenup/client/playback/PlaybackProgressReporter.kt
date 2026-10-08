@@ -79,7 +79,12 @@ class PlaybackProgressReporter(
         speed: Float,
         durationMs: Long,
     ) {
-        progressTracker.onPlaybackStarted(bookId, positionMs, speed, durationMs)
+        progressTracker.onPlaybackStarted(
+            bookId = bookId,
+            positionMs = positionMs,
+            speed = speed,
+            durationMs = durationMs,
+        )
         record { it.onPlay(bookId.value, positionMs, speed) }
     }
 
@@ -93,7 +98,12 @@ class PlaybackProgressReporter(
         speed: Float,
         durationMs: Long,
     ) {
-        progressTracker.onPlaybackPaused(bookId, positionMs, speed, durationMs)
+        progressTracker.onPlaybackPaused(
+            bookId = bookId,
+            positionMs = positionMs,
+            speed = speed,
+            durationMs = durationMs,
+        )
         record { it.onPause(positionMs) }
     }
 
@@ -129,35 +139,45 @@ class PlaybackProgressReporter(
         bookId: BookId,
         positionMs: Long,
         newSpeed: Float,
-    ) = progressTracker.onSpeedChanged(bookId, positionMs, newSpeed)
+    ) {
+        progressTracker.onSpeedChanged(bookId, positionMs, newSpeed)
+    }
 
     /** User reset this book's speed to the universal default. Not span-split (see class KDoc). */
     fun onSpeedReset(
         bookId: BookId,
         positionMs: Long,
         defaultSpeed: Float,
-    ) = progressTracker.onSpeedReset(bookId, positionMs, defaultSpeed)
+    ) {
+        progressTracker.onSpeedReset(bookId, positionMs, defaultSpeed)
+    }
 
     /** User picked a per-book boost. Fire-and-forget; the AppResult folds inside the tracker. */
     fun onVolumeBoostChanged(
         bookId: BookId,
         positionMs: Long,
         newBoostDb: Float,
-    ) = progressTracker.onVolumeBoostChanged(bookId, positionMs, newBoostDb)
+    ) {
+        progressTracker.onVolumeBoostChanged(bookId, positionMs, newBoostDb)
+    }
 
     /** User reset this book to the global default boost. */
     fun onBoostReset(
         bookId: BookId,
         positionMs: Long,
         defaultBoostDb: Float,
-    ) = progressTracker.onBoostReset(bookId, positionMs, defaultBoostDb)
+    ) {
+        progressTracker.onBoostReset(bookId, positionMs, defaultBoostDb)
+    }
 
     /** A refined loudness measurement for this book. Never touches hasCustomBoost. */
     fun onMeasuredGain(
         bookId: BookId,
         positionMs: Long,
         gainDb: Float,
-    ) = progressTracker.onMeasuredGain(bookId, positionMs, gainDb)
+    ) {
+        progressTracker.onMeasuredGain(bookId, positionMs, gainDb)
+    }
 
     /**
      * Playback reports the end of the book. The tracker decides whether the signal is genuine
@@ -244,7 +264,9 @@ class PlaybackProgressReporter(
     suspend fun savePositionNow(
         bookId: BookId,
         positionMs: Long,
-    ) = progressTracker.savePositionNow(bookId, positionMs)
+    ) {
+        progressTracker.savePositionNow(bookId, positionMs)
+    }
 
     /**
      * Launch a recorder action on [scope] when a [recorder] is bound; skip silently otherwise

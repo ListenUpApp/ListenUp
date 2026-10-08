@@ -54,8 +54,7 @@ class PendingGenrePromotionTest :
                     sql.pendingBookGenresQueries
                         .allRows()
                         .executeAsList()
-                        .filter { it.book_id == "book-1" }
-                        .isEmpty() shouldBe true
+                        .none { it.book_id == "book-1" } shouldBe true
                 }
             }
         }

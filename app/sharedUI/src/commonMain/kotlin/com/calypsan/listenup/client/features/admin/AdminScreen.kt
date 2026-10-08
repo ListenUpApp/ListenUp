@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin
 
+import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +27,6 @@ import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.HowToReg
 import androidx.compose.material.icons.outlined.CloudUpload
@@ -67,7 +67,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
@@ -247,15 +247,15 @@ fun AdminScreen(
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminUiState.Ready)?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it)
+        readyError?.let { message ->
+            snackbarHostState.showSnackbar(message)
             viewModel.clearError()
         }
     }
 
     LaunchedEffect(settingsError) {
-        settingsError?.let {
-            snackbarHostState.showSnackbar(it)
+        settingsError?.let { message ->
+            snackbarHostState.showSnackbar(message)
             onClearSettingsError()
         }
     }
@@ -475,7 +475,7 @@ private fun AdminContent(
     modifier: Modifier = Modifier,
 ) {
     val isExpanded =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
@@ -1158,7 +1158,7 @@ private fun PendingUserRow(
     val haptics = LocalHaptics.current
     val name =
         user.displayName
-            ?: "${user.firstName ?: ""} ${user.lastName ?: ""}".trim().ifEmpty { user.email }
+            ?: "${user.firstName.orEmpty()} ${user.lastName.orEmpty()}".trim().ifEmpty { user.email }
     val denyLabel = stringResource(Res.string.common_deny)
     val approveLabel = stringResource(Res.string.common_approve)
     BoxWithConstraints {
@@ -1501,7 +1501,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_organize),
             subtitle = stringResource(Res.string.admin_organize_subtitle),
-            icon = Icons.Outlined.DriveFileMove,
+            icon = Icons.AutoMirrored.Outlined.DriveFileMove,
             onClick = onOrganizeClick,
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,

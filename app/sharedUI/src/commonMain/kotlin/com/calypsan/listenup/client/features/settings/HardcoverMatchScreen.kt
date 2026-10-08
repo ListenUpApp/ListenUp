@@ -223,7 +223,15 @@ internal fun HardcoverMatchContent(
         }
 
         is HardcoverMatchUiState.Ready -> {
-            ReadyContent(state, onQueryChange, onSearch, onSearchFor, onPick, onRemoveMatch, modifier)
+            ReadyContent(
+                state = state,
+                onQueryChange = onQueryChange,
+                onSearch = onSearch,
+                onSearchFor = onSearchFor,
+                onPick = onPick,
+                onRemoveMatch = onRemoveMatch,
+                modifier = modifier,
+            )
         }
     }
 }
@@ -259,16 +267,22 @@ private fun ReadyContent(
                         onClear = { onQueryChange("") },
                     )
                     MatchingLine(state)
-                    state.currentMatch?.let {
+                    state.currentMatch?.let { currentMatch ->
                         CurrentMatch(
-                            it,
+                            current = currentMatch,
                             isRemoving = state.isRemoving,
                             onRemove = onRemoveMatch,
                         )
                     }
                 }
             }
-            searchBody(state, columns, onSearch, onSearchFor, onPick)
+            searchBody(
+                state = state,
+                columns = columns,
+                onSearch = onSearch,
+                onSearchFor = onSearchFor,
+                onPick = onPick,
+            )
         }
     }
 }
@@ -307,12 +321,26 @@ private fun LazyGridScope.searchBody(
                     fullWidth { WeakResultsHint(state.bookAuthors, state.suggestions, onSearchFor) }
                 }
                 groupHeader { GroupHeader(stringResource(Res.string.hardcover_match_results), strong = false) }
-                resultGroup(search.others, columns, strong = false, state.linkingId, enabled, onPick)
+                resultGroup(
+                    rows = search.others,
+                    columns = columns,
+                    strong = false,
+                    linkingId = state.linkingId,
+                    enabled = enabled,
+                    onPick = onPick,
+                )
             } else {
                 groupHeader {
                     GroupHeader(stringResource(Res.string.hardcover_match_by_author, state.bookAuthors), strong = true)
                 }
-                resultGroup(search.byAuthor, columns, strong = true, state.linkingId, enabled, onPick)
+                resultGroup(
+                    rows = search.byAuthor,
+                    columns = columns,
+                    strong = true,
+                    linkingId = state.linkingId,
+                    enabled = enabled,
+                    onPick = onPick,
+                )
                 if (search.others.isNotEmpty()) {
                     groupHeader {
                         GroupHeader(
@@ -320,7 +348,14 @@ private fun LazyGridScope.searchBody(
                             strong = false,
                         )
                     }
-                    resultGroup(search.others, columns, strong = false, state.linkingId, enabled, onPick)
+                    resultGroup(
+                        rows = search.others,
+                        columns = columns,
+                        strong = false,
+                        linkingId = state.linkingId,
+                        enabled = enabled,
+                        onPick = onPick,
+                    )
                 }
             }
         }
@@ -444,9 +479,9 @@ private fun CurrentMatch(
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(current.title.orEmpty(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            byline(current.authors, current.releaseYear)?.let {
+            byline(current.authors, current.releaseYear)?.let { bylineText ->
                 Text(
-                    it,
+                    text = bylineText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -642,13 +677,13 @@ private fun NoResults(
             )
         }
         Text(
-            stringResource(Res.string.hardcover_match_no_results_title),
+            text = stringResource(Res.string.hardcover_match_no_results_title),
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() },
         )
         Text(
-            stringResource(Res.string.hardcover_match_no_results_detail, query),
+            text = stringResource(Res.string.hardcover_match_no_results_detail, query),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -751,7 +786,7 @@ private fun CenteredNote(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text,
+            text = text,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

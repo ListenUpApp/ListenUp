@@ -57,14 +57,11 @@ internal class TeeLogger(
         // 1) Logcat, via the unwrapped backend: the fluent builder's default implementation
         // dispatches back onto the delegate's ordinary level methods, so slf4j-android
         // formats and tags exactly as it did before the tee existed.
-        val builder = delegate.atLevel(level)
-        if (marker != null) builder.addMarker(marker)
-        if (throwable != null) builder.setCause(throwable)
-        if (arguments == null) {
-            builder.log(messagePattern)
-        } else {
-            builder.log(messagePattern, *arguments)
-        }
+        var event = delegate.atLevel(level).setMessage(messagePattern)
+        if (marker != null) event = event.addMarker(marker)
+        if (throwable != null) event = event.setCause(throwable)
+        arguments?.forEach { argument -> event = event.addArgument(argument) }
+        event.log()
 
         // 2) File sink: one pre-formatted line carrying only what the log call itself said.
         LogSinkRegistry.append(

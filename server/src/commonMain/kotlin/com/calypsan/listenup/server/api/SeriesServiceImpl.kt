@@ -21,11 +21,7 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
-import com.calypsan.listenup.server.util.runCatchingCancellable
-import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
-
-private val logger = loggerFor<SeriesServiceImpl>()
 
 /**
  * Thin [SeriesService] implementation.
@@ -91,27 +87,27 @@ internal class SeriesServiceImpl(
     private val hierarchy = SeriesHierarchyWrites(seriesRepo)
     private val mergeReceipts =
         SeriesMergeReceipts(
-            sqlDb,
-            seriesRepo,
-            bookRepo,
-            hierarchy,
-            entityRepo,
-            SeriesMergeReadingOrders(readingOrders, sqlDb),
-            clock,
+            sqlDb = sqlDb,
+            seriesRepo = seriesRepo,
+            bookRepo = bookRepo,
+            hierarchy = hierarchy,
+            entityRepo = entityRepo,
+            readingOrders = SeriesMergeReadingOrders(orders = readingOrders, sqlDb = sqlDb),
+            clock = clock,
         )
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
         SeriesServiceImpl(
-            seriesRepo,
-            bookRepo,
-            sqlDb,
-            accessPolicy,
-            readingOrders,
-            permissionPolicy,
-            principal,
-            clock,
-            entityRepo,
+            seriesRepo = seriesRepo,
+            bookRepo = bookRepo,
+            sqlDb = sqlDb,
+            accessPolicy = accessPolicy,
+            readingOrders = readingOrders,
+            permissionPolicy = permissionPolicy,
+            principal = principal,
+            clock = clock,
+            entityRepo = entityRepo,
         )
 
     /**
@@ -169,7 +165,8 @@ internal class SeriesServiceImpl(
         target: SeriesId,
     ): AppResult<Unit> {
         requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
-        val mergedBy = principal.current()?.userId?.value ?: return AppResult.Failure(AuthError.PermissionDenied())
+        val mergedBy =
+            principal.current()?.run { userId.value } ?: return AppResult.Failure(AuthError.PermissionDenied())
         if (source.value == target.value) {
             return AppResult.Failure(SeriesError.MergeSelfTarget())
         }
@@ -341,7 +338,14 @@ fun createSeriesService(
     sqlDb: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
     readingOrders: ReadingOrderRepository,
-): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, BookAccessPolicy(sqlDb, driver), readingOrders)
+): SeriesService =
+    SeriesServiceImpl(
+        seriesRepo = seriesRepo,
+        bookRepo = bookRepo,
+        sqlDb = sqlDb,
+        accessPolicy = BookAccessPolicy(sqlDb, driver),
+        readingOrders = readingOrders,
+    )
 
 /**
  * Scopes a [SeriesService] built by [createSeriesService] to [principal] for one request.

@@ -261,8 +261,9 @@ class CoverSpoolTest :
             val out = spool.spoolCover("scan1", book)
 
             // Cover is still Embedded — disk write failed so we kept it in memory
-            out.cover.shouldBeInstanceOf<CoverSource.Embedded>()
-            (out.cover as CoverSource.Embedded).artwork.bytes shouldBe originalBytes
+            out.cover
+                .shouldBeInstanceOf<CoverSource.Embedded>()
+                .artwork.bytes shouldBe originalBytes
 
             // Embedded artwork bytes ARE still emptied (heap savings preserved even on failure)
             out.embedded?.artwork shouldNotBe null

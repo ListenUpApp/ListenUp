@@ -14,6 +14,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.io.IOException
+import io.kotest.matchers.nulls.shouldNotBeNull
 
 class Mp3ParserTest :
     FunSpec({
@@ -88,8 +89,9 @@ class Mp3ParserTest :
             require(result is AppResult.Success<EmbeddedAudioMetadata>)
             result.data.artwork?.mime shouldBe "image/png"
             result.data.artwork
-                ?.bytes
-                ?.toList() shouldBe fakePng.toList()
+                .shouldNotBeNull()
+                .bytes
+                .toList() shouldBe fakePng.toList()
         }
 
         test("parse extracts COMM comment frame into tags.custom[COMMENT_KEY]") {

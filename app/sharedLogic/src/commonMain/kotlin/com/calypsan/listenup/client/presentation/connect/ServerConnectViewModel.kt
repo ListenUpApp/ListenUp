@@ -3,9 +3,7 @@ package com.calypsan.listenup.client.presentation.connect
 import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.PlatformUtils
-import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.repository.InstanceRepository

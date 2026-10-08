@@ -92,21 +92,21 @@ private fun eventSnapshot(
     sql.listeningEventsQueries
         .selectForUserOrderedByEndedAt(userId)
         .executeAsList()
-        .map {
+        .map { row ->
             listOf(
-                it.id,
-                it.book_id,
-                it.start_position_ms,
-                it.end_position_ms,
-                it.started_at,
-                it.ended_at,
-                it.playback_speed,
-                it.tz,
-                it.device_label,
-                it.revision,
-                it.created_at,
-                it.updated_at,
-                it.deleted_at,
+                row.id,
+                row.book_id,
+                row.start_position_ms,
+                row.end_position_ms,
+                row.started_at,
+                row.ended_at,
+                row.playback_speed,
+                row.tz,
+                row.device_label,
+                row.revision,
+                row.created_at,
+                row.updated_at,
+                row.deleted_at,
             ).joinToString("|")
         }.sorted()
 

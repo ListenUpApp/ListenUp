@@ -10,7 +10,6 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
-import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.core.TagId
 import dev.mokkery.answering.returns
 import dev.mokkery.every

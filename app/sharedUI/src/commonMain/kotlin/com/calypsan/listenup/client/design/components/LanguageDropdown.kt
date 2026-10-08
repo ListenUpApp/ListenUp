@@ -56,7 +56,7 @@ fun LanguageDropdown(
         if (expanded) {
             filterText
         } else {
-            selectedCode?.let { Language.getDisplayName(it) } ?: ""
+            selectedCode?.let { Language.getDisplayName(it) }.orEmpty()
         }
 
     // Filter languages based on search text

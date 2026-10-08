@@ -552,7 +552,7 @@ class TransportBarTest :
             val host = mounts.mount { TransportBarHost(playback.asSession(), {}, {}, {}) }
 
             playback.playBook(BookId("book-1"))
-            withTimeout(PLAYING_TIMEOUT_MS) { manager.isPlaying.first { it } }
+            withTimeout(PLAYING_TIMEOUT_MS) { manager.playing.first { it } }
             playback.setSleepTimer(SleepTimerMode.Duration(minutes = 30))
             awaitFrame()
             host.querySelector(".tport").shouldNotBeNull()
@@ -595,9 +595,9 @@ class TransportBarTest :
             playback.playBook(BookId("book-1"))
             // Wait on the manager's flow, not the player's: `playPause` branches on exactly this
             // value, and so does the bar's own Play/Pause icon — they agree by construction.
-            withTimeout(PLAYING_TIMEOUT_MS) { manager.isPlaying.first { it } }
+            withTimeout(PLAYING_TIMEOUT_MS) { manager.playing.first { it } }
             playback.playPause()
-            withTimeout(PLAYING_TIMEOUT_MS) { manager.isPlaying.first { !it } }
+            withTimeout(PLAYING_TIMEOUT_MS) { manager.playing.first { !it } }
 
             playback.playBook(BookId("book-1"))
 

@@ -223,9 +223,7 @@ class MainActivity : ComponentActivity() {
      * - Share / deep links (https App Links: book + invite)
      * - App shortcut actions (RESUME, PLAY_BOOK, SEARCH, SLEEP_TIMER)
      */
-    private fun handleIntent(intent: Intent?) {
-        if (intent == null) return
-
+    private fun handleIntent(intent: Intent) {
         // A Continue On arrival. Read FIRST: a handoff launch carries our extra and may also carry
         // an action of its own, and the link is the more specific instruction either way. Decoding
         // it through the same codec as an App Link means the receiving half of this feature is the
@@ -243,7 +241,8 @@ class MainActivity : ComponentActivity() {
 
         // Share / deep links (https App Links) — parsed once, in commonMain.
         if (intent.action == Intent.ACTION_VIEW) {
-            intent.data?.toString()?.let { raw ->
+            intent.data?.let { uri ->
+                val raw = uri.toString()
                 val target = ShareLinkCodec.decode(raw)
                 if (target != null) {
                     logger.debug {
@@ -280,7 +279,7 @@ class MainActivity : ComponentActivity() {
                             runCatching { contractJson.decodeFromString(PushPayload.serializer(), raw) }.getOrNull()
                         }?.toNotificationEvent()
                         ?.toShortcutAction()
-                logger.debug { "Push tapped: action=${action?.let { it::class.simpleName }}" }
+                logger.debug { "Push tapped: action=${action?.let { it::class.simpleName } ?: "none"}" }
                 action?.let(shortcutActionManager::setPendingAction)
             }
 
@@ -309,7 +308,7 @@ class MainActivity : ComponentActivity() {
                     intent
                         .getIntExtra(ShortcutActions.EXTRA_TIMER_MINUTES, -1)
                         .takeIf { it > 0 }
-                logger.debug { "Received SLEEP_TIMER shortcut action - minutes=$timerMinutes" }
+                logger.debug { "Received SLEEP_TIMER shortcut action - minutes=${timerMinutes ?: "none"}" }
                 shortcutActionManager.setPendingAction(ShortcutAction.SleepTimer(timerMinutes))
             }
 

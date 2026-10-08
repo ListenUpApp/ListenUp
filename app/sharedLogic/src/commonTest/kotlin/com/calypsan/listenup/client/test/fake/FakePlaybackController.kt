@@ -14,8 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 class FakePlaybackController(
     initialReady: Boolean = true,
 ) : PlaybackController {
-    private val _isReady = MutableStateFlow(initialReady)
-    override val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
+    private val readyFlow = MutableStateFlow(initialReady)
+
+    override val ready: StateFlow<Boolean> = readyFlow.asStateFlow()
 
     var acquireCount: Int = 0
         private set
@@ -86,8 +87,8 @@ class FakePlaybackController(
         _startPlaybackCalls += prepareResult
     }
 
-    /** Test helper: drive `isReady` from outside to simulate connection state changes. */
+    /** Test helper: drive `ready` from outside to simulate connection state changes. */
     fun setReady(ready: Boolean) {
-        _isReady.value = ready
+        readyFlow.value = ready
     }
 }

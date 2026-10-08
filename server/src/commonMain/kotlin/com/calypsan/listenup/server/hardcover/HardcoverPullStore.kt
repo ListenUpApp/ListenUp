@@ -75,12 +75,12 @@ class HardcoverPullStore(
     /** [userId]'s pull state, or null without a connection. */
     suspend fun pullState(userId: String): HardcoverPullState? =
         suspendTransaction(sql) { sql.hardcoverConnectionsQueries.selectPullState(userId).executeAsOneOrNull() }
-            ?.let {
+            ?.let { row ->
                 HardcoverPullState(
-                    it.pull_cursor,
-                    it.pull_cursor_id,
-                    it.full_pull_started_at,
-                    it.last_full_pull_at,
+                    cursor = row.pull_cursor,
+                    cursorId = row.pull_cursor_id,
+                    fullPullStartedAt = row.full_pull_started_at,
+                    lastFullPullAt = row.last_full_pull_at,
                 )
             }
 

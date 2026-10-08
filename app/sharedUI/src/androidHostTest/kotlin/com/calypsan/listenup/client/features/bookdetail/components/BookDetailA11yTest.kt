@@ -10,7 +10,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
@@ -35,6 +35,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.compose.KoinApplication
 import org.koin.core.context.stopKoin
+import org.koin.dsl.koinConfiguration
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 
@@ -175,15 +176,16 @@ class BookDetailA11yTest {
                 everySuspend { downloadUserAvatar(any(), any()) } returns AppResult.Success(false)
             }
         KoinApplication(
-            application = {
-                modules(
-                    module {
-                        single { profiles }
-                        single { storage }
-                        single { images }
-                    },
-                )
-            },
+            configuration =
+                koinConfiguration {
+                    modules(
+                        module {
+                            single { profiles }
+                            single { storage }
+                            single { images }
+                        },
+                    )
+                },
         ) {
             MaterialTheme { content() }
         }

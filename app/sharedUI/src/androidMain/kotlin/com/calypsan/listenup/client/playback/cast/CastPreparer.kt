@@ -28,11 +28,11 @@ class CastPreparer(
                 val data = result.data
                 CastPrepared(
                     files =
-                        data.audioFiles.map {
+                        data.audioFiles.map { audioFile ->
                             CastPreparedFile(
-                                fileId = it.fileId,
-                                absoluteUrl = serverUrl + it.url,
-                                format = it.format,
+                                fileId = audioFile.fileId,
+                                absoluteUrl = serverUrl + audioFile.url,
+                                format = audioFile.format,
                             )
                         },
                     coverUrlAbsolute = data.coverUrl?.let { serverUrl + it },

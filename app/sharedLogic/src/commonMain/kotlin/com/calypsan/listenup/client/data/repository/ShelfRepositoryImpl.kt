@@ -135,10 +135,10 @@ internal class ShelfRepositoryImpl(
         isPrivate: Boolean,
     ): AppResult<Shelf> =
         channel
-            .call {
-                it.createShelf(
+            .call { service ->
+                service.createShelf(
                     name = name,
-                    description = description ?: "",
+                    description = description.orEmpty(),
                     isPrivate = isPrivate,
                 )
             }.also { if (it is AppResult.Success) mirrorCreatedShelf(it.data) }
@@ -160,14 +160,14 @@ internal class ShelfRepositoryImpl(
         val updated =
             existing.copy(
                 name = name,
-                description = description ?: "",
+                description = description.orEmpty(),
                 isPrivate = isPrivate,
                 updatedAt = currentEpochMilliseconds(),
             )
         val domain =
             deriveShelf(updated)
         return offlineEditor
-            .edit(OutboxChannels.Shelves, shelfId.value, ShelfMutation.Update(name, description ?: "", isPrivate)) {
+            .edit(OutboxChannels.Shelves, shelfId.value, ShelfMutation.Update(name, description.orEmpty(), isPrivate)) {
                 dao.upsert(updated)
             }.map { domain }
     }
@@ -180,7 +180,12 @@ internal class ShelfRepositoryImpl(
      */
     override suspend fun deleteShelf(shelfId: ShelfId): AppResult<Unit> {
         val now = currentEpochMilliseconds()
-        return offlineEditor.edit(OutboxChannels.Shelves, shelfId.value, ShelfMutation.Delete, op = OpKind.Delete) {
+        return offlineEditor.edit(
+            channel = OutboxChannels.Shelves,
+            entityId = shelfId.value,
+            patch = ShelfMutation.Delete,
+            op = OpKind.Delete,
+        ) {
             dao
                 .getById(
                     shelfId.value,
@@ -223,9 +228,9 @@ internal class ShelfRepositoryImpl(
             val outboxKey = junctionOutboxKey(shelfId.value, bookId.value)
             val result =
                 offlineEditor.edit(
-                    OutboxChannels.ShelfBooks,
-                    outboxKey,
-                    ShelfBookMutation.Add(shelfId = shelfId.value, bookId = bookId.value),
+                    channel = OutboxChannels.ShelfBooks,
+                    entityId = outboxKey,
+                    patch = ShelfBookMutation.Add(shelfId = shelfId.value, bookId = bookId.value),
                     op = OpKind.Create,
                 ) {
                     val now = currentEpochMilliseconds()
@@ -260,9 +265,9 @@ internal class ShelfRepositoryImpl(
     ): AppResult<Unit> {
         val outboxKey = junctionOutboxKey(shelfId.value, bookId.value)
         return offlineEditor.edit(
-            OutboxChannels.ShelfBooks,
-            outboxKey,
-            ShelfBookMutation.Remove(shelfId = shelfId.value, bookId = bookId.value),
+            channel = OutboxChannels.ShelfBooks,
+            entityId = outboxKey,
+            patch = ShelfBookMutation.Remove(shelfId = shelfId.value, bookId = bookId.value),
             op = OpKind.Delete,
         ) {
             // Looked up by the natural pair, not by a guessed id: the row's opaque wire id
@@ -302,12 +307,13 @@ internal class ShelfRepositoryImpl(
         orderedBookIds: List<BookId>,
     ): AppResult<Unit> =
         offlineEditor.edit(
-            OutboxChannels.ShelfBooks,
-            shelfId.value,
-            ShelfBookMutation.Reorder(
-                shelfId = shelfId.value,
-                orderedBookIds = orderedBookIds.map { it.value },
-            ),
+            channel = OutboxChannels.ShelfBooks,
+            entityId = shelfId.value,
+            patch =
+                ShelfBookMutation.Reorder(
+                    shelfId = shelfId.value,
+                    orderedBookIds = orderedBookIds.map { it.value },
+                ),
             op = OpKind.Update,
             coalesce = true,
         ) {
@@ -386,8 +392,8 @@ private fun ShelfEntity.toDomain(
         name = name,
         description = description.ifEmpty { null },
         isPrivate = isPrivate,
-        ownerId = owner?.id?.value ?: "",
-        ownerDisplayName = owner?.displayName ?: "",
+        ownerId = owner?.run { id.value }.orEmpty(),
+        ownerDisplayName = owner?.displayName.orEmpty(),
         bookCount = bookCount,
         totalDurationSeconds = totalDurationMs / 1000,
         createdAtMs = createdAt,

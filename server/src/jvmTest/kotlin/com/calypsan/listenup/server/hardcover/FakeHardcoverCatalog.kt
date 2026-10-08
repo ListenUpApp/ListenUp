@@ -229,20 +229,14 @@ class FakeHardcoverCatalog {
                         putJsonArray("books") { books.filter { it.id in ids }.forEach { add(findBookJson(it)) } }
                         variables["asin"]?.let { asin ->
                             putJsonArray("byAsin") {
-                                books.firstOrNull { it.asin == asin.jsonPrimitive.content }?.let {
-                                    add(
-                                        findEditionJson(it, 2, nestBook = true),
-                                    )
-                                }
+                                val book = books.firstOrNull { it.asin == asin.jsonPrimitive.content }
+                                if (book != null) add(findEditionJson(book, 2, nestBook = true))
                             }
                         }
                         variables["isbn"]?.let { isbn ->
                             putJsonArray("byIsbn") {
-                                books.firstOrNull { it.isbn13 == isbn.jsonPrimitive.content }?.let {
-                                    add(
-                                        findEditionJson(it, 1, nestBook = true),
-                                    )
-                                }
+                                val book = books.firstOrNull { it.isbn13 == isbn.jsonPrimitive.content }
+                                if (book != null) add(findEditionJson(book, 1, nestBook = true))
                             }
                         }
                     }
@@ -311,27 +305,19 @@ class FakeHardcoverCatalog {
     private fun JsonObjectBuilder.peopleDetails(variables: JsonObject) {
         val ids =
             variables["ids"]
-                ?.jsonArray
-                ?.map { it.jsonPrimitive.long }
-                ?.toSet()
+                ?.run { jsonArray.map { it.jsonPrimitive.long }.toSet() }
                 .orEmpty()
         val asins =
             variables["asins"]
-                ?.jsonArray
-                ?.map { it.jsonPrimitive.content }
-                ?.toSet()
+                ?.run { jsonArray.map { it.jsonPrimitive.content }.toSet() }
                 .orEmpty()
         val isbns =
             variables["isbns"]
-                ?.jsonArray
-                ?.map { it.jsonPrimitive.content }
-                ?.toSet()
+                ?.run { jsonArray.map { it.jsonPrimitive.content }.toSet() }
                 .orEmpty()
         val bookIds =
             variables["books"]
-                ?.jsonArray
-                ?.map { it.jsonPrimitive.long }
-                ?.toSet()
+                ?.run { jsonArray.map { it.jsonPrimitive.long }.toSet() }
                 .orEmpty()
         putJsonArray("people") { allPeople().filter { it.id in ids }.forEach { add(personJson(it)) } }
         putJsonArray("byIdentifier") {

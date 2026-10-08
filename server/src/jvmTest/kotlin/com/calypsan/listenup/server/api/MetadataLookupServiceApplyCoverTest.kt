@@ -11,7 +11,6 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal

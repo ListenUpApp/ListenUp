@@ -15,6 +15,7 @@ import com.calypsan.listenup.gradle.useStrictKotestEquality
  */
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
+    id("listenup.detekt")
 }
 
 // The JDK every module compiles with; pinned so a newer local or daemon JDK can't shift validation.

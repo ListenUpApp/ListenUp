@@ -2,7 +2,6 @@
 
 package com.calypsan.listenup.server.api
 
-import app.cash.sqldelight.db.QueryResult
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
@@ -18,10 +17,8 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -268,8 +265,6 @@ private fun makeServiceAndDeps(db: SqlTestDatabases): ServiceDeps {
             seriesRepository = seriesRepo,
             genreRepository = GenreRepository(db.sql, bus, syncRegistry),
         )
-    val tagRepo = TagRepository(db = db.sql, bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = syncRegistry, driver = db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
@@ -279,89 +274,6 @@ private fun makeServiceAndDeps(db: SqlTestDatabases): ServiceDeps {
             principal = rootPrincipal(),
         )
     return ServiceDeps(service, contributorRepo, bookRepo)
-}
-
-/**
- * Reads the FTS rowid that [BookRepository.upsert] allocated for [bookId]
- * via `book_search_map`. Books-C1 tests need this to address the FTS row
- * created automatically by the books pipeline.
- */
-private suspend fun lookupFtsRowid(
-    db: SqlTestDatabases,
-    bookId: String,
-): Int {
-    val rowid =
-        withContext(Dispatchers.IO) {
-            db.driver
-                .executeQuery(
-                    identifier = null,
-                    sql = "SELECT rowid FROM book_search_map WHERE book_id = ?",
-                    mapper = { cursor ->
-                        QueryResult.Value(if (cursor.next().value) cursor.getLong(0)?.toInt() else null)
-                    },
-                    parameters = 1,
-                    binders = { bindString(0, bookId) },
-                ).value
-        }
-    check(rowid != null && rowid > 0) { "No book_search_map row found for bookId=$bookId" }
-    return rowid
-}
-
-/**
- * Replaces the `contributor_names` cell of the FTS row at [rowid] with a sentinel
- * value. Acts as a tripwire so tests can prove whether a real reindex re-read
- * the source tables (overwriting the sentinel) or skipped (sentinel survives).
- *
- * `book_search` is contentless_delete=1, so the only safe mutation idiom is
- * DELETE + re-INSERT of the entire row.
- */
-private suspend fun overwriteFtsContributorNames(
-    db: SqlTestDatabases,
-    rowid: Int,
-    sentinel: String,
-) {
-    withContext(Dispatchers.IO) {
-        db.driver.execute(null, "DELETE FROM book_search WHERE rowid = $rowid", 0)
-        db.driver.execute(
-            identifier = null,
-            sql =
-                "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names, tags) " +
-                    "VALUES ($rowid, ?, '', '', ?, '', '')",
-            parameters = 2,
-            binders = {
-                bindString(0, "Test Book b$rowid")
-                bindString(1, sentinel)
-            },
-        )
-    }
-}
-
-/**
- * Returns true if a MATCH on `contributor_names` for [searchTerm] finds [rowid].
- *
- * Uses a column-specific MATCH so the assertion is scoped to contributor_names
- * only — not a cross-column hit.
- */
-private suspend fun ftsContributorNamesMatch(
-    db: SqlTestDatabases,
-    rowid: Int,
-    searchTerm: String,
-): Boolean {
-    val dq = '"'
-    val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    return withContext(Dispatchers.IO) {
-        db.driver
-            .executeQuery(
-                identifier = null,
-                sql = "SELECT rowid FROM book_search WHERE contributor_names MATCH ? AND rowid = ?",
-                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
-                parameters = 2,
-                binders = {
-                    bindString(0, quotedTerm)
-                    bindLong(1, rowid.toLong())
-                },
-            ).value
-    }
 }
 
 /** Distinct book IDs currently linked to [contributorId] via any junction row. */

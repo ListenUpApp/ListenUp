@@ -99,9 +99,9 @@ internal class MoodRepositoryImpl(
             moodDao.findBySlug(name) ?: moodDao.findByName(name) ?: return onlineAddMoodToBook(bookId, name)
         return offlineEditor
             .edit(
-                OutboxChannels.BookMoods,
-                junctionOutboxKey(bookId, existing.id),
-                BookMoodMutation.Add(bookId = bookId, moodId = existing.id, name = name),
+                channel = OutboxChannels.BookMoods,
+                entityId = junctionOutboxKey(bookId, existing.id),
+                patch = BookMoodMutation.Add(bookId = bookId, moodId = existing.id, name = name),
                 op = OpKind.Create,
             ) {
                 bookMoodDao.upsert(
@@ -133,9 +133,9 @@ internal class MoodRepositoryImpl(
         moodId: String,
     ): AppResult<Unit> =
         offlineEditor.edit(
-            OutboxChannels.BookMoods,
-            junctionOutboxKey(bookId, moodId),
-            BookMoodMutation.Remove(bookId = bookId, moodId = moodId),
+            channel = OutboxChannels.BookMoods,
+            entityId = junctionOutboxKey(bookId, moodId),
+            patch = BookMoodMutation.Remove(bookId = bookId, moodId = moodId),
             op = OpKind.Delete,
         ) {
             bookMoodDao.tombstone(bookId = bookId, moodId = moodId, deletedAt = currentEpochMilliseconds())

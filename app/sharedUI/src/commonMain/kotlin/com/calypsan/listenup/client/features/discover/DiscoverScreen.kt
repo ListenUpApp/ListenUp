@@ -37,7 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -132,7 +132,7 @@ fun DiscoverScreen(
             DiscoverContent(
                 isLoading = shelvesState is DiscoverShelvesUiState.Loading,
                 users = shelvesReady?.users.orEmpty(),
-                isEmpty = shelvesReady?.isEmpty ?: false,
+                isEmpty = shelvesReady?.isEmpty == true,
                 appHeader = appHeader,
                 contentPadding = contentPadding,
                 onShelfClick = onShelfClick,
@@ -208,7 +208,7 @@ private fun DiscoverContent(
     onBookLongPress: ((String) -> Unit)? = null,
 ) {
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
 

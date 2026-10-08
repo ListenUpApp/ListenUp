@@ -71,7 +71,13 @@ internal class SyncStreamServiceImpl(
 
     /** Returns a copy scoped to [principal]. The RPC mount calls this per-connection. */
     fun copyWith(principal: PrincipalProvider): SyncStreamServiceImpl =
-        SyncStreamServiceImpl(bus, registry, bookAccessPolicy, principal, heartbeatIntervalMillis)
+        SyncStreamServiceImpl(
+            bus = bus,
+            registry = registry,
+            bookAccessPolicy = bookAccessPolicy,
+            principal = principal,
+            heartbeatIntervalMillis = heartbeatIntervalMillis,
+        )
 
     /**
      * One connection's frame stream: stale pre-check, hello, then the merged live tail
@@ -90,7 +96,7 @@ internal class SyncStreamServiceImpl(
             staleCursorFloor(bus, sinceRevision)?.let { floor ->
                 log.debug {
                     "rpc sync stream cursor stale: userId=${caller.userId.value} " +
-                        "sinceRevision=$sinceRevision oldestRetained=$floor; sending CursorStale"
+                        "sinceRevision=${sinceRevision ?: "none"} oldestRetained=$floor; sending CursorStale"
                 }
                 emit(controlFrame(SyncControl.CursorStale(lastKnownRevision = floor)))
                 return@flow
@@ -140,11 +146,12 @@ internal class SyncStreamServiceImpl(
         // Per-user scoping: a BusEvent carrying a userId belongs to a user-scoped domain —
         // deliver it only to that user. A null userId is a global-domain event.
         if (busEvent.userId != null && busEvent.userId != userId) return null
-        val gatedReason = firehoseGateReason(busEvent, userId, role, bookAccessPolicy)
+        val gatedReason =
+            firehoseGateReason(busEvent = busEvent, userId = userId, role = role, bookAccessPolicy = bookAccessPolicy)
         if (gatedReason != null) {
             log.trace {
                 "rpc firehose gated: domain=${busEvent.repo.domainName} " +
-                    "event=${busEvent.event::class.simpleName} userId=$userId reason=$gatedReason"
+                    "event=${busEvent.event::class.simpleName.orEmpty()} userId=$userId reason=$gatedReason"
             }
             return null
         }
@@ -193,10 +200,10 @@ internal class SyncStreamServiceImpl(
         withDomain(domain) { caller, typedRepo, extraWhere ->
             val page =
                 typedRepo.pullSince(
-                    caller.userId.value,
-                    since,
-                    limit.coerceIn(MIN_PAGE_LIMIT, MAX_PAGE_LIMIT),
-                    extraWhere,
+                    userId = caller.userId.value,
+                    cursor = since,
+                    limit = limit.coerceIn(MIN_PAGE_LIMIT, MAX_PAGE_LIMIT),
+                    extraWhere = extraWhere,
                 )
             typedRepo.toSyncPage(domain, page)
         }
@@ -218,7 +225,7 @@ internal class SyncStreamServiceImpl(
         return withDomain(domain) { caller, typedRepo, extraWhere ->
             val page =
                 typedRepo.pullByIds(
-                    caller.userId.value,
+                    userId = caller.userId.value,
                     matchColumn = match.column,
                     matchValues = distinct,
                     extraWhere = extraWhere,

@@ -2,7 +2,6 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.BackupRoutePaths
 import com.calypsan.listenup.api.dto.backup.BackupSummary
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.core.BackupId
@@ -15,16 +14,13 @@ import com.calypsan.listenup.server.io.createTempFileIn
 import com.calypsan.listenup.server.io.respondSeekable
 import com.calypsan.listenup.server.io.streamFirstFilePartTo
 import com.calypsan.listenup.server.plugins.respondAppError
-import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
-import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
-import io.ktor.server.plugins.callid.callId
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -74,7 +70,7 @@ fun Route.backupRoutes(
 ) {
     get(BackupRoutePaths.DOWNLOAD_TEMPLATE) {
         val p = call.userPrincipalOrNull() ?: return@get call.respond(HttpStatusCode.Unauthorized)
-        if (!p.role.isAdmin()) return@get call.respondAppError(AuthError.PermissionDenied())
+        if (!p.role.isAdmin()) return@get respondAppError(call, AuthError.PermissionDenied())
 
         val rawId = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         // Reject ids containing path separators or traversal sequences before doing any I/O.
@@ -84,7 +80,7 @@ fun Route.backupRoutes(
 
         val archivePath = paths.archiveFor(rawId)
         if (SystemFileSystem.metadataOrNull(archivePath)?.isRegularFile != true) {
-            return@get call.respondAppError(BackupError.BackupNotFound())
+            return@get respondAppError(call, BackupError.BackupNotFound())
         }
 
         call.response.header(
@@ -93,13 +89,13 @@ fun Route.backupRoutes(
                 .withParameter(ContentDisposition.Parameters.FileName, "$rawId.listenup.zip")
                 .toString(),
         )
-        call.respondSeekable(archivePath, ContentType.Application.Zip)
+        respondSeekable(call, archivePath, ContentType.Application.Zip)
     }
 
     post(BackupRoutePaths.UPLOAD) {
         val p = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
-        if (!p.role.isAdmin()) return@post call.respondAppError(AuthError.PermissionDenied())
-        call.handleUpload(paths, archive)
+        if (!p.role.isAdmin()) return@post respondAppError(call, AuthError.PermissionDenied())
+        handleUpload(call, paths, archive)
     }
 }
 
@@ -108,7 +104,8 @@ fun Route.backupRoutes(
  * The temp file is always cleaned up in a `finally` block; on success it has already been moved so
  * the delete is a no-op.
  */
-private suspend fun ApplicationCall.handleUpload(
+private suspend fun handleUpload(
+    call: ApplicationCall,
     paths: BackupPaths,
     archive: BackupArchive,
 ) {
@@ -116,13 +113,13 @@ private suspend fun ApplicationCall.handleUpload(
     // Stream the upload to a temp file — never buffer multi-hundred-MB backups into memory.
     val tmpFile = createTempFileIn(paths.tmpDir, "upload-", ".listenup.zip")
     try {
-        if (!streamFirstFilePartTo(tmpFile, MAX_BACKUP_RESTORE_BYTES)) {
-            respond(HttpStatusCode.BadRequest, "missing file part")
+        if (!streamFirstFilePartTo(call, tmpFile, MAX_BACKUP_RESTORE_BYTES)) {
+            call.respond(HttpStatusCode.BadRequest, "missing file part")
             return
         }
 
         // Validate before staging — a corrupt archive must never land in backupsDir.
-        val manifest = validateUpload(archive, tmpFile) ?: return
+        val manifest = validateUpload(call, archive, tmpFile) ?: return
 
         // Derive a filesystem-safe id from the manifest timestamp — never from the
         // client-supplied filename — to prevent path traversal.
@@ -143,7 +140,7 @@ private suspend fun ApplicationCall.handleUpload(
                 bookCount = manifest.bookCount,
                 userCount = manifest.userCount,
             )
-        respond(HttpStatusCode.OK, summary)
+        call.respond(HttpStatusCode.OK, summary)
     } finally {
         // Clean up the temp file on any failure path; on success it has already been
         // moved to dest so the delete is a no-op there.
@@ -156,7 +153,8 @@ private suspend fun ApplicationCall.handleUpload(
  * on success, or responds with a typed [BackupError.CorruptArchive] and returns null on failure.
  * [CancellationException] is always re-thrown so structured concurrency is preserved.
  */
-private suspend fun ApplicationCall.validateUpload(
+private suspend fun validateUpload(
+    call: ApplicationCall,
     archive: BackupArchive,
     tmpFile: Path,
 ): BackupManifest? =
@@ -165,7 +163,7 @@ private suspend fun ApplicationCall.validateUpload(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        respondAppError(BackupError.CorruptArchive(debugInfo = e.message))
+        respondAppError(call, BackupError.CorruptArchive(debugInfo = e.message))
         null
     }
 

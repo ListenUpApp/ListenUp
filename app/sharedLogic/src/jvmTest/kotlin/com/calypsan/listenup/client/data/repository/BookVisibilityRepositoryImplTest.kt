@@ -92,7 +92,7 @@ class BookVisibilityRepositoryImplTest :
 
                 repo.observeBookVisibility(BookId("b1")).test {
                     awaitItem() shouldBe null
-                    users.isAdmin.value = true
+                    users.admin.value = true
                     awaitItemMatching { it == BookVisibility.Public }
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -108,14 +108,14 @@ class BookVisibilityRepositoryImplTest :
 
                 repo.observeBookVisibility(BookId("b1")).test {
                     awaitItemMatching { it == kids(HiddenFrom.Everyone) }
-                    users.isAdmin.value = false
+                    users.admin.value = false
                     awaitItemMatching { it == null }
                     cancelAndIgnoreRemainingEvents()
                 }
                 repo.observeRestrictedBookIds().test {
-                    users.isAdmin.value = true
+                    users.admin.value = true
                     awaitItemMatching { it == setOf(BookId("b1")) }
-                    users.isAdmin.value = false
+                    users.admin.value = false
                     awaitItemMatching { it.isEmpty() }
                     cancelAndIgnoreRemainingEvents()
                 }

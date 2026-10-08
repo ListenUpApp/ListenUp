@@ -65,19 +65,45 @@ internal fun Route.hlsRoutes(
     availability: TranscoderAvailability,
 ) {
     get("/api/v1/hls/{bookId}/{fileId}/master.m3u8") {
-        call.serveMasterPlaylist(signer, roleLookup, accessPolicy, settings, availability)
+        serveMasterPlaylist(
+            call = call,
+            signer = signer,
+            roleLookup = roleLookup,
+            accessPolicy = accessPolicy,
+            settings = settings,
+            availability = availability,
+        )
     }
 
     get("/api/v1/hls/{bookId}/{fileId}/media.m3u8") {
-        call.serveMediaPlaylist(locator, signer, roleLookup, accessPolicy, settings, availability)
+        serveMediaPlaylist(
+            call = call,
+            locator = locator,
+            signer = signer,
+            roleLookup = roleLookup,
+            accessPolicy = accessPolicy,
+            settings = settings,
+            availability = availability,
+        )
     }
 
     get("/api/v1/hls/{bookId}/{fileId}/seg/{index}.aac") {
-        call.serveSegment(locator, signer, roleLookup, accessPolicy, engine, cache, settings, availability)
+        serveSegment(
+            call = call,
+            locator = locator,
+            signer = signer,
+            roleLookup = roleLookup,
+            accessPolicy = accessPolicy,
+            engine = engine,
+            cache = cache,
+            settings = settings,
+            availability = availability,
+        )
     }
 }
 
-private suspend fun ApplicationCall.serveMasterPlaylist(
+private suspend fun serveMasterPlaylist(
+    call: ApplicationCall,
     signer: AudioUrlSigner,
     roleLookup: UserRoleLookup,
     accessPolicy: BookAccessPolicy,
@@ -86,18 +112,20 @@ private suspend fun ApplicationCall.serveMasterPlaylist(
 ) {
     // Authorization only — a master playlist reveals nothing about the file, so it is answerable
     // without touching the database at all.
-    authorizeHls(signer, roleLookup, accessPolicy) ?: return
-    if (!canTranscode(settings, availability)) return respondTranscoderUnavailable()
-    respondText(
+    authorizeHls(call = call, signer = signer, roleLookup = roleLookup, accessPolicy = accessPolicy)
+        ?: return
+    if (!canTranscode(settings, availability)) return respondTranscoderUnavailable(call)
+    call.respondText(
         HlsPlaylist.renderMaster(
-            mediaUrl = "media.m3u8?${request.queryString()}",
+            mediaUrl = "media.m3u8?${call.request.queryString()}",
             bitrateKbps = settings.bitrateKbps,
         ),
         M3U8,
     )
 }
 
-private suspend fun ApplicationCall.serveMediaPlaylist(
+private suspend fun serveMediaPlaylist(
+    call: ApplicationCall,
     locator: AudioFileLocator,
     signer: AudioUrlSigner,
     roleLookup: UserRoleLookup,
@@ -105,15 +133,18 @@ private suspend fun ApplicationCall.serveMediaPlaylist(
     settings: TranscodeSettings,
     availability: TranscoderAvailability,
 ) {
-    val target = authorizeHls(signer, roleLookup, accessPolicy) ?: return
-    if (!canTranscode(settings, availability)) return respondTranscoderUnavailable()
-    val info = locator.transcodeInfo(target.bookId, target.fileId) ?: return respond(HttpStatusCode.NotFound)
+    val target =
+        authorizeHls(call = call, signer = signer, roleLookup = roleLookup, accessPolicy = accessPolicy)
+            ?: return
+    if (!canTranscode(settings, availability)) return respondTranscoderUnavailable(call)
+    val info = locator.transcodeInfo(target.bookId, target.fileId) ?: return call.respond(HttpStatusCode.NotFound)
     val plan = HlsPlaylist.plan(info.durationMs, info.sampleRate, settings.targetSegmentSeconds)
-    val query = request.queryString()
-    respondText(HlsPlaylist.render(plan) { index -> "seg/$index.aac?$query" }, M3U8)
+    val query = call.request.queryString()
+    call.respondText(HlsPlaylist.render(plan) { index -> "seg/$index.aac?$query" }, M3U8)
 }
 
-private suspend fun ApplicationCall.serveSegment(
+private suspend fun serveSegment(
+    call: ApplicationCall,
     locator: AudioFileLocator,
     signer: AudioUrlSigner,
     roleLookup: UserRoleLookup,
@@ -123,20 +154,29 @@ private suspend fun ApplicationCall.serveSegment(
     settings: TranscodeSettings,
     availability: TranscoderAvailability,
 ) {
-    val target = authorizeHls(signer, roleLookup, accessPolicy) ?: return
-    if (!canTranscode(settings, availability)) return respondTranscoderUnavailable()
-    val index = parameters["index"]?.toIntOrNull()?.takeIf { it >= 0 } ?: return respond(HttpStatusCode.BadRequest)
-    val info = locator.transcodeInfo(target.bookId, target.fileId) ?: return respond(HttpStatusCode.NotFound)
+    val target =
+        authorizeHls(call = call, signer = signer, roleLookup = roleLookup, accessPolicy = accessPolicy)
+            ?: return
+    if (!canTranscode(settings, availability)) return respondTranscoderUnavailable(call)
+    val index =
+        call.parameters["index"]?.toIntOrNull()?.takeIf { it >= 0 } ?: return call.respond(HttpStatusCode.BadRequest)
+    val info = locator.transcodeInfo(target.bookId, target.fileId) ?: return call.respond(HttpStatusCode.NotFound)
     val plan = HlsPlaylist.plan(info.durationMs, info.sampleRate, settings.targetSegmentSeconds)
 
     // Already encoded: serve it and never wake the encoder. This is the common case once a listener
     // is a few segments in, and it is what makes re-listening free. Completeness, not mere
     // existence — a segment FFmpeg is still writing exists, and serving it truncates the audio.
     if (cache.isComplete(target.bookId, target.fileId, index)) {
-        return respondVerifiedSegment(cache, target, index, plan)
+        return respondVerifiedSegment(
+            call = call,
+            cache = cache,
+            target = target,
+            index = index,
+            plan = plan,
+        )
     }
 
-    val location = locator.locate(target.bookId, target.fileId) ?: return respond(HttpStatusCode.NotFound)
+    val location = locator.locate(target.bookId, target.fileId) ?: return call.respond(HttpStatusCode.NotFound)
     val session =
         TranscodeSession(
             bookId = target.bookId,
@@ -150,28 +190,29 @@ private suspend fun ApplicationCall.serveSegment(
         )
     when (engine.ensureRunning(session, index)) {
         SessionAdmission.Busy -> {
-            respondAppResult<Unit>(AppResult.Failure(TranscodeError.TranscoderBusy()))
+            respondAppResult<Unit>(call, AppResult.Failure(TranscodeError.TranscoderBusy()))
         }
 
         // No decoder this source can be trusted to, so nothing was started. Encoding it anyway
         // would serve audio with a fifth of the book silently missing.
         SessionAdmission.Unsupported -> {
             respondAppResult<Unit>(
+                call,
                 AppResult.Failure(
                     TranscodeError.TranscoderUnavailable(
-                        debugInfo = "no FDK decoder for ${info.codec}/${info.codecProfile}",
+                        debugInfo = "no FDK decoder for ${info.codec}/${info.codecProfile ?: "no profile"}",
                     ),
                 ),
             )
         }
 
         SessionAdmission.Admitted -> {
-            if (awaitSegment(cache, target.bookId, target.fileId, index)) {
-                respondVerifiedSegment(cache, target, index, plan)
+            if (awaitSegment(cache = cache, bookId = target.bookId, fileId = target.fileId, index = index)) {
+                respondVerifiedSegment(call = call, cache = cache, target = target, index = index, plan = plan)
             } else {
                 // The encoder was admitted but the bytes never arrived inside the window. The player
                 // retries the same URL, which is why this is not a hard failure.
-                respond(HttpStatusCode.ServiceUnavailable)
+                call.respond(HttpStatusCode.ServiceUnavailable)
             }
         }
     }
@@ -186,7 +227,8 @@ private suspend fun ApplicationCall.serveSegment(
  * check that catches that, and it catches every other cause of a short segment for free: a killed
  * encoder, a truncated write, a full disk.
  */
-private suspend fun ApplicationCall.respondVerifiedSegment(
+private suspend fun respondVerifiedSegment(
+    call: ApplicationCall,
     cache: SegmentCache,
     target: HlsTarget,
     index: Int,
@@ -197,15 +239,16 @@ private suspend fun ApplicationCall.respondVerifiedSegment(
     val expected = plan.expectedFrames(index)
     if (frames == null || frames !in expected) {
         return respondAppResult<Unit>(
+            call,
             AppResult.Failure(
                 TranscodeError.TranscodeFailed(
                     debugInfo =
-                        "segment $index of ${target.bookId}/${target.fileId} holds $frames frames, expected $expected",
+                        "segment $index of ${target.bookId}/${target.fileId} holds ${frames ?: "no countable"} frames, expected $expected",
                 ),
             ),
         )
     }
-    respondSeekable(path, AAC)
+    respondSeekable(call, path, AAC)
 }
 
 /** The `(bookId, fileId)` a verified request is for. */
@@ -218,27 +261,32 @@ private data class HlsTarget(
  * Verifies the signature and the caller's access to the book, responding and returning null when
  * either fails. Mirrors [audioRoutes]: 403 for a bad signature, 404 for a book out of reach.
  */
-private suspend fun ApplicationCall.authorizeHls(
+private suspend fun authorizeHls(
+    call: ApplicationCall,
     signer: AudioUrlSigner,
     roleLookup: UserRoleLookup,
     accessPolicy: BookAccessPolicy,
 ): HlsTarget? {
-    val bookId = parameters["bookId"]
-    val fileId = parameters["fileId"]
+    val bookId = call.parameters["bookId"]
+    val fileId = call.parameters["fileId"]
     if (bookId == null || fileId == null) {
-        respond(HttpStatusCode.BadRequest)
+        call.respond(HttpStatusCode.BadRequest)
         return null
     }
-    val exp = request.queryParameters["exp"]?.toLongOrNull()
-    val sig = request.queryParameters["sig"]
-    val userId = request.queryParameters["u"]
-    if (exp == null || sig == null || userId == null || !signer.verify(userId, bookId, fileId, exp, sig)) {
-        respond(HttpStatusCode.Forbidden)
+    val exp = call.request.queryParameters["exp"]?.toLongOrNull()
+    val sig = call.request.queryParameters["sig"]
+    val userId = call.request.queryParameters["u"]
+    if (exp == null ||
+        sig == null ||
+        userId == null ||
+        !signer.verify(userId = userId, bookId = bookId, fileId = fileId, exp = exp, sig = sig)
+    ) {
+        call.respond(HttpStatusCode.Forbidden)
         return null
     }
     val role = roleLookup.roleOf(userId)
     if (role == null || !accessPolicy.canAccess(userId, role, bookId)) {
-        respond(HttpStatusCode.NotFound)
+        call.respond(HttpStatusCode.NotFound)
         return null
     }
     return HlsTarget(bookId, fileId)
@@ -250,8 +298,8 @@ private fun canTranscode(
     availability: TranscoderAvailability,
 ): Boolean = settings.enabled && availability.isAvailable
 
-private suspend fun ApplicationCall.respondTranscoderUnavailable() =
-    respondAppResult<Unit>(AppResult.Failure(TranscodeError.TranscoderUnavailable()))
+private suspend fun respondTranscoderUnavailable(call: ApplicationCall) =
+    respondAppResult<Unit>(call, AppResult.Failure(TranscodeError.TranscoderUnavailable()))
 
 /**
  * Waits for the encoder to *finish* segment [index], up to [SEGMENT_WAIT_MILLIS].

@@ -83,8 +83,8 @@ class PeopleRankerTest :
                     person("many", credited = setOf("phm", "hr")),
                     person("coauthor", name = "Andy Weir", credited = setOf("phm"), foundByName = false),
                 )
-            ranked.map {
-                it.key.refs
+            ranked.map { entry ->
+                entry.key.refs
                     .single()
                     .id
             } shouldBe listOf("many", "few", "none")

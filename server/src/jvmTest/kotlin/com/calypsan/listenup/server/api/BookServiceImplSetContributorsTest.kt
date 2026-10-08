@@ -36,6 +36,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import io.kotest.matchers.nulls.shouldNotBeNull
 
 class BookServiceImplSetContributorsTest :
     FunSpec({
@@ -214,8 +215,11 @@ class BookServiceImplSetContributorsTest :
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    val updated = repo.findById(BookId("b1"))
-                    updated?.contributors?.shouldBeEmpty()
+                    repo
+                        .findById(BookId("b1"))
+                        .shouldNotBeNull()
+                        .contributors
+                        .shouldBeEmpty()
                 }
             }
         }
@@ -260,7 +264,7 @@ class BookServiceImplSetContributorsTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = failure.error.shouldBeInstanceOf<BookError.NotFound>()
-                    (error.debugInfo ?: "") shouldContain "does-not-exist"
+                    error.debugInfo.orEmpty() shouldContain "does-not-exist"
                 }
             }
         }
@@ -307,7 +311,7 @@ class BookServiceImplSetContributorsTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = failure.error.shouldBeInstanceOf<BookError.InvalidInput>()
-                    (error.debugInfo ?: "") shouldContain "201"
+                    error.debugInfo.orEmpty() shouldContain "201"
                 }
             }
         }

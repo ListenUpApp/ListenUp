@@ -122,9 +122,9 @@ internal class TagRepositoryImpl(
         val existing = tagDao.findBySlug(name) ?: tagDao.findByName(name) ?: return onlineAddTagToBook(bookId, name)
         return offlineEditor
             .edit(
-                OutboxChannels.BookTags,
-                junctionOutboxKey(bookId, existing.id),
-                BookTagMutation.Add(bookId = bookId, tagId = existing.id, name = name),
+                channel = OutboxChannels.BookTags,
+                entityId = junctionOutboxKey(bookId, existing.id),
+                patch = BookTagMutation.Add(bookId = bookId, tagId = existing.id, name = name),
                 op = OpKind.Create,
             ) {
                 bookTagDao.upsert(
@@ -156,9 +156,9 @@ internal class TagRepositoryImpl(
         tagId: String,
     ): AppResult<Unit> =
         offlineEditor.edit(
-            OutboxChannels.BookTags,
-            junctionOutboxKey(bookId, tagId),
-            BookTagMutation.Remove(bookId = bookId, tagId = tagId),
+            channel = OutboxChannels.BookTags,
+            entityId = junctionOutboxKey(bookId, tagId),
+            patch = BookTagMutation.Remove(bookId = bookId, tagId = tagId),
             op = OpKind.Delete,
         ) {
             // Optimistic tombstone at revision 0 — the server's Deleted echo carries the authoritative
@@ -192,7 +192,12 @@ internal class TagRepositoryImpl(
      */
     override suspend fun deleteTag(tagId: String): AppResult<Unit> {
         val now = currentEpochMilliseconds()
-        return offlineEditor.edit(OutboxChannels.Tags, tagId, TagMutation.Delete, op = OpKind.Delete) {
+        return offlineEditor.edit(
+            channel = OutboxChannels.Tags,
+            entityId = tagId,
+            patch = TagMutation.Delete,
+            op = OpKind.Delete,
+        ) {
             tagDao.getById(tagId)?.let { tagDao.softDelete(id = tagId, deletedAt = now, revision = it.revision) }
             bookTagDao.tombstoneAllForTag(tagId = tagId, deletedAt = now)
         }

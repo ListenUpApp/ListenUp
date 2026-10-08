@@ -158,7 +158,7 @@ class BookServiceImplDeleteCoverTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = failure.error.shouldBeInstanceOf<CoverError.NotPresent>()
-                    (error.debugInfo ?: "") shouldContain "b1"
+                    error.debugInfo.orEmpty() shouldContain "b1"
                 }
             }
         }
@@ -173,7 +173,7 @@ class BookServiceImplDeleteCoverTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = failure.error.shouldBeInstanceOf<BookError.NotFound>()
-                    (error.debugInfo ?: "") shouldContain "does-not-exist"
+                    error.debugInfo.orEmpty() shouldContain "does-not-exist"
                 }
             }
         }

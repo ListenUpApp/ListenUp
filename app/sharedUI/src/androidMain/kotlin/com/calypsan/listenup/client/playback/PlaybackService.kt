@@ -3,14 +3,11 @@ package com.calypsan.listenup.client.playback
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.res.Configuration
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.annotation.OptIn
-import androidx.concurrent.futures.CallbackToFutureAdapter
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -21,44 +18,25 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp4.Mp4Extractor
-import androidx.media3.session.CommandButton
-import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
-import androidx.media3.session.SessionCommand
-import androidx.media3.session.SessionResult
 import com.calypsan.listenup.api.error.PlaybackError
-import com.calypsan.listenup.client.composeapp.R
-import com.calypsan.listenup.client.automotive.AutoBrowseErrors
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
-import com.calypsan.listenup.client.automotive.CustomActions
-import com.calypsan.listenup.client.automotive.browseNeedsSignIn
 import com.calypsan.listenup.client.automotive.browseSignInEdges
-import com.calypsan.listenup.client.automotive.isLastPage
-import com.calypsan.listenup.client.automotive.paginate
 import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
 import com.calypsan.listenup.client.playback.cast.CastPreparer
 import com.calypsan.listenup.client.playback.cast.CastSessionController
 import com.calypsan.listenup.client.playback.cast.CastSourceItem
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.client.localization.SystemStringsHolder
-import com.calypsan.listenup.client.voice.MediaFocus
-import com.calypsan.listenup.client.voice.PlaybackIntent
-import com.calypsan.listenup.client.voice.VoiceHints
 import com.calypsan.listenup.client.voice.VoiceIntentResolver
-import com.google.common.collect.ImmutableList
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -141,9 +119,6 @@ class PlaybackService :
      */
     private var meterBookId: BookId? = null
 
-    /** Offers a way back in when the platform refuses a background start. */
-    private val refusalNotifier by lazy { PlaybackRefusalNotifier(this, systemStrings) }
-
     /** Attached to the cast player for the length of a cast session; see [handoffToCast]. */
     private val castPlaybackListener by lazy { CastPlaybackListener() }
 
@@ -171,6 +146,9 @@ class PlaybackService :
     private val uriPermissionGranter: UriPermissionGranter by inject()
     private val systemStrings: SystemStringsHolder by inject()
     private val skipIntervals: SkipIntervalsHolder by inject()
+
+    /** Offers a way back in when the platform refuses a background start. */
+    private val refusalNotifier by lazy { PlaybackRefusalNotifier(this, systemStrings) }
 
     // Current book ID is read from PlaybackManager (single source of truth)
     private val currentBookId: BookId?
@@ -201,7 +179,7 @@ class PlaybackService :
      */
     private fun getBookDurationMs(): Long =
         playbackManager.currentTimeline.value?.totalDurationMs
-            ?: activeTransportPlayer()?.duration?.takeIf { it > 0 }
+            ?: activeTransportPlayer()?.run { duration.takeIf { it > 0 } }
             ?: 0L
 
     /**
@@ -453,7 +431,7 @@ class PlaybackService :
                 skipIntervals = skipIntervals,
                 // Read off the transport player, never the session player: the session is
                 // presented by ChapterWindowPlayer, whose title is the current chapter.
-                bookTitle = { activeTransportPlayer()?.mediaMetadata?.title },
+                bookTitle = { activeTransportPlayer()?.run { mediaMetadata.title } },
                 strings = systemStrings,
             )
         val provider = notificationProvider ?: return
@@ -908,7 +886,12 @@ class PlaybackService :
         logger.debug { "Is playing: $isPlaying (source=$source)" }
 
         val transition =
-            playbackTransitionFor(source, isPlaying, casting, spanOpen = refusalTracker.isAudioSounding)
+            playbackTransitionFor(
+                source = source,
+                isPlaying = isPlaying,
+                casting = casting,
+                spanOpen = refusalTracker.isAudioSounding,
+            )
         if (transition == PlaybackTransition.IGNORE) {
             logger.debug { "Ignoring is-playing=$isPlaying from $source (casting=$casting)" }
             return
@@ -1060,7 +1043,7 @@ class PlaybackService :
         override fun onIsPlayingChanged(isPlaying: Boolean) = handleIsPlayingChanged(source, isPlaying)
 
         override fun onPlayerError(error: PlaybackException) {
-            logger.error(error) { "Playback error: ${error.message}" }
+            logger.error(error) { "Playback error: ${error.message ?: "no message"}" }
 
             // Surface stuck-player as a typed PlaybackError.Stalled so the global
             // error bus and UI can offer a retry affordance.
@@ -1109,7 +1092,7 @@ class PlaybackService :
             mediaItem: MediaItem?,
             reason: Int,
         ) {
-            logger.debug { "Media item transition: ${mediaItem?.mediaId}, reason: $reason" }
+            logger.debug { "Media item transition: ${mediaItem?.mediaId ?: "none"}, reason: $reason" }
         }
 
         /**

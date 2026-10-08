@@ -135,8 +135,7 @@ internal data class PersonReviewChoices(
                             listOfNotNull(photo?.chosen?.source) +
                                 biography
                                     ?.takeIf { it.isTicked }
-                                    ?.proposed
-                                    ?.sources
+                                    ?.run { proposed.sources }
                                     .orEmpty()
                         ).distinct(),
                 ),

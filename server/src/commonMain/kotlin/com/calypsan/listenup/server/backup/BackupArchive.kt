@@ -74,7 +74,13 @@ class BackupArchive(
                 dbHandle.vacuumInto(tmpDb.toString())
                 val dbHash = sha256Of(tmpDb)
                 val dest = paths.archiveFor(id)
-                writeArchive(tmpDb, dbHash, includeImages, onEvent, dest)
+                writeArchive(
+                    tmpDb = tmpDb,
+                    dbHash = dbHash,
+                    includeImages = includeImages,
+                    onEvent = onEvent,
+                    dest = dest,
+                )
                 dest
             } finally {
                 SystemFileSystem.delete(tmpDb, mustExist = false)
@@ -98,8 +104,10 @@ class BackupArchive(
                 }
 
                 if (includeImages) {
-                    checksums[COVERS_CHECKSUM_KEY] = addDirToZip(zip, paths.coversDir, COVERS_PREFIX, onEvent)
-                    checksums[AVATARS_CHECKSUM_KEY] = addDirToZip(zip, paths.avatarsDir, AVATARS_PREFIX, onEvent)
+                    checksums[COVERS_CHECKSUM_KEY] =
+                        addDirToZip(zip = zip, dir = paths.coversDir, prefix = COVERS_PREFIX, onEvent = onEvent)
+                    checksums[AVATARS_CHECKSUM_KEY] =
+                        addDirToZip(zip = zip, dir = paths.avatarsDir, prefix = AVATARS_PREFIX, onEvent = onEvent)
                 }
 
                 onEvent(BackupEvent.Finalizing)
@@ -147,7 +155,7 @@ class BackupArchive(
             val bytes = readManifestWithinBudget(zr, entry, archive)
             runCatching { BackupManifest.fromJson(bytes.decodeToString()) }
                 .getOrElse { e ->
-                    throw CorruptArchiveException("$MANIFEST_ENTRY unparseable in $archive: ${e.message}", e)
+                    throw CorruptArchiveException("$MANIFEST_ENTRY unparseable in $archive: ${e.message.orEmpty()}", e)
                 }
         }
 
@@ -174,7 +182,7 @@ class BackupArchive(
             zr.openEntry(entry, maxOutputBytes = MAX_MANIFEST_BYTES).buffered().use { it.readByteArray() }
         } catch (e: MalformedDeflateException) {
             throw CorruptArchiveException(
-                "$MANIFEST_ENTRY is corrupt or exceeded its limit in $archive: ${e.message}",
+                "$MANIFEST_ENTRY is corrupt or exceeded its limit in $archive: ${e.message.orEmpty()}",
                 e,
             )
         }
@@ -222,7 +230,12 @@ class BackupArchive(
     ): BackupManifest {
         val manifest = open(archive)
         val imageSums = extractEntries(archive, targetDir)
-        verifyExtractedChecksums(archive, targetDir, manifest, imageSums)
+        verifyExtractedChecksums(
+            archive = archive,
+            targetDir = targetDir,
+            manifest = manifest,
+            imageSums = imageSums,
+        )
         return manifest
     }
 

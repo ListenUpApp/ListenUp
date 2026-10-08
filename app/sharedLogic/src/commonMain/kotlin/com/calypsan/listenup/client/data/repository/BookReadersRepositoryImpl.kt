@@ -70,17 +70,24 @@ internal class BookReadersRepositoryImpl(
 
     private fun cachedReaders(bookId: String): Flow<BookReaders> =
         combine(
-            readershipDao.observeForBook(bookId),
-            ratingDao.observeForBook(bookId),
-            publicProfileDao.observeAll(),
-            userRepository.observeCurrentUser(),
+            flow = readershipDao.observeForBook(bookId),
+            flow2 = ratingDao.observeForBook(bookId),
+            flow3 = publicProfileDao.observeAll(),
+            flow4 = userRepository.observeCurrentUser(),
         ) { rows, ratings, profiles, currentUser ->
-            val myId = currentUser?.id?.value
+            val myId = currentUser?.run { id.value }
             val ratingByUser = ratings.associate { it.userId to it.toListenerRating() }
             val readers = rows.map { it.toReader(myId).copy(rating = ratingByUser[it.userId]) }
             val readerIds = readers.mapTo(mutableSetOf()) { it.userId }
             val names = profiles.associate { it.id to it.displayName }
-            val ratedOnly = ratedOnlyReaders(ratingByUser, readerIds, names, myId, currentUser?.displayName)
+            val ratedOnly =
+                ratedOnlyReaders(
+                    ratingByUser = ratingByUser,
+                    readerIds = readerIds,
+                    names = names,
+                    myId = myId,
+                    myDisplayName = currentUser?.displayName,
+                )
             BookReaders(readers = readers + ratedOnly)
         }
 
@@ -101,10 +108,10 @@ internal class BookReadersRepositoryImpl(
             .filter { it.userId !in readerIds }
             .mapNotNull { rating ->
                 val name = if (rating.userId == myId) myDisplayName else names[rating.userId]
-                name?.let {
+                name?.let { displayName ->
                     Reader(
                         userId = rating.userId,
-                        displayName = it,
+                        displayName = displayName,
                         isYou = rating.userId == myId,
                         currentProgressPct = null,
                         finishes = emptyList(),

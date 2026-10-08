@@ -204,9 +204,9 @@ class LibraryViewModelTest :
             every { fixture.contributorRepository.observeContributorsByRole(ContributorRole.NARRATOR.apiValue) } returns
                 flowOf(emptyList())
             every { fixture.syncRepository.syncState } returns fixture.syncStateFlow
-            every { fixture.syncRepository.isServerScanning } returns MutableStateFlow(false)
+            every { fixture.syncRepository.serverScanning } returns MutableStateFlow(false)
             every { fixture.syncRepository.scanProgress } returns MutableStateFlow(null)
-            every { fixture.syncRepository.isBuildingInitialLibrary } returns MutableStateFlow(false)
+            every { fixture.syncRepository.buildingInitialLibrary } returns MutableStateFlow(false)
             every { fixture.playbackPositionRepository.observeAll() } returns flowOf(emptyMap())
             every { fixture.bookRatingRepository.observeAverages() } returns flowOf(emptyMap())
             every { fixture.bookRatingRepository.observeCombinedScores() } returns flowOf(emptyMap())
@@ -1223,7 +1223,7 @@ class LibraryViewModelTest :
                 val fixture = createFixture()
                 // The scan flag is one of the upstreams with no per-source fallback, so a throw here
                 // reaches the pipeline-level catch. Fails on its first collection, healthy after.
-                every { fixture.syncRepository.isServerScanning } returns FailsOnFirstCollect(false)
+                every { fixture.syncRepository.serverScanning } returns FailsOnFirstCollect(false)
                 everySuspend { fixture.bookRepository.refreshBooks() } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }

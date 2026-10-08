@@ -92,7 +92,7 @@ fun Application.installAppErrorStatusPages() {
                 return@exception
             }
             val correlationId = call.callId
-            logger.error(ex) { "unhandled exception on ${call.request.uri} correlationId=$correlationId" }
+            logger.error(ex) { "unhandled exception on ${call.request.uri} correlationId=${correlationId ?: "none"}" }
             val body: AppError = InternalError(correlationId)
             call.respond(HttpStatusCode.InternalServerError, body)
         }
@@ -123,10 +123,13 @@ private val TypedAppErrorSent = AttributeKey<Unit>("ListenUpTypedAppErrorSent")
  * The single responder for every non-RPC route — six byte-identical private copies of it existed
  * before, which is also why the 404 defect above could not be fixed in one place.
  */
-internal suspend fun ApplicationCall.respondAppError(error: AppError) {
-    val typed = error.withCorrelationId(callId)
-    attributes.put(TypedAppErrorSent, Unit)
-    respond(typed.toHttpStatus(), typed)
+internal suspend fun respondAppError(
+    call: ApplicationCall,
+    error: AppError,
+) {
+    val typed = error.withCorrelationId(call.callId)
+    call.attributes.put(TypedAppErrorSent, Unit)
+    call.respond(typed.toHttpStatus(), typed)
 }
 
 /**

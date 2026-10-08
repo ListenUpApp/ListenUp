@@ -74,16 +74,16 @@ private const val INBOX_ENTRY_KEY = "library-inbox-entry"
 /**
  * Represents an item in the book grid - either a section header or a book.
  */
-internal sealed class BookGridItem {
+internal sealed interface BookGridItem {
     /** Section divider showing the [letter] heading above the books that follow it. */
     data class Header(
         val letter: Char,
-    ) : BookGridItem()
+    ) : BookGridItem
 
     /** A single book row in the grid. */
     data class BookItem(
         val book: BookListItem,
-    ) : BookGridItem()
+    ) : BookGridItem
 }
 
 /**
@@ -132,7 +132,14 @@ internal fun groupBooksWithHeaders(
                         book.seriesName.nameLetter()
                     }
 
-                    else -> {
+                    SortCategory.NAME,
+                    SortCategory.DURATION,
+                    SortCategory.YEAR,
+                    SortCategory.BOOK_COUNT,
+                    SortCategory.ADDED,
+                    SortCategory.RATING,
+                    SortCategory.LISTENER_RATING,
+                    -> {
                         '#'
                     }
                 }
@@ -401,7 +408,7 @@ private fun BookGrid(
                             onClick = { onBookClick(bookId) },
                             duration = gridItem.book.formatDuration(),
                             progress = bookProgress[gridItem.book.id],
-                            isFinished = bookIsFinished[gridItem.book.id] ?: false,
+                            isFinished = bookIsFinished[gridItem.book.id] == true,
                             hasDocuments = gridItem.book.hasDocuments,
                             isInSelectionMode = isInSelectionMode,
                             isSelected = bookId in selectedBookIds,
@@ -520,9 +527,9 @@ private fun ScanProgressBanner(scanProgress: ScanProgressState) {
                     )
                 }
             }
-            if (scanProgress.progressFraction != null) {
+            scanProgress.progressFraction?.let { fraction ->
                 LinearProgressIndicator(
-                    progress = { scanProgress.progressFraction!! },
+                    progress = { fraction },
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     trackColor =
                         HeroInk.wash(
@@ -561,15 +568,15 @@ private fun BooksScanningState(scanProgress: ScanProgressState? = null) {
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (scanProgress?.progressFraction != null) {
+            scanProgress?.progressFraction?.let { fraction ->
                 LinearProgressIndicator(
-                    progress = { scanProgress.progressFraction!! },
+                    progress = { fraction },
                     modifier = Modifier.fillMaxWidth(SCAN_PROGRESS_WIDTH_FRACTION),
                 )
             }
-            if (scanProgress?.changesSummary != null) {
+            scanProgress?.changesSummary?.let { changesSummary ->
                 Text(
-                    text = scanProgress.changesSummary!!,
+                    text = changesSummary,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

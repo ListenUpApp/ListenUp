@@ -126,8 +126,8 @@ private data class FormState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class EditProfileViewModel(
     private val profileEditRepository: ProfileEditRepository,
-    private val userRepository: UserRepository,
-    private val userProfileRepository: UserProfileRepository,
+    userRepository: UserRepository,
+    userProfileRepository: UserProfileRepository,
 ) : ViewModel() {
     private val savingFlow = MutableStateFlow(false)
     private val formFlow = MutableStateFlow(FormState())
@@ -177,7 +177,7 @@ class EditProfileViewModel(
                         FormState(
                             firstName = seedFirst,
                             lastName = seedLast,
-                            tagline = user.tagline ?: "",
+                            tagline = user.tagline.orEmpty(),
                         ).also { formFlow.value = it }
                     } else {
                         form
@@ -186,7 +186,7 @@ class EditProfileViewModel(
                 val isDirty =
                     effectiveForm.firstName != seedFirst ||
                         effectiveForm.lastName != seedLast ||
-                        effectiveForm.tagline != (user.tagline ?: "") ||
+                        effectiveForm.tagline != user.tagline.orEmpty() ||
                         effectiveForm.currentPassword.isNotEmpty() ||
                         effectiveForm.newPassword.isNotEmpty() ||
                         effectiveForm.confirmPassword.isNotEmpty() ||
@@ -214,24 +214,40 @@ class EditProfileViewModel(
 
     // ── Setters ───────────────────────────────────────────────────────────────
 
-    fun setFirstName(value: String) = formFlow.update { it.copy(firstName = value) }
+    fun setFirstName(value: String) {
+        formFlow.update { it.copy(firstName = value) }
+    }
 
-    fun setLastName(value: String) = formFlow.update { it.copy(lastName = value) }
+    fun setLastName(value: String) {
+        formFlow.update { it.copy(lastName = value) }
+    }
 
-    fun setTagline(value: String) = formFlow.update { it.copy(tagline = value.take(MAX_TAGLINE_LENGTH)) }
+    fun setTagline(value: String) {
+        formFlow.update { it.copy(tagline = value.take(MAX_TAGLINE_LENGTH)) }
+    }
 
-    fun setCurrentPassword(value: String) = formFlow.update { it.copy(currentPassword = value) }
+    fun setCurrentPassword(value: String) {
+        formFlow.update { it.copy(currentPassword = value) }
+    }
 
-    fun setNewPassword(value: String) = formFlow.update { it.copy(newPassword = value) }
+    fun setNewPassword(value: String) {
+        formFlow.update { it.copy(newPassword = value) }
+    }
 
-    fun setConfirmPassword(value: String) = formFlow.update { it.copy(confirmPassword = value) }
+    fun setConfirmPassword(value: String) {
+        formFlow.update { it.copy(confirmPassword = value) }
+    }
 
     fun stageAvatarUpload(
         bytes: ByteArray,
         contentType: String,
-    ) = formFlow.update { it.copy(avatarChange = AvatarChange.Upload(bytes, contentType)) }
+    ) {
+        formFlow.update { it.copy(avatarChange = AvatarChange.Upload(bytes, contentType)) }
+    }
 
-    fun stageAvatarRevert() = formFlow.update { it.copy(avatarChange = AvatarChange.RevertToAuto) }
+    fun stageAvatarRevert() {
+        formFlow.update { it.copy(avatarChange = AvatarChange.RevertToAuto) }
+    }
 
     // ── Save ─────────────────────────────────────────────────────────────────
 
@@ -260,8 +276,8 @@ class EditProfileViewModel(
                 if (!applyProfileChanges(form, user)) return@launch
 
                 // Success — clear transient fields.
-                formFlow.update {
-                    it.copy(
+                formFlow.update { current ->
+                    current.copy(
                         currentPassword = "",
                         newPassword = "",
                         confirmPassword = "",
@@ -332,7 +348,7 @@ class EditProfileViewModel(
         form: FormState,
         user: User,
     ): Boolean {
-        val changedTagline = form.tagline.takeIf { it != (user.tagline ?: "") }
+        val changedTagline = form.tagline.takeIf { it != user.tagline.orEmpty() }
         val (baselineFirst, baselineLast) = resolveNameFields(user.displayName, user.firstName, user.lastName)
         val nameChanged = form.firstName != baselineFirst || form.lastName != baselineLast
         val passwordChange =

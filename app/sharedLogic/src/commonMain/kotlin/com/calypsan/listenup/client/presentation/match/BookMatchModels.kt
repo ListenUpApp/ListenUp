@@ -380,9 +380,9 @@ fun MatchReceipt.toUi(): MatchReceiptUi =
     MatchReceiptUi(
         receiptId = receiptId,
         fieldCount =
-            changes.count {
-                it is AppliedChange.Field || it is AppliedChange.Genres ||
-                    it is AppliedChange.Moods
+            changes.count { change ->
+                change is AppliedChange.Field || change is AppliedChange.Genres ||
+                    change is AppliedChange.Moods
             },
         coverSource = changes.filterIsInstance<AppliedChange.Cover>().firstOrNull()?.source,
         chapterNameCount = changes.filterIsInstance<AppliedChange.ChapterNames>().sumOf { it.count },

@@ -21,15 +21,25 @@ class AndroidBookDetailPlatformActions(
 ) : BookDetailPlatformActions {
     override suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome> = downloadManager.downloadBook(bookId)
 
-    override suspend fun cancelDownload(bookId: BookId) = downloadManager.cancelDownload(bookId)
+    override suspend fun cancelDownload(bookId: BookId) {
+        downloadManager.cancelDownload(bookId)
+    }
 
-    override suspend fun deleteDownload(bookId: BookId) = downloadManager.deleteDownload(bookId)
+    override suspend fun deleteDownload(bookId: BookId) {
+        downloadManager.deleteDownload(bookId)
+    }
 
-    override fun playBook(bookId: BookId) = nowPlayingViewModel.playBook(bookId)
+    override fun playBook(bookId: BookId) {
+        nowPlayingViewModel.playBook(bookId)
+    }
 
-    override fun onBookScreenShown(bookId: BookId) = viewedBookTracker.onBookShown(bookId)
+    override fun onBookScreenShown(bookId: BookId) {
+        viewedBookTracker.onBookShown(bookId)
+    }
 
-    override fun onBookScreenHidden(bookId: BookId) = viewedBookTracker.onBookHidden(bookId)
+    override fun onBookScreenHidden(bookId: BookId) {
+        viewedBookTracker.onBookHidden(bookId)
+    }
 
     override fun shareText(
         text: String,

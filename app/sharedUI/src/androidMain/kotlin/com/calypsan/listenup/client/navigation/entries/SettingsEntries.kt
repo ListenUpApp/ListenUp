@@ -106,7 +106,7 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
     entry<Licenses> {
         com.calypsan.listenup.client.features.settings.LicensesScreen(
             onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
-            onLicenseClick = { backStack.add(LicenseDetail(it)) },
+            onLicenseClick = { uniqueId -> backStack.add(LicenseDetail(uniqueId)) },
         )
     }
     entry<LicenseDetail> { args ->

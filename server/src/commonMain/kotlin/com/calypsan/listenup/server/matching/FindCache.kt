@@ -54,7 +54,7 @@ internal open class AnswerCache<K : Any, V : Any>(
     private val ttl: Duration,
     private val capacity: Int,
 ) {
-    private class Stamped<V>(
+    private data class Stamped<V>(
         val answer: V,
         val at: Instant,
     )

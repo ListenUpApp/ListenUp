@@ -3,11 +3,9 @@ package com.calypsan.listenup.client.features.match
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.printToString
 import com.calypsan.listenup.client.presentation.match.ReviewUiState
 import com.calypsan.listenup.client.testing.Windows
 import com.calypsan.listenup.client.testing.assertSideBySide

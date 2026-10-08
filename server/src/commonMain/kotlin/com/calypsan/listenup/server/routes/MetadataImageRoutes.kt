@@ -36,7 +36,7 @@ fun Route.metadataImageRoutes(
         val contributor = contributorRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = contributor.imagePath ?: return@get call.respond(HttpStatusCode.NotFound)
         val path = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
-        call.respondSeekable(path, ContentType.defaultForFilePath(path.name))
+        respondSeekable(call, path, ContentType.defaultForFilePath(path.name))
     }
 
     get("/api/v1/series/{id}/cover") {
@@ -44,7 +44,7 @@ fun Route.metadataImageRoutes(
         val series = seriesRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = series.coverPath ?: return@get call.respond(HttpStatusCode.NotFound)
         val path = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
-        call.respondSeekable(path, ContentType.defaultForFilePath(path.name))
+        respondSeekable(call, path, ContentType.defaultForFilePath(path.name))
     }
 }
 

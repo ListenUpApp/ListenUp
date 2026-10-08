@@ -78,9 +78,9 @@ internal class ContributorEditRepositoryImpl(
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
         val now = currentEpochMilliseconds()
         return offlineEditor.edit(
-            OutboxChannels.Contributors,
-            id.value,
-            ContributorMutation.Delete,
+            channel = OutboxChannels.Contributors,
+            entityId = id.value,
+            patch = ContributorMutation.Delete,
             op = OpKind.Delete,
         ) {
             contributorDao

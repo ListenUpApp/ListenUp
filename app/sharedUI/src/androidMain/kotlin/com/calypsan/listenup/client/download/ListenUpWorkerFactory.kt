@@ -53,12 +53,12 @@ class ListenUpWorkerFactory(
             // authenticated client lazily on first download, so no client construction happens here
             // at worker-creation time.
             DownloadWorker(
-                appContext,
-                workerParameters,
-                downloadRepository.value,
-                fileManager.value,
-                audioFileDownloader.value,
-                errorBus.value,
+                context = appContext,
+                params = workerParameters,
+                downloadRepository = downloadRepository.value,
+                fileManager = fileManager.value,
+                audioFileDownloader = audioFileDownloader.value,
+                errorBus = errorBus.value,
             )
         } else {
             null

@@ -100,36 +100,66 @@ internal fun EditionFormat.displayName(): String =
 @Composable
 internal fun BookField.displayName(): String =
     when (this) {
-        BookField.TITLE -> stringResource(Res.string.match_field_title)
+        BookField.TITLE -> {
+            stringResource(Res.string.match_field_title)
+        }
 
-        BookField.SUBTITLE -> stringResource(Res.string.match_field_subtitle)
+        BookField.SUBTITLE -> {
+            stringResource(Res.string.match_field_subtitle)
+        }
 
-        BookField.DESCRIPTION -> stringResource(Res.string.match_field_description)
+        BookField.DESCRIPTION -> {
+            stringResource(Res.string.match_field_description)
+        }
 
-        BookField.PUBLISHER -> stringResource(Res.string.match_field_publisher)
+        BookField.PUBLISHER -> {
+            stringResource(Res.string.match_field_publisher)
+        }
 
-        BookField.PUBLISH_YEAR -> stringResource(Res.string.match_field_release_date)
+        BookField.PUBLISH_YEAR -> {
+            stringResource(Res.string.match_field_release_date)
+        }
 
-        BookField.LANGUAGE -> stringResource(Res.string.match_field_language)
+        BookField.LANGUAGE -> {
+            stringResource(Res.string.match_field_language)
+        }
 
-        BookField.AUTHORS -> stringResource(Res.string.match_field_authors)
+        BookField.AUTHORS -> {
+            stringResource(Res.string.match_field_authors)
+        }
 
-        BookField.NARRATORS -> stringResource(Res.string.match_field_narrators)
+        BookField.NARRATORS -> {
+            stringResource(Res.string.match_field_narrators)
+        }
 
-        BookField.SERIES -> stringResource(Res.string.match_field_series)
+        BookField.SERIES -> {
+            stringResource(Res.string.match_field_series)
+        }
 
-        BookField.GENRES -> stringResource(Res.string.match_genres)
+        BookField.GENRES -> {
+            stringResource(Res.string.match_genres)
+        }
 
-        BookField.MOODS -> stringResource(Res.string.match_moods)
+        BookField.MOODS -> {
+            stringResource(Res.string.match_moods)
+        }
 
-        BookField.COVER -> stringResource(Res.string.match_section_cover)
+        BookField.COVER -> {
+            stringResource(Res.string.match_section_cover)
+        }
 
-        BookField.CHAPTERS -> stringResource(Res.string.match_section_chapter_names)
+        BookField.CHAPTERS -> {
+            stringResource(Res.string.match_section_chapter_names)
+        }
 
         // Identifiers keep their own spelling; anything else reads as its words.
-        BookField.ASIN, BookField.ISBN -> name
+        BookField.ASIN, BookField.ISBN -> {
+            name
+        }
 
-        else -> name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+        BookField.SORT_TITLE, BookField.ABRIDGED, BookField.EXPLICIT, BookField.TAGS -> {
+            name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+        }
     }
 
 /** A field value as one line of text. Description HTML reads as plain text, as Book Detail shows it. */

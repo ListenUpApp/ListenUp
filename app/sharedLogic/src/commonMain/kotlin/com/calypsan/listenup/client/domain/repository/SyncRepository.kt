@@ -39,7 +39,7 @@ interface SyncRepository {
      * UI can use this to show "Scanning your library..." instead of empty state
      * during initial library setup.
      */
-    val isServerScanning: StateFlow<Boolean>
+    val serverScanning: StateFlow<Boolean>
     val scanProgress: StateFlow<ScanProgressState?>
 
     /**
@@ -51,7 +51,7 @@ interface SyncRepository {
      * lands — so a rescan of an already-populated library, or a fresh device joining an existing
      * library via a sync pull, never re-shows it. This is the signal the startup readiness gate reads.
      */
-    val isBuildingInitialLibrary: StateFlow<Boolean>
+    val buildingInitialLibrary: StateFlow<Boolean>
 
     /**
      * Trigger a full library sync with the server.

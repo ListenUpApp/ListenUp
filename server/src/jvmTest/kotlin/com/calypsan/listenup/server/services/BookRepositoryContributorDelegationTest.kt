@@ -133,7 +133,7 @@ private fun analyzedFor(
             ),
         title = rootRelPath.substringAfterLast('/'),
         authors = listOf(author),
-        series = seriesName?.let { listOf(SeriesEntry(name = it, sequence = "1")) } ?: emptyList(),
+        series = seriesName?.let { listOf(SeriesEntry(name = it, sequence = "1")) }.orEmpty(),
         tracks = listOf(TrackEntry(file = file)),
     )
 }

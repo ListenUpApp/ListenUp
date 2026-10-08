@@ -80,8 +80,8 @@ object HtmlToMarkdown {
         for (level in 1..6) {
             val heading = Regex("""<h$level\b[^>]*>(.*?)</h$level>""", DOTALL_IGNORE_CASE)
             result =
-                heading.replace(result) {
-                    val title = it.groupValues[1].trim()
+                heading.replace(result) { match ->
+                    val title = match.groupValues[1].trim()
                     BLANK_LINE + "#".repeat(level) + " " + title + BLANK_LINE
                 }
         }

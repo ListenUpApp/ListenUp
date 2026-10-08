@@ -9,6 +9,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.get
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -47,25 +48,27 @@ private fun createHealthCheckClient(): HttpClient =
  * - Desktop networks are always considered unmetered
  *
  * @param serverUrlProvider Function that returns the current server URL, or null if not configured
+ * @param ioDispatcher Dispatcher the health-check loop polls on
  */
 class JvmNetworkMonitor(
     private val serverUrlProvider: () -> String?,
     private val httpClient: HttpClient = createHealthCheckClient(),
+    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : NetworkMonitor {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + appCoroutineExceptionHandler)
+    private val scope = CoroutineScope(SupervisorJob() + ioDispatcher + appCoroutineExceptionHandler)
 
-    override val isOnlineFlow: StateFlow<Boolean>
+    override val onlineFlow: StateFlow<Boolean>
         field = MutableStateFlow(true) // Optimistic default
 
     // Desktop networks are always considered unmetered (WiFi/Ethernet)
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean>
         field = MutableStateFlow(true)
 
     init {
         startHealthCheckLoop()
     }
 
-    override fun isOnline(): Boolean = isOnlineFlow.value
+    override fun isOnline(): Boolean = onlineFlow.value
 
     // checkHealth is widened from private to internal solely so the cancellation contract
     // can be exercised directly in jvmTest (the polling loop is otherwise unobservable).
@@ -84,7 +87,7 @@ class JvmNetworkMonitor(
 
         if (serverUrl == null) {
             // No server configured - assume online (optimistic)
-            isOnlineFlow.value = true
+            onlineFlow.value = true
             return
         }
 
@@ -99,9 +102,9 @@ class JvmNetworkMonitor(
                 false
             }
 
-        if (isOnlineFlow.value != isReachable) {
+        if (onlineFlow.value != isReachable) {
             logger.info { "Network state changed: online=$isReachable" }
-            isOnlineFlow.value = isReachable
+            onlineFlow.value = isReachable
         }
     }
 }

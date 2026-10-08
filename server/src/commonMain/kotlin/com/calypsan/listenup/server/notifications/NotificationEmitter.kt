@@ -58,7 +58,9 @@ class NotificationEmitter(
                 throw e
             } catch (e: Exception) {
                 // Class name only — payloads carry user-addressed content (PushNotifier's logging contract).
-                log.warn { "notification audience resolve failed: type=${event.wireType} ${e::class.simpleName}" }
+                log.warn {
+                    "notification audience resolve failed: type=${event.wireType} ${e::class.simpleName.orEmpty()}"
+                }
                 return
             }
         audience.forEach { userId ->
@@ -67,7 +69,7 @@ class NotificationEmitter(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                log.warn { "notification emit failed: type=${event.wireType} ${e::class.simpleName}" }
+                log.warn { "notification emit failed: type=${event.wireType} ${e::class.simpleName.orEmpty()}" }
             }
         }
     }

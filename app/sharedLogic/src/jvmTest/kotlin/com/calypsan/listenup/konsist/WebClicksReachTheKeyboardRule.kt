@@ -131,8 +131,7 @@ internal fun clickableNonControls(source: String): List<ClickableNonControl> {
                 val element =
                     ELEMENT_ATTRS_OPENING
                         .find(text.substring(maxOf(0, open - LOOKBEHIND), open))
-                        ?.groupValues
-                        ?.get(1)
+                        ?.run { groupValues[1] }
                 if (element != null) {
                     if (element !in NON_CONTROLS) return@mapNotNull null
                     val attrs = text.substring(open, matchingCloseBrace(text, open))
@@ -142,7 +141,7 @@ internal fun clickableNonControls(source: String): List<ClickableNonControl> {
                     return@mapNotNull ClickableNonControl(
                         element = element,
                         line = text.substring(0, click.range.first).count { it == '\n' } + 1,
-                        firstClass = FIRST_CLASS.find(attrs)?.groupValues?.get(1),
+                        firstClass = FIRST_CLASS.find(attrs)?.run { groupValues[1] },
                     )
                 }
                 open = enclosingOpenBrace(text, open)
@@ -232,7 +231,7 @@ private enum class SpanKind {
 }
 
 /** A stretch of source ending (exclusive) at [end]. */
-private class Span(
+private data class Span(
     val end: Int,
     val kind: SpanKind,
 )

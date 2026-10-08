@@ -34,12 +34,14 @@ class CachingSecureStorage(
     override suspend fun save(
         key: String,
         value: String,
-    ) = mutex.withLock {
-        // Delegate write and cache update under ONE lock so concurrent writers can't land on disk in
-        // one order and in the cache in another, leaving the cache disagreeing with the delegate
-        // (C7 — a rotated token reverting under a racing write).
-        delegate.save(key, value)
-        cache[key] = value
+    ) {
+        mutex.withLock {
+            // Delegate write and cache update under ONE lock so concurrent writers can't land on disk in
+            // one order and in the cache in another, leaving the cache disagreeing with the delegate
+            // (C7 — a rotated token reverting under a racing write).
+            delegate.save(key, value)
+            cache[key] = value
+        }
     }
 
     override suspend fun read(key: String): String? =
@@ -57,16 +59,17 @@ class CachingSecureStorage(
             cache[key] ?: delegate.readCredential(key)?.also { cache[key] = it }
         }
 
-    override suspend fun delete(key: String) =
+    override suspend fun delete(key: String) {
         mutex.withLock {
             delegate.delete(key)
             cache.remove(key)
-            Unit
         }
+    }
 
-    override suspend fun clear() =
+    override suspend fun clear() {
         mutex.withLock {
             delegate.clear()
             cache.clear()
         }
+    }
 }

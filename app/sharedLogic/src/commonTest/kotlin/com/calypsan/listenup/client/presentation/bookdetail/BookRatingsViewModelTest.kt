@@ -691,9 +691,9 @@ private class FakeBookRatingRepository : BookRatingRepository {
         rateGate?.await()
         rateCalls++
         lastRate = Triple(bookId, halfStars, note)
-        failNext?.let {
+        failNext?.let { error ->
             failNext = null
-            return it
+            return error
         }
         ratingsFlow.value =
             ratingsFlow.value.filterNot { it.bookId == bookId && it.userId == "me" } +
@@ -703,9 +703,9 @@ private class FakeBookRatingRepository : BookRatingRepository {
 
     override suspend fun clear(bookId: String): AppResult<Unit> {
         lastClear = bookId
-        failNext?.let {
+        failNext?.let { error ->
             failNext = null
-            return it
+            return error
         }
         ratingsFlow.value = ratingsFlow.value.filterNot { it.bookId == bookId && it.userId == "me" }
         return AppResult.Success(Unit)

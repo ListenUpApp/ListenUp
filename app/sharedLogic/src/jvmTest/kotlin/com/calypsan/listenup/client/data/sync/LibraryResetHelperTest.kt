@@ -566,7 +566,7 @@ class LibraryResetHelperTest :
     })
 
 /** One mirrored domain's seed action + post-clear presence check, keyed by wire name. */
-private class DomainProbe(
+private data class DomainProbe(
     val domainName: String,
     val seed: suspend () -> Unit,
     val isGone: suspend () -> Boolean,

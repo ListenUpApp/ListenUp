@@ -64,7 +64,7 @@ internal fun lz77(
             while (candidate >= 0 && pos - candidate <= WINDOW_SIZE && chain-- > 0) {
                 // Skip candidates that cannot beat the current best (zlib's tail-byte shortcut).
                 if (matchLen == 0 || buffer[candidate + matchLen] == buffer[pos + matchLen]) {
-                    val len = matchLength(buffer, candidate, pos, maxLen)
+                    val len = matchLength(data = buffer, candidate = candidate, pos = pos, maxLen = maxLen)
                     if (len > matchLen) {
                         matchLen = len
                         matchDist = pos - candidate

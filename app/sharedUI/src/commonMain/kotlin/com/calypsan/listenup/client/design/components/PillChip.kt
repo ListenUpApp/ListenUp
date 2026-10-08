@@ -100,7 +100,12 @@ private fun PillChipContent(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         leadingIcon?.let { icon ->
-            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = contentColor)
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = contentColor,
+            )
         }
         Text(
             text = label,

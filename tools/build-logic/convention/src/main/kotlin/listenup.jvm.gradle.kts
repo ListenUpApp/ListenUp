@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("org.jetbrains.kotlin.jvm")
+    id("listenup.detekt")
 }
 
 // The JDK every module compiles with; pinned so a newer local or daemon JDK can't shift validation.

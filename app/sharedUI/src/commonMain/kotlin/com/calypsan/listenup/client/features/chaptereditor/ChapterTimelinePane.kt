@@ -149,7 +149,7 @@ internal fun ChapterTimelinePane(
 }
 
 /** What the gesture handlers read: always the latest values, never the ones from when they attached. */
-private class LiveLane(
+private data class LiveLane(
     val lane: State<TimelineLane>,
     val markers: State<List<TimelineChapter>>,
     val chapters: State<List<Chapter>>,
@@ -169,7 +169,7 @@ private fun Modifier.laneGestures(
     val localDensity = LocalDensity.current
     val haptics = LocalHaptics.current
     val zoomState =
-        rememberTransformableState { zoomChange, _, _ ->
+        rememberTransformableState { _, zoomChange, _, _ ->
             // A pinch spreading apart (zoomChange > 1) shows less time, so the window shrinks.
             val now = live.lane.value
             live.onLaneChange.value(now.zoomed(1f / zoomChange, now.geometry.widthPx / 2f, bookDurationMs))
@@ -283,7 +283,7 @@ private fun LaneReadout(
     modifier: Modifier = Modifier,
 ) {
     Text(
-        readout,
+        text = readout,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onTertiaryContainer,
         modifier =

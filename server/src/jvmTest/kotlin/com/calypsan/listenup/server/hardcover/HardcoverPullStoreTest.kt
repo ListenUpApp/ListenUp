@@ -74,9 +74,9 @@ class HardcoverPullStoreTest :
                 store.commitPage(USER, listOf(book("book-1", 7L to 100L, newLink = match)), CURSOR, cursorId = 9L, seenAt = T0)
 
                 store.pulledReads(USER) shouldBe listOf(PulledReadRow("book-1", 100L, 7L))
-                links.linkFor(USER, "book-1")!!.let {
-                    it.hcBookId shouldBe 427_578L
-                    it.method shouldBe HardcoverMatchMethod.ASIN
+                links.linkFor(USER, "book-1")!!.let { link ->
+                    link.hcBookId shouldBe 427_578L
+                    link.method shouldBe HardcoverMatchMethod.ASIN
                 }
                 store.pullState(USER) shouldBe HardcoverPullState(CURSOR, 9L, fullPullStartedAt = null, lastFullPullAt = null)
             }
@@ -179,9 +179,9 @@ class HardcoverPullStoreTest :
                     .executeAsOne()
                     .pull_error shouldBe "changedSince 500"
                 connections.markPulled(USER, T0)
-                sql.hardcoverConnectionsQueries.selectByUser(USER).executeAsOne().let {
-                    it.pull_error shouldBe null
-                    it.last_synced_at shouldBe T0
+                sql.hardcoverConnectionsQueries.selectByUser(USER).executeAsOne().let { connection ->
+                    connection.pull_error shouldBe null
+                    connection.last_synced_at shouldBe T0
                 }
             }
         }

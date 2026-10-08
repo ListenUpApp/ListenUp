@@ -50,15 +50,17 @@ internal class Mp3Builder internal constructor() {
         val payload = ByteArray(128)
         val tag = "TAG".toByteArray(Charsets.US_ASCII)
         tag.copyInto(payload, 0, 0, 3)
-        title?.toByteArray(Charsets.US_ASCII)?.let {
-            it.copyInto(payload, 3, 0, minOf(it.size, 30))
+
+        fun field(
+            value: String?,
+            offset: Int,
+        ) {
+            val bytes = value?.toByteArray(Charsets.US_ASCII) ?: return
+            bytes.copyInto(payload, offset, 0, minOf(bytes.size, 30))
         }
-        artist?.toByteArray(Charsets.US_ASCII)?.let {
-            it.copyInto(payload, 33, 0, minOf(it.size, 30))
-        }
-        album?.toByteArray(Charsets.US_ASCII)?.let {
-            it.copyInto(payload, 63, 0, minOf(it.size, 30))
-        }
+        field(title, 3)
+        field(artist, 33)
+        field(album, 63)
         out.write(payload)
     }
 

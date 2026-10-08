@@ -82,16 +82,17 @@ internal class DownloadRepositoryImpl(
 
     override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> {
         if (audioFileIds.isEmpty()) return emptyMap()
-        return audioFileIds
-            .distinct()
-            .chunked(SQLITE_IN_CLAUSE_CHUNK_SIZE)
-            .flatMap { downloadDao.getLocalPaths(it) }
+        // Split so the suspending DAO call stays in an inline List op (a Sequence lambda cannot suspend)
+        // while no single chain stacks more than two intermediate collections.
+        val distinctIds = audioFileIds.distinct()
+        val rows = distinctIds.chunked(SQLITE_IN_CLAUSE_CHUNK_SIZE).flatMap { downloadDao.getLocalPaths(it) }
+        return rows
             .mapNotNull { row -> row.localPath?.let { row.audioFileId to it } }
             .toMap()
     }
 
     override suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus? =
-        downloadDao.getByAudioFileId(audioFileId)?.state?.toDomain()
+        downloadDao.getByAudioFileId(audioFileId)?.run { state.toDomain() }
 
     // --- State-transition writes ---
 

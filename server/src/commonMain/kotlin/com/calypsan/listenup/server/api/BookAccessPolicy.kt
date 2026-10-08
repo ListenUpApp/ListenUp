@@ -63,26 +63,28 @@ class BookAccessPolicy(
     private val db: ListenUpDatabase,
     private val driver: SqlDriver,
 ) {
+    // system-collection type discriminators, single-sourced from SystemCollectionType to avoid SQL/enum drift
+    private val systemTypeList = "'$SYSTEM_TYPE_ALL_BOOKS','$SYSTEM_TYPE_INBOX'"
+
     /**
-     * The WHERE-ready subquery selecting the ids of every book visible to `(userId, role)`,
-     * with its positional args — or `null` for ROOT/ADMIN, who see all live books (an
-     * unconstrained filter). The single owned definition; [accessibleBookIds] and
-     * [canAccess] both build on it.
-     *
-     * The rule is **pure union**: a live book is visible iff it is in at least one live
-     * collection the member owns or holds a live USER grant on. There is no uncollected→public
-     * branch and no global-access branch — a book in no reachable collection is invisible.
-     *
-     * The returned [SqlFragment.sql] is a complete `SELECT b2.id FROM books b2 …` subquery,
-     * so callers can wrap it (`SELECT 1 FROM ($sql) acc WHERE acc.id = ?`) or run it directly.
+     * The shared `(owner OR active-grant)` collection-id subquery with an explicit
+     * `type NOT IN ('ALL_BOOKS','INBOX')` guard, bound to two positional `?` placeholders
+     * (both the user id: owner check, then grant check). Reused by [accessibleCollectionIdsSql]
+     * and embedded in [accessibleCollectionBookIdsSql] — both inherit the system-collection
+     * exclusion, as does [canAccessCollection] which probes this subquery directly.
      */
-    fun accessibleBookIdsSql(
-        userId: String,
-        role: UserRole,
-    ): SqlFragment? {
-        if (role.isAdmin()) return null
-        return SqlFragment(sql = accessibleBookIdsSubquery, args = listOf(userId, userId))
-    }
+    private val accessibleCollectionIdsSubquery: String =
+        """
+        SELECT c.id FROM collections c
+        WHERE c.deleted_at IS NULL AND c.type NOT IN ($systemTypeList) AND (
+          c.owner_id = ?
+          OR EXISTS (
+            SELECT 1 FROM collection_grants g
+            WHERE g.collection_id = c.id AND g.principal_type = 'USER'
+              AND g.principal_id = ? AND g.deleted_at IS NULL
+          )
+        )
+        """.trimIndent()
 
     /**
      * Visible-book-id rows for a member, as a bindable subquery.
@@ -111,6 +113,27 @@ class BookAccessPolicy(
           )
         )
         """.trimIndent()
+
+    /**
+     * The WHERE-ready subquery selecting the ids of every book visible to `(userId, role)`,
+     * with its positional args — or `null` for ROOT/ADMIN, who see all live books (an
+     * unconstrained filter). The single owned definition; [accessibleBookIds] and
+     * [canAccess] both build on it.
+     *
+     * The rule is **pure union**: a live book is visible iff it is in at least one live
+     * collection the member owns or holds a live USER grant on. There is no uncollected→public
+     * branch and no global-access branch — a book in no reachable collection is invisible.
+     *
+     * The returned [SqlFragment.sql] is a complete `SELECT b2.id FROM books b2 …` subquery,
+     * so callers can wrap it (`SELECT 1 FROM ($sql) acc WHERE acc.id = ?`) or run it directly.
+     */
+    fun accessibleBookIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? {
+        if (role.isAdmin()) return null
+        return SqlFragment(sql = accessibleBookIdsSubquery, args = listOf(userId, userId))
+    }
 
     /**
      * Visible `book_tags` junction-row ids for `(userId, role)`, or null for ROOT/ADMIN.
@@ -426,7 +449,7 @@ class BookAccessPolicy(
                 mapper = { cursor ->
                     val out = mutableListOf<String>()
                     while (cursor.next().value) {
-                        out += cursor.getString(0)!!
+                        out += checkNotNull(cursor.getString(0)) { "book id column is NOT NULL" }
                     }
                     QueryResult.Value(out.toList())
                 },
@@ -454,27 +477,4 @@ class BookAccessPolicy(
                     args.forEachIndexed { index, arg -> bindRaw(index, arg) }
                 },
             ).value
-
-    // system-collection type discriminators, single-sourced from SystemCollectionType to avoid SQL/enum drift
-    private val systemTypeList = "'$SYSTEM_TYPE_ALL_BOOKS','$SYSTEM_TYPE_INBOX'"
-
-    /**
-     * The shared `(owner OR active-grant)` collection-id subquery with an explicit
-     * `type NOT IN ('ALL_BOOKS','INBOX')` guard, bound to two positional `?` placeholders
-     * (both the user id: owner check, then grant check). Reused by [accessibleCollectionIdsSql]
-     * and embedded in [accessibleCollectionBookIdsSql] — both inherit the system-collection
-     * exclusion, as does [canAccessCollection] which probes this subquery directly.
-     */
-    private val accessibleCollectionIdsSubquery: String =
-        """
-        SELECT c.id FROM collections c
-        WHERE c.deleted_at IS NULL AND c.type NOT IN ($systemTypeList) AND (
-          c.owner_id = ?
-          OR EXISTS (
-            SELECT 1 FROM collection_grants g
-            WHERE g.collection_id = c.id AND g.principal_type = 'USER'
-              AND g.principal_id = ? AND g.deleted_at IS NULL
-          )
-        )
-        """.trimIndent()
 }

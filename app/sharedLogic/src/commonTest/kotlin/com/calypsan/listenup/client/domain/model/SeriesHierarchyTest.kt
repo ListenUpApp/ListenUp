@@ -73,7 +73,7 @@ class SeriesHierarchyTest :
         }
 
         test("a name is found ignoring case and surrounding space") {
-            hierarchy.findByName("  cosmere ")?.id?.value shouldBe "cosmere"
+            hierarchy.findByName("  cosmere ")?.run { id.value } shouldBe "cosmere"
             hierarchy.findByName("Discworld") shouldBe null
             hierarchy.findByName(" ") shouldBe null
         }

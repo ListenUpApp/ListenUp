@@ -142,7 +142,7 @@ class HardcoverMatchViewModel(
 
     /** The screen's state. */
     val uiState: StateFlow<HardcoverMatchUiState> =
-        combine(subject, query, search, pending) { subject, query, search, pending ->
+        combine(flow = subject, flow2 = query, flow3 = search, flow4 = pending) { subject, query, search, pending ->
             when (subject) {
                 MatchSubject.Loading -> {
                     HardcoverMatchUiState.Loading
@@ -201,7 +201,8 @@ class HardcoverMatchViewModel(
     /** Links the book to search result [hcBookId], replacing any current match. Ignored while another action is in flight. */
     fun link(hcBookId: Long) {
         val row =
-            (search.value as? HardcoverSearchState.Results)?.rows?.firstOrNull { it.hcBookId == hcBookId } ?: return
+            (search.value as? HardcoverSearchState.Results)?.run { rows.firstOrNull { it.hcBookId == hcBookId } }
+                ?: return
         if (!pending.compareAndSet(PendingAction.None, PendingAction.Linking(hcBookId))) return
         val replaced = (subject.value as? MatchSubject.Found)?.currentMatch
         viewModelScope.launch {
@@ -210,10 +211,10 @@ class HardcoverMatchViewModel(
                     when (val result = repository.linkBook(BookId(bookId), row.hcBookId, row.hcEditionId)) {
                         is AppResult.Success -> {
                             lastLink.value = LastLink(replaced, clock.now())
-                            subject.update {
-                                (it as? MatchSubject.Found)?.copy(
+                            subject.update { current ->
+                                (current as? MatchSubject.Found)?.copy(
                                     currentMatch = row.toMatchedBook(),
-                                ) ?: it
+                                ) ?: current
                             }
                             HardcoverMatchEvent.Linked(row, replaced)
                         }
@@ -249,10 +250,10 @@ class HardcoverMatchViewModel(
 
                     method != null -> {
                         repository.restoreMatch(
-                            BookId(bookId),
-                            previous.hcBookId,
-                            previous.hcEditionId,
-                            method,
+                            bookId = BookId(bookId),
+                            hcBookId = previous.hcBookId,
+                            hcEditionId = previous.hcEditionId,
+                            method = method,
                         )
                     }
 
@@ -262,9 +263,9 @@ class HardcoverMatchViewModel(
                 }
             when (result) {
                 is AppResult.Success -> {
-                    subject.update {
-                        (it as? MatchSubject.Found)?.copy(currentMatch = previous)
-                            ?: it
+                    subject.update { current ->
+                        (current as? MatchSubject.Found)?.copy(currentMatch = previous)
+                            ?: current
                     }
                 }
 
@@ -344,8 +345,7 @@ private fun suggestionsFor(
     val author =
         book.authors
             .firstOrNull()
-            ?.name
-            ?.takeIf { it.isNotBlank() }
+            ?.run { name.takeIf { it.isNotBlank() } }
     val candidates =
         when {
             search == HardcoverSearchState.NoResults -> {

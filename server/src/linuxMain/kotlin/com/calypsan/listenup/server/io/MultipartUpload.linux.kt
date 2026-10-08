@@ -15,14 +15,15 @@ import kotlinx.io.readByteArray
  * [streamFirstFilePart], streaming the first file part straight to [dest]. Behaviour matches the JVM
  * actual.
  */
-internal actual suspend fun ApplicationCall.streamFirstFilePartTo(
+internal actual suspend fun streamFirstFilePartTo(
+    call: ApplicationCall,
     dest: Path,
     formFieldLimit: Long,
 ): Boolean {
     val boundary =
-        request.contentType().parameter("boundary")
+        call.request.contentType().parameter("boundary")
             ?: throw MalformedMultipartException("multipart/form-data request is missing a boundary parameter.")
-    return streamFirstFilePart(receiveChannel(), boundary, formFieldLimit) {
+    return streamFirstFilePart(call.receiveChannel(), boundary, formFieldLimit) {
         SystemFileSystem.sink(dest).buffered()
     }
 }
@@ -32,11 +33,14 @@ internal actual suspend fun ApplicationCall.streamFirstFilePartTo(
  * (avatars). Decodes the raw body channel with [streamFirstFilePart] into a [Buffer] — the CIO
  * server's `receiveMultipart` transform is unavailable on Kotlin/Native (KTOR-7361).
  */
-internal actual suspend fun ApplicationCall.receiveFirstFilePartBytes(formFieldLimit: Long): ByteArray? {
+internal actual suspend fun receiveFirstFilePartBytes(
+    call: ApplicationCall,
+    formFieldLimit: Long,
+): ByteArray? {
     val boundary =
-        request.contentType().parameter("boundary")
+        call.request.contentType().parameter("boundary")
             ?: throw MalformedMultipartException("multipart/form-data request is missing a boundary parameter.")
     val buffer = Buffer()
-    val received = streamFirstFilePart(receiveChannel(), boundary, formFieldLimit) { buffer }
+    val received = streamFirstFilePart(call.receiveChannel(), boundary, formFieldLimit) { buffer }
     return if (received) buffer.readByteArray() else null
 }

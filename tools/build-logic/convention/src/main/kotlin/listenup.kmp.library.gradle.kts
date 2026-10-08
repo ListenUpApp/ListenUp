@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("com.android.kotlin.multiplatform.library")
+    id("listenup.detekt")
 }
 
 // The JDK every module compiles with; pinned so a newer local or daemon JDK can't shift validation.

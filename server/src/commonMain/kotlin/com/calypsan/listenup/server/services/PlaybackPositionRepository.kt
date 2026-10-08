@@ -261,20 +261,20 @@ class PlaybackPositionRepository(
         startedAt: Long? = null,
     ): AppResult<PlaybackPositionSyncPayload> =
         recordPositionDetailed(
-            userId,
-            bookId,
-            positionMs,
-            lastPlayedAt,
-            finished,
-            playbackSpeed,
-            currentChapterId,
-            volumeBoostDb,
-            measuredGainDb,
-            finishedAt,
-            hasCustomSpeed,
-            hasCustomBoost,
-            startedBookOccurredAt,
-            startedAt,
+            userId = userId,
+            bookId = bookId,
+            positionMs = positionMs,
+            lastPlayedAt = lastPlayedAt,
+            finished = finished,
+            playbackSpeed = playbackSpeed,
+            currentChapterId = currentChapterId,
+            volumeBoostDb = volumeBoostDb,
+            measuredGainDb = measuredGainDb,
+            finishedAt = finishedAt,
+            hasCustomSpeed = hasCustomSpeed,
+            hasCustomBoost = hasCustomBoost,
+            startedBookOccurredAt = startedBookOccurredAt,
+            startedAt = startedAt,
         ).map { it.position }
 
     /**
@@ -324,7 +324,7 @@ class PlaybackPositionRepository(
             return AppResult.Success(RecordPositionResult(position = existing, accepted = false, serverNowMs = now))
         }
 
-        val priorFinished = existing?.finished ?: false
+        val priorFinished = existing?.finished == true
         val id = existing?.id ?: Uuid.random().toString()
         val payload =
             PlaybackPositionSyncPayload(
@@ -472,7 +472,7 @@ class PlaybackPositionRepository(
                 PreparedPositionWrite(
                     userId = row.userId,
                     payload = payload,
-                    priorFinished = existing?.finished ?: false,
+                    priorFinished = existing?.finished == true,
                     existedBefore = existing != null,
                     startedBookOccurredAt = row.startedBookOccurredAt,
                 )
@@ -485,7 +485,12 @@ class PlaybackPositionRepository(
         for (chunk in prepared.chunked(PERSIST_CHUNK_SIZE)) {
             suspendTransaction<Unit>(db) {
                 chunk.forEach { row ->
-                    upsertInOpenTransaction(row.payload, suppressed, clientOpId = null, userId = row.userId)
+                    upsertInOpenTransaction(
+                        value = row.payload,
+                        suppressed = suppressed,
+                        clientOpId = null,
+                        userId = row.userId,
+                    )
                 }
             }
         }
@@ -579,10 +584,12 @@ class PlaybackPositionRepository(
         if (bookIds.isEmpty()) return emptyList()
         return suspendTransaction(db) {
             bookIds
+                .asSequence()
                 .map { it.value }
                 .chunked(SQLITE_IN_CHUNK)
                 .flatMap { chunk -> db.playbackPositionsQueries.findByBookIds(userId.value, chunk).executeAsList() }
                 .map { it.toSyncPayload() }
+                .toList()
         }
     }
 
@@ -640,10 +647,7 @@ class PlaybackPositionRepository(
                     excludeUserId,
                     playedSince,
                 ) { userId, bookId, lastPlayedAt ->
-                    // MAX() is typed nullable by SQLDelight (it is null over an empty set), but a
-                    // GROUP BY only emits a row where at least one NOT NULL value exists — so the
-                    // elvis is a type-system formality, not a real 0.
-                    RecentListen(userId = userId, bookId = bookId, lastPlayedAt = lastPlayedAt ?: 0L)
+                    RecentListen(userId = userId, bookId = bookId, lastPlayedAt = lastPlayedAt)
                 }.executeAsList()
         }
 

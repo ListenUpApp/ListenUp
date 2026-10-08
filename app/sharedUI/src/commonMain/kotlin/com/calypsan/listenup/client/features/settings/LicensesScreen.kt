@@ -23,7 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,7 +95,7 @@ fun LicensesScreen(
         }
 
     val isWide =
-        currentWindowAdaptiveInfo()
+        currentWindowAdaptiveInfoV2()
             .windowSizeClass
             .isWidthAtLeastBreakpoint(TwoPaneMinWidth.value.toInt())
 

@@ -60,6 +60,7 @@ import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.core.IODispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
@@ -383,6 +384,7 @@ private fun PdfPageItem(
     pageIndex: Int,
     wrapper: PdfRendererWrapper,
     renderMutex: Mutex,
+    renderDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth(),
@@ -393,7 +395,7 @@ private fun PdfPageItem(
 
         val bitmapState by produceState<Bitmap?>(initialValue = null, pageIndex, targetWidthPx) {
             value =
-                withContext(Dispatchers.Default) {
+                withContext(renderDispatcher) {
                     renderMutex.withLock {
                         runCatching { wrapper.renderPage(pageIndex, targetWidthPx) }.getOrNull()
                     }

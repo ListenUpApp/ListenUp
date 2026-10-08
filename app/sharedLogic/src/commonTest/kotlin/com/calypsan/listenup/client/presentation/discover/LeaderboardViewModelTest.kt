@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.presentation.discover
 
-import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
@@ -160,7 +159,7 @@ class LeaderboardViewModelTest :
                         when (period) {
                             LeaderboardPeriod.Week -> weekFlow
                             LeaderboardPeriod.Month -> monthFlow
-                            else -> MutableSharedFlow()
+                            LeaderboardPeriod.Year, LeaderboardPeriod.AllTime -> MutableSharedFlow()
                         }
                     }
                 val vm = LeaderboardViewModel(repo)

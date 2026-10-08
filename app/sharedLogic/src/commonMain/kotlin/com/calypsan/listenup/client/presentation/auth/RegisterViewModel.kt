@@ -57,7 +57,10 @@ class RegisterViewModel(
         viewModelScope.launch {
             state.value = RegisterUiState.Loading
             state.value =
-                when (val result = registerUseCase(email, password, firstName, lastName)) {
+                when (
+                    val result =
+                        registerUseCase(email = email, password = password, firstName = firstName, lastName = lastName)
+                ) {
                     is AppResult.Success -> {
                         logger.info { "Registration succeeded with outcome=${result.data}" }
                         RegisterUiState.Success
