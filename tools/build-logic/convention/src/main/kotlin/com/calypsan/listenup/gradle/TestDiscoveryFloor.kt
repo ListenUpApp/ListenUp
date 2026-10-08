@@ -1,25 +1,33 @@
 package com.calypsan.listenup.gradle
 
+import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.Project
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.testing.AbstractTestTask
 import org.gradle.api.tasks.testing.Test
-import org.gradle.api.tasks.testing.TestDescriptor
-import org.gradle.api.tasks.testing.TestResult
-import org.gradle.kotlin.dsl.KotlinClosure2
 
 /**
- * Registers a "did this lane actually run?" guard on [this] test task: if the aggregated
- * task-level suite (`desc.parent == null`) reports fewer than [floor] tests on an UNFILTERED run,
- * the build fails outright rather than reporting a green, collapsed run.
+ * Registers a "did this lane actually run?" guard on this project's [laneName] test task: a
+ * `<lane>DiscoveryFloor` task finalizes the lane, counts the tests in the JUnit XML the lane wrote, and
+ * if an UNFILTERED run counted fewer than [floor] the build fails outright rather than reporting a green,
+ * collapsed run.
  *
- * Written against `AbstractTestTask` (not the JVM-only `Test`) so ONE helper covers every lane
- * that carries this floor — the JVM lanes (`:contract:jvmTest`, `:app:sharedLogic:jvmTest`/
- * `testAndroidHostTest`, `:app:sharedUI:testAndroidHostTest`, `:server:jvmTest`, all `Test`
- * subtypes) and the native lane (`:server:linuxX64Test`, a `KotlinNativeTest` — a sibling
- * `AbstractTestTask` subtype, NOT a `Test`). Promoted to `build-logic` from four near-identical
- * script-local copies so the filter-stand-down logic and the failure message live in exactly one
- * place. Raising [floor] is a conscious edit, not a rubber stamp for a red build.
+ * Why a separate task reading the XML: this used to be an `afterSuite` hook on the lane itself, and a lane
+ * with no test class never reports a suite — worse, Gradle marks it NO-SOURCE and runs none of its
+ * actions at all. Either way the hook never fired, and a zero-test lane passed: exactly the collapse the
+ * floor exists for (reproduced 2026-10-08: `:contract:jvmTest`, floor 85, every class excluded, green). A
+ * finalizer runs even after a NO-SOURCE lane, and a lane that ran nothing has no XML, which counts as zero.
+ *
+ * One helper covers every lane that carries a floor — the JVM `Test` lanes (`jvmTest`,
+ * `testAndroidHostTest`, `desktopTest`) and the native `KotlinNativeTest` lanes (`linuxX64Test`,
+ * `iosSimulatorArm64Test`), which write the same XML to the same `build/test-results/<lane>` directory.
+ * Raising [floor] is a conscious edit, not a rubber stamp for a red build.
  *
  * The floor catches COLLAPSE (a source set silently dropping off the compilation classpath), not
  * attrition — pick a number well below the current honest discovered count so a legitimate test
@@ -27,49 +35,96 @@ import org.gradle.kotlin.dsl.KotlinClosure2
  *
  * ### Filtered runs
  *
- * The floor stands down automatically when [this] task has an explicit test filter active —
- * `--tests` (both lanes), or the Kotest-native `-Dkotest.filter.specs` / `-Dkotest.filter.tests`
+ * The floor stands down automatically when the lane has an explicit test filter active —
+ * `--tests` (both kinds of lane), or the Kotest-native `-Dkotest.filter.specs` / `-Dkotest.filter.tests`
  * (JVM `Test` lanes only) — because a filtered run legitimately discovers fewer tests than the
  * unfiltered floor, and that is not the collapse this guard exists to catch. See
  * [isExplicitTestFilterActive] for the detection details.
  */
-fun AbstractTestTask.failBelowDiscoveredTestCount(
+fun Project.failBelowDiscoveredTestCount(
+    laneName: String,
     floor: Int,
-    taskLabel: String,
 ) {
-    afterSuite(
-        KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
-            discoveredCountFailure(
-                taskLabel = taskLabel,
-                floor = floor,
-                testCount = result.testCount,
-                isRootSuite = desc.parent == null,
-                isFiltered = isExplicitTestFilterActive(),
-            )?.let { throw GradleException(it) }
-        }),
-    )
+    val lanes = tasks.withType(AbstractTestTask::class.java).matching { it.name == laneName }
+    val check =
+        tasks.register("${laneName}DiscoveryFloor", TestDiscoveryFloorCheck::class.java) {
+            group = "verification"
+            description = "Fails when $laneName ran fewer than $floor tests."
+            lane.set("${project.path.removeSuffix(":")}:$laneName")
+            this.floor.set(floor)
+            // Read when the task graph is fixed (the configuration cache stores the answer), after
+            // `--tests` has reached the lane's filter.
+            filtered.set(project.provider { lanes.any { it.isExplicitTestFilterActive() } })
+            reports.set(project.layout.buildDirectory.dir("test-results/$laneName"))
+        }
+    lanes.configureEach { finalizedBy(check) }
 }
+
+/** Fails the build when the lane it finalizes wrote fewer tests to its JUnit XML than its floor. */
+abstract class TestDiscoveryFloorCheck : DefaultTask() {
+    /** The lane's path, for the failure message. */
+    @get:Input
+    abstract val lane: Property<String>
+
+    /** The fewest tests an unfiltered run of the lane may count. */
+    @get:Input
+    abstract val floor: Property<Int>
+
+    /** Whether the run was deliberately narrowed, in which case a low count is expected. */
+    @get:Input
+    abstract val filtered: Property<Boolean>
+
+    /** The lane's JUnit XML directory. Internal: the check reads it, and must run every time. */
+    @get:Internal
+    abstract val reports: DirectoryProperty
+
+    /** Counts the reports and fails on a collapse. */
+    @TaskAction
+    fun check() {
+        val xml =
+            reports
+                .get()
+                .asFile
+                .listFiles { file -> file.extension == "xml" }
+                .orEmpty()
+                .map { it.readText() }
+        discoveredCountFailure(
+            taskLabel = lane.get(),
+            floor = floor.get(),
+            testCount = countReportedTests(xml),
+            isFiltered = filtered.get(),
+        )?.let { throw GradleException(it) }
+    }
+}
+
+private val TESTS_ATTRIBUTE = Regex("""<testsuite\b[^>]*\btests="(\d+)"""")
+
+/** The tests across [reports], each a JUnit XML document: the sum of every `<testsuite tests="…">`. */
+internal fun countReportedTests(reports: List<String>): Int =
+    reports.sumOf { report ->
+        TESTS_ATTRIBUTE
+            .find(report)
+            ?.groupValues
+            ?.get(1)
+            ?.toInt() ?: 0
+    }
 
 /**
  * The failure message for a collapsed run, or null when the run is acceptable.
  *
- * Extracted from [failBelowDiscoveredTestCount]'s `afterSuite` closure so the decision — which is
- * the whole point of the floor — is unit-testable without a live Gradle Test task. The closure
- * keeps only the Gradle plumbing: reading the descriptor, the result, and the filter probe.
+ * Kept apart from [TestDiscoveryFloorCheck] so the decision — which is the whole point of the floor — is
+ * unit-testable without a live Gradle task.
  *
- * @param isRootSuite whether this is the aggregated task-level suite. Per-class suites report their
- *   own small counts and must never be measured against a whole-lane floor.
  * @param isFiltered whether an explicit test filter is active, in which case a lower count is
  *   expected rather than suspicious.
  */
 internal fun discoveredCountFailure(
     taskLabel: String,
     floor: Int,
-    testCount: Long,
-    isRootSuite: Boolean,
+    testCount: Int,
     isFiltered: Boolean,
 ): String? =
-    if (isRootSuite && testCount < floor && !isFiltered) {
+    if (testCount < floor && !isFiltered) {
         "$taskLabel discovered only $testCount tests, below the floor of " +
             "$floor. No test filter was detected on this run, so the likely cause is a " +
             "source set silently dropping out of the compilation rather than a " +

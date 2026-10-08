@@ -484,22 +484,21 @@ tasks.named<Test>("jvmTest") {
         // last batch. Truncating here (pre-fork, once) lets every worker's appends accumulate.
         e2eRetryLedger.delete()
     }
-    // "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a
-    // collapsed classpath still reports BUILD SUCCESSFUL with zero failures, which is worse than
-    // a run that fails outright. Deliberately NOT a Kotest `afterProject` listener (the pattern
-    // `io.kotest.provided.ProjectConfig`'s retry ledger uses): this task forks a fresh worker JVM
-    // every 25 classes (setForkEvery above), and such a listener fires once *per worker*, seeing
-    // only that worker's slice. This `afterSuite` is registered on the Gradle `Test` task itself,
-    // which aggregates every forked worker's results into one root suite (`desc.parent == null`)
-    // — so it always sees the TASK TOTAL.
-    //
-    // The floor catches COLLAPSE, not attrition: 2,790 tests ran green on 2026-07-25, and the bar
-    // sits far enough below that a normal deletion does not trip it. This lane is the reason the
-    // margin is generous — PR #1214 legitimately removed ~180 tests here in one change, so a floor
-    // set just under the current count would fail honest work and train people to edit the number
-    // without reading it.
-    failBelowDiscoveredTestCount(2200, ":server:jvmTest")
 }
+
+// "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a collapsed
+// classpath still reports BUILD SUCCESSFUL with zero failures, which is worse than a run that fails
+// outright. Deliberately NOT a Kotest `afterProject` listener (the pattern
+// `io.kotest.provided.ProjectConfig`'s retry ledger uses): this lane forks a fresh worker JVM every 25
+// classes (setForkEvery above), and such a listener fires once *per worker*, seeing only that worker's
+// slice. A finalizer counts the lane's JUnit XML after the run instead (build-logic's
+// TestDiscoveryFloor.kt), so it sees the TASK TOTAL and still fires when the lane found nothing at all.
+//
+// The floor catches COLLAPSE, not attrition: 2,790 tests ran green on 2026-07-25, and the bar sits far
+// enough below that a normal deletion does not trip it. This lane is the reason the margin is generous —
+// PR #1214 legitimately removed ~180 tests here in one change, so a floor set just under the current
+// count would fail honest work and train people to edit the number without reading it.
+failBelowDiscoveredTestCount("jvmTest", floor = 2200)
 
 // Give the native test binaries a real temp directory — the native mirror of the `java.io.tmpdir`
 // redirect on jvmTest above. The Kotlin/Native test runner inherits the ambient environment, and
@@ -526,18 +525,19 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
         nativeTestTmpDir.deleteRecursively()
         nativeTestTmpDir.mkdirs()
     }
-    // "Did this lane actually run?" guard, the native counterpart of the jvmTest floor above.
-    // This lane earned one: before the Kotest plugin was applied it reported a green 28 tests while
-    // 54 Kotest specs from commonTest sat on the classpath unexecuted — the K/N runner only ever
-    // collected the `kotlin.test`-annotated ones, so a lane running a third of its own suite looked
-    // indistinguishable from a healthy one. The floor catches COLLAPSE, not attrition: 82 tests ran
-    // green on 2026-07-25, and the bar sits far enough below that honest deletion does not trip it.
-    // `--tests` genuinely filters this lane (KGP forwards Gradle's command-line include patterns
-    // into the compiled test binary as `--ktest_gradle_filter`), so the shared helper's
-    // command-line-filter probe stands the floor down here too; there is no Kotest
-    // system-property path on this lane (see the helper's KDoc).
-    failBelowDiscoveredTestCount(65, ":server:$name")
 }
+
+// "Did this lane actually run?" guard, the native counterpart of the jvmTest floor above.
+// This lane earned one: before the Kotest plugin was applied it reported a green 28 tests while
+// 54 Kotest specs from commonTest sat on the classpath unexecuted — the K/N runner only ever
+// collected the `kotlin.test`-annotated ones, so a lane running a third of its own suite looked
+// indistinguishable from a healthy one. The floor catches COLLAPSE, not attrition: 82 tests ran
+// green on 2026-07-25, and the bar sits far enough below that honest deletion does not trip it.
+// `--tests` genuinely filters this lane (KGP forwards Gradle's command-line include patterns
+// into the compiled test binary as `--ktest_gradle_filter`), so the shared helper's
+// command-line-filter probe stands the floor down here too; there is no Kotest
+// system-property path on this lane (see the helper's KDoc).
+failBelowDiscoveredTestCount("linuxX64Test", floor = 65)
 
 // Regenerate the committed golden schema snapshot from the runner (the SSOT after Flyway's
 // removal). Run after adding a migration: ./gradlew :server:generateSchemaSnapshot
