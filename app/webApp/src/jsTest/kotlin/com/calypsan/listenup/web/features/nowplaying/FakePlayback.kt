@@ -77,8 +77,8 @@ internal class FakePlaybackManager(
 
     override val currentBookId = MutableStateFlow<BookId?>(null)
     override val currentTimeline = MutableStateFlow<PlaybackTimeline?>(null)
-    override val isPlaying = MutableStateFlow(false)
-    override val isBuffering = MutableStateFlow(false)
+    override val playing = MutableStateFlow(false)
+    override val buffering = MutableStateFlow(false)
     override val currentPositionMs = MutableStateFlow(0L)
     override val totalDurationMs = MutableStateFlow(0L)
     override val playbackSpeed = MutableStateFlow(1.0f)
@@ -97,11 +97,11 @@ internal class FakePlaybackManager(
     }
 
     override fun setPlaying(playing: Boolean) {
-        isPlaying.value = playing
+        this.playing.value = playing
     }
 
     override fun setBuffering(buffering: Boolean) {
-        isBuffering.value = buffering
+        this.buffering.value = buffering
     }
 
     /**
@@ -229,7 +229,7 @@ internal class FakePlaybackManager(
         scope.launch {
             player.state.collect { state ->
                 playbackState.value = state
-                isPlaying.value = state == PlaybackState.Playing
+                playing.value = state == PlaybackState.Playing
             }
         }
         scope.launch { player.positionMs.collect { currentPositionMs.value = it } }

@@ -98,7 +98,7 @@ class ConnectionCoordinator internal constructor(
     private fun observeNetworkRegain() {
         scope.launch {
             var wasOnline = networkMonitor.isOnline()
-            networkMonitor.isOnlineFlow.collect { online ->
+            networkMonitor.onlineFlow.collect { online ->
                 try {
                     if (online && !wasOnline) {
                         logger.info { "Network regained; re-evaluating reachable server URL" }

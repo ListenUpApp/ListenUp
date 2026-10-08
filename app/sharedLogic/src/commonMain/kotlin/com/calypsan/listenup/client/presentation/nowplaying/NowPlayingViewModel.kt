@@ -141,8 +141,8 @@ class NowPlayingViewModel internal constructor(
     /** Slow-changing play state (no position) — feeds the position-free [Active] combine. */
     private val playStateFlow: Flow<PlaybackDynamics> =
         combine(
-            flow = playbackManager.isPlaying,
-            flow2 = playbackManager.isBuffering,
+            flow = playbackManager.playing,
+            flow2 = playbackManager.buffering,
             flow3 = playbackManager.playbackSpeed,
             flow4 = playbackManager.volumeBoostDb,
         ) { isPlaying, isBuffering, speed, boostDb ->
@@ -547,7 +547,7 @@ class NowPlayingViewModel internal constructor(
     }
 
     fun playPause() {
-        if (playbackManager.isPlaying.value) {
+        if (playbackManager.playing.value) {
             playbackController.pause()
         } else {
             // Clear any latched error synchronously so the mini player (hidden while

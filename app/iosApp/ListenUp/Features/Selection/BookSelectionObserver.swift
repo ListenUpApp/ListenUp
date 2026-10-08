@@ -65,7 +65,7 @@ final class BookSelectionObserver {
         bridge.bind(viewModel.selectionMode) { [weak self] mode in
             self?.applySelectionMode(mode)
         }
-        bridge.bind(viewModel.isAdmin) { [weak self] value in
+        bridge.bind(viewModel.adminAccess) { [weak self] value in
             self?.isAdmin = value
         }
         bridge.bind(viewModel.myShelves) { [weak self] shelves in
@@ -74,10 +74,10 @@ final class BookSelectionObserver {
         bridge.bind(viewModel.collections) { [weak self] collections in
             self?.allCollections = collections.map { SelectionCollectionRow(id: $0.id, name: $0.name) }
         }
-        bridge.bind(viewModel.isAddingToShelf) { [weak self] value in
+        bridge.bind(viewModel.addingToShelf) { [weak self] value in
             self?.isAddingToShelf = value
         }
-        bridge.bind(viewModel.isAddingToCollection) { [weak self] value in
+        bridge.bind(viewModel.addingToCollection) { [weak self] value in
             self?.isAddingToCollection = value
         }
         // One-shot success events: dismiss whichever picker is open (the VM already cleared the

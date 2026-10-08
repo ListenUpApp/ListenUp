@@ -57,20 +57,18 @@ class JvmNetworkMonitor(
 ) : NetworkMonitor {
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher + appCoroutineExceptionHandler)
 
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    override val isOnlineFlow: StateFlow<Boolean>
+    override val onlineFlow: StateFlow<Boolean>
         field = MutableStateFlow(true) // Optimistic default
 
     // Desktop networks are always considered unmetered (WiFi/Ethernet)
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean>
         field = MutableStateFlow(true)
 
     init {
         startHealthCheckLoop()
     }
 
-    override fun isOnline(): Boolean = isOnlineFlow.value
+    override fun isOnline(): Boolean = onlineFlow.value
 
     // checkHealth is widened from private to internal solely so the cancellation contract
     // can be exercised directly in jvmTest (the polling loop is otherwise unobservable).
@@ -89,7 +87,7 @@ class JvmNetworkMonitor(
 
         if (serverUrl == null) {
             // No server configured - assume online (optimistic)
-            isOnlineFlow.value = true
+            onlineFlow.value = true
             return
         }
 
@@ -104,9 +102,9 @@ class JvmNetworkMonitor(
                 false
             }
 
-        if (isOnlineFlow.value != isReachable) {
+        if (onlineFlow.value != isReachable) {
             logger.info { "Network state changed: online=$isReachable" }
-            isOnlineFlow.value = isReachable
+            onlineFlow.value = isReachable
         }
     }
 }

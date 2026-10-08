@@ -66,7 +66,7 @@ class SeriesEditViewModelTest :
                     every { observeSeriesLineage(any()) } returns MutableStateFlow(SeriesLineage.Flat)
                     every { observeHierarchy() } returns hierarchy
                 }
-            val networkMonitor: NetworkMonitor = mock { every { isOnlineFlow } returns online }
+            val networkMonitor: NetworkMonitor = mock { every { onlineFlow } returns online }
             val updateSeriesUseCase: UpdateSeriesUseCase = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()

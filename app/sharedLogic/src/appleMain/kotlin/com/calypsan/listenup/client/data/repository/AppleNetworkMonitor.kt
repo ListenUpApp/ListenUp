@@ -35,10 +35,10 @@ private val logger = KotlinLogging.logger {}
 class AppleNetworkMonitor : NetworkMonitor {
     private val pathMonitor: nw_path_monitor_t = nw_path_monitor_create()
 
-    override val isOnlineFlow: StateFlow<Boolean>
+    override val onlineFlow: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     init {
@@ -52,9 +52,9 @@ class AppleNetworkMonitor : NetworkMonitor {
 
                 logger.debug { "Network path updated: online=$isOnline, expensive=$isExpensive" }
 
-                isOnlineFlow.value = isOnline
+                onlineFlow.value = isOnline
                 // Unmetered = online AND not expensive (WiFi/ethernet, not cellular)
-                isOnUnmeteredNetworkFlow.value = isOnline && !isExpensive
+                onUnmeteredNetworkFlow.value = isOnline && !isExpensive
             }
         }
 
@@ -64,7 +64,7 @@ class AppleNetworkMonitor : NetworkMonitor {
         logger.info { "iOS network monitor started" }
     }
 
-    override fun isOnline(): Boolean = isOnlineFlow.value
+    override fun isOnline(): Boolean = onlineFlow.value
 
     /**
      * Stop monitoring and release resources.

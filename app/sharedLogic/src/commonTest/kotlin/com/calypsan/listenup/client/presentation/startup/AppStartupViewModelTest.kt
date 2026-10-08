@@ -63,7 +63,7 @@ class AppStartupViewModelTest :
         // hasLocalLibrary() = true will observe the offline-fallback path.
         fun createMockSyncRepository(hasLocalLibrary: Boolean = false): SyncRepository {
             val sync = mock<SyncRepository>()
-            every { sync.isBuildingInitialLibrary } returns MutableStateFlow(false)
+            every { sync.buildingInitialLibrary } returns MutableStateFlow(false)
             every { sync.scanProgress } returns MutableStateFlow(null)
             everySuspend { sync.hasLocalLibrary() } returns hasLocalLibrary
             return sync

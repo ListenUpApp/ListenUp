@@ -2186,7 +2186,7 @@ private fun BookSelectionScaffold(
 
     val mode = session.selectionMode.collectAsState().value
     val selected = mode.selectedIds()
-    val isAdmin = session.isAdmin.collectAsState().value
+    val isAdmin = session.adminAccess.collectAsState().value
     var picking by remember { mutableStateOf<SelectionDestination?>(null) }
 
     LaunchedEffect(session) {
@@ -2242,7 +2242,7 @@ private fun BookSelectionScaffold(
                         .map { PickerTarget(it.id.value, it.name, null) },
                 emptyMessage = "You have no shelves yet.",
                 createLabel = "Or make a new shelf",
-                isBusy = session.isAddingToShelf.collectAsState().value,
+                isBusy = session.addingToShelf.collectAsState().value,
                 onPick = session.onAddToShelf,
                 onCreate = session.onCreateShelfAndAdd,
                 onDismiss = { picking = null },
@@ -2259,7 +2259,7 @@ private fun BookSelectionScaffold(
                     },
                 emptyMessage = "There are no collections yet.",
                 createLabel = "Or make a new collection",
-                isBusy = session.isAddingToCollection.collectAsState().value,
+                isBusy = session.addingToCollection.collectAsState().value,
                 onPick = session.onAddToCollection,
                 onCreate = session.onCreateCollectionAndAdd,
                 onDismiss = { picking = null },

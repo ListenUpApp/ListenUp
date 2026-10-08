@@ -92,9 +92,9 @@ private class RecordingSyncRepository : SyncRepository {
         private set
 
     override val syncState: StateFlow<SyncState> = MutableStateFlow(SyncState.Idle)
-    override val isServerScanning: StateFlow<Boolean> = MutableStateFlow(false)
+    override val serverScanning: StateFlow<Boolean> = MutableStateFlow(false)
     override val scanProgress: StateFlow<ScanProgressState?> = MutableStateFlow(null)
-    override val isBuildingInitialLibrary: StateFlow<Boolean> = MutableStateFlow(false)
+    override val buildingInitialLibrary: StateFlow<Boolean> = MutableStateFlow(false)
 
     override suspend fun sync(): AppResult<Unit> = AppResult.Success(Unit)
 

@@ -190,15 +190,15 @@ class BookMultiSelectViewModelTest :
             }
         }
 
-        // ========== isAdmin ==========
+        // ========== adminAccess ==========
 
-        test("isAdmin reflects the current user admin flag") {
+        test("adminAccess reflects the current user admin flag") {
             runTest {
                 val fixture = createFixture()
                 fixture.userFlow.value = createUser(isAdmin = true)
                 val viewModel = fixture.build()
 
-                viewModel.isAdmin.test {
+                viewModel.adminAccess.test {
                     skipItems(1) // initialValue = false
                     awaitItem() shouldBe true
                     cancelAndIgnoreRemainingEvents()
@@ -217,7 +217,7 @@ class BookMultiSelectViewModelTest :
                 viewModel.addSelectedToShelf("shelf-1")
                 advanceUntilIdle()
 
-                viewModel.isAddingToShelf.value shouldBe false
+                viewModel.addingToShelf.value shouldBe false
                 verifySuspend(mode = VerifyMode.not) { fixture.addBooksToShelfUseCase(any(), any()) }
             }
         }
@@ -293,7 +293,7 @@ class BookMultiSelectViewModelTest :
                 viewModel.addSelectedToCollection("collection-1")
                 advanceUntilIdle()
 
-                viewModel.isAddingToCollection.value shouldBe false
+                viewModel.addingToCollection.value shouldBe false
                 verifySuspend(mode = VerifyMode.not) { fixture.addBooksToCollectionUseCase(any(), any()) }
             }
         }
@@ -384,7 +384,7 @@ class BookMultiSelectViewModelTest :
                 viewModel.createShelfAndAddBooks("New Shelf")
                 advanceUntilIdle()
 
-                viewModel.isAddingToShelf.value shouldBe false
+                viewModel.addingToShelf.value shouldBe false
                 verifySuspend(mode = VerifyMode.not) { fixture.createShelfUseCase(any(), any()) }
                 verifySuspend(mode = VerifyMode.not) { fixture.addBooksToShelfUseCase(any(), any()) }
             }
@@ -487,7 +487,7 @@ class BookMultiSelectViewModelTest :
                 viewModel.createCollectionAndAddBooks("New Collection")
                 advanceUntilIdle()
 
-                viewModel.isAddingToCollection.value shouldBe false
+                viewModel.addingToCollection.value shouldBe false
                 verifySuspend(mode = VerifyMode.not) { fixture.createCollectionUseCase(any()) }
                 verifySuspend(mode = VerifyMode.not) { fixture.addBooksToCollectionUseCase(any(), any()) }
             }

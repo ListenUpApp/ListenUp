@@ -152,7 +152,7 @@ class HomeViewModel(
     // Folded into one upstream rather than passed separately, because `combine` is only typed to
     // five flows and Home genuinely needs six signals.
     private val syncFlow: Flow<Pair<SyncState, Boolean>> =
-        combine(syncRepository.syncState, syncRepository.isBuildingInitialLibrary) { state, building ->
+        combine(syncRepository.syncState, syncRepository.buildingInitialLibrary) { state, building ->
             state to building
         }
 

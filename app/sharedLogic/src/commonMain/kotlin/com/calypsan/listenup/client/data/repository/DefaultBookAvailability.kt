@@ -32,7 +32,7 @@ internal class DefaultBookAvailability(
         combine(
             flow = downloadRepository.observeBookStatus(bookId),
             flow2 = serverReachability.state,
-            flow3 = networkMonitor.isOnUnmeteredNetworkFlow,
+            flow3 = networkMonitor.onUnmeteredNetworkFlow,
             flow4 = localPreferences.wifiOnlyDownloads,
         ) { downloadStatus, reachability, unmetered, wifiOnly ->
             val isFullyDownloaded = downloadStatus is BookDownloadStatus.Completed

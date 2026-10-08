@@ -39,12 +39,10 @@ interface PlaybackManager :
     val currentTimeline: StateFlow<PlaybackTimeline?>
 
     /** True when the player is actively playing audio (not paused/buffering). */
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    val isPlaying: StateFlow<Boolean>
+    val playing: StateFlow<Boolean>
 
-    /** True when the player is buffering — distinct from [isPlaying]. */
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    val isBuffering: StateFlow<Boolean>
+    /** True when the player is buffering — distinct from [playing]. */
+    val buffering: StateFlow<Boolean>
 
     /** Current playback position within the book in milliseconds. */
     val currentPositionMs: StateFlow<Long>

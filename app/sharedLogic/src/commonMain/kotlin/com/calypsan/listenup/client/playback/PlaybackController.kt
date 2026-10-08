@@ -27,8 +27,7 @@ expect interface PlaybackController {
     fun releasePlayer()
 
     /** Emits true when the underlying player is connected and accepting commands. */
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    val isReady: StateFlow<Boolean>
+    val ready: StateFlow<Boolean>
 
     /** Start or resume playback of the current queue. */
     fun play()

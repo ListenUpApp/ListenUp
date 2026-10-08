@@ -65,9 +65,7 @@ class AndroidPlaybackController(
         holder.release()
     }
 
-    // The name is fixed by sharedLogic's PlaybackController (a Swift Export surface).
-    @Suppress("NonBooleanPropertyPrefixedWithIs")
-    override val isReady: StateFlow<Boolean> = holder.connected
+    override val ready: StateFlow<Boolean> = holder.connected
 
     override fun play() {
         scope.launch {

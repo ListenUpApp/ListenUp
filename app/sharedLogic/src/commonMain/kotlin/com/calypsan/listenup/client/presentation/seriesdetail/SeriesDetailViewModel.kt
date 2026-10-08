@@ -64,7 +64,7 @@ class SeriesDetailViewModel(
     private val hierarchyAccess: Flow<Pair<Boolean, Boolean>> =
         combine(
             permissionsRepository.observeCan(Permission.EDIT_METADATA),
-            networkMonitor.isOnlineFlow,
+            networkMonitor.onlineFlow,
         ) { canEdit, online -> canEdit to online }
 
     val state: StateFlow<SeriesDetailUiState> =

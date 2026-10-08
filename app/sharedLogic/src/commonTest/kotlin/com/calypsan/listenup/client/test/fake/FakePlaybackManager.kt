@@ -60,13 +60,11 @@ class FakePlaybackManager : PlaybackManager {
 
     val playingFlow = MutableStateFlow(false)
 
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
-    override val isPlaying: StateFlow<Boolean> = playingFlow.asStateFlow()
+    override val playing: StateFlow<Boolean> = playingFlow.asStateFlow()
 
     val bufferingFlow = MutableStateFlow(false)
 
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
-    override val isBuffering: StateFlow<Boolean> = bufferingFlow.asStateFlow()
+    override val buffering: StateFlow<Boolean> = bufferingFlow.asStateFlow()
 
     val playbackStateFlow = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
     override val playbackState: StateFlow<PlaybackState> = playbackStateFlow.asStateFlow()

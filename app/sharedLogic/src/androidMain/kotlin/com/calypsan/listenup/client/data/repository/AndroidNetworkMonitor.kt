@@ -73,12 +73,10 @@ class AndroidNetworkMonitor(
         context.getSystemService(Context.CONNECTIVITY_SERVICE)
             as ConnectivityManager
 
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    override val isOnlineFlow: StateFlow<Boolean>
+    override val onlineFlow: StateFlow<Boolean>
         field = MutableStateFlow(NetworkStatusPolicy.isOnline(activeNetworkFacts()))
 
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean>
         field = MutableStateFlow(NetworkStatusPolicy.isUnmetered(activeNetworkFacts()))
 
     init {
@@ -107,13 +105,13 @@ class AndroidNetworkMonitor(
         connectivityManager.registerNetworkCallback(request, networkCallback)
     }
 
-    override fun isOnline(): Boolean = isOnlineFlow.value
+    override fun isOnline(): Boolean = onlineFlow.value
 
     /** Re-derive both flows from the system's currently active network. */
     private fun refresh() {
         val facts = activeNetworkFacts()
-        isOnlineFlow.value = NetworkStatusPolicy.isOnline(facts)
-        isOnUnmeteredNetworkFlow.value = NetworkStatusPolicy.isUnmetered(facts)
+        onlineFlow.value = NetworkStatusPolicy.isOnline(facts)
+        onUnmeteredNetworkFlow.value = NetworkStatusPolicy.isUnmetered(facts)
     }
 
     /** The [NetworkFacts] of the system's active network, or [NetworkFacts.NONE] if there is none. */

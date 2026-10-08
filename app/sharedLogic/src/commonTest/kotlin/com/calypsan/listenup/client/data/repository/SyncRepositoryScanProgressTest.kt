@@ -24,7 +24,7 @@ import kotlinx.coroutines.test.runTest
  * Two invariants under test:
  *  - `ScanEvent.Completed` invokes `reconcile` (the catch-up that pulls books the lossy live tail
  *    dropped during the scan burst) — without it, a just-scanned library shows no books until relaunch.
- *  - The initial-population gate is **server-authoritative**: Started/Progress arm `isServerScanning`
+ *  - The initial-population gate is **server-authoritative**: Started/Progress arm `serverScanning`
  *    only while the library has never finished its initial scan ([initialScanComplete], read from
  *    Room's server-stamped flag), and Completed clears it iff THIS run armed it ([isGateArmed]). A
  *    rescan of an already-scanned library never re-arms the "Building your library" screen.
@@ -395,7 +395,7 @@ class SyncRepositoryScanProgressTest :
 
         // The strand: the terminal `ScanEvent.Completed` travels over a replay=0 bus, so a
         // progress stream that drops or re-establishes mid-scan can miss it — holding the
-        // populating gate (`isServerScanning`) up forever. [recoverFromScanStreamEnd] is the
+        // populating gate (`serverScanning`) up forever. [recoverFromScanStreamEnd] is the
         // never-stranded recovery run whenever the stream terminates while the gate is still armed:
         // confirm the scan really finished (the server's authoritative lastScanResult), then
         // reconcile + clear. Confirm-then-clear — never strands, never clears early.

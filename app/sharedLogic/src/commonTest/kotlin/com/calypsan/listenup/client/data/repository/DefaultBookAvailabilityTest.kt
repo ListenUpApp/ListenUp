@@ -46,11 +46,9 @@ class DefaultBookAvailabilityTest :
                 object : NetworkMonitor {
                     override fun isOnline(): Boolean = true
 
-                    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
-                    override val isOnlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
+                    override val onlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
 
-                    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
-                    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(unmetered)
+                    override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(unmetered)
                 }
 
             return DefaultBookAvailability(

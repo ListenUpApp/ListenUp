@@ -72,8 +72,7 @@ class BookMultiSelectViewModel(
     /**
      * Whether the current user is an admin. Only admins may add books to collections.
      */
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    val isAdmin: StateFlow<Boolean> =
+    val adminAccess: StateFlow<Boolean> =
         userRepository
             .observeCurrentUser()
             .map { user -> user?.isAdmin == true }
@@ -125,13 +124,11 @@ class BookMultiSelectViewModel(
     // ═══════════════════════════════════════════════════════════════════════
 
     /** Whether an add-to-collection operation is in progress. */
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    val isAddingToCollection: StateFlow<Boolean>
+    val addingToCollection: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     /** Whether an add-to-shelf operation is in progress. */
-    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
-    val isAddingToShelf: StateFlow<Boolean>
+    val addingToShelf: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -213,7 +210,7 @@ class BookMultiSelectViewModel(
         if (selectedIds.isEmpty()) return
 
         viewModelScope.launch {
-            isAddingToCollection.value = true
+            addingToCollection.value = true
             val bookIds = selectedIds.toList()
 
             when (val result = addBooksToCollectionUseCase(collectionId, bookIds)) {
@@ -229,7 +226,7 @@ class BookMultiSelectViewModel(
                 }
             }
 
-            isAddingToCollection.value = false
+            addingToCollection.value = false
         }
     }
 
@@ -245,7 +242,7 @@ class BookMultiSelectViewModel(
         if (selectedIds.isEmpty()) return
 
         viewModelScope.launch {
-            isAddingToCollection.value = true
+            addingToCollection.value = true
             val bookIds = selectedIds.toList()
 
             when (val createResult = createCollectionUseCase(name)) {
@@ -278,7 +275,7 @@ class BookMultiSelectViewModel(
                 }
             }
 
-            isAddingToCollection.value = false
+            addingToCollection.value = false
         }
     }
 
@@ -298,7 +295,7 @@ class BookMultiSelectViewModel(
         if (selectedIds.isEmpty()) return
 
         viewModelScope.launch {
-            isAddingToShelf.value = true
+            addingToShelf.value = true
             val bookIds = selectedIds.toList()
 
             when (val result = addBooksToShelfUseCase(ShelfId(shelfId), bookIds.map { BookId(it) })) {
@@ -314,7 +311,7 @@ class BookMultiSelectViewModel(
                 }
             }
 
-            isAddingToShelf.value = false
+            addingToShelf.value = false
         }
     }
 
@@ -330,7 +327,7 @@ class BookMultiSelectViewModel(
         if (selectedIds.isEmpty()) return
 
         viewModelScope.launch {
-            isAddingToShelf.value = true
+            addingToShelf.value = true
             val bookIds = selectedIds.toList()
 
             when (val createResult = createShelfUseCase(name, null)) {
@@ -360,7 +357,7 @@ class BookMultiSelectViewModel(
                 }
             }
 
-            isAddingToShelf.value = false
+            addingToShelf.value = false
         }
     }
 
