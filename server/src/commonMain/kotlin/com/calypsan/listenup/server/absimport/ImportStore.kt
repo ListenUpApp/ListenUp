@@ -67,9 +67,10 @@ class ImportStore(
     suspend fun writeAnalysis(
         id: ImportId,
         analysis: ImportAnalysis,
-    ) = onIo {
-        paths.analysisFor(id.value).writeText(json.encodeToString(analysis))
-    }
+    ): Unit =
+        onIo {
+            paths.analysisFor(id.value).writeText(json.encodeToString(analysis))
+        }
 
     /**
      * Persists the server-internal resolved matches for [id] as `matches.json`.
@@ -82,9 +83,10 @@ class ImportStore(
     suspend fun writeMatches(
         id: ImportId,
         matches: ResolvedImport,
-    ) = onIo {
-        paths.matchesFor(id.value).writeText(json.encodeToString(matches))
-    }
+    ): Unit =
+        onIo {
+            paths.matchesFor(id.value).writeText(json.encodeToString(matches))
+        }
 
     /** Reads the persisted resolved matches for [id], or null if not yet analyzed. */
     suspend fun readMatches(id: ImportId): ResolvedImport? =
@@ -98,9 +100,10 @@ class ImportStore(
         id: ImportId,
         userMappings: Map<AbsUserId, UserId>,
         bookOverrides: Map<AbsItemId, BookId?>,
-    ) = onIo {
-        paths.mappingFor(id.value).writeText(json.encodeToString(StoredMapping(userMappings, bookOverrides)))
-    }
+    ): Unit =
+        onIo {
+            paths.mappingFor(id.value).writeText(json.encodeToString(StoredMapping(userMappings, bookOverrides)))
+        }
 
     /** Reads the persisted mapping for [id], or null if no mapping has been confirmed. */
     suspend fun readMapping(id: ImportId): StoredMapping? =
@@ -115,7 +118,7 @@ class ImportStore(
      * after possibly committing partial rows — see [hasInterruptedApply] and
      * [InterruptedImportResumer].
      */
-    suspend fun markApplying(id: ImportId) =
+    suspend fun markApplying(id: ImportId): Unit =
         onIo {
             paths.applyingMarkerFor(id.value).writeText("")
         }
@@ -124,7 +127,7 @@ class ImportStore(
      * Touches the `.applied` marker, recording that apply has completed for [id], and clears the
      * in-flight `.applying` marker so a completed import can never look interrupted.
      */
-    suspend fun markApplied(id: ImportId) =
+    suspend fun markApplied(id: ImportId): Unit =
         onIo {
             paths.appliedMarkerFor(id.value).writeText("")
             SystemFileSystem.delete(paths.applyingMarkerFor(id.value), mustExist = false)
@@ -178,7 +181,7 @@ class ImportStore(
             createdAt = createdAtFor(id),
             status = statusOf(id),
             bookCount = analysis?.let(::bookCountOf) ?: 0,
-            userCount = analysis?.userMatches?.size ?: 0,
+            userCount = analysis?.run { userMatches.size } ?: 0,
         )
     }
 
@@ -256,5 +259,8 @@ private fun com.calypsan.listenup.api.dto.imports.MatchTier.isDefinitiveBookTier
         com.calypsan.listenup.api.dto.imports.MatchTier.TITLE_AUTHOR,
         -> true
 
-        else -> false
+        com.calypsan.listenup.api.dto.imports.MatchTier.STRONG,
+        com.calypsan.listenup.api.dto.imports.MatchTier.AMBIGUOUS,
+        com.calypsan.listenup.api.dto.imports.MatchTier.UNMATCHED,
+        -> false
     }

@@ -38,7 +38,7 @@ class SocketTicketStore(
     private val clock: Clock,
     private val ttl: Duration = DEFAULT_TTL,
 ) {
-    private class Entry(
+    private data class Entry(
         val accessToken: String,
         val expiresAtMillis: Long,
     )

@@ -13,7 +13,6 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.encodeToJsonElement
 
 /**
  * [PushNotifier] backed by the ListenUp push relay. Resolves the user's live device tokens,
@@ -52,7 +51,7 @@ class RelayPushNotifier(
             throw e
         } catch (e: Throwable) {
             // Never log token/payload contents — error class name only (PushNotifier's contract).
-            log.warn { "notify failed: ${e::class.simpleName}" }
+            log.warn { "notify failed: ${e::class.simpleName.orEmpty()}" }
         }
     }
 
@@ -77,7 +76,7 @@ class RelayPushNotifier(
             throw e
         } catch (e: Throwable) {
             // Never log token/payload contents — error class name only (PushNotifier's contract).
-            log.warn { "notifyWatch failed: ${e::class.simpleName}" }
+            log.warn { "notifyWatch failed: ${e::class.simpleName.orEmpty()}" }
         }
     }
 
@@ -93,7 +92,7 @@ class RelayPushNotifier(
         deleteDead: suspend (List<String>) -> Unit,
     ) {
         if (tokens.isEmpty()) {
-            log.info { "push skipped: type=${payload::class.simpleName} — no live tokens for the audience" }
+            log.info { "push skipped: type=${payload::class.simpleName.orEmpty()} — no live tokens for the audience" }
             return
         }
         val payloadJson = contractJson.encodeToJsonElement(PushPayload.serializer(), payload)
@@ -117,7 +116,9 @@ class RelayPushNotifier(
                 return
             }
                 ?: run {
-                    log.warn { "push dropped after retry: type=${payload::class.simpleName} tokens=${tokens.size}" }
+                    log.warn {
+                        "push dropped after retry: type=${payload::class.simpleName.orEmpty()} tokens=${tokens.size}"
+                    }
                     return
                 }
         // The success path's only signal. Push swallows its own failures by design, so without this
@@ -134,7 +135,7 @@ class RelayPushNotifier(
                     .entries
                     .sortedBy { it.key }
                     .joinToString(separator = ", ") { "${it.key}=${it.value}" }
-            "push sent: type=${payload::class.simpleName} tokens=${tokens.size} verdicts=[$byStatus]"
+            "push sent: type=${payload::class.simpleName.orEmpty()} tokens=${tokens.size} verdicts=[$byStatus]"
         }
         val invalid = response.results.filter { it.status == "invalid" }.map { it.token }
         if (invalid.isNotEmpty()) {
@@ -167,7 +168,7 @@ class RelayPushNotifier(
             // Never log token/payload contents — error class name only. WARN, not debug: this is the
             // relay being unreachable, and at debug it is invisible in production, which made a push
             // that silently went nowhere indistinguishable from one that worked.
-            log.warn { "relay attempt failed: ${e::class.simpleName}" }
+            log.warn { "relay attempt failed: ${e::class.simpleName.orEmpty()}" }
             null
         }
 

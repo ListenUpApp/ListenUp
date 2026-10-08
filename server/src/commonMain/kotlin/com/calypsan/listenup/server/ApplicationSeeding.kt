@@ -5,6 +5,7 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.seed.SeedRunner
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.ktor.server.application.Application
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -28,14 +29,13 @@ internal fun Application.backfillPublicProfiles() {
     val sql by inject<ListenUpDatabase>()
     val maintainer by inject<PublicProfileMaintainer>()
     runBlocking {
-        runCatching {
+        runCatchingCancellable {
             val isEmpty =
                 suspendTransaction(sql) {
                     sql.publicProfilesQueries.isEmpty().executeAsOne()
                 }
             if (isEmpty) maintainer.backfillAll()
         }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
             logger.error(e) { "public_profiles startup backfill failed — projection will self-heal on next refresh" }
         }
     }
@@ -55,14 +55,13 @@ internal fun Application.backfillAdminUserRoster() {
     val sql by inject<ListenUpDatabase>()
     val maintainer by inject<AdminUserRosterMaintainer>()
     runBlocking {
-        runCatching {
+        runCatchingCancellable {
             val isEmpty =
                 suspendTransaction(sql) {
                     sql.adminUserRosterQueries.isEmpty().executeAsOne()
                 }
             if (isEmpty) maintainer.backfillAll()
         }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
             logger.error(e) { "admin_user_roster startup backfill failed — projection will self-heal on next refresh" }
         }
     }
@@ -83,8 +82,8 @@ internal fun Application.launchSeeders(
     if (seedProfile == SEED_PROFILE_DEMO) {
         val seedRunner by inject<SeedRunner>()
         scope.launch {
-            runCatching { seedRunner.run() }
-                .onFailure { it.logUnlessCancelled("demo seeding failed — server keeps running") }
+            runCatchingCancellable { seedRunner.run() }
+                .onFailure { it.logFailure("demo seeding failed — server keeps running") }
         }
     } else if (libraryConfigured) {
         val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
@@ -96,30 +95,29 @@ internal fun Application.launchSeeders(
         // `isAlreadySeeded`. The async-launch alternative leaked seed coroutines past
         // test boundaries on CI, racing scanner-test bootstrap scans.
         kotlinx.coroutines.runBlocking {
-            runCatching {
+            runCatchingCancellable {
                 if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
-            }.onFailure { it.logUnlessCancelled("genre default-taxonomy seeding failed — server keeps running") }
+            }.onFailure { it.logFailure("genre default-taxonomy seeding failed — server keeps running") }
             // Seed the canonical Audible mood vocabulary on fresh installs (curator
             // dedupe anchors, not demo content). Idempotent via `isAlreadySeeded`.
-            runCatching {
+            runCatchingCancellable {
                 if (!moodSeeder.isAlreadySeeded()) moodSeeder.seed()
-            }.onFailure { it.logUnlessCancelled("mood vocabulary seeding failed — server keeps running") }
+            }.onFailure { it.logFailure("mood vocabulary seeding failed — server keeps running") }
             // One-time: drain the legacy pending-genre backlog into live genres so an
             // existing library lights up. Runs after seeding (resolution prefers the
             // seeded taxonomy before auto-creating). Idempotent — a drained queue makes
             // subsequent boots a single empty-queue query.
-            runCatching { pendingGenrePromotion.run() }
-                .onFailure { it.logUnlessCancelled("pending-genre backlog promotion failed — server keeps running") }
+            runCatchingCancellable { pendingGenrePromotion.run() }
+                .onFailure { it.logFailure("pending-genre backlog promotion failed — server keeps running") }
         }
     }
 }
 
 /**
- * Re-raises [CancellationException] (so structured concurrency stays intact) and
- * logs every other throwable at error level under [message]. The shared tail for
- * the boot-time seed/promotion jobs, which must never bring the server down.
+ * Logs a boot-time seed/promotion failure at error level under [message]. Those jobs
+ * must never bring the server down; [runCatchingCancellable] has already re-raised
+ * cancellation, so only genuine failures reach here.
  */
-private fun Throwable.logUnlessCancelled(message: String) {
-    if (this is kotlinx.coroutines.CancellationException) throw this
+private fun Throwable.logFailure(message: String) {
     logger.error(this) { message }
 }

@@ -9,6 +9,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.put
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Locale
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.math.abs
@@ -110,7 +111,7 @@ object SeedLibraryGenerator {
         // which refuses the codec outright ("Could not find tag for codec eac3 in stream #0").
         // `-f mp4` produces the same container with a real `ec-3` sample entry.
         val muxerArgs = if (codec == "eac3") listOf("-f", "mp4") else emptyList()
-        val firstAuthor = book.authors.firstOrNull() ?: ""
+        val firstAuthor = book.authors.firstOrNull().orEmpty()
         val metadataArgs =
             listOf(
                 FFMPEG_FLAG_METADATA,
@@ -238,7 +239,7 @@ object SeedLibraryGenerator {
         val r = ((r1 + m) * 255).toInt().coerceIn(0, 255)
         val g = ((g1 + m) * 255).toInt().coerceIn(0, 255)
         val b = ((b1 + m) * 255).toInt().coerceIn(0, 255)
-        return "0x%02X%02X%02X".format(r, g, b)
+        return "0x%02X%02X%02X".format(Locale.ROOT, r, g, b)
     }
 
     /** Builds ABS-format metadata.json content using kotlinx.serialization. */

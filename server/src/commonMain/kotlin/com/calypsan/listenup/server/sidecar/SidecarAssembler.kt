@@ -70,9 +70,9 @@ class SidecarAssembler {
     private fun curatedProvenance(book: BookSyncPayload): Map<String, FieldProvenance> =
         BookField.entries
             .mapNotNull { field ->
-                book.fieldProvenance[field]?.takeIf { it.tier > 0 }?.let {
+                book.fieldProvenance[field]?.takeIf { it.tier > 0 }?.let { provenance ->
                     field.name to
-                        it.copy(by = null)
+                        provenance.copy(by = null)
                 }
             }.toMap()
 
@@ -81,12 +81,12 @@ class SidecarAssembler {
         return SidecarChapters(
             source = "USER",
             entries =
-                book.chapters.sortedBy { it.startTime }.map {
+                book.chapters.sortedBy { it.startTime }.map { chapter ->
                     SidecarChapter(
-                        title = it.title,
-                        startMs = it.startTime,
-                        partTitle = it.partTitle,
-                        bookTitle = it.bookTitle,
+                        title = chapter.title,
+                        startMs = chapter.startTime,
+                        partTitle = chapter.partTitle,
+                        bookTitle = chapter.bookTitle,
                     )
                 },
             bookTierLabel = book.bookTierLabel,

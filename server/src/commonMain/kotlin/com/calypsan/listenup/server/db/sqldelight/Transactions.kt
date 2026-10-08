@@ -61,5 +61,5 @@ suspend fun <T> suspendTransaction(
                 delay(Random.nextLong(MIN_RETRY_DELAY_MS, MAX_RETRY_DELAY_MS + 1))
             }
         }
-        throw lastError ?: IllegalStateException("suspendTransaction retry loop exited without a result")
+        throw lastError ?: error("suspendTransaction retry loop exited without a result")
     }

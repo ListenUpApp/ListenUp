@@ -44,7 +44,14 @@ object TranscodeCommand {
         runListPath: String,
         bitrateKbps: Int,
     ): List<List<String>>? {
-        val encode = encodeArgs(plan, outputPattern, runListPath, session, bitrateKbps)
+        val encode =
+            encodeArgs(
+                plan = plan,
+                outputPattern = outputPattern,
+                runListPath = runListPath,
+                session = session,
+                bitrateKbps = bitrateKbps,
+            )
         if (!requiresExternalDecoder(session.codec, session.codecProfile)) {
             return listOf(listOf(ffmpegPath) + BASE + seekAndOpen(session, startSeconds) + encode)
         }

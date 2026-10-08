@@ -48,7 +48,7 @@ class PermissionPolicy(
                             canMakeReadingOrders = canMakeReadingOrders != 0L,
                         )
                     }.executeAsOneOrNull()
-                    ?.allows(permission) ?: false
+                    ?.allows(permission) == true
             }
         return if (granted) null else AuthError.PermissionDenied()
     }

@@ -210,7 +210,6 @@ fun scannerModule(
                                 scanner.runIncremental(path)?.let { result ->
                                     getOrNull<ScanIssueRepository>().reconcileWith(library, result)
                                 }
-                                Unit
                             },
                             scope = scope,
                         )

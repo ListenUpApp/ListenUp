@@ -42,7 +42,6 @@ import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.BLOB_READ_PROVIDER
@@ -88,37 +87,18 @@ import org.koin.ktor.ext.inject
  *   route (it is resolved once at boot and not held in Koin).
  */
 internal fun Application.installAppRoutes(homeDir: Path) {
-    val authService by inject<AuthServiceImpl>()
-    val adminUserService by inject<AdminUserServiceImpl>()
-    val adminSettingsService by inject<AdminSettingsServiceImpl>()
-    val inviteService by inject<InviteServiceImpl>()
-    val instanceService by inject<InstanceService>()
-    val scannerService by inject<ScannerService>()
     val bookService by inject<BookService>()
     val contributorService by inject<ContributorService>()
     val seriesService by inject<SeriesService>()
     val coverResponder by inject<CoverResponder>()
     val documentFileLocator by inject<DocumentFileLocator>()
     val bookAccessPolicy by inject<BookAccessPolicy>()
-    val playbackService by inject<PlaybackService>()
-    val playbackProgressService by inject<PlaybackProgressService>()
     val audioFileLocator by inject<AudioFileLocator>()
     val audioUrlSigner by inject<AudioUrlSigner>()
     val coverUrlSigner by inject<CoverUrlSigner>()
     val contributorRepository by inject<ContributorRepository>()
     val seriesRepository by inject<SeriesRepository>()
     val imageStorage by inject<com.calypsan.listenup.server.metadata.ImageStorage>()
-    val metadataLookupService by inject<MetadataLookupService>()
-    val libraryAdminService by inject<LibraryAdminService>()
-    val tagService by inject<TagService>()
-    val moodService by inject<MoodService>()
-    val genreService by inject<GenreService>()
-    val shelfService by inject<ShelfService>()
-    val socialService by inject<SocialService>()
-    val profileService by inject<ProfileService>()
-    val userPreferencesService by inject<UserPreferencesService>()
-    val backupService by inject<BackupService>()
-    val importService by inject<ImportService>()
     val backupPaths by inject<com.calypsan.listenup.server.backup.BackupPaths>()
     val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
     val importPaths by inject<com.calypsan.listenup.server.absimport.ImportPaths>()
@@ -132,7 +112,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val segmentCache by inject<SegmentCache>()
     val transcodeSettings by inject<TranscodeSettings>()
     val transcoderAvailability by inject<TranscoderAvailability>()
-    val sessionService by inject<SessionService>()
     val rpcServices = rpcServiceBundle()
     // Resolved eagerly (not `by inject`) because /healthz reads it from inside a request handler,
     // and the health route is the one place a lazy Koin access would outlive route installation.
@@ -162,21 +141,31 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
             avatarImageRoutes(avatarImageStore)
         }
-        audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
+        audioRoutes(
+            locator = audioFileLocator,
+            signer = audioUrlSigner,
+            roleLookup = audioRoleLookup,
+            accessPolicy = bookAccessPolicy,
+        )
         // ⛔ A SIBLING of the authenticate blocks, exactly like audioRoutes above: the HMAC
         // signature IS the auth. hls.js and <audio> cannot set headers on a media URL, and a
         // cookie here would be a CSRF surface.
         hlsRoutes(
-            audioFileLocator,
-            audioUrlSigner,
-            audioRoleLookup,
-            bookAccessPolicy,
-            transcodeEngine,
-            segmentCache,
-            transcodeSettings,
-            transcoderAvailability,
+            locator = audioFileLocator,
+            signer = audioUrlSigner,
+            roleLookup = audioRoleLookup,
+            accessPolicy = bookAccessPolicy,
+            engine = transcodeEngine,
+            cache = segmentCache,
+            settings = transcodeSettings,
+            availability = transcoderAvailability,
         )
-        coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
+        coverCastRoutes(
+            coverResponder = coverResponder,
+            signer = coverUrlSigner,
+            roleLookup = audioRoleLookup,
+            accessPolicy = bookAccessPolicy,
+        )
         // Mounted last: its catch-all falls back to the web shell, so it must not shadow the
         // RPC mounts or the blob endpoints above.
         webAppRoutes(resolveWebRoot())

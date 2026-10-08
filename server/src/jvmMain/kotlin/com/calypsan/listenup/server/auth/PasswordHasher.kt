@@ -3,18 +3,16 @@ package com.calypsan.listenup.server.auth
 import com.password4j.Argon2Function
 import com.password4j.Password
 import com.password4j.types.Argon2
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.server.util.cpuDispatcher
 import kotlinx.coroutines.withContext
 
 actual class PasswordHasher actual constructor() {
-    private val argon2: Argon2Function = DEFAULT
-
     actual suspend fun hash(plaintext: CharSequence): String =
-        withContext(Dispatchers.Default) {
+        withContext(cpuDispatcher) {
             Password
                 .hash(plaintext)
                 .addRandomSalt(SALT_BYTES)
-                .with(argon2)
+                .with(DEFAULT)
                 .result
         }
 
@@ -22,8 +20,8 @@ actual class PasswordHasher actual constructor() {
         plaintext: CharSequence,
         encoded: String,
     ): Boolean =
-        withContext(Dispatchers.Default) {
-            Password.check(plaintext, encoded).with(argon2)
+        withContext(cpuDispatcher) {
+            Password.check(plaintext, encoded).with(DEFAULT)
         }
 
     companion object {

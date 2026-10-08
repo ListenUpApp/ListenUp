@@ -90,6 +90,9 @@ class RestoreOrchestrator(
                 withContext(NonCancellable) {
                     eventBus.tryEmit(BackupEvent.Swapping)
                     dbHandle.closePool()
+                    // Deliberate: inside NonCancellable every throwable, an explicit cancellation included,
+                    // must roll back and reopen the pool — see the catch below.
+                    @Suppress("SuspendFunSwallowedCancellation")
                     try {
                         swapFile(Path(paths.stagingDir, "listenup.db"), paths.dbFile)
                         deleteDbSidecars()
@@ -127,7 +130,14 @@ class RestoreOrchestrator(
                         // any throwable (incl. an explicit CancellationException) must trigger
                         // rollback so the pool is always reopened.
                         logger.error(e) { "restore swap/migrate failed — rolling back to safety copy" }
-                        rollback(rollbackDb, rollbackCovers, rollbackAvatars)
+                        rollback(
+                            rollbackDb = rollbackDb,
+                            asideDirs =
+                                listOfNotNull(
+                                    rollbackCovers?.let { aside -> aside to paths.coversDir },
+                                    rollbackAvatars?.let { aside -> aside to paths.avatarsDir },
+                                ),
+                        )
                         deleteRecursively(paths.stagingDir)
                         eventBus.tryEmit(BackupEvent.RolledBack(e.message ?: "restore failed"))
                         AppResult.Failure(BackupError.RestoreFailed(rolledBack = true, debugInfo = e.message))
@@ -186,26 +196,19 @@ class RestoreOrchestrator(
      * The pool is already hard-closed by [restore] before the swap begins. This function swaps
      * the safety copy back in place and then reopens the pool in a [finally] block so the server
      * is never left with a closed pool regardless of whether the file swap itself succeeds.
+     * [asideDirs] pairs each directory that was copied aside with the live directory it restores.
      */
     private fun rollback(
         rollbackDb: Path,
-        rollbackCovers: Path?,
-        rollbackAvatars: Path?,
+        asideDirs: List<Pair<Path, Path>>,
     ) {
         try {
             if (SystemFileSystem.exists(rollbackDb)) {
                 swapFile(rollbackDb, paths.dbFile)
                 deleteDbSidecars()
             }
-            if (rollbackCovers != null &&
-                SystemFileSystem.exists(rollbackCovers)
-            ) {
-                swapDir(rollbackCovers, paths.coversDir)
-            }
-            if (rollbackAvatars != null &&
-                SystemFileSystem.exists(rollbackAvatars)
-            ) {
-                swapDir(rollbackAvatars, paths.avatarsDir)
+            for ((aside, live) in asideDirs) {
+                if (SystemFileSystem.exists(aside)) swapDir(aside, live)
             }
         } catch (e: CancellationException) {
             throw e

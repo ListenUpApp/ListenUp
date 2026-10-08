@@ -8,7 +8,7 @@ import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.refTo
 import kotlinx.cinterop.toKString
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.server.util.cpuDispatcher
 import kotlinx.coroutines.withContext
 import libargon2.argon2id_hash_encoded
 import libargon2.argon2id_verify
@@ -16,7 +16,7 @@ import libargon2.argon2id_verify
 @OptIn(ExperimentalForeignApi::class)
 actual class PasswordHasher actual constructor() {
     actual suspend fun hash(plaintext: CharSequence): String =
-        withContext(Dispatchers.Default) {
+        withContext(cpuDispatcher) {
             val pwd = plaintext.toString().encodeToByteArray()
             val salt = CryptographyRandom.nextBytes(SALT_BYTES)
             memScoped {
@@ -44,7 +44,7 @@ actual class PasswordHasher actual constructor() {
         plaintext: CharSequence,
         encoded: String,
     ): Boolean =
-        withContext(Dispatchers.Default) {
+        withContext(cpuDispatcher) {
             val pwd = plaintext.toString().encodeToByteArray()
             // `encoded` is @CString in the generated binding (auto String→C string); pass directly.
             argon2id_verify(encoded, pwd.refTo(0), pwd.size.convert()) == 0

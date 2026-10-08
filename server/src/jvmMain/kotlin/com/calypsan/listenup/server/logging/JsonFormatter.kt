@@ -32,7 +32,7 @@ internal fun formatJson(
 
     val sb = StringBuilder()
     sb.append('{')
-    appendJsonField(sb, "timestamp", timestamp, first = true)
+    appendJsonField(sb = sb, key = "timestamp", value = timestamp, first = true)
     appendJsonField(sb, "level", level.name)
     appendJsonField(sb, "logger", loggerName)
     appendJsonField(sb, "thread", thread)

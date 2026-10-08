@@ -15,13 +15,28 @@ private val log = loggerFor<ProcessRunner>()
 private const val READER_DRAIN_MILLIS = 2_000L
 
 actual class ProcessRunner {
+    // False positive: detekt's type resolution loses private members of an `actual class`; used below.
+    @Suppress("UnusedPrivateProperty")
     private val started = CompletableDeferred<Unit>()
+
+    // False positive: detekt's type resolution loses private members of an `actual class`; used below.
+    @Suppress("UnusedPrivateProperty")
     private val lock = SynchronizedObject()
 
-    /** Guarded by [lock] — see [kill] for why the adoption of fresh children is a critical section. */
+    /**
+     * Guarded by [lock] — see [kill] for why the adoption of fresh children is a critical section.
+     *
+     * False positive: detekt's type resolution loses private members of an `actual class`; used below.
+     */
+    @Suppress("UnusedPrivateProperty", "VarCouldBeVal")
     private var processes: List<Process> = emptyList()
 
-    /** Guarded by [lock]. Records a [kill] that arrived before there was a child to kill. */
+    /**
+     * Guarded by [lock]. Records a [kill] that arrived before there was a child to kill.
+     *
+     * False positive: detekt's type resolution loses private members of an `actual class`; used below.
+     */
+    @Suppress("UnusedPrivateProperty", "VarCouldBeVal")
     private var killRequested = false
 
     // Named argument, not a trailing lambda into the last slot: both parameters are functional, and

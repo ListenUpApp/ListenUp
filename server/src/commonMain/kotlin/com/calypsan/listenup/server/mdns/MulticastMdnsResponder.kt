@@ -44,7 +44,13 @@ class MulticastMdnsResponder(
     internal fun advertisedService(): MdnsServiceInfo = service
 
     override suspend fun start() {
-        service = MdnsServiceInfo(instanceName, port, txtProvider(), hostLabel = hostLabelProvider())
+        service =
+            MdnsServiceInfo(
+                instanceName = instanceName,
+                port = port,
+                txt = txtProvider(),
+                hostLabel = hostLabelProvider(),
+            )
         started = true
         withContext(IODispatcher) {
             runCatching {

@@ -9,7 +9,7 @@ import com.calypsan.listenup.server.io.writeBytesAtomically
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.util.KeyedMutex
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.server.util.cpuDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -168,7 +168,7 @@ class CoverDerivatives(
 
     /**
      * Decodes [source] at the cheapest scale that still covers [width], resizes precisely, and
-     * re-encodes. Runs on [Dispatchers.Default]: this is the only CPU-bound work the request path
+     * re-encodes. Runs on [cpuDispatcher]: this is the only CPU-bound work the request path
      * does, and it must not sit on a thread that is meant to be serving other requests.
      *
      * Catches [Throwable], not [Exception]: a render that runs out of memory on a hostile image is
@@ -179,9 +179,9 @@ class CoverDerivatives(
         source: ByteArray,
         width: Int,
     ): ByteArray? =
-        withContext(Dispatchers.Default) {
+        withContext(cpuDispatcher) {
             try {
-                decodeImage(source, width)?.resizedTo(width)?.let { encodeJpeg(it, QUALITY) }
+                decodeImage(source, width)?.let { decoded -> encodeJpeg(decoded.resizedTo(width), QUALITY) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

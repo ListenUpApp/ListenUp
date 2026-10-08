@@ -96,7 +96,12 @@ object HlsPlaylist {
         val durations = MutableList(whole) { segmentSeconds }
         if (whole == declaredSegments && remainder > 0.0) durations += remainder
 
-        return Plan(segmentSeconds, durations, rate, framesPerSegment)
+        return Plan(
+            segmentSeconds = segmentSeconds,
+            segmentDurations = durations,
+            sampleRate = rate,
+            framesPerSegment = framesPerSegment,
+        )
     }
 
     /**

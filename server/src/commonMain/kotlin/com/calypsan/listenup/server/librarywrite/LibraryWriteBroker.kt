@@ -54,7 +54,7 @@ class LibraryWriteBroker(
     private suspend fun outsideLibraryRefusal(
         opName: String,
         finalLink: FinalLink,
-        vararg paths: Path,
+        paths: List<Path>,
     ): AppResult<Nothing>? {
         val live = libraryRoots.roots()
         val escaping = paths.firstOrNull { !isInsideAnyRoot(it, live, finalLink) } ?: return null
@@ -79,7 +79,7 @@ class LibraryWriteBroker(
         target: Path,
         bytes: ByteArray,
     ): AppResult<WrittenFile> {
-        outsideLibraryRefusal("a write", FinalLink.InPlace, target)?.let { return it }
+        outsideLibraryRefusal("a write", FinalLink.InPlace, listOf(target))?.let { return it }
         val parent =
             target.parent
                 ?: return failure(LibraryWriteError.Unavailable(debugInfo = "no parent directory: $target"))
@@ -97,7 +97,7 @@ class LibraryWriteBroker(
             registry.release(target)
             registry.release(tmp)
             logger.warn(e) { "writeFile failed for $target" }
-            failure(LibraryWriteError.Unavailable(debugInfo = "$target: ${e.message}"))
+            failure(LibraryWriteError.Unavailable(debugInfo = "$target: ${e.message.orEmpty()}"))
         }
     }
 
@@ -109,7 +109,7 @@ class LibraryWriteBroker(
      * reports [LibraryWriteStatus.Unavailable] rather than being silently created. Never throws —
      * an I/O failure at any step also reports [LibraryWriteStatus.Unavailable].
      */
-    suspend fun probe(root: Path): LibraryWriteStatus {
+    fun probe(root: Path): LibraryWriteStatus {
         if (!SystemFileSystem.exists(root)) {
             return LibraryWriteStatus.Unavailable(reason = "$root: does not exist")
         }
@@ -123,7 +123,7 @@ class LibraryWriteBroker(
             throw e
         } catch (e: Exception) {
             registry.release(marker)
-            LibraryWriteStatus.Unavailable(reason = "$root: ${e.message}")
+            LibraryWriteStatus.Unavailable(reason = "$root: ${e.message ?: e::class.simpleName.orEmpty()}")
         }
     }
 
@@ -150,7 +150,9 @@ class LibraryWriteBroker(
         } catch (e: Exception) {
             logger.warn(e) { "failed to journal manifest ${manifest.opId}" }
             failure(
-                LibraryWriteError.Unavailable(debugInfo = "journal persist failed for ${manifest.opId}: ${e.message}"),
+                LibraryWriteError.Unavailable(
+                    debugInfo = "journal persist failed for ${manifest.opId}: ${e.message.orEmpty()}",
+                ),
             )
         }
 
@@ -194,25 +196,25 @@ class LibraryWriteBroker(
         // alone. EnsureDir and DeleteDir act through it, so they judge it where it points (Follow).
         val (finalLink, touched) =
             when (op) {
-                is WriteOp.EnsureDir -> FinalLink.Follow to arrayOf(op.dir)
+                is WriteOp.EnsureDir -> FinalLink.Follow to listOf(op.dir)
 
-                is WriteOp.MoveFile -> FinalLink.InPlace to arrayOf(op.from, op.to)
+                is WriteOp.MoveFile -> FinalLink.InPlace to listOf(op.from, op.to)
 
                 // Only the destination is a library path; the source is staging, and its own
                 // containment is checked by [refuseUnlessImportable] below.
-                is WriteOp.ImportFile -> FinalLink.InPlace to arrayOf(op.to)
+                is WriteOp.ImportFile -> FinalLink.InPlace to listOf(op.to)
 
-                is WriteOp.WriteFile -> FinalLink.InPlace to arrayOf(op.target)
+                is WriteOp.WriteFile -> FinalLink.InPlace to listOf(op.target)
 
-                is WriteOp.DeleteFile -> FinalLink.InPlace to arrayOf(op.target)
+                is WriteOp.DeleteFile -> FinalLink.InPlace to listOf(op.target)
 
-                is WriteOp.DeleteDirIfEmpty -> FinalLink.InPlace to arrayOf(op.dir)
+                is WriteOp.DeleteDirIfEmpty -> FinalLink.InPlace to listOf(op.dir)
 
                 // Containment is necessary but nowhere near sufficient here — see
                 // [refuseUnlessRecursivelyDeletable], which runs below.
-                is WriteOp.DeleteDir -> FinalLink.Follow to arrayOf(op.dir)
+                is WriteOp.DeleteDir -> FinalLink.Follow to listOf(op.dir)
             }
-        outsideLibraryRefusal("${op::class.simpleName}", finalLink, *touched)?.let { return it }
+        outsideLibraryRefusal("${op::class.simpleName.orEmpty()}", finalLink, touched)?.let { return it }
         refusalFor(op)?.let { return it }
         return try {
             when (op) {
@@ -258,7 +260,11 @@ class LibraryWriteBroker(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            failure(LibraryWriteError.Unavailable(debugInfo = "${op::class.simpleName} failed: ${e.message}"))
+            failure(
+                LibraryWriteError.Unavailable(
+                    debugInfo = "${op::class.simpleName.orEmpty()} failed: ${e.message.orEmpty()}",
+                ),
+            )
         }
     }
 
@@ -309,7 +315,10 @@ class LibraryWriteBroker(
 
             is WriteOp.DeleteDir -> refuseUnlessRecursivelyDeletable(op)
 
-            else -> null
+            is WriteOp.EnsureDir,
+            is WriteOp.MoveFile,
+            is WriteOp.WriteFile,
+            -> null
         }
 
     /**
@@ -482,7 +491,7 @@ class LibraryWriteBroker(
                 registry.release(op.to)
                 registry.release(tmp)
                 logger.warn(e) { "import failed for ${op.from} -> ${op.to}" }
-                failure(LibraryWriteError.Unavailable(debugInfo = "${op.to}: ${e.message}"))
+                failure(LibraryWriteError.Unavailable(debugInfo = "${op.to}: ${e.message.orEmpty()}"))
             }
         }
     }
