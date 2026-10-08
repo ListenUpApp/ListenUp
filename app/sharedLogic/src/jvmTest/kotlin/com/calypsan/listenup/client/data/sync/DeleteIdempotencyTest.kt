@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.GenreError
+import com.calypsan.listenup.api.error.ReadingOrderError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.error.TagError
@@ -41,6 +42,7 @@ class DeleteIdempotencyTest :
                 SeriesError.NotFound(),
                 ContributorError.NotFound(),
                 EntityError.NotFound(),
+                ReadingOrderError.NotFound(),
             ).forEach { notFound ->
                 AppResult.Failure(notFound).orSuccessIfNotFound() shouldBe AppResult.Success(Unit)
             }

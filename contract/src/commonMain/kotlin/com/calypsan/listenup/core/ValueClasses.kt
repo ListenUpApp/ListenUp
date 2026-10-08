@@ -169,6 +169,22 @@ value class SeriesId(
 }
 
 /**
+ * Type-safe wrapper for a reading order — a named, ordered list of books belonging to one series (#962).
+ * Client-minted (UUID), so an order can be made offline.
+ */
+@Serializable
+@JvmInline
+value class ReadingOrderId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Reading order ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for a merge receipt — the record of what one series or genre merge changed,
  * which is what lets it be undone.
  */

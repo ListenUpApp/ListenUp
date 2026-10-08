@@ -286,6 +286,7 @@ private fun permissionTitle(permission: Permission): String =
         Permission.CURATE_LIBRARY -> "Curate library"
         Permission.CONTRIBUTE_STORY_WORLD -> "Contribute"
         Permission.CURATE_STORY_WORLD -> "Curate"
+        Permission.MAKE_READING_ORDERS -> "Make reading orders"
         Permission.UNKNOWN -> ""
     }
 
@@ -295,6 +296,7 @@ private fun permissionDescription(permission: Permission): String =
         Permission.CURATE_LIBRARY -> "Merge or delete series, authors, genres, tags and moods."
         Permission.CONTRIBUTE_STORY_WORLD -> "Add, edit and delete characters, places and events."
         Permission.CURATE_STORY_WORLD -> "Merge duplicate characters, places and events."
+        Permission.MAKE_READING_ORDERS -> "Make orders to read a series in, and edit their own."
         Permission.UNKNOWN -> ""
     }
 
@@ -302,6 +304,7 @@ private fun groupTitle(group: PermissionGroup): String =
     when (group) {
         PermissionGroup.LIBRARY -> "Library"
         PermissionGroup.STORY_WORLD -> "Story World"
+        PermissionGroup.READING_ORDERS -> "Reading orders"
         PermissionGroup.UNKNOWN -> ""
     }
 
@@ -316,7 +319,7 @@ private fun presetTitle(preset: PermissionPreset): String =
 private fun presetDescription(preset: PermissionPreset): String =
     when (preset) {
         PermissionPreset.LISTENER -> "Listens and browses. Changes nothing."
-        PermissionPreset.CONTRIBUTOR -> "Fixes books and adds to Story World. Can't merge or delete."
+        PermissionPreset.CONTRIBUTOR -> "Fixes books, adds to Story World and makes reading orders. Can't merge or delete."
         PermissionPreset.LIBRARIAN -> "Everything a member can do, including merging and deleting."
         PermissionPreset.CUSTOM -> "These don't match a preset. Pick one to start again from it."
     }

@@ -123,6 +123,8 @@ class SyncDomainCompletenessSpec :
                 // state, coalesced under one op kind (see OutboxChannels.BookRatings).
                 // entities is outbox-backed from the start — create and edit are one Upsert snapshot
                 // (client-minted id), delete is Delete; merge and revert stay online.
+                // reading_orders, reading_order_books and reading_order_follows are offline-first from the
+                // start, create included — the client mints the order id (#962).
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -137,6 +139,9 @@ class SyncDomainCompletenessSpec :
                         "book_ratings",
                         "shelves",
                         "shelf_books",
+                        "reading_orders",
+                        "reading_order_books",
+                        "reading_order_follows",
                         "collections",
                         "collection_books",
                         "notifications",
@@ -338,6 +343,7 @@ class SyncDomainCompletenessSpec :
                         "book_ratings",
                         "book_external_ratings",
                         "entities",
+                        "reading_order_books",
                     )
 
                 // The Targeted domains, in their declared dependency order. Changing an order or moving a
@@ -359,6 +365,7 @@ class SyncDomainCompletenessSpec :
                         "book_ratings",
                         "book_external_ratings",
                         "entities",
+                        "reading_order_books",
                     )
 
                 // The one LiveTailOnly domain — deliberately NOT fetched in the delta.

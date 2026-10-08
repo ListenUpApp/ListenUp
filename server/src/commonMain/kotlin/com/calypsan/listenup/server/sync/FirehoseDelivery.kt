@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
+import com.calypsan.listenup.api.sync.ReadingOrderBookSyncPayload
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.api.sync.ExternalRatingSyncPayload
@@ -55,6 +56,22 @@ internal const val BOOK_EXTERNAL_RATINGS_DOMAIN = "book_external_ratings"
  * series-homed one iff at least one of the series' books is.
  */
 internal const val ENTITIES_DOMAIN = "entities"
+
+/**
+ * Reading-order membership rows (#962). Gated like the book junctions above: a row names a book, so an
+ * ungated one would tell a member that a book they can't see exists and which order holds it.
+ */
+internal const val READING_ORDER_BOOKS_DOMAIN = "reading_order_books"
+
+/** The book-keyed junction domains whose live events [isBookJunctionEventHidden] gates on the payload's book. */
+private val BOOK_JUNCTION_DOMAINS =
+    setOf(
+        BOOK_TAGS_DOMAIN,
+        BOOK_MOODS_DOMAIN,
+        BOOK_RATINGS_DOMAIN,
+        BOOK_EXTERNAL_RATINGS_DOMAIN,
+        READING_ORDER_BOOKS_DOMAIN,
+    )
 
 internal const val LIBRARY_FOLDERS_DOMAIN = "library_folders"
 
@@ -137,7 +154,7 @@ private suspend fun isActivityEventHidden(
 }
 
 /**
- * Whether a live `book_tags`/`book_moods`/`book_ratings`/`book_external_ratings` junction event
+ * Whether a live `book_tags`/`book_moods`/`book_ratings`/`book_external_ratings`/`reading_order_books` junction event
  * must be withheld from `(userId, role)`.
  *
  * Mirrors [isActivityEventHidden]: ROOT/ADMIN and Deleted tombstones always pass — a tombstone
@@ -155,13 +172,7 @@ private suspend fun isBookJunctionEventHidden(
     bookAccessPolicy: () -> BookAccessPolicy,
 ): Boolean {
     val domain = busEvent.repo.domainName
-    if (domain != BOOK_TAGS_DOMAIN &&
-        domain != BOOK_MOODS_DOMAIN &&
-        domain != BOOK_RATINGS_DOMAIN &&
-        domain != BOOK_EXTERNAL_RATINGS_DOMAIN
-    ) {
-        return false
-    }
+    if (domain !in BOOK_JUNCTION_DOMAINS) return false
     if (role.isAdmin()) return false
     if (busEvent.event is SyncEvent.Deleted) return false
     val bookId = junctionBookIdOf(busEvent.event) ?: return true
@@ -185,6 +196,7 @@ private fun junctionPayloadBookId(payload: Any?): String? =
         is BookMoodSyncPayload -> payload.bookId
         is BookRatingSyncPayload -> payload.bookId
         is ExternalRatingSyncPayload -> payload.bookId
+        is ReadingOrderBookSyncPayload -> payload.bookId
         else -> null
     }
 

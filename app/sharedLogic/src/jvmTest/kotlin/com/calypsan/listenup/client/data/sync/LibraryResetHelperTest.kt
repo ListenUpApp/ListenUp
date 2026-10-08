@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.sync.EntityKind
+import com.calypsan.listenup.client.data.local.db.ReadingOrderFollowEntity
+import com.calypsan.listenup.client.data.local.db.ReadingOrderBookEntity
+import com.calypsan.listenup.client.data.local.db.ReadingOrderEntity
 import com.calypsan.listenup.client.data.local.db.ActivityEntity
 import com.calypsan.listenup.client.data.local.db.AdminUserRosterEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
@@ -255,6 +258,53 @@ class LibraryResetHelperTest :
                                 )
                             },
                             isGone = { db.shelfBookDao().findById("seed-shelf:b1") == null },
+                        ),
+                        DomainProbe(
+                            domainName = "reading_orders",
+                            seed = {
+                                db.readingOrderDao().upsert(
+                                    ReadingOrderEntity(
+                                        id = "seed-ro",
+                                        seriesId = "s1",
+                                        name = "URO",
+                                        createdBy = "u1",
+                                        createdAt = 0L,
+                                        updatedAt = 0L,
+                                    ),
+                                )
+                            },
+                            isGone = { db.readingOrderDao().findById("seed-ro") == null },
+                        ),
+                        DomainProbe(
+                            domainName = "reading_order_books",
+                            seed = {
+                                db.readingOrderBookDao().upsert(
+                                    ReadingOrderBookEntity(
+                                        readingOrderId = "seed-ro",
+                                        bookId = "b1",
+                                        syncId = "seed-member",
+                                        position = 0,
+                                        createdAt = 0L,
+                                    ),
+                                )
+                            },
+                            isGone = { db.readingOrderBookDao().find("seed-ro", "b1") == null },
+                        ),
+                        DomainProbe(
+                            domainName = "reading_order_follows",
+                            seed = {
+                                db.readingOrderFollowDao().upsert(
+                                    ReadingOrderFollowEntity(
+                                        id = "u1:s1",
+                                        seriesId = "s1",
+                                        choice = "PUBLICATION",
+                                        readingOrderId = null,
+                                        createdAt = 0L,
+                                        updatedAt = 0L,
+                                    ),
+                                )
+                            },
+                            isGone = { db.readingOrderFollowDao().findById("u1:s1") == null },
                         ),
                         DomainProbe(
                             domainName = "playback_positions",

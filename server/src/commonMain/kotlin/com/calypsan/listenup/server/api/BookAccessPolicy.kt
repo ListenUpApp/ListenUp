@@ -144,6 +144,12 @@ class BookAccessPolicy(
         role: UserRole,
     ): SqlFragment? = junctionIdsSql("book_external_ratings", userId, role)
 
+    /** Visible `reading_order_books` row ids (#962) — a membership is visible iff its book is. */
+    fun accessibleReadingOrderBookIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? = junctionIdsSql("reading_order_books", userId, role)
+
     /**
      * Visible `entities` row ids for `(userId, role)`, or null for ROOT/ADMIN. A book-homed entity is
      * visible iff its book is; a series-homed entity iff its series is live and at least one of its books is

@@ -34,7 +34,7 @@ internal class LibraryResetHelperImpl(
             // book_series, book_genres, audio_files, book_documents -> books/contributors/
             // series/genres; contributor_aliases -> contributors), so clearing child-first
             // is required, not just tidy. The junctions with no declared FK (book_tags,
-            // book_moods, shelf_books, collection_books, collection_shares) are ordered the
+            // book_moods, shelf_books, reading_order_books, collection_books, collection_shares) are ordered the
             // same way for uniformity. book_readership is a server-fetched cache keyed to
             // books, not a mirrored sync domain, but it is cleared here for the same reason
             // the books access-gate sweeps it: a stale reader list must not survive the reset.
@@ -51,6 +51,7 @@ internal class LibraryResetHelperImpl(
             database.bookRatingDao().deleteAll()
             database.bookExternalRatingDao().deleteAll()
             database.shelfBookDao().deleteAll()
+            database.readingOrderBookDao().deleteAll()
             database.collectionBookDao().deleteAll()
             database.collectionShareDao().deleteAll()
             database.playbackPositionDao().deleteAll()
@@ -58,7 +59,7 @@ internal class LibraryResetHelperImpl(
             database.activityDao().deleteAll()
             database.libraryFolderDao().deleteAll()
 
-            // Every mirrored sync domain's root table (SyncDomainCatalog — 22 domains; see
+            // Every mirrored sync domain's root table (SyncDomainCatalog — 27 domains; see
             // LibraryResetHelperTest's drift-proof coverage test for the full accounting).
             database.bookDao().deleteAll()
             database.seriesDao().deleteAll()
@@ -67,6 +68,8 @@ internal class LibraryResetHelperImpl(
             database.tagDao().deleteAll()
             database.moodDao().deleteAll()
             database.shelfDao().deleteAll()
+            database.readingOrderDao().deleteAll()
+            database.readingOrderFollowDao().deleteAll()
             database.collectionDao().deleteAll()
             database.libraryDao().deleteAll()
             database.userStatsDao().deleteAll()

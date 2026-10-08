@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -178,6 +179,39 @@ class AdminUserServiceRosterPublishTest :
                     val row =
                         rosterRepo.pullSince(userId = null, cursor = 0, limit = 100).items.single { it.id == "m1" }
                     row.role shouldBe "ADMIN"
+                }
+            }
+        }
+
+        test("revoking canMakeReadingOrders reaches the roster row, and an edit-metadata patch keeps it") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                val rosterRepo = AdminUserRosterRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
+                val maintainer = AdminUserRosterMaintainer(sql, rosterRepo)
+
+                runTest {
+                    maintainer.refresh("m1")
+                    val svc = makeAdminUserService(maintainer).copyWith(principalFor("root1", UserRole.ROOT))
+
+                    suspend fun rosterRow() =
+                        rosterRepo
+                            .pullSince(userId = null, cursor = 0, limit = 100)
+                            .items
+                            .single { it.id == "m1" }
+                    rosterRow().permissions?.canMakeReadingOrders shouldBe true
+
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canMakeReadingOrders = false)))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+                    rosterRow().permissions?.canMakeReadingOrders shouldBe false
+
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+                    val row = rosterRow()
+                    row.canEdit shouldBe false
+                    row.permissions?.canMakeReadingOrders shouldBe false
                 }
             }
         }

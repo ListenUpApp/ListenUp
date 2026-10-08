@@ -20,7 +20,7 @@ class AdminUserMapperTest :
             role = role,
             status = UserStatus.ACTIVE,
             createdAt = 1_700_000_000_000L,
-            permissions = UserPermissions(canEditMetadata = false),
+            permissions = UserPermissions(canEditMetadata = false, canMakeReadingOrders = false),
         )
 
         test("maps contract User to AdminUserInfo with isRoot true for ROOT") {
@@ -33,6 +33,7 @@ class AdminUserMapperTest :
             info.status shouldBe "ACTIVE"
             info.createdAt shouldBe "1700000000000"
             info.permissions.canEditMetadata shouldBe false
+            info.permissions.canMakeReadingOrders shouldBe false
             info.firstName shouldBe null
             info.lastName shouldBe null
         }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.error.AuthError
@@ -535,6 +536,7 @@ private fun undoFixture(
             bookRepo = bookRepo,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
+            readingOrders = ReadingOrderRepository(dbs.sql, ChangeBus(), SyncRegistry()),
             principal = principal,
             clock = clock,
         )

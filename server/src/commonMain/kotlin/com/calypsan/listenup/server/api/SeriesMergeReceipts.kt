@@ -29,6 +29,7 @@ internal class SeriesMergeReceipts(
     private val bookRepo: BookRepository,
     private val hierarchy: SeriesHierarchyWrites,
     private val entityRepo: EntityRepository?,
+    private val readingOrders: SeriesMergeReadingOrders,
     private val clock: Clock,
 ) {
     private val receipts get() = sqlDb.seriesMergeReceiptsQueries
@@ -36,8 +37,8 @@ internal class SeriesMergeReceipts(
     /**
      * Records [source] → [target] by [mergedBy]. Must be called inside the merge's transaction and
      * BEFORE its membership relink — the snapshot reads the memberships the relink rewrites — and
-     * BEFORE the merge re-parents the source's sub-series. Returns the receipt id, which the Story World
-     * re-home snapshots its entities against.
+     * BEFORE the merge re-parents the source's sub-series or moves its reading orders. Returns the receipt
+     * id, which the Story World re-home snapshots its entities against.
      */
     fun record(
         source: SeriesId,
@@ -54,8 +55,16 @@ internal class SeriesMergeReceipts(
         )
         receipts.snapshotSourceMemberships(receipt_id = receiptId, target_id = target.value, source_id = source.value)
         receipts.snapshotSourceChildren(receipt_id = receiptId, source_id = source.value)
+        receipts.snapshotSourceReadingOrders(receipt_id = receiptId, source_id = source.value)
         return receiptId
     }
+
+    /** Moves the reading orders [receiptId] recorded onto [target] (#962). The first failure, if any. */
+    suspend fun moveReadingOrders(
+        receiptId: String,
+        target: SeriesId,
+        sourceName: String,
+    ): AppError? = readingOrders.moveOnto(receiptId, target, sourceName)
 
     /** Open receipts naming [target] as the survivor, newest first. */
     suspend fun openFor(target: SeriesId): List<MergeReceipt> =
@@ -90,6 +99,8 @@ internal class SeriesMergeReceipts(
      *     doesn't stop the rest — the loop keeps going and the first failure is reported at the end.
      *  5. Every sub-series the merge moved, and that is still under the target, goes back to the
      *     source at its recorded position — unless the source now sits below it.
+     *  6. Every reading order the merge moved, and that is still on the target, goes back to the source
+     *     under its old name (#962).
      */
     suspend fun undo(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
         val sourceId =
@@ -126,6 +137,10 @@ internal class SeriesMergeReceipts(
                 is AppResult.Failure -> if (firstFailure == null) firstFailure = placed.error
             }
         }
+        val targetName = seriesRepo.findById(claim.targetId.value)?.name.orEmpty()
+        readingOrders
+            .handBack(receiptId.value, claim.sourceId, claim.targetId, targetName)
+            ?.let { if (firstFailure == null) firstFailure = it }
         firstFailure?.let { return AppResult.Failure(it) }
         return AppResult.Success(
             MergeUndoResult(
@@ -246,6 +261,7 @@ internal class SeriesMergeReceipts(
         entityUndo?.restore(this, receipt.id, SeriesId(receipt.source_id), SeriesId(receipt.target_id))
         return SeriesUndoClaim.Granted(
             sourceId = SeriesId(receipt.source_id),
+            targetId = SeriesId(receipt.target_id),
             restoredBookIds = restorable.map { it.book_id },
             skipped = (recorded - restorable.size).toInt(),
             restoredChildren = restorableChildren,
@@ -276,6 +292,7 @@ private sealed interface SeriesUndoClaim {
     /** Memberships are restored and the receipt is marked; the books and sub-series still need re-upserting. */
     data class Granted(
         val sourceId: SeriesId,
+        val targetId: SeriesId,
         val restoredBookIds: List<String>,
         val skipped: Int,
         val restoredChildren: List<RestorableChild>,

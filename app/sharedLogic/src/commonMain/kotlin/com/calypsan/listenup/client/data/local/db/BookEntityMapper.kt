@@ -81,6 +81,8 @@ internal class BookEntityMapper {
             partTierLabel = payload.partTierLabel,
             // Wire-authoritative: the server fills it from the live receipt and clears it when there is none.
             lastMatch = payload.lastMatch,
+            // Wire-authoritative: null when no catalogue supplied a full date.
+            releaseDate = payload.releaseDate,
             // Timestamps: payload carries epoch-ms Longs; BookEntity uses the Timestamp value class.
             createdAt = Timestamp(payload.createdAt),
             updatedAt = Timestamp(payload.updatedAt),

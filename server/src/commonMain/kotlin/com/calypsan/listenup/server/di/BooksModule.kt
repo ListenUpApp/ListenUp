@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverContentResolver
@@ -240,7 +241,11 @@ fun booksModule(
         coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
 
-/** [SeriesService], whose series merge carries Story World entities when that domain is wired. */
+/**
+ * The [SeriesService] binding. Its merge moves the merged-away series' reading orders, so it needs the
+ * reading-order repository, which `readingOrderModule` binds; it carries Story World entities too when
+ * that domain is wired.
+ */
 private fun Module.seriesServiceBinding() {
     single<SeriesService> {
         SeriesServiceImpl(
@@ -248,6 +253,7 @@ private fun Module.seriesServiceBinding() {
             bookRepo = get(),
             sqlDb = get<ListenUpDatabase>(),
             accessPolicy = get<BookAccessPolicy>(),
+            readingOrders = get<ReadingOrderRepository>(),
             permissionPolicy = get<PermissionPolicy>(),
             principal = unscopedPlaceholder("SeriesService"),
             entityRepo = getOrNull<EntityRepository>(),

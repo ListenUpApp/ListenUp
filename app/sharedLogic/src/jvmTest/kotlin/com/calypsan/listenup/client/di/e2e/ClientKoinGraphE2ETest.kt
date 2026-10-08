@@ -166,8 +166,9 @@ class ClientKoinGraphE2ETest :
             // Person Match details retired the last MetadataLookupService consumer, and its
             // rpcChannel<MetadataLookupService>() with it — so 31 → 30. Story World
             // added rpcChannel<EntityService>() (entity edits, merge, history, revert, and the entities outbox
-            // sender) — so 30 → 31.
-            defaultInvalidator.caches shouldHaveSize 31
+            // sender) — so 30 → 31. Reading orders added rpcChannel<ReadingOrderService>() (the outbox
+            // senders for the three reading-order channels, and the follower count) — so 31 → 32.
+            defaultInvalidator.caches shouldHaveSize 32
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

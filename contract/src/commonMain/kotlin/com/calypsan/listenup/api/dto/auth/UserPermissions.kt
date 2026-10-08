@@ -18,6 +18,7 @@ import kotlinx.serialization.Serializable
  * @property canCurateLibrary [Permission.CURATE_LIBRARY]. Off by default.
  * @property canContributeStoryWorld [Permission.CONTRIBUTE_STORY_WORLD]. On by default.
  * @property canCurateStoryWorld [Permission.CURATE_STORY_WORLD]. Off by default.
+ * @property canMakeReadingOrders [Permission.MAKE_READING_ORDERS]. On by default.
  */
 @Serializable
 data class UserPermissions(
@@ -25,6 +26,7 @@ data class UserPermissions(
     @SerialName("canCurateLibrary") val canCurateLibrary: Boolean = false,
     @SerialName("canContributeStoryWorld") val canContributeStoryWorld: Boolean = true,
     @SerialName("canCurateStoryWorld") val canCurateStoryWorld: Boolean = false,
+    @SerialName("canMakeReadingOrders") val canMakeReadingOrders: Boolean = true,
 )
 
 /** Whether these flags grant [permission]. [Permission.UNKNOWN] is never granted. */
@@ -34,5 +36,6 @@ fun UserPermissions.allows(permission: Permission): Boolean =
         Permission.CURATE_LIBRARY -> canCurateLibrary
         Permission.CONTRIBUTE_STORY_WORLD -> canContributeStoryWorld
         Permission.CURATE_STORY_WORLD -> canCurateStoryWorld
+        Permission.MAKE_READING_ORDERS -> canMakeReadingOrders
         Permission.UNKNOWN -> false
     }

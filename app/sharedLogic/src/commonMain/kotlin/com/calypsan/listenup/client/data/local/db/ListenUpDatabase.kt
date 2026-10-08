@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v19** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
+ * Schema is at **v20** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
  * [MIGRATION_2_3] `books.normalizationGainDb` tag-fallback column, the [MIGRATION_3_4] per-user
  * permission flags (`admin_user_roster.canEdit`, `users.canEdit`/`canShare`), the
  * [MIGRATION_4_5] presence-cache columns (`cached_active_sessions.lastActiveAtMs`/`isLive`), the
@@ -36,6 +36,9 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * [MIGRATION_18_19] adds `users.canCurateLibrary` and `admin_user_roster.canCurateLibrary`, backfilled from `canEdit`.
  * [MIGRATION_19_20] adds the Story World `entities` mirror, the two Story World flags on `users` and
  * `admin_user_roster`, and `pending_operation.mayHaveLanded`.
+ * [MIGRATION_20_21] adds reading orders (#962): the `reading_orders`, `reading_order_books` and
+ * `reading_order_follows` tables, `canMakeReadingOrders` on `users` and `admin_user_roster`, and
+ * `books.releaseDate` for Publication order.
  * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
@@ -100,8 +103,11 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookRatingEntity::class,
         BookExternalRatingEntity::class,
         EntityEntity::class,
+        ReadingOrderEntity::class,
+        ReadingOrderBookEntity::class,
+        ReadingOrderFollowEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
 )
 @ColumnTypeConverters(
@@ -194,6 +200,12 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun bookExternalRatingDao(): BookExternalRatingDao
 
     abstract fun entityDao(): EntityDao
+
+    abstract fun readingOrderDao(): ReadingOrderDao
+
+    abstract fun readingOrderBookDao(): ReadingOrderBookDao
+
+    abstract fun readingOrderFollowDao(): ReadingOrderFollowDao
 }
 
 /**

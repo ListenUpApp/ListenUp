@@ -101,7 +101,13 @@ class AdminUserRosterMaintainerTest :
 
         test("the roster row carries every permission flag, nested, and the flat canEdit for older admin apps") {
             withSqlDatabase {
-                sql.seedTestUser("user-3", UserRoleColumn.MEMBER, canEdit = false, canCurateLibrary = true)
+                sql.seedTestUser(
+                    "user-3",
+                    UserRoleColumn.MEMBER,
+                    canEdit = false,
+                    canCurateLibrary = true,
+                    canMakeReadingOrders = false,
+                )
                 sql.usersQueries.updateStoryWorldPermissionFlags(
                     can_contribute_story_world = 0L,
                     can_curate_story_world = 1L,
@@ -121,6 +127,7 @@ class AdminUserRosterMaintainerTest :
                             canCurateLibrary = true,
                             canContributeStoryWorld = false,
                             canCurateStoryWorld = true,
+                            canMakeReadingOrders = false,
                         )
                 }
             }

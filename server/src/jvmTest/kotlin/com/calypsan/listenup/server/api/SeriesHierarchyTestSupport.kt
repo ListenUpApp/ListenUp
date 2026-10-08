@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -24,12 +25,14 @@ internal data class HierarchyDeps(
     val seriesRepo: SeriesRepository,
     val bookRepo: BookRepository,
     val bus: ChangeBus,
+    val readingOrders: ReadingOrderRepository,
 )
 
 internal fun makeHierarchyDeps(dbs: SqlTestDatabases): HierarchyDeps {
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val seriesRepo = SeriesRepository(db = dbs.sql, bus = bus, registry = registry)
+    val readingOrders = ReadingOrderRepository(dbs.sql, bus, registry)
     val bookRepo =
         BookRepository(
             db = dbs.sql,
@@ -46,9 +49,10 @@ internal fun makeHierarchyDeps(dbs: SqlTestDatabases): HierarchyDeps {
             bookRepo = bookRepo,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
+            readingOrders = readingOrders,
             principal = rootPrincipal(),
         )
-    return HierarchyDeps(service, seriesRepo, bookRepo, bus)
+    return HierarchyDeps(service, seriesRepo, bookRepo, bus, readingOrders)
 }
 
 /** The live payload of [id]; fails the test when the series is missing. */

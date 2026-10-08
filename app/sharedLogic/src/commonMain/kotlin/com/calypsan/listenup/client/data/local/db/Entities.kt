@@ -73,6 +73,12 @@ internal data class UserEntity(
     val canContributeStoryWorld: Boolean = true,
     /** Whether this user may merge Story World entries and revert a merge (`UserPermissions.canCurateStoryWorld`). */
     val canCurateStoryWorld: Boolean = false,
+    /**
+     * Whether this user may make reading orders (#962). Mirrors the contract
+     * `UserPermissions.canMakeReadingOrders`; ROOT/ADMIN hold it implicitly whatever this says. Defaults
+     * to `true` — additive, undoable work defaults on — matching the contract and the column default.
+     */
+    val canMakeReadingOrders: Boolean = true,
 )
 
 /**
@@ -139,6 +145,9 @@ internal data class BookEntity(
     // The book's live metadata match, mirrored from BookSyncPayload.lastMatch, so "Undo last match" shows
     // offline while lastMatch.revision equals revision. Stored as JSON via LastMatchConverter; null when none.
     val lastMatch: LastMatch? = null,
+    // The full release date (ISO yyyy-mm-dd) from BookSyncPayload.releaseDate, for Publication order (#962).
+    // Rows synced before v19 stay null until the book's next revision; ordering falls back to publishYear.
+    val releaseDate: String? = null,
     // Timestamps from the server
     val createdAt: Timestamp,
     val updatedAt: Timestamp,

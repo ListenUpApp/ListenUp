@@ -15,12 +15,14 @@ import com.calypsan.listenup.api.dto.auth.Permission
  * @property canContributeStoryWorld Contribute to Story World: create, edit and delete entries, and revert
  *   any change but a merge.
  * @property canCurateStoryWorld Curate Story World: merge entries, and revert a merge.
+ * @property canMakeReadingOrders Make reading orders, and edit the ones you made (#962). On by default.
  */
 data class UserPermissions(
     val canEditMetadata: Boolean = true,
     val canCurateLibrary: Boolean = false,
     val canContributeStoryWorld: Boolean = true,
     val canCurateStoryWorld: Boolean = false,
+    val canMakeReadingOrders: Boolean = true,
 ) {
     /** Whether these flags grant [permission]. [Permission.UNKNOWN] is never granted. */
     fun allows(permission: Permission): Boolean =
@@ -29,6 +31,7 @@ data class UserPermissions(
             Permission.CURATE_LIBRARY -> canCurateLibrary
             Permission.CONTRIBUTE_STORY_WORLD -> canContributeStoryWorld
             Permission.CURATE_STORY_WORLD -> canCurateStoryWorld
+            Permission.MAKE_READING_ORDERS -> canMakeReadingOrders
             Permission.UNKNOWN -> false
         }
 
@@ -42,6 +45,7 @@ data class UserPermissions(
             Permission.CURATE_LIBRARY -> copy(canCurateLibrary = granted)
             Permission.CONTRIBUTE_STORY_WORLD -> copy(canContributeStoryWorld = granted)
             Permission.CURATE_STORY_WORLD -> copy(canCurateStoryWorld = granted)
+            Permission.MAKE_READING_ORDERS -> copy(canMakeReadingOrders = granted)
             Permission.UNKNOWN -> this
         }
 }

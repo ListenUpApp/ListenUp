@@ -44,6 +44,7 @@ internal class AdminUserRosterMirrorApply(
                 canCurateLibrary = payload.permissions?.canCurateLibrary ?: false,
                 canContributeStoryWorld = payload.permissions?.canContributeStoryWorld ?: true,
                 canCurateStoryWorld = payload.permissions?.canCurateStoryWorld ?: false,
+                canMakeReadingOrders = payload.permissions?.canMakeReadingOrders ?: true,
                 accountCreatedAt = payload.accountCreatedAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,

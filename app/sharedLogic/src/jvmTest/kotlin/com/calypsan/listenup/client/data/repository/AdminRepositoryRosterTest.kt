@@ -37,6 +37,7 @@ class AdminRepositoryRosterTest :
                             role = "MEMBER",
                             status = "ACTIVE",
                             canEdit = true,
+                            canMakeReadingOrders = true,
                             accountCreatedAt = 1_000L,
                             revision = 1L,
                         ),

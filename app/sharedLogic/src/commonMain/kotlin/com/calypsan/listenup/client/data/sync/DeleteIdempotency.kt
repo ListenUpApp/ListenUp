@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.GenreError
+import com.calypsan.listenup.api.error.ReadingOrderError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.error.TagError
@@ -38,4 +39,5 @@ private fun com.calypsan.listenup.api.error.AppError.isDeleteTargetNotFound(): B
         this is GenreError.NotFound ||
         this is SeriesError.NotFound ||
         this is ContributorError.NotFound ||
-        this is EntityError.NotFound
+        this is EntityError.NotFound ||
+        this is ReadingOrderError.NotFound

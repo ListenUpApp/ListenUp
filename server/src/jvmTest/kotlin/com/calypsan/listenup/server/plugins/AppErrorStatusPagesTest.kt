@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.MetadataError
+import com.calypsan.listenup.api.error.ReadingOrderError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
@@ -154,6 +155,20 @@ class AppErrorStatusPagesTest :
             val stamped = err.withCorrelationId("corr-admin")
             stamped.shouldBeInstanceOf<AdminError.CannotModifyRoot>()
             stamped.correlationId shouldBe "corr-admin"
+        }
+
+        test("ReadingOrderError subtypes map to their statuses") {
+            val cases: List<Pair<AppError, HttpStatusCode>> =
+                listOf(
+                    ReadingOrderError.NotFound() to HttpStatusCode.NotFound,
+                    ReadingOrderError.Forbidden() to HttpStatusCode.Forbidden,
+                    ReadingOrderError.InvalidName() to HttpStatusCode.BadRequest,
+                    ReadingOrderError.NameAlreadyExists() to HttpStatusCode.Conflict,
+                    ReadingOrderError.BookOutsideSeries() to HttpStatusCode.BadRequest,
+                    ReadingOrderError.ChoiceUnavailable() to HttpStatusCode.BadRequest,
+                    ReadingOrderError.InvalidInput() to HttpStatusCode.BadRequest,
+                )
+            cases.forEach { (error, status) -> error.toHttpStatus() shouldBe status }
         }
 
         test("InviteError.NotFound maps to 404 NotFound") {

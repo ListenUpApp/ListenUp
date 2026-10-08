@@ -305,6 +305,7 @@ fun ListenUpDatabase.seedTestUser(
     canCurateLibrary: Boolean = false,
     deletedAt: Long? = null,
     timezone: String = "UTC",
+    canMakeReadingOrders: Boolean = true,
 ) {
     transaction {
         usersQueries.insert(
@@ -332,6 +333,7 @@ fun ListenUpDatabase.seedTestUser(
             can_curate_library = if (canCurateLibrary) 1L else 0L,
             id = userId,
         )
+        if (!canMakeReadingOrders) usersQueries.setCanMakeReadingOrders(can_make_reading_orders = 0L, id = userId)
     }
 }
 

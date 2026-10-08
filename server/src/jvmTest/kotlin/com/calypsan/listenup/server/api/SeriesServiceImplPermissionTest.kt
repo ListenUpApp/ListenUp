@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.MergeReceiptId
@@ -162,6 +163,7 @@ private fun makeService(dbs: SqlTestDatabases): PermServiceDeps {
             bookRepo = bookRepo,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
+            readingOrders = ReadingOrderRepository(dbs.sql, ChangeBus(), SyncRegistry()),
             permissionPolicy = PermissionPolicy(dbs.sql),
         )
     return PermServiceDeps(service, seriesRepo)

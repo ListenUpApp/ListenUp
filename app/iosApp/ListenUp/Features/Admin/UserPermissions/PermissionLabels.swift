@@ -8,6 +8,7 @@ enum PermissionLabels {
         case .curateLibrary: String(localized: "admin.permission_curate_library")
         case .contributeStoryWorld: String(localized: "admin.permission_contribute_story_world")
         case .curateStoryWorld: String(localized: "admin.permission_curate_story_world")
+        case .makeReadingOrders: String(localized: "admin.permission_make_reading_orders")
         case .unknown: ""
         }
     }
@@ -18,6 +19,7 @@ enum PermissionLabels {
         case .curateLibrary: String(localized: "admin.permission_curate_library_description")
         case .contributeStoryWorld: String(localized: "admin.permission_contribute_story_world_description")
         case .curateStoryWorld: String(localized: "admin.permission_curate_story_world_description")
+        case .makeReadingOrders: String(localized: "admin.permission_make_reading_orders_description")
         case .unknown: ""
         }
     }
@@ -26,6 +28,7 @@ enum PermissionLabels {
         switch group {
         case .library: String(localized: "admin.permission_group_library")
         case .storyWorld: String(localized: "admin.permission_group_story_world")
+        case .readingOrders: String(localized: "admin.permission_group_reading_orders")
         case .unknown: ""
         }
     }

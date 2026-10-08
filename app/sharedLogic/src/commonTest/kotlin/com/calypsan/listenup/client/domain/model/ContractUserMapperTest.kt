@@ -23,6 +23,7 @@ class ContractUserMapperTest :
         fun contractUser(
             role: UserRole = UserRole.MEMBER,
             canEdit: Boolean = true,
+            canMakeReadingOrders: Boolean = true,
         ) = ContractUser(
             id = UserId("user-1"),
             email = "Reader@Example.com",
@@ -30,13 +31,20 @@ class ContractUserMapperTest :
             role = role,
             status = UserStatus.ACTIVE,
             createdAt = 1_000L,
-            permissions = ContractUserPermissions(canEditMetadata = canEdit),
+            permissions =
+                ContractUserPermissions(canEditMetadata = canEdit, canMakeReadingOrders = canMakeReadingOrders),
         )
 
         test("carries the canEdit flag across") {
             val domain = contractUser(canEdit = false).toDomain()
 
             domain.permissions.canEditMetadata shouldBe false
+        }
+
+        test("carries the canMakeReadingOrders flag across, independently of canEdit") {
+            contractUser(canEdit = true, canMakeReadingOrders = false).toDomain().permissions shouldBe
+                UserPermissions(canEditMetadata = true, canMakeReadingOrders = false)
+            contractUser().toDomain().permissions.canMakeReadingOrders shouldBe true
         }
 
         test("permissions are independent of the admin bit") {

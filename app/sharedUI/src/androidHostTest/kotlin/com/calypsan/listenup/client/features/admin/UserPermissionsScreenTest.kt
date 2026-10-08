@@ -48,7 +48,7 @@ class UserPermissionsScreenTest {
         composeRule.onNodeWithText("Listener").assertIsDisplayed()
         composeRule.onNodeWithText("Contributor").assertIsDisplayed()
         composeRule.onNodeWithText("Librarian").assertIsDisplayed()
-        composeRule.onNodeWithText("Fixes books and adds to Story World. Can't merge or delete.").assertIsDisplayed()
+        composeRule.onNodeWithText("Fixes books, adds to Story World and makes reading orders. Can't merge or delete.").assertIsDisplayed()
         composeRule.onNodeWithText("Library").assertIsDisplayed()
         composeRule.onNodeWithText("Edit metadata").assertIsDisplayed()
         composeRule.onNodeWithText("Curate library").assertIsDisplayed()

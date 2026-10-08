@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.di.publicProfileModule
 import com.calypsan.listenup.server.di.pushModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
+import com.calypsan.listenup.server.di.readingOrderModule
 import com.calypsan.listenup.server.di.shelfModule
 import com.calypsan.listenup.server.di.storyWorldModule
 import com.calypsan.listenup.server.di.sidecarModule
@@ -77,8 +78,9 @@ private const val WS_PING_TIMEOUT_MS = 15_000L
  *
  * ⚠️ Re-measure if `MAX_CHAPTERS_PER_BOOK` or `ChapterInput`'s length ceilings are raised. Every
  * other list-taking call is now bounded at its own service — `setBookCollections` by
- * `MAX_COLLECTIONS_PER_BOOK` and `reorderShelfBooks` by `MAX_BOOKS_PER_SHELF_REORDER`, both id lists
- * that sit far inside this number even at their ceiling — so this is a transport backstop, not the
+ * `MAX_COLLECTIONS_PER_BOOK`, `reorderShelfBooks` by `MAX_BOOKS_PER_SHELF_REORDER` and
+ * `reorderReadingOrder` by `MAX_BOOKS_PER_READING_ORDER_REORDER`, all id lists that sit far inside
+ * this number even at their ceiling — so this is a transport backstop, not the
  * primary bound on any call.
  */
 private const val WS_MAX_FRAME_SIZE_BYTES = 33_554_432L
@@ -147,6 +149,7 @@ internal fun Application.installDependencies(
         modules += adminUserRosterModule()
         modules += shelfModule()
         modules += storyWorldModule()
+        modules += readingOrderModule()
         modules += pushModule()
         modules += hardcoverModule(hardcoverClientId, hardcoverApiBaseUrl, applicationScope)
         modules += notificationModule()

@@ -11,7 +11,8 @@ struct UserPermissionsReadyModelTests {
             canEditMetadata: true,
             canCurateLibrary: false,
             canContributeStoryWorld: true,
-            canCurateStoryWorld: false
+            canCurateStoryWorld: false,
+            canMakeReadingOrders: true
         ),
         preset: PermissionPreset = .contributor,
         presetsShown: Bool = true,
@@ -96,7 +97,8 @@ struct UserPermissionsReadyModelTests {
                     canEditMetadata: true,
                     canCurateLibrary: true,
                     canContributeStoryWorld: true,
-                    canCurateStoryWorld: false
+                    canCurateStoryWorld: false,
+                    canMakeReadingOrders: true
                 ),
                 preset: .librarian,
                 curateWarning: true,

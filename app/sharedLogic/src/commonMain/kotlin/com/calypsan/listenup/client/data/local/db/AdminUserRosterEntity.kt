@@ -38,6 +38,8 @@ internal data class AdminUserRosterEntity(
     val canContributeStoryWorld: Boolean = true,
     /** Whether the user may merge Story World entries. See `UserEntity.canCurateStoryWorld`. */
     val canCurateStoryWorld: Boolean = false,
+    /** Whether the user may make reading orders (#962). See `UserEntity.canMakeReadingOrders`. */
+    val canMakeReadingOrders: Boolean = true,
     /** Epoch-ms account creation timestamp. */
     val accountCreatedAt: Long,
     /** Monotonic server revision; 0 until the server has confirmed the row. */

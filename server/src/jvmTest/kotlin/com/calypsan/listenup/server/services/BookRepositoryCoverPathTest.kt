@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -132,6 +133,7 @@ class BookRepositoryCoverPathTest :
                         bookRepo = repo,
                         sqlDb = db.sql,
                         accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        readingOrders = ReadingOrderRepository(db.sql, ChangeBus(), SyncRegistry()),
                         principal = rootPrincipal(),
                     )
                 runTest {

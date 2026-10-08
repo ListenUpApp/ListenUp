@@ -29,6 +29,7 @@ internal fun AdminUserRosterEntity.toAdminUserInfo(): AdminUserInfo =
                 canCurateLibrary = canCurateLibrary,
                 canContributeStoryWorld = canContributeStoryWorld,
                 canCurateStoryWorld = canCurateStoryWorld,
+                canMakeReadingOrders = canMakeReadingOrders,
             ),
         createdAt = accountCreatedAt.toString(),
     )
