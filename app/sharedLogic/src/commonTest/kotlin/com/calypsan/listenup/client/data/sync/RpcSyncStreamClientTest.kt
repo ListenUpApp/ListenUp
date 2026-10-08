@@ -24,8 +24,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.runCurrent
 import kotlin.time.Duration
 
 /** The stream-open hello / liveness heartbeat, exactly as the server emits it. */

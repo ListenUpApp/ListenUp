@@ -9,7 +9,6 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 class BookRatingContractTest :
     FunSpec({

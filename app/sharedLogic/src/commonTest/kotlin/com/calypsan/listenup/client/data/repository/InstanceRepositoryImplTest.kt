@@ -13,7 +13,6 @@ import com.calypsan.listenup.api.result.AppResult as RpcResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.test.runTest
 
 /**
  * Drives [InstanceRepositoryImpl]'s RPC-backed verification path through a fake

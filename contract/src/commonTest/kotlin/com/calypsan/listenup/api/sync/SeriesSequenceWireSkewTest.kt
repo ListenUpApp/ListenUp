@@ -5,7 +5,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.encodeToString
 
 /**
  * What a version-skewed peer does with [BookSeriesPayload.sequence], now that it is a number.

@@ -11,7 +11,6 @@ import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.repository.ServerConfig

@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.presentation.profile
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.CachedUserProfile

@@ -19,7 +19,6 @@ import io.kotest.matchers.collections.shouldNotContainAnyOf
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.request.bearerAuth
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files

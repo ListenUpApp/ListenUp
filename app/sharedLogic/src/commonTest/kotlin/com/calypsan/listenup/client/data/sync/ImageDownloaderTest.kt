@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.remote.ImageApiContract

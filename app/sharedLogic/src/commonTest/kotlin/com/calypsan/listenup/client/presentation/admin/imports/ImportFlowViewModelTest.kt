@@ -21,12 +21,10 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
-import com.calypsan.listenup.client.domain.model.FacetCount
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.ScanProgressState
-import com.calypsan.listenup.client.domain.model.SearchFacets
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult

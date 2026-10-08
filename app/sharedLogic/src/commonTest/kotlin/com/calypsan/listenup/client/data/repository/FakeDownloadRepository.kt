@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
-import com.calypsan.listenup.client.data.repository.toDomain
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Download
 import com.calypsan.listenup.client.domain.model.DownloadOutcome

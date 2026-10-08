@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
-import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor

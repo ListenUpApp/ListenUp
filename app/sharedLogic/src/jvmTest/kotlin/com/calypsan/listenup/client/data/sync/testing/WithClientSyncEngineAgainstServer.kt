@@ -86,7 +86,6 @@ import com.calypsan.listenup.server.api.createSeriesService
 import com.calypsan.listenup.server.api.genreServiceScopedTo
 import com.calypsan.listenup.server.api.seriesServiceScopedTo
 import com.calypsan.listenup.server.cover.CoverStorage
-import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.DriverFactory
@@ -133,15 +132,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.ktor.server.Krpc as ServerKrpc
 import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
 import kotlinx.rpc.krpc.serialization.json.json as krpcJson
-import kotlinx.rpc.registerService
 import kotlinx.rpc.withService
 import org.koin.core.context.GlobalContext
 import org.koin.dsl.module

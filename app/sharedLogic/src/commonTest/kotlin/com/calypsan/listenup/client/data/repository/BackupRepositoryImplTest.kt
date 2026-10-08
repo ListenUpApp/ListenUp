@@ -43,7 +43,6 @@ import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.encodeToString
 
 /**
  * Unit tests for [BackupRepositoryImpl].

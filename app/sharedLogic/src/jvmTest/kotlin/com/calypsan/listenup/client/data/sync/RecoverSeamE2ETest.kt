@@ -4,7 +4,6 @@ import app.cash.turbine.test
 import com.calypsan.listenup.client.data.sync.testing.awaitUntil
 import com.calypsan.listenup.client.data.sync.testing.withClientSyncEngineAgainstServer
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map

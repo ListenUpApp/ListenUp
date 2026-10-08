@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.domain.usecase.auth
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.ServerUrl
 import dev.mokkery.answering.calls
-import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock

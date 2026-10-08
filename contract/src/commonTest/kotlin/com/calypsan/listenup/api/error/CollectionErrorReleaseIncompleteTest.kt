@@ -8,7 +8,6 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.encodeToString
 
 /**
  * [CollectionError.ReleaseIncomplete]: the typed answer to a release that freed some books but not

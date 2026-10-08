@@ -25,7 +25,6 @@ import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingNavAction
 import com.calypsan.listenup.client.test.fake.FakePlaybackManager
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws

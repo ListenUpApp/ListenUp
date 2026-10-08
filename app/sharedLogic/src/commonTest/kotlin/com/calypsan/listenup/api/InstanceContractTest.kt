@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 /**
  * Round-trips [ServerInfo] through [contractJson].

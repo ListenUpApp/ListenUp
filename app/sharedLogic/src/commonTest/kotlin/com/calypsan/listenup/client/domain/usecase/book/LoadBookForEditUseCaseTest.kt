@@ -2,10 +2,6 @@ package com.calypsan.listenup.client.domain.usecase.book
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
-import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.domain.model.Genre
-import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository

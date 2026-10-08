@@ -16,7 +16,6 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock

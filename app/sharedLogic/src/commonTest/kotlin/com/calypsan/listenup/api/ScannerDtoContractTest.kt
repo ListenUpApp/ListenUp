@@ -20,7 +20,6 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.core.LibraryId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 /**
  * Round-trip every scanner DTO + sealed variant through `contractJson`.

@@ -43,7 +43,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
-import kotlinx.io.write
 import java.io.File
 
 /**

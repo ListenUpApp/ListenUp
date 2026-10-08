@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.dto.auth.SessionSummary
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.serialization.encodeToString
 
 class AuthDtoContractTest :
     FunSpec({

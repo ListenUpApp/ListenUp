@@ -1,6 +1,5 @@
 package com.calypsan.listenup.api.result
 
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -10,13 +9,11 @@ import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.serializer
 
 class AppResultContractTest :
