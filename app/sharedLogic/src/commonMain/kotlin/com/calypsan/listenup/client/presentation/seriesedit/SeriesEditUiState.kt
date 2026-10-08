@@ -62,6 +62,8 @@ data class SeriesEditUiState(
      * disables them — and says why — while this is false; everything else still saves.
      */
     val isOnline: Boolean = true,
+    /** May merge this series and see (and undo) the merges folded into it (Curate library). */
+    val canCurateLibrary: Boolean = false,
     // Track if changes have been made
     val hasChanges: Boolean = false,
 ) {

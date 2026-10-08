@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.contributoredit
 
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.ContributorUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
 import com.calypsan.listenup.core.ContributorId
@@ -98,6 +100,8 @@ data class ContributorEditUiState(
     // name under forgiving normalization. Non-null drives the rename-collision prompt;
     // the rename is held back (not saved) until the user picks merge or keep-separate.
     val renameCollisionCandidate: ContributorCandidate? = null,
+    /** May merge, unmerge, and merge on a rename collision (Curate library). */
+    val canCurateLibrary: Boolean = false,
 ) {
     /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
     val descriptionText: String get() = description
@@ -240,6 +244,7 @@ sealed interface ContributorEditNavAction {
  * @property contributorAliasDao DAO for observing the contributor's aliases (Room is read truth)
  * @property contributorDao DAO for browsing all contributors as merge-target candidates
  * @property errorBus Global error bus for snackbar emissions
+ * @property permissionsRepository Whether the signed-in user may merge and unmerge (Curate library)
  */
 class ContributorEditViewModel internal constructor(
     private val contributorRepository: ContributorRepository,
@@ -250,6 +255,7 @@ class ContributorEditViewModel internal constructor(
     private val contributorAliasDao: ContributorAliasDao,
     private val contributorDao: ContributorDao,
     private val errorBus: ErrorBus,
+    private val permissionsRepository: PermissionsRepository,
 ) : ViewModel() {
     val state: StateFlow<ContributorEditUiState>
         field = MutableStateFlow(ContributorEditUiState())
@@ -297,6 +303,13 @@ class ContributorEditViewModel internal constructor(
                     }
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
+
+    init {
+        permissionsRepository
+            .observeCan(Permission.CURATE_LIBRARY)
+            .onEach { can -> state.update { it.copy(canCurateLibrary = can) } }
+            .launchIn(viewModelScope)
+    }
 
     // Track original values for change detection
     private var originalName: String = ""
@@ -442,6 +455,8 @@ class ContributorEditViewModel internal constructor(
      * Galbraith in. Passing these in the other order would delete the page you're viewing.
      */
     private fun mergeInto(chosen: ContributorId) {
+        // The UI hides the control without Curate library; this keeps a stale tap from reaching the server.
+        if (!state.value.canCurateLibrary) return
         val viewedId = state.value.contributorId
         if (viewedId.isBlank()) {
             logger.error { "Cannot merge: contributor ID is empty" }
@@ -493,6 +508,7 @@ class ContributorEditViewModel internal constructor(
      * without [aliasName] once the firehose event lands; we stay on this screen.
      */
     private fun unmergeAlias(aliasName: String) {
+        if (!state.value.canCurateLibrary) return
         val contributorId = state.value.contributorId
         if (contributorId.isBlank()) {
             logger.error { "Cannot unmerge: contributor ID is empty" }
@@ -716,6 +732,7 @@ class ContributorEditViewModel internal constructor(
      * is nothing left to show on this page, so we land on the survivor.
      */
     private fun mergeOnRename() {
+        if (!state.value.canCurateLibrary) return
         val candidate = state.value.renameCollisionCandidate ?: return
         val viewedId = state.value.contributorId
         if (viewedId.isBlank()) {

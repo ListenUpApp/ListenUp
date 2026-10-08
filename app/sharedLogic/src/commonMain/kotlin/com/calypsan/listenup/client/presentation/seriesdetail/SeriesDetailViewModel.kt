@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.seriesdetail
 
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.domain.FinishedPolicy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,13 +18,12 @@ import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.model.SeriesChild
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
-import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
 import com.calypsan.listenup.client.presentation.seriesedit.SubSeriesAdder
 import com.calypsan.listenup.core.error.ErrorBus
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +50,7 @@ class SeriesDetailViewModel(
     private val seriesRepository: SeriesRepository,
     private val imageRepository: ImageRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
-    private val userRepository: UserRepository,
+    private val permissionsRepository: PermissionsRepository,
     private val networkMonitor: NetworkMonitor,
     seriesEditRepository: SeriesEditRepository,
     errorBus: ErrorBus,
@@ -60,12 +60,10 @@ class SeriesDetailViewModel(
     /** The reader's own expand/collapse choices on this page — series id to expanded. */
     private val expandOverrides = MutableStateFlow<Map<String, Boolean>>(emptyMap())
 
-    /** Who may change the hierarchy, and whether the server can be reached to do it. */
+    /** Whether the reader may change the hierarchy (Edit metadata), and whether the server can be reached to do it. */
     private val hierarchyAccess: Flow<Pair<Boolean, Boolean>> =
         combine(
-            userRepository.observeCurrentUser().map { user ->
-                user != null && (user.isAdmin || user.permissions.canEditMetadata)
-            },
+            permissionsRepository.observeCan(Permission.EDIT_METADATA),
             networkMonitor.isOnlineFlow,
         ) { canEdit, online -> canEdit to online }
 
@@ -334,7 +332,7 @@ sealed interface SeriesDetailUiState {
         val bookSections: List<SeriesBookSection> = emptyList(),
         /** The book Continue resumes, with the series it is listed under; null when all are finished. */
         val resumeBook: SeriesResumeUi? = null,
-        /** Whether the reader may change the hierarchy (admin, or the edit permission). */
+        /** Whether the reader may change the hierarchy (Edit metadata; admins always may). */
         val canEditHierarchy: Boolean = false,
         /** Whether the device has a network route; hierarchy changes need the server. */
         val isOnline: Boolean = true,

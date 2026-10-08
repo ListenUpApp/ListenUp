@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.seriesedit
 
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.client.presentation.merge.MergeHistory
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.SeriesUpdateRequest
@@ -26,9 +28,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -61,6 +66,7 @@ private const val STOP_TIMEOUT_MS = 5_000L
  * @property seriesDao DAO for browsing all series as merge-target candidates
  * @property errorBus Global error bus for snackbar emissions
  * @property networkMonitor Hierarchy changes need the server; offline, the screen disables them
+ * @property permissionsRepository Whether the signed-in user may merge and see the merge history (Curate library)
  */
 class SeriesEditViewModel internal constructor(
     private val seriesRepository: SeriesRepository,
@@ -71,19 +77,27 @@ class SeriesEditViewModel internal constructor(
     private val seriesDao: SeriesDao,
     private val errorBus: ErrorBus,
     private val networkMonitor: NetworkMonitor,
+    private val permissionsRepository: PermissionsRepository,
 ) : ViewModel() {
     val state: StateFlow<SeriesEditUiState>
         field = MutableStateFlow(SeriesEditUiState())
 
     /**
      * The merges folded into this series that can still be undone (#1061) — the "Merged into this"
-     * section. Read from the server when the series loads.
+     * section. Read from the server when the series loads — and only with Curate library, since the
+     * server refuses the list to anyone without it.
      */
     private val history =
         MergeHistory(
             scope = viewModelScope,
             errorBus = errorBus,
-            load = { seriesEditRepository.listMergeReceipts(SeriesId(state.value.seriesId)) },
+            load = {
+                if (permissionsRepository.observeCan(Permission.CURATE_LIBRARY).first()) {
+                    seriesEditRepository.listMergeReceipts(SeriesId(state.value.seriesId))
+                } else {
+                    AppResult.Success(emptyList())
+                }
+            },
             undo = seriesEditRepository::undoMerge,
         )
 
@@ -174,6 +188,10 @@ class SeriesEditViewModel internal constructor(
         viewModelScope.launch {
             networkMonitor.isOnlineFlow.collect { online -> state.update { it.copy(isOnline = online) } }
         }
+        permissionsRepository
+            .observeCan(Permission.CURATE_LIBRARY)
+            .onEach { can -> state.update { it.copy(canCurateLibrary = can) } }
+            .launchIn(viewModelScope)
     }
 
     /**
@@ -340,6 +358,8 @@ class SeriesEditViewModel internal constructor(
      * soft-deleted and all of its books re-point at the target; we navigate back.
      */
     private fun mergeInto(targetId: SeriesId) {
+        // The UI hides the control without Curate library; this keeps a stale tap from reaching the server.
+        if (!state.value.canCurateLibrary) return
         val sourceId = state.value.seriesId
         if (sourceId.isBlank()) {
             logger.error { "Cannot merge: series ID is empty" }

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.contributordetail
 
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -61,6 +63,7 @@ class ContributorDetailViewModelTest :
             val playbackPositionRepository: PlaybackPositionRepository = mock()
             val seriesRepository: SeriesRepository = mock()
             val deleteContributorUseCase: DeleteContributorUseCase = mock()
+            val permissions = FakePermissionsRepository(Permission.EDIT_METADATA, Permission.CURATE_LIBRARY)
 
             val contributorFlow = MutableStateFlow<Contributor?>(null)
             val rolesFlow = MutableStateFlow<List<RoleWithBookCount>>(emptyList())
@@ -71,6 +74,7 @@ class ContributorDetailViewModelTest :
                     playbackPositionRepository = playbackPositionRepository,
                     seriesRepository = seriesRepository,
                     deleteContributorUseCase = deleteContributorUseCase,
+                    permissionsRepository = permissions,
                 )
         }
 
@@ -695,6 +699,27 @@ class ContributorDetailViewModelTest :
 
                 val ready = viewModel.state.value as ContributorDetailUiState.Ready
                 ready.series.map { it.series.id.value } shouldBe listOf("s2", "s3", "s1")
+            }
+        }
+
+        test("edit and delete follow Edit metadata and Curate library separately") {
+            runTest {
+                val fixture = createFixture()
+                fixture.permissions.granted.value = setOf(Permission.EDIT_METADATA)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+                viewModel.loadContributor("contributor-1")
+                fixture.contributorFlow.value = createContributor()
+                advanceUntilIdle()
+
+                fun ready() = viewModel.state.value.shouldBeInstanceOf<ContributorDetailUiState.Ready>()
+                ready().canEditMetadata shouldBe true
+                ready().canCurateLibrary shouldBe false
+
+                fixture.permissions.granted.value = setOf(Permission.CURATE_LIBRARY)
+                advanceUntilIdle()
+                ready().canEditMetadata shouldBe false
+                ready().canCurateLibrary shouldBe true
             }
         }
     })

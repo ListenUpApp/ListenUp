@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.contributordetail
 
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,6 +14,7 @@ import com.calypsan.listenup.client.domain.model.RoleWithBookCount
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.BookWithContributorRole
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.DeleteContributorUseCase
@@ -55,6 +57,7 @@ class ContributorDetailViewModel(
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val seriesRepository: SeriesRepository,
     private val deleteContributorUseCase: DeleteContributorUseCase,
+    private val permissionsRepository: PermissionsRepository,
 ) : ViewModel() {
     private val contributorIdFlow = MutableStateFlow<String?>(null)
     private val deleteOverlay = MutableStateFlow<DeleteOverlay>(DeleteOverlay.None)
@@ -161,11 +164,18 @@ class ContributorDetailViewModel(
     )
 
     val state: StateFlow<ContributorDetailUiState> =
-        combine(dataState, deleteOverlay) { data, overlay ->
+        combine(
+            dataState,
+            deleteOverlay,
+            permissionsRepository.observeCan(Permission.EDIT_METADATA),
+            permissionsRepository.observeCan(Permission.CURATE_LIBRARY),
+        ) { data, overlay, canEdit, canCurate ->
             if (data is ContributorDetailUiState.Ready) {
                 data.copy(
                     isDeleting = overlay is DeleteOverlay.Deleting,
                     deleteError = (overlay as? DeleteOverlay.Failed)?.message,
+                    canEditMetadata = canEdit,
+                    canCurateLibrary = canCurate,
                 )
             } else {
                 data
@@ -310,6 +320,10 @@ sealed interface ContributorDetailUiState {
         val isDeleting: Boolean,
         /** Non-null when the last delete attempt failed. Screen shows a snackbar. */
         val deleteError: String?,
+        /** May edit this contributor and match its metadata (Edit metadata). */
+        val canEditMetadata: Boolean = false,
+        /** May delete this contributor (Curate library). */
+        val canCurateLibrary: Boolean = false,
     ) : ContributorDetailUiState {
         /** Formats the total duration as "${hours}h ${minutes}m" or "${minutes}m". */
         fun formatTotalDuration(): String = DurationFormatter.hoursMinutes(totalDuration)

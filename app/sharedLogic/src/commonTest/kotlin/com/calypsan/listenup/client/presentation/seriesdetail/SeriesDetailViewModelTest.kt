@@ -16,10 +16,10 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.model.SeriesHierarchy
-import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
-import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
@@ -60,10 +60,9 @@ class SeriesDetailViewModelTest :
             val seriesFlow = MutableStateFlow<SeriesWithBooks?>(null)
             val positionsFlow = MutableStateFlow<Map<BookId, PlaybackPosition>>(emptyMap())
             val lineageFlow = MutableStateFlow(SeriesLineage.Flat)
-            val userRepository: UserRepository = mock()
+            val permissions = FakePermissionsRepository()
             val networkMonitor: NetworkMonitor = mock()
             val seriesEditRepository: SeriesEditRepository = mock()
-            val currentUser = MutableStateFlow<User?>(null)
             val online = MutableStateFlow(true)
             val hierarchyFlow = MutableStateFlow(SeriesHierarchy.Empty)
 
@@ -72,7 +71,7 @@ class SeriesDetailViewModelTest :
                     seriesRepository = seriesRepository,
                     imageRepository = imageRepository,
                     playbackPositionRepository = playbackPositionRepository,
-                    userRepository = userRepository,
+                    permissionsRepository = permissions,
                     networkMonitor = networkMonitor,
                     seriesEditRepository = seriesEditRepository,
                     errorBus = ErrorBus(),
@@ -85,7 +84,6 @@ class SeriesDetailViewModelTest :
             every { fixture.seriesRepository.observeSeriesLineage(any()) } returns fixture.lineageFlow
             every { fixture.imageRepository.seriesCoverExists(any()) } returns false
             every { fixture.playbackPositionRepository.observeAll() } returns fixture.positionsFlow
-            every { fixture.userRepository.observeCurrentUser() } returns fixture.currentUser
             every { fixture.networkMonitor.isOnlineFlow } returns fixture.online
             every { fixture.seriesRepository.observeHierarchy() } returns fixture.hierarchyFlow
             return fixture
@@ -735,23 +733,6 @@ class SeriesDetailViewModelTest :
             ownBookIds = own,
         )
 
-        fun user(
-            isAdmin: Boolean = false,
-            canEdit: Boolean = false,
-        ) = User(
-            id =
-                com.calypsan.listenup.api.dto.auth
-                    .UserId("u1"),
-            email = "u@example.com",
-            displayName = "U",
-            isAdmin = isAdmin,
-            permissions =
-                com.calypsan.listenup.client.domain.model
-                    .UserPermissions(canEditMetadata = canEdit),
-            createdAtMs = 0L,
-            updatedAtMs = 0L,
-        )
-
         test("a parent page groups its books under its sub-series, and Continue names the book and where it sits") {
             runTest {
                 val fixture = createFixture()
@@ -885,15 +866,12 @@ class SeriesDetailViewModelTest :
 
                 fun ready() = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
 
-                fixture.currentUser.value = user()
+                val permissions = fixture.permissions
+                permissions.granted.value = emptySet()
                 advanceUntilIdle()
                 ready().canEditHierarchy shouldBe false
 
-                fixture.currentUser.value = user(canEdit = true)
-                advanceUntilIdle()
-                ready().canEditHierarchy shouldBe true
-
-                fixture.currentUser.value = user(isAdmin = true)
+                permissions.granted.value = setOf(Permission.EDIT_METADATA)
                 fixture.online.value = false
                 advanceUntilIdle()
                 ready().canEditHierarchy shouldBe true

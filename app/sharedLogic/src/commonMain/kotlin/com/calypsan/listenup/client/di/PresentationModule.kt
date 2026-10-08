@@ -480,7 +480,7 @@ internal val seriesPresentationModule =
                 seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
                 imageRepository = get(),
                 playbackPositionRepository = get(),
-                userRepository = get(),
+                permissionsRepository = get(),
                 networkMonitor = get(),
                 seriesEditRepository = get<com.calypsan.listenup.client.domain.repository.SeriesEditRepository>(),
                 errorBus = get(),
@@ -496,6 +496,7 @@ internal val seriesPresentationModule =
                 seriesDao = get(),
                 errorBus = get(),
                 networkMonitor = get(),
+                permissionsRepository = get(),
             )
         }
     }
@@ -511,6 +512,7 @@ internal val contributorPresentationModule =
                 playbackPositionRepository = get(),
                 seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
                 deleteContributorUseCase = get(),
+                permissionsRepository = get(),
             )
         }
         factory {
@@ -529,6 +531,7 @@ internal val contributorPresentationModule =
                 contributorAliasDao = get(),
                 contributorDao = get(),
                 errorBus = get(),
+                permissionsRepository = get(),
             )
         }
     }

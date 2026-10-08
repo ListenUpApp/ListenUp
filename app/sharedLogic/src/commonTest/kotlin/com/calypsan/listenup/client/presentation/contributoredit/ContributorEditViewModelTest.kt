@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.presentation.contributoredit
 
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
@@ -69,6 +72,7 @@ class ContributorEditViewModelTest :
                     every { observeAll() } returns flowOf(emptyList())
                 }
             val errorBus: ErrorBus = ErrorBus()
+            val permissions = FakePermissionsRepository(Permission.EDIT_METADATA, Permission.CURATE_LIBRARY)
 
             fun build(): ContributorEditViewModel =
                 ContributorEditViewModel(
@@ -80,6 +84,7 @@ class ContributorEditViewModelTest :
                     contributorAliasDao = contributorAliasDao,
                     contributorDao = contributorDao,
                     errorBus = errorBus,
+                    permissionsRepository = permissions,
                 )
         }
 
@@ -738,6 +743,64 @@ class ContributorEditViewModelTest :
                 verifySuspend(VerifyMode.not) {
                     fixture.contributorEditRepository.mergeContributor(any(), any())
                 }
+            }
+        }
+
+        test("without Curate library, merging and unmerging are refused before any request is made") {
+            runTest {
+                val fixture = createFixture()
+                fixture.permissions.granted.value = setOf(Permission.EDIT_METADATA)
+                everySuspend { fixture.contributorRepository.getById("viewed-1") } returns
+                    createContributor(id = "viewed-1", name = "J.K. Rowling")
+                everySuspend { fixture.contributorEditRepository.mergeContributor(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.contributorEditRepository.unmergeContributor(any(), any()) } returns
+                    AppResult.Success(ContributorId("split"))
+                val viewModel = fixture.build()
+                viewModel.loadContributor("viewed-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.canCurateLibrary shouldBe false
+                viewModel.onEvent(ContributorEditUiEvent.MergeInto(ContributorId("other")))
+                viewModel.onEvent(ContributorEditUiEvent.UnmergeAlias("Alias"))
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.not) { fixture.contributorEditRepository.mergeContributor(any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.contributorEditRepository.unmergeContributor(any(), any()) }
+            }
+        }
+
+        test("without Curate library, a rename collision cannot be resolved by merging") {
+            runTest {
+                val fixture = createFixture()
+                fixture.permissions.granted.value = setOf(Permission.EDIT_METADATA)
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns
+                    createContributor(name = "George Martin")
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(listOf(createContributorEntity(id = "other-1", name = "George R. R. Martin")))
+                everySuspend { fixture.contributorEditRepository.mergeContributor(any(), any()) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("George R.R. Martin"))
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                viewModel.onEvent(ContributorEditUiEvent.ConfirmMergeOnRename)
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.not) { fixture.contributorEditRepository.mergeContributor(any(), any()) }
+            }
+        }
+
+        test("canCurateLibrary follows the permission") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                viewModel.state.value.canCurateLibrary shouldBe true
+                fixture.permissions.granted.value = emptySet()
+                advanceUntilIdle()
+                viewModel.state.value.canCurateLibrary shouldBe false
             }
         }
     })
