@@ -29,6 +29,8 @@ import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.AuthUser
+import com.calypsan.listenup.server.auth.PermissionPolicy
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.auth.toAuthUser
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
@@ -456,7 +458,7 @@ class AdminUserServiceImpl(
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
     private fun requireAdmin(): AppResult.Failure? {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return if (caller.role.isAdmin()) null else AppResult.Failure(AuthError.PermissionDenied())
+        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
 
     /** The live (non-deleted) user with [id], or null. Must run inside a SQLDelight transaction. */
@@ -492,8 +494,6 @@ class AdminUserServiceImpl(
 
     /** Count of non-deleted ROOT+ADMIN users. Must run inside a SQLDelight transaction. */
     private fun countActiveAdmins(): Long = sql.usersQueries.countActiveAdmins().executeAsOne()
-
-    private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
 }
 
 /** Boolean → SQLite INTEGER (0/1) at the persistence boundary. */

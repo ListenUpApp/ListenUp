@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.BackupService
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
@@ -10,7 +9,9 @@ import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.BackupId
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.backup.BackupArchive
 import com.calypsan.listenup.server.backup.BackupPaths
 import com.calypsan.listenup.server.backup.RestoreOrchestrator
@@ -131,10 +132,8 @@ class BackupServiceImpl(
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
     private fun requireAdmin(): AppResult.Failure? {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return if (caller.role.isAdmin()) null else AppResult.Failure(AuthError.PermissionDenied())
+        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
-
-    private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
 
     private fun summaryFrom(
         id: String,

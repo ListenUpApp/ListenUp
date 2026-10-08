@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.ImportRoutePaths
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.imports.ImportStatus
 import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.api.error.AppError
@@ -10,6 +9,7 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.server.absimport.AbsSchema
 import com.calypsan.listenup.server.absimport.ImportPaths
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.compression.MalformedDeflateException
 import com.calypsan.listenup.server.compression.zip.ZipEntryInfo
 import com.calypsan.listenup.server.compression.zip.ZipReader
@@ -86,7 +86,7 @@ fun Route.importRoutes(
 ) {
     post(ImportRoutePaths.ABS_UPLOAD) {
         val p = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
-        if (!p.role.isImportAdmin()) return@post call.respondAppError(AuthError.PermissionDenied())
+        if (!p.role.isAdmin()) return@post call.respondAppError(AuthError.PermissionDenied())
         call.handleImportUpload(paths, clock)
     }
 }
@@ -225,5 +225,3 @@ private val metaJson = Json { ignoreUnknownKeys = true }
 private data class UploadMeta(
     val createdAt: Long,
 )
-
-private fun UserRole.isImportAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN

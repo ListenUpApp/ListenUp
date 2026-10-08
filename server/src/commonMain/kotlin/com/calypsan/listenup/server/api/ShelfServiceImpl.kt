@@ -15,6 +15,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.OwnedShelf
@@ -317,7 +318,7 @@ internal class ShelfServiceImpl(
         val userId: String,
         val role: UserRole,
     ) {
-        val isAdmin: Boolean get() = role == UserRole.ROOT || role == UserRole.ADMIN
+        val isAdmin: Boolean get() = role.isAdmin()
     }
 
     /** Owner-gate outcome: [Allowed] carries the loaded shelf; [Denied] carries the typed failure. */

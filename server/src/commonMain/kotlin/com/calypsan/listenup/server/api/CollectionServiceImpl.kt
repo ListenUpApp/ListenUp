@@ -21,6 +21,7 @@ import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.UserRoleColumn
@@ -222,7 +223,7 @@ private suspend fun listableCollectionsFor(
     callerUserId: String,
     callerRole: UserRoleColumn,
 ): ListableCollections {
-    if (callerRole == UserRoleColumn.ROOT || callerRole == UserRoleColumn.ADMIN) {
+    if (callerRole.isAdmin()) {
         return ListableCollections(collectionRepo.listAll(), emptyMap())
     }
     val owned = collectionRepo.listOwnedBy(callerUserId)
@@ -254,7 +255,7 @@ private fun decisionFor(
             CollectionAccessPolicy.Decision(true, SharePermission.Write, true)
         }
 
-        callerRole == UserRoleColumn.ROOT || callerRole == UserRoleColumn.ADMIN -> {
+        callerRole.isAdmin() -> {
             CollectionAccessPolicy.Decision(true, SharePermission.Write, false)
         }
 
@@ -1213,7 +1214,7 @@ internal class CollectionServiceImpl(
         role: UserRoleColumn,
     ): CollectionError? =
         when {
-            role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN -> null
+            role.isAdmin() -> null
             decision.canAccess -> CollectionError.Forbidden()
             else -> CollectionError.NotFound()
         }
@@ -1280,7 +1281,7 @@ internal class CollectionServiceImpl(
 
 /** Admin gate: null = allowed (ROOT/ADMIN); [CollectionError.Forbidden] for everyone else. */
 private fun adminGate(role: UserRoleColumn): CollectionError? =
-    if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) null else CollectionError.Forbidden()
+    if (role.isAdmin()) null else CollectionError.Forbidden()
 
 /** Write gate: null = allowed; Forbidden if the caller can read but not write; NotFound otherwise. */
 private fun writeGate(decision: CollectionAccessPolicy.Decision): CollectionError? =

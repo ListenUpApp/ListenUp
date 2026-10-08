@@ -12,7 +12,6 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.error.SyncError
-import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.services.BookDeleter
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
@@ -187,8 +186,7 @@ internal class BookServiceImpl(
      */
     private fun requireAdmin(): AppResult.Failure? {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        val isAdmin = caller.role == UserRole.ROOT || caller.role == UserRole.ADMIN
-        return if (isAdmin) null else AppResult.Failure(AuthError.PermissionDenied())
+        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
 
     /**
