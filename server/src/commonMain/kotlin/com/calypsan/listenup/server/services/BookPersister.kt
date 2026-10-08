@@ -160,7 +160,9 @@ class BookPersister internal constructor(
                 // OOM aborts before any removal path runs, so removed = 0 on the partial counts. A
                 // dropped delete-nudge here self-heals on the next lifecycle edge (books are cursored).
                 val partial =
-                    (e as? PersistAbortedByOom)?.result?.let { PersistCounts(it.persisted, it.failed, removed = 0) }
+                    (e as? PersistAbortedByOom)?.let { oom ->
+                        PersistCounts(oom.result.persisted, oom.result.failed, removed = 0)
+                    }
                         ?: PersistCounts(0, 0, 0)
                 eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(partial)))
                 // The rows persisted before the OOM already committed above the client cursor with no

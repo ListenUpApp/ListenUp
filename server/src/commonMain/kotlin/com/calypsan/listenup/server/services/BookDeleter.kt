@@ -95,7 +95,9 @@ class BookDeleter(
                 ),
             )
         if (deleted is AppResult.Failure) {
-            logger.warn { "delete of book ${id.value} refused or failed at the broker: ${deleted.error.debugInfo}" }
+            logger.warn {
+                "delete of book ${id.value} refused or failed at the broker: ${deleted.error.debugInfo ?: deleted.error.code}"
+            }
             return deleted
         }
 

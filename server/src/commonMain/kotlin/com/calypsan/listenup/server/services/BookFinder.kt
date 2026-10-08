@@ -7,10 +7,6 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import com.calypsan.listenup.server.sync.SqlFragment
-import com.calypsan.listenup.server.sync.bindRaw
-import app.cash.sqldelight.db.QueryResult
-import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.logging.loggerFor
 
 private val log = loggerFor<BookFinder>()
@@ -102,7 +98,7 @@ internal class BookFinder(
                 .chunked(SQLITE_IN_CHUNK)
                 .flatMap { chunk ->
                     db.booksQueries.selectIdsByInodes(folderId.value, chunk).executeAsList()
-                }.associate { it.inode!! to BookId(it.id) }
+                }.associate { row -> checkNotNull(row.inode) { "matched by inode, so inode is set" } to BookId(row.id) }
         }
     }
 

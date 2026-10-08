@@ -79,12 +79,12 @@ class PublicProfileMaintainer(
         val identity =
             suspendTransaction(sql) {
                 sql.usersQueries.selectIdentityLiveById(id = userId).executeAsOneOrNull()
-            }?.let {
+            }?.let { row ->
                 UserIdentity(
-                    displayName = it.display_name,
-                    avatarType = it.avatar_type,
-                    tagline = it.tagline,
-                    avatarUpdatedAt = it.avatar_updated_at,
+                    displayName = row.display_name,
+                    avatarType = row.avatar_type,
+                    tagline = row.tagline,
+                    avatarUpdatedAt = row.avatar_updated_at,
                 )
             } ?: return null
 
@@ -162,9 +162,9 @@ class PublicProfileMaintainer(
      */
     suspend fun refreshBestEffort(userId: String) {
         runCatchingCancellable { refresh(userId) }
-            .onFailure {
+            .onFailure { failure ->
                 logger.warn(
-                    it,
+                    failure,
                 ) { "public_profiles refresh failed for $userId; projection will self-heal on next backfill" }
             }
     }
@@ -172,18 +172,18 @@ class PublicProfileMaintainer(
     /** Best-effort [refreshIfChanged]; see [refreshBestEffort]. Returns `false` when the refresh failed. */
     suspend fun refreshIfChangedBestEffort(userId: String): Boolean =
         runCatchingCancellable { refreshIfChanged(userId) }
-            .onFailure {
+            .onFailure { failure ->
                 logger.warn(
-                    it,
+                    failure,
                 ) { "public_profiles refresh failed for $userId; projection will self-heal on next backfill" }
             }.getOrDefault(false)
 
     /** Best-effort [tombstone]; see [refreshBestEffort]. */
     suspend fun tombstoneBestEffort(userId: String) {
         runCatchingCancellable { tombstone(userId) }
-            .onFailure {
+            .onFailure { failure ->
                 logger.warn(
-                    it,
+                    failure,
                 ) { "public_profiles tombstone failed for $userId; projection will self-heal on next backfill" }
             }
     }

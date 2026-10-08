@@ -62,7 +62,15 @@ internal class MoodServiceImpl(
 ) : MoodService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): MoodServiceImpl =
-        MoodServiceImpl(moodRepository, bookMoodRepository, sql, accessPolicy, clock, permissionPolicy, principal)
+        MoodServiceImpl(
+            moodRepository = moodRepository,
+            bookMoodRepository = bookMoodRepository,
+            sql = sql,
+            accessPolicy = accessPolicy,
+            clock = clock,
+            permissionPolicy = permissionPolicy,
+            principal = principal,
+        )
 
     /**
      * The caller's reachable book-id set, or null for ROOT/ADMIN. Mirrors [TagServiceImpl]'s

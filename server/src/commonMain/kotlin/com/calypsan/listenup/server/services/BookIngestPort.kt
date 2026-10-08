@@ -124,13 +124,13 @@ interface BookIngestPort {
             val outcome =
                 try {
                     resolveOrInsert(
-                        libraryId,
-                        folderId,
-                        book,
-                        coversByBook[book.candidate.rootRelPath],
-                        systemCollectionId,
-                        identityMaps.contributors,
-                        identityMaps.series,
+                        libraryId = libraryId,
+                        folderId = folderId,
+                        analyzed = book,
+                        pendingCover = coversByBook[book.candidate.rootRelPath],
+                        systemCollectionId = systemCollectionId,
+                        contributorIds = identityMaps.contributors,
+                        seriesIds = identityMaps.series,
                     )
                 } catch (e: CancellationException) {
                     throw e

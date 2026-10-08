@@ -59,7 +59,8 @@ internal class PlaybackServiceImpl(
     private val accessPolicy: BookAccessPolicy,
     private val principal: PrincipalProvider,
     private val sql: ListenUpDatabase,
-    private val transcodePolicy: TranscodePolicy,
+    // Pure and stateless (no I/O, clock or config), so a fresh instance is the only sensible default.
+    private val transcodePolicy: TranscodePolicy = TranscodePolicy(),
     private val transcodeSettings: TranscodeSettings,
     private val transcoderAvailability: TranscoderAvailability,
     private val clock: Clock = Clock.System,
@@ -192,10 +193,10 @@ internal class PlaybackServiceImpl(
     }
 
     override suspend fun getStats(): AppResult<UserStatsSyncPayload?> {
-        val userId =
-            principal.current()?.userId?.value
+        val callerId =
+            principal.current()?.run { userId.value }
                 ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
-        return AppResult.Success(userStatsRepository.getForUser(userId))
+        return AppResult.Success(userStatsRepository.getForUser(callerId))
     }
 
     @OpenToAllMembers(reason = "the caller's own playback, on a book they can see")

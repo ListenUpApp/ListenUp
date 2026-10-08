@@ -29,7 +29,7 @@ internal class NotificationServiceImpl(
 ) : NotificationService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): NotificationServiceImpl =
-        NotificationServiceImpl(repo, prefs, clock, principal)
+        NotificationServiceImpl(repo = repo, prefs = prefs, clock = clock, principal = principal)
 
     @OpenToAllMembers(reason = "the caller's own notifications")
     override suspend fun markRead(notificationId: String): AppResult<Unit> {

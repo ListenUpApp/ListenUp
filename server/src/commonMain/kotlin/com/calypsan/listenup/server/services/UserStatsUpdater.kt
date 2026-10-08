@@ -47,7 +47,7 @@ class UserStatsUpdater(
                 derived.totalSecondsLast30Days != existing.totalSecondsLast30Days ||
                 derived.currentStreakDays != existing.currentStreakDays
         if (drifted) userStatsRepo.upsert(derived, clientOpId = null, userId = userId)
-        val projectionHealed = publicProfileMaintainer?.refreshIfChangedBestEffort(userId) ?: false
+        val projectionHealed = publicProfileMaintainer?.refreshIfChangedBestEffort(userId) == true
         return drifted || projectionHealed
     }
 }

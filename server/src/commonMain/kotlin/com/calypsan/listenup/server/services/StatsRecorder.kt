@@ -81,26 +81,40 @@ class StatsRecorder(
         val startedAtMs = event.startedAt?.toEpochMilliseconds()
         // The coverage rule decides append-vs-merge on `book_reads`; the re-derive then reads the new
         // count. booksFinished is a pure function of `book_reads`, so a merge leaves it unchanged.
-        val appended = bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs, startedAtMs)
+        val appended =
+            bookReadsRepository.recordCompletion(
+                userId = event.userId,
+                bookId = event.bookId,
+                finishedAtMs = finishedAtMs,
+                startedAtMs = startedAtMs,
+            )
         closeAwaitingListenThrough(event.userId, event.bookId, finishedAtMs)
         // Only a genuinely new read reaches Hardcover: a merged replay is the same read, already pushed.
         if (appended) {
             pushToHardcover(
                 event.userId,
                 "finish",
-            ) { onReadAppended(event.userId, event.bookId, finishedAtMs, startedAtMs) }
+            ) {
+                onReadAppended(
+                    userId = event.userId,
+                    bookId = event.bookId,
+                    finishedAt = finishedAtMs,
+                    startedAt = startedAtMs,
+                )
+            }
         }
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
             val tz = sql.homeTimeZone(event.userId)
             val base = userStatsRepo.getForUser(event.userId) ?: emptyStatsFor(event.userId)
-            val derived = deriveUserStats(sql, event.userId, clock.now().toEpochMilliseconds(), tz)
+            val derived =
+                deriveUserStats(sql = sql, userId = event.userId, nowMs = clock.now().toEpochMilliseconds(), tz = tz)
             userStatsRepo.upsert(derived, clientOpId = null, userId = event.userId)
             publicProfileMaintainer.refresh(event.userId, tz)
-            emitMilestoneCrossings(event.userId, base, derived, tz)
+            emitMilestoneCrossings(userId = event.userId, base = base, derived = derived, tz = tz)
         }
         activityRecorder.record(
-            event.userId,
-            ActivityType.FINISHED_BOOK,
+            userId = event.userId,
+            type = ActivityType.FINISHED_BOOK,
             bookId = event.bookId,
             occurredAt = finishedAtMs,
         )
@@ -122,7 +136,7 @@ class StatsRecorder(
     private suspend fun recordBookRestarted(event: StatsEvent.BookRestarted) {
         runCatchingCancellable {
             val startedAtMs = event.occurredAt.toEpochMilliseconds()
-            val isRereadFlag = if (event.isReread) 1L else 0L
+            val rereadFlag = if (event.isReread) 1L else 0L
             suspendTransaction(sql) {
                 // Seeds the row on a genuine first restart (a no-op if one already exists), then
                 // resets an existing row only when this restart is genuinely new (see ListenThroughs.sq).
@@ -130,11 +144,11 @@ class StatsRecorder(
                     user_id = event.userId,
                     book_id = event.bookId,
                     started_at = startedAtMs,
-                    is_reread = isRereadFlag,
+                    is_reread = rereadFlag,
                 )
                 sql.listenThroughsQueries.resetListenThroughIfChanged(
                     started_at = startedAtMs,
-                    is_reread = isRereadFlag,
+                    is_reread = rereadFlag,
                     user_id = event.userId,
                     book_id = event.bookId,
                 )
@@ -169,16 +183,17 @@ class StatsRecorder(
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
             val tz = sql.homeTimeZone(userId)
             val base = userStatsRepo.getForUser(userId) ?: emptyStatsFor(userId)
-            val derived = deriveUserStats(sql, userId, clock.now().toEpochMilliseconds(), tz)
+            val derived =
+                deriveUserStats(sql = sql, userId = userId, nowMs = clock.now().toEpochMilliseconds(), tz = tz)
             userStatsRepo.upsert(derived, clientOpId = null, userId = userId)
             publicProfileMaintainer.refresh(userId, tz)
             // Milestones fire once per forward crossing; the per-user lock in [record] makes
             // base→derived windows non-overlapping.
-            emitMilestoneCrossings(userId, base, derived, tz)
+            emitMilestoneCrossings(userId = userId, base = base, derived = derived, tz = tz)
         }
         activityRecorder.record(
-            userId,
-            ActivityType.LISTENING_SESSION,
+            userId = userId,
+            type = ActivityType.LISTENING_SESSION,
             bookId = span.bookId,
             durationMs = span.endedAt - span.startedAt,
             occurredAt = span.endedAt,
@@ -186,9 +201,9 @@ class StatsRecorder(
         // Best-effort — see recordBookRestarted's KDoc: this must never fail an already-committed
         // listening-event write.
         runCatchingCancellable { announceRealStartIfCrossed(userId, span.bookId) }
-            .onFailure {
+            .onFailure { failure ->
                 log.warn(
-                    it,
+                    failure,
                 ) { "listen-through bookkeeping failed on session-close user=$userId book=${span.bookId}" }
             }
         // After the real-start check, so a session that crosses the line queues START before its PROGRESS.
@@ -211,14 +226,19 @@ class StatsRecorder(
         val crossed =
             suspendTransaction<SelectAwaitingRealStart?>(sql) { claimRealStartIfCrossed(userId, bookId) } ?: return
         activityRecorder.record(
-            userId,
-            ActivityType.STARTED_BOOK,
+            userId = userId,
+            type = ActivityType.STARTED_BOOK,
             bookId = bookId,
             isReread = crossed.is_reread == 1L,
             occurredAt = crossed.started_at,
         )
         pushToHardcover(userId, "start") {
-            onRealStart(userId, bookId, startedAt = crossed.started_at, isReread = crossed.is_reread == 1L)
+            onRealStart(
+                userId = userId,
+                bookId = bookId,
+                startedAt = crossed.started_at,
+                isReread = crossed.is_reread == 1L,
+            )
         }
     }
 
@@ -309,15 +329,17 @@ class StatsRecorder(
     ) {
         val streakCrossings =
             STREAK_MILESTONES.filter { it > base.currentStreakDays && it <= derived.currentStreakDays }
-        if (streakCrossings.isNotEmpty()) emitStreakMilestones(userId, streakCrossings, derived, tz)
+        if (streakCrossings.isNotEmpty()) {
+            emitStreakMilestones(userId = userId, crossed = streakCrossings, derived = derived, tz = tz)
+        }
         val prevHours = (base.totalSecondsAllTime / 3600L).toInt()
         val newHours = (derived.totalSecondsAllTime / 3600L).toInt()
         LISTENING_MILESTONES
             .filter { prevHours < it && newHours >= it }
             .forEach { milestone ->
                 activityRecorder.record(
-                    userId,
-                    ActivityType.LISTENING_MILESTONE,
+                    userId = userId,
+                    type = ActivityType.LISTENING_MILESTONE,
                     milestoneValue = milestone,
                     milestoneUnit = "hours",
                 )
@@ -342,7 +364,9 @@ class StatsRecorder(
         derived: UserStatsSyncPayload,
         tz: TimeZone,
     ) {
-        val run = currentStreakRun(sql, userId, derived.currentStreakDays, tz) ?: return
+        val run =
+            currentStreakRun(sql = sql, userId = userId, currentStreakDays = derived.currentStreakDays, tz = tz)
+                ?: return
         crossed.forEach { milestone ->
             val alreadyAnnounced =
                 suspendTransaction(sql) {
@@ -355,8 +379,8 @@ class StatsRecorder(
                 }
             if (!alreadyAnnounced) {
                 activityRecorder.record(
-                    userId,
-                    ActivityType.STREAK_MILESTONE,
+                    userId = userId,
+                    type = ActivityType.STREAK_MILESTONE,
                     milestoneValue = milestone,
                     milestoneUnit = "days",
                     occurredAt = run.reachedLengthAtMs(milestone),

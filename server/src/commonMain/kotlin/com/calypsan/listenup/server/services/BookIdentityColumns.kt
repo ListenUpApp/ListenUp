@@ -16,7 +16,7 @@ internal object BookIdentityColumns {
     private val isoDate = Regex("""(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])""")
 
     /** [raw] as a full ISO date (`yyyy-mm-dd`), trimmed, or null when it is anything else. */
-    fun fullDateOrNull(raw: String?): String? = raw?.trim()?.takeIf { isoDate.matches(it) }
+    fun fullDateOrNull(raw: String?): String? = raw?.run { trim().takeIf { isoDate.matches(it) } }
 
     /** [releaseDate] when it is a full ISO date in [publishYear], else null. */
     fun reconcileReleaseDate(
@@ -27,9 +27,7 @@ internal object BookIdentityColumns {
         val year =
             isoDate
                 .matchEntire(date)
-                ?.groupValues
-                ?.get(1)
-                ?.toInt()
+                ?.run { groupValues[1].toInt() }
         return date.takeIf { year == publishYear }
     }
 
@@ -42,7 +40,7 @@ internal object BookIdentityColumns {
         asin: String?,
         refs: List<ExternalRef>,
     ): List<ExternalRef> {
-        val audibleId = asin?.trim()?.takeIf { it.isNotEmpty() }
+        val audibleId = asin?.run { trim().takeIf { it.isNotEmpty() } }
         val audible =
             audibleId?.let { id ->
                 refs.firstOrNull { it.provider == ExternalRef.AUDIBLE && it.id == id }

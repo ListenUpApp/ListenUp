@@ -80,7 +80,7 @@ internal class UserPreferencesServiceImpl(
     }
 
     /** Best-effort per-user firehose nudge. A failed publish must not fail the (committed) write. */
-    private suspend fun publishPreferencesChanged(userId: String) {
+    private fun publishPreferencesChanged(userId: String) {
         val bus = bus ?: return
         try {
             bus.publishControl(SyncControl.PreferencesChanged, userId)
@@ -140,15 +140,15 @@ internal class UserPreferencesServiceImpl(
 
     private fun defaults(): UserPreferencesDto =
         UserPreferencesDto(
-            DEFAULT_SPEED,
-            DEFAULT_SKIP_FORWARD,
-            DEFAULT_SKIP_BACKWARD,
-            null,
-            false,
-            DEFAULT_VOLUME_BOOST,
+            defaultPlaybackSpeed = DEFAULT_SPEED,
+            defaultSkipForwardSec = DEFAULT_SKIP_FORWARD,
+            defaultSkipBackwardSec = DEFAULT_SKIP_BACKWARD,
+            defaultSleepTimerMin = null,
+            shakeToResetSleepTimer = false,
+            defaultVolumeBoostDb = DEFAULT_VOLUME_BOOST,
         )
 
-    private fun currentUserId(): String? = principal.current()?.userId?.value
+    private fun currentUserId(): String? = principal.current()?.run { userId.value }
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): UserPreferencesServiceImpl =

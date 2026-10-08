@@ -4,6 +4,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.util.runCatchingCancellable
 
 private val logger = loggerFor<PendingGenrePromotion>()
 
@@ -56,7 +57,7 @@ internal class PendingGenrePromotion(
         var promoted = 0
         for ((bookIdStr, rawStrings) in grouped) {
             val resolved =
-                runCatching {
+                runCatchingCancellable {
                     for (raw in rawStrings) {
                         bookGenreWriter.resolveAndLink(BookId(bookIdStr), raw)
                     }
@@ -65,7 +66,6 @@ internal class PendingGenrePromotion(
             resolved
                 .onSuccess { promoted++ }
                 .onFailure { e ->
-                    if (e is kotlinx.coroutines.CancellationException) throw e
                     logger.warn(e) { "pending-genre promotion: skipping book=$bookIdStr — resolve failed" }
                 }
         }

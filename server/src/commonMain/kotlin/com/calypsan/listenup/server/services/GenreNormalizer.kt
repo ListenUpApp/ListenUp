@@ -15,20 +15,6 @@ import com.calypsan.listenup.api.result.AppResult
  * taxonomy's canonical slugs (see [GenreSlug]'s KDoc on the deliberate `& -> and` rule).
  */
 object GenreNormalizer {
-    /**
-     * Normalize a raw genre string to canonical slug(s).
-     * - blank / symbol-only / over-long -> [emptyList].
-     * - a known alias -> its mapped canonical slug(s).
-     * - otherwise -> the bare slug (matched against the live taxonomy upstream).
-     */
-    fun normalizeToSlugs(raw: String): List<String> {
-        val slug = slugify(raw) ?: return emptyList()
-        return CANONICAL_ALIASES[slug] ?: listOf(slug)
-    }
-
-    /** Distinct canonical slugs this map can produce — used by the taxonomy-alignment test. */
-    internal fun canonicalSlugs(): Set<String> = CANONICAL_ALIASES.values.flatten().toSet()
-
     private fun slugify(raw: String): String? =
         when (val r = GenreSlug.normalize(raw)) {
             is AppResult.Success -> r.data
@@ -332,4 +318,18 @@ object GenreNormalizer {
                 slugify(rawKey)?.let { put(it, canonical) }
             }
         }
+
+    /**
+     * Normalize a raw genre string to canonical slug(s).
+     * - blank / symbol-only / over-long -> [emptyList].
+     * - a known alias -> its mapped canonical slug(s).
+     * - otherwise -> the bare slug (matched against the live taxonomy upstream).
+     */
+    fun normalizeToSlugs(raw: String): List<String> {
+        val slug = slugify(raw) ?: return emptyList()
+        return CANONICAL_ALIASES[slug] ?: listOf(slug)
+    }
+
+    /** Distinct canonical slugs this map can produce — used by the taxonomy-alignment test. */
+    internal fun canonicalSlugs(): Set<String> = CANONICAL_ALIASES.values.flatten().toSet()
 }

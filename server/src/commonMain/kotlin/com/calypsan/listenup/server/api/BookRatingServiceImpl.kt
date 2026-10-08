@@ -103,7 +103,13 @@ class BookRatingServiceImpl(
         }
 
     fun copyWith(principal: PrincipalProvider): BookRatingServiceImpl =
-        BookRatingServiceImpl(ratings, accessPolicy, principal, fetcher, onOpen)
+        BookRatingServiceImpl(
+            ratings = ratings,
+            accessPolicy = accessPolicy,
+            principal = principal,
+            fetcher = fetcher,
+            onOpen = onOpen,
+        )
 
     private suspend fun callerWithAccessTo(bookId: BookId): String? {
         val p = principal.current() ?: return null

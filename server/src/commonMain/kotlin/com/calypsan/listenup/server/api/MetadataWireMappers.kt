@@ -102,7 +102,7 @@ internal fun BookMatch.toMetadataBook(): MetadataBook =
         description = null,
         publisher = null,
         releaseDate = null,
-        runtimeMinutes = durationMs?.let { (it / MS_PER_MINUTE).toInt() }?.takeIf { it > 0 },
+        runtimeMinutes = durationMs?.run { (this / MS_PER_MINUTE).toInt().takeIf { it > 0 } },
         language = null,
         authors = author?.let { listOf(MetadataContributorRef(asin = null, name = it)) }.orEmpty(),
         narrators = emptyList(),
