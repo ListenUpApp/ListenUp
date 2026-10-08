@@ -142,6 +142,41 @@ class UserPermissionsViewModelTest :
             }
         }
 
+        test("changing Edit metadata names Curate library too, so edit off with curate on is kept") {
+            runTest {
+                val librarian = member(UserPermissions(canEditMetadata = true, canCurateLibrary = true))
+                val patch = UserPermissionsPatch(canEditMetadata = false, canCurateLibrary = true)
+                val repo: AdminRepository =
+                    mock {
+                        everySuspend { getUser("u1") } returns AppResult.Success(librarian)
+                        everySuspend { updateUser(userId = "u1", role = null, permissions = patch) } returns
+                            AppResult.Success(member(UserPermissions(canEditMetadata = false, canCurateLibrary = true)))
+                    }
+                val viewModel = open(repo)
+                viewModel.setPermission(Permission.EDIT_METADATA, false)
+                viewModel.save()
+                advanceUntilIdle()
+                verifySuspend(VerifyMode.exactly(1)) { repo.updateUser(userId = "u1", role = null, permissions = patch) }
+            }
+        }
+
+        test("against an older server, changing Edit metadata sends it alone") {
+            runTest {
+                val patch = UserPermissionsPatch(canEditMetadata = false)
+                val repo: AdminRepository =
+                    mock {
+                        everySuspend { getUser("u1") } returns AppResult.Success(member())
+                        everySuspend { updateUser(userId = "u1", role = null, permissions = patch) } returns
+                            AppResult.Success(member(UserPermissions(canEditMetadata = false)))
+                    }
+                val viewModel = open(repo, flags = setOf("canEdit"))
+                viewModel.setPermission(Permission.EDIT_METADATA, false)
+                viewModel.save()
+                advanceUntilIdle()
+                verifySuspend(VerifyMode.exactly(1)) { repo.updateUser(userId = "u1", role = null, permissions = patch) }
+            }
+        }
+
         test("a failed save keeps the draft and carries the error") {
             runTest {
                 val repo: AdminRepository =

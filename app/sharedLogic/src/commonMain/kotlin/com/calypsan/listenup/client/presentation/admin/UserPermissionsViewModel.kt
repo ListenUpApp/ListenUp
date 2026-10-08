@@ -188,9 +188,22 @@ class UserPermissionsViewModel(
 
             val hasChanges: Boolean get() = roleChange != null || changedPermissions.isNotEmpty()
 
+            /**
+             * The flags the patch names: the changed ones, plus Curate library whenever Edit metadata
+             * changes. The server reads an Edit-metadata revoke with curate unnamed as an older app's
+             * "Can edit" off and clears curate too, so naming it keeps "edit off, curate on" intact.
+             */
+            private val namedPermissions: List<Permission>
+                get() =
+                    if (Permission.EDIT_METADATA in changedPermissions && Permission.CURATE_LIBRARY in shown) {
+                        (changedPermissions + Permission.CURATE_LIBRARY).distinct()
+                    } else {
+                        changedPermissions
+                    }
+
             val permissionsPatch: UserPermissionsPatch?
                 get() =
-                    changedPermissions
+                    namedPermissions
                         .fold(
                             UserPermissionsPatch(),
                         ) { patch, permission -> patch.granting(permission, draftFlags.allows(permission)) }

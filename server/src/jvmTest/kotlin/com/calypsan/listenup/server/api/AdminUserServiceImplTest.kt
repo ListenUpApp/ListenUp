@@ -183,15 +183,31 @@ class AdminUserServiceImplTest :
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc
-                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
-                        .shouldSucceed()
-                        .permissions shouldBe UserPermissions(canEditMetadata = false, canCurateLibrary = true)
-                    svc
                         .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canCurateLibrary = false)))
                         .shouldSucceed()
-                        .permissions shouldBe UserPermissions(canEditMetadata = false, canCurateLibrary = false)
+                        .permissions shouldBe UserPermissions(canEditMetadata = true, canCurateLibrary = false)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = true)))
+                        .shouldSucceed()
+                        .permissions shouldBe UserPermissions(canEditMetadata = true, canCurateLibrary = false)
                     svc.getUser(UserId("m1")).shouldSucceed().permissions shouldBe
-                        UserPermissions(canEditMetadata = false, canCurateLibrary = false)
+                        UserPermissions(canEditMetadata = true, canCurateLibrary = false)
+                }
+            }
+        }
+
+        test("a current client's explicit edit off, curate on is stored as sent") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = true, canCurateLibrary = true)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    val patch = UserPermissionsPatch(canEditMetadata = false, canCurateLibrary = true)
+                    svc.updateUser(UserId("m1"), AdminUserPatch(permissions = patch)).shouldSucceed().permissions shouldBe
+                        UserPermissions(canEditMetadata = false, canCurateLibrary = true)
+                    svc.getUser(UserId("m1")).shouldSucceed().permissions shouldBe
+                        UserPermissions(canEditMetadata = false, canCurateLibrary = true)
                 }
             }
         }
@@ -239,16 +255,20 @@ class AdminUserServiceImplTest :
             }
         }
 
-        test("an older admin app's canEdit false still revokes Edit metadata") {
+        test("an older admin app's canEdit false revokes Edit metadata and Curate library together") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 sql.seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = true, canCurateLibrary = true)
                 runTest {
+                    // Before the split, canEdit carried merge and delete too; V92 backfilled curate
+                    // from it. An admin turning "Can edit" off on an older app means all of it.
                     val patch = contractJson.decodeFromString<AdminUserPatch>("""{"permissions":{"canEdit":false}}""")
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc.updateUser(UserId("m1"), patch).shouldSucceed().permissions shouldBe
-                        UserPermissions(canEditMetadata = false, canCurateLibrary = true)
+                        UserPermissions(canEditMetadata = false, canCurateLibrary = false)
+                    svc.getUser(UserId("m1")).shouldSucceed().permissions shouldBe
+                        UserPermissions(canEditMetadata = false, canCurateLibrary = false)
                 }
             }
         }

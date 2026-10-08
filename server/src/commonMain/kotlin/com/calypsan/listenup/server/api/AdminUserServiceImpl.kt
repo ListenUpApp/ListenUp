@@ -241,7 +241,7 @@ class AdminUserServiceImpl(
                 // Each permission flag merges on its own: a patch that names one leaves the others as stored.
                 val mergedPermissions =
                     UserPermissions(canEditMetadata = user.canEdit, canCurateLibrary = user.canCurateLibrary)
-                        .patchedBy(patch.permissions?.withLegacyEmptyMeaning())
+                        .patchedBy(patch.permissions?.withLegacyMeaning())
                 val now = clock.now().toEpochMilliseconds()
                 sql.usersQueries.updateAdminFields(
                     display_name = mergedDisplayName,
@@ -508,17 +508,26 @@ class AdminUserServiceImpl(
 private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
 
 /**
- * An empty permissions object is an older admin app granting Edit metadata, not "change nothing".
+ * A patch from an older admin app, read the way that app meant it.
  *
- * Before the split, the admin app sent a whole `UserPermissions(canEdit = …)`, and `contractJson`
- * does not encode defaults. Since `canEdit = true` was the default, turning Edit back ON put
- * `{"permissions":{}}` on the wire — which decodes here as a [UserPermissionsPatch] naming no flag.
- * Read literally, that would leave the flag off and still report success. So a present-but-empty
- * patch keeps its legacy meaning: `canEditMetadata = true`. Revoking was never affected, because
- * `false` is not the default and is always encoded.
+ * Before the split, the admin app sent a whole `UserPermissions(canEdit = …)`, and `canEdit` carried
+ * merge and delete as well as editing — V92 backfilled Curate library from it. Two shapes follow:
  *
- * Current clients never send an empty object: when no flag changed they send `permissions = null`,
- * which leaves every flag as stored.
+ * - **An empty object grants Edit metadata.** `contractJson` does not encode defaults, and
+ *   `canEdit = true` was the default, so turning Edit back ON put `{"permissions":{}}` on the wire —
+ *   which decodes here as a patch naming no flag. Read literally, that would leave the flag off and
+ *   still report success. Curate library stays as stored: it defaults off.
+ * - **`canEditMetadata = false` with Curate library unnamed revokes both.** That is `{"canEdit":false}`,
+ *   an older app turning editing off; leaving the backfilled curate on would keep the member's merge
+ *   and delete without the admin ever seeing it.
+ *
+ * Current clients never send either shape: when no flag changed they send `permissions = null`, and
+ * whenever they change Edit metadata they name Curate library too, so a deliberate "edit off, curate
+ * on" survives.
  */
-private fun UserPermissionsPatch.withLegacyEmptyMeaning(): UserPermissionsPatch =
-    if (isEmpty) UserPermissionsPatch(canEditMetadata = true) else this
+private fun UserPermissionsPatch.withLegacyMeaning(): UserPermissionsPatch =
+    when {
+        isEmpty -> UserPermissionsPatch(canEditMetadata = true)
+        canEditMetadata == false && canCurateLibrary == null -> copy(canCurateLibrary = false)
+        else -> this
+    }
