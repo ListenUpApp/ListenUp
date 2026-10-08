@@ -70,6 +70,11 @@ internal class ScannerEndToEndFixture private constructor(
     }
 
     companion object {
+        private const val JWT_SECRET_LENGTH = 32
+        private const val REFRESH_PEPPER_LENGTH = 32
+        private const val REQUEST_TIMEOUT_MS = 10_000L
+        private const val MIN_PASSWORD_LENGTH = 8
+
         fun start(populate: AudioLibraryFixture.() -> Unit = {}): ScannerEndToEndFixture {
             val tmpDb = Files.createTempFile("listenup-scanner-e2e-", ".db").toFile().apply { deleteOnExit() }
             val libraryRoot = Files.createTempDirectory("listenup-scanner-e2e-lib-")
@@ -143,10 +148,5 @@ internal class ScannerEndToEndFixture private constructor(
 
             return ScannerEndToEndFixture(libraryRoot, server, client, baseUrl)
         }
-
-        private const val JWT_SECRET_LENGTH = 32
-        private const val REFRESH_PEPPER_LENGTH = 32
-        private const val REQUEST_TIMEOUT_MS = 10_000L
-        private const val MIN_PASSWORD_LENGTH = 8
     }
 }

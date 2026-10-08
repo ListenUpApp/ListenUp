@@ -20,6 +20,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import io.kotest.assertions.throwables.shouldThrow
 
 class ITunesClientTest :
     FunSpec({
@@ -210,13 +211,9 @@ class ITunesClientTest :
                         throw CancellationException("simulated cancellation")
                     }
                 val client = makeClient(engine)
-                var threw = false
-                try {
+                shouldThrow<CancellationException> {
                     client.findCover("Any", "Author")
-                } catch (e: CancellationException) {
-                    threw = true
                 }
-                threw shouldBe true
             }
         }
 

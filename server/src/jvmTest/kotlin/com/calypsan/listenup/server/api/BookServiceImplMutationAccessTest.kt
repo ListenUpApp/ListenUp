@@ -152,7 +152,7 @@ private data class MutationFixture(
 )
 
 /** A named content mutation, invoked against a scoped service for one book. */
-private class Mutation(
+private data class Mutation(
     val name: String,
     val call: suspend BookServiceImpl.(BookId) -> AppResult<Unit>,
 )

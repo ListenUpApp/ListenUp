@@ -43,6 +43,7 @@ private val GUIDE =
         authors = listOf(FakeHardcoverCatalog.Author(9L, "Milkyway Media")),
     )
 
+@Suppress("UseDataClass") // A rig of live, mutable fakes, not a value; identity equality is the right semantics.
 private class FindRig(
     val rig: HardcoverCatalogRig,
 ) {

@@ -75,6 +75,7 @@ internal class Mp4Builder internal constructor() {
 
 internal class MoovBuilder internal constructor() {
     private val children = mutableListOf<ByteArray>()
+    private val pendingTextTrackPatches = mutableListOf<TextTrackPatch>()
 
     /**
      * Emit a `mvhd` (movie header) atom carrying the file timescale and
@@ -233,8 +234,6 @@ internal class MoovBuilder internal constructor() {
                 sampleDataIndex = children.indexOf(sampleData),
             )
     }
-
-    private val pendingTextTrackPatches = mutableListOf<TextTrackPatch>()
 
     fun build(): ByteArray {
         // First lay out without patching; if there are no text-track patches,

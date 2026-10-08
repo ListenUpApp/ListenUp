@@ -95,6 +95,7 @@ class FakeHardcoverLibrary(
     )
 
     /** One `user_book_reads` row. */
+    @Suppress("UseDataClass") // A mutable row the fake edits in place; it must keep identity equality.
     class Read(
         val id: Long,
         var startedAt: String?,
@@ -104,6 +105,7 @@ class FakeHardcoverLibrary(
     )
 
     /** One `user_books` row. */
+    @Suppress("UseDataClass") // A mutable row the fake edits in place; it must keep identity equality.
     class Shelf(
         val id: Long,
         val bookId: Long,

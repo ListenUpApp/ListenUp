@@ -22,6 +22,9 @@ import kotlinx.coroutines.test.runTest
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.io.files.Path
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 
 class ScanCoordinatorTest :
     FunSpec({
@@ -225,37 +228,26 @@ class ScanCoordinatorTest :
 
         test("cancelling the calling job propagates into an in-flight full scan") {
             runTest {
-                val cancellationCaught = AtomicReference<Throwable?>(null)
+                val scanJob = CompletableDeferred<Job>()
                 val started = CompletableDeferred<Unit>()
                 val coordinator =
                     ScanCoordinator(
                         libraryId = LibraryId("test-lib"),
                         runFullScan = {
+                            scanJob.complete(currentCoroutineContext().job)
                             started.complete(Unit)
-                            try {
-                                awaitCancellation()
-                            } catch (e: CancellationException) {
-                                cancellationCaught.set(e)
-                                throw e
-                            }
+                            awaitCancellation()
                         },
                         runIncremental = { /* unused */ },
                         scope = backgroundScope,
                     )
 
-                val job =
-                    launch {
-                        try {
-                            coordinator.scanFull()
-                        } catch (_: CancellationException) {
-                            // Expected — cancellation propagates out of scanFull.
-                        }
-                    }
+                val job = launch { coordinator.scanFull() }
                 started.await()
                 job.cancel()
                 job.join()
 
-                cancellationCaught.get().shouldBeInstanceOf<CancellationException>()
+                scanJob.await().isCancelled shouldBe true
             }
         }
 

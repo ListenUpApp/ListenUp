@@ -20,6 +20,7 @@ import kotlin.io.path.div
 import kotlin.io.path.writeBytes
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import java.util.Locale
 
 /**
  * Linux-flavored integration tests for FolderWatcher. CI runs on Linux so
@@ -92,7 +93,7 @@ class FolderWatcherTest :
                             // Write 20 files in rapid succession. Per-book
                             // coalescing should produce exactly one emission.
                             repeat(20) { i ->
-                                (bookDir / "track-%02d.mp3".format(i)).writeBytes(byteArrayOf(i.toByte()))
+                                (bookDir / "track-%02d.mp3".format(Locale.ROOT, i)).writeBytes(byteArrayOf(i.toByte()))
                             }
 
                             delay(400) // settle window + buffer for all 20 writes
@@ -139,7 +140,7 @@ class FolderWatcherTest :
                 runBlocking {
                     val tmp = Files.createTempDirectory("listenup-watcher-cap-")
                     // 99 filler author dirs walked first, then the real one — past kfswatch's 63.
-                    (1..99).forEach { (tmp / "Filler-%03d".format(it) / "Book").createDirectories() }
+                    (1..99).forEach { (tmp / "Filler-%03d".format(Locale.ROOT, it) / "Book").createDirectories() }
                     val bookDir = (tmp / "ZZZ Author/Late Book").apply { createDirectories() }
                     try {
                         withWatcher(tmp) { watcher ->

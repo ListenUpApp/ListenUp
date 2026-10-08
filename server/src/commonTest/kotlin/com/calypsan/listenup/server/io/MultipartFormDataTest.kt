@@ -197,6 +197,7 @@ private suspend fun extractFilePart(
     return captured.readByteArray()
 }
 
+@Suppress("UseDataClass") // Holds a ByteArray, which a data class would compare by reference.
 private class CraftedPart(
     val headers: List<String>,
     val body: ByteArray,

@@ -86,16 +86,7 @@ class AudibleRateLimiterTest :
                 limiter.await(AudibleRegion.US)
                 clock.epochMs = currentTime
 
-                var caughtCancellation = false
-                val job =
-                    launch {
-                        try {
-                            limiter.await(AudibleRegion.US)
-                        } catch (e: CancellationException) {
-                            caughtCancellation = true
-                            throw e
-                        }
-                    }
+                val job = launch { limiter.await(AudibleRegion.US) }
 
                 // Advance 500ms — not enough to unblock (needs 10s).
                 advanceTimeBy(500.milliseconds)
@@ -104,7 +95,8 @@ class AudibleRateLimiterTest :
                 job.cancel()
                 job.join()
 
-                caughtCancellation shouldBe true
+                // Cancelled, not completed: the await was still suspended in its delay when cancel landed.
+                job.isCancelled shouldBe true
             }
         }
     })

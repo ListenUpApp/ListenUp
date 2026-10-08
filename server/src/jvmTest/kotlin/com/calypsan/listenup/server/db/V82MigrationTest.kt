@@ -21,7 +21,8 @@ private fun DataSource.rows(sql: String): List<List<Any?>> =
         }
     }
 
-private fun DataSource.columns(table: String): List<String> = rows("PRAGMA table_info('$table')").map { it[1] as String }
+private fun DataSource.columns(table: String): List<String> =
+    rows("PRAGMA table_info('$table')").map { row -> checkNotNull(row[1]) as String }
 
 /** A database migrated up to just before V82, as a server running main today holds it. */
 private fun databaseBeforeV82(): Pair<String, DataSource> {

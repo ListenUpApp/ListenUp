@@ -20,6 +20,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration
+import io.kotest.assertions.throwables.shouldThrow
 
 class AudnexusClientTest :
     FunSpec({
@@ -187,13 +188,9 @@ class AudnexusClientTest :
                 val engine = MockEngine { throw CancellationException("cancelled") }
                 val client =
                     AudnexusClient(HttpClient(engine), json, AudnexusRateLimiter(minInterval = Duration.ZERO))
-                var threw = false
-                try {
+                shouldThrow<CancellationException> {
                     client.getBook("B01", "us")
-                } catch (_: CancellationException) {
-                    threw = true
                 }
-                threw shouldBe true
             }
         }
 

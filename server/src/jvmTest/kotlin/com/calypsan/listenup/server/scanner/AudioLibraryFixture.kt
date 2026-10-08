@@ -5,6 +5,7 @@ import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.div
 import kotlin.io.path.writeText
+import java.util.Locale
 
 /**
  * A test-only DSL for assembling synthetic audiobook libraries on disk.
@@ -95,7 +96,7 @@ class BookScope(
 
     fun tracks(
         count: Int,
-        namePattern: (Int) -> String = { i -> "%02d - Track.mp3".format(i) },
+        namePattern: (Int) -> String = { i -> "%02d - Track.mp3".format(Locale.ROOT, i) },
     ): List<Path> = (1..count).map { audio(namePattern(it)) }
 
     /** A multi-disc subdirectory (`CD1/`, `Disc 2/`, etc.). */

@@ -146,7 +146,7 @@ class WatcherSupervisorTest :
                 }
 
                 // Simulate a file-change event from the watcher.
-                val watcher = factory.watchers[FolderId("f-1")]!!
+                val watcher = factory.watchers.getValue(FolderId("f-1"))
                 val changedPath = Path("/tmp/books/Author/Title")
                 watcher.simulateEvent(changedPath)
 

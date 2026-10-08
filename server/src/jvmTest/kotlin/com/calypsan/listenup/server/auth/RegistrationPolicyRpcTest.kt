@@ -35,7 +35,7 @@ class RegistrationPolicyRpcTest :
         val pepper = "x".repeat(32).toByteArray()
         val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
 
-        class Fixture(
+        data class Fixture(
             val svc: AuthServiceImpl,
             val broadcaster: RegistrationPolicyBroadcaster,
             val settings: ServerSettingsRepository,

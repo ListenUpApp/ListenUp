@@ -48,6 +48,12 @@ internal interface RogueCatalogueService {
 internal class RogueCatalogueServiceImpl : RogueCatalogueService {
     private val touched = mutableListOf<String>()
 
+    private val role = UserRole.MEMBER
+
+    private val thingQueries = ThingQueries()
+
+    private val bus = ThingBus()
+
     override suspend fun getThing(id: String): String = id
 
     override suspend fun deleteThing(id: String) {
@@ -104,13 +110,7 @@ internal class RogueCatalogueServiceImpl : RogueCatalogueService {
         touched += id
     }
 
-    private fun requireAdmin() = Unit
-
-    private val role = UserRole.MEMBER
-
-    private val thingQueries = ThingQueries()
-
-    private val bus = ThingBus()
+    private fun requireAdmin() = check(role.isAdmin())
 
     /** Stands in for a generated SQLDelight queries class. */
     class ThingQueries {

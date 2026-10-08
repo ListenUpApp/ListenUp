@@ -82,7 +82,7 @@ private class RecordingAudible(
         region: AudibleRegion,
         params: SearchParams,
     ): AppResult<List<AudibleSearchResult>> {
-        asked += "search:${region.code}:${params.keywords}"
+        asked += "search:${region.code}:${params.keywords.orEmpty()}"
         return searchFailure?.let { AppResult.Failure(it) } ?: AppResult.Success(searchHits)
     }
 

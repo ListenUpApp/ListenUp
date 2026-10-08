@@ -23,6 +23,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import java.util.Locale
 
 /**
  * Adversarial test suite for [RestoreOrchestrator].
@@ -380,7 +381,7 @@ class RestoreOrchestratorTest :
 private fun sha256OfBytes(bytes: ByteArray): String {
     val digest = java.security.MessageDigest.getInstance("SHA-256")
     digest.update(bytes)
-    return digest.digest().joinToString("") { "%02x".format(it) }
+    return digest.digest().joinToString("") { "%02x".format(Locale.ROOT, it) }
 }
 
 /**

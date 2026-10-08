@@ -25,6 +25,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import io.kotest.assertions.throwables.shouldThrowAny
 
 private suspend fun MatchRig.applyCaptured(request: com.calypsan.listenup.api.dto.match.BookMatchApply) =
     withCapturedFrames { applier.apply(book(), request, US, appliedBy = "u1") }
@@ -229,7 +230,7 @@ class BookMatchApplyTest :
                     val before = rig.seedBook()
                     val coverBefore = rig.coverColumns()
                     rig.fault = { error("injected") }
-                    runCatching { rig.applier.apply(before, rig.fullRequest(), US, "u1") }.isFailure shouldBe true
+                    shouldThrowAny { rig.applier.apply(before, rig.fullRequest(), US, "u1") }
                     val after = rig.book()
                     after shouldBe before
                     rig.moodNames() shouldBe listOf("Hopeful")

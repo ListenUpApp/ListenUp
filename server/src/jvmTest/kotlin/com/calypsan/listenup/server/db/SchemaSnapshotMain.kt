@@ -3,6 +3,9 @@ package com.calypsan.listenup.server.db
 import com.calypsan.listenup.server.testing.fileBackedTestDataSource
 import java.io.File
 import java.nio.file.Files
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val logger = KotlinLogging.logger("com.calypsan.listenup.server.db.SchemaSnapshotMain")
 
 /** Regenerates the golden schema snapshot from the current MigrationCatalog. */
 fun main() {
@@ -16,5 +19,5 @@ fun main() {
         parentFile.mkdirs()
         writeText(dumpSchema(ds))
     }
-    println("Wrote golden schema snapshot.")
+    logger.info { "Wrote golden schema snapshot." }
 }

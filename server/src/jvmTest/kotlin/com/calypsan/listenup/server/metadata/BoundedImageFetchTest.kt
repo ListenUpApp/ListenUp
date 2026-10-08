@@ -208,7 +208,7 @@ private fun fetcher(
     )
 
 /** Unwraps a successful fetch, failing the test with the typed error when it isn't one. */
-private fun AppResult<ByteArray>.bytes(): ByteArray = shouldBeInstanceOf<AppResult.Success<*>>().data as ByteArray
+private fun AppResult<ByteArray>.bytes(): ByteArray = shouldBeInstanceOf<AppResult.Success<ByteArray>>().data
 
 private fun MockRequestHandleScope.imageResponse(): HttpResponseData =
     respond(
