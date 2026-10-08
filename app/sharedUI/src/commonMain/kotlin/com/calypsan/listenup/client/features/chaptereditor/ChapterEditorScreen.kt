@@ -19,7 +19,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -372,7 +372,7 @@ private fun ChapterEditorBody(
                         lane = currentLane,
                         onLaneChange = onLaneChange,
                         isWide =
-                            currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                            currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
                                 WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
                             ),
                         selectedChapterId = state.selectedChapterId,

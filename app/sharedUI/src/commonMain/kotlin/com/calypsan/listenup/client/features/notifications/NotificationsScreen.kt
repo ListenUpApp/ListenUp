@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.features.notifications
 
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.SectionColumnMinWidth
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -130,7 +130,7 @@ internal fun NotificationList(
     modifier: Modifier = Modifier,
 ) {
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     if (isWide) {

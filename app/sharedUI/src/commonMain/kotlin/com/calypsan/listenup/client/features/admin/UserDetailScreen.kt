@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.features.admin
 
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.SectionColumns
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -141,7 +141,7 @@ internal fun UserDetailContent(
     modifier: Modifier = Modifier,
 ) {
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     if (isWide) {

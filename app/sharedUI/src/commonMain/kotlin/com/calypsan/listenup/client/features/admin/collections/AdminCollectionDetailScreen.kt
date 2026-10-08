@@ -64,7 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
@@ -193,7 +193,7 @@ fun AdminCollectionDetailScreen(
         }
     }
 
-    val isWide = currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(TwoPaneMinWidth.value.toInt())
+    val isWide = currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(TwoPaneMinWidth.value.toInt())
 
     ListenUpScaffold(
         modifier = modifier,

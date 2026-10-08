@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.features.admin.organize
 import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SectionColumns
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -194,7 +194,7 @@ internal fun OrganizeSettingsContent(
 ) {
     val settings = state.settings
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     val structure: @Composable () -> Unit = { StructurePicker(settings = settings, onPresetChange = onPresetChange) }

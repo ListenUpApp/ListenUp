@@ -8,7 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -156,7 +156,7 @@ fun NowPlayingScreen(
     // The corners the sheet rounds toward as the back preview shrinks it off the window's edges.
     val backPreviewCorner = MaterialTheme.shapes.extraLarge.topStart
     val fold = LocalFold.current
-    val layout = nowPlayingLayout(currentWindowAdaptiveInfo().windowSizeClass, fold)
+    val layout = nowPlayingLayout(currentWindowAdaptiveInfoV2().windowSizeClass, fold)
 
     Surface(
         modifier =

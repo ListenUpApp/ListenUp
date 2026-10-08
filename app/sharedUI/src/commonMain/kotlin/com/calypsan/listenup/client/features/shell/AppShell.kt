@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -271,7 +271,7 @@ fun AppShell(
     )
 
     // Adaptive navigation surface for the current window size.
-    val navType = shellNavType(currentWindowAdaptiveInfo().windowSizeClass)
+    val navType = shellNavType(currentWindowAdaptiveInfoV2().windowSizeClass)
 
     // The custom header that screens place at the top of their own scroll, so it scrolls away with
     // content. The shell binds the trailing actions; the screen supplies the leading hero.

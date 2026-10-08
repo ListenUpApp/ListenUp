@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.features.match
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.currentWindowDpSize
 import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
@@ -34,7 +34,7 @@ internal fun MatchPanes(
     detailPane: @Composable (isTwoPane: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val adaptiveInfo = currentWindowAdaptiveInfo()
+    val adaptiveInfo = currentWindowAdaptiveInfoV2()
     // The window's real width, not its size-class bucket: the default buckets stop at 840dp, so a
     // 960dp breakpoint read through them would never be reached.
     val isTwoPane = currentWindowDpSize().width >= TwoPaneMinWidth

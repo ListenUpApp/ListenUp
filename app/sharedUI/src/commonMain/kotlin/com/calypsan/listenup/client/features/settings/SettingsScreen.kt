@@ -64,7 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SettingNavigationRow
 import com.calypsan.listenup.client.design.components.SettingRow
@@ -349,7 +349,7 @@ internal fun SettingsContent(
     onNavigateToCategories: (() -> Unit)? = null,
 ) {
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     val appearance: @Composable () -> Unit = {

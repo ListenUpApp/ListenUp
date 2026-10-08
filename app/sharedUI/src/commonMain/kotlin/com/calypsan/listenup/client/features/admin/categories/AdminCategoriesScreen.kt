@@ -5,7 +5,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.semantics.selected
 import androidx.window.core.layout.WindowSizeClass
@@ -553,7 +553,7 @@ internal fun AdminCategoriesReadyContent(
     modifier: Modifier = Modifier,
 ) {
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     // The wide layout's selection: which category the detail panel shows. Kept across rotation, and

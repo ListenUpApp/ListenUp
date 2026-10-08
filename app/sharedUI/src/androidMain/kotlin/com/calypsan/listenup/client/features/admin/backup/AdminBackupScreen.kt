@@ -9,7 +9,7 @@ import androidx.compose.material.icons.outlined.Restore
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -293,7 +293,7 @@ internal fun AdminBackupReadyContent(
     onUploadABSBackup: () -> Unit,
 ) {
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     if (state.backups.isEmpty() && absImports.isEmpty()) {

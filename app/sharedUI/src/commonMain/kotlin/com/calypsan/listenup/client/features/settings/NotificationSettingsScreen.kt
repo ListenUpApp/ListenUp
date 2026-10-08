@@ -39,7 +39,7 @@ import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -142,7 +142,7 @@ internal fun NotificationPrefsContent(
 ) {
     val knownPrefs = prefs.filter { notificationTypeNameRes(it.type) != null }
     val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     if (isWide) {

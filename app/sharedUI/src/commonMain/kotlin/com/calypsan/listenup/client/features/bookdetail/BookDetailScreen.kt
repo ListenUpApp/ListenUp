@@ -34,7 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -628,7 +628,7 @@ fun BookDetailContent(
     /** Opens a collection from the Visibility card; null (the frozen desktop) shows plain names. */
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
 ) {
-    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
 
     // Two-pane only at EXPANDED width (~840dp+): the wide hero band + About/Credits + Readers/Chapters
     // columns need real room. At medium width (portrait tablets, unfolded-foldable portrait) the

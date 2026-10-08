@@ -6,7 +6,7 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.window.core.layout.WindowSizeClass
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import listenup.composeapp.generated.resources.merge_history_section_title
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.client.features.merge.MergeHistoryList
@@ -149,7 +149,7 @@ fun SeriesEditScreen(
 
     val loaded = rememberLoadedAcknowledgingRefusals(state) { viewModel.onEvent(SeriesEditUiEvent.ErrorDismissed) }
     val pickerAsPane =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
@@ -484,7 +484,7 @@ private fun SeriesEditForm(
 
         // Cards section — side by side from medium width, like ContributorEdit's studio cards.
         val isMediumOrLarger =
-            currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
                 WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
             )
         if (isMediumOrLarger) {

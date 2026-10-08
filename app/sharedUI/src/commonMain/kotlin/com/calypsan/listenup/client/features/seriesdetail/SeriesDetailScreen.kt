@@ -25,7 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -115,7 +115,7 @@ fun SeriesDetailScreen(
                             onAddSubSeries = { viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Opened) },
                         )
                     val wide =
-                        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
                             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
                         )
                     if (wide) {

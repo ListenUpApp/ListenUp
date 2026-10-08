@@ -25,7 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -183,7 +183,7 @@ internal fun BulkEditContent(
 ) {
     val editing = state as? BulkEditUiState.Editing
     val wide =
-        currentWindowAdaptiveInfo()
+        currentWindowAdaptiveInfoV2()
             .windowSizeClass
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 

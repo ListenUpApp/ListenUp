@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.features.profile
 
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.ui.unit.Dp
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -153,7 +153,7 @@ fun UserProfileScreen(
 
                 is UserProfileUiState.Ready -> {
                     val wide =
-                        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
                             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
                         )
                     if (wide) {
