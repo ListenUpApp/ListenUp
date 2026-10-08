@@ -38,10 +38,17 @@ tasks.withType<Detekt>().configureEach {
     exclude { it.file.startsWith(generatedSources) }
 }
 
-/** The type-resolved tasks: one per compilation, never the per-source-set or baseline ones. */
+/**
+ * The type-resolved tasks: one per JVM or Android compilation, whatever the compilation is called
+ * (`detektMainJvm`, `detektTestJvm`, `detektHostTestAndroid`, `detektDevDesktop`, …). Matching
+ * `detektMain*`/`detektTest*` by name once left the Android host-test compilations unanalysed.
+ */
 fun isTypeResolved(name: String): Boolean =
-    name.startsWith("detekt") && !name.startsWith("detektBaseline") && !name.endsWith("SourceSet") &&
-        (name.startsWith("detektMain") || name.startsWith("detektTest"))
+    name.startsWith("detekt") &&
+        name != "detekt" &&
+        name != "detektGenerateConfig" &&
+        !name.startsWith("detektBaseline") &&
+        !name.endsWith("SourceSet")
 
 tasks.named("detekt") {
     setDependsOn(tasks.withType<Detekt>().matching { isTypeResolved(it.name) })
