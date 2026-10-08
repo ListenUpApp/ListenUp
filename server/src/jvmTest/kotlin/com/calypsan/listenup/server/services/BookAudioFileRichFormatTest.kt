@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import io.kotest.matchers.nulls.shouldNotBeNull
 
 class BookAudioFileRichFormatTest :
     FunSpec({
@@ -44,12 +45,12 @@ class BookAudioFileRichFormatTest :
                         )
                     repo.upsert(payload)
                     val read = repo.readPayloadForTest("b-rich")
-                    val readFile = read?.audioFiles?.single()
-                    readFile?.codecProfile shouldBe "xhe"
-                    readFile?.spatial shouldBe "stereo"
-                    readFile?.bitrate shouldBe 128_000
-                    readFile?.sampleRate shouldBe 44_100
-                    readFile?.channels shouldBe 2
+                    val readFile = read.shouldNotBeNull().audioFiles.single()
+                    readFile.codecProfile shouldBe "xhe"
+                    readFile.spatial shouldBe "stereo"
+                    readFile.bitrate shouldBe 128_000
+                    readFile.sampleRate shouldBe 44_100
+                    readFile.channels shouldBe 2
                 }
             }
         }

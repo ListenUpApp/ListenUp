@@ -100,7 +100,7 @@ private class FakeHardcover(
 
     val handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData = { req ->
         val form =
-            (req.body as? FormDataContent)?.formData?.let { p -> p.names().associateWith { p[it] } }.orEmpty()
+            (req.body as? FormDataContent)?.run { formData.names().associateWith { formData[it] } }.orEmpty()
         val endpoint =
             when (req.url.encodedPath) {
                 "/oauth2/device" -> DEVICE

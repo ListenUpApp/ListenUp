@@ -107,7 +107,7 @@ class HardcoverSourceSettingsTest :
                 val error = settings.setApiToken(ADMIN_TOKEN).shouldBeInstanceOf<AppResult.Failure>().error
 
                 error.shouldBeInstanceOf<HardcoverError.Unavailable>()
-                (error.debugInfo ?: "") shouldNotContain ADMIN_TOKEN
+                error.debugInfo.orEmpty() shouldNotContain ADMIN_TOKEN
                 settings.status().apiToken shouldBe HardcoverApiTokenStatus.NotSet
             }
         }

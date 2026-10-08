@@ -107,7 +107,7 @@ class SocialAclE2ETest :
         }
 
         /** Opens an authed [SocialService] proxy bound to [token]'s principal. */
-        suspend fun ApplicationTestBuilder.socialServiceFor(token: String): SocialService =
+        fun ApplicationTestBuilder.socialServiceFor(token: String): SocialService =
             createClient {
                 install(WebSockets)
                 installKrpc()

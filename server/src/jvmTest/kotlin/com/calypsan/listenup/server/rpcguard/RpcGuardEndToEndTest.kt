@@ -90,7 +90,7 @@ class RpcGuardEndToEndTest :
                 internalError.cause shouldBe null
                 internalError.debugInfo shouldBe null
                 // correlationId must be UUID-shaped (36 chars with hyphens).
-                val cid = internalError.correlationId ?: ""
+                val cid = internalError.correlationId.orEmpty()
                 cid.length shouldBe 36
 
                 // Critical invariant: the serialized wire payload leaks no server-internal detail —

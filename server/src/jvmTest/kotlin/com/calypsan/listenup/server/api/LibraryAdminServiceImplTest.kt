@@ -150,9 +150,9 @@ class LibraryAdminServiceImplTest :
                 val (service) = makeService(db = this)
                 runTest {
                     val parent = createTempDir()
-                    parent.resolve("alpha").apply { mkdir() }
-                    parent.resolve("beta").apply { mkdir() }
-                    parent.resolve("file.txt").apply { createNewFile() } // not a dir
+                    parent.resolve("alpha").mkdir()
+                    parent.resolve("beta").mkdir()
+                    parent.resolve("file.txt").createNewFile() // not a dir
 
                     val result = service.browseFilesystem(parent.absolutePath)
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
@@ -173,12 +173,12 @@ class LibraryAdminServiceImplTest :
                     val parent = createTempDir()
                     // child "audiobooks" with 3 files + 1 subdir => itemCount 4, hasChildren true
                     val audiobooks = parent.resolve("audiobooks").apply { mkdir() }
-                    audiobooks.resolve("a.m4b").apply { createNewFile() }
-                    audiobooks.resolve("b.m4b").apply { createNewFile() }
-                    audiobooks.resolve("c.m4b").apply { createNewFile() }
-                    audiobooks.resolve("series").apply { mkdir() }
+                    audiobooks.resolve("a.m4b").createNewFile()
+                    audiobooks.resolve("b.m4b").createNewFile()
+                    audiobooks.resolve("c.m4b").createNewFile()
+                    audiobooks.resolve("series").mkdir()
                     // child "empty" with nothing => itemCount 0, hasChildren false
-                    parent.resolve("empty").apply { mkdir() }
+                    parent.resolve("empty").mkdir()
 
                     val result = service.browseFilesystem(parent.absolutePath)
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
@@ -203,7 +203,7 @@ class LibraryAdminServiceImplTest :
                 val (service) = makeService(db = this, browseBudget = Duration.ZERO)
                 runTest {
                     val parent = createTempDir()
-                    parent.resolve("alpha").apply { mkdir() }
+                    parent.resolve("alpha").mkdir()
 
                     val result = service.browseFilesystem(parent.absolutePath)
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -220,9 +220,9 @@ class LibraryAdminServiceImplTest :
                 runTest {
                     val parent = createTempDir()
                     val readable = parent.resolve("readable").apply { mkdir() }
-                    readable.resolve("book.m4b").apply { createNewFile() }
+                    readable.resolve("book.m4b").createNewFile()
                     val locked = parent.resolve("locked").apply { mkdir() }
-                    locked.resolve("hidden.m4b").apply { createNewFile() }
+                    locked.resolve("hidden.m4b").createNewFile()
                     locked.setReadable(false, false)
                     // root bypasses the permission bits entirely, so in a root container there is no
                     // unreadable directory to build the case on. Nothing to assert rather than a
@@ -254,7 +254,7 @@ class LibraryAdminServiceImplTest :
                     val parent = createTempDir()
                     val flat = parent.resolve("flat").apply { mkdir() }
                     repeat(HAS_CHILDREN_PROBE_LIMIT + 1) { index ->
-                        flat.resolve("track-$index.m4b").apply { createNewFile() }
+                        flat.resolve("track-$index.m4b").createNewFile()
                     }
 
                     val result = service.browseFilesystem(parent.absolutePath)

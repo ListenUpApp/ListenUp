@@ -406,12 +406,16 @@ private suspend fun ApplicationTestBuilder.getBook(
     bookId: String,
 ): AppResult<BookSyncPayload> = authedService<BookService>(token).getBook(BookId(bookId))
 
+// Ktor clients and responses are CoroutineScopes only incidentally; this helper never launches into one.
+@Suppress("SuspendFunWithCoroutineScopeReceiver")
 private suspend fun HttpClient.audio(
     query: String,
     bookId: String,
     fileId: String,
 ): HttpResponse = get("/api/v1/audio/$bookId/$fileId?$query")
 
+// Ktor clients and responses are CoroutineScopes only incidentally; this helper never launches into one.
+@Suppress("SuspendFunWithCoroutineScopeReceiver")
 private suspend fun HttpClient.cover(
     token: String,
     bookId: String,
@@ -516,7 +520,7 @@ private suspend fun io.ktor.server.testing.ApplicationTestBuilder.seedCollection
     return CollectionId(id)
 }
 
-private suspend fun <T> AppResult<T>.requireSuccess(): T {
+private fun <T> AppResult<T>.requireSuccess(): T {
     require(this is AppResult.Success) { "expected Success but got $this" }
     return data
 }

@@ -269,7 +269,7 @@ class ImportApplierTest :
                         applier.apply(staged.importId) { event ->
                             if (event is ImportEvent.Applying && !thrown) {
                                 thrown = true
-                                throw IllegalStateException("simulated crash mid-apply")
+                                error("simulated crash mid-apply")
                             }
                         }
                     repeat(8) { yield() }
@@ -593,7 +593,7 @@ class ImportApplierTest :
                         applier.apply(staged.importId) { event ->
                             if (event is ImportEvent.Applying && !thrown) {
                                 thrown = true
-                                throw IllegalStateException("simulated crash mid-apply")
+                                error("simulated crash mid-apply")
                             }
                         }
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -650,7 +650,7 @@ class ImportApplierTest :
                     applier.apply(staged.importId) { event ->
                         if (event is ImportEvent.Applying && !thrown) {
                             thrown = true
-                            throw IllegalStateException("boom")
+                            error("boom")
                         }
                     }
                     store.hasInterruptedApply(staged.importId) shouldBe true

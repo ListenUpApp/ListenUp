@@ -155,15 +155,15 @@ class FakeHardcoverLibrary(
     /** Every request, with its variables, in the order Hardcover received them. */
     val requests = CopyOnWriteArrayList<Request>()
 
-    fun addEdition(edition: Edition) = synchronized(lock) { editions += edition }
+    fun addEdition(edition: Edition): Unit = synchronized(lock) { editions += edition }
 
-    fun failNext(reply: FakeReply) = synchronized(lock) { scripted.addLast(reply) }
+    fun failNext(reply: FakeReply): Unit = synchronized(lock) { scripted.addLast(reply) }
 
     /**
      * The next [operation] takes effect on Hardcover, but its answer never reaches ListenUp: the caller
      * sees a gateway timeout, exactly as when the reply is lost on the way back.
      */
-    fun loseNextReplyTo(operation: String) = synchronized(lock) { lostReplies += operation }
+    fun loseNextReplyTo(operation: String): Unit = synchronized(lock) { lostReplies += operation }
 
     fun shelfFor(hcBookId: Long): Shelf? = synchronized(lock) { shelves.firstOrNull { it.bookId == hcBookId } }
 
@@ -201,17 +201,18 @@ class FakeHardcoverLibrary(
     fun editRead(
         readId: Long,
         change: (Read) -> Unit,
-    ) = synchronized(lock) {
-        val shelf = shelves.first { s -> s.reads.any { it.id == readId } }
-        change(shelf.reads.first { it.id == readId })
-        touchForRead(shelf)
-    }
+    ): Unit =
+        synchronized(lock) {
+            val shelf = shelves.first { s -> s.reads.any { it.id == readId } }
+            change(shelf.reads.first { it.id == readId })
+            touchForRead(shelf)
+        }
 
     /** Pins [hcBookId]'s shelf to [updatedAt] (any `timestamptz` text), to put entries on the same instant. */
     fun setUpdatedAt(
         hcBookId: Long,
         updatedAt: String,
-    ) = synchronized(lock) { shelves.first { it.bookId == hcBookId }.updatedAt = updatedAt }
+    ): Unit = synchronized(lock) { shelves.first { it.bookId == hcBookId }.updatedAt = updatedAt }
 
     /** Moves [hcBookId]'s shelf entry to [statusId], as the user would on Hardcover's site. */
     fun moveTo(
@@ -227,7 +228,7 @@ class FakeHardcoverLibrary(
 
     fun deleteShelf(hcBookId: Long) = synchronized(lock) { shelves.removeAll { it.bookId == hcBookId } }
 
-    fun deleteRead(readId: Long) =
+    fun deleteRead(readId: Long): Unit =
         synchronized(lock) {
             shelves.forEach { shelf -> if (shelf.reads.removeAll { it.id == readId }) touchForRead(shelf) }
         }
@@ -266,7 +267,8 @@ class FakeHardcoverLibrary(
             val operation = operationOf(query)
             operations += operation
             requests += Request(operation, variables)
-            scripted.removeFirstOrNull() ?: answer(operation, variables).let { reply ->
+            scripted.removeFirstOrNull() ?: run {
+                val reply = answer(operation, variables)
                 if (lostReplies.remove(operation)) FakeReply(HttpStatusCode.GatewayTimeout) else reply
             }
         }
@@ -348,7 +350,7 @@ class FakeHardcoverLibrary(
             "update_user_book_read" -> {
                 shelves.flatMap { it.reads }.firstOrNull { it.id == variables.long("id") }?.let { read ->
                     updateRead(read, variables.obj("read"))
-                    shelves.first { s -> s.reads.any { it === read } }.let(::touchForRead)
+                    touchForRead(shelves.first { s -> s.reads.any { it === read } })
                     mutation("update_user_book_read", read.id)
                 } ?: mutationError("update_user_book_read", "Read not found")
             }
@@ -624,11 +626,11 @@ class FakeHardcoverLibrary(
 
     private fun JsonObject.int(key: String): Int = getValue(key).jsonPrimitive.int
 
-    private fun JsonObject.longOrNull(key: String): Long? = get(key)?.jsonPrimitive?.longOrNull
+    private fun JsonObject.longOrNull(key: String): Long? = get(key)?.run { jsonPrimitive.longOrNull }
 
     private fun JsonObject.string(key: String): String = getValue(key).jsonPrimitive.content
 
-    private fun JsonObject.stringOrNull(key: String): String? = get(key)?.jsonPrimitive?.contentOrNull
+    private fun JsonObject.stringOrNull(key: String): String? = get(key)?.run { jsonPrimitive.contentOrNull }
 
     private companion object {
         val STAMP_BASE: Instant = Instant.parse("2026-09-30T00:00:00Z")

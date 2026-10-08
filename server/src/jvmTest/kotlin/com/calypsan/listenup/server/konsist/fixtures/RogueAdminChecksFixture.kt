@@ -22,7 +22,7 @@ internal object RogueAdminChecksFixture {
     fun asWhen(role: UserRole): Boolean =
         when (role) {
             ROOT, ADMIN -> true
-            else -> false
+            UserRole.MEMBER -> false
         }
 
     fun shared(role: UserRole): Boolean = role.isAdmin()

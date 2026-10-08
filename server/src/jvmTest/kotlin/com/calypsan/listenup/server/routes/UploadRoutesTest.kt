@@ -186,8 +186,12 @@ private fun withUploadServer(block: suspend ApplicationTestBuilder.(HttpClient, 
     }
 }
 
+// Ktor clients and responses are CoroutineScopes only incidentally; this helper never launches into one.
+@Suppress("SuspendFunWithCoroutineScopeReceiver")
 private suspend fun HttpClient.createSession(token: String) = post(UploadRoutePaths.SESSIONS) { bearerAuth(token) }
 
+// Ktor clients and responses are CoroutineScopes only incidentally; this helper never launches into one.
+@Suppress("SuspendFunWithCoroutineScopeReceiver")
 private suspend fun HttpClient.uploadFile(
     token: String,
     sessionId: String,
@@ -240,6 +244,8 @@ private fun Path.filesUnder(): List<String> {
     }
 }
 
+// Ktor clients and responses are CoroutineScopes only incidentally; this helper never launches into one.
+@Suppress("SuspendFunWithCoroutineScopeReceiver")
 private suspend fun HttpResponse.decodeError(): AppError = contractJson.decodeFromString<AppError>(readRawBytes().decodeToString())
 
 /** Runs first-user setup and returns the ROOT access token. */

@@ -100,7 +100,7 @@ class HardcoverApiTokenSecrecyTest :
             val events = capture.events
             events.any { "rejected the admin API token" in it.message } shouldBe true
             events.forEach { event ->
-                val seen = event.message + " " + event.mdc.values.joinToString(" ") + " " + (event.throwable?.stackTraceToString() ?: "")
+                val seen = event.message + " " + event.mdc.values.joinToString(" ") + " " + event.throwable?.stackTraceToString().orEmpty()
                 seen shouldNotContain GOOD
                 seen shouldNotContain WRONG
             }

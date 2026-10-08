@@ -502,7 +502,7 @@ private fun composeAudible(
 ): AudibleApi =
     ComposeStubAudibleApi(
         book = audibleBook(genres = genres),
-        searchResults = coverSearchUrl?.let { listOf(searchHit(it)) } ?: emptyList(),
+        searchResults = coverSearchUrl?.let { listOf(searchHit(it)) }.orEmpty(),
     )
 
 private fun makeService(

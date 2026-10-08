@@ -56,7 +56,7 @@ internal class ScannerEndToEndFixture private constructor(
     val baseUrl: String,
 ) : AutoCloseable {
     /** An authed [ScannerService] proxy against the live server — the transport the app uses. */
-    suspend fun scannerService(): ScannerService =
+    fun scannerService(): ScannerService =
         client
             .rpc(baseUrl.replace("http://", "ws://") + "/api/rpc/authed") {
                 rpcConfig { serialization { json(contractJson) } }

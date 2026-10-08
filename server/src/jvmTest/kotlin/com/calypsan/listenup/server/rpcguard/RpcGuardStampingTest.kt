@@ -111,7 +111,7 @@ private class SyncThrowScannerService : ScannerService {
 
     override suspend fun lastScanResult(): AppResult<ScanResult> = error("not used in this test")
 
-    override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = throw IllegalStateException("boom during flow construction")
+    override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = error("boom during flow construction")
 
     override suspend fun listScanIssues() = AppResult.Success(emptyList<com.calypsan.listenup.api.dto.scan.ScanIssue>())
 

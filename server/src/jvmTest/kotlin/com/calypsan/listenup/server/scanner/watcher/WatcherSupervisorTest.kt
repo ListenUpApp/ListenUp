@@ -206,7 +206,7 @@ internal class FakeFolderWatcherFactory {
     private var _closedCount = 0
     val closedCount: Int get() = _closedCount
 
-    suspend fun create(
+    fun create(
         folder: LibraryFolderRef,
         onEvent: suspend (Path) -> Unit,
     ): FakeFolderWatcher {

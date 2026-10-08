@@ -37,6 +37,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import io.kotest.matchers.nulls.shouldNotBeNull
 
 /**
  * Integration tests for [CollectionServiceImpl].
@@ -309,7 +310,7 @@ class CollectionServiceImplTest :
 
                     // Preconditions: cascade targets exist and are live.
                     collectionBookRepo.countLiveForCollection(collectionId.value) shouldBe 1L
-                    require(grantRepo.findActiveGrant(collectionId.value, "u2") != null)
+                    grantRepo.findActiveGrant(collectionId.value, "u2").shouldNotBeNull()
 
                     service.deleteCollection(collectionId) shouldBe AppResult.Success(Unit)
 

@@ -34,7 +34,7 @@ internal class Mp4Builder internal constructor() {
 
     // Minimal mdat stub — 8-byte header + zero-byte payload. The parser
     // skips mdat entirely, so this never needs real audio bytes.
-    private var mdatAtom: ByteArray = atom("mdat", ByteArray(0))
+    private val mdatAtom: ByteArray = atom("mdat", ByteArray(0))
 
     /**
      * Emit the file-type `ftyp` atom.
@@ -268,7 +268,7 @@ internal class MoovBuilder internal constructor() {
         val approximateFtypSize = DEFAULT_FTYP_BYTES
         // moov header is 8 bytes; sample-data offset within moov is determined
         // by all preceding bytes in `children`.
-        var cumulative = approximateFtypSize.toLong() + 8L // ftyp + moov header
+        val cumulative = approximateFtypSize.toLong() + 8L // ftyp + moov header
         val patchedChildren = children.toMutableList()
         for (patch in pendingTextTrackPatches) {
             // Sum bytes from start of moov children up to (but not including)

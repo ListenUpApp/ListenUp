@@ -58,5 +58,7 @@ class HardcoverCatalogRig(
     }
 
     /** Stores [ADMIN_TOKEN] as `simon`'s, as Admin → Hardcover does once `me` accepts it. */
-    suspend fun saveAdminToken(token: String = ADMIN_TOKEN) = apiTokens.save(token, "simon")
+    suspend fun saveAdminToken(token: String = ADMIN_TOKEN) {
+        apiTokens.save(token, "simon")
+    }
 }

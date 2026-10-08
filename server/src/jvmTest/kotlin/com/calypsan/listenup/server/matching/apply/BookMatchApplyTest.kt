@@ -57,7 +57,7 @@ class BookMatchApplyTest :
                         listOf("audible" to "B0X", "hardcover" to "77")
                     rig.coverColumns().cover_path!! shouldStartWith "covers/phm-"
 
-                    applied.frames.filter { it.domain == SyncDomains.BOOKS.name }.size shouldBe 1
+                    applied.frames.count { it.domain == SyncDomains.BOOKS.name } shouldBe 1
                     after.revision shouldBe applied.frames.single { it.domain == SyncDomains.BOOKS.name }.revision
                     (after.revision > before.revision) shouldBe true
                     after.lastMatch?.receiptId shouldBe applied.value.receiptId

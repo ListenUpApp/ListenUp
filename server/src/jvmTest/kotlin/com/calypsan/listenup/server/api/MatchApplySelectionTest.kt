@@ -567,8 +567,7 @@ class MatchApplySelectionTest :
 
                     val saved = books.findById(BookId("b1"))!!
                     saved.contributors
-                        .filter { it.role.equals("author", ignoreCase = true) }
-                        .single()
+                        .single { it.role.equals("author", ignoreCase = true) }
                         .name shouldBe "Old Author"
                     // A selection that resolved nothing must not claim ENRICHMENT credit for AUTHORS —
                     // otherwise a later rescan would treat the (unapplied) field as enriched and refuse
@@ -602,8 +601,7 @@ class MatchApplySelectionTest :
 
                     val saved = books.findById(BookId("b1"))!!
                     saved.contributors
-                        .filter { it.role.equals("narrator", ignoreCase = true) }
-                        .single()
+                        .single { it.role.equals("narrator", ignoreCase = true) }
                         .name shouldBe "New Narrator"
                     // The role genuinely resolved, so it IS entitled to ENRICHMENT provenance.
                     val narratorProvenance = saved.fieldProvenance[BookField.NARRATORS].shouldNotBeNull()

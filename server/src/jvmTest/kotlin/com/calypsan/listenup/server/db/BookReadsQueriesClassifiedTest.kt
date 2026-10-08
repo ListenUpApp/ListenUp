@@ -144,7 +144,7 @@ class BookReadsQueriesClassifiedTest :
 
         test("each classified query holds to its side") {
             val broken =
-                CLASSIFIED.filter { (key, side) -> statements[key]?.let { !side.holdsFor(it) } ?: false }.keys
+                CLASSIFIED.filter { (key, side) -> statements[key]?.let { !side.holdsFor(it) } == true }.keys
             withClue("these queries don't hold to their declared side: $broken") { broken.shouldBeEmpty() }
         }
 

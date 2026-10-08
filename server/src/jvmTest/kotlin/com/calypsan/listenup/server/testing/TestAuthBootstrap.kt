@@ -40,7 +40,7 @@ data class BootstrappedUser(
 )
 
 /** Opens an unauthenticated [AuthServicePublic] proxy against the harness's public RPC mount. */
-suspend fun ApplicationTestBuilder.publicAuthService(): AuthServicePublic {
+fun ApplicationTestBuilder.publicAuthService(): AuthServicePublic {
     val rpcClient =
         createClient {
             install(WebSockets)
@@ -113,7 +113,7 @@ suspend fun ApplicationTestBuilder.loginUser(
  * drive an admin action over a REST mirror (`PATCH /api/v1/admin/users/{id}`, …) call the RPC
  * service through this instead — same principal binding, same guard, no parallel transport.
  */
-suspend inline fun <reified T : Any> ApplicationTestBuilder.authedService(token: String): T {
+inline fun <reified T : Any> ApplicationTestBuilder.authedService(token: String): T {
     val rpcClient =
         createClient {
             install(WebSockets)
