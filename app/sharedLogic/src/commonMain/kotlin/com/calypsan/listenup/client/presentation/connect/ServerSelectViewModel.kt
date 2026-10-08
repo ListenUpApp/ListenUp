@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.ServerConnectError
-import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
@@ -71,7 +70,7 @@ class ServerSelectViewModel(
     // is modal and covers this pre-discovery window; flipping to false here
     // would falsely report Ready before any servers are known. The denial
     // handler resets it to false explicitly.
-    private val isDiscovering = MutableStateFlow(true)
+    private val discoveryInProgress = MutableStateFlow(true)
     private val overlay = MutableStateFlow<Overlay>(Overlay.None)
     private var discoveryJob: Job? = null
     private var denialJob: Job? = null
@@ -102,7 +101,7 @@ class ServerSelectViewModel(
         combine(
             serverRepository.observeServers(),
             overlay,
-            isDiscovering,
+            discoveryInProgress,
         ) { servers, current, discovering ->
             when (current) {
                 is Overlay.Connecting -> {
@@ -139,19 +138,19 @@ class ServerSelectViewModel(
     }
 
     /**
-     * Start mDNS scanning and flip [isDiscovering] to false on the first
+     * Start mDNS scanning and flip [discoveryInProgress] to false on the first
      * emission from the repository. Cancels any in-flight discovery watcher
      * so a rapid refresh cannot leave two coroutines racing.
      */
     private fun beginDiscovery() {
         logger.info { "Starting server discovery" }
-        isDiscovering.value = true
+        discoveryInProgress.value = true
         serverRepository.startDiscovery()
         discoveryJob?.cancel()
         discoveryJob =
             viewModelScope.launch {
                 serverRepository.observeServers().take(1).collect {
-                    isDiscovering.value = false
+                    discoveryInProgress.value = false
                 }
             }
         denialJob?.cancel()
@@ -159,7 +158,7 @@ class ServerSelectViewModel(
             viewModelScope.launch {
                 serverRepository.observeLocalNetworkDenied().filter { it }.collect {
                     logger.warn { "Platform refused the discovery browse: local network access denied" }
-                    isDiscovering.value = false
+                    discoveryInProgress.value = false
                     overlay.value =
                         Overlay.Failed(
                             serverId = null,
@@ -221,7 +220,7 @@ class ServerSelectViewModel(
         // No ErrorBus emit: before sign-in nothing collects it. Manual entry explains the
         // permission itself, with the action that fixes it.
         logger.warn { "ACCESS_LOCAL_NETWORK permission denied — navigating to manual entry" }
-        isDiscovering.value = false
+        discoveryInProgress.value = false
         overlay.value = Overlay.None
         _navigationEvents.trySend(NavigationEvent.GoToManualEntry)
     }

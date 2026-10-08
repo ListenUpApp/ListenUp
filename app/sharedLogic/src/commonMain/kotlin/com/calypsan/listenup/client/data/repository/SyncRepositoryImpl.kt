@@ -61,6 +61,9 @@ private const val FTS_LIVE_REFRESH_DEBOUNCE_MS = 1_000L
  * (sync triggers, reconnects) skip recovery — the tentative_span table is a singleton and
  * will be empty after the first successful recovery.
  */
+// Thirteen unrelated collaborators (engine, auth, scanner RPC, three DAOs, FTS, covers…); a parameter
+// object would only bag them, the precedent PlaybackManagerImpl and PlaybackPreparer document.
+@Suppress("LongParameterList")
 internal class SyncRepositoryImpl(
     private val syncEngine: SyncEngine,
     // Re-resolve the reachable server URL (LAN-first, mDNS relocate) — wired to
@@ -130,6 +133,7 @@ internal class SyncRepositoryImpl(
                 initialValue = SyncState.Idle,
             )
 
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     override val isServerScanning: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
@@ -143,6 +147,7 @@ internal class SyncRepositoryImpl(
      * (synced into [LibraryDao.observeHasIncompleteInitialScan]) or any book lands, it clears — so a
      * rescan of a populated library, or a fresh device joining an existing one, never re-shows it.
      */
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     override val isBuildingInitialLibrary: StateFlow<Boolean> =
         combine(
             isServerScanning,

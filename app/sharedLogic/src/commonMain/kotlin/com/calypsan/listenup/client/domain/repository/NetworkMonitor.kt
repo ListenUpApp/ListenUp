@@ -33,6 +33,7 @@ interface NetworkMonitor {
      * Emits true when a usable route is available on the active network, false when it is lost.
      * Use this for reactive UI updates (e.g., showing offline indicator).
      */
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     val isOnlineFlow: StateFlow<Boolean>
 
     /**
@@ -44,5 +45,6 @@ interface NetworkMonitor {
      * Used by download queue to show "Waiting for WiFi" state when
      * WiFi-only downloads is enabled but device is on cellular.
      */
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
 }

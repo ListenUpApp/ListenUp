@@ -7,6 +7,7 @@ actual interface PlaybackController {
 
     actual fun releasePlayer()
 
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // A published name: Swift Export, sharedUI and web read it as-is.
     actual val isReady: StateFlow<Boolean>
 
     actual fun play()

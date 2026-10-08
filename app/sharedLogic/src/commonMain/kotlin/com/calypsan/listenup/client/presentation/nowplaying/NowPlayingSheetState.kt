@@ -19,14 +19,14 @@ import kotlinx.coroutines.flow.StateFlow
  * deliberate — a fresh process should never open straight to the full-screen player.
  */
 internal class NowPlayingSheetState {
-    val isExpanded: StateFlow<Boolean>
+    val expanded: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
     fun expand() {
-        isExpanded.value = true
+        expanded.value = true
     }
 
     fun collapse() {
-        isExpanded.value = false
+        expanded.value = false
     }
 }

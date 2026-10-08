@@ -141,10 +141,10 @@ class NowPlayingViewModel internal constructor(
     /** Slow-changing play state (no position) — feeds the position-free [Active] combine. */
     private val playStateFlow: Flow<PlaybackDynamics> =
         combine(
-            playbackManager.isPlaying,
-            playbackManager.isBuffering,
-            playbackManager.playbackSpeed,
-            playbackManager.volumeBoostDb,
+            flow = playbackManager.isPlaying,
+            flow2 = playbackManager.isBuffering,
+            flow3 = playbackManager.playbackSpeed,
+            flow4 = playbackManager.volumeBoostDb,
         ) { isPlaying, isBuffering, speed, boostDb ->
             PlaybackDynamics(
                 isPlaying = isPlaying,
@@ -157,11 +157,11 @@ class NowPlayingViewModel internal constructor(
     /** Aggregated surface metadata (chapter info + chapter list + error + defaults for speed/boost). */
     private val surfaceMetadataFlow: Flow<SurfaceMetadata> =
         combine(
-            playbackManager.currentChapter,
-            playbackManager.chapters,
-            playbackManager.playbackError,
-            playbackPreferences.observeDefaultPlaybackSpeed(),
-            playbackPreferences.observeDefaultVolumeBoostDb(),
+            flow = playbackManager.currentChapter,
+            flow2 = playbackManager.chapters,
+            flow3 = playbackManager.playbackError,
+            flow4 = playbackPreferences.observeDefaultPlaybackSpeed(),
+            flow5 = playbackPreferences.observeDefaultVolumeBoostDb(),
         ) { chapter, chapters, error, defaultSpeed, defaultBoostDb ->
             SurfaceMetadata(
                 currentChapter = chapter,
@@ -185,11 +185,11 @@ class NowPlayingViewModel internal constructor(
     /** Tail-combined screen state; the only flow the UI subscribes to. */
     val screenState: StateFlow<NowPlayingScreenState> =
         combine(
-            nowPlayingState,
-            overlayFlow,
-            sheetState.isExpanded,
-            sleepTimerManager.state,
-            playbackManager.preparingBookIdUi,
+            flow = nowPlayingState,
+            flow2 = overlayFlow,
+            flow3 = sheetState.expanded,
+            flow4 = sleepTimerManager.state,
+            flow5 = playbackManager.preparingBookIdUi,
         ) { state, overlay, isExpanded, sleepTimer, preparingBookIdUi ->
             NowPlayingScreenState(
                 state = state,
@@ -209,7 +209,7 @@ class NowPlayingViewModel internal constructor(
                     // VM instance's screenState.value is correct even before the combine above
                     // has had a chance to emit — e.g. a second koinViewModel() instance created
                     // while the sheet is already expanded from the first instance's perspective.
-                    isExpanded = sheetState.isExpanded.value,
+                    isExpanded = sheetState.expanded.value,
                     sleepTimerState = sleepTimerManager.state.value,
                     // preparingBookIdUi is a plain (cold, debounced) Flow with no .value — seed from
                     // the instant preparingBookId StateFlow instead. This can seed `true` slightly
