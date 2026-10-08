@@ -18,9 +18,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.server.testing.authedService
@@ -54,7 +52,6 @@ class SessionDeviceE2ETest :
             testApplication {
                 useIsolatedTestConfig()
                 application { module() }
-                val client = createClient { install(ContentNegotiation) { json() } }
 
                 seedRoot()
 

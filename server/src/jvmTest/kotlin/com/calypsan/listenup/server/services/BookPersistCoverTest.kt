@@ -591,7 +591,6 @@ class BookPersistCoverTest :
                     Files.write(bookDir.resolve("01.mp3"), mp3)
 
                     val repo by application.inject<BookRepository>()
-                    val coverStore by application.inject<CoverImageStore>()
                     val registry by application.inject<LibraryRegistry>()
                     val libId = registry.currentLibrary()
 

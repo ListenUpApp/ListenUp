@@ -12,10 +12,8 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
@@ -159,8 +157,6 @@ private fun makeContributorPermService(db: SqlTestDatabases): ContributorPermDep
             seriesRepository = seriesRepo,
             genreRepository = GenreRepository(db.sql, bus, registry),
         )
-    val tagRepo = TagRepository(db = db.sql, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = registry, driver = db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,

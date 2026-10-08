@@ -7,11 +7,8 @@ import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
-import com.calypsan.listenup.api.contractJson
 import org.koin.ktor.ext.inject
 
 /**
@@ -31,8 +28,6 @@ class GracefulShutdownTest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), watchEnabled = true)
                     application { module() }
-                    val client =
-                        createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     // Trigger module start + the library bootstrap (which mounts a watcher).
                     publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))

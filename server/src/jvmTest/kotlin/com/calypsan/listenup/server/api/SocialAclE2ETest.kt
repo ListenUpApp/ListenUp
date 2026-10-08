@@ -32,10 +32,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.bearerAuth
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
@@ -160,7 +158,6 @@ class SocialAclE2ETest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
 
-                    val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val alice = setupRoot()
                     val bob = registerMember()
 
@@ -228,11 +225,6 @@ class SocialAclE2ETest :
                     )
 
                     // ── Drive the reads as B over the real authed RPC surface. ────────────────
-                    val rpcClient =
-                        createClient {
-                            install(WebSockets)
-                            installKrpc()
-                        }
                     val social = socialServiceFor(bob.token)
 
                     // currentlyListening: only the public-book session; the private one is omitted.

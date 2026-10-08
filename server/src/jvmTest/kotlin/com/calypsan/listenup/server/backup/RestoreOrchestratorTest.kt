@@ -62,7 +62,7 @@ class RestoreOrchestratorTest :
                         "INSERT INTO restore_test(v) VALUES ('row-A')",
                     )
 
-                    val archivePath = fixture.archive.create("rt1", includeImages = false, onEvent = {})
+                    fixture.archive.create("rt1", includeImages = false, onEvent = {})
                     val backupId = BackupId("rt1")
 
                     // Mutate to row B after backup

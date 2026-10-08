@@ -82,7 +82,7 @@ private data class Reply(
  * queue is empty (a poll keeps saying `authorization_pending`, a revoke succeeds, the rest fail).
  */
 private class FakeHardcover(
-    private val virtualNowMs: () -> Long,
+    virtualNowMs: () -> Long,
 ) {
     val seen = CopyOnWriteArrayList<Seen>()
     private val queues = HashMap<String, ArrayDeque<Reply>>()

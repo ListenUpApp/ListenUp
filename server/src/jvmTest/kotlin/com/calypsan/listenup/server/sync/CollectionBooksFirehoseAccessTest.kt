@@ -4,7 +4,6 @@ import io.ktor.server.testing.ApplicationTestBuilder
 
 import com.calypsan.listenup.server.testing.publicAuthService
 
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -27,9 +26,7 @@ import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.testing.testApplication
-import io.ktor.serialization.kotlinx.json.json
 import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
@@ -80,7 +77,6 @@ class CollectionBooksFirehoseAccessTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
 
-                    val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val ownerId = setupRootId()
                     val memberId = registerMemberId()
 

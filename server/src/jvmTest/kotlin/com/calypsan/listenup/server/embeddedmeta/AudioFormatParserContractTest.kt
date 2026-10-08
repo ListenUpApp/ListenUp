@@ -70,12 +70,10 @@ class AudioFormatParserContractTest :
             (result.error is AudioMetadataError) shouldBe true
         }
 
-        @Suppress("UnusedPrivateMember")
-        test("AudioTags / EmbeddedAudioMetadata / ChapterSource imports compile") {
-            // Pinning the parser contract's dependency surface — the imports above
+        test("AudioTags / EmbeddedAudioMetadata / ChapterSource stay on the parser contract surface") {
+            // Pinning the parser contract's dependency surface — these references
             // would fail compile if the contract drifted.
-            val unused: AudioTags? = null
-            val unusedMeta: EmbeddedAudioMetadata? = null
-            val unusedSource: ChapterSource = ChapterSource.None
+            listOf(AudioTags::class, EmbeddedAudioMetadata::class, ChapterSource::class).map { it.simpleName } shouldBe
+                listOf("AudioTags", "EmbeddedAudioMetadata", "ChapterSource")
         }
     })

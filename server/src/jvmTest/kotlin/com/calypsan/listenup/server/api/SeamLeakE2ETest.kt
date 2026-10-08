@@ -286,8 +286,6 @@ class SeamLeakE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = jsonClient()
-
                     val admin = runSetup()
                     val m2 = registerMember("m2")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
@@ -343,9 +341,7 @@ class SeamLeakE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = jsonClient()
-
-                    val admin = runSetup()
+                    runSetup()
                     val m1 = registerMember("m1")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                     writeAudioFile(libraryRoot, "G")

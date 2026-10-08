@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.testing
 
-
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession

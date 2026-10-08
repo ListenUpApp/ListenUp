@@ -240,7 +240,7 @@ private suspend fun HttpClient.uploadAbsBackupStreamed(
 
 /** An [InputStream] that produces exactly [totalBytes] zero bytes and then signals EOF. */
 private class ZeroInputStream(
-    private val totalBytes: Long,
+    totalBytes: Long,
 ) : InputStream() {
     private var remaining = totalBytes
 

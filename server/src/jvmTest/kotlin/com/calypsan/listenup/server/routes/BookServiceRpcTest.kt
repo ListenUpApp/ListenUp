@@ -24,10 +24,8 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.bearerAuth
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
@@ -72,7 +70,6 @@ class BookServiceRpcTest :
                     application { module() }
 
                     // Mint JWT via REST — same pattern as BookRoutesTest.
-                    val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = mintAccessToken()
                     seedTestLibraryAndFolder()
 

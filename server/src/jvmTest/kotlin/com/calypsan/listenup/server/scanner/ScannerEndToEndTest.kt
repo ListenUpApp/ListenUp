@@ -1,13 +1,11 @@
 package com.calypsan.listenup.server.scanner
 
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
 import io.ktor.client.request.get
-import io.ktor.client.statement.HttpResponse
 import kotlinx.coroutines.delay
 
 /**
@@ -139,10 +137,3 @@ private suspend fun triggerScanAndWait(
     }
     error("scan did not complete within ${timeoutMs}ms")
 }
-
-private suspend inline fun <reified T : Any> HttpResponse.bodyAsAppResult(): AppResult<T> {
-    val text: String = body()
-    return contractJson.decodeFromString(AppResult.serializer(serializer<T>()), text)
-}
-
-private inline fun <reified T : Any> serializer(): kotlinx.serialization.KSerializer<T> = kotlinx.serialization.serializer()
