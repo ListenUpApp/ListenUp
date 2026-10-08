@@ -201,10 +201,13 @@
     <string name="admin_permission_edit_metadata">Edit metadata</string>
     <string name="admin_permission_edit_metadata_description">Fix titles, covers, chapters and matches.</string>
     <string name="admin_permission_group_library">Library</string>
+    <string name="admin_permission_group_reading_orders">Reading orders</string>
     <string name="admin_permission_group_story_world">Story World</string>
+    <string name="admin_permission_make_reading_orders">Make reading orders</string>
+    <string name="admin_permission_make_reading_orders_description">Make orders to read a series in, and edit their own.</string>
     <string name="admin_preset">Preset</string>
     <string name="admin_preset_contributor">Contributor</string>
-    <string name="admin_preset_contributor_description">Fixes books and adds to Story World. Can't merge or delete.</string>
+    <string name="admin_preset_contributor_description">Fixes books, adds to Story World and makes reading orders. Can't merge or delete.</string>
     <string name="admin_preset_custom">Custom</string>
     <string name="admin_preset_custom_description">These don't match a preset. Pick one to start again from it.</string>
     <string name="admin_preset_librarian">Librarian</string>

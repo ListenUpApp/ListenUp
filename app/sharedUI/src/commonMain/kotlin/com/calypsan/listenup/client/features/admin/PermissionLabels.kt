@@ -16,6 +16,9 @@ import listenup.composeapp.generated.resources.admin_permission_edit_metadata
 import listenup.composeapp.generated.resources.admin_permission_edit_metadata_description
 import listenup.composeapp.generated.resources.admin_permission_group_library
 import listenup.composeapp.generated.resources.admin_permission_group_story_world
+import listenup.composeapp.generated.resources.admin_permission_group_reading_orders
+import listenup.composeapp.generated.resources.admin_permission_make_reading_orders
+import listenup.composeapp.generated.resources.admin_permission_make_reading_orders_description
 import listenup.composeapp.generated.resources.admin_preset_contributor
 import listenup.composeapp.generated.resources.admin_preset_contributor_description
 import listenup.composeapp.generated.resources.admin_preset_custom
@@ -37,6 +40,7 @@ internal fun Permission.title(): String =
         Permission.CURATE_LIBRARY -> stringResource(Res.string.admin_permission_curate_library)
         Permission.CONTRIBUTE_STORY_WORLD -> stringResource(Res.string.admin_permission_contribute_story_world)
         Permission.CURATE_STORY_WORLD -> stringResource(Res.string.admin_permission_curate_story_world)
+        Permission.MAKE_READING_ORDERS -> stringResource(Res.string.admin_permission_make_reading_orders)
         Permission.UNKNOWN -> ""
     }
 
@@ -62,6 +66,10 @@ internal fun Permission.description(): String =
             stringResource(Res.string.admin_permission_curate_story_world_description)
         }
 
+        Permission.MAKE_READING_ORDERS -> {
+            stringResource(Res.string.admin_permission_make_reading_orders_description)
+        }
+
         Permission.UNKNOWN -> {
             ""
         }
@@ -73,6 +81,7 @@ internal fun PermissionGroup.title(): String =
     when (this) {
         PermissionGroup.LIBRARY -> stringResource(Res.string.admin_permission_group_library)
         PermissionGroup.STORY_WORLD -> stringResource(Res.string.admin_permission_group_story_world)
+        PermissionGroup.READING_ORDERS -> stringResource(Res.string.admin_permission_group_reading_orders)
         PermissionGroup.UNKNOWN -> ""
     }
 

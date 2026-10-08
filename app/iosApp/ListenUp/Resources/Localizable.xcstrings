@@ -2011,12 +2011,42 @@
         }
       }
     },
+    "admin.permission_group_reading_orders": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading orders"
+          }
+        }
+      }
+    },
     "admin.permission_group_story_world": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Story World"
+          }
+        }
+      }
+    },
+    "admin.permission_make_reading_orders": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make reading orders"
+          }
+        }
+      }
+    },
+    "admin.permission_make_reading_orders_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make orders to read a series in, and edit their own."
           }
         }
       }
@@ -2046,7 +2076,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fixes books and adds to Story World. Can't merge or delete."
+            "value": "Fixes books, adds to Story World and makes reading orders. Can't merge or delete."
           }
         }
       }
