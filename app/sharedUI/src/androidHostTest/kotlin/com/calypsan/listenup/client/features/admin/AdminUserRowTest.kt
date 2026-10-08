@@ -68,7 +68,15 @@ class AdminUserRowTest {
                 everySuspend { downloadUserAvatar(any(), any()) } returns AppResult.Success(false)
             }
         KoinApplication(
-            application = { modules(module { single { profiles }; single { storage }; single { images } }) },
+            application = {
+                modules(
+                    module {
+                        single { profiles }
+                        single { storage }
+                        single { images }
+                    },
+                )
+            },
         ) {
             MaterialTheme { content() }
         }

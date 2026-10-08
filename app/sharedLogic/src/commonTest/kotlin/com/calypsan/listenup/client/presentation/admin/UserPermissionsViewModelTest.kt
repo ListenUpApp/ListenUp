@@ -75,7 +75,10 @@ class UserPermissionsViewModelTest :
                 ready.preset shouldBe PermissionPreset.CONTRIBUTOR
                 ready.presetsShown shouldBe true
                 ready.sections.map { it.group } shouldContainExactly listOf(PermissionGroup.LIBRARY)
-                ready.sections.single().rows.map { it.permission } shouldContainExactly
+                ready.sections
+                    .single()
+                    .rows
+                    .map { it.permission } shouldContainExactly
                     listOf(Permission.EDIT_METADATA, Permission.CURATE_LIBRARY)
                 ready.changeCount shouldBe 0
             }
@@ -92,7 +95,11 @@ class UserPermissionsViewModelTest :
                 ready.flags shouldBe UserPermissions(canEditMetadata = true, canCurateLibrary = true)
                 ready.curateWarningShown shouldBe true
                 ready.changeCount shouldBe 1
-                ready.sections.single().rows.single { it.permission == Permission.CURATE_LIBRARY }.isUnsaved shouldBe true
+                ready.sections
+                    .single()
+                    .rows
+                    .single { it.permission == Permission.CURATE_LIBRARY }
+                    .isUnsaved shouldBe true
             }
         }
 
@@ -200,7 +207,10 @@ class UserPermissionsViewModelTest :
                 val repo: AdminRepository = mock { everySuspend { getUser("u1") } returns AppResult.Success(member()) }
                 val ready = open(repo, flags = setOf("canEdit")).ready()
                 ready.presetsShown shouldBe false
-                ready.sections.single().rows.map { it.permission } shouldContainExactly listOf(Permission.EDIT_METADATA)
+                ready.sections
+                    .single()
+                    .rows
+                    .map { it.permission } shouldContainExactly listOf(Permission.EDIT_METADATA)
             }
         }
 

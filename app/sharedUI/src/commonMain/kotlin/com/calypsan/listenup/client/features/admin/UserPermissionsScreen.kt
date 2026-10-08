@@ -240,7 +240,13 @@ private fun IdentityCard(
 ) {
     Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainer) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = Spacing.lg, end = Spacing.sm, top = Spacing.md, bottom = Spacing.md),
+            modifier =
+                Modifier.fillMaxWidth().padding(
+                    start = Spacing.lg,
+                    end = Spacing.sm,
+                    top = Spacing.md,
+                    bottom = Spacing.md,
+                ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {

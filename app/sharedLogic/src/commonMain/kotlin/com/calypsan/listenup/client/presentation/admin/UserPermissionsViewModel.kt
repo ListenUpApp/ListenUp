@@ -58,7 +58,10 @@ class UserPermissionsViewModel(
                 instanceRepository.getServerInfoOrNull()?.advertisedPermissions() ?: setOf(Permission.EDIT_METADATA)
             session.value =
                 when (val result = adminRepository.getUser(userId)) {
-                    is AppResult.Success -> Session.Loaded.of(result.data, advertised)
+                    is AppResult.Success -> {
+                        Session.Loaded.of(result.data, advertised)
+                    }
+
                     is AppResult.Failure -> {
                         errorBus.emit(result.error)
                         Session.Failed(result.error)
@@ -68,7 +71,8 @@ class UserPermissionsViewModel(
     }
 
     /** Fill the draft's advertised flags from [preset]. */
-    fun selectPreset(preset: PermissionPreset) = editDraft { it.copy(draftFlags = preset.applyTo(it.draftFlags, it.advertised)) }
+    fun selectPreset(preset: PermissionPreset) =
+        editDraft { it.copy(draftFlags = preset.applyTo(it.draftFlags, it.advertised)) }
 
     /** Set one flag in the draft. */
     fun setPermission(
@@ -80,15 +84,31 @@ class UserPermissionsViewModel(
     fun requestRole(role: UserRole) =
         editDraft { current ->
             when {
-                role == UserRole.ROOT -> current
-                role == UserRole.ADMIN && current.draftRole != UserRole.ADMIN -> current.copy(isConfirmingAdminPromotion = true)
-                else -> current.copy(draftRole = role)
+                role == UserRole.ROOT -> {
+                    current
+                }
+
+                role == UserRole.ADMIN && current.draftRole != UserRole.ADMIN -> {
+                    current.copy(
+                        isConfirmingAdminPromotion = true,
+                    )
+                }
+
+                else -> {
+                    current.copy(draftRole = role)
+                }
             }
         }
 
     /** Confirm the Admin promotion. An admin's flags are moot, so the draft's flags go back to the saved ones. */
     fun confirmAdminPromotion() =
-        editDraft { it.copy(draftRole = UserRole.ADMIN, draftFlags = it.savedFlags, isConfirmingAdminPromotion = false) }
+        editDraft {
+            it.copy(
+                draftRole = UserRole.ADMIN,
+                draftFlags = it.savedFlags,
+                isConfirmingAdminPromotion = false,
+            )
+        }
 
     /** Keep the current role. */
     fun cancelAdminPromotion() = editDraft { it.copy(isConfirmingAdminPromotion = false) }
@@ -104,7 +124,11 @@ class UserPermissionsViewModel(
         viewModelScope.launch {
             when (
                 val result =
-                    adminRepository.updateUser(userId = userId, role = loaded.roleChange, permissions = loaded.permissionsPatch)
+                    adminRepository.updateUser(
+                        userId = userId,
+                        role = loaded.roleChange,
+                        permissions = loaded.permissionsPatch,
+                    )
             ) {
                 is AppResult.Success -> {
                     session.value = Session.Loaded.of(result.data, loaded.advertised)
@@ -167,7 +191,9 @@ class UserPermissionsViewModel(
             val permissionsPatch: UserPermissionsPatch?
                 get() =
                     changedPermissions
-                        .fold(UserPermissionsPatch()) { patch, permission -> patch.granting(permission, draftFlags.allows(permission)) }
+                        .fold(
+                            UserPermissionsPatch(),
+                        ) { patch, permission -> patch.granting(permission, draftFlags.allows(permission)) }
                         .takeUnless { it.isEmpty }
 
             companion object {
@@ -175,7 +201,8 @@ class UserPermissionsViewModel(
                     user: AdminUserInfo,
                     advertised: Set<Permission>,
                 ): Loaded {
-                    val role = UserRole.entries.firstOrNull { it.name.equals(user.role, ignoreCase = true) } ?: UserRole.MEMBER
+                    val role =
+                        UserRole.entries.firstOrNull { it.name.equals(user.role, ignoreCase = true) } ?: UserRole.MEMBER
                     return Loaded(user, advertised, role, user.permissions, role, user.permissions)
                 }
             }
