@@ -140,10 +140,17 @@ private fun String.toReason(): ScanIssueReason =
 fun ScanError.toIssueReason(): ScanIssueReason =
     when (this) {
         is ScanError.NoRecognizedAudio -> ScanIssueReason.NO_RECOGNIZED_AUDIO
+
         is ScanError.FileUnreadable -> ScanIssueReason.FILE_UNREADABLE
+
         is ScanError.MetadataParseError -> ScanIssueReason.METADATA_PARSE_FAILED
+
         is ScanError.TitleInferenceError -> ScanIssueReason.TITLE_INFERENCE_FAILED
-        else -> ScanIssueReason.UNKNOWN
+
+        is ScanError.AlreadyRunning,
+        is ScanError.LibraryPathNotConfigured,
+        is ScanError.LibraryPathNotFound,
+        -> ScanIssueReason.UNKNOWN
     }
 
 /**
@@ -156,10 +163,17 @@ fun ScanError.toIssueReason(): ScanIssueReason =
 fun ScanError.issuePathOrNull(): String? =
     when (this) {
         is ScanError.NoRecognizedAudio -> path
+
         is ScanError.FileUnreadable -> path
+
         is ScanError.MetadataParseError -> path
+
         is ScanError.TitleInferenceError -> path
-        else -> null
+
+        is ScanError.AlreadyRunning,
+        is ScanError.LibraryPathNotConfigured,
+        is ScanError.LibraryPathNotFound,
+        -> null
     }
 
 /**

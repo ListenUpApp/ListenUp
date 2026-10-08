@@ -88,7 +88,13 @@ internal class ScannerServiceImpl(
 
     /** Returns a copy scoped to [principal]. The RPC mount and the REST handler call this per-request. */
     fun copyWith(principal: PrincipalProvider): ScannerServiceImpl =
-        ScannerServiceImpl(orchestrator, resolveLibraryId, eventBus, scanIssues, principal)
+        ScannerServiceImpl(
+            orchestrator = orchestrator,
+            resolveLibraryId = resolveLibraryId,
+            eventBus = eventBus,
+            scanIssues = scanIssues,
+            principal = principal,
+        )
 
     /**
      * Admin gate: null when the caller is ROOT/ADMIN; [AuthError.PermissionDenied] for a

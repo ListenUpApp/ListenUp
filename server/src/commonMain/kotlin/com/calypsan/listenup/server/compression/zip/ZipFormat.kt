@@ -83,7 +83,7 @@ internal fun Buffer.readU64LE(): Long {
 // ── ZIP64 extra field (header id 0x0001) ─────────────────────────────────────────────────────────
 
 /** Holds the optional ZIP64 overflow values decoded from the 0x0001 extra field. */
-internal class Zip64ExtraFields(
+internal data class Zip64ExtraFields(
     val uncompSize: Long?,
     val compSize: Long?,
     val localOffset: Long?,

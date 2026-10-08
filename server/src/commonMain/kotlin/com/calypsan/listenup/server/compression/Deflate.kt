@@ -53,7 +53,9 @@ public class DeflateRawSink(
         }
     }
 
-    override fun flush() = out.flush()
+    override fun flush() {
+        out.flush()
+    }
 
     override fun close() {
         if (closed) return
@@ -84,7 +86,7 @@ public class DeflateRawSink(
         val tokens = lz77(combined, emitFrom = history.size, level = level)
         val plan = planDynamicBlock(tokens)
         if (plan.totalBits < storedSizeBits(chunk.size)) {
-            emitDynamicBlock(writer, tokens, plan, isFinal)
+            emitDynamicBlock(writer = writer, tokens = tokens, plan = plan, isFinal = isFinal)
         } else {
             emitStored(chunk, isFinal)
         }

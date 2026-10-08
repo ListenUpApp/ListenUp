@@ -79,7 +79,7 @@ internal object AbsTitleParser {
 
         return ParsedTitle(
             title = title.trim(),
-            subtitle = subtitle?.trim()?.takeUnless { it.isEmpty() },
+            subtitle = subtitle?.run { trim().takeUnless { it.isEmpty() } },
             asin = asin,
             narrators = narrators,
             publishedYear = year,
@@ -95,8 +95,8 @@ internal object AbsTitleParser {
 
     private fun extractNarrators(folder: String): Pair<String, List<String>> {
         val match = narratorPattern.matchEntire(folder) ?: return folder to emptyList()
-        val title = match.groups["title"]!!.value
-        val raw = match.groups["narrators"]!!.value
+        // Both groups are mandatory in narratorPattern, so a whole match always captures them.
+        val (title, raw) = match.destructured
         val names = raw.split(nameSeparators).map { it.trim() }.filter { it.isNotEmpty() }
         return title to names
     }

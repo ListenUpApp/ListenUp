@@ -24,7 +24,5 @@ internal object MultiDiscPattern {
     fun discNumber(folderName: String): Int? =
         pattern
             .matchEntire(folderName)
-            ?.groupValues
-            ?.get(2)
-            ?.toIntOrNull()
+            ?.let { match -> match.groupValues[2].toIntOrNull() }
 }

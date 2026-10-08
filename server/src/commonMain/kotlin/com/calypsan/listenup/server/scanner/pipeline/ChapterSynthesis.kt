@@ -88,7 +88,13 @@ internal fun synthesizeChapters(
             val chapter =
                 Chapter(
                     index = i + 1,
-                    title = pickChapterTitle(track, bookTitle, perTrackMetadata[track], i + 1),
+                    title =
+                        pickChapterTitle(
+                            track = track,
+                            bookTitle = bookTitle,
+                            trackMeta = perTrackMetadata[track],
+                            trackIndex = i + 1,
+                        ),
                     startMs = cumulativeMs,
                     endMs = cumulativeMs + durationMs,
                 )

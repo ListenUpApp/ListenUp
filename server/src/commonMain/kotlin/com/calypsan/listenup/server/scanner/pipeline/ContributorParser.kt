@@ -61,10 +61,8 @@ object ContributorParser {
         raw
             .trim()
             .takeIf { it.isNotEmpty() }
-            ?.split(personSeparator)
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?: emptyList()
+            ?.run { split(personSeparator).map { it.trim() }.filter { it.isNotEmpty() } }
+            .orEmpty()
 
     fun parse(
         raw: String,

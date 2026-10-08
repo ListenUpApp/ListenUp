@@ -14,7 +14,8 @@ import kotlinx.io.readByteArray
  * of the entry's local file header and is consumed only by [ZipReader.openEntry]; callers identify an
  * entry by [name]. Construct these only via [ZipReader].
  */
-public class ZipEntryInfo internal constructor(
+@ConsistentCopyVisibility
+public data class ZipEntryInfo internal constructor(
     public val name: String,
     public val method: ZipMethod,
     public val crc32: Long,
@@ -189,7 +190,7 @@ public class ZipReader(
      * The count/size/offset values recovered from a ZIP64 end-of-central-directory record, plus
      * [zip64EocdOffset] — the record's own absolute offset, which the directory must abut.
      */
-    private class Zip64Eocd(
+    private data class Zip64Eocd(
         val totalEntries: Long,
         val cdSize: Long,
         val cdOffset: Long,
@@ -224,7 +225,12 @@ public class ZipReader(
         val totalEntries = z.readU64LE()
         val cdSize = z.readU64LE()
         val cdOffset = z.readU64LE()
-        return Zip64Eocd(totalEntries, cdSize, cdOffset, zip64EocdOffset)
+        return Zip64Eocd(
+            totalEntries = totalEntries,
+            cdSize = cdSize,
+            cdOffset = cdOffset,
+            zip64EocdOffset = zip64EocdOffset,
+        )
     }
 
     /** Parses [count] central-directory headers out of [cd], resolving ZIP64 overflow per entry. */
@@ -269,14 +275,28 @@ public class ZipReader(
                 }
 
             val (compSize, uncompSize, localOffset) =
-                resolveZip64(name, extra, compSize32, uncompSize32, localOffset32)
+                resolveZip64(
+                    name = name,
+                    extra = extra,
+                    compSize32 = compSize32,
+                    uncompSize32 = uncompSize32,
+                    localOffset32 = localOffset32,
+                )
             if (localOffset < 0 || localOffset > fileLen - LFH_FIXED_SIZE) {
                 throw MalformedZipException("local header offset out of range for '$name'")
             }
             if (compSize < 0 || compSize > fileLen || uncompSize < 0) {
                 throw MalformedZipException("implausible entry sizes for '$name'")
             }
-            entries += ZipEntryInfo(name, method, crc, compSize, uncompSize, localOffset)
+            entries +=
+                ZipEntryInfo(
+                    name = name,
+                    method = method,
+                    crc32 = crc,
+                    compressedSize = compSize,
+                    uncompressedSize = uncompSize,
+                    localHeaderOffset = localOffset,
+                )
         }
         return entries
     }
@@ -294,7 +314,8 @@ public class ZipReader(
         val hasOffset = localOffset32 == ZIP64_U32_MAX
         if (!hasUncomp && !hasComp && !hasOffset) return Triple(compSize32, uncompSize32, localOffset32)
 
-        val z64 = parseZip64ExtraFor(extra, hasUncomp, hasComp, hasOffset)
+        val z64 =
+            parseZip64ExtraFor(extra = extra, hasUncomp = hasUncomp, hasComp = hasComp, hasOffset = hasOffset)
         val uncompSize = if (hasUncomp) z64.uncompSize.requireField(name, "uncompressed size") else uncompSize32
         val compSize = if (hasComp) z64.compSize.requireField(name, "compressed size") else compSize32
         val localOffset = if (hasOffset) z64.localOffset.requireField(name, "local header offset") else localOffset32
@@ -333,7 +354,7 @@ public class ZipReader(
     private inner class BoundedEntrySource(
         private val name: String,
         startOffset: Long,
-        private val limit: Long,
+        limit: Long,
     ) : RawSource {
         private var nextOffset = startOffset
         private var remaining = limit

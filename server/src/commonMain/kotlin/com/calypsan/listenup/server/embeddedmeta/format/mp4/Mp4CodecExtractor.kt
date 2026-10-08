@@ -63,7 +63,13 @@ internal object Mp4CodecExtractor {
 
         return when (entry.type) {
             "mp4a" -> {
-                extractMp4a(moovBytes, entry, codecBoxesStart, entryRate, entryChannels)
+                extractMp4a(
+                    moovBytes = moovBytes,
+                    entry = entry,
+                    codecBoxesStart = codecBoxesStart,
+                    entryRate = entryRate,
+                    entryChannels = entryChannels,
+                )
             }
 
             "ac-4" -> {
@@ -76,7 +82,13 @@ internal object Mp4CodecExtractor {
             }
 
             "ec-3" -> {
-                extractEc3(moovBytes, entry, codecBoxesStart, entryRate, entryChannels)
+                extractEc3(
+                    moovBytes = moovBytes,
+                    entry = entry,
+                    codecBoxesStart = codecBoxesStart,
+                    entryRate = entryRate,
+                    entryChannels = entryChannels,
+                )
             }
 
             "alac" -> {
@@ -124,8 +136,20 @@ internal object Mp4CodecExtractor {
         moovBytes: ByteArray,
         trak: Atom,
     ): Boolean {
-        val mdia = AtomWalker.findChild(moovBytes, trak.dataOffset, trak.end, "mdia") ?: return false
-        val hdlr = AtomWalker.findChild(moovBytes, mdia.dataOffset, mdia.end, "hdlr") ?: return false
+        val mdia =
+            AtomWalker.findChild(
+                bytes = moovBytes,
+                start = trak.dataOffset,
+                end = trak.end,
+                type = "mdia",
+            ) ?: return false
+        val hdlr =
+            AtomWalker.findChild(
+                bytes = moovBytes,
+                start = mdia.dataOffset,
+                end = mdia.end,
+                type = "hdlr",
+            ) ?: return false
         // hdlr FullBox: version+flags(4) + pre_defined(4) + handler_type(4).
         if (hdlr.dataOffset + 12 > hdlr.end) return false
         return TextDecoding.decodeLatin1(moovBytes, hdlr.dataOffset + 8, 4) == "soun"
@@ -136,10 +160,34 @@ internal object Mp4CodecExtractor {
         moovBytes: ByteArray,
         trak: Atom,
     ): Atom? {
-        val mdia = AtomWalker.findChild(moovBytes, trak.dataOffset, trak.end, "mdia") ?: return null
-        val minf = AtomWalker.findChild(moovBytes, mdia.dataOffset, mdia.end, "minf") ?: return null
-        val stbl = AtomWalker.findChild(moovBytes, minf.dataOffset, minf.end, "stbl") ?: return null
-        val stsd = AtomWalker.findChild(moovBytes, stbl.dataOffset, stbl.end, "stsd") ?: return null
+        val mdia =
+            AtomWalker.findChild(
+                bytes = moovBytes,
+                start = trak.dataOffset,
+                end = trak.end,
+                type = "mdia",
+            ) ?: return null
+        val minf =
+            AtomWalker.findChild(
+                bytes = moovBytes,
+                start = mdia.dataOffset,
+                end = mdia.end,
+                type = "minf",
+            ) ?: return null
+        val stbl =
+            AtomWalker.findChild(
+                bytes = moovBytes,
+                start = minf.dataOffset,
+                end = minf.end,
+                type = "stbl",
+            ) ?: return null
+        val stsd =
+            AtomWalker.findChild(
+                bytes = moovBytes,
+                start = stbl.dataOffset,
+                end = stbl.end,
+                type = "stsd",
+            ) ?: return null
         // stsd FullBox: version+flags(4) + entry_count(4), then the first entry.
         val entryStart = stsd.dataOffset + FULLBOX_HEADER + ENTRY_COUNT_FIELD
         if (entryStart + 8 > stsd.end) return null
@@ -158,7 +206,7 @@ internal object Mp4CodecExtractor {
         entryChannels: Int,
     ): AudioStreamInfo {
         val esds =
-            AtomWalker.findChild(moovBytes, codecBoxesStart, entry.end, "esds")
+            AtomWalker.findChild(bytes = moovBytes, start = codecBoxesStart, end = entry.end, type = "esds")
                 ?: return AudioStreamInfo(codec = "aac", sampleRate = entryRate, channels = entryChannels)
 
         val info = parseEsds(moovBytes.copyOfRange(esds.dataOffset, esds.end))
@@ -223,7 +271,7 @@ internal object Mp4CodecExtractor {
         entryRate: Int,
         entryChannels: Int,
     ): AudioStreamInfo {
-        val dec3 = AtomWalker.findChild(moovBytes, codecBoxesStart, entry.end, "dec3")
+        val dec3 = AtomWalker.findChild(bytes = moovBytes, start = codecBoxesStart, end = entry.end, type = "dec3")
         // JOC (Atmos object coding) is signalled — by the convention pinned in
         // the unit fixtures — when the dec3 payload's final byte has its lowest
         // bit set. Best-effort; Task 8 refines against a real Atmos file.

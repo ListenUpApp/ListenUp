@@ -60,6 +60,58 @@ internal data class MpegFrameInfo(
  */
 @Suppress("MagicNumber")
 internal object MpegDurationCalculator {
+    /** MPEG version bits 20..19, `0b11` — MPEG-1. */
+    private const val MPEG_VERSION_1 = 0b11
+
+    /** MPEG version bits 20..19, `0b10` — MPEG-2, the "low sampling frequency" extension. */
+    private const val MPEG_VERSION_2 = 0b10
+
+    /** MPEG version bits 20..19, `0b01` — reserved by the spec, never a valid frame. */
+    private const val MPEG_VERSION_RESERVED = 0b01
+
+    /** Layer bits 18..17, `0b01` — Layer III, the only layer these tables describe. */
+    private const val LAYER_III = 0b01
+
+    /** Layer III bitrate table, kbps, MPEG-1. Index 0 (free) and 15 (bad) are invalid. */
+    private val BITRATE_TABLE_V1 = intArrayOf(0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0)
+
+    /** Layer III bitrate table, kbps, MPEG-2 (LSF) and MPEG-2.5 — the "low sampling frequency" set. */
+    private val BITRATE_TABLE_V2 = intArrayOf(0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0)
+
+    /** Sample-rate table, Hz, MPEG-1. Index 3 is reserved. */
+    private val SAMPLE_RATE_TABLE_V1 = intArrayOf(44_100, 48_000, 32_000, 0)
+
+    /** Sample-rate table, Hz, MPEG-2 — exactly half MPEG-1 at every index. */
+    private val SAMPLE_RATE_TABLE_V2 = intArrayOf(22_050, 24_000, 16_000, 0)
+
+    /** Sample-rate table, Hz, MPEG-2.5 — exactly a quarter of MPEG-1 at every index. */
+    private val SAMPLE_RATE_TABLE_V2_5 = intArrayOf(11_025, 12_000, 8_000, 0)
+
+    /** Layer III PCM samples per encoded frame, MPEG-1. */
+    private const val SAMPLES_PER_FRAME_V1 = 1152
+
+    /** Layer III PCM samples per encoded frame, MPEG-2 and MPEG-2.5 — LSF halves it. */
+    private const val SAMPLES_PER_FRAME_LSF = 576
+
+    /**
+     * Upper bound on a believable audiobook duration: 200 hours. The longest books in print run
+     * comfortably under 150, so a VBR-declared duration past this came from a frame count that
+     * does not describe this file.
+     */
+    private const val MAX_PLAUSIBLE_DURATION_MS = 200L * 60 * 60 * 1000
+
+    /**
+     * 64 KB sniff window for the first MPEG sync byte. Real-world ID3v2 tags
+     * declare their own size — there is no padding between tag and audio in
+     * standard files. 64 KB leaves generous headroom for files with a short
+     * non-standard gap; sync byte not found within this window → duration
+     * reported as 0 (best-effort, parser still returns tags). Also large
+     * enough to contain the VBR header that immediately follows the first
+     * frame's side-information region.
+     */
+    private const val SNIFF_WINDOW_BYTES = 64 * 1024
+    private const val ID3V1_LEN = 128
+
     fun compute(
         source: SeekableSource,
         audioStart: Long,
@@ -262,56 +314,4 @@ internal object MpegDurationCalculator {
             ((buf[offset + 1].toInt() and 0xFF) shl 16) or
             ((buf[offset + 2].toInt() and 0xFF) shl 8) or
             (buf[offset + 3].toInt() and 0xFF)
-
-    /** MPEG version bits 20..19, `0b11` — MPEG-1. */
-    private const val MPEG_VERSION_1 = 0b11
-
-    /** MPEG version bits 20..19, `0b10` — MPEG-2, the "low sampling frequency" extension. */
-    private const val MPEG_VERSION_2 = 0b10
-
-    /** MPEG version bits 20..19, `0b01` — reserved by the spec, never a valid frame. */
-    private const val MPEG_VERSION_RESERVED = 0b01
-
-    /** Layer bits 18..17, `0b01` — Layer III, the only layer these tables describe. */
-    private const val LAYER_III = 0b01
-
-    /** Layer III bitrate table, kbps, MPEG-1. Index 0 (free) and 15 (bad) are invalid. */
-    private val BITRATE_TABLE_V1 = intArrayOf(0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0)
-
-    /** Layer III bitrate table, kbps, MPEG-2 (LSF) and MPEG-2.5 — the "low sampling frequency" set. */
-    private val BITRATE_TABLE_V2 = intArrayOf(0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0)
-
-    /** Sample-rate table, Hz, MPEG-1. Index 3 is reserved. */
-    private val SAMPLE_RATE_TABLE_V1 = intArrayOf(44_100, 48_000, 32_000, 0)
-
-    /** Sample-rate table, Hz, MPEG-2 — exactly half MPEG-1 at every index. */
-    private val SAMPLE_RATE_TABLE_V2 = intArrayOf(22_050, 24_000, 16_000, 0)
-
-    /** Sample-rate table, Hz, MPEG-2.5 — exactly a quarter of MPEG-1 at every index. */
-    private val SAMPLE_RATE_TABLE_V2_5 = intArrayOf(11_025, 12_000, 8_000, 0)
-
-    /** Layer III PCM samples per encoded frame, MPEG-1. */
-    private const val SAMPLES_PER_FRAME_V1 = 1152
-
-    /** Layer III PCM samples per encoded frame, MPEG-2 and MPEG-2.5 — LSF halves it. */
-    private const val SAMPLES_PER_FRAME_LSF = 576
-
-    /**
-     * Upper bound on a believable audiobook duration: 200 hours. The longest books in print run
-     * comfortably under 150, so a VBR-declared duration past this came from a frame count that
-     * does not describe this file.
-     */
-    private const val MAX_PLAUSIBLE_DURATION_MS = 200L * 60 * 60 * 1000
-
-    /**
-     * 64 KB sniff window for the first MPEG sync byte. Real-world ID3v2 tags
-     * declare their own size — there is no padding between tag and audio in
-     * standard files. 64 KB leaves generous headroom for files with a short
-     * non-standard gap; sync byte not found within this window → duration
-     * reported as 0 (best-effort, parser still returns tags). Also large
-     * enough to contain the VBR header that immediately follows the first
-     * frame's side-information region.
-     */
-    private const val SNIFF_WINDOW_BYTES = 64 * 1024
-    private const val ID3V1_LEN = 128
 }

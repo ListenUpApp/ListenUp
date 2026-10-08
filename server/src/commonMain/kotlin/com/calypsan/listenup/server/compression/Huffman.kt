@@ -226,11 +226,11 @@ internal fun buildLengthLimitedLengths(
 
 /** Fixed literal/length code lengths (RFC §3.2.6): 0..143 = 8, 144..255 = 9, 256..279 = 7, 280..287 = 8. */
 internal val FIXED_LITLEN_LENGTHS: IntArray =
-    IntArray(288) {
+    IntArray(288) { symbol ->
         when {
-            it <= 143 -> 8
-            it <= 255 -> 9
-            it <= 279 -> 7
+            symbol <= 143 -> 8
+            symbol <= 255 -> 9
+            symbol <= 279 -> 7
             else -> 8
         }
     }
