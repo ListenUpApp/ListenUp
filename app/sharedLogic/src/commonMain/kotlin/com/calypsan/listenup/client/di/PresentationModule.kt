@@ -201,6 +201,7 @@ internal val adminPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel(
                 genreRepository = get(),
+                permissionsRepository = get(),
                 errorBus = get(),
             )
         }
@@ -692,6 +693,7 @@ internal val settingsPresentationModule =
                 logoutUseCase = get<com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase>(),
                 pushRepository = get(),
                 hardcoverRepository = get(),
+                permissionsRepository = get(),
                 appVersion = get(named("clientVersion")),
                 errorBus = get(),
             )

@@ -21,6 +21,9 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import dev.mokkery.verify.VerifyMode
+import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,7 +61,10 @@ class AdminCategoriesViewModelTest :
             val genreRepository: GenreRepository = mock()
             val genresFlow = MutableStateFlow<List<Genre>>(emptyList())
 
-            fun build(): AdminCategoriesViewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
+            val permissions = FakePermissionsRepository(Permission.EDIT_METADATA, Permission.CURATE_LIBRARY)
+
+            fun build(): AdminCategoriesViewModel =
+                AdminCategoriesViewModel(genreRepository, permissionsRepository = permissions, errorBus = ErrorBus())
         }
 
         fun createFixture(): TestFixture {
@@ -72,6 +78,7 @@ class AdminCategoriesViewModelTest :
             everySuspend { fixture.genreRepository.updateGenre(any(), any()) } returns AppResult.Success(Unit)
             everySuspend { fixture.genreRepository.deleteGenre(any()) } returns AppResult.Success(Unit)
             everySuspend { fixture.genreRepository.moveGenre(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.genreRepository.mergeGenres(any(), any()) } returns AppResult.Success(Unit)
             return fixture
         }
 
@@ -108,7 +115,12 @@ class AdminCategoriesViewModelTest :
                     }
 
                 // When
-                val viewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
+                val viewModel =
+                    AdminCategoriesViewModel(
+                        genreRepository,
+                        permissionsRepository = FakePermissionsRepository(Permission.EDIT_METADATA, Permission.CURATE_LIBRARY),
+                        errorBus = ErrorBus(),
+                    )
 
                 // Then
                 viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Loading>()
@@ -200,6 +212,69 @@ class AdminCategoriesViewModelTest :
             }
         }
 
+        // ========== Permissions: editing vs curating ==========
+
+        test("Ready carries the two capabilities, live") {
+            runTest {
+                val fixture = createFixture()
+                fixture.permissions.granted.value = setOf(Permission.CURATE_LIBRARY)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+                ready.canEditMetadata shouldBe false
+                ready.canCurateLibrary shouldBe true
+
+                fixture.permissions.granted.value = setOf(Permission.EDIT_METADATA)
+                advanceUntilIdle()
+                val after = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+                after.canEditMetadata shouldBe true
+                after.canCurateLibrary shouldBe false
+            }
+        }
+
+        test("a curator who may not edit cannot create, rename or move — and an editor cannot delete or merge") {
+            runTest {
+                val fixture = createFixture()
+                fixture.permissions.granted.value = setOf(Permission.CURATE_LIBRARY)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.createGenre("Grimdark", parentId = null)
+                viewModel.renameGenre("g1", "Renamed")
+                viewModel.moveGenre("g1", null)
+                advanceUntilIdle()
+                verifySuspend(VerifyMode.not) { fixture.genreRepository.createGenre(any(), any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.genreRepository.updateGenre(any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.genreRepository.moveGenre(any(), any()) }
+
+                fixture.permissions.granted.value = setOf(Permission.EDIT_METADATA)
+                advanceUntilIdle()
+                viewModel.deleteGenre("g1")
+                viewModel.mergeGenres("g1", "g2")
+                advanceUntilIdle()
+                verifySuspend(VerifyMode.not) { fixture.genreRepository.deleteGenre(any()) }
+                verifySuspend(VerifyMode.not) { fixture.genreRepository.mergeGenres(any(), any()) }
+            }
+        }
+
+        test("without Curate library, opening a merge history never asks the server for receipts") {
+            runTest {
+                val fixture = createFixture()
+                fixture.genresFlow.value = listOf(createGenre(id = "sf", name = "Science Fiction"))
+                everySuspend { fixture.genreRepository.listMergeReceipts(any()) } returns AppResult.Success(emptyList())
+                fixture.permissions.granted.value = setOf(Permission.EDIT_METADATA)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.openMergeHistory("sf")
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.not) { fixture.genreRepository.listMergeReceipts(any()) }
+                viewModel.mergeHistory.value.shouldBeNull()
+            }
+        }
+
         // ========== Error Handling ==========
 
         test("Error state emitted when observeAll flow throws") {
@@ -212,7 +287,12 @@ class AdminCategoriesViewModelTest :
                     }
 
                 // When
-                val viewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
+                val viewModel =
+                    AdminCategoriesViewModel(
+                        genreRepository,
+                        permissionsRepository = FakePermissionsRepository(Permission.EDIT_METADATA, Permission.CURATE_LIBRARY),
+                        errorBus = ErrorBus(),
+                    )
                 advanceUntilIdle()
 
                 // Then — the thrown Throwable is mapped to a typed AppError (InternalError),

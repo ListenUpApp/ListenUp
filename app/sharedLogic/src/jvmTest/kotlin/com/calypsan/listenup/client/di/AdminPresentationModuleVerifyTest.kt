@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
@@ -59,6 +60,7 @@ import org.koin.test.verify.verify
  *  - [ImageStorage] — owned by `mediaModule`.
  *  - [CollectionRepository] — owned by `collectionModule`.
  *  - [GenreRepository] — owned by `genreTagModule` (pulled in by `AdminCategoriesViewModel`).
+ *  - [PermissionsRepository] — owned by `socialModule` (pulled in by `AdminCategoriesViewModel`).
  *  - [AdminRepository] — owned by `adminModule`.
  *  - [UserRepository] — owned by `socialModule`.
  *  - [InstanceRepository] — owned by `connectionModule`.
@@ -97,6 +99,7 @@ class AdminPresentationModuleVerifyTest :
                         ImageStorage::class,
                         CollectionRepository::class,
                         GenreRepository::class,
+                        PermissionsRepository::class,
                         AdminRepository::class,
                         UserRepository::class,
                         SearchRepository::class,
