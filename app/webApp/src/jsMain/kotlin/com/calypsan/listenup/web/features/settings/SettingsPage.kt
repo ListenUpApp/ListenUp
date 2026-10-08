@@ -54,6 +54,8 @@ fun SettingsPage(
     onOpenLicences: () -> Unit = {},
     hardcoverRow: HardcoverRowState? = null,
     onOpenHardcover: () -> Unit = {},
+    canCurateLibrary: Boolean = false,
+    onOpenCategories: () -> Unit = {},
 ) {
     Div(attrs = { classes("set") }) {
         PageHeader(title = "Settings")
@@ -118,6 +120,8 @@ fun SettingsPage(
                 checked = state.hideSingleBookSeries,
                 onChange = onHideSingleBookSeries,
             )
+            // Only for those who may curate the library — the server refuses merge and delete to anyone else.
+            if (canCurateLibrary) CategoriesEntry(onOpenCategories)
         }
 
         Section("Account", null) {
@@ -154,6 +158,19 @@ private fun HardcoverEntry(
     }) {
         Span(attrs = { classes("set-link-t") }) { Text("Hardcover") }
         Span(attrs = { classes("set-link-sub") }) { Text(hardcoverSubtitle(row)) }
+    }
+}
+
+/** Settings → Library → Categories, worded as `common.categories` and `admin.categories_curate_subtitle`. */
+@Composable
+private fun CategoriesEntry(onOpen: () -> Unit) {
+    Button(attrs = {
+        classes("set-link")
+        attr("type", TYPE_BUTTON)
+        onClick { onOpen() }
+    }) {
+        Span(attrs = { classes("set-link-t") }) { Text("Categories") }
+        Span(attrs = { classes("set-link-sub") }) { Text("Merge and delete genres for everyone") }
     }
 }
 

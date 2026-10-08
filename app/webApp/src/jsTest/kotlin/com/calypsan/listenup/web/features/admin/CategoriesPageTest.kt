@@ -15,6 +15,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.EventInit
@@ -46,6 +47,8 @@ internal fun readyCategories(
     totalBookCount: Int = 0,
     isSaving: Boolean = false,
     error: com.calypsan.listenup.api.error.AppError? = null,
+    canEditMetadata: Boolean = true,
+    canCurateLibrary: Boolean = true,
 ): AdminCategoriesUiState.Ready {
     fun flatten(nodes: List<GenreTreeNode>): List<Genre> = nodes.flatMap { listOf(it.genre) + flatten(it.children) }
     return AdminCategoriesUiState.Ready(
@@ -55,6 +58,8 @@ internal fun readyCategories(
         expandedIds = expandedIds,
         totalBookCount = totalBookCount,
         error = error,
+        canEditMetadata = canEditMetadata,
+        canCurateLibrary = canCurateLibrary,
     )
 }
 
@@ -73,6 +78,7 @@ private fun page(
     onOpenAdmin: () -> Unit = {},
     mergeHistory: GenreMergeHistory? = null,
     mergeHistoryActions: MergeHistoryActions = MergeHistoryActions.None,
+    parentCrumb: String = "Admin",
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -92,6 +98,7 @@ private fun page(
             onOpenAdmin = onOpenAdmin,
             mergeHistory = mergeHistory,
             mergeHistoryActions = mergeHistoryActions,
+            parentCrumb = parentCrumb,
         )
     }
     return host
@@ -551,5 +558,34 @@ class CategoriesPageTest :
             awaitFrame()
 
             back shouldBe 1
+        }
+        test("a curator who may not edit gets merge, history and delete, and no New genre") {
+            val host = page(readyCategories(canEditMetadata = false, canCurateLibrary = true))
+            action(host, "Merge Fantasy into another genre").shouldNotBeNull()
+            action(host, "Merge history of Fantasy").shouldNotBeNull()
+            action(host, "Delete Fantasy").shouldNotBeNull()
+            action(host, "Add a genre under Fantasy").shouldBeNull()
+            action(host, "Rename Fantasy").shouldBeNull()
+            action(host, "Move Fantasy").shouldBeNull()
+            host.textContent.orEmpty() shouldNotContain "New genre"
+        }
+
+        test("an editor who may not curate gets add, rename and move, and no merge or delete") {
+            val host = page(readyCategories(canEditMetadata = true, canCurateLibrary = false))
+            action(host, "Add a genre under Fantasy").shouldNotBeNull()
+            action(host, "Rename Fantasy").shouldNotBeNull()
+            action(host, "Move Fantasy").shouldNotBeNull()
+            action(host, "Merge Fantasy into another genre").shouldBeNull()
+            action(host, "Merge history of Fantasy").shouldBeNull()
+            action(host, "Delete Fantasy").shouldBeNull()
+        }
+
+        test("reached from Settings, the breadcrumb leads back to Settings") {
+            val host = page(readyCategories(), parentCrumb = "Settings")
+            host
+                .querySelector(".crumb")
+                .shouldNotBeNull()
+                .textContent
+                ?.trim() shouldBe "Settings/Categories"
         }
     })

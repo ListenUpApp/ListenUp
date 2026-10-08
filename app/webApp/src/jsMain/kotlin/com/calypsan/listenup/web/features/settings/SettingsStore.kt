@@ -12,6 +12,8 @@ import org.koin.core.Koin
 /**
  * An open Settings session: the state, the eight things web can actually change, and the teardown.
  *
+ * [canCurateLibrary] offers Categories in the Library section, to those who may curate the library.
+ *
  * [hardcoverRow] is the Account section's Hardcover entry — null hides it, because a server with
  * no Hardcover app has nothing to connect to, and an entry leading to "not set up" is a dead end.
  *
@@ -28,6 +30,7 @@ import org.koin.core.Koin
 class SettingsSession(
     val state: StateFlow<SettingsUiState>,
     val hardcoverRow: StateFlow<HardcoverRowState?>,
+    val canCurateLibrary: StateFlow<Boolean>,
     val onThemeMode: (ThemeMode) -> Unit,
     val onDefaultSpeed: (Float) -> Unit,
     val onDefaultBoost: (Float) -> Unit,
@@ -50,6 +53,7 @@ fun graphSettings(koin: Koin): OpenSettings =
         SettingsSession(
             state = viewModel.state,
             hardcoverRow = viewModel.hardcoverRow,
+            canCurateLibrary = viewModel.canCurateLibrary,
             onThemeMode = viewModel::setThemeMode,
             onDefaultSpeed = viewModel::setDefaultPlaybackSpeed,
             onDefaultBoost = viewModel::setDefaultVolumeBoostDb,
@@ -74,11 +78,13 @@ fun fixedSettings(
     onIgnoreTitleArticles: (Boolean) -> Unit = {},
     onHideSingleBookSeries: (Boolean) -> Unit = {},
     hardcoverRow: HardcoverRowState? = null,
+    canCurateLibrary: Boolean = false,
 ): OpenSettings =
     {
         SettingsSession(
             state = MutableStateFlow(state),
             hardcoverRow = MutableStateFlow(hardcoverRow),
+            canCurateLibrary = MutableStateFlow(canCurateLibrary),
             onThemeMode = onThemeMode,
             onDefaultSpeed = onDefaultSpeed,
             onDefaultBoost = onDefaultBoost,
