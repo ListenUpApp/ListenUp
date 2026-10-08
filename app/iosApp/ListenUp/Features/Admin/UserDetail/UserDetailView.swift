@@ -1,7 +1,8 @@
 import SwiftUI
+import Shared
 
-/// Admin → a user's detail: read-only identity — the counterpart to Android's `UserDetailScreen`.
-/// A protected (root) user gets the note saying why their access is locked.
+/// Admin → a user's detail: who they are, and a row naming their access that opens the permissions
+/// screen. A protected (owner) user gets the note saying why their access is locked.
 struct UserDetailView: View {
     let userId: String
 
@@ -37,18 +38,24 @@ struct UserDetailView: View {
         return String(localized: "common.account")
     }
 
-    @ViewBuilder
     private func content(_ ready: UserDetailReadyModel) -> some View {
         Form {
             Section(String(format: String(localized: "common.entity_information"), "User")) {
                 LabeledContent(String(localized: "common.display_name"), value: ready.displayName)
                 LabeledContent(String(localized: "common.email_address"), value: ready.email)
-                LabeledContent(String(localized: "common.role"), value: ready.role.capitalized)
             }
 
-            if ready.isProtected {
-                Section {
-                } footer: {
+            Section {
+                NavigationLink(value: UserPermissionsDestination(userId: ready.userId)) {
+                    LabeledContent(
+                        String(localized: "common.permissions"),
+                        value: PermissionLabels.title(ready.access)
+                    )
+                }
+            } header: {
+                Text(String(localized: "admin.role_and_permissions"))
+            } footer: {
+                if ready.isProtected {
                     Text(String(localized: "admin.this_users_permissions_cannot_be"))
                 }
             }

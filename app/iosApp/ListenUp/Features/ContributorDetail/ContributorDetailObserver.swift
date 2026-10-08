@@ -16,6 +16,10 @@ final class ContributorDetailObserver {
     private(set) var roleSections: [RoleSectionRow] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var isDeleting: Bool = false
+    /// May edit this contributor and match its metadata (Edit metadata).
+    private(set) var canEditMetadata: Bool = false
+    /// May delete this contributor (Curate library).
+    private(set) var canCurateLibrary: Bool = false
     private(set) var series: [SeriesRow] = []
     private(set) var totalDuration: String = ""
     private(set) var bookCount: Int = 0
@@ -104,6 +108,8 @@ final class ContributorDetailObserver {
             roleSections = r.roleSections.map { RoleSectionRow($0) }
             bookProgress = mapProgress(r.bookProgress)
             isDeleting = r.isDeleting
+            canEditMetadata = r.canEditMetadata
+            canCurateLibrary = r.canCurateLibrary
             series = r.series.map { SeriesRow($0) }
             totalDuration = r.formatTotalDuration()
             bookCount = Int(r.bookCount)

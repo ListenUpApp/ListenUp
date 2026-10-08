@@ -149,11 +149,17 @@ struct LicenseDetailDestination: Hashable, Codable {
 /// The Admin Collections list (admin / root users only), reached from Administration › Management.
 struct AdminCollectionsDestination: Hashable, Codable {}
 
-/// The Admin Categories tree (admin / root users only), reached from Administration › Management.
+/// The Categories tree, reached from Administration › Management, and from Settings › Library by
+/// members with Curate library.
 struct AdminCategoriesDestination: Hashable, Codable {}
 
-/// Admin → a specific user's detail (permissions incl. Can Share).
+/// Admin → a specific user's detail: who they are, and the way into their role and permissions.
 struct UserDetailDestination: Hashable, Codable {
+    let userId: String
+}
+
+/// Admin → a user → their role and permissions.
+struct UserPermissionsDestination: Hashable, Codable {
     let userId: String
 }
 

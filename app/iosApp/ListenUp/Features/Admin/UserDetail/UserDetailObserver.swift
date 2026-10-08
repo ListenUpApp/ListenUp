@@ -41,18 +41,20 @@ enum UserDetailPhase {
     case error(String)
 }
 
-/// Native snapshot of the ready state — the user's display fields, and whether they are the
-/// protected owner. Their role and permissions are edited on the permissions screen.
+/// Native snapshot of the ready state — the user's display fields, their access label, and whether they
+/// are the protected owner. Their role and permissions are edited on the permissions screen.
 struct UserDetailReadyModel {
+    let userId: String
     let displayName: String
     let email: String
-    let role: String
+    let access: AccessLabel
     let isProtected: Bool
 
     init(from ready: UserDetailUiStateReady) {
-        self.displayName = ready.user.displayName ?? ready.user.email
+        self.userId = ready.user.id
+        self.displayName = ready.user.displayableName
         self.email = ready.user.email
-        self.role = ready.user.role
-        self.isProtected = ready.user.isRoot
+        self.access = ready.user.access
+        self.isProtected = ready.user.isProtected
     }
 }

@@ -17,7 +17,8 @@ struct UserDetailReadyModelTests {
                 role: "member",
                 status: "active",
                 permissions: UserPermissions(canEditMetadata: true, canCurateLibrary: false),
-                createdAt: "2026-01-01"
+                createdAt: "2026-01-01",
+                access: isRoot ? .owner : .contributor
             )
         )
     }
@@ -26,8 +27,13 @@ struct UserDetailReadyModelTests {
         let model = UserDetailReadyModel(from: ready())
         #expect(model.displayName == "Kaladin")
         #expect(model.email == "kaladin@example.com")
-        #expect(model.role == "member")
+        #expect(model.userId == "u1")
         #expect(model.isProtected == false)
+    }
+
+    @Test func accessLabelCarriesAcross() {
+        #expect(UserDetailReadyModel(from: ready()).access == .contributor)
+        #expect(UserDetailReadyModel(from: ready(isRoot: true)).access == .owner)
     }
 
     @Test func theOwnerIsProtected() {

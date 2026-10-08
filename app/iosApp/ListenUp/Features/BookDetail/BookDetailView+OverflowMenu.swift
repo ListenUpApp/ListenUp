@@ -35,22 +35,26 @@ extension BookDetailView {
     private var fullOverflowMenu: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button {
-                    showEdit = true
-                } label: {
-                    Label(String(localized: "book.detail_edit_book"), systemImage: "pencil")
-                }
+                // Editing, the chapter editor and Match all change the book's metadata: shown only to
+                // those with Edit metadata, so nothing is offered that the server would refuse.
+                if observer?.canEditMetadata == true {
+                    Button {
+                        showEdit = true
+                    } label: {
+                        Label(String(localized: "book.detail_edit_book"), systemImage: "pencil")
+                    }
 
-                Button {
-                    showChapterEditor = true
-                } label: {
-                    Label(String(localized: "chapter_editor.title"), systemImage: "list.bullet.indent")
-                }
+                    Button {
+                        showChapterEditor = true
+                    } label: {
+                        Label(String(localized: "chapter_editor.title"), systemImage: "list.bullet.indent")
+                    }
 
-                Button {
-                    matchTarget = BookMatchTarget(bookId: bookId)
-                } label: {
-                    Label(String(localized: "match.menu_item"), systemImage: "sparkles")
+                    Button {
+                        matchTarget = BookMatchTarget(bookId: bookId)
+                    } label: {
+                        Label(String(localized: "match.menu_item"), systemImage: "sparkles")
+                    }
                 }
 
                 Button {
