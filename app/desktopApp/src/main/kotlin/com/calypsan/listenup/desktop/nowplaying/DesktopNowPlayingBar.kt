@@ -75,9 +75,7 @@ fun DesktopNowPlayingBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 when (state) {
-                    is NowPlayingState.Idle -> {
-                        Unit
-                    }
+                    is NowPlayingState.Idle -> {}
 
                     is NowPlayingState.Active -> {
                         BarCover(

@@ -12,7 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.core.AndroidFileSource
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.core.IODispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -71,7 +71,7 @@ fun rememberUploadFolderPicker(onPicked: (List<UploadCandidate>) -> Unit): () ->
             // can take 10-100ms each — comfortably an ANR if this ran where the result callback
             // lands, which is the main thread.
             scope.launch {
-                val candidates = withContext(Dispatchers.IO) { context.contentResolver.candidatesUnderTree(treeUri) }
+                val candidates = withContext(IODispatcher) { context.contentResolver.candidatesUnderTree(treeUri) }
                 onPicked(candidates)
             }
         }
@@ -166,17 +166,17 @@ private fun ContentResolver.childrenOf(
             null
         } ?: return emptyList()
 
-    return cursor.use {
+    return cursor.use { rows ->
         buildList {
-            while (it.moveToNext()) {
-                val childId = it.getString(0) ?: continue
-                val name = it.getString(1) ?: continue
+            while (rows.moveToNext()) {
+                val childId = rows.getString(0) ?: continue
+                val name = rows.getString(1) ?: continue
                 add(
                     TreeChild(
                         documentId = childId,
                         name = name,
-                        isDirectory = it.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR,
-                        size = if (it.isNull(3)) null else it.getLong(3),
+                        isDirectory = rows.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR,
+                        size = if (rows.isNull(3)) null else rows.getLong(3),
                     ),
                 )
             }
@@ -190,5 +190,4 @@ private fun Cursor.stringOrNull(column: String): String? =
 private fun Cursor.longOrNull(column: String): Long? =
     getColumnIndex(column)
         .takeIf { it >= 0 && !isNull(it) }
-        ?.let { getLong(it) }
-        ?.takeIf { it > 0 }
+        ?.let { index -> getLong(index).takeIf { it > 0 } }

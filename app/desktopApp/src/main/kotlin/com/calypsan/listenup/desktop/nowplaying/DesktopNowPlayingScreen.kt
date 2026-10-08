@@ -67,11 +67,12 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.WavySeekBar
+import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
+import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -129,14 +130,24 @@ fun DesktopNowPlayingScreen(
                     onSetSpeed = onSetSpeed,
                     onClose = onClose,
                     onBackClick = onBackClick,
-                    onGoToBook = onGoToBook,
-                    onGoToSeries = onGoToSeries,
-                    onGoToContributor = onGoToContributor,
+                    links =
+                        NowPlayingLinks(
+                            onGoToBook = onGoToBook,
+                            onGoToSeries = onGoToSeries,
+                            onGoToContributor = onGoToContributor,
+                        ),
                 )
             }
         }
     }
 }
+
+/** Where the player's overflow menu can lead; a null destination is left out of the menu. */
+private data class NowPlayingLinks(
+    val onGoToBook: (() -> Unit)?,
+    val onGoToSeries: ((String) -> Unit)?,
+    val onGoToContributor: ((String) -> Unit)?,
+)
 
 @Composable
 private fun IdleScreen(onBackClick: () -> Unit) {
@@ -177,9 +188,11 @@ private fun ErrorScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            if (state.title != null) {
+            state.title?.let { title ->
+                // Desktop is frozen and cannot reach sharedUI's internal Res; this copy was already baselined.
+                @Suppress("NoHardcodedUiString")
                 Text(
-                    text = "Failed to play ${state.title}",
+                    text = "Failed to play $title",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
@@ -210,9 +223,7 @@ private fun ActiveScreen(
     onSetSpeed: (Float) -> Unit,
     onClose: () -> Unit,
     onBackClick: () -> Unit,
-    onGoToBook: (() -> Unit)?,
-    onGoToSeries: ((String) -> Unit)?,
-    onGoToContributor: ((String) -> Unit)?,
+    links: NowPlayingLinks,
 ) {
     // Ambient glow uses the app's theme accent (no per-cover color extraction).
     val dominantColor = MaterialTheme.colorScheme.primary
@@ -283,9 +294,7 @@ private fun ActiveScreen(
                 onSetSpeed = onSetSpeed,
                 onClose = onClose,
                 onBackClick = onBackClick,
-                onGoToBook = onGoToBook,
-                onGoToSeries = onGoToSeries,
-                onGoToContributor = onGoToContributor,
+                links = links,
             )
         } else {
             TallLayout(
@@ -300,9 +309,7 @@ private fun ActiveScreen(
                 onSetSpeed = onSetSpeed,
                 onClose = onClose,
                 onBackClick = onBackClick,
-                onGoToBook = onGoToBook,
-                onGoToSeries = onGoToSeries,
-                onGoToContributor = onGoToContributor,
+                links = links,
             )
         }
     }
@@ -323,9 +330,7 @@ private fun TallLayout(
     onSetSpeed: (Float) -> Unit,
     onClose: () -> Unit,
     onBackClick: () -> Unit,
-    onGoToBook: (() -> Unit)?,
-    onGoToSeries: ((String) -> Unit)?,
-    onGoToContributor: ((String) -> Unit)?,
+    links: NowPlayingLinks,
 ) {
     Column(
         modifier =
@@ -337,9 +342,7 @@ private fun TallLayout(
             state = state,
             onBackClick = onBackClick,
             onClose = onClose,
-            onGoToBook = onGoToBook,
-            onGoToSeries = onGoToSeries,
-            onGoToContributor = onGoToContributor,
+            links = links,
         )
 
         Spacer(Modifier.height(16.dp))
@@ -417,9 +420,7 @@ private fun WideLayout(
     onSetSpeed: (Float) -> Unit,
     onClose: () -> Unit,
     onBackClick: () -> Unit,
-    onGoToBook: (() -> Unit)?,
-    onGoToSeries: ((String) -> Unit)?,
-    onGoToContributor: ((String) -> Unit)?,
+    links: NowPlayingLinks,
 ) {
     Row(
         modifier =
@@ -454,9 +455,7 @@ private fun WideLayout(
                 state = state,
                 onBackClick = onBackClick,
                 onClose = onClose,
-                onGoToBook = onGoToBook,
-                onGoToSeries = onGoToSeries,
-                onGoToContributor = onGoToContributor,
+                links = links,
             )
 
             TitleSection(
@@ -497,9 +496,7 @@ private fun TopBar(
     state: NowPlayingState.Active,
     onBackClick: () -> Unit,
     onClose: () -> Unit,
-    onGoToBook: (() -> Unit)?,
-    onGoToSeries: ((String) -> Unit)?,
-    onGoToContributor: ((String) -> Unit)?,
+    links: NowPlayingLinks,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -514,7 +511,7 @@ private fun TopBar(
 
         Row {
             // Overflow menu (only if navigation callbacks provided)
-            if (onGoToBook != null || onGoToSeries != null || onGoToContributor != null) {
+            if (links.onGoToBook != null || links.onGoToSeries != null || links.onGoToContributor != null) {
                 Box {
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "More options")
@@ -523,9 +520,9 @@ private fun TopBar(
                         expanded = showMenu,
                         onDismiss = { showMenu = false },
                         state = state,
-                        onGoToBook = onGoToBook,
-                        onGoToSeries = onGoToSeries,
-                        onGoToContributor = onGoToContributor,
+                        onGoToBook = links.onGoToBook,
+                        onGoToSeries = links.onGoToSeries,
+                        onGoToContributor = links.onGoToContributor,
                         onClose = onClose,
                     )
                 }
@@ -718,12 +715,12 @@ private fun SeekSection(
             val positionMs = progress().chapterPositionMs
             val durationMs = progress().chapterDurationMs
             Text(
-                text = formatPlaybackTime(positionMs.milliseconds),
+                text = positionMs.milliseconds.formatPlaybackTime(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = "-${formatPlaybackTime((durationMs - positionMs).coerceAtLeast(0).milliseconds)}",
+                text = "-${(durationMs - positionMs).coerceAtLeast(0).milliseconds.formatPlaybackTime()}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -842,13 +839,6 @@ private const val MIN_SPEED = 0.5f
 private const val MAX_SPEED = 3.0f
 private const val SPEED_STEP = 0.05f
 
-private fun formatSpeed(speed: Float): String =
-    if (speed == speed.toInt().toFloat()) {
-        "${speed.toInt()}.0x"
-    } else {
-        "${"%.2f".format(speed).trimEnd('0').trimEnd('.')}x"
-    }
-
 private fun snapSpeed(speed: Float): Float = (speed / SPEED_STEP).roundToInt() * SPEED_STEP
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -868,7 +858,7 @@ private fun SecondaryControls(
             FilledTonalButton(onClick = { showPopup = true }) {
                 Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(formatSpeed(playbackSpeed), style = MaterialTheme.typography.labelLarge)
+                Text(formatPlaybackSpeed(playbackSpeed), style = MaterialTheme.typography.labelLarge)
             }
 
             if (showPopup) {
@@ -891,7 +881,7 @@ private fun SecondaryControls(
                             Spacer(Modifier.height(16.dp))
 
                             Text(
-                                formatSpeed(sliderSpeed),
+                                formatPlaybackSpeed(sliderSpeed),
                                 style = MaterialTheme.typography.displaySmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -936,7 +926,7 @@ private fun SecondaryControls(
                                             sliderSpeed = preset
                                             onSpeedClick(preset)
                                         },
-                                        label = { Text(formatSpeed(preset)) },
+                                        label = { Text(formatPlaybackSpeed(preset)) },
                                     )
                                 }
                             }
@@ -947,7 +937,9 @@ private fun SecondaryControls(
                                     sliderSpeed = 1.0f
                                     onSpeedClick(1.0f)
                                 }) {
-                                    Text("Reset to ${formatSpeed(1.0f)}")
+                                    // Desktop is frozen and cannot reach sharedUI's internal Res; this copy was already baselined.
+                                    @Suppress("NoHardcodedUiString")
+                                    Text("Reset to ${formatPlaybackSpeed(1.0f)}")
                                 }
                             }
                         }
@@ -955,19 +947,5 @@ private fun SecondaryControls(
                 }
             }
         }
-    }
-}
-
-// --- Helpers ---
-
-private fun formatPlaybackTime(duration: Duration): String {
-    val hours = duration.inWholeHours
-    val minutes = duration.inWholeMinutes % 60
-    val seconds = duration.inWholeSeconds % 60
-
-    return if (hours > 0) {
-        "%d:%02d:%02d".format(hours, minutes, seconds)
-    } else {
-        "%d:%02d".format(minutes, seconds)
     }
 }

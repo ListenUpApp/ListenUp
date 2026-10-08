@@ -8,6 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -24,6 +27,7 @@ import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.desktop.DesktopApp
 import com.calypsan.listenup.desktop.tray.ListenUpTray
+import org.jetbrains.skia.Image
 import org.koin.compose.koinInject
 
 /**
@@ -56,9 +60,7 @@ fun ListenUpWindow(
         visible = isVisible,
         title = "ListenUp",
         state = state,
-        icon =
-            androidx.compose.ui.res
-                .painterResource("icon.png"),
+        icon = remember { BitmapPainter(loadWindowIcon()) },
     ) {
         val localPreferences: LocalPreferences = koinInject()
         val themeMode by localPreferences.themeMode.collectAsStateWithLifecycle()
@@ -122,4 +124,13 @@ private fun handleMediaKey(
             false
         }
     }
+}
+
+/** The window icon, decoded from `icon.png` on the classpath (`src/main/resources`). */
+private fun loadWindowIcon(): ImageBitmap {
+    val stream =
+        checkNotNull(Thread.currentThread().contextClassLoader.getResourceAsStream("icon.png")) {
+            "icon.png is missing from the desktop resources"
+        }
+    return stream.use { Image.makeFromEncoded(it.readBytes()).toComposeImageBitmap() }
 }

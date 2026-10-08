@@ -169,14 +169,12 @@ internal fun peopleCount(count: Int): String =
 @Composable
 internal fun PersonCandidateUi.roleLine(): String {
     val works =
-        knownWorks.takeIf { it.isNotEmpty() }?.take(KNOWN_WORKS_SHOWN)?.joinToString(", ")
-            ?: worksCount?.let {
-                if (it ==
-                    1
-                ) {
+        knownWorks.takeIf { it.isNotEmpty() }?.run { take(KNOWN_WORKS_SHOWN).joinToString(", ") }
+            ?: worksCount?.let { count ->
+                if (count == 1) {
                     stringResource(Res.string.match_works_count_one)
                 } else {
-                    stringResource(Res.string.match_works_count, it)
+                    stringResource(Res.string.match_works_count, count)
                 }
             }
     return listOfNotNull(shownRole?.let { roleName(it) }, works).joinToString(DOT)

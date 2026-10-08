@@ -12,8 +12,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
@@ -70,7 +71,11 @@ internal fun CompareSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState =
+            rememberBottomSheetState(
+                initialValue = SheetValue.Hidden,
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+            ),
     ) {
         Column(
             modifier =
@@ -162,7 +167,7 @@ private fun CompareTable(
         val worldwide = stringResource(Res.string.match_worldwide)
         CompareRow(
             label = stringResource(Res.string.match_row_store),
-            yours = region?.region?.displayName ?: notListed,
+            yours = region?.run { this.region.displayName } ?: notListed,
             theirs =
                 candidate.foundIn
                     .firstNotNullOfOrNull { it.region }
@@ -228,9 +233,9 @@ private fun CompareRow(
         Text(yours, style = style, modifier = Modifier.weight(1.2f))
         Column(modifier = Modifier.weight(1.2f)) {
             Text(theirs, style = style, fontWeight = if (header) null else FontWeight.Medium)
-            note?.let {
+            note?.let { noteText ->
                 Text(
-                    it,
+                    text = noteText,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )

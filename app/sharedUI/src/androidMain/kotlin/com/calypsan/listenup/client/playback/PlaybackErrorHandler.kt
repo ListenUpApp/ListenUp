@@ -62,35 +62,35 @@ class PlaybackErrorHandler(
     /**
      * Classifies errors into actionable categories.
      */
-    sealed class ClassifiedError {
+    sealed interface ClassifiedError {
         // Retryable - ExoPlayer handles internally, we just wait
         data class Network(
             val message: String,
-        ) : ClassifiedError()
+        ) : ClassifiedError
 
         // Retryable once - refresh token, retry request
         data class AuthExpired(
             val message: String,
-        ) : ClassifiedError()
+        ) : ClassifiedError
 
         // Not retryable - user action required
         data class NotFound(
             val message: String,
-        ) : ClassifiedError()
+        ) : ClassifiedError
 
         data class Codec(
             val message: String,
-        ) : ClassifiedError()
+        ) : ClassifiedError
 
         // Stuck player - Media3 1.9.0 detects when playback is stuck
         // Triggers after 10 min buffering, 10s ready with no progress, etc.
         data class Stuck(
             val message: String,
-        ) : ClassifiedError()
+        ) : ClassifiedError
 
         data class Unknown(
             val cause: Throwable,
-        ) : ClassifiedError()
+        ) : ClassifiedError
     }
 
     /**

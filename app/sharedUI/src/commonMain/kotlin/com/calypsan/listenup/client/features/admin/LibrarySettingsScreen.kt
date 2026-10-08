@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
@@ -99,8 +98,8 @@ fun LibrarySettingsScreen(
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? LibrarySettingsUiState.Ready)?.error
     LaunchedEffect(readyError) {
-        readyError?.let {
-            snackbarHostState.showSnackbar(it.localizedString())
+        readyError?.let { error ->
+            snackbarHostState.showSnackbar(error.localizedString())
             viewModel.clearError()
         }
     }

@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.features.match.MatchReceiptHost
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
@@ -1071,7 +1070,7 @@ private fun BookDownloadStatus.downloadedOrTotalBytes(): Long =
         is BookDownloadStatus.Completed -> totalBytes
         is BookDownloadStatus.InProgress -> downloadedBytes
         is BookDownloadStatus.Paused -> downloadedBytes
-        else -> 0L
+        is BookDownloadStatus.NotDownloaded, is BookDownloadStatus.Failed -> 0L
     }
 
 /**
@@ -1098,7 +1097,7 @@ fun BookDetailScanWarning(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Default.Warning,
+                imageVector = Icons.Default.Warning,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onErrorContainer,

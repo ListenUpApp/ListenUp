@@ -269,7 +269,7 @@ private fun FlowHero(
             is ImportFlowUiState.Review -> STEP_REVIEW
             is ImportFlowUiState.Applying -> STEP_APPLY
             is ImportFlowUiState.Done -> STEP_DONE
-            else -> null
+            is ImportFlowUiState.Idle, is ImportFlowUiState.Error -> null
         }
     val steps =
         listOf(
@@ -285,11 +285,11 @@ private fun FlowHero(
         modifier = Modifier.fillMaxWidth(),
         overline = stringResource(Res.string.import_flow_eyebrow),
         content =
-            step?.let {
+            step?.let { currentStep ->
                 {
                     WizardStepTracker(
                         steps = steps,
-                        currentStep = it,
+                        currentStep = currentStep,
                         accent = MaterialTheme.colorScheme.primary,
                         ink = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.padding(end = 20.dp),

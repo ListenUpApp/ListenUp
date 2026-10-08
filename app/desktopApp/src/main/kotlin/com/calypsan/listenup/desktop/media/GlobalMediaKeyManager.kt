@@ -21,7 +21,7 @@ private val logger = KotlinLogging.logger {}
  * Call [start] to begin listening and [stop] to clean up.
  */
 class GlobalMediaKeyManager(
-    private val nowPlayingViewModel: NowPlayingViewModel,
+    nowPlayingViewModel: NowPlayingViewModel,
 ) {
     private var isRegistered = false
 

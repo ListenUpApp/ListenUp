@@ -45,7 +45,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.HeldLabel
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
@@ -94,7 +93,6 @@ fun StorageScreen(
     onNavigateBack: () -> Unit,
     viewModel: StorageViewModel = koinViewModel(),
 ) {
-    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     // Handle delete confirmation dialogs

@@ -139,7 +139,12 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
         )
     }
     chapterEditorEntry(backStack)
-    bulkEditEntry(backStack, scope, snackbarHostState, pendingSelectionExit)
+    bulkEditEntry(
+        backStack = backStack,
+        scope = scope,
+        snackbarHostState = snackbarHostState,
+        pendingSelectionExit = pendingSelectionExit,
+    )
 }
 
 /** The chapter editor entry, split out to keep [bookEntries] within the method-length limit. */

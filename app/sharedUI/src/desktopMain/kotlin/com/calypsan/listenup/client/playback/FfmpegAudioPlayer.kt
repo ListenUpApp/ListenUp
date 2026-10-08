@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -92,9 +92,10 @@ class FfmpegAudioPlayer(
         audioLine?.flush()
         // Sync grabber to the last reported position (discard decoded-but-unplayed audio)
         val segment = segments.getOrNull(currentSegmentIndex)
-        if (segment != null && grabber != null) {
+        val currentGrabber = grabber
+        if (segment != null && currentGrabber != null) {
             val segmentOffset = positionMs.value - segment.offsetMs
-            grabber?.timestamp = segmentOffset * 1000
+            currentGrabber.timestamp = segmentOffset * 1000
         }
         state.value = PlaybackState.Paused
     }
@@ -247,7 +248,7 @@ class FfmpegAudioPlayer(
             throw e
         } catch (e: Exception) {
             logger.error(e) { "Failed to open segment $index" }
-            state.value = PlaybackState.Error(message = "Playback failed: ${e.message}")
+            state.value = PlaybackState.Error(message = "Playback failed: ${e.message ?: "unknown error"}")
         }
     }
 
@@ -312,7 +313,7 @@ class FfmpegAudioPlayer(
     private fun startDecodeLoop() {
         stopDecodeLoop()
         decodeJob =
-            scope.launch(Dispatchers.IO) {
+            scope.launch(IODispatcher) {
                 try {
                     this.decodeLoop()
                 } catch (e: CancellationException) {
@@ -320,7 +321,7 @@ class FfmpegAudioPlayer(
                 } catch (e: Exception) {
                     if (isActive) {
                         logger.error(e) { "Decode loop error" }
-                        state.value = PlaybackState.Error(message = "Playback failed: ${e.message}")
+                        state.value = PlaybackState.Error(message = "Playback failed: ${e.message ?: "unknown error"}")
                     }
                 }
             }
@@ -334,13 +335,15 @@ class FfmpegAudioPlayer(
         while (isActive) {
             val frame = currentGrabber.grabSamples() ?: break
 
-            if (frame.samples == null || frame.samples.isEmpty()) continue
+            if (frame.samples.isNullOrEmpty()) continue
 
             // Apply speed filter if active
+            // Snapshot the filter: setSpeed swaps it from another thread mid-loop.
+            val activeFilter = filter
             val outputFrame =
-                if (filter != null) {
-                    filter!!.push(frame)
-                    filter!!.pullSamples() ?: continue
+                if (activeFilter != null) {
+                    activeFilter.push(frame)
+                    activeFilter.pullSamples() ?: continue
                 } else {
                     frame
                 }

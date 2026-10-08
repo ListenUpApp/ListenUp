@@ -87,7 +87,7 @@ import listenup.composeapp.generated.resources.common_save
 import org.jetbrains.compose.resources.stringResource
 
 /** The screen's callbacks, threaded as one value instead of three lambdas. */
-internal class PermissionsActions(
+internal data class PermissionsActions(
     val onSelectPreset: (PermissionPreset) -> Unit,
     val onSetPermission: (Permission, Boolean) -> Unit,
     val onRequestRole: (UserRole) -> Unit,
@@ -121,7 +121,7 @@ fun UserPermissionsScreen(
         topBar = {
             ListenUpTopAppBar(
                 title = stringResource(Res.string.common_permissions),
-                subtitle = ready?.user?.displayableName,
+                subtitle = ready?.run { user.displayableName },
                 onBack = { if (ready?.hasChanges == true) confirmingDiscard = true else onBackClick() },
             )
         },

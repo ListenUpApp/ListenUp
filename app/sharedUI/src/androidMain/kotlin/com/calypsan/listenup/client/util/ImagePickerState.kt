@@ -54,7 +54,7 @@ class ImagePickerState(
             onResult(result)
         } catch (e: Exception) {
             logger.error(e) { "Failed to read image from URI: $uri" }
-            onResult(ImagePickerResult.Error("Failed to read image: ${e.message}"))
+            onResult(ImagePickerResult.Error("Failed to read image: ${e.message ?: "unknown error"}"))
         }
     }
 

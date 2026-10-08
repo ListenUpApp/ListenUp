@@ -90,10 +90,24 @@ internal fun HardcoverHistoryCard(
     onShowNeedsMatch: () -> Unit,
 ) {
     when (history) {
-        is HardcoverHistory.Offer -> OfferCard(books = history.bookCount, onSend = onSend, onNotNow = onDismiss)
-        is HardcoverHistory.Sending -> SendingCard(sent = history.sentBooks, total = history.totalBooks)
-        is HardcoverHistory.Done -> DoneCard(history.sentBooks, history.needsMatchBooks, onDismiss, onShowNeedsMatch)
-        HardcoverHistory.None, is HardcoverHistory.Available -> Unit
+        is HardcoverHistory.Offer -> {
+            OfferCard(books = history.bookCount, onSend = onSend, onNotNow = onDismiss)
+        }
+
+        is HardcoverHistory.Sending -> {
+            SendingCard(sent = history.sentBooks, total = history.totalBooks)
+        }
+
+        is HardcoverHistory.Done -> {
+            DoneCard(
+                sent = history.sentBooks,
+                needsMatch = history.needsMatchBooks,
+                onDismiss = onDismiss,
+                onShowNeedsMatch = onShowNeedsMatch,
+            )
+        }
+
+        HardcoverHistory.None, is HardcoverHistory.Available -> {}
     }
 }
 

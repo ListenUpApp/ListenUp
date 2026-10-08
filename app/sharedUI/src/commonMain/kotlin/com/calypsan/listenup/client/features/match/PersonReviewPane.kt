@@ -141,7 +141,14 @@ internal fun PersonReviewPane(
                 PersonReviewUiState.NoneChosen -> CenteredMessage(stringResource(Res.string.match_none_chosen))
                 is PersonReviewUiState.Loading -> ReviewLoading()
                 is PersonReviewUiState.Failed -> ReviewFailed(state.error, onRetry = { actions.pick(state.candidate.key) })
-                is PersonReviewUiState.Ready -> PersonReviewContent(state, contributorId, header, viewerId, actions)
+                is PersonReviewUiState.Ready ->
+                    PersonReviewContent(
+                        ready = state,
+                        contributorId = contributorId,
+                        header = header,
+                        viewerId = viewerId,
+                        actions = actions,
+                    )
             }
         }
     }
@@ -212,9 +219,9 @@ private fun PersonReviewHeader(candidate: PersonCandidateUi) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            candidate.libraryLine()?.let {
+            candidate.libraryLine()?.let { libraryLine ->
                 Text(
-                    text = it,
+                    text = libraryLine,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
                     color =
@@ -339,9 +346,9 @@ private fun PhotoTile(
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             )
         }
-        detail?.let {
+        detail?.let { detailText ->
             Text(
-                it,
+                text = detailText,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -418,7 +425,7 @@ private fun BiographyTick(
             when (biography.state) {
                 FieldState.FILLS_GAP -> Res.string.match_section_fills_gap
                 FieldState.USER_EDITED -> Res.string.match_you_edited_flag
-                else -> Res.string.match_section_changes
+                FieldState.CHANGES, FieldState.SAME -> Res.string.match_section_changes
             },
         )
     val fromSource = stringResource(Res.string.match_from_source, source)

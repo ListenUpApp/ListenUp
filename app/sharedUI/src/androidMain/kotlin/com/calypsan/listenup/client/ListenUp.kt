@@ -16,6 +16,7 @@ import androidx.work.WorkManager
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.ImageLoaderFactory
 import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
@@ -74,7 +75,6 @@ import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -135,7 +135,7 @@ internal fun checkCriticalKoinBindings(resolvers: List<Pair<String, () -> Unit>>
         } catch (e: Exception) {
             throw IllegalStateException(
                 "Koin verification failed for $name. Check your module configuration.\n" +
-                    "Error: ${e.message}",
+                    "Error: ${e.message ?: "unknown error"}",
                 e,
             )
         }
@@ -170,7 +170,7 @@ val androidModule =
                 // Reads the synced admin roster (Room first) — the recipient is an admin, so the
                 // pending user is already mirrored locally and the name never crosses the relay.
                 pendingUserNameLookup = { id ->
-                    (adminRepository.getUser(id) as? AppResult.Success)?.data?.displayName
+                    (adminRepository.getUser(id) as? AppResult.Success)?.run { data.displayName }
                 },
             )
         }
@@ -206,7 +206,7 @@ val playbackModule =
 
         // Application-scoped coroutine for progress tracking
         single(createdAtStart = false) {
-            CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            CoroutineScope(SupervisorJob() + IODispatcher)
         }
 
         // Audio token provider — the shared core (bound in androidPlaybackModule) wrapped by the
@@ -239,7 +239,7 @@ val playbackModule =
             val userDeviceName =
                 Settings.Global
                     .getString(context.contentResolver, Settings.Global.DEVICE_NAME)
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf { name -> name.isNotBlank() }
                     ?.take(DEVICE_FIELD_MAX)
             DeviceInfoProvider {
                 DeviceInfo(
@@ -439,7 +439,7 @@ class ListenUp :
         // that must exist before anything else can run. Fail-fast is intentional and preserved:
         // any exception is re-thrown on the main thread so the process terminates immediately
         // and visibly — a misconfigured build must never silently continue.
-        get<CoroutineScope>().launch(Dispatchers.Default) {
+        get<CoroutineScope>().launch {
             runCatching { verifyCriticalKoinBindings() }.onFailure { failure ->
                 if (failure is CancellationException) throw failure
                 Handler(Looper.getMainLooper()).post { throw failure }
@@ -494,8 +494,8 @@ class ListenUp :
                 logger.info {
                     "ProfilingManager result: errorCode=${result.errorCode} " +
                         "triggerType=${result.triggerType} " +
-                        "tag=${result.tag} " +
-                        "resultFilePath=${result.resultFilePath}"
+                        "tag=${result.tag ?: "none"} " +
+                        "resultFilePath=${result.resultFilePath ?: "none"}"
                 }
             }
         }.onFailure { t ->
@@ -525,7 +525,9 @@ class ListenUp :
                         description?.contains("memory", ignoreCase = true) == true
                 if (isMemoryRelated) {
                     logger.info {
-                        "Historical exit: reason=${exitReasonName(record.reason)} description=$description " +
+                        "Historical exit: reason=${exitReasonName(
+                            record.reason,
+                        )} description=${description ?: "none"} " +
                             "pss=${record.pss}kB rss=${record.rss}kB"
                     }
                 }

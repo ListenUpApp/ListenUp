@@ -44,9 +44,7 @@ fun GlobalErrorSnackbar(
     LaunchedEffect(errorBus, onRetry, canRetry) {
         errorBus.errors.collect { error ->
             logger.warn { error.diagnosticLogLine() }
-            if (error.debugInfo != null) {
-                logger.debug { "Debug: ${error.debugInfo}" }
-            }
+            error.debugInfo?.let { debugInfo -> logger.debug { "Debug: $debugInfo" } }
 
             val offerRetry = onRetry != null && canRetry(error)
             val result =
@@ -57,7 +55,7 @@ fun GlobalErrorSnackbar(
                 )
 
             if (result == SnackbarResult.ActionPerformed && offerRetry) {
-                onRetry?.invoke(error)
+                onRetry(error)
             }
         }
     }

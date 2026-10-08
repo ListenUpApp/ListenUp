@@ -104,8 +104,8 @@ fun SetupScreen(
                     is SetupErrorType.AlreadyConfigured -> "Server is already configured."
                     is SetupErrorType.ValidationError -> null // Handled inline.
                 }
-            message?.let {
-                snackbarHostState.showSnackbar(it)
+            message?.let { text ->
+                snackbarHostState.showSnackbar(text)
                 viewModel.clearError()
             }
         }
@@ -154,7 +154,12 @@ fun RegisterScreen(
         isLoading = state is RegisterUiState.Loading,
         validationField = null,
         onSubmit = { firstName, lastName, email, password, _ ->
-            viewModel.onRegisterSubmit(email, password, firstName, lastName)
+            viewModel.onRegisterSubmit(
+                email = email,
+                password = password,
+                firstName = firstName,
+                lastName = lastName,
+            )
         },
         onBack = onBackClick,
         snackbarHostState = snackbarHostState,

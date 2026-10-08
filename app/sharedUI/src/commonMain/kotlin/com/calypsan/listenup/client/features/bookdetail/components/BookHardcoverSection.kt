@@ -97,6 +97,8 @@ private val ActionMinHeight = 48.dp
 @Composable
 fun BookHardcoverSection(
     bookId: String,
+    // Nullable on purpose: null hides the section.
+    @Suppress("CanBeNonNullable")
     onFindMatch: ((bookId: String) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -164,9 +166,7 @@ internal fun BookHardcoverContent(
                 onCheckedChange = { on -> if (!on && removes != null) asking = true else onSetSynced(on) },
             )
             when (state) {
-                BookHardcoverUiState.Hidden -> {
-                    Unit
-                }
+                BookHardcoverUiState.Hidden -> {}
 
                 // A book never matched says so quietly, so the switch's "on" doesn't read as "syncing" (#1562).
                 BookHardcoverUiState.Unmatched -> {
@@ -222,13 +222,13 @@ private fun SyncSwitchRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            if (isOn) Icons.Outlined.Link else Icons.Outlined.LinkOff,
+            imageVector = if (isOn) Icons.Outlined.Link else Icons.Outlined.LinkOff,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(SwitchGlyphSize),
         )
         Text(
-            stringResource(Res.string.hardcover_keep_off_switch),
+            text = stringResource(Res.string.hardcover_keep_off_switch),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
@@ -264,7 +264,7 @@ private fun KeepOffRemoves.confirmBody(): StringResource =
 private fun NeedsMatchBody(onFindMatch: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text(
-            stringResource(Res.string.hardcover_book_row_needs_match),
+            text = stringResource(Res.string.hardcover_book_row_needs_match),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.semantics { heading() },
@@ -291,7 +291,7 @@ private fun LinkedBody(
     val haptics = LocalHaptics.current
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
-            state.match.title ?: stringResource(Res.string.hardcover_book_row_matched_unnamed),
+            text = state.match.title ?: stringResource(Res.string.hardcover_book_row_matched_unnamed),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.semantics { heading() },
@@ -337,9 +337,9 @@ private fun SyncStatus(state: BookHardcoverUiState.Linked) {
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(StatusIconSize))
+        Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(StatusIconSize))
         Text(
-            stringResource(text),
+            text = stringResource(text),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
             color = color,
@@ -408,8 +408,8 @@ private fun TonalAction(
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ),
     ) {
-        icon?.let {
-            Icon(it, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+        icon?.let { leadingIcon ->
+            Icon(leadingIcon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
         }
         Text(text, fontWeight = FontWeight.SemiBold)

@@ -55,7 +55,7 @@ fun ChangedElsewhereBanner(modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            Icons.Outlined.Sync,
+            imageVector = Icons.Outlined.Sync,
             contentDescription = null,
             tint = colors.onTertiaryContainer,
             modifier = Modifier.size(ICON_SIZE),

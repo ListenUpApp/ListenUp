@@ -4,9 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
+import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.awt.Frame
@@ -45,7 +45,7 @@ private class DesktopImagePicker(
     private val scope: CoroutineScope,
 ) : ImagePicker {
     override fun launch() {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(IODispatcher) {
             try {
                 var directory: String? = null
                 var filename: String? = null
@@ -101,7 +101,7 @@ private class DesktopImagePicker(
                 )
             } catch (e: Exception) {
                 logger.error(e) { "Failed to pick image" }
-                onResult(ImagePickerResult.Error("Failed to pick image: ${e.message}"))
+                onResult(ImagePickerResult.Error("Failed to pick image: ${e.message ?: "unknown error"}"))
             }
         }
     }

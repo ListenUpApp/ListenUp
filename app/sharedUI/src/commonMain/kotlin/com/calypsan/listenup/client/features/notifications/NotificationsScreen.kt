@@ -39,7 +39,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.notifications.NotificationEvent
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.design.components.ContentRow
@@ -80,7 +79,6 @@ fun NotificationsScreen(
     modifier: Modifier = Modifier,
     viewModel: NotificationsViewModel = koinViewModel(),
 ) {
-    val haptics = LocalHaptics.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     ListenUpScaffold(

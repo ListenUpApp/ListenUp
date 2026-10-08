@@ -273,8 +273,12 @@ private fun LabeledSwitch(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier =
             modifier
-                .switchRow(checked = checked, haptics = haptics, enabled = enabled, onCheckedChange)
-                .semantics { contentDescription = description },
+                .switchRow(
+                    checked = checked,
+                    haptics = haptics,
+                    enabled = enabled,
+                    onCheckedChange = onCheckedChange,
+                ).semantics { contentDescription = description },
     ) {
         Text(
             text = label,

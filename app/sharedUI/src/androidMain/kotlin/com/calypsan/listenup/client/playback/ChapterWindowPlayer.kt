@@ -105,7 +105,9 @@ class ChapterWindowPlayer(
      * discontinuity. See the "Invalidation" section of the class KDoc for when this is needed
      * beyond [ForwardingSimpleBasePlayer]'s automatic invalidation.
      */
-    fun invalidate() = invalidateState()
+    fun invalidate() {
+        invalidateState()
+    }
 
     override fun getState(): State {
         val baseState = super.getState()
@@ -113,8 +115,16 @@ class ChapterWindowPlayer(
 
         return baseState
             .buildUpon()
-            .setPlaylist(listOf(chapterMediaItemData(baseState, context.window, context.chapters, player)))
-            .setCurrentMediaItemIndex(0)
+            .setPlaylist(
+                listOf(
+                    chapterMediaItemData(
+                        baseState = baseState,
+                        window = context.window,
+                        chapters = context.chapters,
+                        underlyingPlayer = player,
+                    ),
+                ),
+            ).setCurrentMediaItemIndex(0)
             .setContentPositionMs(windowPositionSupplier(context.window))
             .setAvailableCommands(baseState.availableCommands.withChapterSeekCommands(context.chapters, context.window))
             .build()
@@ -197,7 +207,12 @@ class ChapterWindowPlayer(
         val chapters = chaptersProvider()
         val bookPositionMs = timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
         val window = currentChapterWindow(chapters, bookPositionMs, timeline.totalDurationMs)
-        return ChapterSeekContext(chapters, bookPositionMs, window, timeline)
+        return ChapterSeekContext(
+            chapters = chapters,
+            bookPositionMs = bookPositionMs,
+            window = window,
+            timeline = timeline,
+        )
     }
 
     /** Builds the single [SimpleBasePlayer.MediaItemData] representing [window]. */

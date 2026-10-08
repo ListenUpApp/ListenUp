@@ -199,7 +199,11 @@ internal fun HardcoverSettingsContent(
             NotOfferedNote(modifier = modifier)
         }
 
-        else -> {
+        is HardcoverSettingsUiState.NotConnected,
+        is HardcoverSettingsUiState.Linking,
+        is HardcoverSettingsUiState.Connected,
+        is HardcoverSettingsUiState.Broken,
+        -> {
             // One call site for every live phase, so the lead region's node survives a phase change
             // and its live region announces the new phase — "Connected, simon" the moment the user
             // approves on another device.
@@ -228,7 +232,7 @@ internal fun HardcoverSettingsContent(
  * supports it, and [actions] are the phase's buttons, primary first. When [leadIsBleedingHero], the
  * lead opens with a full-width hero band that draws its own edge, so the layout gives it no margin.
  */
-internal class HardcoverPhase(
+internal data class HardcoverPhase(
     val lead: @Composable ColumnScope.() -> Unit,
     val detail: (@Composable ColumnScope.() -> Unit)?,
     val actions: @Composable ColumnScope.() -> Unit,

@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.util.Locale
 import kotlinx.coroutines.flow.first
 
 private val logger = KotlinLogging.logger {}
@@ -110,10 +111,10 @@ class BrowseTreeProvider(
 
             BrowseTree.LIBRARY -> {
                 createBrowsableItem(
-                    BrowseTree.LIBRARY,
-                    copy.carLibrary,
-                    MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
-                    childStyleExtras(playableAsGrid = true),
+                    mediaId = BrowseTree.LIBRARY,
+                    title = copy.carLibrary,
+                    mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                    childStyle = childStyleExtras(playableAsGrid = true),
                 )
             }
 
@@ -340,8 +341,9 @@ class BrowseTreeProvider(
                 MediaMetadata
                     .Builder()
                     .setTitle(book.title)
-                    .setSubtitle(copy.carBookSubtitle.format(book.authorNames, book.timeRemainingFormatted))
-                    .setArtist(book.authorNames)
+                    .setSubtitle(
+                        copy.carBookSubtitle.format(Locale.getDefault(), book.authorNames, book.timeRemainingFormatted),
+                    ).setArtist(book.authorNames)
                     .setArtworkUri(CoverUri.forBook(packageName, book.bookId))
                     .setIsPlayable(true)
                     .setIsBrowsable(false)

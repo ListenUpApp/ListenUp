@@ -295,7 +295,7 @@ fun AppShell(
             onAdminClick = onAdminClick,
             onSettingsClick = onSettingsClick,
             onSignOutClick = signOutConfirmation::request,
-            onMyProfileClick = { user?.id?.value?.let(onUserProfileClick) },
+            onMyProfileClick = { user?.run { onUserProfileClick(id.value) } },
             unreadNotificationCount = unreadNotificationCount,
             onNotificationsClick = onNotificationsClick,
             onSyncIndicatorClick = { syncIndicatorViewModel.toggleExpanded() },

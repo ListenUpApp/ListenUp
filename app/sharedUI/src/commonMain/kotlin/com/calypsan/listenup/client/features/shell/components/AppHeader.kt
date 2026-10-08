@@ -310,9 +310,9 @@ private fun HeaderSearchField(
     }
     TextField(
         value = query,
-        onValueChange = {
-            onQueryChange(it)
-            onExpandedChange(it.isNotBlank())
+        onValueChange = { text ->
+            onQueryChange(text)
+            onExpandedChange(text.isNotBlank())
         },
         placeholder = { Text(stringResource(Res.string.common_search)) },
         leadingIcon = {
@@ -391,8 +391,11 @@ private fun SyncIndicator(
                 )
             }
 
-            else -> {
-                // Idle, Success - show nothing
+            SyncState.Idle,
+            is SyncState.Success,
+            is SyncState.LibraryMismatch,
+            -> {
+                // Idle, Success, LibraryMismatch - show nothing
             }
         }
 

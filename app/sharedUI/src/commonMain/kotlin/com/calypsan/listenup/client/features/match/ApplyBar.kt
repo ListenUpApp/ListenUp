@@ -67,21 +67,21 @@ internal fun ApplyArea(
 internal fun applySummaryText(summary: ApplySummary): String {
     val parts =
         listOfNotNull(
-            summary.fieldCount.takeIf { it > 0 }?.let {
-                if (it ==
+            summary.fieldCount.takeIf { it > 0 }?.let { fieldCount ->
+                if (fieldCount ==
                     1
                 ) {
                     stringResource(Res.string.match_bar_field_one)
                 } else {
-                    stringResource(Res.string.match_bar_fields, it)
+                    stringResource(Res.string.match_bar_fields, fieldCount)
                 }
             },
             stringResource(Res.string.match_bar_cover).takeIf { summary.coverChanges },
-            summary.chapterNameCount.takeIf { it > 0 }?.let {
-                if (it == 1) {
+            summary.chapterNameCount.takeIf { it > 0 }?.let { chapterNameCount ->
+                if (chapterNameCount == 1) {
                     stringResource(Res.string.match_bar_chapter_name_one)
                 } else {
-                    stringResource(Res.string.match_bar_chapter_names, it)
+                    stringResource(Res.string.match_bar_chapter_names, chapterNameCount)
                 }
             },
         )

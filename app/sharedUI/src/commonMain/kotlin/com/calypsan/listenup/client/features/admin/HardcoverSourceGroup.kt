@@ -204,7 +204,7 @@ private fun TokenEntry(
     var draft by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
     val busy = tokenSave == HardcoverTokenSave.Busy
-    val refusal = (tokenSave as? HardcoverTokenSave.Refused)?.error?.localized()
+    val refusal = (tokenSave as? HardcoverTokenSave.Refused)?.run { error.localized() }
     SectionSegment {
         Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             if (rejected) {
@@ -217,8 +217,8 @@ private fun TokenEntry(
             }
             ListenUpTextField(
                 value = draft,
-                onValueChange = {
-                    draft = it
+                onValueChange = { text ->
+                    draft = text
                     if (refusal != null) actions.onClearTokenError()
                 },
                 label = stringResource(Res.string.admin_hardcover_token_label),

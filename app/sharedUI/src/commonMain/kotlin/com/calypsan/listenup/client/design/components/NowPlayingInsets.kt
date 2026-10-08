@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
  * this one does not.
  */
 val LocalNowPlayingInsets: ProvidableCompositionLocal<WindowInsets> =
-    compositionLocalOf { WindowInsets(0, 0, 0, 0) }
+    compositionLocalOf { WindowInsets(left = 0, top = 0, right = 0, bottom = 0) }
 
 /**
  * The bottom clearance the mini-player requires, in dp. The bar's measured footprint when

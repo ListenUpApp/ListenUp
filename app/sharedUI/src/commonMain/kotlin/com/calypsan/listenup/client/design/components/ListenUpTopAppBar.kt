@@ -110,9 +110,9 @@ fun ListenUpTopAppBar(
                     onTextLayout = { titleLines = it.lineCount },
                     modifier = Modifier.semantics { heading() },
                 )
-                subtitle?.let {
+                subtitle?.let { subtitleText ->
                     Text(
-                        text = it,
+                        text = subtitleText,
                         style = subtitleStyle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

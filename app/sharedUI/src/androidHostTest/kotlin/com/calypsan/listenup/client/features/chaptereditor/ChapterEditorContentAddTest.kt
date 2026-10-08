@@ -50,11 +50,14 @@ class ChapterEditorContentAddTest {
                     selectedChapterId = null,
                     playheadMs = { playheadMs },
                     onSelect = {},
-                    onNudge = { _, _ -> },
-                    onSnapToPlayhead = {},
-                    onToggleLock = {},
+                    rowEdits =
+                        ChapterRowEdits(
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = {},
+                            onToggleLock = {},
+                            onEditTime = {},
+                        ),
                     rowMenu = ChapterRowMenuActions({}, {}, null, {}),
-                    onEditTime = {},
                     onAddAtPlayhead = onAddAtPlayhead,
                 )
             }

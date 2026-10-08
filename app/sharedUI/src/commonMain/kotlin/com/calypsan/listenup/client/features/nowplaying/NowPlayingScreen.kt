@@ -29,8 +29,10 @@ import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.foldable.LocalFold
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
-import kotlinx.coroutines.CancellationException
+import java.util.Locale
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration
 
 // Drag-to-dismiss: release past a third of the screen height collapses the player.
@@ -87,18 +89,20 @@ fun NowPlayingScreen(
     var presented by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { presented = true }
     PlatformPredictiveBackHandler(enabled = presented) { gesture ->
+        var committed = false
         try {
             gesture.collect { frame ->
                 backEdge = frame.edge
                 backProgress.snapTo(frame.progress)
             }
+            committed = true
             onCollapse()
-        } catch (cancellation: CancellationException) {
-            // Gesture abandoned — rewind the dismissal animation. On commit the
-            // screen is already exiting, so progress is intentionally left as-is
-            // to avoid a scale pop mid exit-transition.
-            backProgress.snapTo(0f)
-            throw cancellation
+        } finally {
+            // Gesture abandoned (the progress flow ends in cancellation) — rewind the dismissal
+            // animation, NonCancellable so the rewind still runs inside the cancelled handler. On
+            // commit the screen is already exiting, so progress is intentionally left as-is to
+            // avoid a scale pop mid exit-transition.
+            if (!committed) withContext(NonCancellable) { backProgress.snapTo(0f) }
         }
     }
 
@@ -314,8 +318,8 @@ fun Duration.formatPlaybackTime(): String {
     val seconds = inWholeSeconds % 60
 
     return if (hours > 0) {
-        "%d:%02d:%02d".format(hours, minutes, seconds)
+        "%d:%02d:%02d".format(Locale.getDefault(), hours, minutes, seconds)
     } else {
-        "%d:%02d".format(minutes, seconds)
+        "%d:%02d".format(Locale.getDefault(), minutes, seconds)
     }
 }

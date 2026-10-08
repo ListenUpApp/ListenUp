@@ -1,22 +1,15 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +42,6 @@ import listenup.composeapp.generated.resources.book_detail_narrated_by
 import listenup.composeapp.generated.resources.book_detail_other_authors
 import listenup.composeapp.generated.resources.book_detail_other_narrators
 import listenup.composeapp.generated.resources.book_detail_unabridged
-import listenup.composeapp.generated.resources.series_book_sequence
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.ui.semantics.heading

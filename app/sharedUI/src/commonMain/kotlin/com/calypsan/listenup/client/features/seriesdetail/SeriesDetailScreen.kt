@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.features.seriesdetail
 
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,28 +17,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -54,58 +35,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.design.LocalDeviceContext
-import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.design.components.FannedDeck
-import com.calypsan.listenup.client.design.components.FannedDeckCover
-import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.domain.model.BookListItem
-import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
 import com.calypsan.listenup.client.features.contributors.FullCastSheet
-import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_authors
 import listenup.composeapp.generated.resources.book_detail_cast_count_authors
-import listenup.composeapp.generated.resources.book_detail_other_authors
-import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.series_book_position
-import listenup.composeapp.generated.resources.series_books_in_series
-import listenup.composeapp.generated.resources.series_continue_book
-import listenup.composeapp.generated.resources.series_duration_finished
-import listenup.composeapp.generated.resources.series_edit_series
-import listenup.composeapp.generated.resources.series_label
-import listenup.composeapp.generated.resources.series_progress_duration
-import listenup.composeapp.generated.resources.series_start_book
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import com.calypsan.listenup.client.features.seriesdetail.components.SeriesBookLayout
 import com.calypsan.listenup.client.features.seriesdetail.components.SeriesBookListActions
 import com.calypsan.listenup.client.features.seriesdetail.components.StickyHeadings
-import com.calypsan.listenup.client.features.seriesdetail.components.SeriesBreadcrumb
 import com.calypsan.listenup.client.features.seriesdetail.components.SubSeriesSection
 import com.calypsan.listenup.client.features.seriesdetail.components.seriesBookList
 import com.calypsan.listenup.client.features.seriesedit.components.AddSubSeriesSheet
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
-import listenup.composeapp.generated.resources.series_count_books
-import com.calypsan.listenup.client.design.theme.ContentShapes
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import com.calypsan.listenup.client.design.theme.HeroInk
-import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 
 /**
  * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
@@ -135,7 +87,7 @@ fun SeriesDetailScreen(
     var showAuthorsSheet by remember { mutableStateOf(false) }
 
     // Immersive: let the color hero bleed behind the status bar (HeroNavRow self-insets its controls).
-    ListenUpScaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) { paddingValues ->
+    ListenUpScaffold(contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0)) { paddingValues ->
         Box(
             modifier =
                 Modifier
@@ -212,7 +164,7 @@ fun SeriesDetailScreen(
 // region layouts
 
 /** What a series page's hierarchy parts do: open another series, fold a group, add a sub-series. */
-internal class SeriesPageHierarchyActions(
+internal data class SeriesPageHierarchyActions(
     val onSeriesClick: (String) -> Unit = {},
     val onToggleSection: (String) -> Unit = {},
     val onAddSubSeries: () -> Unit = {},

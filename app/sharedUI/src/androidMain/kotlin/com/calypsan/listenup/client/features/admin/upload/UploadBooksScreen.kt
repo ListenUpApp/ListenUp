@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.upload
 
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.layout.widthIn
@@ -20,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.InsertDriveFile
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -42,7 +42,6 @@ import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksViewModel
@@ -94,7 +93,6 @@ fun UploadBooksScreen(
     viewModel: UploadBooksViewModel = koinViewModel(),
     onBackClick: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     var refusal by remember { mutableStateOf<UploadSelectionRefusal?>(null) }
     var emptySelection by remember { mutableStateOf(false) }
@@ -313,7 +311,7 @@ private fun IdleContent(
         ListenUpButton(
             onClick = onChooseFiles,
             text = stringResource(Res.string.admin_upload_books_choose_files),
-            leadingIcon = Icons.Outlined.InsertDriveFile,
+            leadingIcon = Icons.AutoMirrored.Outlined.InsertDriveFile,
             // Secondary: a folder is the better answer almost always, so only one of these two
             // should read as the primary action.
             filled = false,

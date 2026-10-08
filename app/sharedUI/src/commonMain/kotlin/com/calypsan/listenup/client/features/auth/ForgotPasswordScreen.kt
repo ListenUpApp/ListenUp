@@ -45,7 +45,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -354,8 +353,8 @@ private fun EnterCodeContent(
     ) {
         CodeBoxes(
             value = code,
-            onValueChange = {
-                code = it
+            onValueChange = { enteredCode ->
+                code = enteredCode
                 errorDismissed = true
             },
             isError = displayedError != null,

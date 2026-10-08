@@ -79,7 +79,11 @@ fun <T> ConnectedSelectButtonGroup(
         // Each button's content width: its label (as the ToggleButton will set it) plus its padding.
         val contentWidths =
             choices.map { choice ->
-                val labelPx = measurer.measure(choice.label, labelStyle, maxLines = 1, softWrap = false).size.width
+                val labelPx =
+                    measurer
+                        .measure(text = choice.label, style = labelStyle, maxLines = 1, softWrap = false)
+                        .size
+                        .width
                 with(density) { labelPx.toDp() } + BUTTON_SIDE_PADDING * 2
             }
         val rows = rowsFor(contentWidths, rowWidth, spacing)

@@ -144,7 +144,7 @@ internal fun SubSeriesReorderList(
 }
 
 /** Where a row sits: its index, the last index, and the settled order its moves start from. */
-private class RowPosition(
+private data class RowPosition(
     val index: Int,
     val lastIndex: Int,
     val order: List<String>,
@@ -191,14 +191,21 @@ private fun ReorderableRow(
                     drag.spans[id] = RowSpan(id, top, top + coordinates.size.height)
                 }.semantics {
                     if (enabled) {
-                        customActions = shelfReorderActions(position.order, index, earlier, later, onCommit)
+                        customActions =
+                            shelfReorderActions(
+                                items = position.order,
+                                index = index,
+                                moveEarlierLabel = earlier,
+                                moveLaterLabel = later,
+                                onReorder = onCommit,
+                            )
                     }
                 },
     )
 }
 
 /** A drag's three moments, for a row's handle and long press alike. */
-private class DragCallbacks(
+private data class DragCallbacks(
     val onStart: (id: String) -> Unit,
     val onDrag: (dy: Float) -> Unit,
     val onEnd: () -> Unit,

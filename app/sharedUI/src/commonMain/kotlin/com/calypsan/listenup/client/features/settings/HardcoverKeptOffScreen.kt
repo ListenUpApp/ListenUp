@@ -122,7 +122,7 @@ internal fun HardcoverKeptOffContent(
         KeptOffBooksUiState.Unavailable -> {
             Box(modifier = modifier.fillMaxSize().padding(Spacing.lg), contentAlignment = Alignment.Center) {
                 Text(
-                    stringResource(Res.string.hardcover_kept_off_unavailable),
+                    text = stringResource(Res.string.hardcover_kept_off_unavailable),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -140,7 +140,7 @@ internal fun HardcoverKeptOffContent(
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
-                        stringResource(Res.string.hardcover_kept_off_intro),
+                        text = stringResource(Res.string.hardcover_kept_off_intro),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = Spacing.xs, end = Spacing.xs, bottom = Spacing.md),

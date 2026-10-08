@@ -24,7 +24,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,7 +61,6 @@ fun RestoreBackupScreen(
     onBackClick: () -> Unit,
     onComplete: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
 
@@ -327,12 +325,23 @@ private fun CompletedContent(
 private fun restoreStatusLabel(event: BackupEvent?): String =
     when (event) {
         BackupEvent.Validating -> "Validating backup..."
+
         BackupEvent.Draining -> "Finishing in-flight requests..."
+
         BackupEvent.Swapping -> "Swapping in the restored database..."
+
         BackupEvent.Migrating -> "Migrating to the current schema..."
+
         is BackupEvent.RestoreComplete -> "Finishing up..."
+
         is BackupEvent.RolledBack -> "Rolling back..."
-        else -> "Restoring backup..."
+
+        BackupEvent.DbSnapshotting,
+        is BackupEvent.ImagesCopying,
+        BackupEvent.Finalizing,
+        is BackupEvent.Created,
+        null,
+        -> "Restoring backup..."
     }
 
 @Composable

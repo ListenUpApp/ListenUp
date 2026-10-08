@@ -132,10 +132,10 @@ fun DetailHero(
                         ),
             )
 
-            subtitle?.let {
+            subtitle?.let { subtitleText ->
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = it,
+                    text = subtitleText,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -143,9 +143,9 @@ fun DetailHero(
                 )
             }
 
-            belowTitle?.let {
+            belowTitle?.let { belowTitleContent ->
                 Spacer(modifier = Modifier.height(12.dp))
-                it()
+                belowTitleContent()
             }
 
             Spacer(modifier = Modifier.height(12.dp))

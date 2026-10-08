@@ -132,7 +132,7 @@ fun DiscoverScreen(
             DiscoverContent(
                 isLoading = shelvesState is DiscoverShelvesUiState.Loading,
                 users = shelvesReady?.users.orEmpty(),
-                isEmpty = shelvesReady?.isEmpty ?: false,
+                isEmpty = shelvesReady?.isEmpty == true,
                 appHeader = appHeader,
                 contentPadding = contentPadding,
                 onShelfClick = onShelfClick,

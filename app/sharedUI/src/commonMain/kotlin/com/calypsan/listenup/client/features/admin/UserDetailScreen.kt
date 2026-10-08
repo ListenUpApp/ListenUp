@@ -27,7 +27,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SegmentedGroup
 import com.calypsan.listenup.client.design.components.SettingRow
@@ -74,14 +73,13 @@ fun UserDetailScreen(
     onPermissionsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     ListenUpScaffold(
         modifier = modifier,
         topBar = {
             ListenUpTopAppBar(
-                title = (state as? UserDetailUiState.Ready)?.user?.displayableName ?: "User Details",
+                title = (state as? UserDetailUiState.Ready)?.run { user.displayableName } ?: "User Details",
                 onBack = onBackClick,
             )
         },

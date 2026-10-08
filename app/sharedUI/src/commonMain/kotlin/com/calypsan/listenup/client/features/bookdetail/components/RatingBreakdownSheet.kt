@@ -16,9 +16,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,7 +80,11 @@ fun RatingBreakdownSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState =
+            rememberBottomSheetState(
+                initialValue = SheetValue.Hidden,
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+            ),
     ) {
         Column(
             modifier =
@@ -117,11 +122,11 @@ fun RatingBreakdownSheet(
                     label = ratingSourceLabel(rating.source),
                     average = rating.average,
                     count = rating.count,
-                    share = score?.shares?.get(ScoreSource.Outside(rating.source)),
+                    share = score?.run { shares[ScoreSource.Outside(rating.source)] },
                     updated = updatedLabel(rating.fetchedAtMs, nowMs),
                 )
             }
-            val listenersShare = score?.shares?.get(ScoreSource.Listeners)
+            val listenersShare = score?.run { shares[ScoreSource.Listeners] }
             if (listeners != null && listenersShare != null) {
                 SourceRow(
                     label = stringResource(Res.string.rating_source_listeners),
@@ -190,18 +195,22 @@ private fun SourceRow(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            share?.let {
+            share?.let { fraction ->
                 Text(
-                    text = stringResource(Res.string.book_detail_rating_share, (it * PERCENT).roundToInt().toString()),
+                    text =
+                        stringResource(
+                            Res.string.book_detail_rating_share,
+                            (fraction * PERCENT).roundToInt().toString(),
+                        ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
         share?.let { LinearProgressIndicator(progress = { it.toFloat() }, modifier = Modifier.fillMaxWidth()) }
-        updated?.let {
+        updated?.let { updatedText ->
             Text(
-                text = it,
+                text = updatedText,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

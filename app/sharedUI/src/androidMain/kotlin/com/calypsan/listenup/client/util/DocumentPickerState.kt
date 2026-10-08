@@ -77,7 +77,7 @@ class DocumentPickerState(
             onResult(result)
         } catch (e: Exception) {
             logger.error(e) { "Failed to read document from URI: $uri" }
-            onResult(DocumentPickerResult.Error("Failed to read document: ${e.message}"))
+            onResult(DocumentPickerResult.Error("Failed to read document: ${e.message ?: "unknown error"}"))
         }
     }
 
@@ -108,7 +108,7 @@ class DocumentPickerState(
                 size = size,
             )
 
-        logger.debug { "Selected document: filename=$filename, mimeType=$mimeType, size=$size" }
+        logger.debug { "Selected document: filename=$filename, mimeType=$mimeType, size=${size ?: "unknown"}" }
 
         return DocumentPickerResult.Success(
             fileSource = fileSource,

@@ -17,6 +17,11 @@ import androidx.media3.session.CommandButton
  */
 @OptIn(UnstableApi::class)
 object SkipCommandIcons {
+    private const val SECONDS_5 = 5
+    private const val SECONDS_10 = 10
+    private const val SECONDS_15 = 15
+    private const val SECONDS_30 = 30
+
     /** Media3 icon for a forward skip of [seconds]. */
     fun forward(seconds: Int): Int =
         when (seconds) {
@@ -36,9 +41,4 @@ object SkipCommandIcons {
             SECONDS_30 -> CommandButton.ICON_SKIP_BACK_30
             else -> CommandButton.ICON_SKIP_BACK
         }
-
-    private const val SECONDS_5 = 5
-    private const val SECONDS_10 = 10
-    private const val SECONDS_15 = 15
-    private const val SECONDS_30 = 30
 }

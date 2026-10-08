@@ -80,8 +80,8 @@ fun ServerSetupScreen(
     ServerSetupContent(
         state = state,
         serverUrl = serverUrl,
-        onServerUrlChange = {
-            serverUrl = it
+        onServerUrlChange = { url ->
+            serverUrl = url
             viewModel.clearError()
         },
         onConnect = { viewModel.submitUrl(serverUrl) },

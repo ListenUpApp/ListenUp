@@ -295,7 +295,7 @@ private inline fun <reified T : BulkEdit> BulkEditUiState.Editing.consequenceOf(
  */
 @Composable
 internal inline fun <reified T : BulkEdit> BulkEditUiState.Editing.armedConsequenceOf(): FieldConsequence? {
-    val typed = edits.filterIsInstance<T>().lastOrNull() != null
+    val typed = edits.any { it is T }
     if (typed) {
         val affected = preview.firstOrNull { it.edit is T }?.affectedCount ?: 0
         val arrow = Icons.AutoMirrored.Outlined.ArrowForward

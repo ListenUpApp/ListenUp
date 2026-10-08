@@ -234,10 +234,15 @@ internal fun YoursAndProposed(
 ) {
     val stacked = alwaysStacked || LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
     val yoursBlock: @Composable (Modifier) -> Unit = { modifier ->
-        LabelledValue(stringResource(Res.string.match_yours), yours, emphasised = false, modifier = modifier)
+        LabelledValue(
+            label = stringResource(Res.string.match_yours),
+            value = yours,
+            emphasised = false,
+            modifier = modifier,
+        )
     }
     val proposedBlock: @Composable (Modifier) -> Unit = { modifier ->
-        LabelledValue(proposedLabel, proposed, emphasised = ticked, modifier = modifier)
+        LabelledValue(label = proposedLabel, value = proposed, emphasised = ticked, modifier = modifier)
     }
     if (stacked) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
