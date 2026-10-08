@@ -415,10 +415,10 @@
         },
         {
             "uniqueId": "androidx.compose.material3.adaptive:adaptive",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.2.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.3.0",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -440,10 +440,10 @@
         },
         {
             "uniqueId": "androidx.compose.material3.adaptive:adaptive-layout",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.2.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.3.0",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -465,10 +465,10 @@
         },
         {
             "uniqueId": "androidx.compose.material3.adaptive:adaptive-navigation",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.2.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive#1.3.0",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -5295,7 +5295,7 @@
         },
         {
             "uniqueId": "org.jetbrains.androidx.window:window-core",
-            "artifactVersion": "1.4.0",
+            "artifactVersion": "1.5.0",
             "name": "WindowManager Core",
             "description": "WindowManager Core Library.",
             "website": "https://github.com/JetBrains/compose-jb",
@@ -5367,7 +5367,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.annotation-internal:annotation",
-            "artifactVersion": "1.9.0",
+            "artifactVersion": "1.10.0",
             "name": "Annotation",
             "description": "Provides source annotations for tooling and readability.",
             "website": "https://github.com/JetBrains/compose-jb",
@@ -5691,10 +5691,10 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.material3.adaptive:adaptive",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://github.com/JetBrains/compose-jb",
+            "website": "https://github.com/JetBrains/compose-multiplatform",
             "developers": [
                 {
                     "name": "Compose Multiplatform Team",
@@ -5702,9 +5702,9 @@
                 }
             ],
             "scm": {
-                "connection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "developerConnection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "url": "https://github.com/JetBrains/compose-jb"
+                "connection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "developerConnection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "url": "https://github.com/JetBrains/compose-multiplatform"
             },
             "licenses": [
                 "Apache-2.0"
@@ -5715,10 +5715,10 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.material3.adaptive:adaptive-layout",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://github.com/JetBrains/compose-jb",
+            "website": "https://github.com/JetBrains/compose-multiplatform",
             "developers": [
                 {
                     "name": "Compose Multiplatform Team",
@@ -5726,9 +5726,9 @@
                 }
             ],
             "scm": {
-                "connection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "developerConnection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "url": "https://github.com/JetBrains/compose-jb"
+                "connection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "developerConnection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "url": "https://github.com/JetBrains/compose-multiplatform"
             },
             "licenses": [
                 "Apache-2.0"
@@ -5739,10 +5739,10 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.material3.adaptive:adaptive-navigation",
-            "artifactVersion": "1.2.0",
+            "artifactVersion": "1.3.0",
             "name": "Material Adaptive",
             "description": "Compose Material Design Adaptive Library",
-            "website": "https://github.com/JetBrains/compose-jb",
+            "website": "https://github.com/JetBrains/compose-multiplatform",
             "developers": [
                 {
                     "name": "Compose Multiplatform Team",
@@ -5750,9 +5750,9 @@
                 }
             ],
             "scm": {
-                "connection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "developerConnection": "scm:git:https://github.com/JetBrains/compose-jb.git",
-                "url": "https://github.com/JetBrains/compose-jb"
+                "connection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "developerConnection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
+                "url": "https://github.com/JetBrains/compose-multiplatform"
             },
             "licenses": [
                 "Apache-2.0"
