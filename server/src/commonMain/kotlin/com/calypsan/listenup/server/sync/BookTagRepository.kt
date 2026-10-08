@@ -43,7 +43,6 @@ data class BookTagId(
  * bulk cascade variants used by service-layer delete operations:
  *  - [softDeleteAllForBook] — cascades when a book is deleted
  *  - [softDeleteAllForTag] — cascades when a tag is deleted
- *  - [findBookIdsForTag] — returns book IDs for the post-delete reindex sweep
  */
 class BookTagRepository(
     db: ListenUpDatabase,
@@ -231,16 +230,6 @@ class BookTagRepository(
                 .selectByTagId(tagId)
                 .executeAsList()
                 .map { it.toPayload() }
-        }
-
-    /**
-     * Returns book IDs for all non-tombstoned junction rows linked to [tagId].
-     * Used by [com.calypsan.listenup.server.api.TagServiceImpl] to collect the
-     * set of books that need FTS reindex after a tag is deleted.
-     */
-    suspend fun findBookIdsForTag(tagId: String): List<String> =
-        suspendTransaction(db) {
-            db.bookTagsQueries.selectBookIdsForTag(tagId).executeAsList()
         }
 
     /**
