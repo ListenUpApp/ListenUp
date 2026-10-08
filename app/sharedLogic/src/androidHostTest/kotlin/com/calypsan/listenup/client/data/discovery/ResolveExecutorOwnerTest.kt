@@ -1,10 +1,12 @@
 package com.calypsan.listenup.client.data.discovery
 
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Tests for [ResolveExecutorOwner] — the executor NsdManager's API-34 resolution path delivers on.
@@ -43,17 +45,13 @@ class ResolveExecutorOwnerTest :
             owner.acquire().execute { ran.countDown() }
             ran.await(5, TimeUnit.SECONDS) shouldBe true
 
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
-            while (owner.liveThreads > 0 && System.nanoTime() < deadline) Thread.sleep(10)
-
-            owner.liveThreads shouldBe 0
+            eventually(5.seconds) { owner.liveThreads shouldBe 0 }
         }
 
         test("an idle executor still accepts work after its thread has exited") {
             val owner = ResolveExecutorOwner(keepAlive = 50.milliseconds)
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
             owner.acquire().execute {}
-            while (owner.liveThreads > 0 && System.nanoTime() < deadline) Thread.sleep(10)
+            eventually(5.seconds) { owner.liveThreads shouldBe 0 }
 
             val ran = CountDownLatch(1)
             owner.acquire().execute { ran.countDown() }
