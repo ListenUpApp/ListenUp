@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.features.match.MatchReceiptHost
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState

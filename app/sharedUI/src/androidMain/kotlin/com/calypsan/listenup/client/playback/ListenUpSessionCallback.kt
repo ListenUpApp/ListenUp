@@ -1,25 +1,12 @@
 package com.calypsan.listenup.client.playback
 
-import android.app.PendingIntent
 import android.content.Context
 import android.os.Bundle
 import android.provider.MediaStore
-import android.widget.Toast
-import androidx.annotation.OptIn
 import androidx.concurrent.futures.CallbackToFutureAdapter
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.TrackSelectionParameters
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DataSource
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
@@ -27,7 +14,6 @@ import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
-import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.client.automotive.AutoBrowseErrors
 import com.calypsan.listenup.client.automotive.BrowseTree
@@ -37,13 +23,8 @@ import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.automotive.browseNeedsSignIn
 import com.calypsan.listenup.client.automotive.isLastPage
 import com.calypsan.listenup.client.automotive.paginate
-import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
-import com.calypsan.listenup.client.playback.cast.CastPreparer
-import com.calypsan.listenup.client.playback.cast.CastSessionController
-import com.calypsan.listenup.client.playback.cast.CastSourceItem
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -61,20 +42,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import org.koin.android.ext.android.inject
-import com.calypsan.listenup.client.core.DurationFormatter
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.minutes
 
 /**
  * The Media3 session callback: browse tree, search, voice intents and custom commands.
