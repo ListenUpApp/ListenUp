@@ -42,18 +42,38 @@ class MutatingRpcsAreGatedRule :
         /** Name prefixes that mark an override as a read. */
         val READ_PREFIXES =
             listOf(
-                "get", "list", "observe", "search", "find", "browse", "pull",
-                "digest", "lookup", "review", "preview", "discover", "current", "last",
+                "get",
+                "list",
+                "observe",
+                "search",
+                "find",
+                "browse",
+                "pull",
+                "digest",
+                "lookup",
+                "review",
+                "preview",
+                "discover",
+                "current",
+                "last",
             )
 
         /** Calls that count as a permission gate. */
         val GATE_CALLS =
             listOf(
-                "requirePermission(", "permissionPolicy.require(", "requireAdmin(", "requireEditableBook(",
-                "requireEditor(", "requireOwner(", "adminGate(", "manageGate(", "writeGate(", ".isAdmin()",
+                "requirePermission(",
+                "permissionPolicy.require(",
+                "requireAdmin(",
+                "requireEditableBook(",
+                "requireEditor(",
+                "requireOwner(",
+                "adminGate(",
+                "manageGate(",
+                "writeGate(",
+                ".isAdmin()",
             )
 
-        private val REASONED_ESCAPE = Regex("""@OpenToAllMembers\s*\(\s*(reason\s*=\s*)?"[^"]*\S[^"]*"\s*\)""")
+        private val REASONED_ESCAPE = Regex("""@OpenToAllMembers\s*\(\s*(reason\s*=\s*)?"[^"]*\S[^"]*"\s*,?\s*\)""")
 
         /** `Class.method @ path` for every override that writes ungated without a reasoned escape. */
         fun findOffenders(scope: KoScope): List<String> =
