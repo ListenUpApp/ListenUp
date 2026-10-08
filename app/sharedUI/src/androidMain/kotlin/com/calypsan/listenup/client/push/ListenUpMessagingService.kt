@@ -12,9 +12,14 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 /**
- * Receives FCM token refreshes and incoming data messages for push notifications.
+ * Receives FCM registrations and incoming data messages for push notifications.
  *
- * [onMessageReceived] and [onNewToken] both bridge into suspend functions with [runBlocking].
+ * [onRegistered] delivers the Firebase installation ID the server targets. One a caller is waiting
+ * for (an explicit `register()` from [FcmTokenProvider]) goes to that caller through
+ * [FcmRegistrationHandoff]; any other — first install, or the installation ID changing — is a
+ * rotation and is registered here.
+ *
+ * [onMessageReceived] and [onRegistered] both bridge into suspend functions with [runBlocking].
  * This is acceptable here — unlike the ban on `runBlocking` in the rest of the production
  * codebase — because both callbacks already run on FCM's own background executor (never the
  * main thread) and are budgeted by the platform for roughly 10 seconds of synchronous work; there
@@ -27,6 +32,7 @@ class ListenUpMessagingService :
     KoinComponent {
     private val renderer: PushNotificationRenderer by inject()
     private val registrar: PushRegistrar by inject()
+    private val registrationHandoff: FcmRegistrationHandoff by inject()
 
     override fun onMessageReceived(message: RemoteMessage) {
         // Decode BEFORE deciding: whether to render depends on what arrived, and a test
@@ -43,8 +49,9 @@ class ListenUpMessagingService :
         runBlocking { renderer.render(payload) }
     }
 
-    override fun onNewToken(token: String) {
-        runBlocking { registrar.onTokenRotated(token) }
+    override fun onRegistered(installationId: String) {
+        if (registrationHandoff.offer(installationId)) return
+        runBlocking { registrar.onTokenRotated(installationId) }
     }
 }
 
