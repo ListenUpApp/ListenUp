@@ -35,6 +35,7 @@ internal fun readySeries(
     finishedBookIds: Set<BookId> = emptySet(),
     resumeTarget: BookId? = books.firstOrNull()?.id,
     totalDuration: Duration = DEFAULT_TOTAL_DURATION,
+    canEditMetadata: Boolean = false,
 ): SeriesDetailUiState.Ready =
     SeriesDetailUiState.Ready(
         seriesId = seriesId,
@@ -49,6 +50,7 @@ internal fun readySeries(
         bookProgress = bookProgress,
         finishedBookIds = finishedBookIds,
         resumeTarget = resumeTarget,
+        canEditMetadata = canEditMetadata,
         // As the ViewModel builds it: the series is under way once any book is begun or finished.
         resumeBook =
             books.firstOrNull { it.id == resumeTarget }?.let { book ->

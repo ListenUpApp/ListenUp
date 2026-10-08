@@ -18,8 +18,8 @@ import org.w3c.dom.HTMLElement
  * What these pin: the hero reports the ViewModel's own stats rather than re-deriving them from the
  * rows on screen, the books render in the order the ViewModel sorted them and carry THIS series'
  * position, progress and "finished" come only from what the state actually knows, the resume
- * button says which of the two things it does, and every non-Ready state offers an explanation and
- * a way back.
+ * button says which of the two things it does, the Edit series pencil is offered only to a reader
+ * who may edit metadata, and every non-Ready state offers an explanation and a way back.
  */
 class SeriesDetailPageTest :
     FunSpec({
@@ -253,6 +253,18 @@ class SeriesDetailPageTest :
             val root = seriesDetailPage(readySeries())
 
             root.textContent.orEmpty() shouldNotContain "About"
+        }
+
+        test("a reader who may edit metadata gets the Edit series pencil") {
+            val root = seriesDetailPage(readySeries(canEditMetadata = true))
+
+            root.querySelector("button[aria-label='Edit series']").shouldNotBeNull()
+        }
+
+        test("a reader who may not edit metadata gets no Edit series") {
+            val root = seriesDetailPage(readySeries(canEditMetadata = false))
+
+            root.querySelector("button[aria-label='Edit series']") shouldBe null
         }
 
         test("a described series renders its description") {
