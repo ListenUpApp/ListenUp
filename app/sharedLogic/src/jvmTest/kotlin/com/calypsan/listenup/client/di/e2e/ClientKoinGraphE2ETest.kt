@@ -81,7 +81,8 @@ class ClientKoinGraphE2ETest :
                     // A StackOverflowError here means a constructor cycle — this is the
                     // exact fault we're guarding against. Rethrow to fail the test.
                     throw AssertionError(
-                        "Constructor cycle detected while instantiating '${definition.primaryType.simpleName}'. " +
+                        "Constructor cycle detected while instantiating " +
+                            "'${definition.primaryType.simpleName ?: definition.primaryType}'. " +
                             "This is the fault class that crash-looped the app on 2026-05-15.",
                         e,
                     )
@@ -121,6 +122,7 @@ class ClientKoinGraphE2ETest :
             @OptIn(KoinInternalApi::class)
             val singletonViewModels =
                 koin.instanceRegistry.instances.values
+                    .asSequence()
                     .map { it.beanDefinition }
                     .filter { it.primaryType.simpleName?.endsWith("ViewModel") == true }
                     .filter { it.kind == Kind.Singleton }

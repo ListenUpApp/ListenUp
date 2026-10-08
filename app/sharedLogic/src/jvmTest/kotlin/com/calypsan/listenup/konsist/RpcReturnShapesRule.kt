@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.calypsan.listenup.api.result.AppResult
 import com.lemonappdev.konsist.api.KoModifier
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -43,6 +42,7 @@ class RpcReturnShapesRule :
 
             val offenders =
                 rpcInterfaces
+                    .asSequence()
                     .flatMap { it.functions() }
                     .filter { fn -> fn.hasModifier(KoModifier.SUSPEND) }
                     .filter { fn ->
@@ -50,7 +50,7 @@ class RpcReturnShapesRule :
                         !rt.startsWith("AppResult<")
                     }.map { fn ->
                         "${fn.name} @ ${fn.path}"
-                    }
+                    }.toList()
 
             offenders.shouldBeEmpty()
         }
@@ -68,6 +68,7 @@ class RpcReturnShapesRule :
 
             val offenders =
                 rpcInterfaces
+                    .asSequence()
                     .flatMap { it.functions() }
                     .filter { fn -> !fn.hasModifier(KoModifier.SUSPEND) }
                     .filter { fn ->
@@ -75,7 +76,7 @@ class RpcReturnShapesRule :
                         !rt.startsWith("Flow<RpcEvent<")
                     }.map { fn ->
                         "${fn.name} @ ${fn.path}"
-                    }
+                    }.toList()
 
             offenders.shouldBeEmpty()
         }

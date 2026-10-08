@@ -119,7 +119,15 @@ private class BlippingStorage(
     }
 
     override suspend fun read(key: String): String? =
-        if (readFolds) runCatching { readCredential(key) }.getOrNull() else readCredential(key)
+        if (readFolds) {
+            try {
+                readCredential(key)
+            } catch (_: SecureStorageUnavailableException) {
+                null
+            }
+        } else {
+            readCredential(key)
+        }
 
     override suspend fun readCredential(key: String): String? {
         val remaining = unreadableReads[key] ?: 0
@@ -151,8 +159,8 @@ private class FakePolicyStream(
 
 /** An [InstanceRepository] that answers the one question a signed-out boot asks it. */
 private fun serverSaying(setupRequired: Boolean): InstanceRepository =
-    createMockInstanceRepository().also {
-        everySuspend { it.getServerInfo(forceRefresh = true) } returns
+    createMockInstanceRepository().also { repository ->
+        everySuspend { repository.getServerInfo(forceRefresh = true) } returns
             AppResult.Success(createTestServerInfo(setupRequired = setupRequired))
     }
 

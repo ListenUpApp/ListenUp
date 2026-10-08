@@ -39,9 +39,9 @@ class DataLocalDbIsInternalRule :
             val interfaces =
                 scope
                     .interfaces()
-                    .filter {
-                        "/data/local/db/" in it.path && it.isTopLevel &&
-                            it.hasPublicOrDefaultModifier
+                    .filter { declaration ->
+                        "/data/local/db/" in declaration.path && declaration.isTopLevel &&
+                            declaration.hasPublicOrDefaultModifier
                     }.map { it.name }
             val objects =
                 scope
@@ -52,16 +52,16 @@ class DataLocalDbIsInternalRule :
             val properties =
                 scope
                     .properties()
-                    .filter {
-                        "/data/local/db/" in it.path && it.isTopLevel &&
-                            it.hasPublicOrDefaultModifier
+                    .filter { declaration ->
+                        "/data/local/db/" in declaration.path && declaration.isTopLevel &&
+                            declaration.hasPublicOrDefaultModifier
                     }.map { it.name }
             val functions =
                 scope
                     .functions()
-                    .filter {
-                        "/data/local/db/" in it.path && it.isTopLevel &&
-                            it.hasPublicOrDefaultModifier
+                    .filter { declaration ->
+                        "/data/local/db/" in declaration.path && declaration.isTopLevel &&
+                            declaration.hasPublicOrDefaultModifier
                     }.map { it.name }
             // Typealiases are top-level-only by Kotlin language rule, so no isTopLevel filter is
             // needed — path + visibility is the complete predicate (Konsist 0.17.3's

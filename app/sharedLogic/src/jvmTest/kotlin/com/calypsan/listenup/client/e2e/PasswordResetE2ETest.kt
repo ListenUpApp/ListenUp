@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.toWebSocketScheme
 import com.calypsan.listenup.client.di.e2e.DiWiredClientFixture
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
@@ -129,8 +130,8 @@ class PasswordResetE2ETest :
                         .requireSuccess()
 
                     // ...and BOTH prior sessions are dead: completion revoked every session on the account.
-                    rpcClient.assertSessionDead(baseUrl, deviceAToken)
-                    rpcClient.assertSessionDead(baseUrl, deviceBToken)
+                    assertSessionDead(rpcClient, baseUrl, deviceAToken)
+                    assertSessionDead(rpcClient, baseUrl, deviceBToken)
                 } finally {
                     rpcClient.close()
                 }
@@ -196,12 +197,12 @@ class PasswordResetE2ETest :
 // mid-connection, which is also exactly what "two devices" means here — two independent
 // sessions, each verified over its own socket.
 
-private suspend fun HttpClient.authPublicProxy(baseUrl: String): AuthServicePublic =
+private fun HttpClient.authPublicProxy(baseUrl: String): AuthServicePublic =
     rpc("${toWebSocketScheme(baseUrl)}/api/rpc/public") {
         rpcConfig { serialization { krpcJson(contractJson) } }
     }.withService<AuthServicePublic>()
 
-private suspend fun HttpClient.authedProxy(
+private fun HttpClient.authedProxy(
     baseUrl: String,
     accessToken: String,
 ): AuthServiceAuthed =
@@ -210,7 +211,7 @@ private suspend fun HttpClient.authedProxy(
         bearerAuth(accessToken)
     }.withService<AuthServiceAuthed>()
 
-private suspend fun HttpClient.adminUserProxy(
+private fun HttpClient.adminUserProxy(
     baseUrl: String,
     accessToken: String,
 ): AdminUserService =
@@ -226,12 +227,13 @@ private suspend fun HttpClient.adminUserProxy(
  * thrown exception, or a completed call that itself returns [AppResult.Failure]) proves the
  * session is dead.
  */
-private suspend fun HttpClient.assertSessionDead(
+private suspend fun assertSessionDead(
+    rpcClient: HttpClient,
     baseUrl: String,
     accessToken: String,
 ) {
-    val outcome = runCatching { authedProxy(baseUrl, accessToken).currentUser() }
-    val sessionIsDead = outcome.isFailure || outcome.getOrNull() is AppResult.Failure
+    val outcome = suspendRunCatching { rpcClient.authedProxy(baseUrl, accessToken).currentUser() }
+    val sessionIsDead = outcome !is AppResult.Success || outcome.data is AppResult.Failure
     require(sessionIsDead) { "expected the session to be dead but currentUser() returned $outcome" }
 }
 

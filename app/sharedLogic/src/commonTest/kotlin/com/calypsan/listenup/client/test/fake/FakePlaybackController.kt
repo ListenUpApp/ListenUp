@@ -15,6 +15,8 @@ class FakePlaybackController(
     initialReady: Boolean = true,
 ) : PlaybackController {
     private val _isReady = MutableStateFlow(initialReady)
+
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
     override val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
     var acquireCount: Int = 0

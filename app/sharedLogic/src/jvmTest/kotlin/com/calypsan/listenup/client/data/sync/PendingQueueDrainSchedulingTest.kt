@@ -534,7 +534,10 @@ private class FakeNetworkMonitor(
 ) : com.calypsan.listenup.client.domain.repository.NetworkMonitor {
     override fun isOnline(): Boolean = online
 
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
     override val isOnlineFlow = kotlinx.coroutines.flow.MutableStateFlow(online)
+
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
     override val isOnUnmeteredNetworkFlow = kotlinx.coroutines.flow.MutableStateFlow(online)
 }
 

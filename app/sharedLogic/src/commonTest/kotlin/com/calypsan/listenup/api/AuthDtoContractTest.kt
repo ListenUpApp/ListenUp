@@ -1,7 +1,5 @@
 package com.calypsan.listenup.api
 
-import com.calypsan.listenup.api.AuthServiceAuthed
-import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -25,7 +23,6 @@ import com.calypsan.listenup.api.error.InternalError
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 class AuthDtoContractTest :
     FunSpec({

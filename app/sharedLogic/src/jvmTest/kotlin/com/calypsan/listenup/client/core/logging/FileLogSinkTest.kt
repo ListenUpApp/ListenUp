@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -50,7 +51,7 @@ class FileLogSinkTest :
                     dispatcher = Dispatchers.IO,
                 )
             // 100 bytes per line incl. newline; 12 lines force at least two rotations.
-            val lines = (0..11).map { i -> "line-%02d ".format(i).padEnd(99, 'x') }
+            val lines = (0..11).map { i -> "line-%02d ".format(Locale.ROOT, i).padEnd(99, 'x') }
 
             lines.forEach { sink.submit(it) }
             sink.close()

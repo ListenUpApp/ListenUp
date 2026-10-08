@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.metadata.BookField
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 class MatchProvenanceRoundTripTest :
     FunSpec({

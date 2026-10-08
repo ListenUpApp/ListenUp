@@ -68,8 +68,8 @@ internal fun rawPageMarginLines(text: String): List<Int> {
             val argsStart = call.range.last + 1
             val argsEnd = closingParen(code, argsStart) ?: return@mapNotNull null
             val args = code.substring(argsStart, argsEnd)
-            val start = START.find(args)?.groupValues?.get(1)
-            val end = END.find(args)?.groupValues?.get(1)
+            val start = START.find(args)?.run { groupValues[1] }
+            val end = END.find(args)?.run { groupValues[1] }
             val isMargin =
                 ALL_SIDES.matches(args) || HORIZONTAL.containsMatchIn(args) || (start != null && start == end)
             if (isMargin) code.substring(0, call.range.first).count { it == '\n' } + 1 else null

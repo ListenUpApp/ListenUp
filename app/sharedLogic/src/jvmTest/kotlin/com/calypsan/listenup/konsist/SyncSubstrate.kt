@@ -75,7 +75,7 @@ private fun rootTableOf(queriesName: String): String? {
                 candidate.extension == "sq" &&
                 candidate.nameWithoutExtension.equals(queriesName, ignoreCase = true)
         } ?: return null
-    return file.readLines().firstNotNullOfOrNull { createTable.find(it)?.groupValues?.get(1) }
+    return file.readLines().firstNotNullOfOrNull { createTable.find(it)?.run { groupValues[1] } }
 }
 
 /** Every concrete `SqlSyncableRepository` subclass in `:server` production code. */
@@ -91,8 +91,8 @@ fun syncableRepositories(): List<SyncableRepositoryFacts> =
                 cls
                     .properties()
                     .firstOrNull { it.name == "substrate" }
-                    ?.text
-                    ?.let { queriesRef.find(it)?.groupValues?.get(1) }
+                    ?.run { queriesRef.find(text) }
+                    ?.run { groupValues[1] }
             val idArg =
                 cls
                     .parents()
@@ -120,16 +120,14 @@ fun syncableRepositories(): List<SyncableRepositoryFacts> =
 fun sqlColumnsOf(table: String): Set<String>? {
     sqlDelightDir.walkTopDown().filter { it.isFile && it.extension == "sq" }.forEach { file ->
         val lines = file.readLines()
-        val start = lines.indexOfFirst { createTable.find(it)?.groupValues?.get(1) == table }
+        val start = lines.indexOfFirst { createTable.find(it)?.run { groupValues[1] } == table }
         if (start < 0) return@forEach
         val columns = mutableSetOf<String>()
         for (line in lines.drop(start + 1)) {
             if (line.trimStart().startsWith(")")) break
             Regex("""^\s*(\w+)\s+""")
                 .find(line)
-                ?.groupValues
-                ?.get(1)
-                ?.let { columns += it }
+                ?.run { columns += groupValues[1] }
         }
         return columns
     }

@@ -146,7 +146,7 @@ class FakeBookRepository : BookRepository {
 
     override suspend fun refreshBooks(): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun getChapters(bookId: String): List<Chapter> = chapters[bookId] ?: emptyList()
+    override suspend fun getChapters(bookId: String): List<Chapter> = chapters[bookId].orEmpty()
 
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = MutableStateFlow(chapters[bookId].orEmpty())
 
@@ -236,10 +236,10 @@ class FakeSeriesRepository : SeriesRepository {
         return MutableStateFlow(seriesId?.let { seriesMap[it] })
     }
 
-    override suspend fun getBookIdsForSeries(seriesId: String): List<String> = seriesBooks[seriesId] ?: emptyList()
+    override suspend fun getBookIdsForSeries(seriesId: String): List<String> = seriesBooks[seriesId].orEmpty()
 
     override fun observeBookIdsForSeries(seriesId: String): Flow<List<String>> =
-        MutableStateFlow(seriesBooks[seriesId] ?: emptyList())
+        MutableStateFlow(seriesBooks[seriesId].orEmpty())
 
     override fun observeRootSeriesWithBooks(): Flow<List<SeriesWithBooks>> =
         MutableStateFlow(seriesWithBooksMap.values.toList())

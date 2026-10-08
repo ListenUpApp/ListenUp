@@ -646,7 +646,12 @@ class CachedAudioTokenProviderTest :
                 val provider = CachedAudioTokenProvider(storage, repo, clock)
 
                 val tokens =
-                    List(40) { async { provider.prepareForPlayback().let { provider.getToken() } } }.awaitAll()
+                    List(40) {
+                        async {
+                            provider.prepareForPlayback()
+                            provider.getToken()
+                        }
+                    }.awaitAll()
 
                 tokens.forEach { it shouldBe "t1" }
                 repo.calls shouldBe 1

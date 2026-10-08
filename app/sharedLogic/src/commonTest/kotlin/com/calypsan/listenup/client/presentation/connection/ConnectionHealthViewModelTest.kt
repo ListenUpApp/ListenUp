@@ -54,7 +54,10 @@ private fun fakeLocalPreferences(
 private class FakeNetworkMonitor : NetworkMonitor {
     override fun isOnline(): Boolean = true
 
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
     override val isOnlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
+
+    @Suppress("NonBooleanPropertyPrefixedWithIs") // Overrides a published name the interface declares.
     override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 }
 

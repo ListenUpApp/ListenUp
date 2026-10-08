@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.core
 
 import app.cash.turbine.test
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -49,14 +49,10 @@ class FlowExtensionsTest :
             // intercepts the throw as an Error event, which masks that propagation.
             val cancelling = flow<Int> { throw CancellationException("cancelled") }
             runTest {
-                var thrown: Throwable? = null
                 val emitted = mutableListOf<Int>()
-                try {
+                shouldThrow<CancellationException> {
                     cancelling.fallbackTo { -1 }.collect { emitted += it }
-                } catch (e: CancellationException) {
-                    thrown = e
                 }
-                (thrown is CancellationException) shouldBe true
                 emitted shouldBe emptyList()
             }
         }

@@ -185,6 +185,8 @@ class ContributorRepositoryImplTest :
                 repository.observeAll().first()
 
                 // Then
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify { dao.observeAllWithAliases() }
             }
         }
@@ -284,6 +286,8 @@ class ContributorRepositoryImplTest :
                 repository.observeById("target-id").first()
 
                 // Then
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify { dao.observeByIdWithAliases("target-id") }
             }
         }
@@ -464,6 +468,8 @@ class ContributorRepositoryImplTest :
                 repository.observeByBookId("my-book-id").first()
 
                 // Then
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify { dao.observeByBookId("my-book-id") }
             }
         }
@@ -647,6 +653,8 @@ class ContributorRepositoryImplTest :
                 repository.observeBookIdsForContributor("target-contrib").first()
 
                 // Then
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify { dao.observeBookIdsForContributor("target-contrib") }
             }
         }

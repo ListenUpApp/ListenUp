@@ -536,6 +536,8 @@ class DiscoverViewModelTest :
                     dev.mokkery.verify.VerifyMode
                         .atLeast(2),
                 ) {
+                    // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                    @Suppress("IgnoredReturnValue")
                     fixture.bookRepository.observeRandomUnstartedBooks(any())
                 }
             }

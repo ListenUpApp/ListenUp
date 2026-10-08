@@ -20,7 +20,6 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.core.LibraryId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 /**
  * Round-trip every scanner DTO + sealed variant through `contractJson`.
@@ -221,9 +220,9 @@ class ScannerDtoContractTest :
                     libId,
                     ScanResultSummary("c", 1, 1, 0, 0, 0, 0, 100, 10),
                 )
-            listOf(started, progress, change, completed).forEach {
-                val json = contractJson.encodeToString<ScanEvent>(it)
-                contractJson.decodeFromString<ScanEvent>(json) shouldBe it
+            listOf(started, progress, change, completed).forEach { event ->
+                val json = contractJson.encodeToString<ScanEvent>(event)
+                contractJson.decodeFromString<ScanEvent>(json) shouldBe event
             }
         }
     })

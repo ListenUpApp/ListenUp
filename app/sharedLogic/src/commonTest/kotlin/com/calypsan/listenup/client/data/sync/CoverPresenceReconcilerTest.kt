@@ -79,8 +79,7 @@ class CoverPresenceReconcilerTest :
                     mock<BookDao> {
                         everySuspend { idsWithCoverMarked() } returns emptyList()
                         everySuspend { markCoversDownloaded(any(), any()) } calls { args ->
-                            @Suppress("UNCHECKED_CAST")
-                            seenChunks += args.args[0] as List<BookId>
+                            seenChunks += args.arg<List<BookId>>(0)
                         }
                     }
 

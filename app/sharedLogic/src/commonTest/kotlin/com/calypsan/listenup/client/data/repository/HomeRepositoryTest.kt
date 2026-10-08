@@ -113,7 +113,7 @@ class HomeRepositoryTest :
 
                 // Then
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                (success.data as List<*>).isEmpty() shouldBe true
+                success.data.shouldBeInstanceOf<List<*>>().isEmpty() shouldBe true
             }
         }
 
@@ -133,9 +133,9 @@ class HomeRepositoryTest :
 
                 // Then
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
+                val books = success.data.shouldBeInstanceOf<List<*>>()
                 books.size shouldBe 1
-                val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
+                val continueBook = books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>()
                 continueBook.bookId shouldBe "book-1"
                 continueBook.title shouldBe "Test Book"
                 continueBook.progress shouldBe 0.5f
@@ -162,7 +162,7 @@ class HomeRepositoryTest :
 
                 // Then
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
+                val books = success.data.shouldBeInstanceOf<List<*>>()
                 books.size shouldBe 1
             }
         }
@@ -183,7 +183,7 @@ class HomeRepositoryTest :
 
                 // Then: Book should be filtered out because isFinished=true AND position>=95%
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
+                val books = success.data.shouldBeInstanceOf<List<*>>()
                 books.isEmpty() shouldBe true
             }
         }
@@ -205,7 +205,7 @@ class HomeRepositoryTest :
 
                 // Then: still in Continue Listening — only the credits count as finished without the flag
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
+                val books = success.data.shouldBeInstanceOf<List<*>>()
                 books.size shouldBe 1
             }
         }
@@ -226,7 +226,7 @@ class HomeRepositoryTest :
 
                 // Then
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
+                val books = success.data.shouldBeInstanceOf<List<*>>()
                 books.size shouldBe 1
             }
         }
@@ -247,9 +247,9 @@ class HomeRepositoryTest :
 
                 // Then - progress should be 0, book not filtered (progress < 0.99)
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
+                val books = success.data.shouldBeInstanceOf<List<*>>()
                 books.size shouldBe 1
-                val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
+                val continueBook = books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>()
                 continueBook.progress shouldBe 0f
             }
         }
@@ -270,8 +270,8 @@ class HomeRepositoryTest :
 
                 // Then
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
-                val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
+                val books = success.data.shouldBeInstanceOf<List<*>>()
+                val continueBook = books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>()
                 continueBook.authorNames shouldBe "Stephen King"
             }
         }
@@ -292,8 +292,8 @@ class HomeRepositoryTest :
 
                 // Then
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
-                val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
+                val books = success.data.shouldBeInstanceOf<List<*>>()
+                val continueBook = books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>()
                 continueBook.coverPath shouldBe "/path/to/cover.jpg"
             }
         }
@@ -314,8 +314,8 @@ class HomeRepositoryTest :
 
                 // Then
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
-                val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
+                val books = success.data.shouldBeInstanceOf<List<*>>()
+                val continueBook = books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>()
                 continueBook.coverHash shouldBe "cover-hash-1"
             }
         }
@@ -336,7 +336,7 @@ class HomeRepositoryTest :
 
                 // Then
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val returnedBooks = success.data as List<*>
+                val returnedBooks = success.data.shouldBeInstanceOf<List<*>>()
                 returnedBooks.size shouldBe 5
             }
         }
@@ -370,9 +370,9 @@ class HomeRepositoryTest :
 
                 // Then: lastPlayedAt should be ISO 8601, not raw milliseconds
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
+                val books = success.data.shouldBeInstanceOf<List<*>>()
                 books.size shouldBe 1
-                val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
+                val continueBook = books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>()
                 // Should be ISO 8601 format, not "1704110400000"
                 withClue("Expected ISO 8601 timestamp containing '2024-01-01', got: ${continueBook.lastPlayedAt}") {
                     continueBook.lastPlayedAt.contains("2024-01-01") shouldBe true
@@ -407,8 +407,8 @@ class HomeRepositoryTest :
 
                 // Then: Should fall back to updatedAt, still as ISO 8601
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val books = success.data as List<*>
-                val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
+                val books = success.data.shouldBeInstanceOf<List<*>>()
+                val continueBook = books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>()
                 withClue("Expected ISO 8601 from updatedAt fallback, got: ${continueBook.lastPlayedAt}") {
                     continueBook.lastPlayedAt.contains("2024-01-01") shouldBe true
                 }
@@ -473,6 +473,8 @@ class HomeRepositoryTest :
                 repository.observeContinueListening(10).first()
 
                 // Then: observeBookListItems was called once (batched — all ids in one subscription)
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeBookListItems(any()) }
             }
         }

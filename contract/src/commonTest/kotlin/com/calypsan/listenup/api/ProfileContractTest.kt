@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.encodeToString
 
 class ProfileContractTest :
     FunSpec({

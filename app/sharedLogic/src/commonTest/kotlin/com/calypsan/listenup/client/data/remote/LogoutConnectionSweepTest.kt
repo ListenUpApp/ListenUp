@@ -38,6 +38,8 @@ class LogoutConnectionSweepTest :
             runTest {
                 // The real sweep over a real connection cache whose connect "mints" from whatever token is
                 // stored at that moment — so each connection remembers the identity it was opened as.
+                // Explicit: clearAuthTokens() below assigns null inside a lambda, which detekt does not see.
+                @Suppress("RedundantExplicitType")
                 var storedToken: String? = "user-a"
                 val cache =
                     RpcProxyCache(
@@ -67,7 +69,7 @@ class LogoutConnectionSweepTest :
                             mock<LibraryResetHelper> {
                                 // A retry racing the logout: after the first sweep, before the tokens are
                                 // cleared, it leases — and connects — afresh on the old token.
-                                everySuspend { clearLibraryData(discardPendingOperations = true) } calls {
+                                everySuspend { clearLibraryData(discardPendingOperations = true) } calls { _ ->
                                     cache.call { it } shouldBe MintedAs("user-a")
                                 }
                             },

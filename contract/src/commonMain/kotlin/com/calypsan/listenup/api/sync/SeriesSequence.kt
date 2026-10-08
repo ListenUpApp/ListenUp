@@ -45,7 +45,7 @@ private val LEADING_NUMBER = Regex("""^\d+(\.\d+)?""")
 fun parseSeriesSequence(label: String?): Double? {
     val trimmed = label?.trim().orEmpty()
     if (trimmed.isEmpty() || !trimmed.first().isDigit()) return null
-    return LEADING_NUMBER.find(trimmed)?.value?.toDoubleOrNull()
+    return LEADING_NUMBER.find(trimmed)?.run { value.toDoubleOrNull() }
 }
 
 /**

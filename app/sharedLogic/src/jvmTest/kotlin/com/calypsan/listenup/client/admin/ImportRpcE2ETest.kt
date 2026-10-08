@@ -24,16 +24,11 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BearerTokens
 import io.ktor.client.plugins.auth.providers.bearer
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.testApplication
@@ -109,11 +104,6 @@ class ImportRpcE2ETest :
                             )
                     }
                     application { module() }
-
-                    val restClient =
-                        createClient {
-                            install(ContentNegotiation) { json(contractJson) }
-                        }
 
                     // Mint a ROOT account so the import admin gate passes.
                     val accessToken = setupRoot()
@@ -203,7 +193,7 @@ class ImportRpcE2ETest :
  * semantics over a real socket. The [accessToken] is a real JWT minted by the server's
  * `AuthServicePublic.setupRoot` RPC so the bearer-gated RPC surface authenticates.
  */
-private suspend fun HttpClient.importServiceProxy(accessToken: String): ImportService =
+private fun HttpClient.importServiceProxy(accessToken: String): ImportService =
     rpc("ws://localhost/api/rpc/authed") {
         rpcConfig { serialization { krpcJson(contractJson) } }
         bearerAuth(accessToken)

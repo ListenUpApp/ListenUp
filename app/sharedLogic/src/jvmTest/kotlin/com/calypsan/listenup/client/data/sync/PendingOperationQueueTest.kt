@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult

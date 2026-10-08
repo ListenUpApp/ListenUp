@@ -18,7 +18,6 @@ import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.bearerAuth
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -100,7 +99,7 @@ class SyncDomainRoundTripSpec :
                         for (encoded in page.items) {
                             runCatching {
                                 contractJson.decodeFromString(serializer, encoded)
-                            }.onFailure { undecodable += "$domain: ${it.message}" }
+                            }.onFailure { undecodable += "$domain: ${it.message ?: "no message"}" }
                         }
                     }
 
@@ -149,7 +148,7 @@ private fun roundTripConfig(
     )
 
 /** The authed [SyncStreamService] over a real kotlinx.rpc proxy, as [accessToken]'s caller. */
-private suspend fun ApplicationTestBuilder.authedSyncService(accessToken: String): SyncStreamService =
+private fun ApplicationTestBuilder.authedSyncService(accessToken: String): SyncStreamService =
     createClient {
         install(WebSockets)
         installKrpc()

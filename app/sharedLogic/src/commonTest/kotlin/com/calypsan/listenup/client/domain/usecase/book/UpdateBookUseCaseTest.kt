@@ -21,7 +21,6 @@ import com.calypsan.listenup.client.presentation.bookedit.EditableMood
 import com.calypsan.listenup.client.presentation.bookedit.EditableSeries
 import com.calypsan.listenup.client.presentation.bookedit.EditableTag
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.api.result.failureOf
 import dev.mokkery.answering.returns

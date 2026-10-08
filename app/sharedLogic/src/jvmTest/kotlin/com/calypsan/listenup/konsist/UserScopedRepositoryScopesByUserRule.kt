@@ -48,9 +48,9 @@ class UserScopedRepositoryScopesByUserRule :
             // has stopped testing anything — fix the discovery, don't delete the check.
             repositories.shouldNotBeEmpty()
             repositories
-                .filter {
+                .filter { repository ->
                     sqlColumnsOf(
-                        it.rootTable.orEmpty(),
+                        repository.rootTable.orEmpty(),
                     )?.contains(USER_ID_COLUMN) == true
                 }.shouldNotBeEmpty()
 
@@ -77,7 +77,7 @@ class UserScopedRepositoryScopesByUserRule :
             val unresolved =
                 syncableRepositories()
                     .filter { it.rootTable == null || sqlColumnsOf(it.rootTable) == null }
-                    .map { "${it.name} (queries=${it.queriesName}, rootTable=${it.rootTable})" }
+                    .map { "${it.name} (queries=${it.queriesName ?: "none"}, rootTable=${it.rootTable ?: "none"})" }
             unresolved.shouldBeEmpty()
         }
     })

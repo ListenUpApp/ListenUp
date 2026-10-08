@@ -42,6 +42,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -378,10 +379,11 @@ class PlaybackManagerPositionTransitionTest :
         // ---------------------------------------------------------------------
 
         // Builds a manager on a real player, already playing from position 0 on a single-file book.
-        suspend fun TestScope.playingManager(
+        suspend fun playingManager(
             db: ListenUpDatabase,
             managerScope: CoroutineScope,
             positionRepository: PlaybackPositionRepository,
+            scheduler: TestCoroutineScheduler,
         ): Pair<PlaybackManager, FakePlayer> {
             seedBook(db, fileCount = 1, fileDurationMs = 1_800_000L)
             val manager =
@@ -397,7 +399,7 @@ class PlaybackManagerPositionTransitionTest :
 
             val player = FakePlayer()
             manager.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
-            advanceUntilIdle() // player.play() → Playing → isPlaying = true
+            scheduler.advanceUntilIdle() // player.play() → Playing → isPlaying = true
             return manager to player
         }
 
@@ -407,7 +409,7 @@ class PlaybackManagerPositionTransitionTest :
                 runTest {
                     val managerScope = CoroutineScope(coroutineContext + Job())
                     val positionRepository = defaultPositionRepository()
-                    val (_, player) = playingManager(db, managerScope, positionRepository)
+                    val (_, player) = playingManager(db, managerScope, positionRepository, testScheduler)
 
                     player.advancePosition(600_000L)
                     advanceUntilIdle()
@@ -438,7 +440,7 @@ class PlaybackManagerPositionTransitionTest :
                 runTest {
                     val managerScope = CoroutineScope(coroutineContext + Job())
                     val positionRepository = defaultPositionRepository()
-                    val (_, player) = playingManager(db, managerScope, positionRepository)
+                    val (_, player) = playingManager(db, managerScope, positionRepository, testScheduler)
 
                     player.advancePosition(600_000L)
                     advanceUntilIdle()
@@ -473,7 +475,7 @@ class PlaybackManagerPositionTransitionTest :
                 runTest {
                     val managerScope = CoroutineScope(coroutineContext + Job())
                     val positionRepository = defaultPositionRepository()
-                    val (manager, player) = playingManager(db, managerScope, positionRepository)
+                    val (manager, player) = playingManager(db, managerScope, positionRepository, testScheduler)
 
                     // The position moves, and the listener switches book before the collector runs.
                     player.advancePosition(600_000L)

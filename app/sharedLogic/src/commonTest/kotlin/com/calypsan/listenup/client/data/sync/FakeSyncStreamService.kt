@@ -18,7 +18,7 @@ import kotlinx.serialization.KSerializer
  * four members with plausible empty values would let a test pass by reaching a method it never
  * meant to call. Throwing instead means an unexpected call names itself.
  */
-internal abstract class FakeSyncStreamService : SyncStreamService {
+internal open class FakeSyncStreamService : SyncStreamService {
     override fun observeEvents(sinceRevision: Long?): Flow<RpcEvent<SyncFrame>> = error("observeEvents was not stubbed")
 
     override suspend fun pullDomain(

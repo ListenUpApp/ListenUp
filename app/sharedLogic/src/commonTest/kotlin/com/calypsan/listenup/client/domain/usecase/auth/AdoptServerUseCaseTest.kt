@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.domain.usecase.auth
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.ServerUrl
 import dev.mokkery.answering.calls
-import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -33,7 +32,7 @@ class AdoptServerUseCaseTest :
                     everySuspend { setServerUrl(any()) } calls { (url: ServerUrl) -> events += "url:${url.value}" }
                     everySuspend { setConnectedServerId(any()) } calls { (id: String?) ->
                         connectedId = id
-                        events += "id:$id"
+                        events += "id:${id ?: "null"}"
                     }
                     everySuspend { setLibraryServerId(any()) } calls { (id: String) -> libraryServerId = id }
                 }

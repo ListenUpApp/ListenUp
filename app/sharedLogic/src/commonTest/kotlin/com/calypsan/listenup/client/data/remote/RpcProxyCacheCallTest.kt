@@ -187,7 +187,9 @@ class RpcProxyCacheCallTest :
 
         test("a genuinely cancelled caller context re-raises without invalidating") {
             runTest {
-                val (cache, connects) = scriptedCache(ArrayDeque(listOf({ awaitCancellation() })))
+                // A vararg element cannot be a trailing lambda; the braces are required.
+                @Suppress("UnnecessaryBracesAroundTrailingLambda")
+                    val (cache, connects) = scriptedCache(ArrayDeque(listOf({ awaitCancellation() })))
 
                 // UNDISPATCHED so the body runs to awaitCancellation (past connect) before we cancel.
                 val job = launch(start = CoroutineStart.UNDISPATCHED) { cache.call { it.work() } }
@@ -289,7 +291,7 @@ class RpcProxyCacheCallTest :
                             listOf(
                                 {
                                     barrier.await()
-                                    throw IllegalStateException("RpcClient was cancelled")
+                                    error("RpcClient was cancelled")
                                 },
                                 { "healed" },
                             ),

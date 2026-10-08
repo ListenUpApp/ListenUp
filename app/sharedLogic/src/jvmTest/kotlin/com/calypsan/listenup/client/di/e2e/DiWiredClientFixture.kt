@@ -48,6 +48,9 @@ internal class DiWiredClientFixture private constructor(
     }
 
     companion object {
+        private const val JWT_SECRET_LENGTH = 32
+        private const val REFRESH_PEPPER_LENGTH = 32
+
         fun start(): DiWiredClientFixture {
             val tmpDb =
                 Files
@@ -114,8 +117,5 @@ internal class DiWiredClientFixture private constructor(
                 single<ListenUpDatabase> { createInMemoryTestDatabase() }
                 single<ServerConfig> { TestServerConfig(baseUrl) }
             }
-
-        private const val JWT_SECRET_LENGTH = 32
-        private const val REFRESH_PEPPER_LENGTH = 32
     }
 }

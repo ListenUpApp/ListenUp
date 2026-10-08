@@ -14,7 +14,6 @@ import com.calypsan.listenup.client.data.sync.PRESENCE_POLL_INTERVAL_MS
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
-import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.every
@@ -29,7 +28,6 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -413,7 +411,7 @@ private class FakeCachedActiveSessionDao : CachedActiveSessionDao {
 }
 
 /** Await the first non-empty sessions emission (skips the initial empty cache emission). */
-private suspend fun app.cash.turbine.TurbineTestContext<List<ActiveSession>>.awaitNonEmpty(): List<ActiveSession> {
+private suspend fun app.cash.turbine.ReceiveTurbine<List<ActiveSession>>.awaitNonEmpty(): List<ActiveSession> {
     var sessions = awaitItem()
     while (sessions.isEmpty()) sessions = awaitItem()
     return sessions

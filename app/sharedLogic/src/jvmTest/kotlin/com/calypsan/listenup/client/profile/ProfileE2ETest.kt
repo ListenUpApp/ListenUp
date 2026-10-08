@@ -46,7 +46,6 @@ import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.ktor.server.Krpc as ServerKrpc
 import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
 import kotlinx.rpc.krpc.serialization.json.json as krpcJson
-import kotlinx.rpc.registerService
 import kotlinx.rpc.withService
 import app.cash.sqldelight.db.SqlDriver
 
@@ -239,7 +238,7 @@ private class TestProfileRpcFactory(
             cachedService ?: connect().also { cachedService = it }
         }
 
-    private suspend fun connect(): ProfileService =
+    private fun connect(): ProfileService =
         httpClient
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }

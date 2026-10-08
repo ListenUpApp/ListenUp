@@ -133,7 +133,7 @@ private val NAMED_RECEIVER = Regex("""^\s*([A-Za-z_][A-Za-z0-9_]*)\s*->""")
  */
 internal fun String.countServiceFrames(): Int {
     val code = stripCommentsAndStringLiterals()
-    val named = NAMED_RECEIVER.find(code)?.groupValues?.get(1)
+    val named = NAMED_RECEIVER.find(code)?.run { groupValues[1] }
     return if (named != null) {
         Regex("""\b${Regex.escape(named)}\b""").findAll(code).count() - 1
     } else {

@@ -32,8 +32,8 @@ class ApiClientFactoryHeaderTest :
                 var captured: HttpRequestData? = null
                 val engine =
                     testMockEngine {
-                        handle("/ping") {
-                            captured = it
+                        handle("/ping") { request ->
+                            captured = request
                             respondOk()
                         }
                     }
@@ -56,10 +56,10 @@ class ApiClientFactoryHeaderTest :
                 // Asserted against the concrete wire values (not just the constants) as a
                 // belt-and-suspenders contract check: the send side uses VersionHeaders, so this
                 // pins that "X-Client-Version"/"X-Client-Api" is what actually lands on the wire.
-                captured?.headers?.get(VersionHeaders.CLIENT_VERSION) shouldBe "0.6.0"
-                captured?.headers?.get(VersionHeaders.CLIENT_API) shouldBe "v1"
-                captured?.headers?.get("X-Client-Version") shouldBe "0.6.0"
-                captured?.headers?.get("X-Client-Api") shouldBe "v1"
+                captured?.run { headers[VersionHeaders.CLIENT_VERSION] } shouldBe "0.6.0"
+                captured?.run { headers[VersionHeaders.CLIENT_API] } shouldBe "v1"
+                captured?.run { headers["X-Client-Version"] } shouldBe "0.6.0"
+                captured?.run { headers["X-Client-Api"] } shouldBe "v1"
             }
         }
     })

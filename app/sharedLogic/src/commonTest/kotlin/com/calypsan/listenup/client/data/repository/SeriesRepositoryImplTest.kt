@@ -228,6 +228,8 @@ class SeriesRepositoryImplTest :
                 repository.observeAll().first()
 
                 // Then
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify { dao.observeAll() }
             }
         }
@@ -308,6 +310,8 @@ class SeriesRepositoryImplTest :
                 repository.observeById("target-id").first()
 
                 // Then
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify { dao.observeById("target-id") }
             }
         }
@@ -514,6 +518,8 @@ class SeriesRepositoryImplTest :
                 repository.observeByBookId("my-book-id").first()
 
                 // Then
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify { dao.observeByBookId("my-book-id") }
             }
         }
@@ -615,6 +621,8 @@ class SeriesRepositoryImplTest :
                 repository.observeBookIdsForSeries("target-series").first()
 
                 // Then
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify { dao.observeBookIdsForSeries("target-series") }
             }
         }
@@ -1004,6 +1012,8 @@ class SeriesRepositoryImplTest :
                 lineage.ancestors.map { it.id.value } shouldBe listOf("cosmere")
                 lineage.children.shouldBeEmpty()
                 lineage.subtreeBooks.shouldBeEmpty()
+                // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                @Suppress("IgnoredReturnValue")
                 verify(VerifyMode.not) { bookDao.observeBySeriesIdsWithContributors(any()) }
             }
         }
@@ -1051,6 +1061,8 @@ class SeriesRepositoryImplTest :
                 lineage.subtreeBooks.map { it.id.value } shouldBe
                     listOf("final-empire", "well", "way-of-kings", "warbreaker")
                 verify {
+                    // Mokkery's verify records the call; the mock's Flow is never meant to be collected.
+                    @Suppress("IgnoredReturnValue")
                     bookDao.observeBySeriesIdsWithContributors(listOf("cosmere", "mistborn", "stormlight"))
                 }
                 repository

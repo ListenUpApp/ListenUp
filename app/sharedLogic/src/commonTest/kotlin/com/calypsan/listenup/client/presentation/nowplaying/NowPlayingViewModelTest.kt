@@ -25,7 +25,6 @@ import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingNavAction
 import com.calypsan.listenup.client.test.fake.FakePlaybackManager
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
@@ -238,7 +237,7 @@ class NowPlayingViewModelTest :
                 backgroundScope.launch { secondInstance.screenState.collect {} }
                 advanceUntilIdle()
 
-                fixture.fakePm.isPlayingFlow.value = true
+                fixture.fakePm.playingFlow.value = true
                 advanceUntilIdle()
                 withClue("second instance must reflect live isPlaying=true from the shared PlaybackManager") {
                     val state = secondInstance.screenState.value.state
@@ -541,7 +540,7 @@ class NowPlayingViewModelTest :
                 val fixture = TestFixture()
                 every { fixture.playbackController.pause() } returns Unit
                 every { fixture.playbackController.play() } returns Unit
-                fixture.fakePm.isPlayingFlow.value = true
+                fixture.fakePm.playingFlow.value = true
 
                 val vm = fixture.newVm()
                 vm.playPause()
@@ -557,7 +556,7 @@ class NowPlayingViewModelTest :
                 val fixture = TestFixture()
                 every { fixture.playbackController.pause() } returns Unit
                 every { fixture.playbackController.play() } returns Unit
-                fixture.fakePm.isPlayingFlow.value = false
+                fixture.fakePm.playingFlow.value = false
 
                 val vm = fixture.newVm()
                 vm.playPause()
@@ -576,7 +575,7 @@ class NowPlayingViewModelTest :
                 // playPause's play-branch must clear it synchronously.
                 val fixture = TestFixture()
                 every { fixture.playbackController.play() } returns Unit
-                fixture.fakePm.isPlayingFlow.value = false
+                fixture.fakePm.playingFlow.value = false
                 fixture.fakePm.playbackErrorFlow.value =
                     PlaybackErrorUiState(message = "Network unavailable", isRecoverable = true, timestampMs = 1_000L)
 
@@ -585,7 +584,7 @@ class NowPlayingViewModelTest :
                 advanceUntilIdle()
 
                 fixture.fakePm.clearErrorCalls shouldBe 1
-                withClue("expected playbackError cleared before/with play(); got: ${fixture.fakePm.playbackErrorFlow.value}") {
+                withClue("expected playbackError cleared before/with play(); got: ${fixture.fakePm.playbackErrorFlow.value ?: "null"}") {
                     fixture.fakePm.playbackErrorFlow.value shouldBe null
                 }
                 verify(VerifyMode.exactly(1)) { fixture.playbackController.play() }
@@ -1007,7 +1006,7 @@ class NowPlayingViewModelTest :
                 backgroundScope.launch { vm.firstPdfDocId.collect {} }
                 advanceUntilIdle()
 
-                withClue("no pdf docs → firstPdfDocId must be null; got: ${vm.firstPdfDocId.value}") {
+                withClue("no pdf docs → firstPdfDocId must be null; got: ${vm.firstPdfDocId.value ?: "null"}") {
                     vm.firstPdfDocId.value shouldBe null
                 }
             }
@@ -1034,7 +1033,7 @@ class NowPlayingViewModelTest :
                 backgroundScope.launch { vm.firstPdfDocId.collect {} }
                 advanceUntilIdle()
 
-                withClue("pdf doc present → firstPdfDocId must be doc-pdf-1; got: ${vm.firstPdfDocId.value}") {
+                withClue("pdf doc present → firstPdfDocId must be doc-pdf-1; got: ${vm.firstPdfDocId.value ?: "null"}") {
                     vm.firstPdfDocId.value shouldBe "doc-pdf-1"
                 }
             }
