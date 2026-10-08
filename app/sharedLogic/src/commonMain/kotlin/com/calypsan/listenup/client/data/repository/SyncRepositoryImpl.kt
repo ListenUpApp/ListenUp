@@ -60,9 +60,10 @@ private const val FTS_LIVE_REFRESH_DEBOUNCE_MS = 1_000L
  * [com.calypsan.listenup.client.data.local.db.ListeningEventEntity]. Subsequent calls
  * (sync triggers, reconnects) skip recovery — the tentative_span table is a singleton and
  * will be empty after the first successful recovery.
+ *
+ * LongParameterList suppressed: thirteen unrelated collaborators (engine, auth, scanner RPC, three DAOs, FTS, covers…); a parameter
+ * object would only bag them, the precedent PlaybackManagerImpl and PlaybackPreparer document.
  */
-// Thirteen unrelated collaborators (engine, auth, scanner RPC, three DAOs, FTS, covers…); a parameter
-// object would only bag them, the precedent PlaybackManagerImpl and PlaybackPreparer document.
 @Suppress("LongParameterList")
 internal class SyncRepositoryImpl(
     private val syncEngine: SyncEngine,

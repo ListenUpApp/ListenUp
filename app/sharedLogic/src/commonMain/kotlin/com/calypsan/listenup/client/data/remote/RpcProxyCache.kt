@@ -140,8 +140,9 @@ internal class RpcProxyCache<T : Any>(
      * `KtorRpcClient.close()` cannot reach it (its transport never became ready). Cancelling the
      * connection's own client is what kills that orphan — and a client shared across connections could
      * not be cancelled without killing its siblings.
+     *
+     * Holds mutable lease state and is tracked by identity; a data class would compare by value.
      */
-    // Holds mutable lease state and is tracked by identity; a data class would compare by value.
     @Suppress("UseDataClass")
     private class TrackedConnection<T>(
         val connection: RpcConnection<T>,
@@ -183,9 +184,10 @@ internal class RpcProxyCache<T : Any>(
      * auto-retries ONCE on a fresh lease instead of surfacing outcome-unknown. The retry is
      * at-most-once — a second lost response goes through the ordinary [surface] path. When `false`
      * (the default, every mutation) behaviour is exactly as before: surface, never re-fire.
+     *
+     * Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
+     * re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
      */
-    // Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
-    // re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
     @Suppress("SuspendFunSwallowedCancellation")
     override suspend fun <R> call(
         timeout: Duration,
@@ -269,9 +271,10 @@ internal class RpcProxyCache<T : Any>(
      * wrapped by [pipe] in a private marker and re-raised **unchanged** here: it must never
      * invalidate a healthy generation (which would tear down sibling streams/calls on the shared
      * client) nor be rewrapped as [RpcOutcomeUnknownException].
+     *
+     * Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
+     * re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
      */
-    // Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
-    // re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
     @Suppress("SuspendFunSwallowedCancellation")
     override fun <R> streaming(subscribe: suspend (T) -> Flow<R>): Flow<R> =
         flow {
@@ -369,9 +372,10 @@ internal class RpcProxyCache<T : Any>(
      * The single at-most-once stream retry, on a FRESH lease so a herd converges on the one
      * reconnected proxy. Its failure is terminal: a still-active caller cancellation re-raises plain
      * (no invalidate); any other from-below cancellation becomes an outcome-unknown value.
+     *
+     * Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
+     * re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
      */
-    // Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
-    // re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
     @Suppress("SuspendFunSwallowedCancellation")
     private suspend fun <R> FlowCollector<R>.resubscribe(subscribe: suspend (T) -> Flow<R>) {
         val second = lease()
@@ -531,9 +535,10 @@ internal class RpcProxyCache<T : Any>(
      * The single at-most-once retry, on a FRESH lease so a herd converges on the one reconnected
      * proxy. Whatever the retry produces is final — its own failures go through [surface], so a
      * second post-delivery drop becomes an outcome-unknown value, never a re-fired mutation.
+     *
+     * Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
+     * re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
      */
-    // Catches Throwable on purpose: a timeout or from-below cancellation is classified (caller-cancelled
-    // re-raises untouched, the rest heal), which a blanket rethrow of CancellationException would defeat.
     @Suppress("SuspendFunSwallowedCancellation")
     private suspend fun <R> retryOnce(
         timeout: Duration,
