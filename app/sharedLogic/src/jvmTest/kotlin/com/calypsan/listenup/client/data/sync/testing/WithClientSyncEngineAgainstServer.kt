@@ -111,6 +111,7 @@ import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.PublicProfileRepository
+import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
@@ -313,6 +314,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 bookRepo = serverRepos.bookRepo,
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
+                readingOrders = serverRepos.readingOrderRepo,
             )
         // Genres e2e tests need a `GenreService` against the same server scaffolding.
         val genreService: GenreService =
@@ -825,6 +827,7 @@ private data class ServerRepositories(
     val libraryRepo: LibraryRepository,
     val libraryFolderRepo: LibraryFolderRepository,
     val activityRecorder: ActivityRecorder,
+    val readingOrderRepo: ReadingOrderRepository,
 )
 
 /**
@@ -958,6 +961,7 @@ private fun buildServerRepositories(
         libraryRepo,
         libraryFolderRepo,
         activityRecorder,
+        ReadingOrderRepository(serverSqlDb, bus, registry),
     )
 }
 

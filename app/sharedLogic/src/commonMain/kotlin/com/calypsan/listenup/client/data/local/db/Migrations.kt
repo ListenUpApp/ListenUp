@@ -464,3 +464,66 @@ internal val MIGRATION_19_20 =
             connection.executeDdl("ALTER TABLE `pending_operation` ADD COLUMN `mayHaveLanded` INTEGER NOT NULL DEFAULT 0")
         }
     }
+
+/**
+ * v20 → v21: reading orders (#962).
+ *
+ * - The `reading_orders`, `reading_order_books` and `reading_order_follows` mirror tables. Their DDL is
+ *   copied verbatim from the exported `schemas/…/21.json` `createSql` entries, so
+ *   `runMigrationsAndValidate` sees the same schema a fresh v21 install has.
+ * - `canMakeReadingOrders` on `users` and `admin_user_roster`, `DEFAULT 1`: additive, undoable work defaults
+ *   on, matching the server's V96 column, so a mirrored row already agrees with the server. A revoked
+ *   member's real value arrives with the next session refresh and roster sync.
+ * - `books.releaseDate`, for Publication order. No cursor is rewound: existing rows fill in as each book
+ *   next syncs, and ordering falls back to the publish year meanwhile. The three new domains have no
+ *   cursor yet, so they pull from zero on their own.
+ *
+ * Non-destructive by construction — CREATE and ADD COLUMN only, per the policy in [ListenUpDatabase].
+ */
+internal val MIGRATION_20_21 =
+    object : Migration(20, 21) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `reading_orders` (`id` TEXT NOT NULL, `seriesId` TEXT NOT NULL, " +
+                    "`name` TEXT NOT NULL, `createdBy` TEXT NOT NULL, `revision` INTEGER NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`))",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_reading_orders_seriesId` ON `reading_orders` (`seriesId`)",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_reading_orders_deletedAt` ON `reading_orders` (`deletedAt`)",
+            )
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `reading_order_books` (`readingOrderId` TEXT NOT NULL, " +
+                    "`bookId` TEXT NOT NULL, `syncId` TEXT NOT NULL, `position` INTEGER NOT NULL, " +
+                    "`revision` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `deletedAt` INTEGER, " +
+                    "PRIMARY KEY(`readingOrderId`, `bookId`))",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_reading_order_books_bookId` ON `reading_order_books` (`bookId`)",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_reading_order_books_deletedAt` ON `reading_order_books` (`deletedAt`)",
+            )
+            connection.executeDdl(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_reading_order_books_syncId` ON `reading_order_books` (`syncId`)",
+            )
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `reading_order_follows` (`id` TEXT NOT NULL, `seriesId` TEXT NOT NULL, " +
+                    "`choice` TEXT NOT NULL, `readingOrderId` TEXT, `revision` INTEGER NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`))",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_reading_order_follows_seriesId` ON `reading_order_follows` (`seriesId`)",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_reading_order_follows_deletedAt` ON `reading_order_follows` (`deletedAt`)",
+            )
+            connection.executeDdl("ALTER TABLE `users` ADD COLUMN `canMakeReadingOrders` INTEGER NOT NULL DEFAULT 1")
+            connection.executeDdl(
+                "ALTER TABLE `admin_user_roster` ADD COLUMN `canMakeReadingOrders` INTEGER NOT NULL DEFAULT 1",
+            )
+            connection.executeDdl("ALTER TABLE `books` ADD COLUMN `releaseDate` TEXT")
+        }
+    }
