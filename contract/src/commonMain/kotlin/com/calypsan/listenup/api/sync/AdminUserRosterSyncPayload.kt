@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.sync
 
+import com.calypsan.listenup.api.dto.auth.UserPermissions
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -15,6 +16,8 @@ import kotlinx.serialization.Serializable
  *   the removal decode it as required, and a payload missing it would freeze their roster sync.
  *   It is always encoded (`contractJson` skips defaults otherwise). Remove it in a later release,
  *   once un-updated admin clients have aged out.
+ * @property canEdit **Deprecated — read [permissions].** Kept, and still written, for admin apps built
+ *   before the permission split, which read this flat field. Remove with [canShare].
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -32,6 +35,11 @@ data class AdminUserRosterSyncPayload(
     @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val canShare: Boolean = true,
     val canEdit: Boolean = true,
+    /**
+     * Every permission flag, nested so a new flag never adds a roster field. Null from a server older
+     * than the permission split; a client then reads [canEdit] and leaves every other flag off.
+     */
+    @SerialName("permissions") val permissions: UserPermissions? = null,
     val accountCreatedAt: Long,
     override val revision: Long,
     val updatedAt: Long,

@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AdminError
@@ -148,7 +149,7 @@ class AdminUserServiceImplTest :
                             UserId("m1"),
                             AdminUserPatch(
                                 role = UserRole.ADMIN,
-                                permissions = UserPermissions(canEditMetadata = false),
+                                permissions = UserPermissionsPatch(canEditMetadata = false),
                             ),
                         )
                     val user = res.shouldSucceed()

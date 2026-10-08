@@ -14,7 +14,7 @@ import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrNull
@@ -114,7 +114,7 @@ internal class AdminRepositoryImpl(
         val patch =
             AdminUserPatch(
                 role = role?.let { UserRole.valueOf(it) },
-                permissions = canEdit?.let { UserPermissions(canEditMetadata = it) },
+                permissions = canEdit?.let { UserPermissionsPatch(canEditMetadata = it) },
             )
         return adminUserChannel.call { it.updateUser(UserId(userId), patch) }.map { it.toAdminUserInfo() }
     }

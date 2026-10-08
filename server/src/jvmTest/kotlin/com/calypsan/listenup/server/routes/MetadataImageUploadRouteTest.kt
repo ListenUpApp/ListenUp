@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
-import com.calypsan.listenup.api.dto.auth.UserPermissions
+import com.calypsan.listenup.api.dto.auth.UserPermissionsPatch
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.module
@@ -162,7 +162,7 @@ class MetadataImageUploadRouteTest :
                     val rootToken = mintRootToken()
                     val (memberToken, memberId) = registerMember("member@x")
                     authedService<AdminUserService>(rootToken)
-                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEditMetadata = false)))
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Denied Author", sortName = null)
@@ -299,7 +299,7 @@ class MetadataImageUploadRouteTest :
                     val rootToken = mintRootToken()
                     val (memberToken, memberId) = registerMember("orphan-member@x")
                     authedService<AdminUserService>(rootToken)
-                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEditMetadata = false)))
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Orphan Author", sortName = null)
