@@ -223,7 +223,7 @@ private fun draftProblem(draft: WorldEntityDraft): ValidationError? =
             ValidationError(message = "Choose what kind of entry this is.", field = "kind")
         }
 
-        (draft.homeSeriesId == null) == (draft.homeBookId == null) -> {
+        listOfNotNull(draft.homeSeriesId, draft.homeBookId).size != 1 -> {
             ValidationError(message = "An entry belongs to exactly one series or book.")
         }
 
