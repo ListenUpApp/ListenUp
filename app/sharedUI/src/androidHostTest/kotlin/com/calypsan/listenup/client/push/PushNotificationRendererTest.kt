@@ -6,9 +6,12 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.client.notifications.NotificationChannels
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.cancellation.CancellationException
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -137,6 +140,21 @@ class PushNotificationRendererTest {
 
             onlyPosted().extras.getString(Notification.EXTRA_TEXT) shouldBe
                 "A new request is waiting for your approval."
+        }
+
+    // Degrading on a failed lookup must not swallow cancellation: a cancelled render stops, it does
+    // not post a notification the caller has already given up on.
+    @Test
+    fun `a cancelled lookup cancels the render instead of posting`() =
+        runTest {
+            NotificationChannels.registerAll(context)
+
+            shouldThrow<CancellationException> {
+                renderer(pendingUserNameLookup = { throw CancellationException("render cancelled") })
+                    .render(PushPayload.RegistrationApproval(userId = "pending-1"))
+            }
+
+            Shadows.shadowOf(notificationManager).allNotifications.shouldBeEmpty()
         }
 
     @Test

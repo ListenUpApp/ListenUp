@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.push
 
 import android.app.PendingIntent
 import android.content.Context
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.composeapp.R
 import android.content.Intent
 import androidx.core.app.NotificationCompat
@@ -9,6 +10,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.client.MainActivity
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import com.calypsan.listenup.client.shortcuts.ShortcutActions
 import listenup.composeapp.generated.resources.Res
@@ -43,7 +45,7 @@ private data class NotificationContent(
  * Push payloads carry IDs only (never names or titles — see [PushPayload]'s KDoc), so enrichment
  * resolves display data locally: [bookTitleLookup] and [inviterNameLookup] are best-effort suspend
  * lookups wired at the DI site to the client's own repositories (local Room first, the
- * repository's own server fallback second). Both lookups are `runCatching`-wrapped here — any
+ * repository's own server fallback second). Every lookup is `suspendRunCatching`-wrapped here — any
  * failure degrades to the generic/unknown-inviter copy rather than losing the notification.
  */
 class PushNotificationRenderer(
@@ -68,13 +70,13 @@ class PushNotificationRenderer(
                 }
 
                 is PushPayload.CampfireInvite -> {
-                    val inviter = runCatching { inviterNameLookup(payload.inviterUserId) }.getOrNull()
-                    val book = runCatching { bookTitleLookup(payload.bookId) }.getOrNull()
+                    val inviter = suspendRunCatching { inviterNameLookup(payload.inviterUserId) }.getOrNull()
+                    val book = suspendRunCatching { bookTitleLookup(payload.bookId) }.getOrNull()
                     NotificationContent(
                         title =
                             inviter?.let { getString(Res.string.push_campfire_invite_title, it) }
                                 ?: getString(Res.string.push_campfire_invite_title_unknown),
-                        body = book?.let { getString(Res.string.push_campfire_invite_body, it) } ?: "",
+                        body = book?.let { getString(Res.string.push_campfire_invite_body, it) }.orEmpty(),
                     )
                 }
 
@@ -100,7 +102,7 @@ class PushNotificationRenderer(
                     // name is resolved locally precisely so it never has to cross the relay — a
                     // push naming everyone who requests access to a private server would leak
                     // exactly what a self-hosted install exists to keep private.
-                    val name = runCatching { pendingUserNameLookup(payload.userId) }.getOrNull()
+                    val name = suspendRunCatching { pendingUserNameLookup(payload.userId) }.getOrNull()
                     NotificationContent(
                         title = getString(Res.string.push_registration_request_title),
                         body =
@@ -130,10 +132,10 @@ class PushNotificationRenderer(
                     // MainActivity decodes it and routes through the same target mapping as the
                     // in-app notification list, so the shade and the app cannot disagree about
                     // where a tap lands — and R8 renames cannot break it in a release build.
-                    payload?.let {
+                    if (payload != null) {
                         putExtra(
                             ShortcutActions.EXTRA_PUSH_PAYLOAD,
-                            contractJson.encodeToString(PushPayload.serializer(), it),
+                            contractJson.encodeToString(PushPayload.serializer(), payload),
                         )
                     }
                 },
@@ -233,6 +235,9 @@ class PushNotificationRenderer(
             // buttons dismiss — a re-sent request replaces its notification instead of stacking.
             is PushPayload.RegistrationApproval -> registrationNotificationId(payload.userId)
 
-            else -> payload.hashCode()
+            is PushPayload.TestNotification,
+            is PushPayload.RegistrationDecision,
+            null,
+            -> payload.hashCode()
         }
 }
