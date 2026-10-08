@@ -29,7 +29,6 @@ import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.foldable.LocalFold
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
-import java.util.Locale
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -317,9 +316,14 @@ fun Duration.formatPlaybackTime(): String {
     val minutes = inWholeMinutes % 60
     val seconds = inWholeSeconds % 60
 
-    return if (hours > 0) {
-        "%d:%02d:%02d".format(Locale.getDefault(), hours, minutes, seconds)
+    // ASCII digits in every locale, like DurationFormatter, so one screen never mixes two numeral
+    // systems; and plain padding rather than String.format, which commonMain cannot reach.
+    val clock = "$minutes:${seconds.toString().padStart(2, '0')}"
+    return if (hours >
+        0
+    ) {
+        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
     } else {
-        "%d:%02d".format(Locale.getDefault(), minutes, seconds)
+        clock
     }
 }

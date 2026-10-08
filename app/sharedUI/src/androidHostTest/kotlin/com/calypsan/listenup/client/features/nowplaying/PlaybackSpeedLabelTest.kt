@@ -26,6 +26,8 @@ class PlaybackSpeedLabelTest :
             formatPlaybackSpeed(1.25f) shouldBe "1.25x"
             formatPlaybackSpeed(1.5f) shouldBe "1.5x"
             formatPlaybackSpeed(0.75f) shouldBe "0.75x"
+            // A speed that rounds to a whole number still reads as one, never "2.x".
+            formatPlaybackSpeed(1.999f) shouldBe "2.0x"
         }
 
         test("a fractional speed keeps its decimal point in a comma-decimal locale") {
