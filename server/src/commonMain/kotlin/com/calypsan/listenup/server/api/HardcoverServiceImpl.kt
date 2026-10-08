@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.hardcover.HardcoverBookLinking
 import com.calypsan.listenup.server.hardcover.HardcoverHistorySender
@@ -55,6 +56,7 @@ class HardcoverServiceImpl(
     fun copyWith(provider: PrincipalProvider): HardcoverServiceImpl =
         HardcoverServiceImpl(linker, clientIdConfigured, linking, pulls, preferences, history, keepOff, provider)
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun startLink(): AppResult<HardcoverLinkPrompt> {
         val userId = callerId() ?: return permissionDenied()
         if (!clientIdConfigured) return AppResult.Failure(HardcoverError.NotConfigured())
@@ -71,23 +73,27 @@ class HardcoverServiceImpl(
             emitAll(linker.observe(userId).map { RpcEvent.Data(it.offeredOrNot()) })
         }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun disconnect(): AppResult<Unit> {
         val userId = callerId() ?: return permissionDenied()
         linker.disconnect(userId)
         return AppResult.Success(Unit)
     }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun setShareMode(mode: HardcoverShareMode): AppResult<Unit> {
         val userId = callerId() ?: return permissionDenied()
         preferences.setShareMode(userId, mode)
         return AppResult.Success(Unit)
     }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun sendHistory(): AppResult<Unit> {
         val userId = callerId() ?: return permissionDenied()
         return history.send(userId)
     }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun dismissHistory(): AppResult<Unit> {
         val userId = callerId() ?: return permissionDenied()
         return history.dismiss(userId)
@@ -98,6 +104,7 @@ class HardcoverServiceImpl(
         return linking.searchCatalog(userId, query)
     }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun linkBook(
         bookId: BookId,
         hcBookId: Long,
@@ -107,6 +114,7 @@ class HardcoverServiceImpl(
         return linking.link(caller.userId.value, caller.role, bookId.value, hcBookId, hcEditionId)
     }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun restoreMatch(
         bookId: BookId,
         hcBookId: Long,
@@ -117,32 +125,38 @@ class HardcoverServiceImpl(
         return linking.link(caller.userId.value, caller.role, bookId.value, hcBookId, hcEditionId, method)
     }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> {
         val caller = principal.current() ?: return permissionDenied()
         return linking.unlink(caller.userId.value, caller.role, bookId.value)
     }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun syncNow(): AppResult<Unit> {
         val userId = callerId() ?: return permissionDenied()
         return pulls.syncNow(userId)
     }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun syncIfStale(): AppResult<Unit> {
         val userId = callerId() ?: return permissionDenied()
         pulls.syncIfStale(userId)
         return AppResult.Success(Unit)
     }
 
+    @OpenToAllMembers(reason = "a read of the caller's own Hardcover matches")
     override suspend fun booksNeedingMatch(): AppResult<List<BookId>> {
         val caller = principal.current() ?: return permissionDenied()
         return linking.booksNeedingMatch(caller.userId.value, caller.role).map { ids -> ids.map(::BookId) }
     }
 
+    @OpenToAllMembers(reason = "a read of the caller's own Hardcover matches")
     override suspend fun bookMatch(bookId: BookId): AppResult<HardcoverBookMatch> {
         val caller = principal.current() ?: return permissionDenied()
         return linking.bookMatch(caller.userId.value, caller.role, bookId.value)
     }
 
+    @OpenToAllMembers(reason = "the caller's own Hardcover link and history")
     override suspend fun setBookSynced(
         bookId: BookId,
         synced: Boolean,
@@ -151,6 +165,7 @@ class HardcoverServiceImpl(
         return keepOff.setSynced(caller.userId.value, caller.role, bookId.value, synced)
     }
 
+    @OpenToAllMembers(reason = "a read of the caller's own Hardcover matches")
     override suspend fun keptOffBooks(): AppResult<List<BookId>> {
         val caller = principal.current() ?: return permissionDenied()
         return AppResult.Success(keepOff.keptOffBooks(caller.userId.value, caller.role).map(::BookId))

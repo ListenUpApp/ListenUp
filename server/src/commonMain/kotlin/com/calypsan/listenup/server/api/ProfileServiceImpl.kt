@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.Argon2Limiter
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PasswordPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.SessionService
@@ -58,6 +59,7 @@ internal class ProfileServiceImpl(
         }
     }
 
+    @OpenToAllMembers(reason = "the caller's own profile")
     override suspend fun updateMyProfile(request: UpdateProfileRequest): AppResult<Profile> {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
         val userId = caller.userId.value

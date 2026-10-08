@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -15,6 +16,7 @@ import kotlinx.rpc.krpc.ktor.server.KrpcRoute
 import kotlinx.rpc.registerService
 
 internal class PingServiceImpl : PingService {
+    @OpenToAllMembers(reason = "public liveness probe")
     override suspend fun ping(): AppResult<String> = AppResult.Success("pong")
 }
 

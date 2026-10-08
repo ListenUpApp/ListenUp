@@ -34,6 +34,7 @@ import com.calypsan.listenup.server.db.sqldelight.Invites
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -224,6 +225,7 @@ class InviteServiceImpl(
 
     // ── Public (anonymous) surface ──────────────────────────────────────────────
 
+    @OpenToAllMembers(reason = "public: claiming an invite is how an account is made; rate-bucketed")
     override suspend fun claimInvite(
         code: String,
         password: String,

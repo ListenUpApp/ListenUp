@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.notifications.NotificationPreference
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.notifications.NotificationPrefsRepository
 import com.calypsan.listenup.server.sync.NotificationRepository
@@ -30,6 +31,7 @@ internal class NotificationServiceImpl(
     fun copyWith(principal: PrincipalProvider): NotificationServiceImpl =
         NotificationServiceImpl(repo, prefs, clock, principal)
 
+    @OpenToAllMembers(reason = "the caller's own notifications")
     override suspend fun markRead(notificationId: String): AppResult<Unit> {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
         return repo.markRead(
@@ -44,6 +46,7 @@ internal class NotificationServiceImpl(
         return AppResult.Success(prefs.listResolved(caller.userId.value))
     }
 
+    @OpenToAllMembers(reason = "the caller's own notifications")
     override suspend fun updatePreference(
         type: String,
         preference: NotificationPreference,

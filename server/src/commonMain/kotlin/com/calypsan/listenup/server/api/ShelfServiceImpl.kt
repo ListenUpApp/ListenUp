@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
 import com.calypsan.listenup.server.services.ActivityRecorder
@@ -81,6 +82,7 @@ internal class ShelfServiceImpl(
 ) : ShelfService {
     // ── Own-shelf mutation ────────────────────────────────────────────────────
 
+    @OpenToAllMembers(reason = "creates a shelf the caller owns")
     override suspend fun createShelf(
         name: String,
         description: String,

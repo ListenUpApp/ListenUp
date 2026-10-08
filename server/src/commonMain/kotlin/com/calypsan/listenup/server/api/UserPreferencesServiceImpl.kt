@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.domain.VolumeBoostLimits
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.User_settings
@@ -46,6 +47,7 @@ internal class UserPreferencesServiceImpl(
         return suspendTransaction(sql) { AppResult.Success(readRow(userId) ?: defaults()) }
     }
 
+    @OpenToAllMembers(reason = "the caller's own preferences")
     override suspend fun updateMyPreferences(request: UpdateUserPreferencesRequest): AppResult<UserPreferencesDto> {
         val userId = currentUserId() ?: return AppResult.Failure(AuthError.PermissionDenied())
         val merged =

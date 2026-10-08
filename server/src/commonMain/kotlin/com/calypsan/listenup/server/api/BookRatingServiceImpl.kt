@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.domain.ListenerRatingLimits
+import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
@@ -42,6 +43,7 @@ class BookRatingServiceImpl(
     /** Ratings on open (#1542). Nullable on the same terms as [fetcher]: absent in direct-construction tests. */
     private val onOpen: HardcoverRatingOnOpen? = null,
 ) : BookRatingService {
+    @OpenToAllMembers(reason = "the caller's own rating, on a book they can see")
     override suspend fun rate(
         bookId: BookId,
         request: RateBookRequest,
@@ -63,6 +65,7 @@ class BookRatingServiceImpl(
             ).map { }
     }
 
+    @OpenToAllMembers(reason = "the caller's own rating, on a book they can see")
     override suspend fun clearRating(bookId: BookId): AppResult<Unit> {
         val caller = callerWithAccessTo(bookId) ?: return notFound(bookId)
         return ratings.clear(bookId = bookId.value, userId = caller)
@@ -82,12 +85,14 @@ class BookRatingServiceImpl(
     }
 
     /** Returns a copy scoped to [principal]; the route handler calls this per request. */
+    @OpenToAllMembers(reason = "starts a fetch of public scores for a book the caller can see")
     override suspend fun ensureExternalRatings(bookId: BookId): AppResult<Unit> {
         callerWithAccessTo(bookId) ?: return notFound(bookId)
         onOpen?.ensure(bookId)
         return AppResult.Success(Unit)
     }
 
+    @OpenToAllMembers(reason = "starts a fetch of public scores for a book the caller can see")
     override fun checkExternalRatings(bookId: BookId): Flow<RpcEvent<ExternalRatingsCheck>> =
         flow {
             if (callerWithAccessTo(bookId) == null) return@flow
