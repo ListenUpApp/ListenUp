@@ -17,6 +17,8 @@ import kotlinx.serialization.KSerializer
  * compiler-walked refactor, never a cross-module string hunt.
  */
 @HiddenFromObjC
+// A key is the one declaration in SyncDomains; a data class's copy() would mint keys that pair a name with the wrong serializer.
+@Suppress("UseDataClass")
 class SyncDomainKey<T : Any>(
     /** Wire name: [SyncFrame.domain] value, sync-route path segment, cursor key. */
     val name: String,

@@ -6,6 +6,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -37,9 +38,11 @@ private const val KEYSTORE_RETRY_DELAY_MS = 20L
  * - All I/O operations on Dispatchers.IO
  *
  * @param context Android application context
+ * @param ioDispatcher Dispatcher for the Keystore and preference I/O; tests may substitute their own.
  */
 class AndroidSecureStorage(
     private val context: Context,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SecureStorage {
     private val prefs: SharedPreferences by lazy {
         context.getSharedPreferences("listenup_secure_prefs", Context.MODE_PRIVATE)
@@ -151,9 +154,11 @@ class AndroidSecureStorage(
     override suspend fun save(
         key: String,
         value: String,
-    ) = withContext(Dispatchers.IO) {
-        val encrypted = encrypt(value)
-        prefs.edit().putString(key, encrypted).commitDurably("save '$key'")
+    ) {
+        withContext(ioDispatcher) {
+            val encrypted = encrypt(value)
+            prefs.edit().putString(key, encrypted).commitDurably("save '$key'")
+        }
     }
 
     /**
@@ -169,7 +174,7 @@ class AndroidSecureStorage(
         }
 
     override suspend fun readCredential(key: String): String? =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val encrypted = prefs.getString(key, null) ?: return@withContext null
             try {
                 // Retry transient Keystore faults (key pruned/unavailable under memory pressure) so a
@@ -197,15 +202,17 @@ class AndroidSecureStorage(
             }
         }
 
-    override suspend fun delete(key: String) =
-        withContext(Dispatchers.IO) {
+    override suspend fun delete(key: String) {
+        withContext(ioDispatcher) {
             prefs.edit().remove(key).commitDurably("delete '$key'")
         }
+    }
 
-    override suspend fun clear() =
-        withContext(Dispatchers.IO) {
+    override suspend fun clear() {
+        withContext(ioDispatcher) {
             prefs.edit().clear().commitDurably("clear")
         }
+    }
 }
 
 /**
@@ -226,7 +233,7 @@ class AndroidSecureStorage(
  * the whole session family.
  *
  * `commit()` is synchronous and returns whether the write succeeded. Blocking is safe here because
- * every caller is already inside `withContext(Dispatchers.IO)`. A `false` return means the bytes did
+ * every caller is already inside `withContext(ioDispatcher)`. A `false` return means the bytes did
  * not reach disk; we log rather than throw, because `save` is also used for non-credential flags
  * whose callers are not written to handle a failure, and a thrown credential write would be a wider
  * behavioural change than this fix intends. The log line is the honest signal — with on-device log

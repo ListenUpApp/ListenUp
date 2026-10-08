@@ -50,6 +50,8 @@ enum class StatsWindow(
 
     /** The counting rule every window shares. */
     companion object {
+        private const val MILLIS_PER_SECOND = 1_000L
+
         /**
          * Wall-clock seconds a span from [startedAtMs] to [endedAtMs] contributes to a window that
          * starts at [windowStartMs]: the whole span when it ended at or after the start, else nothing.
@@ -59,7 +61,5 @@ enum class StatsWindow(
             endedAtMs: Long,
             windowStartMs: Long,
         ): Long = if (endedAtMs >= windowStartMs) (endedAtMs - startedAtMs) / MILLIS_PER_SECOND else 0L
-
-        private const val MILLIS_PER_SECOND = 1_000L
     }
 }

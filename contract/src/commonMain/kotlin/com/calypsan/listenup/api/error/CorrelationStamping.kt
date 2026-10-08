@@ -99,6 +99,7 @@ public fun AppError.withCorrelationId(id: String?): AppError =
  * project threshold. The `else` branch here is unreachable in practice — this function is only
  * called from the single grouped branch in [withCorrelationId].
  */
+@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.leafWithCorrelationId(id: String?): AppError =
     when (this) {
         is ValidationError -> copy(correlationId = id)
@@ -114,6 +115,7 @@ private fun AppError.leafWithCorrelationId(id: String?): AppError =
  * own exhaustive `copy`. Split out solely to keep [withCorrelationId]'s cyclomatic complexity under
  * the project threshold; the `else` is unreachable (only called from the grouped branch above).
  */
+@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.tagOrMoodWithCorrelationId(id: String?): AppError =
     when (this) {
         is TagError -> withCorrelationId(id)
@@ -127,6 +129,7 @@ private fun AppError.tagOrMoodWithCorrelationId(id: String?): AppError =
  * complexity under the project threshold; the `else` is unreachable (only called from the grouped
  * branch above).
  */
+@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.derivedMediaWithCorrelationId(id: String?): AppError =
     when (this) {
         is CoverError -> withCorrelationId(id)
@@ -139,6 +142,7 @@ private fun AppError.derivedMediaWithCorrelationId(id: String?): AppError =
  * own exhaustive `copy`. Split out solely to keep [withCorrelationId]'s cyclomatic complexity under the
  * project threshold; the `else` is unreachable (only called from the grouped branch above).
  */
+@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.seriesOrStoryWorldWithCorrelationId(id: String?): AppError =
     when (this) {
         is SeriesError -> withCorrelationId(id)
@@ -231,7 +235,11 @@ private fun DownloadError.withCorrelationId(id: String?): DownloadError =
 /**
  * Exhaustive stamping for the content-arrival families, [ImportError] and [UploadError], which
  * [withCorrelationId] dispatches to from the single grouped branch above.
+ *
+ * The `else` is unreachable: Kotlin has no union receiver type, so the grouped caller cannot
+ * narrow `this` for it.
  */
+@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.arrivalFamilyWithCorrelationId(id: String?): AppError =
     when (this) {
         is ImportError -> withCorrelationId(id)
@@ -305,6 +313,7 @@ private fun MetadataError.withCorrelationId(id: String?): MetadataError =
  * cyclomatic-complexity ceiling. The `else` branch is unreachable — this is only called from
  * the single grouped branch above.
  */
+@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.libraryFamilyWithCorrelationId(id: String?): AppError =
     when (this) {
         is LibraryError -> withCorrelationId(id)
@@ -498,7 +507,11 @@ private fun RatingError.withCorrelationId(id: String?): RatingError =
 /**
  * [PushError], [HardcoverError] and [RatingError], split from [withCorrelationId] for its
  * complexity ceiling.
+ *
+ * The `else` is unreachable: Kotlin has no union receiver type, so the grouped caller cannot
+ * narrow `this` for it.
  */
+@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.outboundServiceWithCorrelationId(id: String?): AppError =
     when (this) {
         is PushError -> withCorrelationId(id)

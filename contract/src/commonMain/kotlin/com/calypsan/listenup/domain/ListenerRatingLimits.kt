@@ -16,7 +16,7 @@ object ListenerRatingLimits {
     const val NOTE_MAX_CHARS: Int = 280
 
     /** [note] trimmed, with a blank note meaning no note. */
-    fun normalizeNote(note: String?): String? = note?.trim()?.takeIf { it.isNotEmpty() }
+    fun normalizeNote(note: String?): String? = note?.run { trim().takeIf { it.isNotEmpty() } }
 
     /**
      * [halfStars] as the number of stars every platform says: "4" for 8, "3.5" for 7. Also works for
