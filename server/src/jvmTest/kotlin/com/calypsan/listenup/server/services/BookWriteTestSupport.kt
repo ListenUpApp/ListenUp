@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -10,16 +9,12 @@ import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookContributorPayload
-import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.BookServiceImpl
-import com.calypsan.listenup.server.api.ContributorServiceImpl
-import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -32,15 +27,8 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.bookPayloadFixture
-import com.calypsan.listenup.server.testing.rootPrincipal
-import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withSqlDatabase
-import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.nulls.shouldBeNull
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
-import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path as IoPath
 
 /*

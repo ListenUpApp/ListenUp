@@ -5,7 +5,6 @@ package com.calypsan.listenup.server.scanner
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.error.ScanError
-import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader

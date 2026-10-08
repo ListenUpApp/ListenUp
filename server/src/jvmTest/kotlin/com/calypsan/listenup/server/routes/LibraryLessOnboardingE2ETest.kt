@@ -18,7 +18,6 @@ import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.Serializable
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.server.testing.authedService

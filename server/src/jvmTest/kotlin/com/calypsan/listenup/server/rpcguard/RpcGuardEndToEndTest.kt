@@ -32,7 +32,6 @@ import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.ktor.server.Krpc
 import kotlinx.rpc.krpc.ktor.server.rpc
 import kotlinx.rpc.krpc.serialization.json.json
-import kotlinx.rpc.registerService
 import kotlinx.rpc.withService
 
 /**

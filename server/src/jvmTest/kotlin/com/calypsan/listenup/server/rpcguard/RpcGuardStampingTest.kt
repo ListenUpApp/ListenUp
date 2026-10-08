@@ -25,7 +25,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 
 /**
  * Behaviour proof for the guard's correlation-id stamping (finding #5) and its synchronous-flow-throw

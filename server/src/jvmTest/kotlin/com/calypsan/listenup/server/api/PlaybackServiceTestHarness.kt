@@ -1,29 +1,9 @@
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.api.dto.RecordListeningEventRequest
-import com.calypsan.listenup.api.dto.RecordPositionRequest
-import com.calypsan.listenup.api.dto.SharePermission
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookAudioFilePayload
-import com.calypsan.listenup.api.sync.BookChapterPayload
-import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
-import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
-import com.calypsan.listenup.api.sync.CollectionSyncPayload
-import com.calypsan.listenup.api.error.SyncError
-import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
-import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.FolderId
-import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.server.audio.AudioFileLocator
-import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.server.transcode.TranscodePolicy
 import com.calypsan.listenup.server.transcode.TranscodeSettings
 import com.calypsan.listenup.server.transcode.TranscoderAvailability
-import com.calypsan.listenup.server.transcode.TranscoderStatus
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -31,17 +11,12 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.services.ActivityRecorder
-import com.calypsan.listenup.server.services.ActivitySyncRepository
-import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.services.StatsRecorder
-import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -50,20 +25,6 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
-import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withSqlDatabase
-import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldHaveSize
-import io.kotest.matchers.longs.shouldBeGreaterThan
-import io.kotest.matchers.nulls.shouldBeNull
-import io.kotest.matchers.nulls.shouldNotBeNull
-import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldStartWith
-import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.test.runTest
 
 /**
  * Shared fixtures for the `PlaybackServiceImpl` specs.

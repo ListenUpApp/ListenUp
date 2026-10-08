@@ -2,15 +2,12 @@ package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ScanResult
-import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
 import io.ktor.client.request.get
-import io.ktor.client.request.post
 import io.ktor.client.statement.HttpResponse
-import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.delay
 
 /**
