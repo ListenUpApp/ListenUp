@@ -42,7 +42,8 @@ import kotlinx.io.files.Path
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
-private val logger = KotlinLogging.logger("com.calypsan.listenup.server.di.ScannerModule")
+// Not `logger`: inside a Koin `single { }` that name resolves to Koin's own (unconfigured) Scope.logger.
+private val scannerModuleLog = KotlinLogging.logger("com.calypsan.listenup.server.di.ScannerModule")
 
 /**
  * Koin module for the scanner slice. Wires:
@@ -143,10 +144,9 @@ fun scannerModule(
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            val msg =
-                                "FolderWatcher failed to start for ${folder.rootPath}: " +
-                                    "${e.message} — watcher disabled for this folder"
-                            logger.warn(msg)
+                            scannerModuleLog.warn(e) {
+                                "FolderWatcher failed to start for $folderPath — watcher disabled for this folder"
+                            }
                             return@launch
                         }
                         watcher.events.collect { path -> onEvent(path) }
