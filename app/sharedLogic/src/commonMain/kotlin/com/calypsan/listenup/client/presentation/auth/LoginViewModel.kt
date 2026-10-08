@@ -81,27 +81,24 @@ class LoginViewModel(
 }
 
 private fun AppError.toLoginErrorType(): LoginErrorType =
-    when {
-        this is AuthError.InvalidCredentials || this is AuthError.AccountDenied || this is AuthError.PendingApproval -> {
-            LoginErrorType.InvalidCredentials
-        }
+    when (this) {
+        is AuthError.InvalidCredentials,
+        is AuthError.AccountDenied,
+        is AuthError.PendingApproval,
+        -> LoginErrorType.InvalidCredentials
 
-        this is AuthError.RateLimited -> {
-            LoginErrorType.ServerError("Too many attempts; try again in ${retryAfterSeconds}s.")
-        }
+        is AuthError.RateLimited -> LoginErrorType.ServerError("Too many attempts; try again in ${retryAfterSeconds}s.")
 
-        this is ValidationError -> {
-            LoginErrorType.ValidationError(field())
-        }
+        is AuthError.SessionExpired,
+        is AuthError.SessionNotFound,
+        is AuthError.InvalidRefreshToken,
+        -> LoginErrorType.ServerError(null)
 
-        this is InternalError -> {
-            LoginErrorType.NetworkError(null)
-        }
+        is ValidationError -> LoginErrorType.ValidationError(field())
 
-        // Session errors (SessionExpired, SessionNotFound, InvalidRefreshToken) and every other failure.
-        else -> {
-            LoginErrorType.ServerError(null)
-        }
+        is InternalError -> LoginErrorType.NetworkError(null)
+
+        else -> LoginErrorType.ServerError(null)
     }
 
 private fun ValidationError.field(): LoginField =

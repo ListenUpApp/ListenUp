@@ -74,11 +74,11 @@ class SetupViewModel(
 
     private suspend fun handleFailure(error: AppError): SetupUiState.Error {
         val type =
-            when {
-                error is AuthError.SetupAlreadyComplete -> SetupErrorType.AlreadyConfigured
-                error is AuthError.WeakPassword -> SetupErrorType.ValidationError(SetupField.PASSWORD)
-                error is ValidationError -> SetupErrorType.ValidationError(error.field())
-                error is InternalError -> SetupErrorType.ServerError
+            when (error) {
+                is AuthError.SetupAlreadyComplete -> SetupErrorType.AlreadyConfigured
+                is AuthError.WeakPassword -> SetupErrorType.ValidationError(SetupField.PASSWORD)
+                is ValidationError -> SetupErrorType.ValidationError(error.field())
+                is InternalError -> SetupErrorType.ServerError
                 else -> SetupErrorType.ServerError
             }
         if (type == SetupErrorType.AlreadyConfigured) {

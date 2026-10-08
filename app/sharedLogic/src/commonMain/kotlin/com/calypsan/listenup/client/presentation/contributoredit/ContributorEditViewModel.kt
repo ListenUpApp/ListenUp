@@ -490,10 +490,10 @@ class ContributorEditViewModel internal constructor(
                         editState.copy(
                             mergeInProgress = false,
                             error =
-                                when (result.error as? ContributorError) {
+                                when (result.error) {
                                     is ContributorError.MergeSelfTarget -> "Can't merge a contributor with itself."
                                     is ContributorError.NotFound -> "One of these contributors no longer exists."
-                                    is ContributorError.InvalidInput, is ContributorError.AliasNotFound, null -> result.error.message
+                                    else -> result.error.message
                                 },
                         )
                     }
@@ -526,10 +526,10 @@ class ContributorEditViewModel internal constructor(
                     state.update { editState ->
                         editState.copy(
                             error =
-                                when (result.error as? ContributorError) {
+                                when (result.error) {
                                     is ContributorError.AliasNotFound -> "That alias is no longer on this contributor."
                                     is ContributorError.NotFound -> "This contributor no longer exists."
-                                    is ContributorError.InvalidInput, is ContributorError.MergeSelfTarget, null -> result.error.message
+                                    else -> result.error.message
                                 },
                         )
                     }
@@ -762,10 +762,10 @@ class ContributorEditViewModel internal constructor(
                         editState.copy(
                             mergeInProgress = false,
                             error =
-                                when (result.error as? ContributorError) {
+                                when (result.error) {
                                     is ContributorError.MergeSelfTarget -> "Can't merge a contributor with itself."
                                     is ContributorError.NotFound -> "One of these contributors no longer exists."
-                                    is ContributorError.InvalidInput, is ContributorError.AliasNotFound, null -> result.error.message
+                                    else -> result.error.message
                                 },
                         )
                     }

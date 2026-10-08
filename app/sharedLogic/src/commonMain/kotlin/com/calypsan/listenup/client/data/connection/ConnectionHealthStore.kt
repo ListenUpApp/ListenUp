@@ -178,9 +178,9 @@ internal class ConnectionHealthStore(
      */
     fun report(error: AppError) {
         val compatEvidence =
-            when {
-                error is TransportError.ContractMismatch -> error.detail
-                error is TransportError.DataMalformed -> error.detail
+            when (error) {
+                is TransportError.ContractMismatch -> error.detail
+                is TransportError.DataMalformed -> error.detail
                 else -> null
             }
         if (compatEvidence != null) {

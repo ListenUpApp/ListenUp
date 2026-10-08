@@ -110,18 +110,13 @@ internal class ConnectionEvidence {
             }
 
             is AppResult.Failure -> {
-                when (result.error as? TransportError) {
+                when (result.error) {
                     is TransportError.NetworkUnavailable,
                     is TransportError.Timeout,
                     is TransportError.OutcomeUnknown,
                     -> reportDown()
 
-                    is TransportError.Server4xx,
-                    is TransportError.Server5xx,
-                    is TransportError.DataMalformed,
-                    is TransportError.ContractMismatch,
-                    null,
-                    -> reportUp()
+                    else -> reportUp()
                 }
             }
         }

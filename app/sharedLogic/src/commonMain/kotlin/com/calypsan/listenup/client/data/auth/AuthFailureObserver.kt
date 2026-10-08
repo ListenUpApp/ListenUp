@@ -70,7 +70,12 @@ internal class AuthFailureObserver(
  * are deliberately excluded — they mean "not allowed", not "logged out".
  */
 internal fun AppError.invalidatesSession(): Boolean =
-    this is AuthError.SessionExpired ||
-        this is AuthError.SessionNotFound ||
-        this is AuthError.InvalidRefreshToken ||
-        this is AuthError.ServerInstanceChanged
+    when (this) {
+        is AuthError.SessionExpired,
+        is AuthError.SessionNotFound,
+        is AuthError.InvalidRefreshToken,
+        is AuthError.ServerInstanceChanged,
+        -> true
+
+        else -> false
+    }

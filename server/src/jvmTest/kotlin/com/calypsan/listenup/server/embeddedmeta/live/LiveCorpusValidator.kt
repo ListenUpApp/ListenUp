@@ -98,15 +98,25 @@ internal class LiveCorpusValidator(
         unsupportedByFormat: MutableMap<AudioFormat, Int>,
         typedErrors: MutableList<Pair<JPath, AudioMetadataError>>,
     ) {
-        // Parser only returns AudioMetadataError subtypes; other AppError shouldn't reach here.
-        if (err !is AudioMetadataError) return
-        val format = (err as? AudioMetadataError.UnsupportedFormat)?.format
-        if (format != null) {
-            unsupportedByFormat.merge(format, 1, Int::plus)
-        } else {
-            // Typed failures — and an unrecognised magic, surfaced for inspection rather than silently
-            // dropped, since an operator may want to add a new format to the detector.
-            typedErrors += file to err
+        when (err) {
+            is AudioMetadataError.UnsupportedFormat -> {
+                val format = err.format
+                if (format != null) {
+                    unsupportedByFormat.merge(format, 1, Int::plus)
+                } else {
+                    // Magic unrecognised — surface for inspection rather than silently
+                    // dropping; an operator may want to add a new format to the detector.
+                    typedErrors += file to err
+                }
+            }
+
+            is AudioMetadataError -> {
+                typedErrors += file to err
+            }
+
+            else -> {
+                // Parser only returns AudioMetadataError subtypes; other AppError shouldn't reach here.
+            }
         }
     }
 

@@ -308,10 +308,7 @@ private fun DownloadError.toHttpStatus(): HttpStatusCode =
 /**
  * Status mapping for the content-arrival families, [ImportError] and [UploadError], which
  * [toHttpStatus] dispatches to from the single grouped branch above.
- *
- * Only reached from one grouped branch of toHttpStatus; listing every other AppError family here would bury the two that matter, and that function's own `when` is the exhaustive one.
  */
-@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.arrivalFamilyHttpStatus(): HttpStatusCode =
     when (this) {
         is ImportError -> toHttpStatus()
@@ -404,10 +401,7 @@ private fun MetadataError.toHttpStatus(): HttpStatusCode =
  * Split from [toHttpStatus] solely to keep that function's cyclomatic complexity under the
  * project threshold. The `else` branch is unreachable — this is only called from the single
  * grouped branch in [toHttpStatus].
- *
- * Only reached from one grouped branch of toHttpStatus; listing every other AppError family here would bury the two that matter, and that function's own `when` is the exhaustive one.
  */
-@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.libraryFamilyHttpStatus(): HttpStatusCode =
     when (this) {
         is LibraryError -> toHttpStatus()
@@ -441,10 +435,7 @@ private fun LibraryError.toHttpStatus(): HttpStatusCode =
  * Re-dispatches the grouped `TagError`/`MoodError` branch of [toHttpStatus] to each family's
  * own exhaustive mapping. Split out solely to keep [toHttpStatus]'s cyclomatic complexity under
  * the project threshold; the `else` is unreachable (only called from the grouped branch above).
- *
- * Only reached from one grouped branch of toHttpStatus; listing every other AppError family here would bury the two that matter, and that function's own `when` is the exhaustive one.
  */
-@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.tagOrMoodHttpStatus(): HttpStatusCode =
     when (this) {
         is TagError -> toHttpStatus()
@@ -492,10 +483,7 @@ private fun CoverError.toHttpStatus(): HttpStatusCode =
  * Re-dispatches the grouped `CoverError`/`TranscodeError` branch of [toHttpStatus] to each family's
  * own exhaustive mapping. Split out solely to keep [toHttpStatus]'s cyclomatic complexity under the
  * project threshold; the `else` is unreachable (only called from the grouped branch above).
- *
- * Only reached from one grouped branch of toHttpStatus; listing every other AppError family here would bury the two that matter, and that function's own `when` is the exhaustive one.
  */
-@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.derivedMediaHttpStatus(): HttpStatusCode =
     when (this) {
         is CoverError -> toHttpStatus()
@@ -522,9 +510,6 @@ private fun ContributorError.toHttpStatus(): HttpStatusCode =
         is ContributorError.AliasNotFound -> HttpStatusCode.NotFound
     }
 
-// Only reached from one grouped branch of toHttpStatus; listing every other AppError family here
-// would bury the two that matter, and that function's own `when` is the exhaustive one.
-@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.seriesOrStoryWorldHttpStatus(): HttpStatusCode =
     when (this) {
         is SeriesError -> toHttpStatus()
@@ -593,10 +578,7 @@ private fun ShelfError.toHttpStatus(): HttpStatusCode =
  * Re-dispatches the grouped `ShelfError`/`SocialError`/`ReadingOrderError` branch of [toHttpStatus] to each family's
  * own exhaustive mapping. Split out solely to keep [toHttpStatus]'s cyclomatic complexity under the
  * project threshold; the `else` is unreachable (only called from the grouped branch above).
- *
- * Only reached from one grouped branch of toHttpStatus; listing every other AppError family here would bury the two that matter, and that function's own `when` is the exhaustive one.
  */
-@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.shelfOrSocialHttpStatus(): HttpStatusCode =
     when (this) {
         is ShelfError -> toHttpStatus()
@@ -683,10 +665,7 @@ private fun RatingError.toHttpStatus(): HttpStatusCode =
 /**
  * [PushError], [HardcoverError] and [RatingError], split from [toHttpStatus] for its complexity
  * ceiling.
- *
- * Only reached from one grouped branch of toHttpStatus; listing every other AppError family here would bury the two that matter, and that function's own `when` is the exhaustive one.
  */
-@Suppress("ElseCaseInsteadOfExhaustiveWhen")
 private fun AppError.outboundServiceHttpStatus(): HttpStatusCode =
     when (this) {
         is PushError -> toHttpStatus()

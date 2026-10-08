@@ -88,8 +88,8 @@ class CreateInviteViewModel(
         logger.warn {
             "Create-invite failed: [${error.code}] cid=${error.correlationId ?: "none"} debug=${error.debugInfo ?: "none"}"
         }
-        return when {
-            error is ValidationError -> {
+        return when (error) {
+            is ValidationError -> {
                 if (error.field == ValidationField.EMAIL) {
                     CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
                 } else {
@@ -97,7 +97,7 @@ class CreateInviteViewModel(
                 }
             }
 
-            error is TransportError.Server4xx -> {
+            is TransportError.Server4xx -> {
                 if (error.statusCode == HTTP_CONFLICT) {
                     CreateInviteErrorType.EmailInUse
                 } else {
@@ -105,7 +105,7 @@ class CreateInviteViewModel(
                 }
             }
 
-            error is TransportError.NetworkUnavailable || error is TransportError.Timeout -> {
+            is TransportError.NetworkUnavailable, is TransportError.Timeout -> {
                 CreateInviteErrorType.NetworkError(error.message)
             }
 

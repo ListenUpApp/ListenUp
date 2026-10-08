@@ -514,15 +514,20 @@ internal suspend fun refreshAuthTokens(
             }
 
             is AppResult.Failure -> {
-                val error = result.error
-                if (error is AuthError.SessionExpired || error is AuthError.InvalidRefreshToken) {
-                    logger.warn {
-                        "Token refresh rejected ($error), lapsing session (credentials cleared, user id kept)"
+                when (result.error) {
+                    is AuthError.SessionExpired,
+                    is AuthError.InvalidRefreshToken,
+                    -> {
+                        logger.warn {
+                            "Token refresh rejected (${result.error}), lapsing session (credentials cleared, user id kept)"
+                        }
+                        authSession.clearSessionCredentials()
                     }
-                    authSession.clearSessionCredentials()
-                } else {
-                    logger.warn { "Token refresh failed ($error), preserving auth state" }
-                    throw TransientAuthRefreshException(message = "Token refresh failed: ${error.code}")
+
+                    else -> {
+                        logger.warn { "Token refresh failed (${result.error}), preserving auth state" }
+                        throw TransientAuthRefreshException(message = "Token refresh failed: ${result.error.code}")
+                    }
                 }
                 null
             }

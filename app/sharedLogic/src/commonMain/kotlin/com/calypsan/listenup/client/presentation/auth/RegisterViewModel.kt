@@ -80,13 +80,13 @@ class RegisterViewModel(
 }
 
 private fun AppError.toUserMessage(): String =
-    when {
-        this is AuthError.EmailAlreadyExists -> "That email is already registered."
-        this is AuthError.RegistrationDisabled -> "Registration is closed on this server."
-        this is AuthError.SetupRequired -> "Server needs initial setup before registration."
-        this is AuthError.WeakPassword -> "That password doesn't meet the policy (${reason.name.lowercase()})."
-        this is AuthError.RateLimited -> "Too many attempts; try again in ${retryAfterSeconds}s."
-        this is ValidationError -> message
-        this is InternalError -> "Something went wrong. Please try again."
+    when (this) {
+        is AuthError.EmailAlreadyExists -> "That email is already registered."
+        is AuthError.RegistrationDisabled -> "Registration is closed on this server."
+        is AuthError.SetupRequired -> "Server needs initial setup before registration."
+        is AuthError.WeakPassword -> "That password doesn't meet the policy (${reason.name.lowercase()})."
+        is AuthError.RateLimited -> "Too many attempts; try again in ${retryAfterSeconds}s."
+        is ValidationError -> message
+        is InternalError -> "Something went wrong. Please try again."
         else -> "Registration failed. Please try again."
     }

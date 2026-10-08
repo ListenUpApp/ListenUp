@@ -388,9 +388,9 @@ class SeriesEditViewModel internal constructor(
                         current.copy(
                             mergeInProgress = false,
                             error =
-                                when {
-                                    result.error is SeriesError.MergeSelfTarget -> "Can't merge a series with itself."
-                                    result.error is SeriesError.NotFound -> "One of these series no longer exists."
+                                when (result.error) {
+                                    is SeriesError.MergeSelfTarget -> "Can't merge a series with itself."
+                                    is SeriesError.NotFound -> "One of these series no longer exists."
                                     else -> result.error.message
                                 },
                         )
