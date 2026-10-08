@@ -243,7 +243,7 @@ internal fun NarrowSeriesDetailContent(
                 onBackClick = onBackClick,
                 onContributorClick = onContributorClick,
                 onShowAuthors = onShowAuthors,
-                onEditClick = onEditClick,
+                onEditClick = onEditClick.takeIf { state.canEditMetadata },
                 onSeriesClick = hierarchy.onSeriesClick,
             )
         }
@@ -322,7 +322,7 @@ internal fun WideSeriesDetailContent(
                         .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
+                HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick.takeIf { state.canEditMetadata })
                 Spacer(Modifier.height(8.dp))
                 HeroBody(
                     state = state,
