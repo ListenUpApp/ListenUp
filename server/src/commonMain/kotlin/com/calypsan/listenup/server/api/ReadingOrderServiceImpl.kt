@@ -1,8 +1,10 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.ReadingOrderService
-import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderChoice
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ReadingOrderError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -13,8 +15,10 @@ import com.calypsan.listenup.core.ReadingOrderId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.domain.readingorder.ReadingOrderName
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.OpenToAllMembers
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -30,9 +34,9 @@ import kotlinx.coroutines.currentCoroutineContext
  * outbox. The caller is always the bound [principal] (the route's [copyWith]), never a request field.
  *
  * Who may do what:
- * - make an order: [UserPermissionPolicy.requireCanMakeReadingOrders] (ROOT/ADMIN implicit);
- * - change one: ROOT/ADMIN, or its maker while the maker still holds the permission;
- * - follow one: anyone.
+ * - make an order: [Permission.MAKE_READING_ORDERS] (ROOT/ADMIN implicit);
+ * - change one: ROOT/ADMIN, or its maker while the maker still holds the permission ([requireEditor]);
+ * - follow one: anyone — a follow only changes the caller's own Home and Up next.
  *
  * An order whose series is not live (deleted, merged away or purged) is dormant: every write to it is
  * [ReadingOrderError.NotFound], and it applies again if its series comes back. No hook runs when a series
@@ -45,7 +49,7 @@ internal class ReadingOrderServiceImpl(
     private val seriesRepo: SeriesRepository,
     private val sqlDb: ListenUpDatabase,
     private val accessPolicy: BookAccessPolicy,
-    private val permissionPolicy: UserPermissionPolicy,
+    private val permissionPolicy: PermissionPolicy,
     private val principal: PrincipalProvider,
     private val clock: Clock = Clock.System,
 ) : ReadingOrderService {
@@ -70,8 +74,8 @@ internal class ReadingOrderServiceImpl(
         seriesId: SeriesId,
         name: String,
     ): AppResult<Unit> {
+        requirePermission(Permission.MAKE_READING_ORDERS)?.let { return AppResult.Failure(it) }
         val caller = principal.current() ?: return notFound(NO_PRINCIPAL)
-        permissionPolicy.requireCanMakeReadingOrders(caller.userId, caller.role)?.let { return AppResult.Failure(it) }
         orders.findAny(id.value)?.let { existing -> return replayOfCreate(existing, caller) }
         if (!seriesIsLive(seriesId.value)) return notFound("series=${seriesId.value}")
         val valid = ReadingOrderName.validate(name) ?: return AppResult.Failure(ReadingOrderError.InvalidName())
@@ -104,7 +108,7 @@ internal class ReadingOrderServiceImpl(
         name: String,
     ): AppResult<Unit> {
         val order =
-            when (val gate = requireEditable(id)) {
+            when (val gate = requireEditor(id)) {
                 is EditGate.Denied -> return gate.failure
                 is EditGate.Allowed -> gate.order
             }
@@ -117,7 +121,7 @@ internal class ReadingOrderServiceImpl(
 
     override suspend fun deleteReadingOrder(id: ReadingOrderId): AppResult<Unit> {
         val order =
-            when (val gate = requireEditable(id)) {
+            when (val gate = requireEditor(id)) {
                 is EditGate.Denied -> return gate.failure
                 is EditGate.Allowed -> gate.order
             }
@@ -137,7 +141,7 @@ internal class ReadingOrderServiceImpl(
         bookId: BookId,
         membershipId: String,
     ): AppResult<Unit> =
-        when (val gate = requireEditable(id)) {
+        when (val gate = requireEditor(id)) {
             is EditGate.Denied -> gate.failure
             is EditGate.Allowed -> membership.add(gate.order, gate.caller, bookId, membershipId)
         }
@@ -146,7 +150,7 @@ internal class ReadingOrderServiceImpl(
         id: ReadingOrderId,
         bookId: BookId,
     ): AppResult<Unit> =
-        when (val gate = requireEditable(id)) {
+        when (val gate = requireEditor(id)) {
             is EditGate.Denied -> gate.failure
             is EditGate.Allowed -> membership.remove(gate.order, bookId)
         }
@@ -155,11 +159,12 @@ internal class ReadingOrderServiceImpl(
         id: ReadingOrderId,
         orderedBookIds: List<BookId>,
     ): AppResult<Unit> =
-        when (val gate = requireEditable(id)) {
+        when (val gate = requireEditor(id)) {
             is EditGate.Denied -> gate.failure
             is EditGate.Allowed -> membership.reorder(gate.order, orderedBookIds)
         }
 
+    @OpenToAllMembers("A follow is the caller's own row; it only changes their own Home and Up next.")
     override suspend fun chooseReadingOrder(
         seriesId: SeriesId,
         choice: ReadingOrderChoice,
@@ -183,6 +188,7 @@ internal class ReadingOrderServiceImpl(
             ).map { }
     }
 
+    @OpenToAllMembers("A follow is the caller's own row; it only changes their own Home and Up next.")
     override suspend fun clearReadingOrderChoice(seriesId: SeriesId): AppResult<Unit> {
         val caller = principal.current() ?: return notFound(NO_PRINCIPAL)
         val followId = follows.followId(caller.userId.value, seriesId.value)
@@ -192,7 +198,7 @@ internal class ReadingOrderServiceImpl(
     }
 
     override suspend fun countReadingOrderFollowers(id: ReadingOrderId): AppResult<Int> =
-        when (val gate = requireEditable(id)) {
+        when (val gate = requireEditor(id)) {
             is EditGate.Denied -> gate.failure
             is EditGate.Allowed -> AppResult.Success(follows.countFollowersOf(gate.order.id))
         }
@@ -202,17 +208,26 @@ internal class ReadingOrderServiceImpl(
      * still hold the permission (an admin turning it off keeps their orders, but freezes them). An order
      * that is gone, or whose series is not live, is [ReadingOrderError.NotFound].
      */
-    private suspend fun requireEditable(id: ReadingOrderId): EditGate {
+    private suspend fun requireEditor(id: ReadingOrderId): EditGate {
         val caller = principal.current() ?: return EditGate.Denied(notFound(NO_PRINCIPAL))
         val order =
             orders.findLive(id.value)?.takeIf { seriesIsLive(it.seriesId) }
                 ?: return EditGate.Denied(notFound("order=${id.value}"))
-        if (caller.role == UserRole.ROOT || caller.role == UserRole.ADMIN) return EditGate.Allowed(order, caller)
+        if (caller.role.isAdmin()) return EditGate.Allowed(order, caller)
         val isMakerWithPermission =
-            order.createdBy == caller.userId.value &&
-                permissionPolicy.requireCanMakeReadingOrders(caller.userId, caller.role) == null
+            order.createdBy == caller.userId.value && requirePermission(Permission.MAKE_READING_ORDERS) == null
         if (!isMakerWithPermission) return EditGate.Denied(AppResult.Failure(ReadingOrderError.Forbidden()))
         return EditGate.Allowed(order, caller)
+    }
+
+    /**
+     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
+     * principal — a wiring bug, since the route always [copyWith]s the authenticated caller — is denied.
+     * Returns null when permitted; the denial otherwise.
+     */
+    private suspend fun requirePermission(permission: Permission): AppError? {
+        val caller = principal.current() ?: return AuthError.PermissionDenied()
+        return permissionPolicy.require(caller, permission)
     }
 
     private suspend fun seriesIsLive(seriesId: String): Boolean =
@@ -221,7 +236,7 @@ internal class ReadingOrderServiceImpl(
     private fun notFound(debugInfo: String): AppResult.Failure =
         AppResult.Failure(ReadingOrderError.NotFound(debugInfo = debugInfo))
 
-    /** The outcome of [requireEditable]. */
+    /** The outcome of [requireEditor]. */
     private sealed interface EditGate {
         /** The caller may change [order]. */
         data class Allowed(

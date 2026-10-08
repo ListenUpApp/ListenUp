@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.sync.ReadingOrderBookRepository
 import com.calypsan.listenup.server.sync.ReadingOrderFollowRepository
@@ -35,7 +35,7 @@ internal data class ReadingOrderDeps(
             seriesRepo = hierarchy.seriesRepo,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
-            permissionPolicy = UserPermissionPolicy(dbs.sql),
+            permissionPolicy = PermissionPolicy(dbs.sql),
             principal = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("s-$userId"), role) },
         )
 

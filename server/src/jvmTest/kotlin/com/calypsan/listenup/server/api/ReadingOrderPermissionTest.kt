@@ -25,7 +25,7 @@ class ReadingOrderPermissionTest :
         test("a member without the permission gets PermissionDenied on create, but may still follow") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("jess")
+                sql.seedTestUser("jess", canMakeReadingOrders = false)
                 val deps = makeReadingOrderDeps(this)
                 runTest {
                     val ids = deps.seedCosmere()
@@ -34,6 +34,40 @@ class ReadingOrderPermissionTest :
                     deps.orders.findAny("ro") shouldBe null
                     jess
                         .chooseReadingOrder(ids.cosmere, ReadingOrderChoice.PublicationOrder)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                }
+            }
+        }
+
+        test("a member holds the permission by default — additive, undoable work defaults on") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.usersQueries.insert(
+                    id = "fresh",
+                    email = "fresh@example.com",
+                    email_normalized = "fresh@example.com",
+                    password_hash = "phc",
+                    role = "MEMBER",
+                    display_name = "fresh",
+                    status = "ACTIVE",
+                    created_at = 1L,
+                    updated_at = 1L,
+                    last_login_at = null,
+                    can_edit = 1L,
+                    approved_by = null,
+                    approved_at = null,
+                    deleted_at = null,
+                    invited_by = null,
+                    tagline = null,
+                    avatar_type = "auto",
+                    timezone = "UTC",
+                )
+                val deps = makeReadingOrderDeps(this)
+                runTest {
+                    val ids = deps.seedCosmere()
+                    deps
+                        .serviceAs("fresh")
+                        .createReadingOrder(ReadingOrderId("ro"), ids.cosmere, "Mine")
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 }
             }

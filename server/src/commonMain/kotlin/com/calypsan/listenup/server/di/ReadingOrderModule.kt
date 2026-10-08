@@ -5,7 +5,7 @@ import com.calypsan.listenup.api.ReadingOrderService
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.ReadingOrderServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ReadingOrderBookRepository
 import com.calypsan.listenup.server.sync.ReadingOrderFollowRepository
@@ -39,7 +39,7 @@ fun readingOrderModule(): Module =
                 seriesRepo = get(),
                 sqlDb = get<ListenUpDatabase>(),
                 accessPolicy = get<BookAccessPolicy>(),
-                permissionPolicy = get<UserPermissionPolicy>(),
+                permissionPolicy = get<PermissionPolicy>(),
                 principal = unscopedReadingOrderPlaceholder(),
                 clock = get(),
             )
