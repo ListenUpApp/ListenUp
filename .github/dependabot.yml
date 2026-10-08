@@ -26,8 +26,8 @@ updates:
       - dependency-name: "org.jetbrains.kotlinx:kotlinx-rpc*"   # kotlinx-rpc artifacts (dev-channel redirector)
       - dependency-name: "org.jetbrains.kotlinx.rpc.plugin"     # kotlinx-rpc Gradle plugin
       # Deliberate pins.
-      - dependency-name: "dev.detekt*"                   # detekt 2.0.0-alpha.5 — maintainer-decided alpha pin
-      - dependency-name: "org.jetbrains.compose.material3:material3"  # 1.11.0-alpha07 — upstream-blocked
+      - dependency-name: "dev.detekt*"                   # detekt 2.0.0-alpha.6 — maintainer-decided alpha pin
+      - dependency-name: "org.jetbrains.compose.material3:material3"  # 1.12.0-alpha03 — upstream-blocked
       # Transitive BUILD/TEST-tooling only — never on a shipped or runtime classpath. Verified absent
       # from :server jvmRuntimeClasspath and all native configs (shipped artifact is a Kotlin/Native
       # server.kexe with zero JVM jars) and from :app:androidApp releaseRuntimeClasspath (nothing in the
