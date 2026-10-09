@@ -91,24 +91,6 @@ class RelayPushNotifierTest :
             )
         }
 
-        /** Inserts a `push_watch_tokens` row watching ([kind], [key]). */
-        fun ListenUpDatabase.seedTestWatchToken(
-            kind: PushWatchKind,
-            key: String,
-            token: String,
-            platform: String,
-            expiresAt: Long = fixedNow.toEpochMilliseconds() + 1_000_000L,
-        ) {
-            pushWatchTokensQueries.upsert(
-                token = token,
-                platform = platform,
-                watch_kind = kind.wire,
-                watch_key = key,
-                now = fixedNow.toEpochMilliseconds(),
-                expires_at = expiresAt,
-            )
-        }
-
         fun enabledSettings(sql: ListenUpDatabase): ServerSettingsRepository =
             ServerSettingsRepository(
                 sql = sql,
@@ -337,22 +319,26 @@ class RelayPushNotifierTest :
             }
         }
 
-        // --- notifyWatch: the pre-auth watch-token leg (#1068). Twins of the six notify()
-        // cases above — the two lines that differ (selectLiveForKey/deleteByToken against
-        // push_watch_tokens instead of push_tokens) are exactly the copy-paste-risk surface.
+        // --- notifyWatchers: the pre-auth watch-token leg (#1068). The caller evicts the watchers
+        // first and hands them over, so this leg reads no table and deletes no row.
 
-        test("notifyWatch fans out to all live watch tokens in one relay call") {
+        val android = PushWatcher(token = "watch-android", platform = "ANDROID")
+        val ios = PushWatcher(token = "watch-ios", platform = "IOS")
+        val decision = PushPayload.RegistrationDecision(userId = "pending-1", approved = true)
+
+        fun notifierFor(
+            sql: ListenUpDatabase,
+            recorder: RecordingEngine,
+            settings: ServerSettingsRepository = enabledSettings(sql),
+        ) = RelayPushNotifier(
+            db = sql,
+            relay = relayClientFor(recorder.engine()),
+            settings = settings,
+            clock = FixedClock(fixedNow),
+        )
+
+        test("notifyWatchers fans out to every watcher it is handed in one relay call") {
             withSqlDatabase {
-                sql.seedTestWatchToken(PushWatchKind.REGISTRATION, "pending-1", "watch-android", "ANDROID")
-                sql.seedTestWatchToken(PushWatchKind.REGISTRATION, "pending-1", "watch-ios", "IOS")
-                sql.seedTestWatchToken(
-                    PushWatchKind.REGISTRATION,
-                    "pending-1",
-                    "watch-expired",
-                    "ANDROID",
-                    expiresAt = fixedNow.toEpochMilliseconds() - 1L,
-                )
-
                 val recorder =
                     RecordingEngine(
                         mutableListOf(
@@ -361,197 +347,89 @@ class RelayPushNotifierTest :
                             ),
                         ),
                     )
-                val notifier =
-                    RelayPushNotifier(
-                        db = sql,
-                        relay = relayClientFor(recorder.engine()),
-                        settings = enabledSettings(sql),
-                        clock = FixedClock(fixedNow),
-                    )
-                val payload = PushPayload.RegistrationDecision(userId = "pending-1", approved = true)
 
-                runTest {
-                    notifier.notifyWatch(PushWatchKind.REGISTRATION, "pending-1", payload)
-                }
+                runTest { notifierFor(sql, recorder).notifyWatchers(listOf(android, ios), decision) }
 
                 recorder.requests shouldHaveSize 1
                 val body = recorder.bodyJson(recorder.requests.single())
-                val tokens = body["tokens"]!!.jsonArray
-                tokens shouldHaveSize 2
                 val sentTokens =
-                    tokens
+                    body["tokens"]!!
+                        .jsonArray
                         .map { token ->
                             token.jsonObject["token"]!!.jsonPrimitive.content to
                                 token.jsonObject["platform"]!!.jsonPrimitive.content
                         }.toSet()
                 sentTokens shouldBe setOf("watch-android" to "android", "watch-ios" to "ios")
-                body["payload"] shouldBe contractJson.encodeToJsonElement(PushPayload.serializer(), payload)
+                body["payload"] shouldBe contractJson.encodeToJsonElement(PushPayload.serializer(), decision)
             }
         }
 
-        test("notifyWatch: admin toggle off → no relay call") {
+        test("notifyWatchers: admin toggle off → no relay call") {
             withSqlDatabase {
-                sql.seedTestWatchToken(PushWatchKind.REGISTRATION, "pending-1", "watch-android", "ANDROID")
-
                 val settings = enabledSettings(sql)
                 val recorder = RecordingEngine(mutableListOf(jsonResponse("""{"results":[]}""")))
-                val notifier =
-                    RelayPushNotifier(
-                        db = sql,
-                        relay = relayClientFor(recorder.engine()),
-                        settings = settings,
-                        clock = FixedClock(fixedNow),
-                    )
 
                 runTest {
                     settings.setPushNotificationsEnabled(false)
-                    notifier.notifyWatch(
-                        PushWatchKind.REGISTRATION,
-                        "pending-1",
-                        PushPayload.RegistrationDecision(userId = "pending-1", approved = true),
-                    )
+                    notifierFor(sql, recorder, settings).notifyWatchers(listOf(android), decision)
                 }
 
                 recorder.requests.shouldHaveSize(0)
             }
         }
 
-        test("notifyWatch: no live watch tokens → no relay call") {
+        test("notifyWatchers: no watchers → no relay call") {
             withSqlDatabase {
-                sql.seedTestWatchToken(
-                    PushWatchKind.REGISTRATION,
-                    "pending-1",
-                    "watch-expired",
-                    "ANDROID",
-                    expiresAt = fixedNow.toEpochMilliseconds() - 1L,
-                )
-
                 val recorder = RecordingEngine(mutableListOf(jsonResponse("""{"results":[]}""")))
-                val notifier =
-                    RelayPushNotifier(
-                        db = sql,
-                        relay = relayClientFor(recorder.engine()),
-                        settings = enabledSettings(sql),
-                        clock = FixedClock(fixedNow),
-                    )
 
-                runTest {
-                    notifier.notifyWatch(
-                        PushWatchKind.REGISTRATION,
-                        "pending-1",
-                        PushPayload.RegistrationDecision(userId = "pending-1", approved = true),
-                    )
-                }
+                runTest { notifierFor(sql, recorder).notifyWatchers(emptyList(), decision) }
 
                 recorder.requests.shouldHaveSize(0)
             }
         }
 
-        test("notifyWatch: invalid verdict deletes that push_watch_tokens row only") {
+        test("notifyWatchers: an invalid verdict leaves the session push_tokens alone") {
             withSqlDatabase {
-                // A live, unrelated push_tokens row — proves the eviction hits push_watch_tokens
-                // ONLY. A copy-paste bug (deleting from pushTokensQueries instead) would evict
-                // this row on every registration-decision push.
+                // A copy-paste bug (deleting dead watch tokens from pushTokensQueries) would evict
+                // this live, unrelated row on every registration-decision push.
                 sql.seedTestUser("alice")
                 sql.seedTestSession("live-1", "alice")
-                sql.seedTestToken("token-unrelated", "ANDROID", "live-1", "alice")
-
-                sql.seedTestWatchToken(PushWatchKind.REGISTRATION, "pending-1", "watch-bad", "ANDROID")
-                sql.seedTestWatchToken(PushWatchKind.REGISTRATION, "pending-1", "watch-good", "IOS")
-
+                sql.seedTestToken("watch-android", "ANDROID", "live-1", "alice")
                 val recorder =
                     RecordingEngine(
-                        mutableListOf(
-                            jsonResponse(
-                                """{"results":[{"token":"watch-bad","status":"invalid"},{"token":"watch-good","status":"ok"}]}""",
-                            ),
-                        ),
-                    )
-                val notifier =
-                    RelayPushNotifier(
-                        db = sql,
-                        relay = relayClientFor(recorder.engine()),
-                        settings = enabledSettings(sql),
-                        clock = FixedClock(fixedNow),
+                        mutableListOf(jsonResponse("""{"results":[{"token":"watch-android","status":"invalid"}]}""")),
                     )
 
-                runTest {
-                    notifier.notifyWatch(
-                        PushWatchKind.REGISTRATION,
-                        "pending-1",
-                        PushPayload.RegistrationDecision(userId = "pending-1", approved = true),
-                    )
-                }
+                runTest { notifierFor(sql, recorder).notifyWatchers(listOf(android), decision) }
 
-                sql.pushWatchTokensQueries.countAll().executeAsOne() shouldBe 1L
-                val remaining =
-                    sql.pushWatchTokensQueries
-                        .selectLiveForKey(PushWatchKind.REGISTRATION.wire, "pending-1", fixedNow.toEpochMilliseconds())
-                        .executeAsList()
-                remaining shouldHaveSize 1
-                remaining.first().token shouldBe "watch-good"
-
-                // The copy-paste-safety assertion: push_tokens is completely untouched.
                 sql.pushTokensQueries.countAll().executeAsOne() shouldBe 1L
             }
         }
 
-        test("notifyWatch: retryable verdict retries once as a batch, then accepts the outcome") {
+        test("notifyWatchers: retryable verdict retries once as a batch, then accepts the outcome") {
             withSqlDatabase {
-                sql.seedTestWatchToken(PushWatchKind.REGISTRATION, "pending-1", "watch-flaky", "ANDROID")
-
                 val recorder =
                     RecordingEngine(
                         mutableListOf(
-                            jsonResponse("""{"results":[{"token":"watch-flaky","status":"retryable"}]}"""),
-                            jsonResponse("""{"results":[{"token":"watch-flaky","status":"retryable"}]}"""),
+                            jsonResponse("""{"results":[{"token":"watch-android","status":"retryable"}]}"""),
+                            jsonResponse("""{"results":[{"token":"watch-android","status":"retryable"}]}"""),
                         ),
                     )
-                val notifier =
-                    RelayPushNotifier(
-                        db = sql,
-                        relay = relayClientFor(recorder.engine()),
-                        settings = enabledSettings(sql),
-                        clock = FixedClock(fixedNow),
-                    )
 
-                runTest {
-                    notifier.notifyWatch(
-                        PushWatchKind.REGISTRATION,
-                        "pending-1",
-                        PushPayload.RegistrationDecision(userId = "pending-1", approved = true),
-                    )
-                }
+                runTest { notifierFor(sql, recorder).notifyWatchers(listOf(android), decision) }
 
                 recorder.requests shouldHaveSize 2
-                sql.pushWatchTokensQueries.countAll().executeAsOne() shouldBe 1L
             }
         }
 
-        test("notifyWatch: relay unreachable → one retry → silent drop, never throws") {
+        test("notifyWatchers: relay unreachable → one retry → silent drop, never throws") {
             withSqlDatabase {
-                sql.seedTestWatchToken(PushWatchKind.REGISTRATION, "pending-1", "watch-android", "ANDROID")
-
                 val recorder = RecordingEngine(mutableListOf(failure(), failure()))
-                val notifier =
-                    RelayPushNotifier(
-                        db = sql,
-                        relay = relayClientFor(recorder.engine()),
-                        settings = enabledSettings(sql),
-                        clock = FixedClock(fixedNow),
-                    )
 
-                runTest {
-                    // Must not throw — best-effort by design.
-                    notifier.notifyWatch(
-                        PushWatchKind.REGISTRATION,
-                        "pending-1",
-                        PushPayload.RegistrationDecision(userId = "pending-1", approved = true),
-                    )
-                }
+                // Must not throw — best-effort by design.
+                runTest { notifierFor(sql, recorder).notifyWatchers(listOf(android), decision) }
 
                 recorder.requests shouldHaveSize 2
-                sql.pushWatchTokensQueries.countAll().executeAsOne() shouldBe 1L
             }
         }
     })

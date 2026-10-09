@@ -187,7 +187,7 @@ class RegistrationWatchTest :
                 val userId = fix.registerPendingUser()
                 fix.auth.registerRegistrationWatchToken(userId, "tok-1", PushPlatform.IOS)
 
-                val delivered = mutableListOf<Pair<String, PushPayload>>()
+                val delivered = mutableListOf<Pair<List<String>, PushPayload>>()
                 val recorder =
                     object : PushNotifier {
                         override suspend fun notify(
@@ -195,13 +195,11 @@ class RegistrationWatchTest :
                             payload: PushPayload,
                         ) = Unit
 
-                        override suspend fun notifyWatch(
-                            kind: PushWatchKind,
-                            key: String,
+                        override suspend fun notifyWatchers(
+                            watchers: List<PushWatcher>,
                             payload: PushPayload,
                         ) {
-                            kind shouldBe PushWatchKind.REGISTRATION
-                            delivered += key to payload
+                            delivered += watchers.map { it.token } to payload
                         }
                     }
                 val admin =
@@ -228,7 +226,7 @@ class RegistrationWatchTest :
                     .shouldBeInstanceOf<AppResult.Success<*>>()
                 advanceUntilIdle() // let the fire-and-forget push land
 
-                delivered shouldBe listOf(userId to PushPayload.RegistrationDecision(userId, approved = true))
+                delivered shouldBe listOf(listOf("tok-1") to PushPayload.RegistrationDecision(userId, approved = true))
                 fix.watchCount() shouldBe 0
             }
         }
