@@ -7,9 +7,21 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 private val log = loggerFor<HardcoverPushExecutor>()
+
+/**
+ * How long Hardcover may take to show what ListenUp just wrote. Its answers lag its writes: on
+ * 2026-10-07 a shelf entry and a read ListenUp had written were both missing from the next answers,
+ * 174 ms apart, which opened a second read and took the read's absence for the user deleting it.
+ * Within this window a missing record is lag — the row fails and the worker retries it — never proof.
+ */
+private val HARDCOVER_LAG_GRACE: Duration = 10.minutes
+
+private val NOT_VISIBLE_YET = HardcoverCall.Failed("Hardcover doesn't show ListenUp's latest change yet")
 
 /** What running one outbox row came to. */
 sealed interface PushOutcome {
@@ -97,7 +109,9 @@ class HardcoverPushExecutor(
     ): PushOutcome {
         if (link.suppressedListenThrough == row.listenThrough) return suppress(row)
         val shelf = userBooks.userBookFor(accessToken, hcBookId).valueOr { return PushOutcome.Failed(it) }
-        if (deletedOnHardcover(link, row.listenThrough, shelf)) return suppress(row)
+        if (deletedOnHardcover(link, row.listenThrough, shelf)) {
+            return if (writtenWithinLag(link)) PushOutcome.Failed(NOT_VISIBLE_YET) else suppress(row)
+        }
         val zone = sql.homeTimeZone(row.userId)
         val target =
             Target(row = row, link = link, hcBookId = hcBookId, shelf = shelf, token = accessToken, zone = zone)
@@ -199,6 +213,7 @@ class HardcoverPushExecutor(
             val userBookId =
                 shelf?.id
                     ?: run {
+                        if (link.isShelvingFor(row.listenThrough) && writtenWithinLag(link)) return NOT_VISIBLE_YET
                         links.markShelving(row.userId, row.bookId, row.listenThrough)
                         userBooks
                             .createUserBook(
@@ -253,11 +268,12 @@ class HardcoverPushExecutor(
          * Hardcover opens a read by itself, dated today, when a book is shelved as Currently Reading
          * (seen live, 2026-09-30). Opening another would leave a stray open read beside ListenUp's, so
          * the one it opened is adopted and moved to [startedAt] — kept at Hardcover's date when unknown.
-         * `Ok(null)` when Hardcover opened none.
+         * `Ok(null)` when Hardcover opened none. A shelf entry ListenUp just made that Hardcover doesn't
+         * show yet fails the row: opening a read now would sit beside the one Hardcover opened.
          */
         private suspend fun adoptReadHardcoverOpened(startedAt: Long?): HardcoverCall<HardcoverRead?> {
-            val opened =
-                userBooks.userBookFor(token, hcBookId).valueOr { return it }?.openRead ?: return HardcoverCall.Ok(null)
+            val shelved = userBooks.userBookFor(token, hcBookId).valueOr { return it } ?: return NOT_VISIBLE_YET
+            val opened = shelved.openRead ?: return HardcoverCall.Ok(null)
             val dated =
                 opened.copy(
                     startedAt = startedAt?.let { dateOf(it).toString() } ?: opened.startedAt,
@@ -269,6 +285,10 @@ class HardcoverPushExecutor(
 
         private fun dateOf(epochMs: Long): LocalDate = Instant.fromEpochMilliseconds(epochMs).toLocalDateTime(zone).date
     }
+
+    /** ListenUp changed [link] within [HARDCOVER_LAG_GRACE]: Hardcover may not show that change yet. */
+    private fun writtenWithinLag(link: HardcoverBookLink): Boolean =
+        clock.now().toEpochMilliseconds() - link.changedAt < HARDCOVER_LAG_GRACE.inWholeMilliseconds
 
     /**
      * The user deleted ListenUp's record on Hardcover: the shelf entry, or the read this listen-through

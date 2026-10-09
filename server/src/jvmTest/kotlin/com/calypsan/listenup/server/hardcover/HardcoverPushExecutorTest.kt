@@ -26,6 +26,10 @@ private const val HC_BOOK = 427_578L
 private const val HC_EDITION = 9_001L
 private const val T0 = 1_779_451_200_000L // 2026-05-22 12:00:00 UTC
 private const val DAY = 86_400_000L
+private const val MINUTE = 60_000L
+
+/** Longer than Hardcover's read-after-write lag is given: a record missing after this was deleted. */
+private const val PAST_LAG = 11 * MINUTE
 
 private class ExecutorRig(
     val sql: ListenUpDatabase,
@@ -54,6 +58,10 @@ private class ExecutorRig(
     }
 
     fun shelf() = hardcover.shelfFor(HC_BOOK)
+
+    fun advance(millis: Long) {
+        clock.instant = Instant.fromEpochMilliseconds(clock.instant.toEpochMilliseconds() + millis)
+    }
 
     suspend fun link() = links.linkFor(USER, BOOK)!!
 
@@ -254,6 +262,7 @@ class HardcoverPushExecutorTest :
                 outbox.enqueueStart(USER, BOOK, T0, T0, false)
                 runHead()
                 hardcover.deleteShelf(HC_BOOK)
+                advance(PAST_LAG)
                 outbox.enqueueProgress(USER, BOOK, T0, 600L, T0)
                 outbox.enqueueFinish(USER, BOOK, T0, T0 + DAY)
 
@@ -271,6 +280,7 @@ class HardcoverPushExecutorTest :
                 outbox.enqueueStart(USER, BOOK, T0, T0, false)
                 runHead()
                 hardcover.deleteRead(link().openHcReadId!!)
+                advance(PAST_LAG)
                 outbox.enqueueProgress(USER, BOOK, T0, 600L, T0)
                 runHead() shouldBe PushOutcome.Suppressed
                 shelf()!!.reads.shouldBeEmpty()
@@ -282,6 +292,7 @@ class HardcoverPushExecutorTest :
                 outbox.enqueueStart(USER, BOOK, T0, T0, false)
                 runHead()
                 hardcover.deleteShelf(HC_BOOK)
+                advance(PAST_LAG)
                 outbox.enqueueFinish(USER, BOOK, T0, T0 + DAY)
                 runHead() shouldBe PushOutcome.Suppressed
 
@@ -290,6 +301,73 @@ class HardcoverPushExecutorTest :
                 outbox.enqueueStart(USER, BOOK, rereadAt, rereadAt, isReread = true)
                 runHead() shouldBe PushOutcome.Done
                 shelf()!!.reads.single().startedAt shouldBe "2026-06-21"
+            }
+        }
+
+        test("a shelf query lagging behind ListenUp's own shelving opens no second read: the row retries and adopts Hardcover's") {
+            executorTest {
+                hardcover.serveShelfFrom(hardcover.snapshot(), queries = 2)
+                outbox.enqueueStart(USER, BOOK, listenThrough = T0, startedAt = T0, isReread = false)
+                runHead().shouldBeInstanceOf<PushOutcome.Failed>()
+                hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+
+                advance(MINUTE)
+                runHead() shouldBe PushOutcome.Done
+
+                val read = shelf()!!.reads.single()
+                read.startedAt shouldBe "2026-05-22"
+                hardcover.operations.count { it == "insert_user_book" } shouldBe 1
+                hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+                link().openHcReadId shouldBe read.id
+            }
+        }
+
+        test("a retry whose shelf query still lags never shelves the book a second time") {
+            executorTest {
+                hardcover.serveShelfFrom(hardcover.snapshot(), queries = 3)
+                outbox.enqueueStart(USER, BOOK, listenThrough = T0, startedAt = T0, isReread = false)
+                runHead().shouldBeInstanceOf<PushOutcome.Failed>()
+                advance(MINUTE)
+                runHead().shouldBeInstanceOf<PushOutcome.Failed>()
+
+                advance(MINUTE)
+                runHead() shouldBe PushOutcome.Done
+
+                hardcover.operations.count { it == "insert_user_book" } shouldBe 1
+                shelf()!!.reads.single().startedAt shouldBe "2026-05-22"
+            }
+        }
+
+        test("a recorded read a lagging shelf query doesn't show yet is not a deletion: progress waits, then lands") {
+            executorTest {
+                val beforeStart = hardcover.snapshot()
+                outbox.enqueueStart(USER, BOOK, T0, T0, false)
+                runHead() shouldBe PushOutcome.Done
+                hardcover.serveShelfFrom(beforeStart, queries = 1)
+                outbox.enqueueProgress(USER, BOOK, T0, positionSeconds = 600L, notBefore = T0)
+
+                runHead().shouldBeInstanceOf<PushOutcome.Failed>()
+                link().suppressedListenThrough.shouldBeNull()
+
+                advance(MINUTE)
+                runHead() shouldBe PushOutcome.Done
+                shelf()!!.reads.single().progressSeconds shouldBe 600L
+            }
+        }
+
+        test("the deletion rule waits out Hardcover's lag: a read deleted at once is retried, then suppressed once the lag has passed") {
+            executorTest {
+                outbox.enqueueStart(USER, BOOK, T0, T0, false)
+                runHead()
+                hardcover.deleteRead(link().openHcReadId!!)
+                outbox.enqueueProgress(USER, BOOK, T0, 600L, T0)
+
+                runHead().shouldBeInstanceOf<PushOutcome.Failed>()
+                link().suppressedListenThrough.shouldBeNull()
+
+                advance(PAST_LAG)
+                runHead() shouldBe PushOutcome.Suppressed
+                link().suppressedListenThrough shouldBe T0
             }
         }
 
