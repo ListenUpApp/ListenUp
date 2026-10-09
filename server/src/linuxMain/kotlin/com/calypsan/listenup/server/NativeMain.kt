@@ -1,13 +1,18 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.io.readEnv
+import com.calypsan.listenup.server.io.userHomeDir
 import com.calypsan.listenup.server.logging.installNativeLogging
+import com.calypsan.listenup.server.logging.parseLogLevel
+import io.github.oshai.kotlinlogging.Level
 import io.ktor.server.cio.CIO
 import io.ktor.server.cio.CIOApplicationEngine
 import io.ktor.server.engine.EngineConnectorBuilder
 import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
 import kotlinx.coroutines.runBlocking
+import kotlinx.io.files.Path
 import kotlin.time.Duration.Companion.seconds
 
 private const val DEFAULT_PORT = 8080
@@ -22,7 +27,13 @@ private val LOG_FLUSH_BUDGET = 2.seconds
  * engine and blocks until shutdown, then writes out the queued log lines within [LOG_FLUSH_BUDGET].
  */
 fun main() {
-    val logOutput = installNativeLogging()
+    val logOutput =
+        installNativeLogging(
+            // Logging starts before the Application exists, so the data home is resolved here, the way every
+            // data-home consumer resolves it. The log file sits in its `logs/` folder.
+            logDirectory = Path(resolveListenupHome(readEnv("LISTENUP_HOME"), userHomeDir()), "logs"),
+            level = parseLogLevel(readEnv("LISTENUP_LOG_LEVEL")) ?: Level.INFO,
+        )
     val port = readEnv("PORT")?.toIntOrNull() ?: DEFAULT_PORT
     embeddedServer(
         factory = CIO,

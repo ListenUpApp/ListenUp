@@ -48,6 +48,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.path
 import io.ktor.server.request.uri
 import io.ktor.server.response.respond
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -88,11 +89,14 @@ fun Application.installAppErrorStatusPages() {
             // normal, not a server fault: log at DEBUG and don't dress it up as a 500 on an
             // already-committed response.
             if (isClientDisconnect(ex)) {
-                logger.debug { "client disconnected mid-response on ${call.request.uri} — $ex" }
+                logger.debug { "client disconnected mid-response on ${call.request.path()} — $ex" }
                 return@exception
             }
             val correlationId = call.callId
-            logger.error(ex) { "unhandled exception on ${call.request.uri} correlationId=${correlationId ?: "none"}" }
+            // The path, never the uri: a query string can carry a signed URL's signature, and this line is kept.
+            logger.error(
+                ex,
+            ) { "unhandled exception on ${call.request.path()} correlationId=${correlationId ?: "none"}" }
             val body: AppError = InternalError(correlationId)
             call.respond(HttpStatusCode.InternalServerError, body)
         }

@@ -8,9 +8,11 @@ import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.hardcover.HARDCOVER_API_BASE_URL
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.io.userHomeDir
+import com.calypsan.listenup.server.logging.CONSOLE_ONLY_LOGGER
 import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.transcode.TranscodeSettings
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
@@ -290,6 +292,9 @@ internal fun ApplicationConfig.periodicRescanInterval(): Duration =
         ?.let { runCatching { Duration.parse(it) }.getOrNull() }
         ?: Duration.ZERO
 
+/** Lines that must be shown once and never persist; see [CONSOLE_ONLY_LOGGER]. */
+private val consoleOnlyLogger = KotlinLogging.logger(CONSOLE_ONLY_LOGGER)
+
 /**
  * Arms the root-password escape hatch when `LISTENUP_ROOT_RESET` is set to a truthy value, and
  * prints its one-time token. The warning is deliberately blunt: an operator who leaves this set
@@ -300,6 +305,9 @@ internal fun ApplicationConfig.periodicRescanInterval(): Duration =
  * plain function, not an `Application` extension, so it can be called from inside a Koin module
  * builder (`passwordResetModule`), which only ever sees the Ktor `ApplicationConfig`, not the
  * live `Application`.
+ *
+ * The banner goes to [consoleOnlyLogger], never the log file: a file outlives the token's window and is read by
+ * more people than the console.
  *
  * ⚠️ This deliberately logs a secret, which the project's "never log sensitive data" rule
  * otherwise forbids. It is the one exception: the operator has no other channel to learn the
@@ -312,7 +320,7 @@ internal fun resolveRootResetToken(clock: Clock): RootResetToken {
 
     val armed = RootResetToken.armed(clock)
     val banner = "=".repeat(ROOT_RESET_BANNER_WIDTH)
-    logger.warn {
+    consoleOnlyLogger.warn {
         buildString {
             appendLine(banner)
             appendLine("ROOT PASSWORD RESET IS ARMED for the next ${RootResetToken.WINDOW}.")
