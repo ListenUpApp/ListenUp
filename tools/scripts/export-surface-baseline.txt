@@ -891,6 +891,8 @@ TranscodeError_SealedType
 TransportError
 TransportError_SealedType
 UndoMatch
+UnexpectedClientError
+UnexpectedClientError_SealedType
 UnknownError
 UnknownError_SealedType
 UploadBooksUiState

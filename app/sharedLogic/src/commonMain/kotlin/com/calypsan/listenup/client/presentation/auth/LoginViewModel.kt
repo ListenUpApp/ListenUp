@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.ValidationField
@@ -96,7 +97,7 @@ private fun AppError.toLoginErrorType(): LoginErrorType =
 
         is ValidationError -> LoginErrorType.ValidationError(field())
 
-        is InternalError -> LoginErrorType.NetworkError(null)
+        is InternalError, is UnexpectedClientError -> LoginErrorType.NetworkError(null)
 
         else -> LoginErrorType.ServerError(null)
     }

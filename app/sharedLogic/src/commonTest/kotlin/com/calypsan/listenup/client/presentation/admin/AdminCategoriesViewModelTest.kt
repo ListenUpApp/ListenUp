@@ -9,7 +9,7 @@ import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.MergeReceipt
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Genre
@@ -295,10 +295,10 @@ class AdminCategoriesViewModelTest :
                     )
                 advanceUntilIdle()
 
-                // Then — the thrown Throwable is mapped to a typed AppError (InternalError),
+                // Then — the thrown Throwable is mapped to a typed AppError (UnexpectedClientError),
                 // with the original message preserved in debugInfo for diagnostics.
                 val err = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Error>()
-                val internal = err.error.shouldBeInstanceOf<InternalError>()
+                val internal = err.error.shouldBeInstanceOf<UnexpectedClientError>()
                 (internal.debugInfo?.contains("db broken") == true) shouldBe true
             }
         }

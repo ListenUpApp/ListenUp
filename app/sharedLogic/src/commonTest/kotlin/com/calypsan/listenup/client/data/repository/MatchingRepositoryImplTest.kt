@@ -28,7 +28,7 @@ import com.calypsan.listenup.api.dto.match.PersonFindResult
 import com.calypsan.listenup.api.dto.match.PersonSearchStep
 import com.calypsan.listenup.api.dto.match.SearchStep
 import com.calypsan.listenup.api.dto.match.YourCopy
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -237,7 +237,7 @@ class MatchingRepositoryImplTest :
                 .findBookMatches(BookId("b1"))
                 .shouldBeInstanceOf<AppResult.Failure>()
                 .error
-                .shouldBeInstanceOf<InternalError>()
+                .shouldBeInstanceOf<UnexpectedClientError>()
 
             val cancelled = FakeMatchingService(reply = { throw CancellationException("left") })
             shouldThrow<CancellationException> {

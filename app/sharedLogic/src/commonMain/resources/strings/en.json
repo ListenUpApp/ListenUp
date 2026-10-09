@@ -142,7 +142,10 @@
     "book_wrong_server": "This book is on a different ListenUp server than the one you're signed in to.",
     "book_not_connected": "Sign in to the server that hosts this book to open it.",
     "server_connect_local_network_permission_denied": "ListenUp needs local network access to find and connect to servers on your network.",
-    "unknown": "Something went wrong."
+    "unknown": "Something went wrong.",
+    "internal_error": "Something went wrong on the server.",
+    "server_reference": "Something went wrong on the server. Reference %1$s.",
+    "client_unexpected": "Something went wrong in the app."
   },
   "auth": {
     "admin_account_subtitle": "You're creating the first account on this server.",

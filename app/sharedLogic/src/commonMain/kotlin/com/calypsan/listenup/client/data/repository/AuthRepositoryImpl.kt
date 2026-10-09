@@ -11,7 +11,7 @@ import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.AuthRepository
@@ -171,7 +171,10 @@ internal class AuthRepositoryImpl(
             } finally {
                 // A no-op when the refresh completed the deferred itself; on a throw or a
                 // cancellation it hands every waiter a typed Failure instead of an endless await.
-                deferred.complete(AppResult.Failure(InternalError()))
+                // Client-side: the refresh threw or was cancelled here (logged above), the server said nothing.
+                deferred.complete(
+                    AppResult.Failure(UnexpectedClientError(debugInfo = "token refresh did not complete")),
+                )
                 // NonCancellable: this cleanup usually runs BECAUSE `scope` was cancelled — a bare
                 // `withLock` would then throw and leave `inFlightRefresh` wedged forever, permanently
                 // stranding every future refresh behind a dead entry (mirrors SyncEngine's identical

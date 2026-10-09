@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookUpdate
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -186,7 +186,7 @@ class OfflineEditorTest :
             }
         }
 
-        test("an op kind the channel does not declare folds to InternalError, not ValidationError") {
+        test("an op kind the channel does not declare folds to UnexpectedClientError, not ValidationError") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -204,7 +204,7 @@ class OfflineEditorTest :
                     )
 
                 // OutboxChannels.Books declares only OpKind.Update — Upsert is a programmer error,
-                // not bad user input, so the failure must be an InternalError (detail in debugInfo),
+                // not bad user input, so the failure must be an UnexpectedClientError (detail in debugInfo),
                 // never a ValidationError (whose message is user-facing).
                 val result =
                     editor.edit(
@@ -215,7 +215,7 @@ class OfflineEditorTest :
                     ) { }
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
-                result.error.shouldBeInstanceOf<InternalError>()
+                result.error.shouldBeInstanceOf<UnexpectedClientError>()
                 db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).firstOrNull() shouldBe null
                 db.close()
             }

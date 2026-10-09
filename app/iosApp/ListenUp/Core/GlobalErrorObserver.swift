@@ -32,8 +32,18 @@ final class GlobalErrorObserver {
             // whoever has to find out why. `debugInfo` carries the per-instance technical detail that
             // `message` deliberately does not.
             Log.error("AppError [\(error.code)] \(error.message)", detail: error.debugInfo)
-            center?.post(error.message)
+            center?.post(Self.alertText(code: error.code, message: error.message, correlationId: error.correlationId))
         }
+    }
+
+    /// What the alert says: the error's own words, except that a genuine server fault (`INTERNAL_ERROR` with a
+    /// correlation id) also names its reference, the head of that id, so a screenshot leads straight to the
+    /// server's log line. The same rule as Kotlin's `AppError.serverReference`, read from the exported fields.
+    nonisolated static func alertText(code: String, message: String, correlationId: String?) -> String {
+        guard code == "INTERNAL_ERROR",
+              let id = correlationId?.trimmingCharacters(in: .whitespaces), !id.isEmpty
+        else { return message }
+        return String(format: String(localized: "error.server_reference"), String(id.prefix(8)))
     }
 
     deinit { bridge.cancelAll() }   // nonisolated-safe; see FlowBridge.

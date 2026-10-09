@@ -3,11 +3,13 @@ package com.calypsan.listenup.client.presentation.error
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.serverReference
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.allStringResources
 import listenup.composeapp.generated.resources.error_conflict
 import listenup.composeapp.generated.resources.error_forbidden
 import listenup.composeapp.generated.resources.error_not_found
+import listenup.composeapp.generated.resources.error_server_reference
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
@@ -41,16 +43,23 @@ internal fun AppError.resolved(): StringResource? =
 private fun AppError.dynamicResource(): StringResource? = Res.allStringResources[resourceKey()]
 
 /**
- * Localized user-facing text for an [AppError], rendered in composition.
+ * Localized user-facing text for an [AppError], rendered in composition. A genuine server fault also names its
+ * [serverReference], so a screenshot leads straight to the server's log line.
  *
  * Falls back to [AppError.message] for unmapped codes, so unmigrated errors still show the existing
  * English constant during the incremental localization rollout.
  */
 @Composable
-fun AppError.localized(): String = resolved()?.let { stringResource(it) } ?: message
+fun AppError.localized(): String =
+    serverReference?.let { stringResource(Res.string.error_server_reference, it) }
+        ?: resolved()?.let { stringResource(it) }
+        ?: message
 
 /**
  * Localized user-facing text for an [AppError] usable outside composition (e.g. a snackbar
  * `LaunchedEffect`). Falls back to [AppError.message] for unmapped codes.
  */
-suspend fun AppError.localizedString(): String = resolved()?.let { getString(it) } ?: message
+suspend fun AppError.localizedString(): String =
+    serverReference?.let { getString(Res.string.error_server_reference, it) }
+        ?: resolved()?.let { getString(it) }
+        ?: message

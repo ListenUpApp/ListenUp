@@ -86,7 +86,8 @@ public fun AppError.withCorrelationId(id: String?): AppError =
         // relay, Hardcover, and an outside rating source.
         is PushError, is HardcoverError, is RatingError -> outboundServiceWithCorrelationId(id)
 
-        is ValidationError, is InternalError, is TransportError, is PlaybackError, is UnknownError,
+        is ValidationError, is InternalError, is UnexpectedClientError, is TransportError, is PlaybackError,
+        is UnknownError,
         -> leafWithCorrelationId(id)
     }
 
@@ -103,6 +104,7 @@ private fun AppError.leafWithCorrelationId(id: String?): AppError =
     when (this) {
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
+        is UnexpectedClientError -> copy(correlationId = id)
         is UnknownError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
         is PlaybackError -> withCorrelationId(id)

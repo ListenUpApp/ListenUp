@@ -14,7 +14,7 @@ import com.calypsan.listenup.api.result.validationError
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import io.kotest.core.spec.style.FunSpec
@@ -130,7 +130,7 @@ class AppResultTest :
         test("failureFromThrowableMapsViaErrorMapper") {
             val ex = IllegalStateException("boom")
             val failure = Failure(ex)
-            val internal = failure.error.shouldBeInstanceOf<InternalError>()
+            val internal = failure.error.shouldBeInstanceOf<UnexpectedClientError>()
             (internal.debugInfo?.contains("boom") == true) shouldBe true
             (internal.debugInfo?.contains("IllegalStateException") == true) shouldBe true
         }
