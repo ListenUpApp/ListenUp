@@ -13,8 +13,8 @@ import org.koin.dsl.module
  * Deliberately lazy (no `createdAtStart`): the sink only touches the filesystem once an
  * entry point resolves it and attaches it to
  * [com.calypsan.listenup.client.core.logging.LogSinkRegistry] after `startKoin` — Android's
- * `ListenUp.onCreate` and desktop's `main`. Platforms without a logging tap (web, iOS for
- * now) simply never resolve it.
+ * `ListenUp.onCreate`, desktop's `main` and iOS's `initializeKoin`. Web has no file system and
+ * never resolves it; it keeps its recent log in browser storage instead.
  */
 internal val loggingModule: Module =
     module {

@@ -3,6 +3,9 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
 import com.calypsan.listenup.client.data.repository.AppleLocalNetworkAccess
 import com.calypsan.listenup.core.configureLogging
+import com.calypsan.listenup.client.core.logging.LogSinkRegistry
+import com.calypsan.listenup.client.core.logging.installFileLogTap
+import com.calypsan.listenup.client.core.logging.installUnhandledExceptionLogging
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
@@ -112,19 +115,26 @@ import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
  * iOS-specific Koin initialization.
  *
  * Starts Koin with shared modules plus any iOS-specific modules.
- * Also configures kotlin-logging to use OSLog for unified logging.
+ * Also tees kotlin-logging's OSLog output into the on-device log file and attaches that file.
  * Should be called from the iOS app's initialization code (typically in App struct).
  *
  * @param additionalModules iOS-specific modules to include
  */
 internal actual fun initializeKoin(additionalModules: List<Module>) {
-    // Configure logging before anything else
+    // Tee kotlin-logging into the log file before anything obtains a logger — a logger created
+    // earlier writes to OSLog only. Then make an uncaught exception leave its trace there too.
+    installFileLogTap()
+    installUnhandledExceptionLogging()
     configureLogging()
 
     startKoin {
         // Include shared modules, iOS playback module, and any app-specific modules
         modules(sharedModules + iosPlaybackModule + iosPushModule + additionalModules)
     }
+
+    // Attach the rotating file sink: from here every line (plus the startup buffer) is persisted
+    // under Documents/logs, which Settings → Share logs hands over.
+    LogSinkRegistry.attach(KoinPlatform.getKoin().get())
 }
 
 /**
