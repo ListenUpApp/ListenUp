@@ -172,7 +172,9 @@ internal class AuthRepositoryImpl(
                 // A no-op when the refresh completed the deferred itself; on a throw or a
                 // cancellation it hands every waiter a typed Failure instead of an endless await.
                 // Client-side: the refresh threw or was cancelled here (logged above), the server said nothing.
-                deferred.complete(AppResult.Failure(UnexpectedClientError(debugInfo = "token refresh did not complete")))
+                deferred.complete(
+                    AppResult.Failure(UnexpectedClientError(debugInfo = "token refresh did not complete")),
+                )
                 // NonCancellable: this cleanup usually runs BECAUSE `scope` was cancelled — a bare
                 // `withLock` would then throw and leave `inFlightRefresh` wedged forever, permanently
                 // stranding every future refresh behind a dead entry (mirrors SyncEngine's identical
