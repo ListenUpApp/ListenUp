@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -166,6 +167,12 @@ internal class BookRepositoryImpl(
                 row?.let { TierLabels(bookTierLabel = it.bookTierLabel, partTierLabel = it.partTierLabel) }
                     ?: TierLabels.None
             }.distinctUntilChanged()
+
+    override fun observeMatchRecord(bookId: String): Flow<BookMatchRecord?> =
+        bookDao
+            .observeMatchRecord(BookId(bookId))
+            .map { row -> row?.let { BookMatchRecord(revision = it.revision, lastMatch = it.lastMatch) } }
+            .distinctUntilChanged()
 
     private fun ChapterEntity.toDomain(): Chapter =
         Chapter(

@@ -42,7 +42,12 @@ final class PersonMatchObserver {
         }
     }
 
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
+    // Isolated deinit (SE-0371): iOS has no ViewModelStore to call `onCleared`, so the observer closes the shared
+    // ViewModel itself — otherwise an in-flight search, review or Apply keeps its scope alive after the screen.
+    isolated deinit {
+        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
+        viewModel.close()
+    }
 
     // MARK: - Find
 

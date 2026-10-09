@@ -124,6 +124,7 @@ BookId
 BookListItem
 BookMatchEvent
 BookMatchEvent_SealedType
+BookMatchRecord
 BookMatchViewModel
 BookMetadata
 BookMultiSelectEvent
@@ -472,6 +473,10 @@ LabelKind
 LabelSetUi
 Language
 LanguageOption
+LastMatch
+LastMatchEvent
+LastMatchEvent_SealedType
+LastMatchUi
 LastPlayedInfo
 LeaderboardCategory
 LeaderboardEntry
@@ -885,6 +890,7 @@ TranscodeError
 TranscodeError_SealedType
 TransportError
 TransportError_SealedType
+UndoMatch
 UnknownError
 UnknownError_SealedType
 UploadBooksUiState

@@ -262,7 +262,7 @@ internal fun receiptText(receipt: MatchReceiptUi): String {
 /** See what changed: every change the match made, each with where it came from. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WhatChangedSheet(
+internal fun WhatChangedSheet(
     receipt: MatchReceiptUi,
     onDismiss: () -> Unit,
 ) {

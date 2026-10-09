@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.TierLabels
+import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +45,20 @@ class FakeBookRepository(
         MutableStateFlow(chaptersByBookId[bookId].orEmpty())
 
     override fun observeBookTierLabels(bookId: String): Flow<TierLabels> = MutableStateFlow(TierLabels.None)
+
+    /** Each book's revision and stored match, as Room would hold them; set with [setMatchRecord]. */
+    private val matchRecords = MutableStateFlow<Map<String, BookMatchRecord>>(emptyMap())
+
+    /** Seeds (or with null, removes) [bookId]'s revision and last match. */
+    fun setMatchRecord(
+        bookId: String,
+        record: BookMatchRecord?,
+    ) {
+        matchRecords.value =
+            if (record == null) matchRecords.value - bookId else matchRecords.value + (bookId to record)
+    }
+
+    override fun observeMatchRecord(bookId: String): Flow<BookMatchRecord?> = matchRecords.map { it[bookId] }
 
     /** A book is "live" in this fake when it is present in the current [books] list. */
     override fun observeIsBookLive(id: String): Flow<Boolean> =

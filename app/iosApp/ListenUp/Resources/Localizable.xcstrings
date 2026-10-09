@@ -15701,6 +15701,46 @@
         }
       }
     },
+    "match.details_matched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details matched %1$@"
+          }
+        }
+      }
+    },
+    "match.details_matched_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details matched %1$@ by %2$@"
+          }
+        }
+      }
+    },
+    "match.details_matched_by_just_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details matched just now by %1$@"
+          }
+        }
+      }
+    },
+    "match.details_matched_just_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details matched just now"
+          }
+        }
+      }
+    },
     "match.dismiss": {
       "localizations": {
         "en": {
@@ -17537,6 +17577,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ has changed since, so the match can't be undone."
+          }
+        }
+      }
+    },
+    "match.undo_last_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo last match"
+          }
+        }
+      }
+    },
+    "match.undo_last_match_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo Last Match"
           }
         }
       }

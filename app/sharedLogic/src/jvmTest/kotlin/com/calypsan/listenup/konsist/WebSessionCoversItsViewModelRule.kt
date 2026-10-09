@@ -256,13 +256,16 @@ private val EXCUSED =
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
         // Reached through the session's `close = store::clear`: clearing the ViewModelStore runs
         // `onCleared`, which calls `close()`. `close` exists for iOS, which has no store to clear.
+        "BookMatchViewModel.close",
         "BulkEditViewModel.close",
         "ChapterEditorViewModel.close",
         "HomeViewModel.close",
         "InboxBadgeViewModel.close",
         "LibraryViewModel.close",
         "LibrarySetupViewModel.close",
+        "MatchReceiptViewModel.close",
         "NotificationBellViewModel.close",
+        "PersonMatchViewModel.close",
         "RestrictedBooksViewModel.close",
         // Reached via onResultClicked, which IS onResultSelected(hit.id, hit.type, hit.name).
         "SearchViewModel.onResultSelected",

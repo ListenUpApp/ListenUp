@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.TierLabels
+import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 
@@ -45,6 +46,12 @@ interface BookRepository {
      * null branch it would answer identically.
      */
     fun observeBookTierLabels(bookId: String): Flow<TierLabels>
+
+    /**
+     * Observe the book's revision beside the match its sync payload last carried, for Book Detail's "Undo last
+     * match" — from Room, so it works offline. Emits null when the book is absent or tombstoned.
+     */
+    fun observeMatchRecord(bookId: String): Flow<BookMatchRecord?>
 
     /**
      * Observe whether [id] is currently live (present, not tombstoned) in the local mirror.

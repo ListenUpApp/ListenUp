@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
+import com.calypsan.listenup.client.presentation.bookdetail.LastMatchEvent
+import com.calypsan.listenup.client.presentation.bookdetail.LastMatchUi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -121,6 +123,15 @@ class BookDetailSession(
      * deliberately unwired (see [documents]).
      */
     val navActions: Flow<BookDetailNavAction>,
+    /**
+     * "Details matched … · See what changed · Undo last match": the book's last match while it can still be
+     * undone, null otherwise (or for someone without Edit metadata). [lastMatchEvents] says how an Undo ended.
+     */
+    val lastMatch: StateFlow<LastMatchUi?>,
+    val lastMatchEvents: Flow<LastMatchEvent>,
+    val onSeeWhatChanged: () -> Unit,
+    val onCloseWhatChanged: () -> Unit,
+    val onUndoLastMatch: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -171,6 +182,11 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
             onReleaseFromInbox = viewModel::releaseFromInbox,
             onRestoreToAllBooks = viewModel::restoreToAllBooks,
             navActions = viewModel.navActions,
+            lastMatch = viewModel.lastMatch,
+            lastMatchEvents = viewModel.lastMatchEvents,
+            onSeeWhatChanged = viewModel::seeWhatChanged,
+            onCloseWhatChanged = viewModel::closeWhatChanged,
+            onUndoLastMatch = viewModel::undoLastMatch,
             close = store::clear,
         )
     }
@@ -203,6 +219,11 @@ fun fixedBookDetail(
     onReleaseFromInbox: () -> Unit = {},
     onRestoreToAllBooks: () -> Unit = {},
     navActions: Flow<BookDetailNavAction> = emptyFlow(),
+    lastMatch: StateFlow<LastMatchUi?> = MutableStateFlow(null),
+    lastMatchEvents: Flow<LastMatchEvent> = emptyFlow(),
+    onSeeWhatChanged: () -> Unit = {},
+    onCloseWhatChanged: () -> Unit = {},
+    onUndoLastMatch: () -> Unit = {},
 ): OpenBookDetail =
     {
         BookDetailSession(
@@ -231,6 +252,11 @@ fun fixedBookDetail(
             onReleaseFromInbox = onReleaseFromInbox,
             onRestoreToAllBooks = onRestoreToAllBooks,
             navActions = navActions,
+            lastMatch = lastMatch,
+            lastMatchEvents = lastMatchEvents,
+            onSeeWhatChanged = onSeeWhatChanged,
+            onCloseWhatChanged = onCloseWhatChanged,
+            onUndoLastMatch = onUndoLastMatch,
             close = {},
         )
     }

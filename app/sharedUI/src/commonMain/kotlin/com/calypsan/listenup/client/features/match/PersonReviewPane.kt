@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.features.match
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,88 +7,46 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.api.dto.match.FieldChoice
-import com.calypsan.listenup.api.dto.match.FieldState
-import com.calypsan.listenup.api.dto.match.ImageChoice
 import com.calypsan.listenup.api.dto.match.MatchTier
-import com.calypsan.listenup.client.design.components.ButtonGroupChoice
-import com.calypsan.listenup.client.design.components.ConnectedSelectButtonGroup
-import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
-import com.calypsan.listenup.client.design.components.SectionGroup
-import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.TonalLabel
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
-import com.calypsan.listenup.client.presentation.match.BiographyUi
 import com.calypsan.listenup.client.presentation.match.PersonCandidateUi
 import com.calypsan.listenup.client.presentation.match.PersonHeaderUi
 import com.calypsan.listenup.client.presentation.match.PersonReviewUiState
-import com.calypsan.listenup.client.presentation.match.PhotoUi
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.match_apply_biography_a11y
 import listenup.composeapp.generated.resources.match_back_to_results
-import listenup.composeapp.generated.resources.match_biography_already_same
-import listenup.composeapp.generated.resources.match_empty_value
-import listenup.composeapp.generated.resources.match_from_source
-import listenup.composeapp.generated.resources.match_keep_current
-import listenup.composeapp.generated.resources.match_keep_current_photo
-import listenup.composeapp.generated.resources.match_keep_yours
 import listenup.composeapp.generated.resources.match_maybe
 import listenup.composeapp.generated.resources.match_none_chosen
 import listenup.composeapp.generated.resources.match_person_header_from
 import listenup.composeapp.generated.resources.match_photo_and_biography_separately
-import listenup.composeapp.generated.resources.match_photo_from_a11y
-import listenup.composeapp.generated.resources.match_photo_set_by_hand
-import listenup.composeapp.generated.resources.match_proposed
-import listenup.composeapp.generated.resources.match_proposed_from
 import listenup.composeapp.generated.resources.match_review
-import listenup.composeapp.generated.resources.match_section_biography
-import listenup.composeapp.generated.resources.match_section_changes
-import listenup.composeapp.generated.resources.match_section_fills_gap
-import listenup.composeapp.generated.resources.match_section_photo
-import listenup.composeapp.generated.resources.match_source_switch_a11y
 import listenup.composeapp.generated.resources.match_strong_match
 import listenup.composeapp.generated.resources.match_person_header_found_in
 import listenup.composeapp.generated.resources.match_subtitle_review
 import listenup.composeapp.generated.resources.match_title
 import listenup.composeapp.generated.resources.match_what_will_change
 import listenup.composeapp.generated.resources.match_you_edited_flag
-import listenup.composeapp.generated.resources.match_your_photo
-import listenup.composeapp.generated.resources.match_yours_no_photo
 import org.jetbrains.compose.resources.stringResource
-
-/** A photo tile's picture: the canvas's 96dp circle. */
-private val PHOTO_TILE = 96.dp
 
 /** The person's photo in the Review header. */
 private val HEADER_PHOTO = 112.dp
@@ -262,233 +218,9 @@ private fun WhatWillChangeNote() {
     }
 }
 
-/** Photo: Keep current (their real photo, or initials) or one source's photo, as one radio group. */
-@Composable
-private fun PhotoSection(
-    photo: PhotoUi,
-    contributorId: String,
-    name: String,
-    candidateName: String,
-    onChoose: (ImageChoice) -> Unit,
-) {
-    SectionGroup(label = stringResource(Res.string.match_section_photo)) {
-        SectionSegment {
-            Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                if (photo.state == FieldState.USER_EDITED) {
-                    YouEditedFlag()
-                    Text(
-                        text = stringResource(Res.string.match_photo_set_by_hand),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                ) {
-                    PhotoTile(
-                        selected = photo.choice is ImageChoice.KeepCurrent,
-                        label = stringResource(Res.string.match_keep_current),
-                        detail =
-                            stringResource(
-                                if (photo.currentPath != null) Res.string.match_your_photo else Res.string.match_yours_no_photo,
-                            ),
-                        accessibleName = stringResource(Res.string.match_keep_current_photo),
-                        onSelect = { onChoose(ImageChoice.KeepCurrent) },
-                    ) {
-                        CurrentPersonPhoto(contributorId = contributorId, name = name, imagePath = photo.currentPath, size = PHOTO_TILE)
-                    }
-                    photo.options.forEach { option ->
-                        PhotoTile(
-                            selected = (photo.choice as? ImageChoice.Candidate)?.optionId == option.optionId,
-                            label = option.source.label,
-                            detail = stringResource(Res.string.match_proposed).takeIf { option == photo.proposed },
-                            accessibleName = stringResource(Res.string.match_photo_from_a11y, option.source.label),
-                            onSelect = { onChoose(ImageChoice.Candidate(option.optionId)) },
-                        ) { PersonPhoto(name = candidateName, url = option.url, size = PHOTO_TILE) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** One choice of photo: the picture, a radio and its label, and what it is — a radio named for what it keeps. */
-@Composable
-private fun PhotoTile(
-    selected: Boolean,
-    label: String,
-    detail: String?,
-    accessibleName: String,
-    onSelect: () -> Unit,
-    image: @Composable () -> Unit,
-) {
-    val haptics = LocalHaptics.current
-    Column(
-        modifier =
-            Modifier
-                .widthIn(min = PHOTO_TILE + Spacing.md * 2)
-                .selectedOutline(selected)
-                .selectable(selected = selected, role = Role.RadioButton) {
-                    if (!selected) haptics.toggle(on = true)
-                    onSelect()
-                }.semantics { contentDescription = accessibleName }
-                .padding(Spacing.sm),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-    ) {
-        image()
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = selected, onClick = null, modifier = Modifier.padding(end = Spacing.xs))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            )
-        }
-        detail?.let { detailText ->
-            Text(
-                text = detailText,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
-private fun Modifier.selectedOutline(selected: Boolean): Modifier =
-    if (selected) border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large) else this
-
-/**
- * Biography: the tick (Apply writes it), what kind of change it is and its source, the source switch when there
- * is more than one way to go, then Yours → Proposed. Hand-edited biographies start unticked and say who edited
- * them; one that already matches says so and has nothing to tick.
- */
-@Composable
-private fun BiographySection(
-    biography: BiographyUi,
-    viewerId: String?,
-    actions: PersonMatchActions,
-) {
-    val sectionName = stringResource(Res.string.match_section_biography)
-    SectionGroup(label = sectionName) {
-        SectionSegment {
-            Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                if (biography.state == FieldState.SAME) {
-                    Text(
-                        text = stringResource(Res.string.match_biography_already_same),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    return@Column
-                }
-                val source = sourcesPhrase(biography.proposed.sources)
-                BiographyTick(biography = biography, source = source, onTicked = actions::setBiographyTicked)
-                BiographySourceSwitch(biography = biography, sectionName = sectionName, onChoose = actions::chooseBiographySource)
-                YoursAndProposed(
-                    yours = biography.current?.asPlainText() ?: stringResource(Res.string.match_empty_value),
-                    proposed = biography.proposed.value.displayText(),
-                    proposedLabel =
-                        if (biography.state == FieldState.USER_EDITED) {
-                            stringResource(Res.string.match_proposed_from, source)
-                        } else {
-                            stringResource(Res.string.match_proposed)
-                        },
-                    ticked = biography.isTicked,
-                    alwaysStacked = true,
-                )
-                biography.handEdit?.let { edit ->
-                    Text(
-                        text = editedNote(edit, viewerId),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** The biography's checkbox row: "Fills a gap · from Beacon", or the You edited this flag. */
-@Composable
-private fun BiographyTick(
-    biography: BiographyUi,
-    source: String,
-    onTicked: (Boolean) -> Unit,
-) {
-    val haptics = LocalHaptics.current
-    val edited = biography.state == FieldState.USER_EDITED
-    val stateLabel =
-        stringResource(
-            when (biography.state) {
-                FieldState.FILLS_GAP -> Res.string.match_section_fills_gap
-                FieldState.USER_EDITED -> Res.string.match_you_edited_flag
-                FieldState.CHANGES, FieldState.SAME -> Res.string.match_section_changes
-            },
-        )
-    val fromSource = stringResource(Res.string.match_from_source, source)
-    val accessibleName = "${stringResource(Res.string.match_apply_biography_a11y)}. $stateLabel, $fromSource"
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .toggleable(value = biography.isTicked, role = Role.Checkbox) { ticked ->
-                    haptics.toggle(on = ticked)
-                    onTicked(ticked)
-                }.semantics { contentDescription = accessibleName },
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ExpressiveCheckbox(checked = biography.isTicked)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            if (edited) YouEditedFlag() else Text(stateLabel, style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = fromSource,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/** "Beacon | Atlas | Keep yours" — shown only when there is more than one way to go. */
-@Composable
-private fun BiographySourceSwitch(
-    biography: BiographyUi,
-    sectionName: String,
-    onChoose: (FieldChoice) -> Unit,
-) {
-    val haptics = LocalHaptics.current
-    val choices =
-        biography.options.map { option ->
-            ButtonGroupChoice<FieldChoice>(
-                value = FieldChoice.Option(option.optionId),
-                label = option.sources.first().label,
-                accessibleLabel = sourcesPhrase(option.sources),
-            )
-        } +
-            listOfNotNull(
-                ButtonGroupChoice<FieldChoice>(FieldChoice.KeepCurrent, stringResource(Res.string.match_keep_yours))
-                    .takeIf { biography.canKeepYours },
-            )
-    if (choices.size < 2) return
-    ConnectedSelectButtonGroup(
-        choices = choices,
-        selected = biography.choice,
-        onSelect = { choice ->
-            haptics.toggle(on = choice is FieldChoice.Option)
-            onChoose(choice)
-        },
-        groupLabel = stringResource(Res.string.match_source_switch_a11y, sectionName),
-    )
-}
-
 /** "You edited this" in the tertiary container, with its glyph, so it never rests on colour alone. */
 @Composable
-private fun YouEditedFlag() {
+internal fun YouEditedFlag() {
     TonalLabel(
         label = stringResource(Res.string.match_you_edited_flag),
         containerColor = MaterialTheme.colorScheme.tertiaryContainer,

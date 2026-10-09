@@ -376,6 +376,8 @@ internal val bookPresentationModule =
                 bookVisibilityRepository = get(),
                 bookEditRepository = get(),
                 seriesRepository = get(),
+                undoMatch = get(),
+                userProfileRepository = get(),
             )
         }
         factory { params ->
@@ -416,7 +418,9 @@ internal val bookPresentationModule =
         }
         // Hands a fresh match receipt from Match details to Book Detail or the contributor page; one per process.
         single { com.calypsan.listenup.client.presentation.match.MatchReceiptStore() }
-        factory { com.calypsan.listenup.client.presentation.match.UndoMatch(matchingRepository = get()) }
+        factory<com.calypsan.listenup.client.presentation.match.UndoMatch> {
+            com.calypsan.listenup.client.presentation.match.UndoMatch(matchingRepository = get())
+        }
         // Match details for one book: Find, Review and Apply share one ViewModel per session.
         factory { params ->
             com.calypsan.listenup.client.presentation.match.BookMatchViewModel(

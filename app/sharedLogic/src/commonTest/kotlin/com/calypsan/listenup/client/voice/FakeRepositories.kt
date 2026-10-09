@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.voice
 
+import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -151,6 +152,8 @@ class FakeBookRepository : BookRepository {
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = MutableStateFlow(chapters[bookId].orEmpty())
 
     override fun observeBookTierLabels(bookId: String): Flow<TierLabels> = MutableStateFlow(TierLabels.None)
+
+    override fun observeMatchRecord(bookId: String): Flow<BookMatchRecord?> = MutableStateFlow(null)
 
     override fun observeIsBookLive(id: String): Flow<Boolean> = MutableStateFlow(true)
 

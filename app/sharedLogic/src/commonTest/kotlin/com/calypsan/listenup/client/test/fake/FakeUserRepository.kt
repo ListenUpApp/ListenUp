@@ -4,11 +4,10 @@ import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
 
 /**
- * In-memory [UserRepository] whose only live part is the admin flag — flip [admin] to switch a
- * test between an admin's device and a member's. Profile reads answer "no user".
+ * In-memory [UserRepository] whose live parts are the admin flag — flip [admin] to switch a test
+ * between an admin's device and a member's — and [currentUser], "no user" until a test sets one.
  */
 class FakeUserRepository(
     initialIsAdmin: Boolean = false,
@@ -16,11 +15,14 @@ class FakeUserRepository(
     /** The signed-in user's admin flag, as [observeIsAdmin] reports it. */
     val admin = MutableStateFlow(initialIsAdmin)
 
-    override fun observeCurrentUser(): Flow<User?> = flowOf(null)
+    /** The signed-in user, as [observeCurrentUser] reports it. */
+    val currentUser = MutableStateFlow<User?>(null)
+
+    override fun observeCurrentUser(): Flow<User?> = currentUser
 
     override fun observeIsAdmin(): Flow<Boolean> = admin
 
-    override suspend fun getCurrentUser(): User? = null
+    override suspend fun getCurrentUser(): User? = currentUser.value
 
     override suspend fun saveUser(user: User) = Unit
 

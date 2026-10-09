@@ -327,4 +327,26 @@ class PersonMatchViewModelTest :
                 rig.receipts.all.value shouldBe emptyMap()
             }
         }
+
+        test("close() cancels the search in flight, so nothing lands after the screen has gone; twice is harmless") {
+            runTest(dispatcher) {
+                val rig = Rig()
+                val gate = CompletableDeferred<Unit>()
+                var answered = false
+                rig.repo.findGate = gate
+                rig.repo.personFindReply = {
+                    answered = true
+                    AppResult.Success(personFindResult())
+                }
+                subscribe(rig.vm)
+                advanceUntilIdle()
+
+                rig.vm.close()
+                rig.vm.close()
+                gate.complete(Unit)
+                advanceUntilIdle()
+
+                answered shouldBe false
+            }
+        }
     })

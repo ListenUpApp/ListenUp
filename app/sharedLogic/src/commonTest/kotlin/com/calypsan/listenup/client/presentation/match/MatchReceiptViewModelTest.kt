@@ -7,6 +7,8 @@ import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import com.calypsan.listenup.api.dto.match.UndoResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -100,6 +102,32 @@ class MatchReceiptViewModelTest :
                 advanceUntilIdle()
                 vm.state.value shouldBe MatchReceiptUiState.Undone
                 repo.undoRequests shouldBe listOf("pr-1")
+            }
+        }
+
+        test("close() cancels an Undo in flight, so the receipt is left as it was; twice is harmless") {
+            runTest(dispatcher) {
+                val repo = FakeMatchingRepository()
+                val gate = CompletableDeferred<Unit>()
+                var answered = false
+                repo.undoReply = { receiptId ->
+                    gate.await()
+                    answered = true
+                    AppResult.Success(UndoResult(receiptId, emptyList()))
+                }
+                val store = MatchReceiptStore().apply { put(BOOK, receipt("r-9")) }
+                val vm = MatchReceiptViewModel(BOOK, store, UndoMatch(repo), ErrorBus())
+                backgroundScope.launch { vm.state.collect {} }
+                vm.undo()
+                advanceUntilIdle()
+
+                vm.close()
+                vm.close()
+                gate.complete(Unit)
+                advanceUntilIdle()
+
+                answered shouldBe false
+                store.all.value.keys shouldBe setOf(BOOK)
             }
         }
     })

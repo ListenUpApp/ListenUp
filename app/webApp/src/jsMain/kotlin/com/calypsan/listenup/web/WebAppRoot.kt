@@ -6,6 +6,7 @@ import com.calypsan.listenup.web.features.admin.OpenRestrictedBooks
 import com.calypsan.listenup.web.design.LocalRestrictedBookIds
 import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.web.features.admin.InboxBadgeState
+import com.calypsan.listenup.web.features.bookdetail.BookLastMatch
 import com.calypsan.listenup.web.features.bookdetail.ShareOutcome
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -1891,6 +1892,7 @@ private fun BookDetailRoute(
         onFindHardcoverMatch = { router.navigate(Route(listOf(BOOK_KEY, bookId, HARDCOVER_KEY))) },
         onRemoveHardcoverMatch = hardcoverSession.onRemoveMatch,
         onSetHardcoverSynced = hardcoverSession.onSetSynced,
+        lastMatchRow = { BookLastMatch(session = detailSession, nowMs = nowMs()) },
     )
     // After Match details' Apply: what changed, See what changed and Undo, until dismissed.
     BookMatchReceipt(bookId = bookId, graph = matchDetails)

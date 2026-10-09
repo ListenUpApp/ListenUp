@@ -158,6 +158,8 @@ class BookDetailViewModelTest :
                     bookVisibilityRepository = FakeBookVisibilityRepository(),
                     bookEditRepository = mock(),
                     seriesRepository = seriesRepository,
+                    undoMatch = mock(),
+                    userProfileRepository = mock(),
                 )
         }
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -37,6 +38,8 @@ internal class FakeBookRepository(
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = flowOf(emptyList())
 
     override fun observeBookTierLabels(bookId: String): Flow<TierLabels> = flowOf(TierLabels.None)
+
+    override fun observeMatchRecord(bookId: String): Flow<BookMatchRecord?> = flowOf(null)
 
     override fun observeIsBookLive(id: String): Flow<Boolean> = flowOf(false)
 

@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
@@ -75,6 +76,7 @@ import org.koin.test.verify.verify
  *  - [PlaybackManager] / [PlaybackController] — owned by the platform playback modules; the chapter
  *    editor's "Play from here" and its file boundaries read them.
  *  - [PermissionsRepository] — owned by `socialModule`.
+ *  - [UserProfileRepository] — owned by `socialModule` (who matched the book, on Book Detail's last-match row).
  */
 @OptIn(KoinExperimentalAPI::class)
 class BookPresentationModuleVerifyTest :
@@ -115,6 +117,7 @@ class BookPresentationModuleVerifyTest :
                         LibraryRepository::class,
                         GenreRepository::class,
                         MoodRepository::class,
+                        UserProfileRepository::class,
                     ),
             )
         }

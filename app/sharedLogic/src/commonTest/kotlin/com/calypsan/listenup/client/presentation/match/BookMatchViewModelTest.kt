@@ -281,4 +281,26 @@ class BookMatchViewModelTest :
                     .error shouldBe MetadataError.ExternalTimeout()
             }
         }
+
+        test("close() cancels the search in flight, so nothing lands after the screen has gone; twice is harmless") {
+            runTest(dispatcher) {
+                val rig = Rig()
+                val gate = CompletableDeferred<Unit>()
+                var answered = false
+                rig.repo.findGate = gate
+                rig.repo.findReply = {
+                    answered = true
+                    AppResult.Success(findResult())
+                }
+                subscribe(rig.vm)
+                advanceUntilIdle()
+
+                rig.vm.close()
+                rig.vm.close()
+                gate.complete(Unit)
+                advanceUntilIdle()
+
+                answered shouldBe false
+            }
+        }
     })

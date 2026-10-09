@@ -160,7 +160,7 @@ private fun Settled(
 
 /** See what changed: every change the match made, with where it came from. */
 @Composable
-private fun ChangesDialog(
+internal fun ChangesDialog(
     open: Boolean,
     receipt: MatchReceiptUi,
     onClose: () -> Unit,
