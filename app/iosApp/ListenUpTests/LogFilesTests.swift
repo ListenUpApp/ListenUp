@@ -10,7 +10,8 @@ struct LogFilesTests {
         let urls = LogFiles.urls(fromPaths: ["/logs/listenup.log.1", "/logs/listenup.log"])
 
         #expect(urls.map(\.path) == ["/logs/listenup.log.1", "/logs/listenup.log"])
-        #expect(urls.allSatisfy(\.isFileURL))
+        let allFileURLs = urls.allSatisfy { $0.isFileURL }
+        #expect(allFileURLs)
     }
 
     @Test func noPathsMeansNothingToShare() {
