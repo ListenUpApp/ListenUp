@@ -86,6 +86,8 @@ kotlin {
             // (via kotlinx-coroutines-slf4j) which requires a backend that supports
             // Mapped Diagnostic Context. slf4j-simple always returns null for MDC.get().
             implementation(libs.logback.classic)
+            // RpcSurfaceSerializersTest reads each @Rpc method's declared Kotlin types, as kotlinx.rpc does.
+            implementation(libs.kotlin.reflect)
         }
     }
 }
