@@ -246,3 +246,16 @@
 .luw .pmx-photo, .luw .pmx-bio { gap: var(--sp-12); }
 .luw .pmx-photos .bmx-cover { min-width: 7rem; }
 .luw .pmx-bio-src { align-self: stretch; }
+
+/* Book Detail's last-match row (A-04): "Details matched … · See what changed · Undo last match", above the tabs
+   while the book's last match can still be undone. Wraps its actions under the sentence at narrow widths. */
+.luw .bmx-last {
+  display: flex; align-items: center; gap: var(--sp-8) var(--sp-12); flex-wrap: wrap;
+  margin: var(--sp-12) 0; padding: var(--sp-8) var(--sp-8) var(--sp-8) var(--sp-16);
+  border-radius: var(--r-lg); background: var(--surface-2); color: var(--ink);
+}
+.luw .bmx-last > svg { flex: none; color: var(--success); }
+.luw .bmx-last-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 14rem; min-width: 0; }
+.luw .bmx-last-t { margin: 0; font-size: var(--fs-ui); font-weight: 600; overflow-wrap: anywhere; }
+.luw .bmx-last-err { margin: 0; font-size: var(--fs-small); color: var(--danger); overflow-wrap: anywhere; }
+.luw .bmx-last-acts { display: flex; flex-wrap: wrap; gap: var(--sp-4); }

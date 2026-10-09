@@ -142,6 +142,8 @@ fun BookDetailPage(
     onRestoreToAllBooks: () -> Unit = {},
     /** Open an admin collection from the Visibility panel. */
     onOpenCollection: (String) -> Unit = {},
+    /** The last-match row ("Details matched … · See what changed · Undo last match"), above the tabs. */
+    lastMatchRow: @Composable () -> Unit = {},
 ) {
     val root = remember { PageRoot() }
     Div(attrs = {
@@ -203,6 +205,9 @@ fun BookDetailPage(
                 if (state.isHeld) {
                     HeldTriage(state, onEdit, onMatchMetadata, onEditChapters, onReleaseFromInbox)
                 }
+
+                // Under the header's actions, as the canvas draws it (A-04): the last match, while it can be undone.
+                lastMatchRow()
 
                 // An unknown `?tab=` shows Overview, so it is Overview the strip and the panel name.
                 val shownTab = if (tab == "chapters" || tab == "files") tab else "overview"
