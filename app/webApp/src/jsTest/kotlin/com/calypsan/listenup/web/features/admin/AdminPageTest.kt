@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -15,6 +18,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlinx.browser.document
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.asList
@@ -72,6 +76,7 @@ private fun page(
     onDecidePasswordReset: (String, Boolean) -> Unit = { _, _ -> },
     onDismissResetCode: () -> Unit = {},
     onSetRegistrationPolicy: (RegistrationPolicy) -> Unit = {},
+    landOnPending: Boolean = false,
 ) {
     AdminPage(
         state = state,
@@ -85,6 +90,7 @@ private fun page(
         onSetRegistrationPolicy = onSetRegistrationPolicy,
         onClearError = {},
         onRetry = {},
+        landOnPending = landOnPending,
     )
 }
 
@@ -173,6 +179,46 @@ class AdminPageTest :
             val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
             dialog.textContent.orEmpty() shouldContain "another"
             dialog.textContent.orEmpty() shouldNotContain "listening history"
+        }
+
+        test("landing on pending brings the waiting people into view and onto the keyboard") {
+            val host =
+                mounts.mount {
+                    page(AdminUiState.Ready(pendingUsers = listOf(user("u3", "Grace"))), landOnPending = true)
+                }
+            awaitFrame()
+
+            val heading = document.activeElement as HTMLElement
+            heading.textContent shouldBe "Waiting for you"
+            heading.closest("#$PENDING_SECTION_ID").shouldNotBeNull()
+            host.contains(heading) shouldBe true
+        }
+
+        test("the landing happens once, not on every change to the queue") {
+            // Approving one of two people recomposes the section; dragging the admin back to it
+            // after they have moved on would make the page fight them.
+            var state by mutableStateOf(
+                AdminUiState.Ready(pendingUsers = listOf(user("u3", "Grace"), user("u4", "Alan"))),
+            )
+            mounts.mount { page(state, landOnPending = true) }
+            awaitFrame()
+            (document.activeElement as HTMLElement).blur()
+
+            state = AdminUiState.Ready(pendingUsers = listOf(user("u4", "Alan")))
+            awaitFrame()
+            state = AdminUiState.Ready()
+            awaitFrame()
+            state = AdminUiState.Ready(pendingUsers = listOf(user("u5", "Ada")))
+            awaitFrame()
+
+            document.activeElement?.matches("#$PENDING_SECTION_ID h2") shouldBe false
+        }
+
+        test("without the landing, the page leaves focus and scroll alone") {
+            mounts.mount { page(AdminUiState.Ready(pendingUsers = listOf(user("u3", "Grace")))) }
+            awaitFrame()
+
+            document.activeElement?.matches("#$PENDING_SECTION_ID h2") shouldBe false
         }
 
         test("approving someone waiting does not ask — it is the friendly direction") {

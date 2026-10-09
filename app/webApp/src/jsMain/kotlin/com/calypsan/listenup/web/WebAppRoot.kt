@@ -911,7 +911,7 @@ private fun RouteContent(
         )
     } else if (isAccountRoute(route.segments, active)) {
         AccountRouteContent(
-            segments = route.segments,
+            route = route,
             active = active,
             router = router,
             openSettings = openSettings,
@@ -2357,14 +2357,23 @@ private fun NotificationsRoute(
         onOpen = { notification ->
             session.onMarkRead(notification.id)
             when (val action = notification.toShortcutAction()) {
-                is ShortcutAction.NavigateToBook -> router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
+                is ShortcutAction.NavigateToBook -> {
+                    router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
+                }
 
-                // Web's Admin page IS the pending-approvals surface, so this one lands.
-                is ShortcutAction.NavigateToPendingApprovals -> router.navigate(Route(listOf(ADMIN_KEY)))
+                // Web's Admin page IS the pending-approvals surface, so this one lands — on the
+                // section itself, since the request sits below the fold.
+                is ShortcutAction.NavigateToPendingApprovals -> {
+                    router.navigate(Route(listOf(ADMIN_KEY), mapOf(SECTION_QUERY_KEY to PENDING_SECTION)))
+                }
 
-                is ShortcutAction.NavigateToUserProfile -> router.navigate(Route(listOf(PROFILE_KEY, action.userId)))
+                is ShortcutAction.NavigateToUserProfile -> {
+                    router.navigate(Route(listOf(PROFILE_KEY, action.userId)))
+                }
 
-                else -> Unit
+                else -> {
+                    Unit
+                }
             }
         },
     )
@@ -3258,6 +3267,15 @@ private const val VIEW_QUERY_KEY = "view"
 
 private const val COMPARE_VIEW = "compare"
 
+/**
+ * `/admin?section=pending` — Admin, landed on the people waiting to join. A query rather than a
+ * path segment: it is the same page arriving somewhere in particular, so the page-focus memory that
+ * keys on the path treats it as Admin, and a plain `/admin` link still opens at the top.
+ */
+private const val SECTION_QUERY_KEY = "section"
+
+private const val PENDING_SECTION = "pending"
+
 /** The browser's own "you have unsaved work" prompt. */
 private const val BEFORE_UNLOAD = "beforeunload"
 
@@ -3621,6 +3639,7 @@ private fun AdminRoute(
     onOpenUpload: () -> Unit,
     onOpenOrganize: () -> Unit,
     onOpenUser: (String) -> Unit,
+    landOnPending: Boolean,
 ) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -3649,6 +3668,7 @@ private fun AdminRoute(
         onOpenUpload = onOpenUpload,
         onOpenOrganize = onOpenOrganize,
         onOpenUser = onOpenUser,
+        landOnPending = landOnPending,
     )
 }
 
@@ -3898,7 +3918,7 @@ private fun UserDetailRoute(
 /** The account family: settings, the devices beneath it, and admin. */
 @Composable
 private fun AccountRouteContent(
-    segments: List<String>,
+    route: Route,
     active: String,
     router: Router,
     openSettings: OpenSettings,
@@ -3911,6 +3931,7 @@ private fun AccountRouteContent(
     onToast: (String) -> Unit,
     onActionToast: ShowActionToast,
 ) {
+    val segments = route.segments
     when {
         segments.firstOrNull() == ADMIN_KEY && segments.size > 1 -> {
             AdminRouteContent(
@@ -3970,6 +3991,7 @@ private fun AccountRouteContent(
                 onOpenUpload = { router.navigate(Route(listOf(ADMIN_KEY, UPLOAD_KEY))) },
                 onOpenOrganize = { router.navigate(Route(listOf(ADMIN_KEY, ORGANIZE_KEY))) },
                 onOpenUser = { id -> router.navigate(Route(listOf(ADMIN_KEY, USER_KEY, id))) },
+                landOnPending = route.query[SECTION_QUERY_KEY] == PENDING_SECTION,
             )
         }
 
