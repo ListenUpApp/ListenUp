@@ -15,7 +15,7 @@ private val logger = KotlinLogging.logger("com.calypsan.listenup.server.plugins.
  * Native request logging: `ktor-server-call-logging` has no Kotlin/Native artifact, so this actual
  * reproduces its essentials by intercepting the pipeline — timing each call, then logging method,
  * path, status, duration, and the [installCallId] correlation id (inlined because native has no SLF4J
- * MDC). Mirrors the JVM actual's INFO access log.
+ * MDC). Mirrors the JVM actual's INFO access log, health probes ([isQuietRequestPath]) included out.
  */
 actual fun Application.installCallLogging() {
     intercept(ApplicationCallPipeline.Monitoring) {
@@ -30,8 +30,10 @@ actual fun Application.installCallLogging() {
                     ?.value
                     ?.toString() ?: "-"
             val correlationId = call.callId ?: "-"
-            logger.info {
-                "${call.request.httpMethod.value} ${call.request.path()} -> $status (${durationMs}ms) [$correlationId]"
+            if (!isQuietRequestPath(call.request.path())) {
+                logger.info {
+                    "${call.request.httpMethod.value} ${call.request.path()} -> $status (${durationMs}ms) [$correlationId]"
+                }
             }
         }
     }
