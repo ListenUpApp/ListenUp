@@ -174,7 +174,7 @@ internal object ErrorMapper {
         // this object first loads would miss a factory installed later (the iOS file tap, a spec).
         val logger = KotlinLogging.logger(LOGGER_NAME)
         if (exception is CancellationException) {
-            logger.debug { "Cancelled before a result: ${exception.message}" }
+            logger.debug { "Cancelled before a result: ${exception.message.orEmpty()}" }
         } else {
             logger.error(exception) { "Unanticipated exception mapped to a generic error" }
         }

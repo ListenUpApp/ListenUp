@@ -182,15 +182,6 @@ class FileLogSink(
         )
 
     companion object {
-        /**
-         * The log files in [directory] worth handing to someone — oldest first, so a reader who
-         * concatenates them reads chronologically — skipping any that are missing or empty.
-         */
-        fun existingLogFiles(directory: Path): List<Path> =
-            listOf(ROTATED_FILE_NAME, FILE_NAME)
-                .map { name -> Path(directory, name) }
-                .filter { path -> (SystemFileSystem.metadataOrNull(path)?.size ?: 0L) > 0L }
-
         /** Subdirectory of the app's private files dir that holds the log files. */
         const val DIRECTORY_NAME: String = "logs"
 
@@ -219,5 +210,14 @@ class FileLogSink(
         // UTF-8 continuation bytes match 10xxxxxx; used to back off to a char boundary.
         private const val CONTINUATION_MASK: Int = 0xC0
         private const val CONTINUATION_MARKER: Int = 0x80
+
+        /**
+         * The log files in [directory] worth handing to someone — oldest first, so a reader who
+         * concatenates them reads chronologically — skipping any that are missing or empty.
+         */
+        fun existingLogFiles(directory: Path): List<Path> =
+            listOf(ROTATED_FILE_NAME, FILE_NAME)
+                .map { name -> Path(directory, name) }
+                .filter { path -> (SystemFileSystem.metadataOrNull(path)?.size ?: 0L) > 0L }
     }
 }

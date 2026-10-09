@@ -45,10 +45,9 @@ internal class CrashLoggingHandler(
  */
 internal fun installCrashLogging() {
     val previous = Thread.getDefaultUncaughtExceptionHandler()
-    Thread.setDefaultUncaughtExceptionHandler(
-        CrashLoggingHandler(
-            previous = previous,
-            flush = { LogSinkRegistry.flushBlocking(CRASH_FLUSH_TIMEOUT) { pause -> Thread.sleep(pause.inWholeMilliseconds) } },
-        ),
-    )
+    Thread.setDefaultUncaughtExceptionHandler(CrashLoggingHandler(previous = previous, flush = ::flushLogFile))
+}
+
+private fun flushLogFile() {
+    LogSinkRegistry.flushBlocking(CRASH_FLUSH_TIMEOUT) { pause -> Thread.sleep(pause.inWholeMilliseconds) }
 }
