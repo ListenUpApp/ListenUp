@@ -35,6 +35,7 @@ import com.calypsan.listenup.client.handoff.ViewedBookTracker
 import com.calypsan.listenup.client.features.settings.AndroidSettingsPlatformActions
 import com.calypsan.listenup.client.features.settings.SettingsPlatformActions
 import com.calypsan.listenup.client.logging.ListenUpAndroidLogProvider
+import com.calypsan.listenup.client.logging.installCrashLogging
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.localization.SystemStringsHolder
@@ -430,6 +431,10 @@ class ListenUp :
         // Attach the rotating file sink to the logging tap. From here on, every log line
         // (plus the pre-attach buffer covering startup) is persisted under files/logs/.
         LogSinkRegistry.attach(get())
+
+        // From here an uncaught exception is written to that file, flushed, and only then handed
+        // to the handler that was already installed — so a crash leaves a shareable trace.
+        installCrashLogging()
 
         // Verify critical Koin bindings off the main thread. This resolves (and so builds) the
         // playback graph — PlaybackManager, ProgressTracker, the PlaybackController and its

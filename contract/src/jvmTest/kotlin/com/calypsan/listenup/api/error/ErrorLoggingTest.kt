@@ -29,4 +29,21 @@ class ErrorLoggingTest :
             line shouldContain "TRANSPORT_NETWORK_UNAVAILABLE"
             line.contains("cid=") shouldBe false
         }
+
+        // The line logged where an error reaches the user. `message` is a constant, so on its own it
+        // says WHICH failure and never WHY — the per-instance debugInfo is the why.
+        test("the surfaced line carries the diagnostic line and the debugInfo") {
+            val error = TransportError.NetworkUnavailable(debugInfo = "Connection refused: rupert:8080")
+
+            val line = error.surfacedLogLine()
+
+            line shouldContain error.diagnosticLogLine()
+            line shouldContain "Connection refused: rupert:8080"
+        }
+
+        test("the surfaced line is the diagnostic line alone when there is no debugInfo") {
+            val error = AuthError.SessionExpired(correlationId = "cid-1")
+
+            error.surfacedLogLine() shouldBe error.diagnosticLogLine()
+        }
     })

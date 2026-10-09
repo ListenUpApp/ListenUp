@@ -43,13 +43,20 @@ class FileLogSink(
 ) {
     private val droppedLines = atomic(0)
 
+    // Lines handed to [submit] that are not yet flushed to disk (and not evicted by overflow).
+    // Zero means everything submitted so far is durable — what [hasPendingLines] reports.
+    private val pendingLines = atomic(0)
+
     // DROP_OLDEST keeps trySend infallible for producers; onUndeliveredElement fires for
     // each line the overflow policy evicts, which is how the drop marker gets its count.
     private val queue =
         Channel<String>(
             capacity = queueCapacity,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            onUndeliveredElement = { droppedLines.incrementAndGet() },
+            onUndeliveredElement = {
+                droppedLines.incrementAndGet()
+                pendingLines.decrementAndGet()
+            },
         )
 
     private val scope = CoroutineScope(SupervisorJob() + dispatcher + appCoroutineExceptionHandler)
@@ -60,8 +67,17 @@ class FileLogSink(
      * from any thread; silently a no-op once [close] has run.
      */
     fun submit(line: String) {
+        pendingLines.incrementAndGet()
         queue.trySend(line)
     }
+
+    /**
+     * True while a submitted line is still queued or written but unflushed. False once every line
+     * submitted so far is on disk — or once the writer has stopped (closed, or abandoned after an
+     * I/O error), since nothing will flush them then and waiting longer cannot help.
+     */
+    val hasPendingLines: Boolean
+        get() = writer.isActive && pendingLines.value > 0
 
     /**
      * Stops accepting lines, drains what is queued, flushes, and closes the file.
@@ -78,16 +94,19 @@ class FileLogSink(
             val file = RotatingFile(directory, maxFileBytes)
             for (first in queue) {
                 file.writeLine(first)
+                var batchSize = 1
                 // Drain whatever else is already queued so a burst becomes one batch.
                 while (true) {
                     val next = queue.tryReceive().getOrNull() ?: break
                     file.writeLine(next)
+                    batchSize++
                 }
                 val dropped = droppedLines.getAndSet(0)
                 if (dropped > 0) {
                     file.writeLine(lifecycleMarker("dropped $dropped log lines (queue overflow)"))
                 }
                 file.flush()
+                pendingLines.addAndGet(-batchSize)
             }
             file.closeFile()
         } catch (_: IOException) {
@@ -163,6 +182,15 @@ class FileLogSink(
         )
 
     companion object {
+        /**
+         * The log files in [directory] worth handing to someone — oldest first, so a reader who
+         * concatenates them reads chronologically — skipping any that are missing or empty.
+         */
+        fun existingLogFiles(directory: Path): List<Path> =
+            listOf(ROTATED_FILE_NAME, FILE_NAME)
+                .map { name -> Path(directory, name) }
+                .filter { path -> (SystemFileSystem.metadataOrNull(path)?.size ?: 0L) > 0L }
+
         /** Subdirectory of the app's private files dir that holds the log files. */
         const val DIRECTORY_NAME: String = "logs"
 

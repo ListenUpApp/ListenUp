@@ -4,23 +4,26 @@ import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 /**
  * Static bridge between the platform logging taps and the DI-owned [FileLogSink].
  *
- * The taps (Android's SLF4J tee provider, the desktop logback appender) are instantiated by
- * their logging frameworks before Koin starts, so they cannot receive the sink by injection.
- * Instead they hand every formatted line to [append]; lines observed before [attach] are held
- * in a small drop-oldest buffer and replayed once the sink exists, so early startup logging
- * survives into the file.
- *
- * This registry is also the deliberate iOS seam: kotlin-logging's Darwin backend
- * (`DarwinLoggerFactory` → OSLog) exposes no appender hook, so there is no iOS tap today.
- * A future Darwin tap only needs to call [append] — nothing else changes.
+ * The taps (Android's SLF4J tee provider, the desktop logback appender, the iOS tee logger
+ * factory wrapped around kotlin-logging's OSLog backend, and the Swift `Log` bridge) are
+ * installed before Koin starts, so they cannot receive the sink by injection. Instead they hand
+ * every formatted line to [append]; lines observed before [attach] are held in a small
+ * drop-oldest buffer and replayed once the sink exists, so early startup logging survives into
+ * the file.
  */
 object LogSinkRegistry {
     // Enough to cover DI startup chatter without holding a session's worth of lines.
     private const val PRE_ATTACH_CAPACITY = 256
+
+    // Short enough that a crash waits barely longer than the write itself takes.
+    private val FLUSH_POLL_INTERVAL = 5.milliseconds
 
     // A channel doubles as a thread-safe bounded drop-oldest buffer for pre-attach lines.
     private val preAttachBuffer =
@@ -65,6 +68,27 @@ object LogSinkRegistry {
                 message = "app log sink started",
             ),
         )
+    }
+
+    /**
+     * Blocks the calling thread until every line appended so far is on disk, or [timeout] passes.
+     * Returns true when the lines are durable, false on timeout or when no sink is attached.
+     *
+     * For the crash path only: an uncaught exception is about to end the process, nothing will
+     * ever call [FileLogSink.close], and the line saying why must not die in the queue. Common code
+     * has no blocking sleep, so the platform supplies one as [pause] (`Thread.sleep`, `usleep`).
+     */
+    fun flushBlocking(
+        timeout: Duration,
+        pause: (Duration) -> Unit,
+    ): Boolean {
+        val sink = sinkRef.value ?: return false
+        val deadline = TimeSource.Monotonic.markNow() + timeout
+        while (sink.hasPendingLines) {
+            if (deadline.hasPassedNow()) return false
+            pause(FLUSH_POLL_INTERVAL)
+        }
+        return true
     }
 
     /** Detaches any sink and empties the pre-attach buffer. Test isolation only. */

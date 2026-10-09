@@ -25,3 +25,14 @@ private const val SERVER_REFERENCE_LENGTH = 8
  */
 public val AppError.serverReference: String?
     get() = (this as? InternalError)?.correlationId?.takeIf { it.isNotBlank() }?.take(SERVER_REFERENCE_LENGTH)
+
+/**
+ * The line logged where an [AppError] reaches the user: the [diagnosticLogLine] followed by the
+ * per-instance [AppError.debugInfo], when there is one.
+ *
+ * [AppError.message] is a constant per subtype, so the diagnostic line alone says which failure the
+ * user saw and never why; `debugInfo` is the why. Logged at WARN by every platform's error surface,
+ * so it reaches the on-device log a user can share — not only an attached debugger.
+ */
+public fun AppError.surfacedLogLine(): String =
+    debugInfo?.let { detail -> "${diagnosticLogLine()} — $detail" } ?: diagnosticLogLine()
