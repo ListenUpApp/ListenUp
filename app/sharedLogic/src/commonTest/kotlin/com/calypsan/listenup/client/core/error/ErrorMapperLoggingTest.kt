@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.core.error
 
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.client.core.logging.RecordedLogEvent
 import com.calypsan.listenup.client.core.logging.withRecordingLoggerFactory
 import io.github.oshai.kotlinlogging.Level
@@ -17,7 +17,7 @@ import kotlinx.io.IOException
  * What [ErrorMapper] leaves in the log.
  *
  * An exception nobody anticipated is the one a bug report needs most, and the mapper is the last
- * place that still holds the throwable — the [InternalError] it returns carries only a sentence.
+ * place that still holds the throwable — the [UnexpectedClientError] it returns carries only a sentence.
  * So the catch-all logs it at ERROR, stack trace and all. Every typed mapping is an outcome the app
  * already understands (no network, a timeout, a 4xx), and logging those at ERROR would bury the
  * real faults under expected weather.
@@ -31,7 +31,7 @@ class ErrorMapperLoggingTest :
 
             val logged =
                 withRecordingLoggerFactory { recorder ->
-                    ErrorMapper.map(surprise).shouldBeInstanceOf<InternalError>()
+                    ErrorMapper.map(surprise).shouldBeInstanceOf<UnexpectedClientError>()
                     recorder.events.atWarnOrAbove()
                 }
 
