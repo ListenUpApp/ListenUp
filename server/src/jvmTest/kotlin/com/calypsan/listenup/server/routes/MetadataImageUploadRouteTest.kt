@@ -282,7 +282,7 @@ class MetadataImageUploadRouteTest :
             }
         }
 
-        test("PUT /api/v1/contributors/{id}/image rejected for a MEMBER → the stored file is cleaned up") {
+        test("PUT /api/v1/contributors/{id}/image refused for a MEMBER → nothing is written") {
             val libraryRoot = Files.createTempDirectory("listenup-img-upload-orphan-contrib-")
             val homeDir = Files.createTempDirectory("listenup-img-upload-orphan-contrib-home-")
             try {
@@ -305,8 +305,7 @@ class MetadataImageUploadRouteTest :
                         }
                     response.status shouldBe HttpStatusCode.Forbidden
 
-                    // The upload stores content-addressed BEFORE the canEdit gate rejects; on rejection the
-                    // helper must delete the file so distinct rejected payloads can't accumulate on disk.
+                    // The permission gate runs BEFORE the body is read, so a refused upload never writes a file.
                     val orphan = homeDir.resolve("contributors/${hashBytesSha256(jpeg)}.jpg")
                     Files.exists(orphan) shouldBe false
                 }
@@ -316,9 +315,49 @@ class MetadataImageUploadRouteTest :
             }
         }
 
-        test("PUT /api/v1/series/{id}/cover for an unknown series → the stored file is cleaned up") {
-            val libraryRoot = Files.createTempDirectory("listenup-img-upload-orphan-series-")
-            val homeDir = Files.createTempDirectory("listenup-img-upload-orphan-series-home-")
+        test("a refused contributor upload of a photo another contributor already uses leaves that photo alone") {
+            val libraryRoot = Files.createTempDirectory("listenup-img-upload-shared-contrib-")
+            val homeDir = Files.createTempDirectory("listenup-img-upload-shared-contrib-home-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val rootToken = mintRootToken()
+                    val (memberToken, memberId) = registerMember("shared-photo-member@x")
+                    authedService<AdminUserService>(rootToken)
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissionsPatch(canEditMetadata = false)))
+
+                    val contributorRepo by application.inject<ContributorRepository>()
+                    val owner = contributorRepo.resolveOrCreate("Photo Owner", sortName = null)
+                    val target = contributorRepo.resolveOrCreate("Photo Target", sortName = null)
+                    client
+                        .put("/api/v1/contributors/${owner.value}/image") {
+                            bearerAuth(rootToken)
+                            setBody(jpegPart())
+                        }.status shouldBe HttpStatusCode.NoContent
+
+                    // The same bytes hash to the same content-addressed file the owner's row names.
+                    client
+                        .put("/api/v1/contributors/${target.value}/image") {
+                            bearerAuth(memberToken)
+                            setBody(jpegPart())
+                        }.status shouldBe HttpStatusCode.Forbidden
+
+                    Files.exists(homeDir.resolve("contributors/${hashBytesSha256(jpeg)}.jpg")) shouldBe true
+                    val served = client.get("/api/v1/contributors/${owner.value}/photo") { bearerAuth(rootToken) }
+                    served.status shouldBe HttpStatusCode.OK
+                    served.readRawBytes() shouldBe jpeg
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("a refused series upload of a cover another series already uses leaves that cover alone") {
+            val libraryRoot = Files.createTempDirectory("listenup-img-upload-shared-series-")
+            val homeDir = Files.createTempDirectory("listenup-img-upload-shared-series-home-")
             try {
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
@@ -326,17 +365,22 @@ class MetadataImageUploadRouteTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = mintRootToken()
 
-                    val response =
-                        client.put("/api/v1/series/nonexistent-series-id/cover") {
+                    val seriesRepo by application.inject<SeriesRepository>()
+                    val owner = seriesRepo.resolveOrCreate("Cover Owner")
+                    client
+                        .put("/api/v1/series/${owner.value}/cover") {
                             bearerAuth(token)
                             setBody(jpegPart())
-                        }
-                    response.status shouldNotBe HttpStatusCode.NoContent
+                        }.status shouldBe HttpStatusCode.NoContent
 
-                    // The unknown-id update returns Failure after the file is stored; the helper must
-                    // delete the file rather than leave it orphaned.
-                    val orphan = homeDir.resolve("series/${hashBytesSha256(jpeg)}.jpg")
-                    Files.exists(orphan) shouldBe false
+                    // An unknown id fails after the bytes are stored; the shared file must survive that.
+                    client
+                        .put("/api/v1/series/nonexistent-series-id/cover") {
+                            bearerAuth(token)
+                            setBody(jpegPart())
+                        }.status shouldNotBe HttpStatusCode.NoContent
+
+                    Files.exists(homeDir.resolve("series/${hashBytesSha256(jpeg)}.jpg")) shouldBe true
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()

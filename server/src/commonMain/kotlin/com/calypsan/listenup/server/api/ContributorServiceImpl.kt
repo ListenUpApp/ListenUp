@@ -102,6 +102,13 @@ internal class ContributorServiceImpl(
     private val permissionPolicy: PermissionPolicy = PermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ContributorService {
+    /**
+     * Returns the [AppError] denial when the caller lacks the edit-metadata permission, or null when
+     * the edit is allowed. Exposed as `internal` so the image-upload route can gate before reading the
+     * multipart body; the update the route then makes re-gates internally as defense-in-depth.
+     */
+    internal suspend fun checkCanEdit(): AppError? = requirePermission(Permission.EDIT_METADATA)
+
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ContributorServiceImpl =
         ContributorServiceImpl(
