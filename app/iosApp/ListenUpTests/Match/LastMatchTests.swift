@@ -7,6 +7,8 @@ import Testing
 /// What Changed opens, and Undo's outcome in the receipt capsule's words.
 @Suite("Last match on Book Detail")
 struct LastMatchTests {
+    private typealias Fixture = MatchFixtures
+
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
     private func ui(appliedAt: Date, matchedBy: String? = nil, showingChanges: Bool = false, undoing: Bool = false) -> LastMatchUi {
