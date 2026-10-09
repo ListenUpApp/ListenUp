@@ -50,7 +50,7 @@ private struct LastMatchFeedback: ViewModifier {
                         phase: outcome,
                         onUndo: {},
                         onSeeWhatChanged: {},
-                        onDismiss: { observer?.dismissLastMatchOutcome() }
+                        onDismiss: { observer?.lastMatchOutcome = .none }
                     )
                     .accessibilityFocused($isFocused)
                     .padding(.horizontal, Spacing.m)
@@ -72,7 +72,7 @@ private struct LastMatchFeedback: ViewModifier {
                 else { return }
                 try? await Task.sleep(for: delay)
                 guard !Task.isCancelled else { return }
-                observer?.dismissLastMatchOutcome()
+                observer?.lastMatchOutcome = .none
             }
     }
 }

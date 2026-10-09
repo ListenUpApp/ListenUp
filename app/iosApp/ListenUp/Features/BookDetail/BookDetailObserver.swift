@@ -94,13 +94,10 @@ final class BookDetailObserver {
     private(set) var isRestoringToAllBooks = false
     var layout: BookDetailLayout { .forBook(isHeld: isHeld) }
 
-    // MARK: - Last match
-
-    /// "Details matched … · See What Changed · Undo Last Match" while the book's last match can be undone; nil
-    /// otherwise, and for someone without Edit metadata (the server's gate on Undo).
+    /// The last-match row while the book's last match can be undone (and you may undo it); nil otherwise.
     private(set) var lastMatch: LastMatchRowModel?
-    /// How the row's Undo ended, said in the receipt capsule until dismissed; `.none` otherwise.
-    private(set) var lastMatchOutcome: MatchReceiptPhase = .none
+    /// How the row's Undo ended, said in the receipt capsule; the capsule sets it back to `.none` when dismissed.
+    var lastMatchOutcome: MatchReceiptPhase = .none
 
     // MARK: - Documents
 
@@ -200,12 +197,8 @@ final class BookDetailObserver {
         bridge.bind(viewModel.navActions) { [weak self] action in
             self?.applyNavAction(action)
         }
-        bridge.bind(viewModel.lastMatch) { [weak self] ui in
-            self?.lastMatch = ui.map(LastMatchMapping.row(from:))
-        }
-        bridge.bind(viewModel.lastMatchEvents) { [weak self] event in
-            self?.lastMatchOutcome = LastMatchMapping.outcome(from: event)
-        }
+        bridge.bind(viewModel.lastMatch) { [weak self] in self?.lastMatch = $0.map(LastMatchMapping.row(from:)) }
+        bridge.bind(viewModel.lastMatchEvents) { [weak self] in self?.lastMatchOutcome = LastMatchMapping.outcome($0) }
     }
 
     /// Fold the latest `myShelves` + containing-book membership into `[ShelfRow]`.
@@ -226,7 +219,6 @@ final class BookDetailObserver {
     func seeWhatChanged() { viewModel.seeWhatChanged() }
     func closeWhatChanged() { viewModel.closeWhatChanged() }
     func undoLastMatch() { viewModel.undoLastMatch() }
-    func dismissLastMatchOutcome() { lastMatchOutcome = .none }
 
     func play() {
         guard let book else { return }

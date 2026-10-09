@@ -18,8 +18,10 @@ struct LastMatchRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     // Re-said each minute, so "just now" becomes "1 minute ago" while the page is open.
                     TimelineView(.periodic(from: .now, by: 60)) { context in
-                        Text(MatchCopy.lastMatch(appliedAt: model.appliedAt, matchedBy: model.matchedBy, now: context.date))
-                            .font(.body)
+                        Text(MatchCopy.lastMatch(
+                            appliedAt: model.appliedAt, matchedBy: model.matchedBy, now: context.date
+                        ))
+                        .font(.body)
                     }
                     if let error = model.undoError {
                         Text(error)

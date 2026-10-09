@@ -11,7 +11,9 @@ struct LastMatchTests {
 
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
-    private func ui(appliedAt: Date, matchedBy: String? = nil, showingChanges: Bool = false, undoing: Bool = false) -> LastMatchUi {
+    private func ui(
+        appliedAt: Date, matchedBy: String? = nil, showingChanges: Bool = false, undoing: Bool = false
+    ) -> LastMatchUi {
         LastMatchUi(
             receipt: MatchReceiptUi(
                 receiptId: "r1", fieldCount: 1, coverSource: Fixture.shelfdata, chapterNameCount: 0,
@@ -61,8 +63,8 @@ struct LastMatchTests {
     }
 
     @Test func undoOutcomesUseTheReceiptsWords() {
-        #expect(LastMatchMapping.outcome(from: LastMatchEventUndone.shared) == .undone)
-        #expect(LastMatchMapping.outcome(from: LastMatchEventExpired.shared)
+        #expect(LastMatchMapping.outcome(LastMatchEventUndone.shared) == .undone)
+        #expect(LastMatchMapping.outcome(LastMatchEventExpired.shared)
             == .expired(message: "This book has changed since, so the match can't be undone."))
     }
 }

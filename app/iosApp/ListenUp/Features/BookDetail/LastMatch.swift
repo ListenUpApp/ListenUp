@@ -38,7 +38,7 @@ enum LastMatchMapping {
     }
 
     /// How an Undo from the row ended, as the receipt capsule says it.
-    static func outcome(from event: any LastMatchEvent) -> MatchReceiptPhase {
+    static func outcome(_ event: any LastMatchEvent) -> MatchReceiptPhase {
         switch event.sealedType() {
         case .undone: .undone
         case .expired: .expired(message: MatchCopy.undoExpired(.book))
