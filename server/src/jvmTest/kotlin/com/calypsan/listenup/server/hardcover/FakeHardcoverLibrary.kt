@@ -135,6 +135,8 @@ class FakeHardcoverLibrary(
     private val editions = mutableListOf<Edition>()
     private val scripted = ArrayDeque<FakeReply>()
     private val lostReplies = mutableListOf<String>()
+    private var staleShelves: List<Shelf>? = null
+    private var staleQueriesLeft = 0
     private var nextId = 5_000L
     private var tick = 0L
 
@@ -166,6 +168,36 @@ class FakeHardcoverLibrary(
     fun loseNextReplyTo(operation: String): Unit = synchronized(lock) { lostReplies += operation }
 
     fun shelfFor(hcBookId: Long): Shelf? = synchronized(lock) { shelves.firstOrNull { it.bookId == hcBookId } }
+
+    /** The whole shelf as it stands now, deep-copied, for [serveShelfFrom]. */
+    fun snapshot(): List<Shelf> = synchronized(lock) { shelves.map { it.copied() } }
+
+    /**
+     * The next [queries] `user_books` answers come from [snapshot] instead of the live shelf: a read
+     * that lags behind writes Hardcover has already taken. Seen live on 2026-10-07: a shelf entry and a
+     * read ListenUp had just written were both missing from the answers that followed.
+     */
+    fun serveShelfFrom(
+        snapshot: List<Shelf>,
+        queries: Int,
+    ): Unit =
+        synchronized(lock) {
+            staleShelves = snapshot.map { it.copied() }
+            staleQueriesLeft = queries
+        }
+
+    private fun Shelf.copied(): Shelf =
+        Shelf(
+            id = id,
+            bookId = bookId,
+            statusId = statusId,
+            editionId = editionId,
+            reads =
+                reads.mapTo(
+                    mutableListOf(),
+                ) { Read(it.id, it.startedAt, it.finishedAt, it.progressSeconds, it.editionId) },
+            updatedAt = updatedAt,
+        )
 
     /** Puts [hcBookId] on the shelf at [statusId] with [reads] given as (started_at, finished_at). */
     fun seedShelf(
@@ -296,7 +328,9 @@ class FakeHardcoverLibrary(
     ): FakeReply =
         when (operation) {
             "user_books" -> {
-                ok(userBooksJson(variables.long("bookId")))
+                val served =
+                    staleShelves?.takeIf { staleQueriesLeft > 0 }?.also { staleQueriesLeft-- } ?: shelves
+                ok(userBooksJson(served, variables.long("bookId")))
             }
 
             "user_books_changed" -> {
@@ -449,13 +483,16 @@ class FakeHardcoverLibrary(
         }
     }
 
-    private fun userBooksJson(hcBookId: Long): JsonObject =
+    private fun userBooksJson(
+        served: List<Shelf>,
+        hcBookId: Long,
+    ): JsonObject =
         buildJsonObject {
             putJsonObject("data") {
                 putJsonArray("me") {
                     addJsonObject {
                         putJsonArray("user_books") {
-                            shelves.filter { it.bookId == hcBookId }.take(1).forEach { shelf ->
+                            served.filter { it.bookId == hcBookId }.take(1).forEach { shelf ->
                                 addJsonObject {
                                     put("id", shelf.id)
                                     put("status_id", shelf.statusId)

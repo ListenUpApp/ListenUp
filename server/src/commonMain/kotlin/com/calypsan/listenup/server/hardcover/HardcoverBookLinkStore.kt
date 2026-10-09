@@ -27,6 +27,8 @@ data class HardcoverBookLink(
     val openReadListenThrough: Long?,
     val suppressedListenThrough: Long?,
     val lastProgressPushedAt: Long?,
+    /** When ListenUp last changed this row (epoch ms): a shelving mark, a recorded read, a match. */
+    val changedAt: Long,
 ) {
     /** ListenUp asked Hardcover to shelve the book for [listenThrough] and never learned what came of it. */
     fun isShelvingFor(listenThrough: Long): Boolean = openReadListenThrough == listenThrough && openHcReadId == null
@@ -276,5 +278,6 @@ class HardcoverBookLinkStore(
             openReadListenThrough = open_read_listen_through_started_at,
             suppressedListenThrough = suppressed_listen_through_started_at,
             lastProgressPushedAt = last_progress_pushed_at,
+            changedAt = updated_at,
         )
 }

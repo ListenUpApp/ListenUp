@@ -530,6 +530,7 @@ class HardcoverBookLinkingTest :
                     openReadListenThrough = null,
                     suppressedListenThrough = null,
                     lastProgressPushedAt = null,
+                    changedAt = T0,
                 )
             bookSyncOf(link, pending = 0) shouldBe HardcoverBookSync.UP_TO_DATE
             bookSyncOf(link, pending = 2) shouldBe HardcoverBookSync.WAITING
