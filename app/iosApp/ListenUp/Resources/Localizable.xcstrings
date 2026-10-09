@@ -11041,6 +11041,16 @@
         }
       }
     },
+    "error.client_unexpected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong in the app."
+          }
+        }
+      }
+    },
     "error.conflict": {
       "localizations": {
         "en": {
@@ -11091,6 +11101,16 @@
         }
       }
     },
+    "error.internal_error": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong on the server."
+          }
+        }
+      }
+    },
     "error.not_found": {
       "localizations": {
         "en": {
@@ -11107,6 +11127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ListenUp needs local network access to find and connect to servers on your network."
+          }
+        }
+      }
+    },
+    "error.server_reference": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong on the server. Reference %1$@."
           }
         }
       }

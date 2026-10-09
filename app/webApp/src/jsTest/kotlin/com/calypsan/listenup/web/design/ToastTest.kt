@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.design
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
@@ -194,6 +195,13 @@ class ToastTest :
             TransportError.NetworkUnavailable().toastText() shouldBe
                 TransportError.NetworkUnavailable().message
             InternalError().toastText() shouldBe InternalError().message
+        }
+
+        test("a server fault names its reference, and an app-side fault says it happened in the app") {
+            InternalError(correlationId = "1a2b3c4d-5e6f").toastText() shouldBe
+                "Something went wrong on the server. Reference 1a2b3c4d."
+            UnexpectedClientError(debugInfo = "IllegalStateException: boom").toastText() shouldBe
+                "Something went wrong in the app."
         }
 
         test("a rate limit says how long, because its constant cannot") {

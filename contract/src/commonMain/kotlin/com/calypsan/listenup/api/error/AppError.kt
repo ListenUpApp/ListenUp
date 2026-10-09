@@ -40,6 +40,9 @@ sealed interface AppError {
  * interceptor returns this when an internal error is not a typed
  * domain error. The stacktrace stays on the server; the client only
  * sees the correlation id.
+ *
+ * Server-only: a client never builds one. An exception thrown in the app is an
+ * [UnexpectedClientError], so "on the server" is only ever said when it is true.
  */
 @Serializable
 @SerialName("AppError.InternalError")
@@ -51,6 +54,22 @@ data class InternalError(
 ) : AppError {
     override val message: String = "Something went wrong on the server."
     override val code: String = "INTERNAL_ERROR"
+    override val isRetryable: Boolean = false
+}
+
+/**
+ * Catch-all for an exception thrown in the app itself — the client's twin of [InternalError]. `ErrorMapper` returns
+ * it for any throwable it has no typed mapping for. Client-local: it never crosses the wire, so [correlationId] is
+ * always null; [debugInfo] carries the throwable's class and message for logs.
+ */
+@Serializable
+@SerialName("AppError.UnexpectedClientError")
+data class UnexpectedClientError(
+    override val correlationId: String? = null,
+    override val debugInfo: String? = null,
+) : AppError {
+    override val message: String = "Something went wrong in the app."
+    override val code: String = "CLIENT_UNEXPECTED"
     override val isRetryable: Boolean = false
 }
 

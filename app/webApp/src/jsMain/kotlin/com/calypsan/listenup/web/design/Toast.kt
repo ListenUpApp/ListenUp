@@ -7,6 +7,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.api.error.serverReference
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import kotlinx.coroutines.delay
@@ -181,14 +182,17 @@ fun ToastHost(
  * has to omit something the reader needs: "Try again later" cannot say *how much* later, because
  * the wait is per-instance and the constant is not. `retryAfterSeconds` carries it, and this is
  * where it gets said. The Android and desktop snackbar makes the identical exception for the
- * identical reason.
+ * identical reason. A genuine server fault ([serverReference]) names its reference the same way on every platform,
+ * so a screenshot leads straight to the server's log line.
  */
-internal fun AppError.toastText(): String =
-    if (this is AuthError.RateLimited) {
-        "Too many attempts. Try again in ${retryAfterSeconds}s."
-    } else {
-        message
+internal fun AppError.toastText(): String {
+    val reference = serverReference
+    return when {
+        this is AuthError.RateLimited -> "Too many attempts. Try again in ${retryAfterSeconds}s."
+        reference != null -> "Something went wrong on the server. Reference $reference."
+        else -> message
     }
+}
 
 /**
  * How long a toast stays.

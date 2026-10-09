@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.usecase.auth.RegisterUseCase
@@ -87,6 +88,6 @@ private fun AppError.toUserMessage(): String =
         is AuthError.WeakPassword -> "That password doesn't meet the policy (${reason.name.lowercase()})."
         is AuthError.RateLimited -> "Too many attempts; try again in ${retryAfterSeconds}s."
         is ValidationError -> message
-        is InternalError -> "Something went wrong. Please try again."
+        is InternalError, is UnexpectedClientError -> "Something went wrong. Please try again."
         else -> "Registration failed. Please try again."
     }

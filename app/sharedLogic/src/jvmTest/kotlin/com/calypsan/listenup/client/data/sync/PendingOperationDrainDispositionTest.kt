@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -129,6 +130,26 @@ class PendingOperationDrainDispositionTest :
                 // after MAX_RETRYABLE_ATTEMPTS.
                 stored?.failureCount shouldBe 1
                 db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
+                outcome.retryableFailures shouldBe 1
+                outcome.terminalFailures shouldBe 0
+                db.close()
+            }
+        }
+
+        test("an unexpected app-side error burns budget too, rather than dead-lettering the edit at once") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(UnexpectedClientError()) },
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val outcome = queue.drain()
+                // Before app-side faults had their own type they arrived as InternalError and spent one attempt;
+                // splitting the label must not start dropping offline edits on the first local hiccup.
+                db.pendingOperationV2Dao().get(opId)?.failureCount shouldBe 1
                 outcome.retryableFailures shouldBe 1
                 outcome.terminalFailures shouldBe 0
                 db.close()

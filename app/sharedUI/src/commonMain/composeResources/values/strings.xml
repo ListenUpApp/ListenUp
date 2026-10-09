@@ -1105,13 +1105,16 @@ One beautiful library.</string>
     <string name="error_auth_session_expired">Your session expired. Please sign in again.</string>
     <string name="error_book_not_connected">Sign in to the server that hosts this book to open it.</string>
     <string name="error_book_wrong_server">This book is on a different ListenUp server than the one you're signed in to.</string>
+    <string name="error_client_unexpected">Something went wrong in the app.</string>
     <string name="error_conflict">That resource is in use or already exists.</string>
     <string name="error_forbidden">You don't have permission to do that.</string>
     <string name="error_hardcover_already_connected">You're already connected to Hardcover.</string>
     <string name="error_hardcover_not_configured">Hardcover isn't set up on this server.</string>
     <string name="error_hardcover_unavailable">Hardcover can't be reached right now. Try again shortly.</string>
+    <string name="error_internal_error">Something went wrong on the server.</string>
     <string name="error_not_found">Not found.</string>
     <string name="error_server_connect_local_network_permission_denied">ListenUp needs local network access to find and connect to servers on your network.</string>
+    <string name="error_server_reference">Something went wrong on the server. Reference %1$s.</string>
     <string name="error_transport_network_unavailable">Can't reach the server. Check your connection.</string>
     <string name="error_transport_timeout">The request took too long. Please try again.</string>
     <string name="error_unknown">Something went wrong.</string>

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.connect
 
 import app.cash.turbine.test
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.client.domain.model.Server
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
@@ -325,7 +325,7 @@ class ServerSelectViewModelTest :
                 val error = viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Error>()
                 error.selectedServerId shouldBe server.id
                 // ErrorMapper's verdict for an unclassified throwable — never "Failed to connect: …".
-                error.error.shouldBeInstanceOf<InternalError>()
+                error.error.shouldBeInstanceOf<UnexpectedClientError>()
             }
         }
 

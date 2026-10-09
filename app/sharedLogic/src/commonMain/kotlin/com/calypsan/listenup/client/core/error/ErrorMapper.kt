@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.core.error
 
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
@@ -52,8 +52,8 @@ internal object ErrorMapper {
             // A handshake-401 WebSocketException is a stale-session signal from the `/api/rpc/authed`
             // upgrade. After RpcProxyCache's one bounded token-refresh + retry, a SECOND 401 reaches
             // here — surface it typed as SessionExpired so the global auth observer drives to login,
-            // instead of a generic InternalError. Checked first: it is a WebSocketException, which the
-            // arms below would otherwise fold into the InternalError catch-all.
+            // instead of a generic UnexpectedClientError. Checked first: it is a WebSocketException, which the
+            // arms below would otherwise fold into the UnexpectedClientError catch-all.
             RpcFailureClassifier.isWsHandshake401(exception) -> {
                 AuthError.SessionExpired(debugInfo = exception.message)
             }
@@ -108,7 +108,7 @@ internal object ErrorMapper {
 
             // "No server configured yet" is an expected pre-connection state (fresh / signed-out
             // install), not a fault — type it as a transport-unavailable so the boundary folds it
-            // quietly instead of surfacing a generic InternalError "server error".
+            // quietly instead of surfacing a generic "something went wrong" error.
             exception is ServerUrlNotConfiguredException -> {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }
@@ -125,7 +125,7 @@ internal object ErrorMapper {
             // failure is a PRE-delivery transport fault: by the time it reaches here, RpcProxyCache has
             // already split out the post-delivery "outcome unknown" case (RpcOutcomeUnknownException),
             // so the frame never landed. Surface it as a retryable NetworkUnavailable — honest and
-            // never-stranded — instead of a scary InternalError. Ordered AFTER the isWsHandshake401 arm
+            // never-stranded — instead of a scary catch-all. Ordered AFTER the isWsHandshake401 arm
             // above so a 401 handshake still maps to SessionExpired.
             RpcFailureClassifier.isDeadRpcClient(exception) ||
                 exception is WebSocketException -> {
@@ -135,7 +135,7 @@ internal object ErrorMapper {
             // ONLY a dedicated client-validation exception earns the user-facing ValidationError.
             // A bare IllegalArgumentException (a library `require`, a mapper bug — message
             // "Failed requirement.") is an internal fault and must NOT be shown to the user as their
-            // input problem; it falls through to the sanitized InternalError below.
+            // input problem; it falls through to the sanitized UnexpectedClientError below.
             exception is ClientValidationException -> {
                 ValidationError(
                     message = exception.userMessage,
@@ -144,8 +144,10 @@ internal object ErrorMapper {
                 )
             }
 
+            // Thrown here, in the app: never "on the server". A genuine server fault arrives as an InternalError
+            // value with a correlation id and never reaches this mapper.
             else -> {
-                InternalError(
+                UnexpectedClientError(
                     debugInfo = listOfNotNull(exception::class.simpleName, exception.message).joinToString(": "),
                 )
             }

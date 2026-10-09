@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PassThroughTransactionRunner
@@ -157,9 +158,9 @@ private fun classifyFailure(
             if (OutboxChannels.isIdempotent(domainName)) FailureDisposition.Parked else FailureDisposition.Terminal
         }
 
-        // A sanitized escaped-exception fault is usually transient (DB lock, restart race), not poison:
-        // spend a bounded attempt rather than dead-lettering the user's edit on the first occurrence.
-        error is InternalError -> {
+        // A sanitized escaped-exception fault — the server's or the app's own — is usually transient (DB lock,
+        // restart race), not poison: spend a bounded attempt rather than dead-lettering the user's edit at once.
+        error is InternalError || error is UnexpectedClientError -> {
             FailureDisposition.Burn
         }
 

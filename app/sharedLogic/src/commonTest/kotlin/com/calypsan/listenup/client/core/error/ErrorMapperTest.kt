@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.core.error
 
 import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
@@ -18,7 +18,7 @@ import kotlinx.serialization.SerializationException
  * Tests for ErrorMapper.
  *
  * Covers the unified-AppError contract: the mapper produces
- * `api.error.AppError` subtypes (`TransportError.*`, `ValidationError`, `InternalError`)
+ * `api.error.AppError` subtypes (`TransportError.*`, `ValidationError`, `UnexpectedClientError`)
  * with body-level `message`/`code`/`isRetryable` constants per subtype and per-instance
  * detail in `debugInfo`.
  *
@@ -100,58 +100,58 @@ class ErrorMapperTest :
 
         test("map bare IllegalArgumentException does NOT leak its raw message as a user ValidationError") {
             // A library `require(...)` throws IllegalArgumentException("Failed requirement.") — an
-            // internal fault. It must map to the sanitized InternalError, never a user-facing
+            // internal fault. It must map to the sanitized app-side error, never a user-facing
             // ValidationError echoing the raw require text as if it were the user's input problem.
             val exception = IllegalArgumentException("Failed requirement.")
             val error = ErrorMapper.map(exception)
 
-            error.shouldBeInstanceOf<InternalError>()
-            error.message shouldBe "Something went wrong on the server."
+            error.shouldBeInstanceOf<UnexpectedClientError>()
+            error.message shouldBe "Something went wrong in the app."
         }
 
-        // ========== Unknown / catch-all → InternalError ==========
+        // ========== Unknown / catch-all → UnexpectedClientError ==========
 
-        test("map unknown exception returns InternalError") {
-            val exception = IllegalStateException("Something went wrong")
-            val error = ErrorMapper.map(exception)
+        test("an unexpected exception in the app is the app's error, never the server's") {
+            // The server's InternalError arrives as a value with a correlation id; anything ErrorMapper sees was
+            // thrown here. Labelling it "on the server" once sent a 40-minute investigation to the wrong side.
+            val error = ErrorMapper.map(IllegalStateException("Something went wrong"))
 
-            val internalError = error.shouldBeInstanceOf<InternalError>()
-            internalError.message shouldBe "Something went wrong on the server."
-            internalError.code shouldBe "INTERNAL_ERROR"
+            val unexpected = error.shouldBeInstanceOf<UnexpectedClientError>()
+            unexpected.message shouldBe "Something went wrong in the app."
+            unexpected.code shouldBe "CLIENT_UNEXPECTED"
+            unexpected.correlationId shouldBe null
+            unexpected.debugInfo shouldBe "IllegalStateException: Something went wrong"
         }
 
-        test("InternalError is not retryable") {
-            val exception = RuntimeException("Random error")
-            val error = ErrorMapper.map(exception)
+        test("an unexpected app error is not retryable") {
+            val error = ErrorMapper.map(RuntimeException("Random error"))
 
-            val internalError = error.shouldBeInstanceOf<InternalError>()
-            internalError.isRetryable shouldBe false
+            error.shouldBeInstanceOf<UnexpectedClientError>().isRetryable shouldBe false
         }
 
         test("map unknown exception preserves throwable text in debug info") {
             val exception = RuntimeException("Custom error message")
             val error = ErrorMapper.map(exception)
 
-            val internalError = error.shouldBeInstanceOf<InternalError>()
-            (internalError.debugInfo?.contains("Custom error message") == true) shouldBe true
-            (internalError.debugInfo?.contains("RuntimeException") == true) shouldBe true
+            val unexpected = error.shouldBeInstanceOf<UnexpectedClientError>()
+            (unexpected.debugInfo?.contains("Custom error message") == true) shouldBe true
+            (unexpected.debugInfo?.contains("RuntimeException") == true) shouldBe true
         }
 
         test("map unknown exception with null message produces bare ClassName debug info") {
             val error = ErrorMapper.map(RuntimeException())
 
-            val internalError = error.shouldBeInstanceOf<InternalError>()
-            internalError.debugInfo shouldBe "RuntimeException"
+            error.shouldBeInstanceOf<UnexpectedClientError>().debugInfo shouldBe "RuntimeException"
         }
 
-        test("map custom exception returns InternalError") {
+        test("map custom exception returns UnexpectedClientError") {
             class CustomException(
                 message: String,
             ) : Exception(message)
             val exception = CustomException("Custom domain error")
             val error = ErrorMapper.map(exception)
 
-            checkIs<InternalError>(error)
+            checkIs<UnexpectedClientError>(error)
         }
 
         // ========== ServerUrlNotConfiguredException → TransportError.NetworkUnavailable ==========
@@ -166,18 +166,18 @@ class ErrorMapperTest :
             (networkUnavailable.debugInfo?.contains("Server URL not configured") == true) shouldBe true
         }
 
-        test("map NullPointerException returns InternalError") {
+        test("map NullPointerException returns UnexpectedClientError") {
             val exception = NullPointerException("null reference")
             val error = ErrorMapper.map(exception)
 
-            checkIs<InternalError>(error)
+            checkIs<UnexpectedClientError>(error)
         }
 
-        test("map IndexOutOfBoundsException returns InternalError") {
+        test("map IndexOutOfBoundsException returns UnexpectedClientError") {
             val exception = IndexOutOfBoundsException("index 5 out of bounds")
             val error = ErrorMapper.map(exception)
 
-            checkIs<InternalError>(error)
+            checkIs<UnexpectedClientError>(error)
         }
 
         // ========== Dead RPC client → TransportError.NetworkUnavailable ==========
