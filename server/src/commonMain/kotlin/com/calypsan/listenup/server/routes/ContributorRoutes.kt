@@ -8,6 +8,7 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import io.ktor.http.HttpStatusCode
@@ -17,7 +18,6 @@ import io.ktor.server.resources.put
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import kotlinx.io.files.Path
-import kotlinx.io.files.SystemFileSystem
 
 /**
  * REST surface for [ContributorService]. One endpoint:
@@ -26,8 +26,10 @@ import kotlinx.io.files.SystemFileSystem
  *    content-addressed under [imageHome], then applies the resulting path via
  *    a [ContributorUpdate] patch through the scoped service (so `canEdit`,
  *    revision bump, and sync-event publication all fire). HTTP 204 on
- *    success; a rejected update deletes the just-written file so rejected
- *    uploads can't accumulate on disk.
+ *    success. The edit permission is checked before the body is read, so a
+ *    refused caller writes nothing. A stored file is never deleted here: it is
+ *    content-addressed, so another row may already name it, and
+ *    [OrphanImageCleanupTask] reclaims any file no row names.
  *
  * Every other [ContributorService] operation (get, list books, patch,
  * delete, merge, unmerge) is RPC-only — this file used to also mirror a
@@ -46,9 +48,10 @@ fun Route.contributorRoutes(
     imageStorage: ImageStorage,
 ) {
     put<ContributorResources.Image> { res ->
-        // Store the bytes content-addressed, then persist the path through the scoped service so its
-        // internal requirePermission(Permission.EDIT_METADATA) gate + revision bump + sync-event publication fire (contributor's
-        // canEdit check is not exposed for a pre-buffer gate; the 10 MiB cap bounds the exposure).
+        val service = call.scoped(contributorService)
+        // Gate BEFORE reading the body: a refused caller must neither make the server buffer 10 MiB
+        // nor write a file. The update below re-gates (with the revision bump and sync event).
+        service.checkCanEdit()?.let { return@put respondAppError(call, it) }
         val outcome =
             storeMultipartImage(
                 call = call,
@@ -64,18 +67,15 @@ fun Route.contributorRoutes(
             is ImageUploadOutcome.Stored -> {
                 when (
                     val result =
-                        call
-                            .scoped(contributorService)
-                            .updateContributor(ContributorId(res.id), ContributorUpdate(imagePath = outcome.relPath))
+                        service.updateContributor(ContributorId(res.id), ContributorUpdate(imagePath = outcome.relPath))
                 ) {
                     is AppResult.Success -> {
                         call.respond(HttpStatusCode.NoContent)
                     }
 
                     is AppResult.Failure -> {
-                        // The scoped update rejected (no canEdit / unknown id) — remove the file this
-                        // request just wrote so rejected uploads can't accumulate on disk.
-                        SystemFileSystem.delete(Path(imageHome.toString(), outcome.relPath), mustExist = false)
+                        // Never delete the stored file: it is content-addressed, so another row may
+                        // already name the same bytes. An unnamed file is the orphan sweep's to reclaim.
                         respondAppError(call, result.error)
                     }
                 }
@@ -88,7 +88,7 @@ fun Route.contributorRoutes(
  * Scopes [service] to the authenticated caller so mutation handlers gate on the caller's
  * `canEdit` flag. Reaching this without a principal is an auth-wall regression.
  */
-private fun ApplicationCall.scoped(service: ContributorService): ContributorService {
+private fun ApplicationCall.scoped(service: ContributorService): ContributorServiceImpl {
     val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
     return (service as ContributorServiceImpl).copyWith(PrincipalProvider { p })
 }
