@@ -32,7 +32,7 @@ object WorldEventRules {
         homeSeriesId: SeriesId?,
         homeBookId: BookId?,
     ): ValidationError? =
-        if ((homeSeriesId == null) == (homeBookId == null)) {
+        if (homeSeriesId == null == (homeBookId == null)) {
             ValidationError(message = "An event belongs to exactly one series or book.")
         } else {
             null
@@ -66,14 +66,25 @@ object WorldEventRules {
         objectKind: EntityKind?,
     ): WorldEventError.WrongEntityKind? {
         val roles = rolesOf(type)
-        val fits = (subjectKind == null || roles.subject.accepts(subjectKind)) && (objectKind == null || roles.obj.accepts(objectKind))
-        return if (fits) null else WorldEventError.WrongEntityKind(debugInfo = "$type: subject=$subjectKind object=$objectKind")
+        val fits =
+            (subjectKind == null || roles.subject.accepts(subjectKind)) &&
+                (objectKind == null || roles.obj.accepts(objectKind))
+        return if (fits) {
+            null
+        } else {
+            WorldEventError.WrongEntityKind(
+                debugInfo = "$type: subject=${subjectKind?.name ?: "none"} object=${objectKind?.name ?: "none"}",
+            )
+        }
     }
 
     private fun shapeProblem(upsert: WorldEventUpsert): ValidationError? =
         when {
-            (upsert.bookId == null) != (upsert.positionMs == null) -> {
-                ValidationError(message = "Pin an event to a book and a moment together, or to neither.", field = "positionMs")
+            upsert.bookId == null != (upsert.positionMs == null) -> {
+                ValidationError(
+                    message = "Pin an event to a book and a moment together, or to neither.",
+                    field = "positionMs",
+                )
             }
 
             (upsert.positionMs ?: 0L) < 0L -> {
@@ -84,7 +95,7 @@ object WorldEventRules {
                 ValidationError(message = "Keep the text to $MAX_TEXT characters.", field = "text")
             }
 
-            (upsert.detail?.trim()?.length ?: 0) > MAX_DETAIL -> {
+            (upsert.detail?.run { trim().length } ?: 0) > MAX_DETAIL -> {
                 ValidationError(message = "Keep the detail to $MAX_DETAIL characters.", field = "detail")
             }
 
@@ -131,7 +142,7 @@ object WorldEventRules {
     }
 
     /** What a type asks of its parts, its text and its detail. */
-    private class Roles(
+    private data class Roles(
         val subject: Part,
         val obj: Part,
         val textRequired: Boolean = false,
@@ -149,10 +160,15 @@ object WorldEventRules {
     private fun rolesOf(type: WorldEventType): Roles =
         when (type) {
             WorldEventType.NOTE -> Roles(ANY, ANY, textRequired = true)
+
             WorldEventType.ENTERS_SCENE, WorldEventType.EXITS_SCENE, WorldEventType.DEPARTS -> Roles(SOMEONE, A_PLACE)
+
             WorldEventType.MOVES_TO -> Roles(SOMEONE, THE_PLACE)
+
             WorldEventType.JOINS, WorldEventType.LEAVES -> Roles(A_CHARACTER, THE_GROUP, takesDetail = true)
+
             WorldEventType.BELONGS_TO -> Roles(A_CHARACTER, THE_PEOPLE)
+
             WorldEventType.ALIAS,
             WorldEventType.BORN,
             WorldEventType.DIES,

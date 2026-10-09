@@ -39,7 +39,8 @@ object MentionTokens {
     private val MENTION_TOKEN_REGEX = Regex("""\[\[e:([^|\[\]]+)\|([\s\S]*?)\]\]""")
 
     /** The entity ids of every well-formed token in [text], deduplicated; malformed sequences are ignored. */
-    fun extractMentionIds(text: String): Set<String> = MENTION_TOKEN_REGEX.findAll(text).map { it.groupValues[1] }.toSet()
+    fun extractMentionIds(text: String): Set<String> =
+        MENTION_TOKEN_REGEX.findAll(text).map { it.groupValues[1] }.toSet()
 
     /**
      * [text] with each well-formed token replaced by [nameFor] of its id, or by the token's cached name when
