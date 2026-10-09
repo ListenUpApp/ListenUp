@@ -63,6 +63,8 @@ internal fun PhotoSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                val currentPhotoLabel =
+                    if (photo.currentPath != null) Res.string.match_your_photo else Res.string.match_yours_no_photo
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -70,14 +72,16 @@ internal fun PhotoSection(
                     PhotoTile(
                         selected = photo.choice is ImageChoice.KeepCurrent,
                         label = stringResource(Res.string.match_keep_current),
-                        detail =
-                            stringResource(
-                                if (photo.currentPath != null) Res.string.match_your_photo else Res.string.match_yours_no_photo,
-                            ),
+                        detail = stringResource(currentPhotoLabel),
                         accessibleName = stringResource(Res.string.match_keep_current_photo),
                         onSelect = { onChoose(ImageChoice.KeepCurrent) },
                     ) {
-                        CurrentPersonPhoto(contributorId = contributorId, name = name, imagePath = photo.currentPath, size = PHOTO_TILE)
+                        CurrentPersonPhoto(
+                            contributorId = contributorId,
+                            name = name,
+                            imagePath = photo.currentPath,
+                            size = PHOTO_TILE,
+                        )
                     }
                     photo.options.forEach { option ->
                         PhotoTile(

@@ -66,7 +66,11 @@ internal fun BiographySection(
                 }
                 val source = sourcesPhrase(biography.proposed.sources)
                 BiographyTick(biography = biography, source = source, onTicked = actions::setBiographyTicked)
-                BiographySourceSwitch(biography = biography, sectionName = sectionName, onChoose = actions::chooseBiographySource)
+                BiographySourceSwitch(
+                    biography = biography,
+                    sectionName = sectionName,
+                    onChoose = actions::chooseBiographySource,
+                )
                 YoursAndProposed(
                     yours = biography.current?.asPlainText() ?: stringResource(Res.string.match_empty_value),
                     proposed = biography.proposed.value.displayText(),

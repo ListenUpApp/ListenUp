@@ -136,7 +136,7 @@ internal class LastMatchRow(
             }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun seeWhatChanged() {
-        val receiptId = state.value?.receipt?.receiptId ?: return
+        val receiptId = state.value?.run { receipt.receiptId } ?: return
         overlay.update { it.forReceipt(receiptId).copy(showingChanges = true) }
     }
 
@@ -173,7 +173,7 @@ internal class LastMatchRow(
     /** Whoever matched the book, by display name — null when it was you, or their profile hasn't synced. */
     private fun matchedBy(userId: String): Flow<String?> =
         combine(currentUserId, userProfileRepository.observeProfile(userId)) { me, profile ->
-            profile?.displayName?.takeUnless { me == userId }
+            profile?.run { displayName.takeUnless { me == userId } }
         }.distinctUntilChanged()
 
     private fun LastMatchOverlay.forReceipt(receiptId: String): LastMatchOverlay =

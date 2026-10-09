@@ -54,7 +54,8 @@ class FakeBookRepository(
         bookId: String,
         record: BookMatchRecord?,
     ) {
-        matchRecords.value = if (record == null) matchRecords.value - bookId else matchRecords.value + (bookId to record)
+        matchRecords.value =
+            if (record == null) matchRecords.value - bookId else matchRecords.value + (bookId to record)
     }
 
     override fun observeMatchRecord(bookId: String): Flow<BookMatchRecord?> = matchRecords.map { it[bookId] }

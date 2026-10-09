@@ -110,10 +110,10 @@ class MatchReceiptViewModelTest :
                 val repo = FakeMatchingRepository()
                 val gate = CompletableDeferred<Unit>()
                 var answered = false
-                repo.undoReply = {
+                repo.undoReply = { receiptId ->
                     gate.await()
                     answered = true
-                    AppResult.Success(UndoResult(it, emptyList()))
+                    AppResult.Success(UndoResult(receiptId, emptyList()))
                 }
                 val store = MatchReceiptStore().apply { put(BOOK, receipt("r-9")) }
                 val vm = MatchReceiptViewModel(BOOK, store, UndoMatch(repo), ErrorBus())

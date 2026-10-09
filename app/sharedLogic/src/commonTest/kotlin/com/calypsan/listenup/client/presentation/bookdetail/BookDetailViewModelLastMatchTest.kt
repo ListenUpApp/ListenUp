@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.dto.match.AppliedChange
 import com.calypsan.listenup.api.dto.match.LastMatch
 import com.calypsan.listenup.api.dto.match.MetadataSource
+import com.calypsan.listenup.api.dto.match.UndoResult
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -146,7 +147,7 @@ class BookDetailViewModelLastMatchTest :
                         mock<SeriesRepository> { every { observeHierarchy() } returns flowOf(SeriesHierarchy.Empty) },
                     undoMatch = UndoMatch(matching),
                     userProfileRepository = profiles,
-                ).also { it.loadBook("book-1") }
+                ).apply { loadBook("book-1") }
             }
         }
 
@@ -262,11 +263,11 @@ class BookDetailViewModelLastMatchTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 val gate = CompletableDeferred<Unit>()
-                f.matching.undoReply = {
+                f.matching.undoReply = { receiptId ->
                     gate.await()
                     // The repository applies the restored book to Room before it returns.
                     f.books.setMatchRecord("book-1", BookMatchRecord(revision = 8L, lastMatch = null))
-                    AppResult.Success(com.calypsan.listenup.api.dto.match.UndoResult(it, match.changes))
+                    AppResult.Success(UndoResult(receiptId, match.changes))
                 }
                 f.books.setMatchRecord("book-1", BookMatchRecord(revision = 7L, lastMatch = match))
                 val vm = f.build()

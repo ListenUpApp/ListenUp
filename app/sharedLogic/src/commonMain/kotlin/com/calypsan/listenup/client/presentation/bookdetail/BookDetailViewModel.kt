@@ -450,17 +450,23 @@ class BookDetailViewModel(
     }
 
     /** Opens See what changed for the last match: every change it made, with where each came from. */
-    fun seeWhatChanged() = lastMatchRow.seeWhatChanged()
+    fun seeWhatChanged() {
+        lastMatchRow.seeWhatChanged()
+    }
 
     /** Closes See what changed. */
-    fun closeWhatChanged() = lastMatchRow.closeWhatChanged()
+    fun closeWhatChanged() {
+        lastMatchRow.closeWhatChanged()
+    }
 
     /**
      * Undoes the book's last match through the shared [UndoMatch]. Success retires the row (the restored book
      * reaches Room) and says so on [lastMatchEvents]; a match the server calls too late retires it with
      * [LastMatchEvent.Expired]; any other failure goes to the error bus and stays on the row as its `undoError`.
      */
-    fun undoLastMatch() = lastMatchRow.undo()
+    fun undoLastMatch() {
+        lastMatchRow.undo()
+    }
 
     /**
      * Mark the current book as complete with optional date overrides.

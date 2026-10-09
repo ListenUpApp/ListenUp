@@ -81,7 +81,11 @@ class BookLastMatchTest :
             val host = rig.mount()
             awaitFrame()
 
-            host.lastMatch().shouldNotBeNull().querySelector(".bmx-last-t")?.textContent shouldBe
+            host
+                .lastMatch()
+                .shouldNotBeNull()
+                .querySelector(".bmx-last-t")
+                ?.textContent shouldBe
                 "Details matched 3 days ago"
             host.buttonNamed("See what changed").shouldNotBeNull().click()
             host.buttonNamed("Undo last match").shouldNotBeNull().click()
@@ -93,7 +97,11 @@ class BookLastMatchTest :
             val host = LastMatchRig(row(appliedAtMs = NOW_MS, matchedBy = "Sam")).mount()
             awaitFrame()
 
-            host.lastMatch().shouldNotBeNull().querySelector(".bmx-last-t")?.textContent shouldBe
+            host
+                .lastMatch()
+                .shouldNotBeNull()
+                .querySelector(".bmx-last-t")
+                ?.textContent shouldBe
                 "Details matched just now by Sam"
         }
 
@@ -129,7 +137,11 @@ class BookLastMatchTest :
             val host = LastMatchRig(row().copy(undoError = TransportError.NetworkUnavailable())).mount()
             awaitFrame()
 
-            host.lastMatch().shouldNotBeNull().querySelector(".bmx-last-err")?.textContent shouldBe
+            host
+                .lastMatch()
+                .shouldNotBeNull()
+                .querySelector(".bmx-last-err")
+                ?.textContent shouldBe
                 "No internet connection. Check your network. Nothing was changed."
             host.buttonNamed("Undo last match").shouldNotBeNull()
         }
