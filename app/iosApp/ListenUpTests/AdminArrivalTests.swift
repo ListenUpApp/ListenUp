@@ -43,7 +43,7 @@ struct AdminArrivalTests {
 
     @Test func anUnfocusedDestinationStillEncodesAsItAlwaysHas() throws {
         let data = try JSONEncoder().encode(AdminDestination())
-        #expect(String(decoding: data, as: UTF8.self) == "{}")
+        #expect(String(bytes: data, encoding: .utf8) == "{}")
         #expect(try JSONDecoder().decode(AdminDestination.self, from: Data("{}".utf8)) == AdminDestination())
     }
 }
