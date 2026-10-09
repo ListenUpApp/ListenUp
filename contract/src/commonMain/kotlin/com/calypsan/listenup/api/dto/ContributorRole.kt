@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto
 
+import kotlinx.serialization.Serializable
+
 /**
  * The role a contributor plays in creating an audiobook.
  *
@@ -10,7 +12,12 @@ package com.calypsan.listenup.api.dto
  * resolve it to this enum via [fromApiValue]. Promoted to `:contract` so server
  * and client share one definition — closing the role-string drift seam that let
  * the scanner emit un-typed values.
+ *
+ * `@Serializable` because it is also a bare RPC argument (`MatchingService.reviewPersonMatch`): inside a
+ * `@Serializable` class the plugin supplies its serializer, but an argument is looked up at call time, and
+ * Kotlin/Native has no reflection to build one. It encodes as the entry name, as those fields always have.
  */
+@Serializable
 enum class ContributorRole(
     val apiValue: String,
 ) {
