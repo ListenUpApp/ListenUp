@@ -1,7 +1,7 @@
 # SHA-256 of every migration that has shipped on main, one 'version checksum' per line.
 # A deployed server refuses to boot when an applied migration's checksum changes, so these
-# files are immutable: change the schema in a NEW migration. Append a line here once a new
-# migration has merged to main.
+# files are immutable: change the schema in a NEW migration. The PR that adds a migration
+# appends its line here; ShippedMigrationChecksumTest fails until it does.
 1 3c60c507a794b531bc6774ca88145c02e02a8b82f4976246b4cb88459f27b425
 53 61e108545548e0d9a08f53427b0f1ad539c26ae9016f3a185111a08f912910be
 54 2a3148240d3d5dd9ea70be4a4ca2b759e28cd5752d65ac7066203db8a2b91c45
@@ -42,3 +42,6 @@
 89 e931338b57a6f402625754bf3300cdb7b2f2bf0f2680602dfae34810bd3146ef
 90 2ed9e77f3106a0fa90490a91a49e18850209836dda1d3d64962ac84edf98782e
 91 ba3a3b3312478887b4a3371e9bcab217c414e380b72202e3685227b965c52083
+92 23bfab50446f403aadd425a0fbd4cb43d3172677e40b6000dd4c0007de55424e
+93 8897895c9fb778a8b98e6654bf4ca9b8650d9d0a9e9967c71ee27e31b7f46431
+96 f15ed9cd5b0b530e20955d16c277c3b6b42b3fbc01637a35885bc41d71811c36
