@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
@@ -143,6 +144,24 @@ class MatchReceiptViewModel internal constructor(
         if (outcome.value is Outcome.Undoing) return
         receiptStore.clear(subjectId)
         outcome.value = Outcome.Idle
+    }
+
+    private var closed = false
+
+    /**
+     * Cancels this ViewModel's coroutines — an in-flight Undo included. Idempotent. Android reaches it via
+     * [onCleared]; iOS has no `ViewModelStore`, so its observer calls this from an `isolated deinit`; web clears
+     * the session's store, which runs [onCleared].
+     */
+    fun close() {
+        if (closed) return
+        closed = true
+        viewModelScope.cancel()
+    }
+
+    override fun onCleared() {
+        close()
+        super.onCleared()
     }
 
     private sealed interface Outcome {

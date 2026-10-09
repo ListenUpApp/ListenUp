@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 private const val COUNTDOWN_TICK_MS = 1_000L
@@ -78,6 +79,24 @@ class BookMatchViewModel internal constructor(
 
     init {
         runFind()
+    }
+
+    private var closed = false
+
+    /**
+     * Cancels this ViewModel's coroutines — an in-flight Find, Review or Apply included. Idempotent. Android reaches it via
+     * [onCleared]; iOS has no `ViewModelStore`, so its observer calls this from an `isolated deinit`; web clears
+     * the session's store, which runs [onCleared].
+     */
+    fun close() {
+        if (closed) return
+        closed = true
+        viewModelScope.cancel()
+    }
+
+    override fun onCleared() {
+        close()
+        super.onCleared()
     }
 
     /** Searches for [query]; a blank query goes back to the automatic search. */
