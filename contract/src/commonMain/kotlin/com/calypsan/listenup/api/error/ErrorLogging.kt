@@ -1,13 +1,24 @@
 package com.calypsan.listenup.api.error
 
 /**
+ * The line logged where an [AppError] reaches the user: the [diagnosticLogLine] followed by the
+ * per-instance [AppError.debugInfo], when there is one.
+ *
+ * [AppError.message] is a constant per subtype, so the diagnostic line alone says which failure the
+ * user saw and never why; `debugInfo` is the why. Logged at WARN by every platform's error surface,
+ * so it reaches the on-device log a user can share — not only an attached debugger.
+ */
+public fun AppError.surfacedLogLine(): String =
+    debugInfo?.let { detail -> "${diagnosticLogLine()} — $detail" } ?: diagnosticLogLine()
+
+/**
  * A one-line diagnostic string for logging an [AppError] at the point it is surfaced to the user.
  *
  * Includes the server-issued [AppError.correlationId] so a user's screenshot/report ties directly to
  * the operator's server log line for the same request — the whole point of stamping domain failures
  * with a cid. Format: `[CODE] message (cid=<id>)`; the `(cid=…)` clause is omitted for purely
  * client-local errors that carry none. [AppError.message] is a user-facing constant (no PII), safe to
- * log; per-instance [AppError.debugInfo] stays a separate, lower-level log concern.
+ * log; [surfacedLogLine] adds the per-instance [AppError.debugInfo].
  */
 public fun AppError.diagnosticLogLine(): String =
     buildString {
@@ -25,14 +36,3 @@ private const val SERVER_REFERENCE_LENGTH = 8
  */
 public val AppError.serverReference: String?
     get() = (this as? InternalError)?.correlationId?.takeIf { it.isNotBlank() }?.take(SERVER_REFERENCE_LENGTH)
-
-/**
- * The line logged where an [AppError] reaches the user: the [diagnosticLogLine] followed by the
- * per-instance [AppError.debugInfo], when there is one.
- *
- * [AppError.message] is a constant per subtype, so the diagnostic line alone says which failure the
- * user saw and never why; `debugInfo` is the why. Logged at WARN by every platform's error surface,
- * so it reaches the on-device log a user can share — not only an attached debugger.
- */
-public fun AppError.surfacedLogLine(): String =
-    debugInfo?.let { detail -> "${diagnosticLogLine()} — $detail" } ?: diagnosticLogLine()
