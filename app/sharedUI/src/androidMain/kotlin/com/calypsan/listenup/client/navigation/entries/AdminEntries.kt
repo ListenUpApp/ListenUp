@@ -47,7 +47,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /** Admin navigation entries (main admin screens). */
 internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<NavKey>) {
-    entry<Admin> {
+    entry<Admin> { route ->
         val viewModel: AdminViewModel = koinViewModel()
         val settingsViewModel: AdminSettingsViewModel = koinViewModel()
         val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
@@ -55,6 +55,7 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
 
         AdminScreen(
             viewModel = viewModel,
+            focus = route.focus,
             onBackClick = {
                 backStack.removeAt(backStack.lastIndex)
             },

@@ -81,7 +81,7 @@ final class MainShellModel {
         switch outcome {
         case .book(let id): open(BookDestination(id: id), on: tab)
         case .profile(let userId): open(ProfileDestination(userId: userId), on: tab)
-        case .adminApprovals: open(AdminDestination(), on: tab)
+        case .adminApprovals: open(AdminDestination(focus: .pendingRegistrations), on: tab)
         case .none: break
         }
     }

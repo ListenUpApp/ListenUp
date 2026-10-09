@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.EmptyLook
 import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.focusAsLanding
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SelectField
@@ -25,6 +26,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import org.w3c.dom.HTMLElement
 
 /**
  * Admin — the people on this server, and the decisions an admin makes about them.
@@ -36,6 +38,10 @@ import org.jetbrains.compose.web.dom.Text
  *
  * **Every action here lands on a real account.** Deleting a user and revoking an invite are not the
  * same weight, so each says what it does before it does it rather than sharing one generic prompt.
+ *
+ * [landOnPending] is the approvals notification's arrival: the people waiting sit below the policy
+ * and, on a server with members, below the fold. When set, the page brings them into view once and
+ * puts focus on their heading. Nobody waiting means nothing to land on, so it opens at the top.
  */
 @Composable
 fun AdminPage(
@@ -61,6 +67,7 @@ fun AdminPage(
     onOpenUpload: () -> Unit = {},
     onOpenOrganize: () -> Unit = {},
     onOpenUser: (String) -> Unit = {},
+    landOnPending: Boolean = false,
 ) {
     Div(attrs = { classes("adm") }) {
         PageHeader(title = "People")
@@ -100,6 +107,7 @@ fun AdminPage(
                     onClearError = onClearError,
                     onRetry = onRetry,
                     onOpenUser = onOpenUser,
+                    landOnPending = landOnPending,
                 )
             }
         }
@@ -148,7 +156,11 @@ private fun ReadyContent(
     onClearError: () -> Unit,
     onRetry: () -> Unit,
     onOpenUser: (String) -> Unit,
+    landOnPending: Boolean,
 ) {
+    // Spent on the first landing: approving one of two people recomposes the section, and pulling
+    // the admin back to it after they have moved on would be the page fighting them.
+    var landingPending by remember { mutableStateOf(landOnPending) }
     // Which row a confirm is about, rather than a bare boolean: two dialogs share this screen and
     // each needs to name its subject in the copy.
     var deleting by remember { mutableStateOf<AdminUserInfo?>(null) }
@@ -165,7 +177,13 @@ private fun ReadyContent(
         )
     }
 
-    PendingSection(state, onApproveUser, onDenyUser)
+    PendingSection(
+        state = state,
+        land = landingPending,
+        onLanded = { landingPending = false },
+        onApprove = onApproveUser,
+        onDeny = onDenyUser,
+    )
     ResetsSection(state, nowMs, onDecidePasswordReset)
     MembersSection(state, onAskRemove = { deleting = it }, onOpenUser = onOpenUser)
     InvitesSection(state) { revoking = it }
@@ -229,16 +247,34 @@ private fun ErrorBanner(
     }
 }
 
-/** People who asked to join. Approving is not confirmed — see the spec that says why. */
+/**
+ * People who asked to join. Approving is not confirmed — see the spec that says why.
+ *
+ * [land] scrolls here and focuses the heading as the section mounts — the same arrival Hardcover's
+ * "N need a match" makes. The jump is instant, never smooth: it happens as the page opens, and an
+ * animated scroll there is motion nobody asked for, reduced-motion preference or not.
+ */
 @Composable
 private fun PendingSection(
     state: AdminUiState.Ready,
+    land: Boolean,
+    onLanded: () -> Unit,
     onApprove: (String) -> Unit,
     onDeny: (String) -> Unit,
 ) {
     if (state.pendingUsers.isEmpty()) return
 
-    Section("Waiting for you") {
+    Section(
+        heading = "Waiting for you",
+        anchorId = PENDING_SECTION_ID,
+        onMounted = { section ->
+            if (land) {
+                section.scrollIntoView()
+                (section.querySelector("h2") as? HTMLElement)?.let(::focusAsLanding)
+                onLanded()
+            }
+        },
+    ) {
         state.pendingUsers.forEach { user ->
             key(user.id) {
                 PersonRow(user, subtitle = user.email) {
@@ -445,13 +481,25 @@ private fun PersonText(
 @Composable
 private fun Section(
     heading: String,
+    anchorId: String? = null,
+    onMounted: (HTMLElement) -> Unit = {},
     content: @Composable () -> Unit,
 ) {
-    Div(attrs = { classes("adm-section") }) {
+    Div(attrs = {
+        classes("adm-section")
+        anchorId?.let { id(it) }
+        ref { element ->
+            onMounted(element)
+            onDispose { }
+        }
+    }) {
         H2(attrs = { classes("adm-section-h") }) { Text(heading) }
         content()
     }
 }
+
+/** The pending section's anchor: what the approvals notification lands on. */
+internal const val PENDING_SECTION_ID = "adm-pending"
 
 /** The policies, worded as what they mean rather than as their enum names. */
 private val POLICY_OPTIONS =

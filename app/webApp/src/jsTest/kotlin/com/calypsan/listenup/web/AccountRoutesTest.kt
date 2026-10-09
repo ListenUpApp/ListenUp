@@ -14,6 +14,10 @@ import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.features.admin.inboxBook
+import com.calypsan.listenup.client.presentation.admin.AdminUiState
+import com.calypsan.listenup.web.features.admin.PENDING_SECTION_ID
+import com.calypsan.listenup.web.features.admin.adminUser
+import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
@@ -57,6 +61,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -374,6 +379,60 @@ class AccountRoutesTest :
                 inbox.click()
 
                 window.location.pathname shouldBe "/admin/inbox"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The approvals tap's destination. The request is below the fold on a server with any
+        // members, so landing at the top would hide exactly what the admin came to decide.
+        test("/admin?section=pending lands on the people waiting to join") {
+            val (host, router) =
+                mountAt(
+                    "/admin?section=pending",
+                    openAdmin = fixedAdmin(AdminUiState.Ready(pendingUsers = listOf(adminUser(id = "u-wait")))),
+                )
+
+            try {
+                val heading =
+                    withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                        while (document.activeElement?.matches("#$PENDING_SECTION_ID h2") != true) delay(10)
+                        document.activeElement as HTMLElement
+                    }
+                heading.textContent shouldBe "Waiting for you"
+                host.querySelector("#$PENDING_SECTION_ID").shouldNotBeNull()
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // A plain link to Admin is a visit to the page, not to a section of it.
+        test("/admin opens at the top even when somebody is waiting") {
+            val (host, router) =
+                mountAt(
+                    "/admin",
+                    openAdmin = fixedAdmin(AdminUiState.Ready(pendingUsers = listOf(adminUser(id = "u-wait")))),
+                )
+
+            try {
+                awaitFrame()
+                host.querySelector("#$PENDING_SECTION_ID").shouldNotBeNull()
+                document.activeElement?.matches("#$PENDING_SECTION_ID h2") shouldBe false
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // Approved from another device before this tap: nothing is waiting, so there is nowhere to
+        // land, and the page simply opens where it always does.
+        test("/admin?section=pending with nobody waiting opens at the top") {
+            val (host, router) =
+                mountAt("/admin?section=pending", openAdmin = fixedAdmin(AdminUiState.Ready()))
+
+            try {
+                awaitFrame()
+                host.querySelector("#$PENDING_SECTION_ID") shouldBe null
+                host.querySelector(".adm .page-t").shouldNotBeNull()
             } finally {
                 router.dispose()
             }

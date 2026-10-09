@@ -2063,8 +2063,9 @@ class WebAppRootTest :
         }
 
         // The destination comes from the shared tap mapping, so the browser cannot disagree with
-        // the phone about where a notification goes. Web's Admin page IS the approvals surface.
-        test("a pending-registration notification lands on Admin") {
+        // the phone about where a notification goes. Web's Admin page IS the approvals surface,
+        // and the request sits below the fold — so the link names the section, not just the page.
+        test("a pending-registration notification lands on Admin's pending requests") {
             val (host, router) =
                 mountAt(
                     "/notifications",
@@ -2081,6 +2082,7 @@ class WebAppRootTest :
                 (host.querySelector(".ntf-row") as HTMLElement).click()
 
                 window.location.pathname shouldBe "/admin"
+                window.location.search shouldBe "?section=pending"
             } finally {
                 router.dispose()
             }

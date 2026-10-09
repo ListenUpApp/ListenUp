@@ -71,11 +71,14 @@ struct MainShellModelTests {
     }
 
     /// Administration, not the admin inbox: the inbox holds freshly scanned books, and the pending
-    /// registrations — and their approve/deny controls — are on Administration.
-    @Test func anApprovalTapOpensAdministration() {
+    /// registrations — and their approve/deny controls — are on Administration. It opens on them, not
+    /// at the server settings at the top, so the request the person tapped is what they see.
+    @Test func anApprovalTapOpensAdministrationOnThePendingRegistrations() {
         let shell = MainShellModel()
         shell.route(.adminApprovals, on: .home)
-        #expect(encoded(shell.path(for: .home)) == encoded(NavigationPath([AdminDestination()])))
+        let expected = NavigationPath([AdminDestination(focus: .pendingRegistrations)])
+        #expect(encoded(shell.path(for: .home)) == encoded(expected))
+        #expect(encoded(shell.path(for: .home)) != encoded(NavigationPath([AdminDestination()])))
     }
 
     @Test func findSelectsSearchAndRequestsFocus() {
