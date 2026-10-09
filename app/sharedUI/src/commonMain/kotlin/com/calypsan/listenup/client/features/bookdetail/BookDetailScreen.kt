@@ -52,7 +52,11 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
+import com.calypsan.listenup.client.features.match.LastMatchHost
 import com.calypsan.listenup.client.features.match.MatchReceiptHost
+import com.calypsan.listenup.client.presentation.bookdetail.LastMatchEvent
+import listenup.composeapp.generated.resources.match_undo_expired
+import listenup.composeapp.generated.resources.match_undone
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.components.BookCoverImage
@@ -189,6 +193,18 @@ fun BookDetailScreen(
                     onBackClick()
                 }
             }
+        }
+    }
+
+    // "Undo last match" says how it ended as the receipt does: undone, or too late.
+    LaunchedEffect(viewModel) {
+        viewModel.lastMatchEvents.collect { event ->
+            val message =
+                when (event) {
+                    LastMatchEvent.Undone -> getString(Res.string.match_undone)
+                    LastMatchEvent.Expired -> getString(Res.string.match_undo_expired)
+                }
+            snackbarHostState.showSnackbar(message)
         }
     }
 
@@ -448,6 +464,7 @@ private fun BookDetailReadyContent(
         onReleaseFromInboxClick = { showReleaseDialog = true },
         onRestoreToAllBooksClick = { viewModel.restoreToAllBooks() },
         onCollectionClick = onCollectionClick,
+        lastMatchRow = { modifier -> LastMatchHost(viewModel = viewModel, modifier = modifier) },
     )
 
     if (showDeleteDialog) {
@@ -627,6 +644,8 @@ fun BookDetailContent(
     onRestoreToAllBooksClick: () -> Unit = {},
     /** Opens a collection from the Visibility card; null (the frozen desktop) shows plain names. */
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
+    /** Book Detail's last-match row ("Details matched … · See what changed · Undo last match"), under the actions. */
+    lastMatchRow: @Composable (Modifier) -> Unit = {},
 ) {
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
 
@@ -683,6 +702,7 @@ fun BookDetailContent(
             onReleaseFromInboxClick = onReleaseFromInboxClick,
             onRestoreToAllBooksClick = onRestoreToAllBooksClick,
             onCollectionClick = onCollectionClick,
+            lastMatchRow = lastMatchRow,
         )
     } else {
         ImmersiveBookDetail(
@@ -729,6 +749,7 @@ fun BookDetailContent(
             onReleaseFromInboxClick = onReleaseFromInboxClick,
             onRestoreToAllBooksClick = onRestoreToAllBooksClick,
             onCollectionClick = onCollectionClick,
+            lastMatchRow = lastMatchRow,
         )
     }
 }
@@ -791,6 +812,7 @@ private fun ImmersiveBookDetail(
     onReleaseFromInboxClick: () -> Unit,
     onRestoreToAllBooksClick: () -> Unit,
     onCollectionClick: ((collectionId: String) -> Unit)?,
+    lastMatchRow: @Composable (Modifier) -> Unit,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -916,6 +938,9 @@ private fun ImmersiveBookDetail(
                     )
                 }
             }
+
+            // The last match, with See what changed and Undo — under the actions, as the canvas draws it (A-04).
+            item { lastMatchRow(screenPadding.padding(top = 16.dp)) }
 
             // About — description + Genres + Tags, frameless.
             item {

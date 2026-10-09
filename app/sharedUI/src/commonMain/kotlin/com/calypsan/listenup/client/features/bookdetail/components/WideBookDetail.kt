@@ -107,6 +107,8 @@ fun WideBookDetail(
     onReleaseFromInboxClick: () -> Unit = {},
     onRestoreToAllBooksClick: () -> Unit = {},
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
+    /** Book Detail's last-match row, under the actions in the left column. */
+    lastMatchRow: @Composable (Modifier) -> Unit = {},
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -227,6 +229,7 @@ fun WideBookDetail(
                     onRestoreToAllBooksClick = onRestoreToAllBooksClick,
                     onCollectionClick = onCollectionClick,
                     onAddToCollectionClick = onAddToCollectionClick,
+                    lastMatchRow = lastMatchRow,
                     chapterPaneMaxHeight = viewportHeight,
                     modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
                 )
@@ -287,6 +290,7 @@ private fun WideBodyColumns(
     onRestoreToAllBooksClick: () -> Unit,
     onCollectionClick: ((collectionId: String) -> Unit)?,
     onAddToCollectionClick: () -> Unit,
+    lastMatchRow: @Composable (Modifier) -> Unit,
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -321,6 +325,7 @@ private fun WideBodyColumns(
             onRestoreToAllBooksClick = onRestoreToAllBooksClick,
             onCollectionClick = onCollectionClick,
             onAddToCollectionClick = onAddToCollectionClick,
+            lastMatchRow = lastMatchRow,
             modifier = Modifier.weight(1f),
         )
 
@@ -375,6 +380,7 @@ private fun WideLeftColumn(
     onRestoreToAllBooksClick: () -> Unit,
     onCollectionClick: ((collectionId: String) -> Unit)?,
     onAddToCollectionClick: () -> Unit,
+    lastMatchRow: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val book = state.book
@@ -408,6 +414,9 @@ private fun WideLeftColumn(
                 isPreparing = isPreparing,
             )
         }
+
+        // The last match, with See what changed and Undo (A-04).
+        lastMatchRow(Modifier.padding(bottom = 16.dp))
 
         // About — description + Genres + Tags, framed in a surfaceContainerLow card.
         AboutSection(
