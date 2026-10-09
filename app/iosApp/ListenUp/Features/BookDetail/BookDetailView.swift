@@ -76,6 +76,7 @@ struct BookDetailView: View {
         .bookMatchDetails($matchTarget)
         // The receipt Match details leaves behind, with Undo and See What Changed.
         .matchReceipt(bookId: bookId)
+        .lastMatchFeedback(observer)
         .sheet(isPresented: $showRateSheet) {
             if let ratingsObserver, case .ready(let snapshot) = ratingsObserver.phase {
                 RateBookSheet(
@@ -194,6 +195,7 @@ struct BookDetailView: View {
                     resumeBar(observer)
                     actionPills(observer)
                 }
+                lastMatchSection(observer)
 
                 Divider()
 
@@ -232,6 +234,7 @@ struct BookDetailView: View {
                     resumeBar(observer)
                     actionPills(observer)
                 }
+                lastMatchSection(observer)
             }
             .frame(width: railWidth)
 
