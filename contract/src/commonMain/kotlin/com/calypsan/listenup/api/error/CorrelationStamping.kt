@@ -69,10 +69,10 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is ContributorError -> withCorrelationId(id)
 
-        // SeriesError + EntityError share one branch (delegating to an exhaustive helper) to keep this
-        // function under the cyclomatic-complexity ceiling. They pair naturally — a Story World entity
-        // lives under a series.
-        is SeriesError, is EntityError -> seriesOrStoryWorldWithCorrelationId(id)
+        // SeriesError + EntityError + WorldEventError share one branch (delegating to an exhaustive helper)
+        // to keep this function under the cyclomatic-complexity ceiling. They pair naturally — a Story World
+        // entity or event lives under a series.
+        is SeriesError, is EntityError, is WorldEventError -> seriesOrStoryWorldWithCorrelationId(id)
 
         is GenreError -> withCorrelationId(id)
 
@@ -137,7 +137,7 @@ private fun AppError.derivedMediaWithCorrelationId(id: String?): AppError =
     }
 
 /**
- * Re-dispatches the grouped `SeriesError`/`EntityError` branch of [withCorrelationId] to each family's
+ * Re-dispatches the grouped `SeriesError`/`EntityError`/`WorldEventError` branch of [withCorrelationId] to each family's
  * own exhaustive `copy`. Split out solely to keep [withCorrelationId]'s cyclomatic complexity under the
  * project threshold; the `else` is unreachable (only called from the grouped branch above).
  */
@@ -145,6 +145,7 @@ private fun AppError.seriesOrStoryWorldWithCorrelationId(id: String?): AppError 
     when (this) {
         is SeriesError -> withCorrelationId(id)
         is EntityError -> withCorrelationId(id)
+        is WorldEventError -> withCorrelationId(id)
         else -> this // unreachable: only called from the grouped branch above
     }
 
@@ -155,6 +156,15 @@ private fun EntityError.withCorrelationId(id: String?): EntityError =
         is EntityError.CycleDetected -> copy(correlationId = id)
         is EntityError.KindMismatchOnMerge -> copy(correlationId = id)
         is EntityError.HistoryNotFound -> copy(correlationId = id)
+    }
+
+private fun WorldEventError.withCorrelationId(id: String?): WorldEventError =
+    when (this) {
+        is WorldEventError.NotFound -> copy(correlationId = id)
+        is WorldEventError.HistoryNotFound -> copy(correlationId = id)
+        is WorldEventError.InvalidAnchor -> copy(correlationId = id)
+        is WorldEventError.EntityNotInWorld -> copy(correlationId = id)
+        is WorldEventError.WrongEntityKind -> copy(correlationId = id)
     }
 
 private fun AuthError.withCorrelationId(id: String?): AuthError =
