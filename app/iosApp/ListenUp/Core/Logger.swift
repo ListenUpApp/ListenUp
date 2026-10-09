@@ -26,7 +26,10 @@ enum Log {
         } else {
             log.debug("\(message, privacy: .public)")
         }
+        // Debug lines stay out of a release build's file, as on Android, so they never push out the lines that matter.
+        #if DEBUG
         persist("DEBUG", fileLine(message, detail: detail), file: file)
+        #endif
     }
 
     static func info(_ message: String, detail: String? = nil, file: String = #fileID) {
