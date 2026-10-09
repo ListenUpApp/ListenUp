@@ -186,6 +186,7 @@ class BookDetailReleaseConfirmationTest {
                 mock<BookRepository> {
                     every { observeBookDetail(BOOK_ID) } returns flowOf(book)
                     everySuspend { getChapters(BOOK_ID) } returns emptyList()
+                    every { observeMatchRecord(BOOK_ID) } returns flowOf(null)
                 },
             tagRepository = mock<TagRepository> { every { observeAll() } returns flowOf(emptyList()) },
             playbackPositionRepository =
@@ -238,6 +239,8 @@ class BookDetailReleaseConfirmationTest {
                 mock<SeriesRepository> {
                     every { observeHierarchy() } returns flowOf(SeriesHierarchy.Empty)
                 },
+            undoMatch = mock(),
+            userProfileRepository = mock(),
         )
     }
 

@@ -174,6 +174,15 @@ internal interface BookDao {
     fun observeTierLabels(id: BookId): Flow<BookTierLabelRow?>
 
     /**
+     * Observe just the book's revision and the match its sync payload last carried, for Book Detail's "Undo last
+     * match". Two columns, so the row is not re-derived on a cover hash landing or a play count ticking.
+     *
+     * @return Flow emitting the pair, or null once the row is gone
+     */
+    @Query("SELECT revision, lastMatch FROM books WHERE id = :id AND deletedAt IS NULL")
+    fun observeMatchRecord(id: BookId): Flow<BookMatchRow?>
+
+    /**
      * Get multiple books by IDs with their contributors in a single batched query.
      *
      * Uses Room Relations to efficiently load books and their contributors,

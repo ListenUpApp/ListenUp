@@ -39,14 +39,20 @@ internal class MatchReceiptStore {
 }
 
 /**
- * Undoes one match. The receipt's Undo and (in a later release) Book Detail's "Undo last match" both call this,
- * so the two can't behave differently.
+ * Undoes one match. The receipt's Undo and Book Detail's "Undo last match" both call this, so the two can't behave
+ * differently. Public only because [com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel]'s
+ * constructor is, which keeps that ViewModel inside `module.verify()`.
  */
-internal class UndoMatch(
-    private val matchingRepository: MatchingRepository,
-) {
-    suspend operator fun invoke(receiptId: String): AppResult<UndoResult> = matchingRepository.undoMatch(receiptId)
+interface UndoMatch {
+    /** Undoes [receiptId]; the restored book or person reaches Room before this returns. */
+    suspend operator fun invoke(receiptId: String): AppResult<UndoResult>
 }
+
+/** [UndoMatch] over the matching RPC. */
+internal fun UndoMatch(matchingRepository: MatchingRepository): UndoMatch =
+    object : UndoMatch {
+        override suspend fun invoke(receiptId: String): AppResult<UndoResult> = matchingRepository.undoMatch(receiptId)
+    }
 
 /** The receipt on Book Detail, or on the contributor page, after Apply. */
 sealed interface MatchReceiptUiState {

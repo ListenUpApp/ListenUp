@@ -31,6 +31,8 @@ import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
+import com.calypsan.listenup.client.presentation.match.UndoMatch
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.model.SeriesHierarchy
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
@@ -87,6 +89,8 @@ class BookDetailViewModel(
     private val bookVisibilityRepository: BookVisibilityRepository,
     private val bookEditRepository: BookEditRepository,
     private val seriesRepository: SeriesRepository,
+    undoMatch: UndoMatch,
+    userProfileRepository: UserProfileRepository,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
@@ -110,6 +114,28 @@ class BookDetailViewModel(
     //
     // Per-book genres/tags now flow through [BookDetail] directly via
     // [BookRepository.observeBookDetail], so no mirror is needed for them.
+    private val lastMatchRow =
+        LastMatchRow(
+            bookIds = bookIdFlow.filterNotNull(),
+            scope = viewModelScope,
+            bookRepository = bookRepository,
+            permissionsRepository = permissionsRepository,
+            userRepository = userRepository,
+            userProfileRepository = userProfileRepository,
+            undoMatch = undoMatch,
+            errorBus = errorBus,
+        )
+
+    /**
+     * "Details matched <relative time> · See what changed · Undo last match", from Room: present only while the book
+     * is at the revision its last match left it at, and only for someone with Edit metadata (the server's gate on
+     * Undo). Null otherwise.
+     */
+    val lastMatch: StateFlow<LastMatchUi?> = lastMatchRow.state
+
+    /** How "Undo last match" ended — said once, as the receipt says it. */
+    val lastMatchEvents: Flow<LastMatchEvent> = lastMatchRow.events
+
     private var latestIsAdmin: Boolean = false
     private var latestCanEditMetadata: Boolean = false
     private var latestAllTags: List<Tag> = emptyList()
@@ -422,6 +448,19 @@ class BookDetailViewModel(
             moods = detail.moods,
         )
     }
+
+    /** Opens See what changed for the last match: every change it made, with where each came from. */
+    fun seeWhatChanged() = lastMatchRow.seeWhatChanged()
+
+    /** Closes See what changed. */
+    fun closeWhatChanged() = lastMatchRow.closeWhatChanged()
+
+    /**
+     * Undoes the book's last match through the shared [UndoMatch]. Success retires the row (the restored book
+     * reaches Room) and says so on [lastMatchEvents]; a match the server calls too late retires it with
+     * [LastMatchEvent.Expired]; any other failure goes to the error bus and stays on the row as its `undoError`.
+     */
+    fun undoLastMatch() = lastMatchRow.undo()
 
     /**
      * Mark the current book as complete with optional date overrides.

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.AudioFileLocalPath
 import com.calypsan.listenup.client.data.local.db.DownloadDao
@@ -185,6 +186,8 @@ private class NoopBookRepository : BookRepository {
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = flowOf(emptyList())
 
     override fun observeBookTierLabels(bookId: String): Flow<TierLabels> = flowOf(TierLabels.None)
+
+    override fun observeMatchRecord(bookId: String): Flow<BookMatchRecord?> = flowOf(null)
 
     override fun observeIsBookLive(id: String): Flow<Boolean> = flowOf(true)
 

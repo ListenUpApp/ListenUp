@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.api.dto.match.LastMatch
 import androidx.room3.Embedded
 import androidx.room3.Entity
 import androidx.room3.ForeignKey
@@ -427,4 +428,13 @@ internal data class ContributorWithAliases(
 internal data class BookTierLabelRow(
     val bookTierLabel: String?,
     val partTierLabel: String?,
+)
+
+/**
+ * A book's revision and its stored [LastMatch], for [BookDao.observeMatchRecord]. A projection so Book Detail's
+ * last-match row only re-derives when either changes.
+ */
+internal data class BookMatchRow(
+    val revision: Long,
+    val lastMatch: LastMatch?,
 )

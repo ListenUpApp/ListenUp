@@ -130,6 +130,8 @@ class BookDetailViewModelCollectionTest :
                         mock<SeriesRepository> {
                             every { observeHierarchy() } returns flowOf(SeriesHierarchy.Empty)
                         },
+                    undoMatch = mock(),
+                    userProfileRepository = mock(),
                 )
         }
 
