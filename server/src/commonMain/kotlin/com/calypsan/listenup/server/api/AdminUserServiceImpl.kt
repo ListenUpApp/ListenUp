@@ -372,15 +372,18 @@ class AdminUserServiceImpl(
             )
             // Background counterpart of the broadcaster (#1068): eviction of the pre-auth watch
             // rows is UNCONDITIONAL — a decided watch has nothing left to say — so it runs
-            // synchronously here, before the push. The push itself is fire-and-forget on the
-            // application scope: it must never be awaited on this RPC path (an unreachable relay
-            // was hanging "Approve" for ~30s when it was awaited inline here), and a notifier that
-            // violates its "MUST NOT throw" contract must not be able to skip eviction either.
-            pushWatchTokens?.evict(
-                com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
-                request.userId.value,
-            )
-            launchDecisionPush(request.userId.value, request.approved)
+            // synchronously here, before the push, and hands back the watchers it removed: the push
+            // goes to exactly those. The push itself is fire-and-forget on the application scope:
+            // it must never be awaited on this RPC path (an unreachable relay was hanging "Approve"
+            // for ~30s when it was awaited inline here), and a notifier that violates its "MUST NOT
+            // throw" contract must not be able to skip eviction either.
+            val watchers =
+                pushWatchTokens
+                    ?.evict(
+                        com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
+                        request.userId.value,
+                    ).orEmpty()
+            launchDecisionPush(watchers, request.userId.value, request.approved)
             // The inbox row: unreadable until the user can sign in, then it syncs like any other.
             notifications?.emit(
                 NotificationEvent.RegistrationDecision(
@@ -442,20 +445,20 @@ class AdminUserServiceImpl(
     // ── Private helpers ─────────────────────────────────────────────────────────
 
     /**
-     * Fires the registration-decision push (#1068) fire-and-forget on [appScope] — never awaited
+     * Fires the registration-decision push (#1068) to [watchers] fire-and-forget on [appScope] — never awaited
      * on the RPC path. Defense in depth: [PushNotifier]'s contract forbids throwing, but this
      * launch must never crash the application scope even if an implementation violates it. Never
      * logs token/payload contents — error class name only.
      */
     private fun launchDecisionPush(
+        watchers: List<com.calypsan.listenup.server.push.PushWatcher>,
         userId: String,
         approved: Boolean,
     ) {
         appScope.launch {
             try {
-                pushNotifier?.notifyWatch(
-                    com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
-                    userId,
+                pushNotifier?.notifyWatchers(
+                    watchers,
                     com.calypsan.listenup.api.push
                         .PushPayload
                         .RegistrationDecision(userId = userId, approved = approved),

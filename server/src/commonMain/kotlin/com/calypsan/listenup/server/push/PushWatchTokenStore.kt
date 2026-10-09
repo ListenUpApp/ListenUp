@@ -19,6 +19,12 @@ enum class PushWatchKind(
     REGISTRATION("registration"),
 }
 
+/** One device waiting on a decision: its push [token] and [platform] (a [PushPlatform] name). */
+data class PushWatcher(
+    val token: String,
+    val platform: String,
+)
+
 /**
  * Persistence for pre-auth watch tokens: devices waiting on an admin decision register their
  * push token against the flow's unguessable handle (they have no session — that's why they're
@@ -55,15 +61,24 @@ class PushWatchTokenStore(
         }
     }
 
-    /** Evicts every watcher of ([kind], [key]) — call right after the decision push. */
+    /**
+     * Evicts every watcher of ([kind], [key]) once the decision is made, and answers the live ones it
+     * removed — the decision push goes to exactly those. Reading them back after eviction finds none,
+     * which is how no registrant was ever told of a decision until this returned them (#1068).
+     */
     suspend fun evict(
         kind: PushWatchKind,
         key: String,
-    ) {
+    ): List<PushWatcher> =
         suspendTransaction(db) {
+            val live =
+                db.pushWatchTokensQueries
+                    .selectLiveForKey(kind.wire, key, clock.now().toEpochMilliseconds())
+                    .executeAsList()
+                    .map { PushWatcher(token = it.token, platform = it.platform) }
             db.pushWatchTokensQueries.deleteForKey(watch_kind = kind.wire, watch_key = key)
+            live
         }
-    }
 
     /** TTL sweep; runs alongside the session-expiry cleanup. */
     suspend fun sweepExpired() {

@@ -20,7 +20,7 @@ import kotlinx.serialization.json.JsonElement
  * per-token verdicts: `invalid` tokens are deleted, `retryable` tokens get a single batched
  * retry, and `unsupported` is left alone (no delete, no retry — nothing actionable). A
  * transport failure (relay unreachable) is retried once as a whole batch, then silently
- * dropped — push is best-effort by design (see [PushNotifier] KDoc). [notify] and [notifyWatch]
+ * dropped — push is best-effort by design (see [PushNotifier] KDoc). [notify] and [notifyWatchers]
  * each wrap their ENTIRE body in a catch-all: a DB fault reading tokens, not just a relay
  * failure, must never escape and violate the "MUST NOT throw" contract.
  */
@@ -55,28 +55,28 @@ class RelayPushNotifier(
         }
     }
 
-    override suspend fun notifyWatch(
-        kind: PushWatchKind,
-        key: String,
+    override suspend fun notifyWatchers(
+        watchers: List<PushWatcher>,
         payload: PushPayload,
     ) {
         try {
             if (!settings.pushNotificationsEnabled()) return
-            val rows =
-                suspendTransaction(db) {
-                    db.pushWatchTokensQueries
-                        .selectLiveForKey(kind.wire, key, clock.now().toEpochMilliseconds())
-                        .executeAsList()
-                }
+            // The watchers were evicted before this push, so a token the provider reports dead has no row left to delete.
             fanOut(
-                tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform.lowercase(), token = it.token) },
+                tokens =
+                    watchers.map { watcher ->
+                        PushRelayClient.RelayToken(
+                            platform = watcher.platform.lowercase(),
+                            token = watcher.token,
+                        )
+                    },
                 payload = payload,
-            ) { dead -> suspendTransaction(db) { dead.forEach { db.pushWatchTokensQueries.deleteByToken(it) } } }
+            ) { }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
             // Never log token/payload contents — error class name only (PushNotifier's contract).
-            log.warn { "notifyWatch failed: ${e::class.simpleName.orEmpty()}" }
+            log.warn { "notifyWatchers failed: ${e::class.simpleName.orEmpty()}" }
         }
     }
 

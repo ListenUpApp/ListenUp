@@ -11,7 +11,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.notifications.NotificationEmitter
 import com.calypsan.listenup.server.notifications.NotificationPrefsRepository
 import com.calypsan.listenup.server.push.PushNotifier
-import com.calypsan.listenup.server.push.PushWatchKind
+import com.calypsan.listenup.server.push.PushWatcher
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.notificationFixture
@@ -208,9 +208,8 @@ private class RecordingPushNotifier : PushNotifier {
         sent += userId to payload
     }
 
-    override suspend fun notifyWatch(
-        kind: PushWatchKind,
-        key: String,
+    override suspend fun notifyWatchers(
+        watchers: List<PushWatcher>,
         payload: PushPayload,
     ) = Unit
 }
@@ -222,9 +221,8 @@ private object ThrowingPushNotifier : PushNotifier {
         payload: PushPayload,
     ): Unit = error("relay unreachable")
 
-    override suspend fun notifyWatch(
-        kind: PushWatchKind,
-        key: String,
+    override suspend fun notifyWatchers(
+        watchers: List<PushWatcher>,
         payload: PushPayload,
     ) = Unit
 }

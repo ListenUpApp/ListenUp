@@ -5,8 +5,9 @@
 --
 -- A row binds a device push token to one awaited decision: watch_kind names the flow
 -- ('registration' today; 'password_reset' next), watch_key its unguessable handle (the
--- pending user id / reset ticket id). Rows are evicted right after the decision push
--- (deleteForKey) and swept by TTL (deleteExpired) as the never-stranded backstop.
+-- pending user id / reset ticket id). Rows are evicted the moment the decision is made
+-- (deleteForKey, after selectLiveForKey reads the push's audience) and swept by TTL
+-- (deleteExpired) as the never-stranded backstop.
 CREATE TABLE push_watch_tokens (
     token      TEXT    NOT NULL PRIMARY KEY,
     platform   TEXT    NOT NULL,
@@ -43,10 +44,6 @@ DELETE FROM push_watch_tokens WHERE token IN (
 -- Evict every watcher of a decided flow — a decided watch has nothing left to say.
 deleteForKey:
 DELETE FROM push_watch_tokens WHERE watch_kind = :watch_kind AND watch_key = :watch_key;
-
--- Provider said the token is dead (relay verdict `invalid`).
-deleteByToken:
-DELETE FROM push_watch_tokens WHERE token = :token;
 
 -- TTL sweep, run with the session-expiry cleanup.
 deleteExpired:

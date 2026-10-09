@@ -19,7 +19,7 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.push.PushNotifier
-import com.calypsan.listenup.server.push.PushWatchKind
+import com.calypsan.listenup.server.push.PushWatcher
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -302,11 +302,10 @@ class RecordingPushNotifier : PushNotifier {
         calls += userId to payload
     }
 
-    override suspend fun notifyWatch(
-        kind: PushWatchKind,
-        key: String,
+    override suspend fun notifyWatchers(
+        watchers: List<PushWatcher>,
         payload: PushPayload,
     ) {
-        calls += key to payload
+        watchers.forEach { calls += it.token to payload }
     }
 }

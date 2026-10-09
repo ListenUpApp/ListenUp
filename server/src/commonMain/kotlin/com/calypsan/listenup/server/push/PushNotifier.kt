@@ -18,15 +18,14 @@ interface PushNotifier {
     )
 
     /**
-     * Fire-and-forget to the pre-auth watchers of ([kind], [key]) — devices that registered a
-     * watch token while waiting on an admin decision (#1068). Same best-effort contract as
-     * [notify]; eviction of the watch rows after a decision is the caller's separate,
-     * unconditional step ([PushWatchTokenStore.evict]) — it must happen even when push is
-     * disabled or delivery fails.
+     * Fire-and-forget to [watchers]: devices that registered a watch token while waiting on an
+     * admin decision (#1068), as the caller's eviction ([PushWatchTokenStore.evict]) handed them
+     * over. Eviction comes first and is unconditional — it must happen even when push is disabled
+     * or delivery fails — so the rows are gone by now and the push goes to these, never to a lookup.
+     * Same best-effort contract as [notify].
      */
-    suspend fun notifyWatch(
-        kind: PushWatchKind,
-        key: String,
+    suspend fun notifyWatchers(
+        watchers: List<PushWatcher>,
         payload: PushPayload,
     )
 }
@@ -38,9 +37,8 @@ class NoOpPushNotifier : PushNotifier {
         payload: PushPayload,
     ) = Unit
 
-    override suspend fun notifyWatch(
-        kind: PushWatchKind,
-        key: String,
+    override suspend fun notifyWatchers(
+        watchers: List<PushWatcher>,
         payload: PushPayload,
     ) = Unit
 }

@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.notifications.NotificationPreference
 import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.push.PushNotifier
-import com.calypsan.listenup.server.push.PushWatchKind
+import com.calypsan.listenup.server.push.PushWatcher
 import com.calypsan.listenup.server.sync.notificationFixture
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
@@ -224,9 +224,8 @@ private class RecordingPushNotifier : PushNotifier {
         sent += userId to payload
     }
 
-    override suspend fun notifyWatch(
-        kind: PushWatchKind,
-        key: String,
+    override suspend fun notifyWatchers(
+        watchers: List<PushWatcher>,
         payload: PushPayload,
     ) = Unit
 }
@@ -238,9 +237,8 @@ private class ThrowingPushNotifier : PushNotifier {
         payload: PushPayload,
     ): Unit = error("relay exploded")
 
-    override suspend fun notifyWatch(
-        kind: PushWatchKind,
-        key: String,
+    override suspend fun notifyWatchers(
+        watchers: List<PushWatcher>,
         payload: PushPayload,
     ) = Unit
 }

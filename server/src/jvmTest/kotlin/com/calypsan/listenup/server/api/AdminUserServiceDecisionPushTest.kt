@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -21,8 +22,11 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.push.PushNotifier
+import com.calypsan.listenup.server.push.PushWatcher
+import com.calypsan.listenup.server.push.PushRelayClient
 import com.calypsan.listenup.server.push.PushWatchKind
 import com.calypsan.listenup.server.push.PushWatchTokenStore
+import com.calypsan.listenup.server.push.RelayPushNotifier
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -40,7 +44,26 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
+import io.ktor.http.headersOf
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
@@ -101,9 +124,8 @@ class AdminUserServiceDecisionPushTest :
                     payload: PushPayload,
                 ) = Unit
 
-                override suspend fun notifyWatch(
-                    kind: PushWatchKind,
-                    key: String,
+                override suspend fun notifyWatchers(
+                    watchers: List<PushWatcher>,
                     payload: PushPayload,
                 ): Unit = error("relay boom")
             }
@@ -177,6 +199,72 @@ class AdminUserServiceDecisionPushTest :
                     // Admin roster refreshed to ACTIVE.
                     val row = rosterRepo.pullSince(userId = null, cursor = 0, limit = 100).items.single { it.id == "p1" }
                     row.status shouldBe "ACTIVE"
+                }
+            }
+        }
+
+        test("approving a registration pushes the decision to the device that was waiting on it") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                seedPendingUser("p1")
+                val watchStore = PushWatchTokenStore(sql, fixedClock)
+                // The relay answers on Ktor's own dispatcher, beyond advanceUntilIdle(): the test waits for the request itself.
+                val sentTokens = CompletableDeferred<List<String>>()
+                val relay =
+                    MockEngine { request ->
+                        val body = Json.parseToJsonElement(String((request.body as OutgoingContent.ByteArrayContent).bytes()))
+                        sentTokens.complete(
+                            body.jsonObject.getValue("tokens").jsonArray.map { token ->
+                                token.jsonObject
+                                    .getValue("token")
+                                    .jsonPrimitive.content
+                            },
+                        )
+                        respond(
+                            content = """{"results":[{"token":"watch-1","status":"ok"}]}""",
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+                val notifier =
+                    RelayPushNotifier(
+                        db = sql,
+                        relay =
+                            PushRelayClient(
+                                relayUrl = "https://relay.example.com",
+                                http = HttpClient(relay) { install(ContentNegotiation) { json(contractJson) } },
+                            ),
+                        settings = ServerSettingsRepository(sql, default = RegistrationPolicy.APPROVAL_QUEUE),
+                        clock = fixedClock,
+                    )
+
+                runTest {
+                    watchStore.register(PushWatchKind.REGISTRATION, "p1", "watch-1", PushPlatform.ANDROID)
+                    val svc =
+                        AdminUserServiceImpl(
+                            sql = sql,
+                            sessions =
+                                SessionService(sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock),
+                            settings = ServerSettingsRepository(sql, default = RegistrationPolicy.APPROVAL_QUEUE),
+                            registrationBroadcaster = RegistrationBroadcaster(),
+                            registrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
+                            bus = ChangeBus(),
+                            clock = fixedClock,
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+                            pushNotifier = notifier,
+                            pushWatchTokens = watchStore,
+                            passwordResetService = testPasswordResetService(sql, fixedClock),
+                            appScope = backgroundScope,
+                        ).copyWith(principalFor("root1", UserRole.ROOT))
+
+                    svc
+                        .decidePendingRegistration(PendingRegistrationDecision(UserId("p1"), approved = true))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+                    advanceUntilIdle()
+
+                    withContext(Dispatchers.Default) { withTimeoutOrNull(5.seconds) { sentTokens.await() } } shouldBe
+                        listOf("watch-1")
+                    sql.pushWatchTokensQueries.countAll().executeAsOne() shouldBe 0L
                 }
             }
         }
