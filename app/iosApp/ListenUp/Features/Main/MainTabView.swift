@@ -442,8 +442,8 @@ private extension View {
     /// Administration destinations (admin / root only surfaces).
     func adminDestinations() -> some View {
         self
-            .navigationDestination(for: AdminDestination.self) { _ in
-                AdminView()
+            .navigationDestination(for: AdminDestination.self) { destination in
+                AdminView(focus: destination.focus)
             }
             .navigationDestination(for: AdminInboxDestination.self) { _ in
                 AdminInboxView()

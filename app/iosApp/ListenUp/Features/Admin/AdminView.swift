@@ -15,8 +15,13 @@ import Shared
 /// A grouped `Form` in a readable column at every width (iosApp rule 12). Transient
 /// mutation errors surface as a native alert; destructive actions (delete user, revoke invite,
 /// deny registration) go through a confirmation dialog.
+///
+/// Opened with a `focus` (an approvals tap), it scrolls that section to the top once the screen's
+/// content is in, and only then: a refresh afterwards leaves the person where they are.
 struct AdminView: View {
     @Environment(\.dependencies) private var deps
+
+    private let focus: AdminFocus?
 
     @State private var admin: AdminObserver?
     @State private var settings: AdminSettingsObserver?
@@ -27,6 +32,12 @@ struct AdminView: View {
     @State private var pendingResetDeny: AdminResetRequestRowModel?
     /// Bumped once per copy, to fire the success haptic.
     @State private var copies = 0
+    /// Set once the arrival has been decided, so the focus scrolls on arrival and never again.
+    @State private var hasArrived = false
+
+    init(focus: AdminFocus? = nil) {
+        self.focus = focus
+    }
 
     var body: some View {
         Group {
@@ -91,6 +102,33 @@ struct AdminView: View {
     /// HIG, Lists and tables.
     @ViewBuilder
     private func readyBody(admin: AdminObserver, settings: AdminSettingsObserver, ready: AdminReadyModel) -> some View {
+        let arrival = AdminArrival.decide(
+            focus: focus,
+            registrationPolicy: ready.registrationPolicy,
+            isSettingsLoaded: settings.phase != .loading
+        )
+        ScrollViewReader { proxy in
+            form(admin: admin, settings: settings, ready: ready)
+                .onChange(of: arrival, initial: true) { _, arrival in
+                    arrive(arrival, proxy: proxy)
+                }
+        }
+    }
+
+    /// Acts on the first settled arrival only. The scroll waits a turn of the main queue so the list
+    /// has laid out the rows it is scrolling to.
+    private func arrive(_ arrival: AdminArrival, proxy: ScrollViewProxy) {
+        guard !hasArrived, arrival != .waiting else { return }
+        hasArrived = true
+        if case .scroll(let section) = arrival {
+            DispatchQueue.main.async {
+                withAnimation { proxy.scrollTo(section, anchor: .top) }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func form(admin: AdminObserver, settings: AdminSettingsObserver, ready: AdminReadyModel) -> some View {
         Form {
             serverSection(settings: settings, admin: admin, ready: ready)
             if let model = settingsModel(settings), !model.ratingSources.isEmpty {
@@ -111,6 +149,7 @@ struct AdminView: View {
             usersSection(admin: admin, ready: ready)
             if ready.registrationPolicy == .approvalQueue {
                 pendingRegistrationsSection(admin: admin, ready: ready)
+                    .id(AdminFocus.pendingRegistrations)
             }
             passwordResetsSection(admin: admin, ready: ready)
             if !ready.pendingInvites.isEmpty {

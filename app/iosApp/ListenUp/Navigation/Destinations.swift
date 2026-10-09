@@ -111,8 +111,17 @@ struct SettingsDestination: Hashable, Codable {}
 /// Reached from Settings › Downloads.
 struct StorageDestination: Hashable, Codable {}
 
-/// Administration dashboard (admin / root users only).
-struct AdminDestination: Hashable, Codable {}
+/// Administration dashboard (admin / root users only). Opened from Settings it starts at the top;
+/// opened for a reason — an approvals tap — it carries a `focus` and lands on that section instead.
+struct AdminDestination: Hashable, Codable {
+    var focus: AdminFocus?
+}
+
+/// A section Administration can open on. Only sections someone is sent to by a notification.
+enum AdminFocus: String, Hashable, Codable {
+    /// The pending registrations, with their approve and deny controls.
+    case pendingRegistrations
+}
 
 /// The admin inbox (admin / root users only), reached from Administration › Management.
 /// Displays freshly-scanned books awaiting release into the library.
