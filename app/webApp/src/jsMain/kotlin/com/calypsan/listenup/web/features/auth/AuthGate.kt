@@ -11,6 +11,8 @@ import com.calypsan.listenup.web.features.settings.systemPrefersDark
 import com.calypsan.listenup.web.features.settings.shouldUseDarkTheme
 import com.calypsan.listenup.web.features.settings.applyTheme
 import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.api.error.surfacedLogLine
+import io.github.oshai.kotlinlogging.KotlinLogging
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -69,6 +71,8 @@ import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.features.admin.AdminSessions
+
+private val logger = KotlinLogging.logger("com.calypsan.listenup.web.features.auth.AuthGate")
 
 /**
  * The root of the ListenUp web body: `AuthState` decides whether the reader sees an auth screen or
@@ -151,7 +155,12 @@ fun AuthGate(
     // cannot get in most needs to see.
     val toasts = remember { ToastQueue() }
     LaunchedEffect(Unit) {
-        observeErrors().collect { error -> toasts.show(error.toastText(), ToastTone.Failure) }
+        observeErrors().collect { error ->
+            // The toast is for the reader; the line is for whoever has to find out why, and only
+            // the per-instance debugInfo says that. WARN, so it reaches the recent log.
+            logger.warn { error.surfacedLogLine() }
+            toasts.show(error.toastText(), ToastTone.Failure)
+        }
     }
 
     LaunchedEffect(Unit) {

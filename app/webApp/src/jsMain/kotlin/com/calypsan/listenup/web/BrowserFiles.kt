@@ -50,7 +50,8 @@ internal class BufferingSink : RawSink {
 }
 
 /**
- * Hands [bytes] to the browser as a download named [filename].
+ * Hands [bytes] to the browser as a download named [filename], of media [type] (a backup's zip by
+ * default).
  *
  * A synthetic anchor rather than `window.open`: an object URL opened in a tab renders the archive
  * as text in some browsers, and only the `download` attribute makes the file arrive with the name
@@ -61,8 +62,9 @@ internal class BufferingSink : RawSink {
 internal fun saveToDisk(
     filename: String,
     bytes: ByteArray,
+    type: String = "application/zip",
 ) {
-    val blob = Blob(arrayOf(bytes.unsafeCast<Int8Array>()), BlobPropertyBag(type = "application/zip"))
+    val blob = Blob(arrayOf(bytes.unsafeCast<Int8Array>()), BlobPropertyBag(type = type))
     val url = URL.createObjectURL(blob)
     val anchor = document.createElement("a") as HTMLAnchorElement
     anchor.href = url

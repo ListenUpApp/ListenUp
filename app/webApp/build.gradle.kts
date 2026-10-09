@@ -144,6 +144,10 @@ kotlin {
             // and converts them in the reader's `TimeZone` — both kotlinx-datetime types, and
             // :app:sharedLogic keeps that library `implementation` too.
             implementation(libs.kotlinx.datetime)
+            // The recent-log buffer behind Settings → Download logs is a kotlin-logging appender
+            // installed at boot, and the error toast logs through it — :app:sharedLogic keeps the
+            // library `implementation`, so it is named here.
+            implementation(libs.kotlin.logging)
         }
         jsTest.dependencies {
             implementation(libs.kotest.framework.engine)
