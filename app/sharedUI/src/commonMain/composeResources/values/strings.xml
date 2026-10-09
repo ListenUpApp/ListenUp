@@ -1571,6 +1571,10 @@ One beautiful library.</string>
     <string name="match_credit_of_your_books">%1$s of your books</string>
     <string name="match_credit_producer">Produced %1$d</string>
     <string name="match_credit_translator">Translated %1$d</string>
+    <string name="match_details_matched">Details matched %1$s</string>
+    <string name="match_details_matched_by">Details matched %1$s by %2$s</string>
+    <string name="match_details_matched_by_just_now">Details matched just now by %1$s</string>
+    <string name="match_details_matched_just_now">Details matched just now</string>
     <string name="match_dismiss">Dismiss</string>
     <string name="match_edit_by_hand">Edit by hand</string>
     <string name="match_edit_by_hand_title">Edit by Hand</string>
@@ -1755,6 +1759,8 @@ One beautiful library.</string>
     <string name="match_undo">Undo</string>
     <string name="match_undo_expired">This book has changed since, so the match can't be undone.</string>
     <string name="match_undo_expired_person">%1$s has changed since, so the match can't be undone.</string>
+    <string name="match_undo_last_match">Undo last match</string>
+    <string name="match_undo_last_match_title">Undo Last Match</string>
     <string name="match_undoing">Undoing…</string>
     <string name="match_undone">Match undone. Everything it changed is back.</string>
     <string name="match_unexpected_title">Something went wrong</string>
