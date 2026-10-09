@@ -112,7 +112,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                 },
                 onAdminClick =
                     if (!LocalDeviceContext.current.isLeanback) {
-                        { backStack.add(Admin) }
+                        { backStack.add(Admin()) }
                     } else {
                         null
                     },

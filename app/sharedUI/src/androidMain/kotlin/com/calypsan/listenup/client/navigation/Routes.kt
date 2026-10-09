@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.navigation
 
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.domain.model.FacetKind
+import com.calypsan.listenup.client.features.admin.AdminFocus
 import kotlinx.serialization.Serializable
 
 /**
@@ -187,10 +188,13 @@ data class ContributorEdit(
  * Admin screen - combined users and invites management.
  *
  * Shows users list, pending invites, and invite action.
- * Only accessible to admin users (root or role=admin).
+ * Only accessible to admin users (root or role=admin). [focus] is where it opens: the top, or the
+ * pending registrations a "Someone wants to join" tap is about.
  */
 @Serializable
-data object Admin : Route
+data class Admin(
+    val focus: AdminFocus = AdminFocus.TOP,
+) : Route
 
 /**
  * Create invite screen - create a new invite.

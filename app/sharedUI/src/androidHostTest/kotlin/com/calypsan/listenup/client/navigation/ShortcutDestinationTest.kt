@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.navigation
 
 import com.calypsan.listenup.client.data.repository.ShortcutAction
+import com.calypsan.listenup.client.features.admin.AdminFocus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -23,8 +24,9 @@ class ShortcutDestinationTest :
                 listOf(AdminBackups, ImportFlow)
         }
 
-        test("a pending-approval shortcut opens Admin, where the decision is made") {
-            ShortcutAction.NavigateToPendingApprovals(userId = "u-ada").screensAboveShell() shouldBe listOf(Admin)
+        test("a pending-approval shortcut opens Admin on its pending requests, where the decision is made") {
+            ShortcutAction.NavigateToPendingApprovals(userId = "u-ada").screensAboveShell() shouldBe
+                listOf(Admin(focus = AdminFocus.PENDING_REGISTRATIONS))
         }
 
         test("a profile shortcut opens that listener's profile") {

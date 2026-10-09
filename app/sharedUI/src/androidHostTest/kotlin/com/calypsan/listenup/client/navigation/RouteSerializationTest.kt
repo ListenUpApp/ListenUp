@@ -71,7 +71,8 @@ internal fun sampleRoutes(): List<Route> =
         add(ContributorEdit(contributorId = "test-contributor-id"))
 
         // Admin
-        add(Admin)
+        add(Admin())
+        add(Admin(focus = com.calypsan.listenup.client.features.admin.AdminFocus.PENDING_REGISTRATIONS))
         add(CreateInvite)
         add(AdminCollections)
         add(AdminCollectionDetail(collectionId = "test-collection-id"))

@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Backup
@@ -200,6 +203,7 @@ import com.calypsan.listenup.client.design.components.rememberHeroScrollBehavior
 @Composable
 fun AdminScreen(
     viewModel: AdminViewModel,
+    focus: AdminFocus = AdminFocus.TOP,
     onBackClick: () -> Unit,
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit = {},
@@ -283,6 +287,7 @@ fun AdminScreen(
 
             is AdminUiState.Ready -> {
                 AdminContent(
+                    focus = focus,
                     state = current,
                     onRegistrationPolicyChange = { viewModel.setRegistrationPolicy(it) },
                     onApproveUserClick = { viewModel.approveUser(it.id) },
@@ -433,12 +438,22 @@ private fun AdminConfirmationDialogs(
     }
 }
 
+/** Where the Admin screen opens: at the top, or on a section a notification tap is about. */
+enum class AdminFocus {
+    /** Server settings first, as Admin always opens from the menu. */
+    TOP,
+
+    /** The pending registrations, where a "Someone wants to join" request is decided. */
+    PENDING_REGISTRATIONS,
+}
+
 // AdminContent fans hoisted state + per-row callbacks straight into its layout sections;
 // a parameter object would only add an indirection layer that Compose tooling discourages.
 @Suppress("LongParameterList")
 @Composable
-private fun AdminContent(
+internal fun AdminContent(
     state: AdminUiState.Ready,
+    focus: AdminFocus,
     onRegistrationPolicyChange: (RegistrationPolicy) -> Unit,
     onApproveUserClick: (AdminUserInfo) -> Unit,
     onDenyUserClick: (AdminUserInfo) -> Unit,
@@ -479,8 +494,13 @@ private fun AdminContent(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
+    // The settings-and-users list, in either layout — the one a focused open lands in.
+    val listState = rememberLazyListState()
+    LandOnFocus(listState = listState, focus = focus, state = state, hasHardcoverSource = hardcoverSource != null)
+
     if (isExpanded) {
         AdminTwoPaneContent(
+            listState = listState,
             state = state,
             onRegistrationPolicyChange = onRegistrationPolicyChange,
             onApproveUserClick = onApproveUserClick,
@@ -519,6 +539,7 @@ private fun AdminContent(
         )
     } else {
         LazyColumn(
+            state = listState,
             modifier =
                 modifier
                     .fillMaxSize()
@@ -526,7 +547,7 @@ private fun AdminContent(
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             contentPadding = PaddingValues(top = 24.dp),
         ) {
-            item {
+            item(key = AdminItem.SERVER_SETTINGS) {
                 ServerSettingsSection(
                     state = state,
                     serverName = serverName,
@@ -541,19 +562,19 @@ private fun AdminContent(
                 )
             }
 
-            item {
+            item(key = AdminItem.RATING_SOURCES) {
                 RatingSourcesGroup(
                     sources = ratingSources,
                     onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
             }
 
-            item {
+            item(key = AdminItem.STORE_REGION) {
                 StoreRegionGroup(region = metadataRegion, onRegionChange = onMetadataRegionChange)
             }
 
             hardcoverSource?.let { source ->
-                item {
+                item(key = AdminItem.HARDCOVER) {
                     HardcoverSourceGroup(status = source, tokenSave = hardcoverTokenSave, actions = hardcoverActions)
                 }
             }
@@ -592,6 +613,7 @@ private fun AdminContent(
 @Suppress("LongParameterList")
 @Composable
 private fun AdminTwoPaneContent(
+    listState: LazyListState,
     state: AdminUiState.Ready,
     onRegistrationPolicyChange: (RegistrationPolicy) -> Unit,
     onApproveUserClick: (AdminUserInfo) -> Unit,
@@ -633,11 +655,12 @@ private fun AdminTwoPaneContent(
         horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
     ) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1.1f),
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             contentPadding = PaddingValues(top = 24.dp),
         ) {
-            item {
+            item(key = AdminItem.SERVER_SETTINGS) {
                 ServerSettingsSection(
                     state = state,
                     serverName = serverName,
@@ -652,19 +675,19 @@ private fun AdminTwoPaneContent(
                 )
             }
 
-            item {
+            item(key = AdminItem.RATING_SOURCES) {
                 RatingSourcesGroup(
                     sources = ratingSources,
                     onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
             }
 
-            item {
+            item(key = AdminItem.STORE_REGION) {
                 StoreRegionGroup(region = metadataRegion, onRegionChange = onMetadataRegionChange)
             }
 
             hardcoverSource?.let { source ->
-                item {
+                item(key = AdminItem.HARDCOVER) {
                     HardcoverSourceGroup(status = source, tokenSave = hardcoverTokenSave, actions = hardcoverActions)
                 }
             }
@@ -959,6 +982,43 @@ private fun ratingSourceHealthLine(status: RatingSourceStatus): String {
 // Users section (users table + pending registrations + pending invites)
 // ---------------------------------------------------------------------------
 
+/** The keys of Admin's settings-and-users list, which keep a scroll position when a group arrives late. */
+private object AdminItem {
+    const val SERVER_SETTINGS = "server-settings"
+    const val RATING_SOURCES = "rating-sources"
+    const val STORE_REGION = "store-region"
+    const val HARDCOVER = "hardcover"
+    const val USERS = "users"
+    const val PENDING_REGISTRATIONS = "pending-registrations"
+    const val PENDING_INVITES = "pending-invites"
+    const val PASSWORD_RESETS = "password-resets"
+}
+
+/** The settings groups always above Users: server settings, rating sources and the store region. */
+private const val SETTINGS_GROUPS = 3
+
+/**
+ * Scrolls [listState] once to the section [focus] names. The pending registrations sit after the
+ * settings groups, Hardcover's when it is shown, and Users; a group that arrives after the landing
+ * keeps its place by key. Stays at the top when the registration policy hides the section.
+ */
+@Composable
+private fun LandOnFocus(
+    listState: LazyListState,
+    focus: AdminFocus,
+    state: AdminUiState.Ready,
+    hasHardcoverSource: Boolean,
+) {
+    var landed by rememberSaveable { mutableStateOf(false) }
+    val showsPending = state.registrationPolicy == RegistrationPolicy.APPROVAL_QUEUE
+    LaunchedEffect(focus, showsPending) {
+        if (landed || focus != AdminFocus.PENDING_REGISTRATIONS || !showsPending) return@LaunchedEffect
+        val hardcover = if (hasHardcoverSource) 1 else 0
+        listState.scrollToItem(SETTINGS_GROUPS + hardcover + 1)
+        landed = true
+    }
+}
+
 private fun LazyListScope.usersSection(
     state: AdminUiState.Ready,
     onUserClick: (String) -> Unit,
@@ -971,7 +1031,7 @@ private fun LazyListScope.usersSection(
     onDenyPasswordResetClick: (PasswordResetRequest) -> Unit,
     onInviteClick: () -> Unit,
 ) {
-    item {
+    item(key = AdminItem.USERS) {
         UsersGroup(
             state = state,
             onUserClick = onUserClick,
@@ -981,7 +1041,7 @@ private fun LazyListScope.usersSection(
     }
 
     if (state.registrationPolicy == RegistrationPolicy.APPROVAL_QUEUE) {
-        item {
+        item(key = AdminItem.PENDING_REGISTRATIONS) {
             PendingRegistrationsGroup(
                 state = state,
                 onApproveUserClick = onApproveUserClick,
@@ -991,7 +1051,7 @@ private fun LazyListScope.usersSection(
     }
 
     if (state.pendingInvites.isNotEmpty()) {
-        item {
+        item(key = AdminItem.PENDING_INVITES) {
             PendingInvitesGroup(
                 state = state,
                 onCopyInviteClick = onCopyInviteClick,
@@ -1004,7 +1064,7 @@ private fun LazyListScope.usersSection(
     // relocates this into a rewritten people-management surface. Always visible (not gated
     // on emptiness like PendingInvitesGroup) so an admin knows where to look even when the
     // queue is empty.
-    item {
+    item(key = AdminItem.PASSWORD_RESETS) {
         PasswordResetsGroup(
             state = state,
             onApproveClick = onApprovePasswordResetClick,

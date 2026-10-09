@@ -52,6 +52,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.features.admin.AdminFocus
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.design.transitions.LocalHeroTransitionScope
@@ -588,9 +589,8 @@ internal fun ShortcutAction.screensAboveShell(): List<Route> =
         is ShortcutAction.NavigateToAbsImport -> listOf(AdminBackups, ImportFlow)
 
         // Admin carries the pending list and its approve/deny controls — the point of the
-        // notification is to make the decision reachable in one tap, so it has to open somewhere
-        // the decision can actually be made.
-        is ShortcutAction.NavigateToPendingApprovals -> listOf(Admin)
+        // notification is to make the decision reachable in one tap, so it opens on that list.
+        is ShortcutAction.NavigateToPendingApprovals -> listOf(Admin(focus = AdminFocus.PENDING_REGISTRATIONS))
 
         is ShortcutAction.NavigateToUserProfile -> listOf(UserProfile(userId))
 
