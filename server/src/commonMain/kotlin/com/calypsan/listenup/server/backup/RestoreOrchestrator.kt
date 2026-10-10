@@ -93,6 +93,7 @@ class RestoreOrchestrator(
                 // cancellation can propagate.
                 withContext(NonCancellable) {
                     eventBus.tryEmit(BackupEvent.Swapping)
+                    val revisionBeforeRestore = dbHandle.revisionCounter()
                     dbHandle.closePool()
                     // Deliberate: inside NonCancellable every throwable, an explicit cancellation included,
                     // must roll back and reopen the pool — see the catch below.
@@ -109,14 +110,15 @@ class RestoreOrchestrator(
                         // worker ever queries an old-schema file with today's SQL.
                         eventBus.tryEmit(BackupEvent.Migrating)
                         val migratedTo = dbHandle.migrate() ?: manifest.schemaVersion
+                        revisionBeforeRestore?.let { dbHandle.raiseRevisionCounterTo(it) }
                         dbHandle.reopenPool()
 
                         eventBus.tryEmit(BackupEvent.RestoreComplete(manifest.includesImages))
 
-                        // The DB was swapped wholesale; connected devices' cursors are AHEAD of the
-                        // restored revision counter, so neither forward catch-up nor CursorStale can
-                        // see the change. Broadcast the digest-reconcile accelerator so every
-                        // connected client re-derives, exactly like ImportApplier's bulk path.
+                        // The revision counter was carried forward, so new writes reach every client
+                        // normally. The restored rows still differ from what connected clients hold, and
+                        // only a digest reconcile finds that: broadcast the accelerator so every connected
+                        // client re-derives, exactly like ImportApplier's bulk path.
                         changeBus.broadcastControl(SyncControl.LibraryDataChanged)
 
                         deleteRecursively(paths.rollbackDir)

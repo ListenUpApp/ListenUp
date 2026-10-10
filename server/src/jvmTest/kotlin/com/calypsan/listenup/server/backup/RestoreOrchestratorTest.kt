@@ -83,6 +83,44 @@ class RestoreOrchestratorTest :
             }
         }
 
+        test("a restore leaves the revision counter at or above where it was") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fun counter() =
+                        fixture.handle.queryScalarInt("SELECT value FROM sync_meta WHERE key = 'revision_counter'")
+                    fixture.handle.execSql("UPDATE sync_meta SET value = 10 WHERE key = 'revision_counter'")
+                    fixture.archive.create("rev1", includeImages = false, onEvent = {})
+                    // Writes after the backup: clients have now seen revisions up to 500.
+                    fixture.handle.execSql("UPDATE sync_meta SET value = 500 WHERE key = 'revision_counter'")
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("rev1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    counter() shouldBe 500
+                }
+            }
+        }
+
+        test("restoring a backup that is ahead of the live counter keeps the backup's value") {
+            // The other half of max(): a counter that was reset must not drag the restored one down.
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fun counter() =
+                        fixture.handle.queryScalarInt("SELECT value FROM sync_meta WHERE key = 'revision_counter'")
+                    fixture.handle.execSql("UPDATE sync_meta SET value = 500 WHERE key = 'revision_counter'")
+                    fixture.archive.create("rev2", includeImages = false, onEvent = {})
+                    fixture.handle.execSql("UPDATE sync_meta SET value = 10 WHERE key = 'revision_counter'")
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("rev2"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    counter() shouldBe 500
+                }
+            }
+        }
+
         test("round-trip restore: db returns to pre-backup state after restore") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
