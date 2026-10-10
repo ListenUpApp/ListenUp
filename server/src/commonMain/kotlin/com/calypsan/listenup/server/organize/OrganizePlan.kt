@@ -48,6 +48,9 @@ data class MovePlan(
  * nothing else — never a self-move of the untouched files, which the broker would reject as an
  * ambiguous source-and-destination-both-exist move.
  *
+ * [fromRootRelPath] is the book's stored `root_rel_path` at plan time — [fromDir] relative to its
+ * library folder root — which bounds the executor's empty-ancestor cleanup at that root.
+ *
  * [toRootRelPath] is the value [MoveManifestExecutor] writes back to `books.root_rel_path` (for an
  * in-place rename, the path it already had), and [audioRename] the filename it writes back
  * alongside it (null when nothing is renamed).
@@ -55,6 +58,7 @@ data class MovePlan(
 data class MovePlanEntry(
     val bookId: String,
     val fromDir: Path,
+    val fromRootRelPath: String,
     val toDir: Path,
     val toRootRelPath: String,
     val files: List<FileMove>,

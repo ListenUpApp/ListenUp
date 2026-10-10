@@ -5,12 +5,14 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
 import com.calypsan.listenup.server.librarywrite.WriteManifest
 import com.calypsan.listenup.server.librarywrite.WriteOp
+import com.calypsan.listenup.server.librarywrite.ancestorPruneOps
 import com.calypsan.listenup.server.services.BookRepository
 
 /**
  * Executes one [MovePlanEntry]: moves every file in [MovePlanEntry.files] via
  * [LibraryWriteBroker] (journaled, watcher-suppressed, crash-resumable), deletes the now-empty
- * source folder, and — only once the broker reports the manifest fully applied — rewrites the
+ * source folder and every ancestor the move left empty below the library folder root
+ * ([ancestorPruneOps], shared with Delete Book), and — only once the broker reports the manifest fully applied — rewrites the
  * book's `root_rel_path` — and, for a single-file book the plan renamed, its
  * `book_audio_files.filename` — in a single narrow DB transaction
  * ([BookRepository.moveRootRelPath]).
@@ -56,6 +58,10 @@ class MoveManifestExecutor(
                     add(WriteOp.EnsureDir(entry.toDir))
                     entry.files.forEach { add(WriteOp.MoveFile(it.from, it.to)) }
                     add(WriteOp.DeleteDirIfEmpty(entry.fromDir))
+                    // The folders above it too: a moved-out book was often the last occupant of its
+                    // series and author folders, and leaving them standing strands empty husks
+                    // that describe nothing. Bounded at the library folder root.
+                    addAll(ancestorPruneOps(entry.fromDir, entry.fromRootRelPath))
                 },
         )
 }
