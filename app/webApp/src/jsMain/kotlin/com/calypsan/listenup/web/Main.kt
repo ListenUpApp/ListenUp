@@ -27,6 +27,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.web.lifecycle.Playhead
 import com.calypsan.listenup.web.lifecycle.flushPositionWhenHidden
 import com.calypsan.listenup.web.lifecycle.keepCoverCookieFreshWhileVisible
+import com.calypsan.listenup.web.lifecycle.lapseWhenAnotherTabSignsOut
 import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
@@ -269,7 +270,8 @@ private fun bootInto(mount: Element) {
 
 /**
  * Starts the tab-lifetime behaviours that outlive any one screen: saving the playhead when the tab
- * hides, recovering realtime sync on return, and keeping the cover cookie fresh.
+ * hides, recovering realtime sync on return, ending the session when another tab signs out, and
+ * keeping the cover cookie fresh.
  */
 private fun startLifecycleHooks(
     koin: Koin,
@@ -290,6 +292,12 @@ private fun startLifecycleHooks(
     recoverSyncOnReturn(
         recover = { koin.get<SyncRepository>().recoverRealtime() },
         isVisible = { document.asDynamic().visibilityState == "visible" },
+        scope = scope,
+    )
+    // Another tab signing out of the shared session ends this tab's view of it at once.
+    lapseWhenAnotherTabSignsOut(
+        isSignedIn = { koin.get<AuthSession>().authState.value is AuthState.Authenticated },
+        lapse = { koin.get<AuthSession>().clearSessionCredentials() },
         scope = scope,
     )
     // Covers authenticate with a cookie the DOM sends on its own; keep its token usable while

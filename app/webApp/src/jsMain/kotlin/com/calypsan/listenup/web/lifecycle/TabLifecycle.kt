@@ -122,5 +122,53 @@ internal fun recoverSyncOnReturn(
     }
 }
 
+/**
+ * Lapses this tab's session the moment another tab on the origin removes the refresh token, and
+ * returns the disposer.
+ *
+ * Two tabs share one `localStorage`, and credentials are read from it every time, so a tab that
+ * asks for them finds what the other left. A tab that is only showing a screen asks for nothing,
+ * though: it would stay signed in on screen until its next request failed, which can be a long
+ * time on an idle tab. The browser tells every OTHER document when a storage entry changes (a
+ * tab never hears about its own writes, so this cannot fire on this tab's own refresh, which
+ * writes the token rather than removing it).
+ *
+ * @param isSignedIn whether this tab currently shows a signed-in session. A parameter so a removal
+ *   that arrives while signed out (a second tab signing out of nothing) does nothing.
+ * @param lapse how this tab ends the session it holds; the same local sign-out a refused refresh
+ *   token goes through.
+ * @param scope the lifetime the lapse runs on.
+ */
+internal fun lapseWhenAnotherTabSignsOut(
+    isSignedIn: () -> Boolean,
+    lapse: suspend () -> Unit,
+    scope: CoroutineScope,
+): () -> Unit {
+    val onStorage: (Event) -> Unit = { event ->
+        // Dynamic reads: only the key and the new value matter, and `clear()` reports a null key.
+        val key = event.asDynamic().key as? String
+        val newValue = event.asDynamic().newValue as? String
+        if (key == REFRESH_TOKEN_STORAGE_KEY && newValue == null && isSignedIn()) {
+            scope.launch {
+                try {
+                    lapse()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    console.warn("Could not end the session another tab signed out of: ${e.message}")
+                }
+            }
+        }
+    }
+    window.addEventListener("storage", onStorage)
+    return { window.removeEventListener("storage", onStorage) }
+}
+
+/**
+ * The `localStorage` key `BrowserSecureStorage` keeps the refresh token under: its default
+ * namespace, a dot, then `refresh_token`. A spec pins it against the real storage.
+ */
+internal const val REFRESH_TOKEN_STORAGE_KEY = "listenup.refresh_token"
+
 /** The one edge both registrations share: the tab changing from watched to not, or back. */
 private const val VISIBILITY_CHANGE = "visibilitychange"
