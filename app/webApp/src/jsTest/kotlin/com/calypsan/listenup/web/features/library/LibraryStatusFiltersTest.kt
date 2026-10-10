@@ -40,6 +40,8 @@ class LibraryStatusFiltersTest :
             libraryCountLine(all = 1286, totalDurationMs = 41L * 86_400_000L + 3_600_000L) shouldBe "1,286 books · 41 days of listening"
             libraryCountLine(all = 1, totalDurationMs = 86_400_000L) shouldBe "1 book · 1 day of listening"
             libraryCountLine(all = 3, totalDurationMs = 5L * 3_600_000L) shouldBe "3 books · 5 hours of listening"
+            libraryCountLine(all = 2, totalDurationMs = 45L * 60_000L) shouldBe "2 books · 45 minutes of listening"
+            libraryCountLine(all = 2, totalDurationMs = 30_000L) shouldBe "2 books"
         }
 
         test("the last filter is replayed into the next session, so Book Detail and back keeps it") {

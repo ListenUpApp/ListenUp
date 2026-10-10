@@ -17,6 +17,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private const val MS_PER_DAY = 86_400_000L
 private const val MS_PER_HOUR = 3_600_000L
+private const val MS_PER_MINUTE = 60_000L
 
 /** Status filters with whole-library counts (board `Library-WebDesktop`): one row, scrolling on a phone. */
 @Composable
@@ -92,21 +93,23 @@ internal fun BookStatusFilter.webLabel(): String =
         BookStatusFilter.FINISHED -> "Finished"
     }
 
-/** "1,286 books · 41 days of listening" (spec §3.1.1 L4). Whole days, or whole hours under a day. */
+/**
+ * "1,286 books · 41 days of listening" (spec §3.1.1 L4). Whole days; whole hours under a day; whole
+ * minutes under an hour; and no span at all under a minute, rather than "0 hours of listening".
+ */
 internal fun libraryCountLine(
     all: Int,
     totalDurationMs: Long,
 ): String {
     val books = if (all == 1) "1 book" else "${groupedCount(all)} books"
-    val days = totalDurationMs / MS_PER_DAY
     val span =
-        if (days >= 1) {
-            if (days == 1L) "1 day of listening" else "$days days of listening"
-        } else {
-            val hours = totalDurationMs / MS_PER_HOUR
-            if (hours == 1L) "1 hour of listening" else "$hours hours of listening"
-        }
-    return "$books · $span"
+        listOf(MS_PER_DAY to "day", MS_PER_HOUR to "hour", MS_PER_MINUTE to "minute")
+            .firstOrNull { (unit, _) -> totalDurationMs >= unit }
+            ?.let { (unit, name) ->
+                val count = totalDurationMs / unit
+                if (count == 1L) "1 $name of listening" else "$count ${name}s of listening"
+            }
+    return if (span == null) books else "$books · $span"
 }
 
 /** Thousands separators, English only — the web's copy is English throughout. */
