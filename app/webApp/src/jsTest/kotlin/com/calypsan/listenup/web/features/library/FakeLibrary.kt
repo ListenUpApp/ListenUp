@@ -5,6 +5,9 @@ import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.SyncState
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
+import com.calypsan.listenup.client.presentation.library.BookStatusCounts
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
@@ -42,6 +45,10 @@ fun contractLibrary(
     narrators: List<ContributorWithBookCount> = emptyList(),
     authorsSortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
     narratorsSortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
+    statusFilter: BookStatusFilter = BookStatusFilter.ALL,
+    // Every listed book is part-read unless a spec says otherwise, so `isEmpty` reads the books.
+    statusCounts: BookStatusCounts =
+        BookStatusCounts(all = books.size, inProgress = books.size, notStarted = 0, finished = 0),
 ): LibraryUiState.Loaded =
     LibraryUiState.Loaded(
         booksSortState = SortState(SortCategory.TITLE, SortDirection.ASCENDING),
@@ -63,6 +70,13 @@ fun contractLibrary(
         isServerScanning = false,
         scanProgress = null,
         isBuildingInitialLibrary = isBuildingInitialLibrary,
+        statusFilter = statusFilter,
+        statusCounts = statusCounts,
+        bookStatus =
+            books.associate {
+                it.id to BookCardStatus.InProgress(fraction = PARTIAL_PROGRESS, timeLeftMs = it.duration / 2)
+            },
+        totalDurationMs = books.sumOf { it.duration },
     )
 
 /**

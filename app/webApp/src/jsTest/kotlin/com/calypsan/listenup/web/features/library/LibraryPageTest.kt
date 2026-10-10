@@ -3,6 +3,9 @@ package com.calypsan.listenup.web.features.library
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.SyncState
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
+import com.calypsan.listenup.client.presentation.library.BookStatusCounts
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -303,6 +306,40 @@ class LibraryPageTest :
             root.textContent!! shouldContain "Building your library"
         }
 
+        // Spec §3.1.1 / Risk 1: a reader with "Finished" selected and nothing finished has a library;
+        // telling them "No books yet" would say their books had gone.
+        test("a filter that matches nothing says so, and Show all books clears it") {
+            val sent = mutableListOf<LibraryUiEvent>()
+            val state =
+                loadedWith(
+                    emptyList(),
+                    statusFilter = BookStatusFilter.FINISHED,
+                    statusCounts = BookStatusCounts(all = 3, inProgress = 1, notStarted = 2, finished = 0),
+                )
+            val root =
+                mounts.mount { LibraryPage(state = state, onEvent = { sent += it }, onOpenBook = {}, onSelectFacet = {}) }
+
+            root.textContent!! shouldContain "No finished books yet."
+            root.textContent!! shouldNotContain "No books yet"
+            root.querySelectorAll(".lib-filters .pill").length shouldBe 4
+            (root.querySelector(".lib-show-all") as HTMLElement).click()
+
+            sent shouldBe listOf(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.ALL))
+        }
+
+        test("the header counts the whole library and its listening time") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune"), bookItem("b2", "Ubik"))))
+
+            root.querySelector(".page-sub")!!.textContent shouldBe "2 books · 2 hours of listening"
+        }
+
+        test("an empty library offers no filters and no count") {
+            val root = render(loadedWith(emptyList()))
+
+            (root.querySelector(".lib-filters") == null) shouldBe true
+            (root.querySelector(".page-sub") == null) shouldBe true
+        }
+
         test("loading renders the placeholder, not an empty library") {
             val root = render(LibraryUiState.Loading)
 
@@ -324,6 +361,9 @@ private fun loadedWith(
     syncing: Boolean = false,
     building: Boolean = false,
     sort: SortCategory = SortCategory.TITLE,
+    statusFilter: BookStatusFilter = BookStatusFilter.ALL,
+    statusCounts: BookStatusCounts =
+        BookStatusCounts(all = books.size, inProgress = 0, notStarted = books.size, finished = 0),
 ): LibraryUiState.Loaded =
     LibraryUiState.Loaded(
         booksSortState = SortState(sort, SortDirection.ASCENDING),
@@ -345,6 +385,10 @@ private fun loadedWith(
         isServerScanning = false,
         scanProgress = null,
         isBuildingInitialLibrary = building,
+        statusFilter = statusFilter,
+        statusCounts = statusCounts,
+        bookStatus = books.associate { it.id to BookCardStatus.NotStarted(durationMs = it.duration) },
+        totalDurationMs = books.sumOf { it.duration },
     )
 
 /** A minimal book — only `id`, `title` and `authors` reach this page. */

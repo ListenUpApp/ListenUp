@@ -1157,3 +1157,11 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .bke-held-note { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--sp-8);
   font-size: var(--fs-small); color: var(--ink-2); }
 .luw .bke-held-note svg { color: var(--warn); flex: none; }
+
+/* Library status filters (board Library-WebDesktop): one row of counted pills under the facets.
+   The pressed pill's colour is `.pill.on`'s coral, the Library's action colour. */
+.lib-filters { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+@media (max-width: 759px) {
+  .lib-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .lib-filters .pill { flex-shrink: 0; }
+}

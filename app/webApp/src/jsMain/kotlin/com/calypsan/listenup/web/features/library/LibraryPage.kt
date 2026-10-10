@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -87,7 +88,14 @@ fun LibraryPage(
     // strand them for good. Sorting is the exception, and stays with the loaded branch: offering to
     // reorder nothing is an affordance whose only outcome is nothing.
     Div(attrs = { classes("lib-header") }) {
-        PageHeader(title = "Library") {
+        PageHeader(
+            title = "Library",
+            // "1,286 books · 41 days of listening": the whole library, whatever the filter.
+            subtitle =
+                (state as? LibraryUiState.Loaded)
+                    ?.takeIf { it.statusCounts.all > 0 }
+                    ?.let { libraryCountLine(it.statusCounts.all, it.totalDurationMs) },
+        ) {
             // Offered only once there is something to select. Arming selection over an empty grid
             // is an affordance whose only outcome is nothing — the same reason Sort stays with the
             // loaded branch.
@@ -123,6 +131,7 @@ fun LibraryPage(
         is LibraryUiState.Loaded -> {
             LoadedLibrary(
                 state = state,
+                onEvent = onEvent,
                 onOpenBook = onOpenBook,
                 heroBookId = heroBookId,
                 selecting = selecting,
@@ -139,6 +148,7 @@ fun LibraryPage(
 @Suppress("LongParameterList")
 private fun LoadedLibrary(
     state: LibraryUiState.Loaded,
+    onEvent: (LibraryUiEvent) -> Unit,
     onOpenBook: (String) -> Unit,
     heroBookId: String?,
     selecting: Boolean,
@@ -157,8 +167,22 @@ private fun LoadedLibrary(
     // Above the grid and above an empty library alike: an admin whose every new book is held has
     // an empty grid, and the strip is the way in. Selecting turns the grid into a picking surface.
     if (!selecting) LibraryInboxStrip(inbox = inbox, onOpenInbox = onOpenInbox)
-    if (state.books.isEmpty()) {
+    // Filters only over a library that has books: offering to narrow nothing is no offer at all.
+    if (!state.isEmpty && !selecting) {
+        StatusFilterRow(
+            selected = state.statusFilter,
+            counts = state.statusCounts,
+            onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
+        )
+    }
+    // ⛔ `isEmpty` is the LIBRARY having no books; a filter that matches nothing is `isFilteredEmpty`,
+    // and telling that reader "No books yet" would say their library had gone.
+    if (state.isEmpty) {
         EmptyLibrary(isBuilding = state.isBuildingInitialLibrary)
+        return
+    }
+    if (state.isFilteredEmpty) {
+        FilteredEmpty(state.statusFilter) { onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.ALL)) }
         return
     }
 

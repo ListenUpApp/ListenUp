@@ -3,6 +3,7 @@ package com.calypsan.listenup.web
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
@@ -151,5 +152,6 @@ private fun library(): LibraryUiState.Loaded {
         isServerScanning = false,
         scanProgress = null,
         isBuildingInitialLibrary = false,
+        statusCounts = BookStatusCounts(all = books.size, inProgress = 0, notStarted = books.size, finished = 0),
     )
 }
