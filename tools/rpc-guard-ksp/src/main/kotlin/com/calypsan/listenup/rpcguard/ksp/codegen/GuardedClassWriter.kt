@@ -90,13 +90,12 @@ internal object GuardedClassWriter {
             appendLine()
             appendLine("class ${model.simpleName}Guarded(")
             appendLine("    private val delegate: ${model.packageName}.${model.simpleName},")
-            // A service with a streaming method carries the per-connection session-liveness gate (C2):
-            // it re-checks the caller's session on a cadence and severs a revoked stream. Null (the
-            // default) leaves every stream inert — the shape a unit test / non-authed mount gets. A
-            // plain suspend predicate (not a named type) so nothing crosses onto the client export surface.
-            if (hasStreaming) {
-                appendLine("    private val sessionLiveness: (suspend () -> Boolean)? = null,")
-            }
+            // Every guard carries the per-connection session-liveness predicate. Streams re-check it on a
+            // cadence and sever a revoked stream (C2); ordinary calls consult it before reaching the
+            // service, so a revoked session's still-open socket cannot keep calling. Null (the default)
+            // leaves the guard inert — the shape a unit test / non-authed mount gets. A plain suspend
+            // predicate (not a named type) so nothing crosses onto the client export surface.
+            appendLine("    private val sessionLiveness: (suspend () -> Boolean)? = null,")
             appendLine(
                 "    private val log: io.github.oshai.kotlinlogging.KLogger = " +
                     "io.github.oshai.kotlinlogging.KotlinLogging.logger(\"rpc.${model.simpleName}\"),",
@@ -151,7 +150,11 @@ internal object GuardedClassWriter {
         appendLine(
             """            withMdc("service" to "${service.simpleName}", "method" to "${method.name}", "correlationId" to cid) {""",
         )
-        appendLine("                delegate.${method.name}($args)")
+        appendLine("                if (sessionLiveness != null && !sessionLiveness()) {")
+        appendLine("                    AppResult.Failure(com.calypsan.listenup.api.error.AuthError.SessionExpired())")
+        appendLine("                } else {")
+        appendLine("                    delegate.${method.name}($args)")
+        appendLine("                }")
         // Stamp the request's correlation id onto a RETURNED domain failure (the escaped-exception
         // path below already stamps its InternalError) and log a concise, PII-free failure line so
         // the operator's log links to the cid the client surfaces. Same package → no import.
