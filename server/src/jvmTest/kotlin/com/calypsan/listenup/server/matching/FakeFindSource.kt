@@ -29,6 +29,11 @@ internal open class FakeFindSource(
 ) : BookFindSource {
     val asked = mutableListOf<FindLookup>()
 
+    /** The state this source's answer depends on beyond the lookup; change it to say the answer changed. */
+    var discriminator: String? = null
+
+    override suspend fun cacheDiscriminator(lookup: FindLookup): String? = discriminator
+
     override suspend fun findAvailability(): FindAvailability = availability
 
     override suspend fun findBooks(

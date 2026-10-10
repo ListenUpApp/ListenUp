@@ -26,11 +26,12 @@ internal class FindCache(
     ttl: Duration = FIND_CACHE_TTL,
     capacity: Int = FIND_CACHE_CAPACITY,
 ) : AnswerCache<FindCache.Key, FindAnswer>(clock, ttl, capacity) {
-    /** One source's answer to one lookup, in one store when the source has stores. */
+    /** One source's answer to one lookup, in one store when the source has stores, and in one [discriminator] state. */
     data class Key(
         val source: MetadataProviderId,
         val lookup: FindLookup,
         val region: String?,
+        val discriminator: String? = null,
     )
 }
 

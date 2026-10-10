@@ -65,6 +65,17 @@ internal class HardcoverFind(
         return AppResult.Success(FindAnswer(found.toFoundBooks(order = ids, linked = linked.toSet()), steps))
     }
 
+    /**
+     * The Hardcover book this library book is linked to when the lookup carries no Hardcover ref of its own — the
+     * state [find] reads beyond the lookup, so a link made or removed never meets an answer from before it.
+     */
+    suspend fun cacheDiscriminator(lookup: FindLookup): String? =
+        if (lookup.identify && lookup.keys.none { it.id.toLongOrNull() != null }) {
+            links.catalogBookFor(lookup.bookId)?.toString()
+        } else {
+            null
+        }
+
     /** The book's Hardcover refs, else anyone's link for it. */
     private suspend fun linkedBooks(lookup: FindLookup): List<Long> =
         lookup.keys.mapNotNull { it.id.toLongOrNull() }.ifEmpty { listOfNotNull(links.catalogBookFor(lookup.bookId)) }

@@ -158,6 +158,30 @@ class HardcoverFindTest :
             }
         }
 
+        test("the cache discriminator is the book's linked Hardcover id, so a new link is a new cache key") {
+            findTest {
+                rig.sql.seedTestLibraryAndFolder()
+                rig.sql.seedTestBook("book-1")
+                rig.sql.seedTestUser("u1")
+                source.cacheDiscriminator(lookup()) shouldBe null
+
+                links.linkManually("u1", "book-1", PHM.id, null)
+
+                source.cacheDiscriminator(lookup()) shouldBe "427578"
+            }
+        }
+
+        test("a book's own Hardcover ref needs no discriminator, since the link is not read") {
+            findTest {
+                rig.sql.seedTestLibraryAndFolder()
+                rig.sql.seedTestBook("book-1")
+                rig.sql.seedTestUser("u1")
+                links.linkManually("u1", "book-1", PHM.id, null)
+
+                source.cacheDiscriminator(lookup(keys = listOf(FindKey("427578")))) shouldBe null
+            }
+        }
+
         test("'Search by title' never reads a link") {
             findTest {
                 rig.sql.seedTestLibraryAndFolder()
