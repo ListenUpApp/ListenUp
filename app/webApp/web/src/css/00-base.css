@@ -177,6 +177,14 @@
   --dur-slow: 200ms;
   --ease:     ease;
   --ease-out: cubic-bezier(.2,.8,.2,1);
+
+  /* MOTION TOKENS — motion/Motion.kt's three durations and its one curve, mirrored so a CSS
+     transition and a Web Animation share one source. MotionTest fails if the two drift.
+     quick: presses, toggles, icon morphs · enter: things appearing · move: things travelling. */
+  --motion-quick: 120ms;
+  --motion-enter: 180ms;
+  --motion-move: 240ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
 }
 @media (max-width: 759px) {
   :root { --fs-display: 2rem; --fs-h1: 1.625rem; }

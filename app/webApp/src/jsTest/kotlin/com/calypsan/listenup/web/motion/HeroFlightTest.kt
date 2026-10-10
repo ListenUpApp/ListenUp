@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.motion
 
+import com.calypsan.listenup.web.durationOf
+import com.calypsan.listenup.web.motions
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.browser.document
@@ -44,6 +46,7 @@ class HeroFlightTest :
             captureHeroOriginBeforeRouteChange()
             attached.forEach { it.remove() }
             attached.clear()
+            reducedMotionOverride = null
         }
 
         test("a cover captured while it is still on screen flies the tile it returns to") {
@@ -155,6 +158,36 @@ class HeroFlightTest :
             nextFrame()
 
             tile.animationCount() shouldBe 0
+        }
+
+        test("a flight runs for MOVE") {
+            val hero = box(left = 500, top = 100, size = 180)
+            trackHero("book-8", hero)
+            captureHeroOriginBeforeRouteChange()
+
+            val tile = box(left = 280, top = 178, size = 208)
+            flyHeroInto("book-8", CoverSurface.GRID, tile)
+            nextFrame()
+
+            durationOf(tile.motions().single()) shouldBe MotionToken.MOVE.millis
+        }
+
+        test("under reduced motion a flight spends its origin and moves nothing") {
+            reducedMotionOverride = true
+            val hero = box(left = 500, top = 100, size = 180)
+            trackHero("book-9", hero)
+            captureHeroOriginBeforeRouteChange()
+
+            val first = box(left = 280, top = 178, size = 208)
+            flyHeroInto("book-9", CoverSurface.GRID, first)
+            nextFrame()
+            reducedMotionOverride = null
+            val second = box(left = 280, top = 178, size = 208)
+            flyHeroInto("book-9", CoverSurface.GRID, second)
+            nextFrame()
+
+            first.animationCount() shouldBe 0
+            second.animationCount() shouldBe 0
         }
     })
 

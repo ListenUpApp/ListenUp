@@ -99,7 +99,6 @@ internal fun flyHeroInto(
     if (from.surface == surface) return
     if (from.bookId != bookId) return
     origin = null
-    if (prefersReducedMotion()) return
 
     // ⛔ Measured on the NEXT frame, not now. Compose's `ref` fires as the node is created, which
     // can be before the browser has laid it out — `getBoundingClientRect()` then returns zeros, the
@@ -123,21 +122,15 @@ private fun fly(
     // a frame of wasted work and a tiny flicker.
     if (dx == 0.0 && dy == 0.0 && scale == 1.0) return
 
-    val keyframes =
-        arrayOf(
-            js("{}").unsafeCast<Any>().also {
-                it.asDynamic().transform = "translate(${dx}px, ${dy}px) scale($scale)"
-                it.asDynamic().transformOrigin = "top left"
-            },
-            js("{}").unsafeCast<Any>().also {
-                it.asDynamic().transform = "translate(0px, 0px) scale(1)"
-                it.asDynamic().transformOrigin = "top left"
-            },
-        )
-    val options = js("{}")
-    options.duration = FLIGHT_MS
-    options.easing = FLIGHT_EASING
-    element.asDynamic().animate(keyframes, options)
+    animateComposited(
+        element,
+        listOf(
+            Keyframe.transform("translate(${dx}px, ${dy}px) scale($scale)"),
+            Keyframe.transform("translate(0px, 0px) scale(1)"),
+        ),
+        MotionToken.MOVE,
+        transformOrigin = "top left",
+    )
 }
 
 /** Remembers the mounted detail hero, so its position can be read before the page goes away. */
@@ -178,12 +171,3 @@ internal fun captureHeroOriginBeforeRouteChange() {
     }
     recordHeroOrigin(hero.first, CoverSurface.HERO, hero.second)
 }
-
-/** Motion here is decoration; a reader who asked for less of it gets the cover already in place. */
-private fun prefersReducedMotion(): Boolean = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-
-/** Long enough to read as travel rather than a jump, short enough not to delay the page. */
-private const val FLIGHT_MS = 340
-
-/** Decelerating: fast away from the grid, settling into the hero. */
-private const val FLIGHT_EASING = "cubic-bezier(0.2, 0, 0, 1)"
