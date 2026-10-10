@@ -239,7 +239,7 @@ jobs:
 
       - name: Install FFmpeg (seed library + transcoder)
         if: steps.ffmpeg-probe.outputs.present != 'true'
-        timeout-minutes: 16
+        timeout-minutes: 18
         uses: ./.github/actions/apt-install
         with:
           packages: ffmpeg
@@ -337,7 +337,7 @@ jobs:
 
       - name: Install FFmpeg (transcoder drift gate)
         if: steps.ffmpeg-probe.outputs.present != 'true'
-        timeout-minutes: 16
+        timeout-minutes: 18
         uses: ./.github/actions/apt-install
         with:
           packages: ffmpeg
@@ -591,11 +591,12 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-konan-
 
-      # The cap is 16m rather than 6m because a cap BELOW one attempt's worst case is not a guard,
+      # The cap is 18m rather than 6m because a cap BELOW one attempt's worst case is not a guard,
       # it is a guillotine: at 6m the 2026-08-19 mirror hang killed the step mid-attempt-1 and the
-      # retries this loop exists for never ran at all. The ceiling must clear all three attempts.
+      # retries this loop exists for never ran at all. The ceiling must clear all three attempts and
+      # the dpkg recovery between them: 3 × (60s + 210s) + 2 × 60s + 30s of backoff = 16m.
       - name: Install native link dependencies (libargon2 + libsqlite3 + libcurl)
-        timeout-minutes: 16
+        timeout-minutes: 18
         uses: ./.github/actions/apt-install
         with:
           packages: libargon2-dev libsqlite3-dev libcurl4-openssl-dev
