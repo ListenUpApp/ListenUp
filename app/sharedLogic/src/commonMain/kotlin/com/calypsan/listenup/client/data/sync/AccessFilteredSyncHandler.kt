@@ -12,8 +12,7 @@ import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
  * calls [pruneTo] to evict every locally-live row that is no longer accessible — closing
  * the gap where a revoked share would otherwise leave inaccessible rows in Room.
  *
- * Implemented only by the five access-gated handlers (`books`, `activities`, and the three
- * collection domains). The engine discovers them via
+ * Implemented by every domain that declares an `AccessGate`. The engine discovers them via
  * [com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry.accessFilteredHandlers].
  */
 internal interface AccessFilteredSyncHandler {
