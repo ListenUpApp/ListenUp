@@ -1,11 +1,15 @@
 package com.calypsan.listenup.web.motion
 
+import com.calypsan.listenup.web.nav.whenScrollSettled
 import kotlinx.browser.window
+import org.jetbrains.compose.web.attributes.AttrsScope
 import org.w3c.dom.Element
 
 /**
- * A Flutter-`Hero`-style flight for the book cover: the tile the reader tapped appears to travel
- * into the detail page's hero, and back again on return.
+ * A Flutter-`Hero`-style flight for a shared element: the tile the reader tapped appears to travel
+ * into the detail page's hero, and back again on return. Book covers, series covers and contributor
+ * avatars all fly this way, told apart by a key ([seriesHeroKey], [contributorHeroKey]; a book's key
+ * is its id).
  *
  * ⛔ **Deliberately NOT a View Transition, despite that being what the API is for.** The browser's
  * shared-element transition needs the DOM change to happen inside its update callback, and
@@ -16,20 +20,24 @@ import org.w3c.dom.Element
  * Applying the change *before* the call fails the other way, because Compose flushes it
  * synchronously and the "old" snapshot is then already the new page.
  *
- * So the flight is measured and animated directly: record where the cover started, and when the
- * destination cover mounts, run it from there to where it now is. That is the FLIP technique, it
- * predates View Transitions, and it does not care when any framework renders.
+ * So the flight is measured and animated directly: record where the element started, and when the
+ * destination mounts, run it from there to where it now is. That is the FLIP technique, it predates
+ * View Transitions, and it does not care when any framework renders. It goes through
+ * [animateComposited], so it is transform-only, runs for [MotionToken.MOVE], and under reduced motion
+ * the element is simply already in place.
  *
- * ⛔ Nor does anything else here. The page crossfade used to be a View Transition and was
- * removed for the same reason (see `WebAppRoot`'s note on the library grid) — it is NOT waiting
- * to be re-enabled, and this file used to claim otherwise. Page changes now fade through
- * [PageFade], which drives the same Web Animations API this flight does and likewise never asks
- * the browser to own the moment the DOM changes.
+ * ⛔ **It measures the settled page.** On Back the reader's scroll is restored over a few frames
+ * (`ScrollMemory.kt`), and on a link the new page starts at the top; a flight measured before that
+ * would land where the tile *was*. So arrival waits for [whenScrollSettled], then one more frame.
+ *
+ * ⛔ **It flies only into a connected, on-screen element** and otherwise leaves the origin alone. A
+ * virtualised grid briefly renders a stand-in screenful from the top before scrolling to the reader's
+ * place; the real tile mounts again after the scroll and is the one that flies.
  */
 private var origin: Origin? = null
 
 /**
- * Which surface a cover is on. The flight is always between the two, never within one — without
+ * Which surface an element is on. The flight is always between the two, never within one — without
  * that, setting the grid's hero id made the grid tile's own arrival hook fire first and consume the
  * origin it had just recorded, leaving the real destination nothing to fly from.
  */
@@ -39,73 +47,85 @@ internal enum class CoverSurface {
 }
 
 /**
- * The detail page's hero cover, while it is mounted. There is only ever one.
+ * The detail page's hero, while it is mounted. There is only ever one.
  *
  * Held so its position can be read on the way *out* of the page — see
  * [captureHeroOriginBeforeRouteChange] for why disposal is too late to read it.
  */
 private var mountedHero: Pair<String, Element>? = null
 
-/** Where a cover was, on which surface, at the moment it was last seen. */
+/** Elements a flight has been promised to and has not yet started on. See [isLanding]. */
+private val landing = mutableListOf<Element>()
+
+/** Where an element was, on which surface, at the moment it was last seen. */
 private data class Origin(
-    val bookId: String,
+    val key: String,
     val surface: CoverSurface,
     val left: Double,
     val top: Double,
     val width: Double,
 )
 
+/** A series' flight key — namespaced so series "7" never flies into book "7"'s tile. */
+internal fun seriesHeroKey(seriesId: String): String = "series:$seriesId"
+
+/** A contributor's flight key. */
+internal fun contributorHeroKey(contributorId: String): String = "contributor:$contributorId"
+
 /**
- * Remembers where [element] is on screen, so the matching cover on the next page can fly from here.
+ * Remembers where [element] is on screen, so the matching element on the next page can fly from here.
  *
  * Recorded at click time rather than read later because by the time the destination mounts, this
  * element is gone — the grid has unmounted, and a rect measured from a detached node is zero.
  */
 internal fun recordHeroOrigin(
-    bookId: String,
+    key: String,
     surface: CoverSurface,
     element: Element,
 ) {
     val rect = element.getBoundingClientRect()
     val width: Double = rect.width
     if (width <= 0.0) return
-    origin =
-        Origin(
-            bookId = bookId,
-            surface = surface,
-            left = rect.left,
-            top = rect.top,
-            width = width,
-        )
+    origin = Origin(key = key, surface = surface, left = rect.left, top = rect.top, width = width)
 }
 
 /**
- * Flies [element] in from wherever [recordHeroOrigin] last saw this book's cover, if that was the
- * book the reader just tapped.
+ * Flies [element] in from wherever [recordHeroOrigin] last saw the element keyed [key], if that is the
+ * one the reader just left.
  *
- * Consumes the origin: a flight happens once, on arrival. Without that, a later re-render of the
- * same page would replay it, and the cover would twitch every time the book's data changed.
+ * Consumes the origin on the flight it starts: a flight happens once, on arrival. Without that, a
+ * later re-render of the same page would replay it, and the element would twitch every time the data
+ * behind it changed.
  */
 internal fun flyHeroInto(
-    bookId: String,
+    key: String,
     surface: CoverSurface,
     element: Element,
 ) {
     val from = origin ?: return
     // ⛔ Same-surface arrivals must NOT consume the origin. Opening a book marks the tapped tile as
     // the hero, which re-renders it and fires its own arrival hook — before the destination has
-    // even mounted. Consuming here left the real hero with nothing to fly from, and because the
-    // tile's own geometry equals the origin, the flight was a no-op that swallowed itself.
+    // even mounted. Consuming here left the real hero with nothing to fly from.
     if (from.surface == surface) return
-    if (from.bookId != bookId) return
-    origin = null
-    if (prefersReducedMotion()) return
+    if (from.key != key) return
+    landing += element
+    // ⛔ Measured after the scroll settles and on the NEXT frame. Compose's `ref` fires as the node
+    // is created, which can be before the browser has laid it out — `getBoundingClientRect()` then
+    // returns zeros and the flight silently never happens.
+    whenScrollSettled { window.requestAnimationFrame { arrive(key, surface, element) } }
+}
 
-    // ⛔ Measured on the NEXT frame, not now. Compose's `ref` fires as the node is created, which
-    // can be before the browser has laid it out — `getBoundingClientRect()` then returns zeros, the
-    // width guard below bails, and the flight silently never happens. That is exactly what it did:
-    // hooking `Element.prototype.animate` recorded not a single call.
-    window.requestAnimationFrame { fly(element, from) }
+private fun arrive(
+    key: String,
+    surface: CoverSurface,
+    element: Element,
+) {
+    landing.removeAll { it === element }
+    val from = origin ?: return
+    if (from.surface == surface || from.key != key) return
+    if (!element.isConnected || !isOnScreen(element)) return
+    origin = null
+    fly(element, from)
 }
 
 private fun fly(
@@ -123,29 +143,29 @@ private fun fly(
     // a frame of wasted work and a tiny flicker.
     if (dx == 0.0 && dy == 0.0 && scale == 1.0) return
 
-    val keyframes =
-        arrayOf(
-            js("{}").unsafeCast<Any>().also {
-                it.asDynamic().transform = "translate(${dx}px, ${dy}px) scale($scale)"
-                it.asDynamic().transformOrigin = "top left"
-            },
-            js("{}").unsafeCast<Any>().also {
-                it.asDynamic().transform = "translate(0px, 0px) scale(1)"
-                it.asDynamic().transformOrigin = "top left"
-            },
-        )
-    val options = js("{}")
-    options.duration = FLIGHT_MS
-    options.easing = FLIGHT_EASING
-    element.asDynamic().animate(keyframes, options)
+    animateComposited(
+        element,
+        listOf(
+            Keyframe.transform("translate(${dx}px, ${dy}px) scale($scale)"),
+            Keyframe.transform("translate(0px, 0px) scale(1)"),
+        ),
+        MotionToken.MOVE,
+        transformOrigin = "top left",
+    )
 }
+
+/**
+ * Whether a flight is about to land on [element] or something inside it. A stagger leaves such an
+ * item alone: fading in a card whose cover is mid-flight would start the flight invisible.
+ */
+internal fun isLanding(element: Element): Boolean = landing.any { it === element || element.contains(it) }
 
 /** Remembers the mounted detail hero, so its position can be read before the page goes away. */
 internal fun trackHero(
-    bookId: String,
+    key: String,
     element: Element,
 ) {
-    mountedHero = bookId to element
+    mountedHero = key to element
 }
 
 /** Forgets [element] as the hero, if it still is one. */
@@ -154,7 +174,7 @@ internal fun releaseHero(element: Element) {
 }
 
 /**
- * Records where the detail hero is right now, so the grid tile it returns to can fly back from it.
+ * Records where the detail hero is right now, so the tile it returns to can fly back from it.
  *
  * ⛔ **Called on route change, NOT from the hero's `onDispose`.** Compose detaches the node during
  * `applyChanges` and dispatches remember-observers afterwards, so by the time an `onDispose` block
@@ -169,21 +189,40 @@ internal fun captureHeroOriginBeforeRouteChange() {
     val hero = mountedHero
     if (hero == null) {
         // Leaving a page that has no hero — so any hero origin still pending belongs to a page
-        // two navigations ago and must not fly. Book → Settings → Library would otherwise have
-        // sailed the cover in from where the detail hero used to be, on a journey nobody made.
-        // A GRID origin survives: the library records one on the click that starts the outbound
-        // flight, and this runs on the very navigation that click triggers.
+        // two navigations ago and must not fly. A GRID origin survives: a tile records one on the
+        // click that starts the outbound flight, and this runs on the very navigation that click
+        // triggers.
         if (origin?.surface == CoverSurface.HERO) origin = null
         return
     }
     recordHeroOrigin(hero.first, CoverSurface.HERO, hero.second)
 }
 
-/** Motion here is decoration; a reader who asked for less of it gets the cover already in place. */
-private fun prefersReducedMotion(): Boolean = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+/**
+ * Makes this element a detail page's hero for [key]: it flies in from the tapped tile on arrival,
+ * and is what the tile flies back from when the reader leaves.
+ */
+internal fun AttrsScope<*>.heroTarget(key: String) {
+    ref { element ->
+        flyHeroInto(key, CoverSurface.HERO, element)
+        // Tracked, not measured: the return leg's origin is read at route-change time, while this
+        // node is still laid out. See [captureHeroOriginBeforeRouteChange].
+        trackHero(key, element)
+        onDispose { releaseHero(element) }
+    }
+}
 
-/** Long enough to read as travel rather than a jump, short enough not to delay the page. */
-private const val FLIGHT_MS = 340
+/** Makes this element the grid-side end of [key]'s flight: the hero flies home into it on return. */
+internal fun AttrsScope<*>.heroTile(key: String) {
+    ref { element ->
+        flyHeroInto(key, CoverSurface.GRID, element)
+        onDispose { }
+    }
+}
 
-/** Decelerating: fast away from the grid, settling into the hero. */
-private const val FLIGHT_EASING = "cubic-bezier(0.2, 0, 0, 1)"
+/** Specs only: forgets every origin, hero and pending landing. Production never calls it. */
+internal fun forgetHeroFlight() {
+    origin = null
+    mountedHero = null
+    landing.clear()
+}

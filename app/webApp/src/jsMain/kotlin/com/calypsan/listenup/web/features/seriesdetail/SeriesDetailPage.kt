@@ -23,12 +23,14 @@ import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
+import com.calypsan.listenup.web.motion.staggerChildrenOnArrival
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.motion.seriesHeroKey
 
 /**
  * Series Detail — a series in reading order, over the shared
@@ -159,7 +161,10 @@ private fun ReadyContent(
             GroupedBooks(state, actions)
         } else {
             // A flat page is one section, shown exactly as before the hierarchy: no heading.
-            Div(attrs = { classes("sd-books") }) {
+            Div(attrs = {
+                classes("sd-books")
+                staggerChildrenOnArrival()
+            }) {
                 state.books.forEach { book ->
                     key(book.id.value) {
                         SeriesBookRow(
@@ -189,6 +194,7 @@ private fun Hero(
             imageUrl = first?.let { coverUrl(it.id.value, it.coverHash, COVER_RUNG) },
             size = COVER_SIZE,
             radius = COVER_RADIUS,
+            heroKey = seriesHeroKey(state.seriesId),
             decorative = true,
         )
         Div(attrs = { classes("sd-tblock") }) {

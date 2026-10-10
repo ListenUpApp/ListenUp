@@ -52,6 +52,13 @@ class Route(
     }
 }
 
+/** How the router is about to move: a link ([PUSH]), a rewrite in place ([REPLACE]), or Back/Forward ([POP]). */
+enum class RouteChange {
+    PUSH,
+    REPLACE,
+    POP,
+}
+
 /**
  * The history-backed router.
  *
@@ -63,12 +70,13 @@ class Route(
  * breadcrumb, or the Back button. It exists so a caller can read the outgoing page while it is
  * still on screen; Compose renders on a later frame, so this is the last moment its layout is
  * measurable. The shared-element flight uses it to learn where the cover it must fly back to is.
+ * It is told which of the three it is — Back restores a place, a link starts a new one.
  */
 class Router(
-    private val beforeRouteChange: () -> Unit = {},
+    private val beforeRouteChange: (RouteChange) -> Unit = {},
 ) {
     private val onPopstate: (Event) -> Unit = {
-        beforeRouteChange()
+        beforeRouteChange(RouteChange.POP)
         current = locationRoute()
     }
 
@@ -82,14 +90,14 @@ class Router(
 
     /** Pushes [route] onto history and makes it current. */
     fun navigate(route: Route) {
-        beforeRouteChange()
+        beforeRouteChange(RouteChange.PUSH)
         window.history.pushState(null, "", route.toUrl())
         current = route
     }
 
     /** Replaces the current history entry with [route]. */
     fun replace(route: Route) {
-        beforeRouteChange()
+        beforeRouteChange(RouteChange.REPLACE)
         window.history.replaceState(null, "", route.toUrl())
         current = route
     }

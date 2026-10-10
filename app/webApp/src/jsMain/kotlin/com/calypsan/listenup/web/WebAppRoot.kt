@@ -214,13 +214,13 @@ import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.nav.ScrollRestoration
 import com.calypsan.listenup.web.shell.NotFoundPage
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
-import com.calypsan.listenup.web.motion.fadePageIn
-import com.calypsan.listenup.web.motion.isPageChange
+import com.calypsan.listenup.web.motion.PageArrival
 import com.calypsan.listenup.web.playback.bindMediaSession
 import com.calypsan.listenup.web.playback.browserMediaSession
 import kotlinx.browser.document
@@ -313,9 +313,8 @@ fun WebAppRoot(
 
     // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
     // flight works in both directions: out to the detail hero, and back to the same tile on return.
-    // The library's scrollport is the shell's, which does not unmount on a route change, so coming
-    // back lands at the same offset and the tile is usually still on screen. When it is not — the
-    // grid is virtualised — there is simply nothing to fly to and the pages crossfade instead.
+    // Back restores the grid's scroll first (ScrollRestoration), so the tile is on screen again
+    // before the flight measures it — see HeroFlight.
     var heroBookId by remember { mutableStateOf<String?>(null) }
     // Opened once for the shell's lifetime, not per route: the badge is on the sidebar, which
     // outlives every page. Closing it with a route would blank the count the moment you navigated
@@ -332,8 +331,6 @@ fun WebAppRoot(
     // A book, the person behind it, or the series it belongs to all live in the library, so
     // every one of those deep links keeps Library lit in the sidebar.
     val active = if (page in LIBRARY_DEEP_LINKS) LIBRARY_KEY else page
-
-    FadeOnPageChange(page)
 
     CompositionLocalProvider(LocalRestrictedBookIds provides restrictedBookIds) {
         Shell(
@@ -364,53 +361,56 @@ fun WebAppRoot(
             // at. A Room-backed flow costs almost nothing to keep subscribed, and keeping it is what
             // makes going back instant instead of merely fast.
             val librarySession = libraryState(openLibrary)
-            RouteContent(
-                router = router,
-                route = route,
-                page = page,
-                active = active,
-                openBookDetail = openBookDetail,
-                openBookEdit = openBookEdit,
-                openChapterEditor = openChapterEditor,
-                matchDetails = matchDetails,
-                openContributorDetail = openContributorDetail,
-                openContributorBooks = openContributorBooks,
-                openContributorEdit = openContributorEdit,
-                openSeriesDetail = openSeriesDetail,
-                openSeriesEdit = openSeriesEdit,
-                openNotifications = openNotifications,
-                openNotificationPrefs = openNotificationPrefs,
-                openLicences = openLicences,
-                openProfile = openProfile,
-                openEditProfile = openEditProfile,
-                currentUserId = currentUserId,
-                openHome = openHome,
-                openDiscover = openDiscover,
-                openSettings = openSettings,
-                openDevices = openDevices,
-                openHardcover = openHardcover,
-                openAdmin = openAdmin,
-                admin = admin,
-                openShelfDetail = openShelfDetail,
-                openShelfEdit = openShelfEdit,
-                openSearch = openSearch,
-                openMultiSelect = openMultiSelect,
-                openBulkEdit = openBulkEdit,
-                openBrowseFacet = openBrowseFacet,
-                openGenreDestination = openGenreDestination,
-                openBookReaders = openBookReaders,
-                openBookRatings = openBookRatings,
-                openHardcoverMatch = openHardcoverMatch,
-                openBookHardcover = openBookHardcover,
-                openSeeAll = openSeeAll,
-                onToast = onToast,
-                onActionToast = onActionToast,
-                librarySession = librarySession,
-                inbox = inbox,
-                playback = playback,
-                heroBookId = heroBookId,
-                onHeroBookIdChange = { heroBookId = it },
-            )
+            ScrollRestoration(route)
+            PageArrival(page) {
+                RouteContent(
+                    router = router,
+                    route = route,
+                    page = page,
+                    active = active,
+                    openBookDetail = openBookDetail,
+                    openBookEdit = openBookEdit,
+                    openChapterEditor = openChapterEditor,
+                    matchDetails = matchDetails,
+                    openContributorDetail = openContributorDetail,
+                    openContributorBooks = openContributorBooks,
+                    openContributorEdit = openContributorEdit,
+                    openSeriesDetail = openSeriesDetail,
+                    openSeriesEdit = openSeriesEdit,
+                    openNotifications = openNotifications,
+                    openNotificationPrefs = openNotificationPrefs,
+                    openLicences = openLicences,
+                    openProfile = openProfile,
+                    openEditProfile = openEditProfile,
+                    currentUserId = currentUserId,
+                    openHome = openHome,
+                    openDiscover = openDiscover,
+                    openSettings = openSettings,
+                    openDevices = openDevices,
+                    openHardcover = openHardcover,
+                    openAdmin = openAdmin,
+                    admin = admin,
+                    openShelfDetail = openShelfDetail,
+                    openShelfEdit = openShelfEdit,
+                    openSearch = openSearch,
+                    openMultiSelect = openMultiSelect,
+                    openBulkEdit = openBulkEdit,
+                    openBrowseFacet = openBrowseFacet,
+                    openGenreDestination = openGenreDestination,
+                    openBookReaders = openBookReaders,
+                    openBookRatings = openBookRatings,
+                    openHardcoverMatch = openHardcoverMatch,
+                    openBookHardcover = openBookHardcover,
+                    openSeeAll = openSeeAll,
+                    onToast = onToast,
+                    onActionToast = onActionToast,
+                    librarySession = librarySession,
+                    inbox = inbox,
+                    playback = playback,
+                    heroBookId = heroBookId,
+                    onHeroBookIdChange = { heroBookId = it },
+                )
+            }
 
             // Above the playback notices, and unlike them it is not dismissible: a failed edit stays
             // until the reader retries or accepts the server's version. See [DeadLetterNotice].
@@ -1941,22 +1941,6 @@ private fun bookRatingsSession(
     return session
 }
 
-/**
- * A page change fades; a route change within one does not. `lastPage` starts null so the first
- * paint is not a fade — a library materialising out of nothing on load is motion nobody asked
- * for, and it would sit between the reader and content that has already arrived.
- */
-@Composable
-private fun FadeOnPageChange(page: String) {
-    var lastPage by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(page) {
-        if (isPageChange(lastPage, page)) {
-            document.querySelector(SHELL_MAIN)?.let { fadePageIn(it) }
-        }
-        lastPage = page
-    }
-}
-
 /** What the readers page calls the book it belongs to, before the book itself has loaded. */
 private fun bookTitleOf(state: BookDetailUiState): String = (state as? BookDetailUiState.Ready)?.book?.title ?: "Book"
 
@@ -3208,9 +3192,6 @@ private fun routeFor(facet: LibraryFacet): Route =
             )
         }
     }
-
-/** The shell's content region — the thing a page change fades. See [fadePageIn]. */
-private const val SHELL_MAIN = ".shell-main"
 
 /** What the shell's content lambda reports to [LocalCompositionProbe] each time it runs. */
 internal const val SHELL_CONTENT_PROBE = "shell-content"
