@@ -5,11 +5,9 @@ import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.dto.match.PersonCandidate
 import com.calypsan.listenup.api.dto.match.PersonCandidateKey
 import com.calypsan.listenup.api.dto.match.PersonReason
+import com.calypsan.listenup.server.metadata.spi.CO_CREDIT_NAME_SIMILARITY
 import com.calypsan.listenup.server.metadata.spi.ContributorHitRanker
 import com.calypsan.listenup.server.metadata.spi.toMetadataSource
-
-/** How alike a person found only through your books' credits must be named to be shown (a co-credit isn't them). */
-private const val CO_CREDIT_NAME_SIMILARITY = 0.5
 
 /**
  * Ranks merged people against the [PeopleSubject] (spec, *Find and Review for people*), in no role in particular:

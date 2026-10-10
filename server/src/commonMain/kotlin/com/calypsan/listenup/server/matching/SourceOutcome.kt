@@ -41,10 +41,12 @@ internal sealed interface SourceOutcome<out A> {
 /**
  * Asks [source] within [deadline], contained: availability first (so a source switched off drops out at once),
  * then [cached], then [fetch], whose full answer is handed to [remember]. A throw is a failure; cancellation is
- * re-raised; a rate limit keeps its retry-after (the canvas's 30 s when the source gave none).
+ * re-raised; a rate limit keeps its retry-after (the canvas's 30 s when the source gave none). A missed deadline is
+ * logged with what was being found ([label]: "books", "people") — the Find itself only says "timed out".
  */
 internal suspend fun <A> askSource(
     source: MetadataProviderId,
+    label: String,
     deadline: Duration,
     availability: suspend () -> FindAvailability,
     cached: () -> A?,
@@ -70,7 +72,7 @@ internal suspend fun <A> askSource(
             logger.warn(e) { "find: $source threw — reported as failed" }
             SourceOutcome.Failed
         }
-    } ?: SourceOutcome.TimedOut.also { logger.warn { "find: $source didn't answer within $deadline" } }
+    } ?: SourceOutcome.TimedOut.also { logger.warn { "find: $label from $source didn't answer within $deadline" } }
 
 private fun <A> AppResult<A>.toOutcome(source: MetadataProviderId): SourceOutcome<A> =
     when (this) {

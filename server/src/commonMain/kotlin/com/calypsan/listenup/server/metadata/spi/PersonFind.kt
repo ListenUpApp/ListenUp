@@ -30,6 +30,12 @@ data class PersonLookup(
     val books: List<PersonLibraryBook>,
 )
 
+/**
+ * How alike a person found only through your books' credits must be named to be shown — otherwise they are a
+ * co-author or co-narrator of those books, not the person (a source needn't read such a co-credit's profile).
+ */
+internal const val CO_CREDIT_NAME_SIMILARITY = 0.5
+
 /** Which of a people Find's steps a source ran. */
 enum class PersonStep {
     /** It resolved the person's existing ref. */

@@ -100,6 +100,7 @@ internal class BookFinder(
         val key = FindCache.Key(source.id, lookup, locale.region.takeIf { source is RegionalSource })
         return askSource(
             source = source.id,
+            label = "books",
             deadline = deadline,
             availability = { source.findAvailability() },
             cached = { cache.get(key) },
