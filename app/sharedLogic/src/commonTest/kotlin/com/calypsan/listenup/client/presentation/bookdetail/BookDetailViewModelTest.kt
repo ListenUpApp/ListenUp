@@ -1198,11 +1198,11 @@ class BookDetailViewModelTest :
                     advanceUntilIdle()
 
                     navActions.awaitItem() shouldBe BookDetailNavAction.BookDeleted
-                    val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    val ready = viewModel.state.value as BookDetailUiState.Ready
                     ready.isDeletingBook shouldBe false
                     ready.deleteError shouldBe null
                     navActions.cancel()
-                    states.cancel()
+                    states.cancelAndIgnoreRemainingEvents()
                 }
             }
         }
