@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.features.library.components.BookSelectionSca
 import com.calypsan.listenup.client.features.library.components.BooksContent
 import com.calypsan.listenup.client.features.library.components.LibraryInboxEntry
 import com.calypsan.listenup.client.features.library.components.LibrarySectionGroup
+import com.calypsan.listenup.client.features.library.components.LibraryStatusChips
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
 import com.calypsan.listenup.client.features.library.components.SeriesContent
 import com.calypsan.listenup.client.features.shell.ShellDestination
@@ -41,6 +42,7 @@ import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
@@ -230,6 +232,9 @@ internal fun LibraryLoadedContent(
             },
             onBookLongPress = multiSelect::enterSelectionMode,
             onRetry = { onEvent(LibraryUiEvent.RefreshRequested) },
+            isFilteredEmpty = state.isFilteredEmpty,
+            statusFilter = state.statusFilter,
+            onShowAllBooks = { onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.ALL)) },
             // Books view only (canvas): Series, Authors and Narrators do not carry it,
             // and selecting books turns the grid into a picking surface the entry would clutter. A host
             // with no route to the inbox gets no entry: a tile that opens nothing reads as broken.
@@ -266,6 +271,16 @@ internal fun LibraryLoadedContent(
                 onSelect = { selectedSection = it },
                 modifier = Modifier.padding(top = if (isWide) 20.dp else 8.dp, bottom = 6.dp),
             )
+
+            // Status filters belong to Books, and step aside while books are being picked.
+            if (selectedSection == LibrarySection.Books && !isInSelectionMode) {
+                LibraryStatusChips(
+                    selected = state.statusFilter,
+                    counts = state.statusCounts,
+                    onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
 
             // Pull-to-refresh wraps the active filter's content (syncs all data).
             PullToRefreshBox(

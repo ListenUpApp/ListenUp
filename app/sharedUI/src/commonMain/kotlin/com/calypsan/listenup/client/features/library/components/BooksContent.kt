@@ -49,6 +49,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.BookCard
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.util.nameLetter
@@ -215,6 +216,9 @@ private fun SectionHeader(
  * @param onBookClick Callback when a book is clicked (navigates or toggles selection)
  * @param onBookLongPress Callback when a book is long-pressed (enters selection mode)
  * @param onRetry Callback when retry is clicked in error state
+ * @param isFilteredEmpty The library has books but [statusFilter] matches none of them
+ * @param statusFilter The active reading-state filter, which picks the filtered-empty copy
+ * @param onShowAllBooks Clears the status filter from the filtered-empty state
  * @param header Content drawn as the grid's first, full-width item — the Library's inbox entry. Scrolls
  *   with the books.
  * @param modifier Optional modifier
@@ -239,6 +243,9 @@ fun BooksContent(
     onBookClick: (String) -> Unit,
     onBookLongPress: ((String) -> Unit)? = null,
     onRetry: () -> Unit,
+    isFilteredEmpty: Boolean = false,
+    statusFilter: BookStatusFilter = BookStatusFilter.ALL,
+    onShowAllBooks: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -252,6 +259,17 @@ fun BooksContent(
             // Loaded but empty AND syncing - show loading
             books.isEmpty() && syncState is SyncState.Syncing -> {
                 BooksLoadingState()
+            }
+
+            // The library has books, but the status filter matches none: say so, and offer the way
+            // back. Ahead of the error and scanning states, which are about the library being empty.
+            isFilteredEmpty -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    header?.let { slot ->
+                        Box(modifier = Modifier.padding(horizontal = Spacing.gridMargin, vertical = 12.dp)) { slot() }
+                    }
+                    FilteredEmptyState(filter = statusFilter, onShowAll = onShowAllBooks, modifier = Modifier.weight(1f))
+                }
             }
 
             // Loaded but empty AND sync error - show error
