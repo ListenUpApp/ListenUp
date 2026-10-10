@@ -232,6 +232,6 @@ private fun ListenerRating?.withPendingStars(
 ): ListenerRating? =
     when {
         pending == null -> this
-        this != null -> copy(halfStars = pending)
+        this != null -> copy(halfStars = pending, fromHardcover = false)
         else -> ListenerRating(bookId = bookId, userId = me.orEmpty(), halfStars = pending, note = null, ratedAtMs = 0L)
     }
