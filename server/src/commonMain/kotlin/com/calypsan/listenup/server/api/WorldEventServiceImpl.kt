@@ -88,7 +88,7 @@ internal class WorldEventServiceImpl(
     override suspend fun listHistory(eventId: WorldEventId): AppResult<List<WorldEventChange>> {
         val caller = principal.current() ?: return denied()
         eventRepo.findById(eventId)?.takeIf { canSee(caller, it) } ?: return AppResult.Failure(notFound(eventId))
-        return AppResult.Success(eventRepo.listHistory(eventId))
+        return AppResult.Success(redactedFor(caller, eventRepo.listHistory(eventId)))
     }
 
     /**
@@ -164,6 +164,24 @@ internal class WorldEventServiceImpl(
         } else {
             WorldEventError.InvalidAnchor(debugInfo = "book=$anchor")
         }
+    }
+
+    /**
+     * [changes] with every snapshot the caller can't see — its home or its anchor out of sight — blanked to null.
+     * An edit can move an event's anchor, so seeing the event now says nothing about its earlier states. Who
+     * changed it and when always show; what it said where the caller can't look never does.
+     */
+    private suspend fun redactedFor(
+        caller: UserPrincipal,
+        changes: List<WorldEventChange>,
+    ): List<WorldEventChange> {
+        val verdicts = mutableMapOf<Triple<String?, String?, String?>, Boolean>()
+
+        suspend fun visible(snapshot: WorldEventSyncPayload?): WorldEventSyncPayload? =
+            snapshot?.takeIf {
+                verdicts.getOrPut(Triple(it.homeSeriesId, it.homeBookId, it.bookId)) { canSee(caller, it) }
+            }
+        return changes.map { it.copy(before = visible(it.before), after = visible(it.after)) }
     }
 
     /** [events] the caller can see, one visibility probe per distinct (home, anchor). */

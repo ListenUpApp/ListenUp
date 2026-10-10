@@ -20,8 +20,9 @@ import kotlinx.serialization.Serializable
  * @property op what happened.
  * @property actorId who did it; null for a change the server made itself (a book removal, a series merge).
  * @property occurredAt epoch ms.
- * @property before the event before the change; null for a CREATE.
- * @property after the event after the change; a tombstone for a DELETE.
+ * @property before the event before the change; null for a CREATE, or when the viewer can't see this snapshot's
+ *   home or anchor (an edit can move the anchor, so an earlier state may be out of the viewer's sight).
+ * @property after the event after the change; a tombstone for a DELETE; null when the viewer can't see it.
  */
 @Serializable
 @SerialName("WorldEventChange")

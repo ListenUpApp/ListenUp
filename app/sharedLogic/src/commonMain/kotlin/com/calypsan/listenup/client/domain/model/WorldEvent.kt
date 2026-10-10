@@ -89,6 +89,9 @@ enum class WorldEventChangeOp {
  * One entry of an event's history, as read from the server (see `WorldEventService.listHistory`).
  *
  * @property actorId who made the change; null for a change the server made itself.
+ * @property before the event before the change; null for a create, or when the server hid a state whose home or
+ *   anchor this user can't see.
+ * @property after the event after the change; null when the server hid it.
  */
 data class WorldEventChange(
     val id: StoryWorldHistoryId,

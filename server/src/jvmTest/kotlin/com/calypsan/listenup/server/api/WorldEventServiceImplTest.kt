@@ -228,6 +228,37 @@ class WorldEventServiceImplTest :
             }
         }
 
+        test("history hides each snapshot whose anchor the member can't see, keeping who and when") {
+            withSqlDatabase {
+                runTest {
+                    val world = storyWorld()
+                    val saga = world.redRising.value
+                    val root = world.asRoot()
+                    root.applyBatch(
+                        batchOf(eventUpsert("w1", text = "the hidden truth", homeSeriesId = saga, bookId = "hidden", positionMs = 7L)),
+                    ) shouldBe AppResult.Success(Unit)
+                    root.applyBatch(
+                        batchOf(eventUpsert("w1", text = "in plain sight", homeSeriesId = saga, bookId = "open", positionMs = 3L)),
+                    ) shouldBe AppResult.Success(Unit)
+
+                    val history =
+                        world
+                            .asMember()
+                            .listHistory(WorldEventId("w1"))
+                            .shouldBeInstanceOf<AppResult.Success<List<WorldEventChange>>>()
+                            .data
+
+                    history.map { it.op } shouldBe listOf(StoryWorldOp.UPDATE, StoryWorldOp.CREATE)
+                    history.forEach { it.actorId shouldBe "root" }
+                    val snapshots = history.flatMap { listOfNotNull(it.before, it.after) }
+                    snapshots.map { it.bookId } shouldBe listOf("open")
+                    snapshots.none { it.text == "the hidden truth" } shouldBe true
+                    history.first().before.shouldBeNull()
+                    history.last().after.shouldBeNull()
+                }
+            }
+        }
+
         test("the service trims the text and the detail, and drops a blank detail") {
             withSqlDatabase {
                 runTest {
