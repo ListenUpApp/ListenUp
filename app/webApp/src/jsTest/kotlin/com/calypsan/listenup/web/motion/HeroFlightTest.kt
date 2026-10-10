@@ -2,6 +2,10 @@ package com.calypsan.listenup.web.motion
 
 import com.calypsan.listenup.web.durationOf
 import com.calypsan.listenup.web.motions
+import com.calypsan.listenup.web.nav.RouteChange
+import com.calypsan.listenup.web.nav.captureScrollBeforeRouteChange
+import com.calypsan.listenup.web.nav.forgetScrollMemory
+import com.calypsan.listenup.web.nav.settleScroll
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.browser.document
@@ -40,13 +44,11 @@ class HeroFlightTest :
         }
 
         afterTest {
-            // The origin is module state; a test that leaves one behind arms the next one. Leaving
-            // a page with no mounted hero is exactly what clears it.
-            attached.forEach { releaseHero(it) }
-            captureHeroOriginBeforeRouteChange()
+            forgetHeroFlight()
+            forgetScrollMemory()
+            reducedMotionOverride = null
             attached.forEach { it.remove() }
             attached.clear()
-            reducedMotionOverride = null
         }
 
         test("a cover captured while it is still on screen flies the tile it returns to") {
@@ -188,6 +190,65 @@ class HeroFlightTest :
 
             first.animationCount() shouldBe 0
             second.animationCount() shouldBe 0
+        }
+
+        // ⛔ The virtual grid first renders a screenful from the top, then scrolls to where the reader
+        // was. The hero's tile can be in that first screenful — mounted, but about to be scrolled
+        // away and re-created. Flying into THAT node spends the origin on a tile nobody sees.
+        test("a tile that is off screen leaves the origin for the tile that will be on it") {
+            val hero = box(left = 500, top = 100, size = 180)
+            trackHero("book-10", hero)
+            captureHeroOriginBeforeRouteChange()
+
+            val standIn = box(left = 280, top = 5_000, size = 208)
+            flyHeroInto("book-10", CoverSurface.GRID, standIn)
+            nextFrame()
+            val real = box(left = 280, top = 178, size = 208)
+            flyHeroInto("book-10", CoverSurface.GRID, real)
+            nextFrame()
+
+            standIn.animationCount() shouldBe 0
+            real.animationCount() shouldBe 1
+        }
+
+        test("a flight waits until the reader's place is restored") {
+            val hero = box(left = 500, top = 100, size = 180)
+            trackHero("book-11", hero)
+            captureHeroOriginBeforeRouteChange()
+            captureScrollBeforeRouteChange(RouteChange.POP)
+
+            val tile = box(left = 280, top = 178, size = 208)
+            flyHeroInto("book-11", CoverSurface.GRID, tile)
+            nextFrame()
+            tile.animationCount() shouldBe 0
+
+            settleScroll()
+            nextFrame()
+            tile.animationCount() shouldBe 1
+        }
+
+        test("a series' cover never flies into a book's tile of the same id") {
+            val hero = box(left = 500, top = 100, size = 180)
+            trackHero(seriesHeroKey("7"), hero)
+            captureHeroOriginBeforeRouteChange()
+
+            val bookTile = box(left = 280, top = 178, size = 208)
+            flyHeroInto("7", CoverSurface.GRID, bookTile)
+            nextFrame()
+
+            bookTile.animationCount() shouldBe 0
+        }
+
+        test("a landing target is known before it flies, and not after") {
+            val hero = box(left = 500, top = 100, size = 180)
+            trackHero("book-12", hero)
+            captureHeroOriginBeforeRouteChange()
+            val tile = box(left = 280, top = 178, size = 208)
+
+            flyHeroInto("book-12", CoverSurface.GRID, tile)
+            isLanding(tile) shouldBe true
+            nextFrame()
+            isLanding(tile) shouldBe false
         }
     })
 

@@ -314,9 +314,8 @@ fun WebAppRoot(
 
     // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
     // flight works in both directions: out to the detail hero, and back to the same tile on return.
-    // The library's scrollport is the shell's, which does not unmount on a route change, so coming
-    // back lands at the same offset and the tile is usually still on screen. When it is not — the
-    // grid is virtualised — there is simply nothing to fly to and the pages crossfade instead.
+    // Back restores the grid's scroll first (ScrollRestoration), so the tile is on screen again
+    // before the flight measures it — see HeroFlight.
     var heroBookId by remember { mutableStateOf<String?>(null) }
     // Opened once for the shell's lifetime, not per route: the badge is on the sidebar, which
     // outlives every page. Closing it with a route would blank the count the moment you navigated
