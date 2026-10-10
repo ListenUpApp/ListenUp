@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -33,8 +32,8 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.components.AuthorsContent
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.library.components.BooksContent
-import com.calypsan.listenup.client.features.library.components.LibraryFilterChips
 import com.calypsan.listenup.client.features.library.components.LibraryInboxEntry
+import com.calypsan.listenup.client.features.library.components.LibrarySectionGroup
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
 import com.calypsan.listenup.client.features.library.components.SeriesContent
 import com.calypsan.listenup.client.features.shell.ShellDestination
@@ -204,20 +203,15 @@ internal fun LibraryLoadedContent(
         multiSelect.exitSelectionMode()
     }
 
-    // "In progress" view: titles with partial (started-but-unfinished) playback.
-    // Derived in the ViewModel's combine pipeline — no in-composition filter needed.
-    val booksInProgress = state.booksInProgress
-
-    var selectedFilter by rememberSaveable { mutableStateOf(LibraryFilter.Books) }
+    var selectedSection by rememberSaveable(stateSaver = LibrarySectionSaver) { mutableStateOf(LibrarySection.Books) }
     val isWide =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
 
-    // The Books grid is reused for both the Books filter (all titles) and In progress (partial).
-    val booksGrid: @Composable (List<BookListItem>, Boolean) -> Unit = { books, showsInboxEntry ->
+    val booksGrid: @Composable () -> Unit = {
         BooksContent(
-            books = books,
+            books = state.books,
             hasLoadedBooks = true,
             syncState = state.syncState,
             isServerScanning = state.isServerScanning,
@@ -236,11 +230,11 @@ internal fun LibraryLoadedContent(
             },
             onBookLongPress = multiSelect::enterSelectionMode,
             onRetry = { onEvent(LibraryUiEvent.RefreshRequested) },
-            // Books view only (canvas): In progress, Series, Authors and Narrators do not carry it,
+            // Books view only (canvas): Series, Authors and Narrators do not carry it,
             // and selecting books turns the grid into a picking surface the entry would clutter. A host
             // with no route to the inbox gets no entry: a tile that opens nothing reads as broken.
             header =
-                if (showsInboxEntry && heldCount > 0 && !isInSelectionMode && onOpenInbox != null) {
+                if (heldCount > 0 && !isInSelectionMode && onOpenInbox != null) {
                     {
                         LibraryInboxEntry(
                             heldCount = heldCount,
@@ -266,10 +260,10 @@ internal fun LibraryLoadedContent(
                 )
             }
 
-            // Filter chips replace the old tab row. Wider chrome gets more air below the big header.
-            LibraryFilterChips(
-                selected = selectedFilter,
-                onSelect = { selectedFilter = it },
+            // The four sections as one connected group. Wider chrome gets more air below the big header.
+            LibrarySectionGroup(
+                selected = selectedSection,
+                onSelect = { selectedSection = it },
                 modifier = Modifier.padding(top = if (isWide) 20.dp else 8.dp, bottom = 6.dp),
             )
 
@@ -282,10 +276,9 @@ internal fun LibraryLoadedContent(
                 },
                 modifier = Modifier.fillMaxSize(),
             ) {
-                when (selectedFilter) {
-                    LibraryFilter.Books -> booksGrid(state.books, true)
-                    LibraryFilter.InProgress -> booksGrid(booksInProgress, false)
-                    LibraryFilter.Series ->
+                when (selectedSection) {
+                    LibrarySection.Books -> booksGrid()
+                    LibrarySection.Series ->
                         SeriesContent(
                             series = state.series,
                             seriesProgress = state.seriesProgress,
@@ -297,7 +290,7 @@ internal fun LibraryLoadedContent(
                             onSeriesClick = onSeriesClick,
                         )
 
-                    LibraryFilter.Authors ->
+                    LibrarySection.Authors ->
                         AuthorsContent(
                             authors = state.authors,
                             sortState = state.authorsSortState,
@@ -306,7 +299,7 @@ internal fun LibraryLoadedContent(
                             onAuthorClick = onAuthorClick,
                         )
 
-                    LibraryFilter.Narrators ->
+                    LibrarySection.Narrators ->
                         NarratorsContent(
                             narrators = state.narrators,
                             sortState = state.narratorsSortState,

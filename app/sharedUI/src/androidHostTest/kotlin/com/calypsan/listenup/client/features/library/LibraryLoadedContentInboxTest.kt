@@ -72,15 +72,10 @@ class LibraryLoadedContentInboxTest {
     }
 
     @Test
-    fun `the entry heads the Books view only, not In progress or Series`() {
+    fun `the entry heads the Books view only, not Series`() {
         render(onOpenInbox = {})
         awaitText(BOOK_TITLE)
         composeRule.onNodeWithContentDescription(ENTRY).assertExists()
-
-        // In progress lists the same book, so its title appearing proves the grid is drawn.
-        composeRule.onNodeWithText("In progress").performClick()
-        awaitText(BOOK_TITLE)
-        composeRule.onNodeWithContentDescription(ENTRY).assertDoesNotExist()
 
         composeRule.onNodeWithText("Series").performClick()
         composeRule.waitForIdle()
