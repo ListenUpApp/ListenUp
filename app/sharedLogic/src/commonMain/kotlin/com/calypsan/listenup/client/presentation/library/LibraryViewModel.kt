@@ -257,7 +257,12 @@ class LibraryViewModel(
     // Room re-emissions of structurally identical content, keeping downstream
     // list identity stable.
     private val sortedContent: Flow<SortedContent> =
-        combine(intent, rawContent, combinedScores, readingStateSnapshot) { intentValue, content, scores, states ->
+        combine(
+            flow = intent,
+            flow2 = rawContent,
+            flow3 = combinedScores,
+            flow4 = readingStateSnapshot,
+        ) { intentValue, content, scores, states ->
             val visibleSeries =
                 if (intentValue.hideSingleBookSeries) {
                     content.series.filter { it.books.size > 1 }
@@ -278,7 +283,9 @@ class LibraryViewModel(
                     if (intentValue.statusFilter == BookStatusFilter.ALL) {
                         sortedBooks
                     } else {
-                        sortedBooks.filter { intentValue.statusFilter.admits(states[it.id] ?: ReadingState.NOT_STARTED) }
+                        sortedBooks.filter { book ->
+                            intentValue.statusFilter.admits(states[book.id] ?: ReadingState.NOT_STARTED)
+                        }
                     },
                 series = sortSeries(visibleSeries, intentValue.seriesSortState, intentValue.ignoreTitleArticles),
                 authors = sortContributors(content.authors, intentValue.authorsSortState),

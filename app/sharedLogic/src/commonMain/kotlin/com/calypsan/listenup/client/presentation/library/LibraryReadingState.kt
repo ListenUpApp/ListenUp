@@ -41,19 +41,27 @@ internal fun BookStatusFilter.admits(state: ReadingState): Boolean =
 internal fun cardStatusOf(
     book: BookListItem,
     position: PlaybackPosition?,
-): BookCardStatus =
-    when (readingStateOf(position)) {
-        ReadingState.NOT_STARTED -> BookCardStatus.NotStarted(durationMs = book.duration)
-        ReadingState.FINISHED -> BookCardStatus.Finished(durationMs = book.duration)
-        ReadingState.IN_PROGRESS -> {
-            val positionMs = requireNotNull(position).positionMs
-            if (book.duration <= 0L) {
-                BookCardStatus.InProgress(fraction = 0f, timeLeftMs = 0L)
-            } else {
-                BookCardStatus.InProgress(
-                    fraction = (positionMs.toFloat() / book.duration).coerceIn(0f, 1f),
-                    timeLeftMs = (book.duration - positionMs).coerceAtLeast(0L),
-                )
-            }
+): BookCardStatus {
+    val state = readingStateOf(position)
+    return when {
+        state == ReadingState.NOT_STARTED -> {
+            BookCardStatus.NotStarted(durationMs = book.duration)
+        }
+
+        state == ReadingState.FINISHED -> {
+            BookCardStatus.Finished(durationMs = book.duration)
+        }
+
+        // In progress always has a position; an unknown length can't say how far along it is.
+        position == null || book.duration <= 0L -> {
+            BookCardStatus.InProgress(fraction = 0f, timeLeftMs = 0L)
+        }
+
+        else -> {
+            BookCardStatus.InProgress(
+                fraction = (position.positionMs.toFloat() / book.duration).coerceIn(0f, 1f),
+                timeLeftMs = (book.duration - position.positionMs).coerceAtLeast(0L),
+            )
         }
     }
+}

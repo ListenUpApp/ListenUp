@@ -56,7 +56,9 @@ internal fun FilteredEmpty(
 internal fun filteredEmptyCopy(filter: BookStatusFilter): String =
     when (filter) {
         BookStatusFilter.IN_PROGRESS -> "Nothing in progress right now."
+
         BookStatusFilter.NOT_STARTED -> "You've started every book."
+
         // ALL never reaches here: a library with books always matches All.
         BookStatusFilter.FINISHED, BookStatusFilter.ALL -> "No finished books yet."
     }
@@ -109,7 +111,12 @@ internal fun libraryCountLine(
 
 /** Thousands separators, English only — the web's copy is English throughout. */
 internal fun groupedCount(n: Int): String =
-    n.toString().reversed().chunked(3).joinToString(",").reversed()
+    n
+        .toString()
+        .reversed()
+        .chunked(3)
+        .joinToString(",")
+        .reversed()
 
 /**
  * Keeps the status filter across Library visits in this tab (spec §3.1.1: session-scoped).

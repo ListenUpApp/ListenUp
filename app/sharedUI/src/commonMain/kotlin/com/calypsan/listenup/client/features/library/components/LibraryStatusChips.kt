@@ -47,10 +47,20 @@ internal fun LibraryStatusChips(
             FilterChip(
                 selected = isSelected,
                 onClick = { onSelect(filter) },
-                label = { Text(stringResource(Res.string.library_status_chip, filter.label(), counts.countFor(filter))) },
+                label = {
+                    Text(
+                        stringResource(Res.string.library_status_chip, filter.label(), counts.countFor(filter)),
+                    )
+                },
                 leadingIcon =
                     if (isSelected) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                        {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(FilterChipDefaults.IconSize),
+                            )
+                        }
                     } else {
                         null
                     },

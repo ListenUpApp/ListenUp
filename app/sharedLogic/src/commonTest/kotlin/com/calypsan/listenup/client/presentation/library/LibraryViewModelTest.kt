@@ -1341,6 +1341,7 @@ class LibraryViewModelTest :
                         createTestBook(id = "1", title = "Zebra", duration = 10_000L),
                         createTestBook(id = "2", title = "Apple", duration = 10_000L),
                     )
+
                 // Book 1 is already in progress, so the tick below moves its progress without moving it
                 // across a reading-state boundary (a boundary crossing legitimately re-sorts: it can move
                 // the book in or out of a status filter).
@@ -1784,7 +1785,9 @@ class LibraryViewModelTest :
                     backgroundScope.launch { second.uiState.collect { } }
                     advanceUntilIdle()
 
-                    second.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>().statusFilter shouldBe BookStatusFilter.ALL
+                    second.uiState.value
+                        .shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        .statusFilter shouldBe BookStatusFilter.ALL
                 }
             }
         }

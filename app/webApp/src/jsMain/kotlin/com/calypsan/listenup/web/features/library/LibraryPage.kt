@@ -368,22 +368,26 @@ private fun CardCover(
         // Inside the cover, so it lifts with it on hover; clear of the selection tick while selecting.
         overlay = {
             when (status) {
-                is BookCardStatus.InProgress ->
+                is BookCardStatus.InProgress -> {
                     ProgressBar(
                         value = status.fraction,
                         label = "Listening progress",
                         // The house cover-tile idiom: 4px along the art's bottom edge.
                         look = ProgressLook.Overlay,
                     )
+                }
 
-                is BookCardStatus.Finished ->
+                is BookCardStatus.Finished -> {
                     Span(attrs = {
                         classes("lib-done")
                         attr("role", "img")
                         attr("aria-label", "Finished")
                     }) { Icon(WebIcon.Check, size = DONE_ICON) }
+                }
 
-                else -> Unit
+                else -> {
+                    Unit
+                }
             }
             RestrictedMarker(book.id.value, shifted = selecting)
         },

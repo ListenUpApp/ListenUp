@@ -34,7 +34,9 @@ internal fun FilteredEmptyState(
     val copy =
         when (filter) {
             BookStatusFilter.IN_PROGRESS -> Res.string.library_filtered_empty_in_progress
+
             BookStatusFilter.NOT_STARTED -> Res.string.library_filtered_empty_not_started
+
             // ALL never reaches here: a library with books always matches All.
             BookStatusFilter.FINISHED, BookStatusFilter.ALL -> Res.string.library_filtered_empty_finished
         }

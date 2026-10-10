@@ -269,7 +269,11 @@ fun BooksContent(
                     header?.let { slot ->
                         Box(modifier = Modifier.padding(horizontal = Spacing.gridMargin, vertical = 12.dp)) { slot() }
                     }
-                    FilteredEmptyState(filter = statusFilter, onShowAll = onShowAllBooks, modifier = Modifier.weight(1f))
+                    FilteredEmptyState(
+                        filter = statusFilter,
+                        onShowAll = onShowAllBooks,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
 

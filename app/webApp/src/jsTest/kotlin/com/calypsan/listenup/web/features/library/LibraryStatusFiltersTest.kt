@@ -71,9 +71,10 @@ class LibraryStatusFiltersTest :
 
         test("a started card shows a progress rail on the art and its time left; a finished one a badge") {
             val book = contractBook("b1", "The Way of Kings")
-            val started = mounts.mount {
-                BookCard(book = book, status = BookCardStatus.InProgress(0.5f, 1_800_000L), onOpen = {})
-            }
+            val started =
+                mounts.mount {
+                    BookCard(book = book, status = BookCardStatus.InProgress(0.5f, 1_800_000L), onOpen = {})
+                }
             started.querySelector(".lib-cover [role=progressbar]")!!.getAttribute("aria-valuenow") shouldBe "50"
             started.querySelector(".lib-meta")!!.textContent shouldBe "30m left"
             started.querySelector(".lib-meta")!!.classList.contains("is-progress") shouldBe true
@@ -84,11 +85,12 @@ class LibraryStatusFiltersTest :
         }
 
         test("the card's tooltip carries the narrator, so the dense grid can drop the line") {
-            val book = contractBook("b1", "Dune").copy(
-                authors = listOf(BookContributor("a1", "Frank Herbert")),
-                narrators = listOf(BookContributor("n1", "Scott Brick")),
-                duration = 75_720_000L,
-            )
+            val book =
+                contractBook("b1", "Dune").copy(
+                    authors = listOf(BookContributor("a1", "Frank Herbert")),
+                    narrators = listOf(BookContributor("n1", "Scott Brick")),
+                    duration = 75_720_000L,
+                )
             val root = mounts.mount { BookCard(book = book, status = BookCardStatus.NotStarted(75_720_000L), onOpen = {}) }
             root.querySelector(".lib-card")!!.getAttribute("title") shouldBe "Dune · Frank Herbert · read by Scott Brick · 21h 2m"
             root.querySelector(".lib-narrator")!!.textContent shouldBe "Read by Scott Brick"
