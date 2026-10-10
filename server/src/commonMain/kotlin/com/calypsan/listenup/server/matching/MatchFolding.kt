@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.matching
 
-private const val COMBINING_MARKS_START = '̀'
-private const val COMBINING_MARKS_END = 'ͯ'
+private const val COMBINING_MARKS_START = '\u0300'
+private const val COMBINING_MARKS_END = '\u036F'
 
 /**
  * Each lower-case Latin letter that carries a mark, or is a ligature, mapped to its plain spelling. Latin-1

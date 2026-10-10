@@ -217,6 +217,20 @@ class BookMatchApplyTest :
             }
         }
 
+        test("a catalogue naming one person twice credits them once") {
+            withSqlDatabase {
+                runTest {
+                    val rig = MatchRig(this@withSqlDatabase)
+                    val book = rig.seedBook()
+                    val draft = MatchDraftBuilder().apply { authors = listOf("Andy Weir", "andy  WEIR") }.build()
+
+                    val plan = rig.preparer.prepare(draft, book, emptyList()).shouldSucceed()
+
+                    plan.book.contributors.count { it.role == ContributorRole.AUTHOR.apiValue } shouldBe 1
+                }
+            }
+        }
+
         test("a book that changed since the Review is ReviewOutdated, and nothing is written") {
             withSqlDatabase {
                 runTest {
