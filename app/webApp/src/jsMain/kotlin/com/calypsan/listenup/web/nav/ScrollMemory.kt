@@ -21,8 +21,9 @@ import org.w3c.dom.events.Event
  *
  *   - Leaving: the router's hook ([captureScrollBeforeRouteChange], via [readLeavingPage]) records the
  *     outgoing page's offset while that page is still laid out — the last moment it can be read.
- *   - Arriving: [ScrollRestoration] starts a new page at the top, restores the saved offset on Back,
- *     and leaves the place alone for a change made in place (a sort, a filter, a tab).
+ *   - Arriving: [ScrollRestoration] starts a new page at the top (by link or by replace), restores the
+ *     saved offset on Back, and leaves the place alone for a change made in place (a sort, a filter,
+ *     a tab).
  *
  * ⛔ Restoration WAITS for height. A virtualised list first renders a screenful, measures itself a
  * frame later and only then has its full height; setting `scrollTop` before that clamps to the
@@ -141,12 +142,14 @@ private fun arrive(
             }
         }
 
-        RouteChange.PUSH -> {
+        // A replace is a move forward that leaves no history entry — saving an edit lands on the
+        // book it edited — so a new page starts at its top just as a link's does.
+        RouteChange.PUSH, RouteChange.REPLACE -> {
             if (isNewPath) port.scrollTop = 0.0
             null
         }
 
-        RouteChange.REPLACE, null -> {
+        null -> {
             null
         }
     }

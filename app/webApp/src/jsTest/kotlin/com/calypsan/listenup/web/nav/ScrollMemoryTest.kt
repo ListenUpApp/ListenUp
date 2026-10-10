@@ -185,6 +185,16 @@ class ScrollMemoryTest :
             awaitUntil("the original offset to come back") { main.scrollTop == 1_500.0 }
         }
 
+        test("a replace to a different page starts at its top") {
+            val main = mount()
+            awaitFrame()
+            main.scrollTop = 1_500.0
+
+            go(RouteChange.REPLACE, Route(listOf("another-tall")))
+
+            awaitUntil("the new page to start at the top") { main.scrollTop == 0.0 }
+        }
+
         test("work queued while a place is restored runs once it is") {
             var ran = false
             captureScrollBeforeRouteChange(RouteChange.POP)
