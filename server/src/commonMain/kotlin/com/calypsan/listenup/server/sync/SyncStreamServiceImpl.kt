@@ -45,7 +45,7 @@ private const val HEARTBEAT_INTERVAL_MILLIS = 25_000L
  * it), a heartbeat frame every 25s (the client's liveness signal), resume via the
  * `sinceRevision` parameter, and expected terminal conditions ([SyncControl.CursorStale]) as
  * frames + completion rather than errors. The C2 session-liveness gate lives in the
- * registration's `streamLiveness` predicate, not here.
+ * registration's connection liveness probe (`connectionLiveness` in `routes/RpcRoutes.kt`), not here.
  *
  * The [bookAccessPolicy] thunk is resolved only when a book-gated content event must be probed,
  * so harnesses driving only ungated domains need no policy.
