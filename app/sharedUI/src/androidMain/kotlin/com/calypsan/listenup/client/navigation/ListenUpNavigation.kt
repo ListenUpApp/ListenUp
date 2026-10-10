@@ -88,7 +88,11 @@ import com.calypsan.listenup.client.features.shell.shellDestinationSaver
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
+import com.calypsan.listenup.client.playback.SleepTimerMode
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
@@ -515,12 +519,13 @@ private fun resetToShell(backStack: NavBackStack<NavKey>) {
  * mutations and [onSelectShellDestination] are invoked from the caller's `LaunchedEffect`
  * coroutine, preserving the original ordering and threading.
  */
-private suspend fun handleShortcutAction(
+internal suspend fun handleShortcutAction(
     action: ShortcutAction,
     homeRepository: HomeRepository,
-    nowPlayingViewModel: NowPlayingViewModel,
+    playback: ShortcutPlayback,
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
+    onOpenSearch: () -> Unit,
 ) {
     when (action) {
         is ShortcutAction.Resume -> {
@@ -529,8 +534,8 @@ private suspend fun handleShortcutAction(
             if (result is AppResult.Success && result.data.isNotEmpty()) {
                 val book = result.data.first()
                 logger.info { "Resuming book: ${book.title}" }
-                nowPlayingViewModel.playBook(BookId(book.bookId))
-                nowPlayingViewModel.expand()
+                playback.playBook(BookId(book.bookId))
+                playback.expand()
             } else {
                 logger.warn { "No recent book to resume" }
                 // Navigate to library as fallback
@@ -541,14 +546,14 @@ private suspend fun handleShortcutAction(
 
         is ShortcutAction.PlayBook -> {
             logger.info { "Playing book: ${action.bookId}" }
-            nowPlayingViewModel.playBook(BookId(action.bookId))
-            nowPlayingViewModel.expand()
+            playback.playBook(BookId(action.bookId))
+            playback.expand()
         }
 
         is ShortcutAction.Search -> {
-            // Navigate to library (search tab)
             resetToShell(backStack)
             onSelectShellDestination(ShellDestination.Library)
+            onOpenSearch()
         }
 
         is ShortcutAction.NavigateToBook,
@@ -562,16 +567,57 @@ private suspend fun handleShortcutAction(
         }
 
         is ShortcutAction.SleepTimer -> {
-            // If playing, show sleep timer; otherwise resume + set timer
-            val result = homeRepository.getContinueListening(1)
-            if (result is AppResult.Success && result.data.isNotEmpty()) {
-                val book = result.data.first()
-                nowPlayingViewModel.playBook(BookId(book.bookId))
-                nowPlayingViewModel.expand()
-                // Let the user interact with sleep timer in the player
-            }
+            startSleepTimerFromShortcut(action, homeRepository, playback, backStack, onSelectShellDestination)
         }
     }
+}
+
+/** Minutes the launcher's "Set sleep timer" shortcut uses when it carries no preset of its own. */
+private const val DEFAULT_SHORTCUT_SLEEP_MINUTES = 30
+
+/** How long the sleep-timer shortcut waits for the book it started to become the player's current one. */
+private val SHORTCUT_BOOK_LOAD_TIMEOUT = 10.seconds
+
+/**
+ * Sets the sleep timer the launcher's "Set sleep timer" shortcut promises, resuming the latest book
+ * first when nothing is loaded.
+ *
+ * The timer is set only once the book is current: changing the player's book cancels a running
+ * timer, so one set before the book loads would be cancelled a moment later.
+ */
+private suspend fun startSleepTimerFromShortcut(
+    action: ShortcutAction.SleepTimer,
+    homeRepository: HomeRepository,
+    playback: ShortcutPlayback,
+    backStack: NavBackStack<NavKey>,
+    onSelectShellDestination: (ShellDestination) -> Unit,
+) {
+    val timer = SleepTimerMode.Duration(action.timerMinutes ?: DEFAULT_SHORTCUT_SLEEP_MINUTES)
+    if (playback.activeBookId != null) {
+        playback.setSleepTimer(timer)
+        playback.expand()
+        return
+    }
+
+    val recent = (homeRepository.getContinueListening(1) as? AppResult.Success)?.data?.firstOrNull()
+    if (recent == null) {
+        logger.warn { "No recent book to start a sleep timer on" }
+        resetToShell(backStack)
+        onSelectShellDestination(ShellDestination.Library)
+        return
+    }
+
+    playback.playBook(BookId(recent.bookId))
+    playback.expand()
+    val current =
+        withTimeoutOrNull(SHORTCUT_BOOK_LOAD_TIMEOUT) {
+            playback.activeBookIds.first { it == recent.bookId }
+        }
+    if (current == null) {
+        logger.warn { "Book ${recent.bookId} did not become current in time; no sleep timer set" }
+        return
+    }
+    playback.setSleepTimer(timer)
 }
 
 /**
@@ -629,6 +675,9 @@ private fun AuthenticatedNavigation(
     deepLinkManager: DeepLinkManager = koinInject(),
 ) {
     val scope = rememberCoroutineScope()
+
+    // One search-request channel for the `/` key and the launcher's Search shortcut alike.
+    val searchRequests = remember { ShellSearchRequests() }
 
     // ViewModels for shortcut action handling
     val nowPlayingViewModel: NowPlayingViewModel = koinViewModel()
@@ -731,6 +780,7 @@ private fun AuthenticatedNavigation(
         nowPlayingViewModel = nowPlayingViewModel,
         backStack = backStack,
         onSelectShellDestination = { currentShellDestination = it },
+        onOpenSearch = searchRequests::request,
     )
 
     // The lock on every book card: one admin-gated set for the whole app (empty for members).
@@ -744,7 +794,7 @@ private fun AuthenticatedNavigation(
                 LocalSnackbarHostState provides snackbarHostState,
                 LocalDeviceContext provides koinInject<DeviceContext>(),
             ) {
-                AppKeyboardShortcuts(nowPlayingViewModel, backStack) {
+                AppKeyboardShortcuts(nowPlayingViewModel, backStack, searchRequests) {
                     // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
                     // wraps NavDisplay only. AuthenticatedNavOverlays stays outside deliberately — the
                     // now-playing bar is not an entry, and a cover flying past it should pass under it.
@@ -788,6 +838,7 @@ private fun AuthenticatedNavigation(
                                         homeRepository = homeRepository,
                                         snackbarHostState = snackbarHostState,
                                         pendingSelectionExit = pendingSelectionExit,
+                                        onOpenSearch = searchRequests::request,
                                     ),
                             )
                         }
@@ -819,10 +870,10 @@ private fun AuthenticatedNavigation(
 private fun AppKeyboardShortcuts(
     nowPlayingViewModel: NowPlayingViewModel,
     backStack: NavBackStack<NavKey>,
+    searchRequests: ShellSearchRequests,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val nowPlaying by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
-    val searchRequests = remember { ShellSearchRequests() }
     ShellKeyboardShortcuts(
         enabled = !LocalDeviceContext.current.isLeanback,
         onShortcut = { shortcut ->
@@ -872,15 +923,17 @@ private fun shortcutActionDispatcher(
     nowPlayingViewModel: NowPlayingViewModel,
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
+    onOpenSearch: () -> Unit,
 ): (ShortcutAction) -> Unit =
     { action ->
         scope.launch {
             handleShortcutAction(
                 action = action,
                 homeRepository = homeRepository,
-                nowPlayingViewModel = nowPlayingViewModel,
+                playback = nowPlayingViewModel.asShortcutPlayback(),
                 backStack = backStack,
                 onSelectShellDestination = onSelectShellDestination,
+                onOpenSearch = onOpenSearch,
             )
         }
     }
@@ -916,6 +969,7 @@ private fun authenticatedNavEntries(
     homeRepository: HomeRepository,
     snackbarHostState: SnackbarHostState,
     pendingSelectionExit: PendingSelectionExit,
+    onOpenSearch: () -> Unit,
 ) = entryProvider {
     shellEntry(
         backStack = backStack,
@@ -947,6 +1001,7 @@ private fun authenticatedNavEntries(
                 nowPlayingViewModel = nowPlayingViewModel,
                 backStack = backStack,
                 onSelectShellDestination = shell.onDestinationChange,
+                onOpenSearch = onOpenSearch,
             ),
     )
     // Re-auth entry pushed by the shell banner's "Sign in" action while SessionLapsed.
@@ -1131,6 +1186,7 @@ private fun ShortcutActionEffect(
     nowPlayingViewModel: NowPlayingViewModel,
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
+    onOpenSearch: () -> Unit,
 ) {
     val pendingAction by shortcutActionManager.pendingAction.collectAsStateWithLifecycle()
     LaunchedEffect(pendingAction) {
@@ -1141,9 +1197,10 @@ private fun ShortcutActionEffect(
         handleShortcutAction(
             action = action,
             homeRepository = homeRepository,
-            nowPlayingViewModel = nowPlayingViewModel,
+            playback = nowPlayingViewModel.asShortcutPlayback(),
             backStack = backStack,
             onSelectShellDestination = onSelectShellDestination,
+            onOpenSearch = onOpenSearch,
         )
 
         // Consume the action after processing
