@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.metadata.itunes
 
+import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
+import com.calypsan.listenup.server.metadata.bodyAsTextBounded
 import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
@@ -8,7 +10,6 @@ import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
@@ -38,6 +39,7 @@ class ITunesClient(
     private val httpClient: HttpClient,
     private val json: Json,
     private val rateLimiter: ITunesRateLimiter = ITunesRateLimiter(),
+    private val maxBodyBytes: Long = MAX_CATALOGUE_BODY_BYTES,
 ) : ITunesApi {
     /**
      * Searches iTunes for the best cover matching [title] + [author].
@@ -107,7 +109,12 @@ class ITunesClient(
             when (response.status) {
                 HttpStatusCode.OK -> {
                     try {
-                        val results = json.decodeFromString<ITunesSearchResponse>(response.bodyAsText()).results
+                        val text =
+                            bodyAsTextBounded(response, maxBodyBytes)
+                                ?: return AppResult.Failure(
+                                    MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
+                                )
+                        val results = json.decodeFromString<ITunesSearchResponse>(text).results
                         log.debug { "iTunes cover search result: matches=${results.size}" }
                         AppResult.Success(results)
                     } catch (e: SerializationException) {

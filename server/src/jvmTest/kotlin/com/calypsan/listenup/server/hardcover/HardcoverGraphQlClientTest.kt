@@ -19,6 +19,7 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.IOException
@@ -59,6 +60,25 @@ class HardcoverGraphQlClientTest :
                     .parseToJsonElement(sentBody)
                     .jsonObject["query"]!!
                     .jsonPrimitive.content shouldBe "{ me { id username } }"
+            }
+        }
+
+        test("an answer over the ceiling is Failed") {
+            runTest {
+                val client =
+                    HardcoverGraphQlClient(
+                        http =
+                            HttpClient(
+                                MockEngine {
+                                    respond("""{"data":{"me":[{"id":42,"username":"simon"}]}}""", HttpStatusCode.OK, JSON_HEADERS)
+                                },
+                            ),
+                        apiBaseUrl = "https://hc.test",
+                        maxBodyBytes = 16,
+                    )
+
+                client.call("hc_at_1", "{ me { id } }", JsonObject(emptyMap()), "probe") shouldBe
+                    HardcoverCall.Failed("probe: response body over 16 bytes")
             }
         }
 

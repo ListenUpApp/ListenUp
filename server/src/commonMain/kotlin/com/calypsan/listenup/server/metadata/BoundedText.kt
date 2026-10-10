@@ -14,16 +14,19 @@ import kotlinx.io.readByteArray
 internal const val MAX_CATALOGUE_BODY_BYTES: Long = 4L * 1024 * 1024
 
 /**
- * Reads this response's body as UTF-8 text, or returns null when it is larger than [maxBytes].
+ * Reads [response]'s body as UTF-8 text, or returns null when it is larger than [maxBytes].
  *
  * A declared length over the ceiling is refused before any byte is read; a body with no declared
  * length is streamed and abandoned once it passes the ceiling. Callers treat null the way they
  * treat an undecodable body.
  */
-internal suspend fun HttpResponse.bodyAsTextBounded(maxBytes: Long = MAX_CATALOGUE_BODY_BYTES): String? {
-    val declared = contentLength()
+internal suspend fun bodyAsTextBounded(
+    response: HttpResponse,
+    maxBytes: Long = MAX_CATALOGUE_BODY_BYTES,
+): String? {
+    val declared = response.contentLength()
     if (declared != null && declared > maxBytes) return null
-    val channel = bodyAsChannel()
+    val channel = response.bodyAsChannel()
     val buffer = Buffer()
     val chunk = ByteArray(READ_CHUNK_BYTES)
     while (true) {

@@ -15,21 +15,21 @@ import io.ktor.utils.io.ByteReadChannel
 
 class BoundedTextTest :
     FunSpec({
-        fun clientResponding(respondWith: suspend MockRequestHandleScope.() -> HttpResponseData) =
-            HttpClient(MockEngine { respondWith() })
+        fun clientResponding(respondWith: suspend MockRequestHandleScope.() -> HttpResponseData) = HttpClient(MockEngine { respondWith() })
 
         test("a body under the ceiling is returned as UTF-8 text") {
             val client = clientResponding { respond("Brontë", HttpStatusCode.OK) }
 
-            client.get("https://x.test/").bodyAsTextBounded(maxBytes = 1024) shouldBe "Brontë"
+            bodyAsTextBounded(client.get("https://x.test/"), maxBytes = 1024) shouldBe "Brontë"
         }
 
         test("a declared Content-Length over the ceiling is refused") {
-            val client = clientResponding {
+            val client =
+                clientResponding {
                     respond("a".repeat(17), HttpStatusCode.OK, headersOf(HttpHeaders.ContentLength, "17"))
                 }
 
-            client.get("https://x.test/").bodyAsTextBounded(maxBytes = 16) shouldBe null
+            bodyAsTextBounded(client.get("https://x.test/"), maxBytes = 16) shouldBe null
         }
 
         test("an undeclared-length body that streams past the ceiling is refused") {
@@ -38,12 +38,12 @@ class BoundedTextTest :
                     respond(ByteReadChannel("a".repeat(17).encodeToByteArray()), HttpStatusCode.OK, headersOf())
                 }
 
-            client.get("https://x.test/").bodyAsTextBounded(maxBytes = 16) shouldBe null
+            bodyAsTextBounded(client.get("https://x.test/"), maxBytes = 16) shouldBe null
         }
 
         test("a body exactly at the ceiling is returned") {
             val client = clientResponding { respond("a".repeat(16), HttpStatusCode.OK) }
 
-            client.get("https://x.test/").bodyAsTextBounded(maxBytes = 16) shouldBe "a".repeat(16)
+            bodyAsTextBounded(client.get("https://x.test/"), maxBytes = 16) shouldBe "a".repeat(16)
         }
     })

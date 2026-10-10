@@ -1,11 +1,12 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
+import com.calypsan.listenup.server.metadata.bodyAsTextBounded
 import io.ktor.client.HttpClient
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.content.TextContent
@@ -118,6 +119,7 @@ sealed interface HardcoverCandidatesResult {
 class HardcoverGraphQlClient(
     private val http: HttpClient,
     private val apiBaseUrl: String = HARDCOVER_API_BASE_URL,
+    private val maxBodyBytes: Long = MAX_CATALOGUE_BODY_BYTES,
 ) {
     /** The account [accessToken] belongs to. Hardcover answers `me` as a list; the first entry is the owner. */
     suspend fun me(accessToken: String): MeResult =
@@ -341,13 +343,18 @@ class HardcoverGraphQlClient(
                         ),
                     )
                 }
-            classifyHardcoverResponse(
-                status = response.status,
-                retryAfter = response.headers[HttpHeaders.RetryAfter],
-                wwwAuthenticate = response.headers[HttpHeaders.WWWAuthenticate],
-                body = response.bodyAsText(),
-                label = label,
-            )
+            val body = bodyAsTextBounded(response, maxBodyBytes)
+            if (body == null) {
+                HardcoverCall.Failed("$label: response body over $maxBodyBytes bytes")
+            } else {
+                classifyHardcoverResponse(
+                    status = response.status,
+                    retryAfter = response.headers[HttpHeaders.RetryAfter],
+                    wwwAuthenticate = response.headers[HttpHeaders.WWWAuthenticate],
+                    body = body,
+                    label = label,
+                )
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

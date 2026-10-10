@@ -182,6 +182,30 @@ class ITunesClientTest :
             }
         }
 
+        test("findCover refuses a body over the ceiling as Malformed") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = SEARCH_WITH_RESULTS,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+                val client =
+                    ITunesClient(
+                        HttpClient(engine),
+                        json,
+                        ITunesRateLimiter(minInterval = kotlin.time.Duration.ZERO),
+                        maxBodyBytes = 16,
+                    )
+
+                val failure = client.findCover("Dune", "Frank Herbert").shouldBeInstanceOf<AppResult.Failure>()
+                val error = failure.error.shouldBeInstanceOf<MetadataError.Malformed>()
+                error.debugInfo shouldBe "response body over 16 bytes"
+            }
+        }
+
         test("findCover returns Malformed on invalid JSON") {
             runTest {
                 val engine =
