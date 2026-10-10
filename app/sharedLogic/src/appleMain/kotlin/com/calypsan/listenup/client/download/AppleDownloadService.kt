@@ -288,7 +288,9 @@ class AppleDownloadService internal constructor(
             }
 
         // Download files in the background, at most MAX_CONCURRENT_FILE_DOWNLOADS at a time.
-        inFlight.launchNew(scope, downloadSlots, bookId.value, launchable, idOf = { it.first.id }) { (file, signedRelativeUrl) ->
+        inFlight.launchNew(scope, downloadSlots, bookId.value, launchable, idOf = {
+            it.first.id
+        }) { (file, signedRelativeUrl) ->
             // Refresh token per file to avoid 401 on long-running batches
             tokenProvider.prepareForPlayback()
             val fileToken = tokenProvider.getToken() ?: token
@@ -800,17 +802,28 @@ internal class DownloadSessionDelegate(
         when {
             // The user (or a teardown) stopped this transfer. Not a failure: recording one would put a
             // cancelled row back among the incomplete ones, and the next foreground would restart it.
-            cancelled -> logger.info { "Download task $taskId cancelled" }
+            cancelled -> {
+                logger.info { "Download task $taskId cancelled" }
+            }
 
-            audioFileId == null -> logger.error { "Failed download task $taskId carries no usable tag; no row to mark" }
+            audioFileId == null -> {
+                logger.error { "Failed download task $taskId carries no usable tag; no row to mark" }
+            }
 
             // Nothing was attempted — the task only ever waited for a network it was allowed to use.
             // Charging the retry budget for that would strand a wifi-only download after three waits.
-            waitRanOut -> scope.launch { downloadDao.updateStateIfTransferring(audioFileId, DownloadState.QUEUED) }
+            waitRanOut -> {
+                scope.launch { downloadDao.updateStateIfTransferring(audioFileId, DownloadState.QUEUED) }
+            }
 
             else -> {
                 logger.error { "Download error: ${didCompleteWithError.localizedDescription}" }
-                scope.launch { downloadDao.markFailedIfNotTerminal(audioFileId, didCompleteWithError.localizedDescription) }
+                scope.launch {
+                    downloadDao.markFailedIfNotTerminal(
+                        audioFileId,
+                        didCompleteWithError.localizedDescription,
+                    )
+                }
             }
         }
         // Unconditional tail: the continuation is resumed whatever the branch.
