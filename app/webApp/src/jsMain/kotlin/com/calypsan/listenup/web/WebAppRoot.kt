@@ -2274,8 +2274,8 @@ private enum class SelectionDestination { Edit, Shelf, Collection }
  * The actions the bar offers.
  *
  * ⛔ Nothing selected means no actions, not disabled ones: the bar is already saying "0 selected",
- * and a row of greyed-out verbs under that says nothing the count has not. Collections are
- * admin-only, which is the same rule Book Detail's own collection picker follows.
+ * and a row of greyed-out verbs under that says nothing the count has not. Edit and collections
+ * are admin-only: collections by the same rule Book Detail's own collection picker follows.
  */
 private fun bulkActions(
     hasSelection: Boolean,
@@ -2284,11 +2284,11 @@ private fun bulkActions(
 ): List<BulkAction> {
     if (!hasSelection) return emptyList()
     return buildList {
-        add(BulkAction("Edit", WebIcon.Pencil) { onPick(SelectionDestination.Edit) })
+        // Editing a book's metadata is an admin's job, as on Android, whose toolbar offers Edit only
+        // when the (admin) host passes it.
+        if (isAdmin) add(BulkAction("Edit", WebIcon.Pencil) { onPick(SelectionDestination.Edit) })
         add(BulkAction("Add to shelf", WebIcon.Bookmark) { onPick(SelectionDestination.Shelf) })
-        if (isAdmin) {
-            add(BulkAction("Add to collection", WebIcon.Layers) { onPick(SelectionDestination.Collection) })
-        }
+        if (isAdmin) add(BulkAction("Add to collection", WebIcon.Layers) { onPick(SelectionDestination.Collection) })
     }
 }
 
