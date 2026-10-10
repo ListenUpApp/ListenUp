@@ -447,7 +447,81 @@ class CommandPaletteTest :
                 router.dispose()
             }
         }
+
+        test("Tab reaches the palette's own buttons instead of being swallowed") {
+            // The palette renders "See all" buttons, so Tab has somewhere to go. The modal dialog
+            // already keeps focus inside it; cancelling the key took the buttons away from the keyboard.
+            val result = searchResult(query = "dune", hits = listOf(bookHit("b1", "Dune")))
+            val (host, router, composition) = mountAt("/", openSearch = hitNavigatingSearch(result))
+
+            try {
+                press("k", metaKey = true)
+                awaitFrame()
+
+                val tab =
+                    KeyboardEvent(
+                        "keydown",
+                        KeyboardEventInit(key = "Tab", bubbles = true, cancelable = true),
+                    )
+                window.dispatchEvent(tab)
+
+                tab.defaultPrevented shouldBe false
+            } finally {
+                host.closePaletteDialogs()
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("Enter during IME composition does not open the highlighted hit") {
+            // Enter while composing confirms the candidate; it is not "open this result".
+            val result = searchResult(query = "dune", hits = listOf(bookHit("b1", "Dune")))
+            val (host, router, composition) = mountAt("/", openSearch = hitNavigatingSearch(result))
+
+            try {
+                press("k", metaKey = true)
+                awaitFrame()
+                highlightedRowName(host) shouldBe "Dune"
+
+                window.dispatchEvent(
+                    KeyboardEvent(
+                        "keydown",
+                        KeyboardEventInit(key = "Enter", isComposing = true, bubbles = true, cancelable = true),
+                    ),
+                )
+                repeat(NO_NAVIGATION_FRAMES) { awaitFrame() }
+
+                window.location.pathname shouldBe "/"
+            } finally {
+                host.closePaletteDialogs()
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/ does not open the palette while a select has focus") {
+            val (host, router, composition) = mountAt("/")
+            val select = document.createElement("select") as HTMLElement
+            document.body!!.appendChild(select)
+
+            try {
+                select.focus()
+                document.activeElement shouldBe select
+
+                press("/")
+                awaitFrame()
+
+                host.querySelector(".cmdk-panel") shouldBe null
+            } finally {
+                select.remove()
+                composition.dispose()
+                router.dispose()
+            }
+        }
     })
+
+/** Frames to let a navigation that should NOT happen have every chance to happen. */
+private const val NO_NAVIGATION_FRAMES = 5
 
 /** Closes a palette dialog a failed spec left open, so its modality cannot leak into the next. */
 private fun HTMLElement.closePaletteDialogs() {

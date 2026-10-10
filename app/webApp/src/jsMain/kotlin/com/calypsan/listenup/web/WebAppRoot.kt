@@ -1249,6 +1249,9 @@ private fun paletteKeyDownHandler(
 ): (Event) -> Unit =
     handler@{ event ->
         val keyboardEvent = event as KeyboardEvent
+        // Enter, an arrow or Escape while an input method is composing belongs to the composition
+        // (confirming a candidate, picking one), not to the palette.
+        if (keyboardEvent.isComposing) return@handler
         if (!isOpen()) {
             val isShortcut =
                 keyboardEvent.key.equals(PALETTE_SHORTCUT_KEY, ignoreCase = true) &&
@@ -1265,12 +1268,6 @@ private fun paletteKeyDownHandler(
             "Escape" -> {
                 keyboardEvent.preventDefault()
                 onClose()
-            }
-
-            // The whole focus trap: with nowhere else in the palette to tab to, Tab simply does
-            // nothing while it's open.
-            "Tab" -> {
-                keyboardEvent.preventDefault()
             }
 
             "ArrowDown" -> {
@@ -1315,13 +1312,16 @@ private fun paletteSearchRoute(query: String): Route =
 private fun anotherModalIsOpen(): Boolean = document.querySelector("dialog:modal") != null
 
 /**
- * True for a text input, a textarea, or a `contenteditable` region — everywhere `/` must type the
- * character rather than open the palette out from under the reader.
+ * True for a text input, a textarea, a `select` or a `contenteditable` region — everywhere `/` must
+ * type the character (a select uses typed characters to jump to an option) rather than open the
+ * palette out from under the reader.
  */
 private fun isEditableTarget(target: Element?): Boolean {
     val element = target as? HTMLElement ?: return false
-    return element.isContentEditable || element.tagName == "INPUT" || element.tagName == "TEXTAREA"
+    return element.isContentEditable || element.tagName in EDITABLE_TAGS
 }
+
+private val EDITABLE_TAGS = setOf("INPUT", "TEXTAREA", "SELECT")
 
 /** The letter half of the ⌘K / Ctrl+K shortcut. */
 private const val PALETTE_SHORTCUT_KEY = "k"
