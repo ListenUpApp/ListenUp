@@ -31,8 +31,8 @@ internal fun CollectionsRoute(
         onCreate = session.onCreate,
         onDelete = session.onDelete,
         onClearError = session.onClearError,
-        onOpenCollection = { id -> router.navigate(Routes.adminCollection(id)) },
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onOpenCollection = { id -> router.navigate(Routes.Admin.collection(id)) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
         onCreateConfirmed = {
             onToast("Collection created.")
             session.onClearCreateSuccess()
@@ -70,7 +70,7 @@ internal fun CollectionDetailRoute(
         onShare = session.onShare,
         onRevokeShare = session.onRevokeShare,
         onClearError = session.onClearError,
-        onOpenCollections = { router.navigate(Routes.adminCollections) },
+        onOpenCollections = { router.navigate(Routes.Admin.collections) },
         onSaveConfirmed = {
             onToast("Collection renamed.")
             session.onClearSaveSuccess()
@@ -90,7 +90,7 @@ internal fun CategoriesRoute(
     router: Router,
     openCategories: OpenCategories,
     parentCrumb: String = "Admin",
-    parent: Route = Routes.admin,
+    parent: Route = Routes.Admin.root,
 ) {
     val session = rememberSession { openCategories() }
 
@@ -141,7 +141,7 @@ internal fun ServerSettingsRoute(
         onSave = session.onSave,
         onClearError = session.onClearError,
         onRetry = session.onRetry,
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
         nowMs = nowMs(),
     )
 }
@@ -168,12 +168,12 @@ internal fun AdminInboxRoute(
         onRelease = session.onRelease,
         onDismissIssue = session.onDismissIssue,
         onClearError = session.onClearError,
-        onOpenBookEdit = { id -> router.navigate(Routes.bookEdit(id)) },
-        onOpenMatch = { id -> router.navigate(Routes.bookMatch(id)) },
-        onOpenBook = { id -> router.navigate(Routes.book(id)) },
+        onOpenBookEdit = { id -> router.navigate(Routes.Book.edit(id)) },
+        onOpenMatch = { id -> router.navigate(Routes.Book.match(id)) },
+        onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
         onClearReleaseResult = session.onClearReleaseResult,
         onRetry = session.onRetry,
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }
 
@@ -212,6 +212,6 @@ internal fun LibrarySettingsRoute(
         onOpenBrowserPath = session.onOpenBrowserPath,
         onBrowserUp = session.onBrowserUp,
         onClearError = session.onClearError,
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }

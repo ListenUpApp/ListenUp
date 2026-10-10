@@ -44,7 +44,7 @@ internal fun DiscoverRoute(
             nowMs = nowMs,
             onOpenBook = { id ->
                 feeds.onHeroBookIdChange(id)
-                router.navigate(Routes.book(id))
+                router.navigate(Routes.Book.detail(id))
             },
             onOpenShelf = { id -> router.navigate(Routes.shelf(id)) },
             onOpenProfile = { id -> router.navigate(Routes.profile(id)) },

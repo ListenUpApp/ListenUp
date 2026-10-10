@@ -147,13 +147,13 @@ internal fun BookRouteContent(
             bookTitle = bookTitleOf(bookDetailSession(readersBookId, openBookDetail).state.collectAsState().value),
             nowMs = nowMs(),
             onOpenProfile = { id -> router.navigate(Routes.profile(id)) },
-            onOpenBook = { router.navigate(Routes.book(readersBookId)) },
+            onOpenBook = { router.navigate(Routes.Book.detail(readersBookId)) },
         )
         return
     }
 
     if (matchingBookId != null) {
-        val here = Routes.bookMatch(matchingBookId)
+        val here = Routes.Book.match(matchingBookId)
         BookMatchRoute(
             bookId = matchingBookId,
             graph = matchDetails,
@@ -164,9 +164,9 @@ internal fun BookRouteContent(
             onOpenCompare = { router.replace(Route(here.segments, mapOf(VIEW_QUERY_KEY to COMPARE_VIEW))) },
             onCloseCompare = { router.replace(here) },
             onOpenLibrary = { router.navigate(Routes.library) },
-            onOpenBook = { router.navigate(Routes.book(matchingBookId)) },
+            onOpenBook = { router.navigate(Routes.Book.detail(matchingBookId)) },
             // After Apply, back to the book: its receipt says what changed and offers Undo.
-            onApplied = { router.navigate(Routes.book(matchingBookId)) },
+            onApplied = { router.navigate(Routes.Book.detail(matchingBookId)) },
         )
         return
     }
@@ -186,13 +186,13 @@ internal fun BookRouteContent(
             bookEditState(
                 bookId = editingBookId,
                 openBookEdit = openBookEdit,
-                onLeave = { router.navigate(Routes.book(editingBookId)) },
+                onLeave = { router.navigate(Routes.Book.detail(editingBookId)) },
             )
         BookEditPage(
             state = editSession.state.collectAsState().value,
             onEvent = editSession.onEvent,
             onOpenLibrary = { router.navigate(Routes.library) },
-            onOpenBook = { router.navigate(Routes.book(editingBookId)) },
+            onOpenBook = { router.navigate(Routes.Book.detail(editingBookId)) },
         )
         return
     }
@@ -315,15 +315,15 @@ private fun BookDetailRoute(
         onClearDeleteError = detailSession.onClearDeleteError,
         onReleaseFromInbox = detailSession.onReleaseFromInbox,
         onRestoreToAllBooks = detailSession.onRestoreToAllBooks,
-        onOpenCollection = { id -> router.navigate(Routes.adminCollection(id)) },
+        onOpenCollection = { id -> router.navigate(Routes.Admin.collection(id)) },
         pickers = bookPickersFor(detailSession),
-        onEdit = { router.navigate(Routes.bookEdit(bookId)) },
-        onEditChapters = { router.navigate(Routes.bookChapters(bookId)) },
-        onMatchMetadata = { router.navigate(Routes.bookMatch(bookId)) },
+        onEdit = { router.navigate(Routes.Book.edit(bookId)) },
+        onEditChapters = { router.navigate(Routes.Book.chapters(bookId)) },
+        onMatchMetadata = { router.navigate(Routes.Book.match(bookId)) },
         onOpenGenre = { id -> router.navigate(Routes.genre(id)) },
         onOpenTag = { id -> router.navigate(Routes.tag(id)) },
         onOpenMood = { id -> router.navigate(Routes.mood(id)) },
-        onOpenContributor = { id -> router.navigate(Routes.contributor(id)) },
+        onOpenContributor = { id -> router.navigate(Routes.Contributor.detail(id)) },
         onOpenSeries = { id -> router.navigate(Routes.series(id)) },
         readers = bookReadersState(bookId, openBookReaders),
         ratings = ratingsSession.state.collectAsState().value,
@@ -334,9 +334,9 @@ private fun BookDetailRoute(
         ratingStarsFocusRequest = ratingStarsFocusRequest,
         nowMs = nowMs(),
         onOpenProfile = { id -> router.navigate(Routes.profile(id)) },
-        onSeeAllReaders = { router.navigate(Routes.bookReaders(bookId)) },
+        onSeeAllReaders = { router.navigate(Routes.Book.readers(bookId)) },
         hardcover = hardcoverSession.state.collectAsState().value,
-        onFindHardcoverMatch = { router.navigate(Routes.bookHardcover(bookId)) },
+        onFindHardcoverMatch = { router.navigate(Routes.Book.hardcover(bookId)) },
         onRemoveHardcoverMatch = hardcoverSession.onRemoveMatch,
         onSetHardcoverSynced = hardcoverSession.onSetSynced,
         lastMatchRow = { BookLastMatch(session = detailSession, nowMs = nowMs()) },

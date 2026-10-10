@@ -237,8 +237,8 @@ private fun paletteKeyDownHandler(
  */
 internal fun searchNavRoute(action: SearchNavAction): Route =
     when (action) {
-        is SearchNavAction.NavigateToBook -> Routes.book(action.bookId)
-        is SearchNavAction.NavigateToContributor -> Routes.contributor(action.contributorId)
+        is SearchNavAction.NavigateToBook -> Routes.Book.detail(action.bookId)
+        is SearchNavAction.NavigateToContributor -> Routes.Contributor.detail(action.contributorId)
         is SearchNavAction.NavigateToSeries -> Routes.series(action.seriesId)
         is SearchNavAction.NavigateToTag -> Routes.tag(action.tagId)
     }

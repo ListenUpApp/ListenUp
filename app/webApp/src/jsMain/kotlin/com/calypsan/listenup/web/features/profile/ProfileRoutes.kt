@@ -65,7 +65,7 @@ private fun ProfileRoute(
 
     ProfilePage(
         state = session.state.collectAsState().value,
-        onOpenBook = { id -> router.navigate(Routes.book(id)) },
+        onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
         onOpenShelf = { id -> router.navigate(Routes.shelf(id)) },
         onRetry = session.onRetry,
         onEditProfile = onEditProfile,

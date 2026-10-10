@@ -78,7 +78,7 @@ internal fun HardcoverRoute(
         onSetShareMode = session.onSetShareMode,
         onSendHistory = session.onSendHistory,
         onDismissHistory = session.onDismissHistory,
-        onFindMatch = { bookId -> router.navigate(Routes.bookHardcover(bookId)) },
+        onFindMatch = { bookId -> router.navigate(Routes.Book.hardcover(bookId)) },
         onOpenKeptOff = { router.navigate(Routes.settingsHardcoverKeptOff) },
         onOpenSettings = { router.navigate(Routes.settings) },
         nowMs = nowMs(),
@@ -153,11 +153,11 @@ internal fun HardcoverMatchRoute(
                         ToastTone.Notice,
                         ToastAction("Undo", session.onUndoLink),
                     )
-                    router.replace(Routes.book(bookId))
+                    router.replace(Routes.Book.detail(bookId))
                 }
 
                 HardcoverMatchEvent.MatchRemoved -> {
-                    router.replace(Routes.book(bookId))
+                    router.replace(Routes.Book.detail(bookId))
                 }
 
                 // `AppError.message` is a user-facing constant per subtype — printed, not reworded.
@@ -175,6 +175,6 @@ internal fun HardcoverMatchRoute(
         onPick = session.onPick,
         onRemoveMatch = session.onRemoveMatch,
         onOpenLibrary = { router.navigate(Routes.library) },
-        onOpenBook = { router.navigate(Routes.book(bookId)) },
+        onOpenBook = { router.navigate(Routes.Book.detail(bookId)) },
     )
 }

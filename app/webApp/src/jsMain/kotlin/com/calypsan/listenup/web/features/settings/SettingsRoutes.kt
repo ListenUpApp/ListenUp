@@ -186,17 +186,17 @@ internal fun AccountRouteContent(
         active == ADMIN_KEY && segments.size <= 1 -> {
             AdminRoute(
                 openAdmin = openAdmin,
-                onOpenLibrarySettings = { router.navigate(Routes.adminLibrary) },
-                onOpenInbox = { router.navigate(Routes.adminInbox) },
-                onOpenServerSettings = { router.navigate(Routes.adminServerSettings) },
-                onOpenCategories = { router.navigate(Routes.adminCategories) },
-                onOpenCollections = { router.navigate(Routes.adminCollections) },
-                onOpenBackups = { router.navigate(Routes.adminBackups) },
-                onOpenImports = { router.navigate(Routes.adminImports) },
-                onOpenInvite = { router.navigate(Routes.adminInvite) },
-                onOpenUpload = { router.navigate(Routes.adminUpload) },
-                onOpenOrganize = { router.navigate(Routes.adminOrganize) },
-                onOpenUser = { id -> router.navigate(Routes.adminUser(id)) },
+                onOpenLibrarySettings = { router.navigate(Routes.Admin.library) },
+                onOpenInbox = { router.navigate(Routes.Admin.inbox) },
+                onOpenServerSettings = { router.navigate(Routes.Admin.serverSettings) },
+                onOpenCategories = { router.navigate(Routes.Admin.categories) },
+                onOpenCollections = { router.navigate(Routes.Admin.collections) },
+                onOpenBackups = { router.navigate(Routes.Admin.backups) },
+                onOpenImports = { router.navigate(Routes.Admin.imports) },
+                onOpenInvite = { router.navigate(Routes.Admin.invite) },
+                onOpenUpload = { router.navigate(Routes.Admin.upload) },
+                onOpenOrganize = { router.navigate(Routes.Admin.organize) },
+                onOpenUser = { id -> router.navigate(Routes.Admin.user(id)) },
                 landOnPending = route.query[SECTION_QUERY_KEY] == PENDING_SECTION,
             )
         }

@@ -37,68 +37,22 @@ private fun List<String>.isAdminShape(): Boolean =
     size <= 2 ||
         (size == 3 && (this[1] in ADMIN_ID_PAGES || (this[1] == IMPORTS_KEY && this[2] == NEW_KEY)))
 
-/** Every route the shell navigates to, by name: the constructors for the shapes [ROUTE_SHAPES] accepts. */
+/**
+ * Every route the shell navigates to, by name: the constructors for the shapes [ROUTE_SHAPES] accepts.
+ *
+ * The larger families are nested ([Book], [Contributor], [Admin]) so no one object carries every
+ * route in the app.
+ */
 internal object Routes {
     // Properties with getters, not stored values: `Route` compares by identity, and the router only
     // announces a navigation whose route is a different instance from the current one.
     val home: Route get() = Route(emptyList())
 
-    val admin: Route get() = Route(listOf(ADMIN_KEY))
-    val adminBackups: Route get() = Route(listOf(ADMIN_KEY, BACKUPS_KEY))
-
-    fun adminBackup(id: String): Route = Route(listOf(ADMIN_KEY, BACKUPS_KEY, id))
-
-    val adminCategories: Route get() = Route(listOf(ADMIN_KEY, CATEGORIES_KEY))
-    val adminCollections: Route get() = Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))
-
-    fun adminCollection(id: String): Route = Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))
-
-    val adminImports: Route get() = Route(listOf(ADMIN_KEY, IMPORTS_KEY))
-    val adminNewImport: Route get() = Route(listOf(ADMIN_KEY, IMPORTS_KEY, NEW_KEY))
-    val adminInbox: Route get() = Route(listOf(ADMIN_KEY, INBOX_KEY))
-    val adminInvite: Route get() = Route(listOf(ADMIN_KEY, INVITE_KEY))
-    val adminLibrary: Route get() = Route(listOf(ADMIN_KEY, LIBRARY_KEY))
-    val adminOrganize: Route get() = Route(listOf(ADMIN_KEY, ORGANIZE_KEY))
-    val adminServerSettings: Route get() = Route(listOf(ADMIN_KEY, SETTINGS_KEY))
-    val adminUpload: Route get() = Route(listOf(ADMIN_KEY, UPLOAD_KEY))
-
-    fun adminUser(id: String): Route = Route(listOf(ADMIN_KEY, USER_KEY, id))
-
-    fun book(id: String): Route = Route(listOf(BOOK_KEY, id))
-
-    fun bookChapters(id: String): Route = Route(listOf(BOOK_KEY, id, CHAPTERS_KEY))
-
-    fun bookEdit(id: String): Route = Route(listOf(BOOK_KEY, id, EDIT_KEY))
-
-    fun bookHardcover(id: String): Route = Route(listOf(BOOK_KEY, id, HARDCOVER_KEY))
-
-    fun bookMatch(id: String): Route = Route(listOf(BOOK_KEY, id, MATCH_KEY))
-
-    fun bookReaders(id: String): Route = Route(listOf(BOOK_KEY, id, READERS_KEY))
-
-    fun contributor(id: String): Route = Route(listOf(CONTRIBUTOR_KEY, id))
-
-    fun contributorEdit(id: String): Route = Route(listOf(CONTRIBUTOR_KEY, id, EDIT_KEY))
-
-    fun contributorMatch(id: String): Route = Route(listOf(CONTRIBUTOR_KEY, id, MATCH_KEY))
-
-    fun genre(id: String): Route = Route(listOf(GENRE_KEY, id))
-
     val library: Route get() = Route(listOf(LIBRARY_KEY))
     val libraryContributors: Route get() = Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))
     val librarySeries: Route get() = Route(listOf(LIBRARY_KEY, SERIES_KEY))
 
-    fun mood(id: String): Route = Route(listOf(MOOD_KEY, id))
-
-    fun profile(id: String): Route = Route(listOf(PROFILE_KEY, id))
-
-    fun profileEdit(id: String): Route = Route(listOf(PROFILE_KEY, id, EDIT_KEY))
-
     val search: Route get() = Route(listOf(SEARCH_KEY))
-
-    fun series(id: String): Route = Route(listOf(SERIES_KEY, id))
-
-    fun seriesEdit(id: String): Route = Route(listOf(SERIES_KEY, id, EDIT_KEY))
 
     val settings: Route get() = Route(listOf(SETTINGS_KEY))
     val settingsCategories: Route get() = Route(listOf(SETTINGS_KEY, CATEGORIES_KEY))
@@ -107,13 +61,26 @@ internal object Routes {
     val settingsHardcoverKeptOff: Route get() = Route(listOf(SETTINGS_KEY, HARDCOVER_KEY, KEPT_OFF_KEY))
     val settingsLicences: Route get() = Route(listOf(SETTINGS_KEY, LICENCES_KEY))
     val settingsNotifications: Route get() = Route(listOf(SETTINGS_KEY, NOTIFICATIONS_KEY))
+
     val newShelf: Route get() = Route(listOf(SHELF_KEY, NEW_KEY))
+
+    fun genre(id: String): Route = Route(listOf(GENRE_KEY, id))
+
+    fun mood(id: String): Route = Route(listOf(MOOD_KEY, id))
+
+    fun tag(id: String): Route = Route(listOf(TAG_KEY, id))
+
+    fun profile(id: String): Route = Route(listOf(PROFILE_KEY, id))
+
+    fun profileEdit(id: String): Route = Route(listOf(PROFILE_KEY, id, EDIT_KEY))
+
+    fun series(id: String): Route = Route(listOf(SERIES_KEY, id))
+
+    fun seriesEdit(id: String): Route = Route(listOf(SERIES_KEY, id, EDIT_KEY))
 
     fun shelf(id: String): Route = Route(listOf(SHELF_KEY, id))
 
     fun shelfEdit(id: String): Route = Route(listOf(SHELF_KEY, id, EDIT_KEY))
-
-    fun tag(id: String): Route = Route(listOf(TAG_KEY, id))
 
     /** `/search?q=…`: the search page seeded with [query]. */
     fun searchFor(query: String): Route = Route(listOf(SEARCH_KEY), mapOf(SEARCH_QUERY_KEY to query))
@@ -128,8 +95,54 @@ internal object Routes {
     fun bulkEdit(bookIds: Collection<String>): Route =
         Route(listOf(BOOKS_KEY, EDIT_KEY), mapOf(IDS_QUERY_KEY to bookIds.joinToString(",")))
 
-    /** `/admin?section=pending`: Admin opened on the pending-requests section. */
-    val adminPending: Route get() = Route(listOf(ADMIN_KEY), mapOf(SECTION_QUERY_KEY to PENDING_SECTION))
+    /** `/book/{id}` and the pages under it. */
+    object Book {
+        fun detail(id: String): Route = Route(listOf(BOOK_KEY, id))
+
+        fun chapters(id: String): Route = Route(listOf(BOOK_KEY, id, CHAPTERS_KEY))
+
+        fun edit(id: String): Route = Route(listOf(BOOK_KEY, id, EDIT_KEY))
+
+        fun hardcover(id: String): Route = Route(listOf(BOOK_KEY, id, HARDCOVER_KEY))
+
+        fun match(id: String): Route = Route(listOf(BOOK_KEY, id, MATCH_KEY))
+
+        fun readers(id: String): Route = Route(listOf(BOOK_KEY, id, READERS_KEY))
+    }
+
+    /** `/contributor/{id}` and the pages under it. */
+    object Contributor {
+        fun detail(id: String): Route = Route(listOf(CONTRIBUTOR_KEY, id))
+
+        fun edit(id: String): Route = Route(listOf(CONTRIBUTOR_KEY, id, EDIT_KEY))
+
+        fun match(id: String): Route = Route(listOf(CONTRIBUTOR_KEY, id, MATCH_KEY))
+    }
+
+    /** `/admin` and the pages under it. */
+    object Admin {
+        val root: Route get() = Route(listOf(ADMIN_KEY))
+        val backups: Route get() = Route(listOf(ADMIN_KEY, BACKUPS_KEY))
+        val categories: Route get() = Route(listOf(ADMIN_KEY, CATEGORIES_KEY))
+        val collections: Route get() = Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))
+        val imports: Route get() = Route(listOf(ADMIN_KEY, IMPORTS_KEY))
+        val newImport: Route get() = Route(listOf(ADMIN_KEY, IMPORTS_KEY, NEW_KEY))
+        val inbox: Route get() = Route(listOf(ADMIN_KEY, INBOX_KEY))
+        val invite: Route get() = Route(listOf(ADMIN_KEY, INVITE_KEY))
+        val library: Route get() = Route(listOf(ADMIN_KEY, LIBRARY_KEY))
+        val organize: Route get() = Route(listOf(ADMIN_KEY, ORGANIZE_KEY))
+        val serverSettings: Route get() = Route(listOf(ADMIN_KEY, SETTINGS_KEY))
+        val upload: Route get() = Route(listOf(ADMIN_KEY, UPLOAD_KEY))
+
+        /** Admin opened on the pending-requests section (`?section=pending`). */
+        val pending: Route get() = Route(listOf(ADMIN_KEY), mapOf(SECTION_QUERY_KEY to PENDING_SECTION))
+
+        fun backup(id: String): Route = Route(listOf(ADMIN_KEY, BACKUPS_KEY, id))
+
+        fun collection(id: String): Route = Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))
+
+        fun user(id: String): Route = Route(listOf(ADMIN_KEY, USER_KEY, id))
+    }
 }
 
 /** Every first segment the shell serves, and the shapes that may follow it. */

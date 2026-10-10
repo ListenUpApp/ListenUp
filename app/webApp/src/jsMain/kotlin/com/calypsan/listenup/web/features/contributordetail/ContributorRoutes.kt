@@ -62,11 +62,11 @@ private fun ContributorEditRoute(
                 ContributorEditNavAction.NavigateBack,
                 ContributorEditNavAction.SaveSuccess,
                 -> {
-                    router.navigate(Routes.contributor(contributorId))
+                    router.navigate(Routes.Contributor.detail(contributorId))
                 }
 
                 is ContributorEditNavAction.NavigateToMerged -> {
-                    router.replace(Routes.contributor(action.contributorId.value))
+                    router.replace(Routes.Contributor.detail(action.contributorId.value))
                 }
             }
         }
@@ -93,14 +93,14 @@ private fun PersonMatchDetailsRoute(
     currentUserId: String?,
     contributorId: String,
 ) {
-    val person = Routes.contributor(contributorId)
+    val person = Routes.Contributor.detail(contributorId)
     PersonMatchRoute(
         contributorId = contributorId,
         graph = matchDetails,
         viewerId = currentUserId,
         onOpenLibrary = { router.navigate(Routes.library) },
         onOpenContributor = { router.navigate(person) },
-        onEditByHand = { router.navigate(Routes.contributorEdit(contributorId)) },
+        onEditByHand = { router.navigate(Routes.Contributor.edit(contributorId)) },
         onApplied = { router.navigate(person) },
     )
 }
@@ -145,7 +145,7 @@ internal fun ContributorRouteContent(
                 state = library?.let { if (role == ContributorRole.NARRATOR) it.narrators else it.authors },
                 role = role,
                 onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
-                onOpenContributor = { id -> router.navigate(Routes.contributor(id)) },
+                onOpenContributor = { id -> router.navigate(Routes.Contributor.detail(id)) },
                 sortState =
                     library?.let {
                         if (role ==
@@ -178,8 +178,8 @@ internal fun ContributorRouteContent(
                 state = contributorBooksState(roleBooksContributorId, roleBooksRole, openContributorBooks),
                 onOpenLibrary = { router.navigate(Routes.library) },
                 onOpenContributors = { router.navigate(Routes.libraryContributors) },
-                onOpenContributor = { router.navigate(Routes.contributor(roleBooksContributorId)) },
-                onOpenBook = { id -> router.navigate(Routes.book(id)) },
+                onOpenContributor = { router.navigate(Routes.Contributor.detail(roleBooksContributorId)) },
+                onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
             )
         }
 
@@ -214,11 +214,11 @@ internal fun ContributorRouteContent(
                 state = detail,
                 onConfirmDelete = session.onConfirmDelete,
                 onDismissDeleteError = session.onDismissDeleteError,
-                onEdit = { router.navigate(Routes.contributorEdit(contributorId)) },
-                onMatchMetadata = { router.navigate(Routes.contributorMatch(contributorId)) },
+                onEdit = { router.navigate(Routes.Contributor.edit(contributorId)) },
+                onMatchMetadata = { router.navigate(Routes.Contributor.match(contributorId)) },
                 onOpenLibrary = { router.navigate(Routes.library) },
                 onOpenContributors = { router.navigate(Routes.libraryContributors) },
-                onOpenBook = { id -> router.navigate(Routes.book(id)) },
+                onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
                 onOpenSeries = { id -> router.navigate(Routes.series(id)) },
                 onOpenRoleBooks = { roleValue ->
                     router.navigate(

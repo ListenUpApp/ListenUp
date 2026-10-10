@@ -77,7 +77,7 @@ internal fun LibraryRouteContent(
             onEvent = librarySession.onEvent,
             onOpenBook = { id ->
                 onHeroBookIdChange(id)
-                router.navigate(Routes.book(id))
+                router.navigate(Routes.Book.detail(id))
             },
             onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
             heroBookId = heroBookId,
@@ -86,7 +86,7 @@ internal fun LibraryRouteContent(
             onToggleSelect = selection.onToggle,
             onStartSelecting = selection.onStart,
             inbox = inbox,
-            onOpenInbox = { router.navigate(Routes.adminInbox) },
+            onOpenInbox = { router.navigate(Routes.Admin.inbox) },
         )
     }
 }

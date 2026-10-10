@@ -46,7 +46,7 @@ internal fun ChapterEditorRoute(
     var problem by remember(bookId) { mutableStateOf<String?>(null) }
     var pendingDiscard by remember(bookId) { mutableStateOf(false) }
     val isDirty = (state as? ChapterEditorUiState.Editing)?.isDirty == true
-    val book = Routes.book(bookId)
+    val book = Routes.Book.detail(bookId)
 
     LaunchedEffect(session) {
         session.events.collect { event ->

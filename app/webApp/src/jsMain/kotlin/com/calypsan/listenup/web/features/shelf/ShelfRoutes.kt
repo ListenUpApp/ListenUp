@@ -39,7 +39,7 @@ private fun ShelfDetailRoute(
         onDismissNotice = { notice = null },
         onOpenBook = { id ->
             onHeroBookIdChange(id)
-            router.navigate(Routes.book(id))
+            router.navigate(Routes.Book.detail(id))
         },
         onRemoveBook = session.onRemoveBook,
         onReorder = session.onReorder,

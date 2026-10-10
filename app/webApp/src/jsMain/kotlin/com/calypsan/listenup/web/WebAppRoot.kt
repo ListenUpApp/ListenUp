@@ -158,9 +158,9 @@ fun WebAppRoot(
                 playback = playback,
                 // The expanded player's three destinations. `navigate`, not `replace`: leaving the
                 // player for a book is a page change, and Back should return to where you were.
-                onOpenBook = { id -> router.navigate(Routes.book(id)) },
+                onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
                 onOpenSeries = { id -> router.navigate(Routes.series(id)) },
-                onOpenContributor = { id -> router.navigate(Routes.contributor(id)) },
+                onOpenContributor = { id -> router.navigate(Routes.Contributor.detail(id)) },
             )
 
             // Last of all: the palette overlays everything above it, including the transport bar.

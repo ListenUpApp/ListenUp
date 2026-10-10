@@ -53,7 +53,7 @@ private fun BrowseFacetRoute(
 
     BrowseFacetPage(
         state = session.state.collectAsState().value,
-        onOpenBook = { id -> router.navigate(Routes.book(id)) },
+        onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
         onOpenLibrary = { router.navigate(Routes.library) },
     )
 }
@@ -69,7 +69,7 @@ private fun GenreDestinationRoute(
 
     GenreDestinationPage(
         state = session.state.collectAsState().value,
-        onOpenBook = { id -> router.navigate(Routes.book(id)) },
+        onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
         onOpenGenre = { id -> router.navigate(Routes.genre(id)) },
         onOpenLibrary = { router.navigate(Routes.library) },
         onToggleSubGenres = session.onToggleSubGenres,

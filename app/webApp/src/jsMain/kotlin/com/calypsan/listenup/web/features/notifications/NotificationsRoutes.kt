@@ -40,13 +40,13 @@ internal fun NotificationsRoute(
             session.onMarkRead(notification.id)
             when (val action = notification.toShortcutAction()) {
                 is ShortcutAction.NavigateToBook -> {
-                    router.navigate(Routes.book(action.bookId))
+                    router.navigate(Routes.Book.detail(action.bookId))
                 }
 
                 // Web's Admin page IS the pending-approvals surface, so this one lands — on the
                 // section itself, since the request sits below the fold.
                 is ShortcutAction.NavigateToPendingApprovals -> {
-                    router.navigate(Routes.adminPending)
+                    router.navigate(Routes.Admin.pending)
                 }
 
                 is ShortcutAction.NavigateToUserProfile -> {

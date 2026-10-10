@@ -214,7 +214,7 @@ private fun UploadRoute(
         },
         onCancel = session.onCancel,
         onReset = session.onReset,
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }
 
@@ -253,7 +253,7 @@ private fun OrganizeRoute(
                 onDismissReport = session.onDismissReport,
                 onResume = session.onResume,
             ),
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }
 
@@ -281,7 +281,7 @@ private fun CreateInviteRoute(
                 )
             }
         },
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }
 
@@ -298,6 +298,6 @@ private fun UserDetailRoute(
         state = session.state.collectAsState().value,
         permissions = session.permissions.collectAsState().value,
         actions = session.actions,
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }

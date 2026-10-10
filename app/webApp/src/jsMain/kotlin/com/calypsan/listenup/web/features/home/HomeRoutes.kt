@@ -36,7 +36,7 @@ internal fun HomeRoute(
             stats = session.stats.collectAsState().value,
             onOpenBook = { id ->
                 feeds.onHeroBookIdChange(id)
-                router.navigate(Routes.book(id))
+                router.navigate(Routes.Book.detail(id))
             },
             onOpenSearch = { router.navigate(Routes.search) },
             onOpenLibrary = { router.navigate(Routes.library) },

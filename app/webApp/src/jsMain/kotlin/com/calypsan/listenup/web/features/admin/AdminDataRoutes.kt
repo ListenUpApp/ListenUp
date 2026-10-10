@@ -34,8 +34,8 @@ internal fun ImportsRoute(
         onDelete = { summary -> session.onDelete(summary.id) },
         onClearError = session.onClearError,
         onRetry = session.onRetry,
-        onNewImport = { router.navigate(Routes.adminNewImport) },
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onNewImport = { router.navigate(Routes.Admin.newImport) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }
 
@@ -71,7 +71,7 @@ internal fun ImportFlowRoute(
         onSkipBook = session.onSkipBook,
         onApply = session.onApply,
         onReset = session.onReset,
-        onOpenImports = { router.navigate(Routes.adminImports) },
+        onOpenImports = { router.navigate(Routes.Admin.imports) },
     )
 }
 
@@ -104,7 +104,7 @@ internal fun BackupsRoute(
     }
     LaunchedEffect(session) {
         session.uploaded.collect { backupId ->
-            router.navigate(Routes.adminBackup(backupId.value))
+            router.navigate(Routes.Admin.backup(backupId.value))
         }
     }
 
@@ -131,8 +131,8 @@ internal fun BackupsRoute(
         onResetUpload = session.onResetUpload,
         onClearError = session.onClearError,
         onRetry = session.onRetry,
-        onRestore = { backup -> router.navigate(Routes.adminBackup(backup.id)) },
-        onOpenAdmin = { router.navigate(Routes.admin) },
+        onRestore = { backup -> router.navigate(Routes.Admin.backup(backup.id)) },
+        onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }
 
@@ -160,6 +160,6 @@ internal fun RestoreRoute(
         onRequest = session.onRequest,
         onCancel = session.onCancel,
         onConfirm = session.onConfirm,
-        onOpenBackups = { router.navigate(Routes.adminBackups) },
+        onOpenBackups = { router.navigate(Routes.Admin.backups) },
     )
 }
