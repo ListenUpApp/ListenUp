@@ -2775,7 +2775,7 @@ private fun ImportFlowRoute(
         onStart = { file ->
             scope.launch {
                 val bytes = file.readByteArray() ?: return@launch
-                session.onStart(BrowserFileSource(file, bytes))
+                session.onStart(BufferedFileSource(file, bytes))
             }
         },
         onMapUser = { match, userId -> session.onMapUser(match.absUserId, userId) },
@@ -2842,7 +2842,7 @@ private fun BackupsRoute(
                 // A read failure is a browser-local dead end: it logs and drops the pick, and the
                 // screen is untouched so the reader can simply pick again.
                 val bytes = file.readByteArray() ?: return@launch
-                session.onPickFile(BrowserFileSource(file, bytes))
+                session.onPickFile(BufferedFileSource(file, bytes))
             }
         },
         onResetUpload = session.onResetUpload,
@@ -3836,9 +3836,8 @@ private fun AdminRouteContent(
 /**
  * Opens an upload session and collects it.
  *
- * ⛔ Reading the picked files is this route's job, not the page's: the page is pure and the read is
- * a suspending trip through `FileReader` per file. A selection too large for the tab to hold comes
- * back null — said in a toast, with the picker left exactly as it was.
+ * ⛔ Nothing is read here: each picked file streams from disk as the upload sends it, on this
+ * route's scope, so leaving the page stops the reading along with the session.
  */
 @Composable
 private fun UploadRoute(
@@ -3854,22 +3853,12 @@ private fun UploadRoute(
         state = session.state.collectAsState().value,
         onFilesPicked = { files ->
             if (files.isNotEmpty()) {
-                scope.launch {
-                    val candidates = candidatesFrom(files)
-                    val refusal = candidates?.let(::uploadSelectionRefusal)
-                    when {
-                        candidates == null -> {
-                            onToast("That is too much for one browser upload. Add it in smaller batches.")
-                        }
-
-                        refusal != null -> {
-                            onToast(uploadRefusalSentence(refusal))
-                        }
-
-                        candidates.isNotEmpty() -> {
-                            session.onFilesPicked(candidates)
-                        }
-                    }
+                val candidates = candidatesFrom(files, scope)
+                val refusal = uploadSelectionRefusal(candidates)
+                if (refusal != null) {
+                    onToast(uploadRefusalSentence(refusal))
+                } else {
+                    session.onFilesPicked(candidates)
                 }
             }
         },

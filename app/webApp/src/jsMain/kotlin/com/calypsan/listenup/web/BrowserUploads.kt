@@ -3,29 +3,23 @@ package com.calypsan.listenup.web
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.presentation.admin.upload.UploadSelectionRefusal
 import com.calypsan.listenup.web.features.bookdetail.formatBytes
+import kotlinx.coroutines.CoroutineScope
 import org.w3c.dom.HTMLInputElement
 import org.w3c.files.File
 
 /**
  * Everything a file picker handed over, as the [UploadCandidate]s the shared upload path speaks.
  *
- * ⛔ **Every file is read into memory before the upload starts, and that is a browser limit rather
- * than a choice.** `FileSource.openChannel()` is synchronous, a browser can only read a `File`
- * asynchronously, and the upload path needs a fresh channel per file — so there is nowhere to
- * stream from but a buffer this code already holds. The native clients stream from disk and have
- * no such ceiling; [UPLOAD_BYTE_CEILING] is where the browser is told to stop pretending, with a
- * sentence rather than an allocation crash halfway through a folder.
- *
- * Returns null when the selection is too large, so the caller can say so and leave the picker
- * untouched.
+ * Nothing is read here: each candidate's [BrowserFileSource] reads its file in slices as the upload
+ * sends it, on [scope], so a selection of any size costs a few megabytes of tab memory and a file
+ * that cannot be read fails its own transfer instead of vanishing from the selection. What one
+ * upload may carry is decided by the shared `uploadSelectionRefusal`, not here.
  */
-internal suspend fun candidatesFrom(files: List<File>): List<UploadCandidate>? {
-    if (files.sumOf { it.size.toDouble() } > UPLOAD_BYTE_CEILING) return null
-    return files.mapNotNull { file ->
-        val bytes = file.readByteArray() ?: return@mapNotNull null
-        UploadCandidate(relPath = relPathOf(file), source = BrowserFileSource(file, bytes))
-    }
-}
+internal fun candidatesFrom(
+    files: List<File>,
+    scope: CoroutineScope,
+): List<UploadCandidate> =
+    files.map { file -> UploadCandidate(relPath = relPathOf(file), source = BrowserFileSource(file, scope)) }
 
 /**
  * What a refused selection says, naming the limit it broke — the same sentences Android's dialogs
@@ -67,12 +61,3 @@ internal fun HTMLInputElement.pickedFiles(): List<File> {
     val list = files ?: return emptyList()
     return (0 until list.length).mapNotNull { list.item(it) }
 }
-
-/**
- * The most a browser tab is asked to hold at once — 2 GiB.
- *
- * Not a server limit and not a protocol one: it is roughly where a tab's own allocations start
- * failing, and failing *before* reading is the difference between a sentence and a dead page
- * halfway through someone's library.
- */
-internal const val UPLOAD_BYTE_CEILING: Double = 2.0 * 1024 * 1024 * 1024
