@@ -28,11 +28,11 @@ struct AuthenticatedImageRequestTests {
         let request = AuthenticatedImageRequest.localFile(
             "/var/contributors/c-1.jpg", processors: [], cacheKey: "c-1:contributors/aaa.jpg"
         )
-        #expect(request.userInfo[.imageIdKey] as? String == "c-1:contributors/aaa.jpg")
+        #expect(request.imageID == "c-1:contributors/aaa.jpg")
     }
 
     @Test func localFileRequestWithoutCacheKeyLeavesDefault() {
         let request = AuthenticatedImageRequest.localFile("/var/covers/book-1.jpg", processors: [])
-        #expect(request.userInfo[.imageIdKey] == nil)
+        #expect(request.imageID == request.url?.absoluteString)
     }
 }

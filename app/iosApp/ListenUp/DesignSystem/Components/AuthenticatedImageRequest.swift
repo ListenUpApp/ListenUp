@@ -24,8 +24,9 @@ enum AuthenticatedImageRequest {
         processors: [any ImageProcessing],
         cacheKey: String? = nil
     ) -> ImageRequest {
-        let userInfo: [ImageRequest.UserInfoKey: any Sendable]? = cacheKey.map { [.imageIdKey: $0] }
-        return ImageRequest(url: URL(fileURLWithPath: path), processors: processors, userInfo: userInfo)
+        var request = ImageRequest(url: URL(fileURLWithPath: path), processors: processors)
+        if let cacheKey { request.imageID = cacheKey }
+        return request
     }
 
     /// A Nuke request for an authenticated server URL: attaches `Authorization: Bearer` but keys the
@@ -49,7 +50,8 @@ enum AuthenticatedImageRequest {
         guard let token else { return nil }
         var urlRequest = URLRequest(url: url)
         urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let userInfo: [ImageRequest.UserInfoKey: any Sendable]? = cacheKey.map { [.imageIdKey: $0] }
-        return ImageRequest(urlRequest: urlRequest, processors: processors, userInfo: userInfo)
+        var request = ImageRequest(urlRequest: urlRequest, processors: processors)
+        if let cacheKey { request.imageID = cacheKey }
+        return request
     }
 }

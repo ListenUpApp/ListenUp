@@ -39,7 +39,9 @@ enum CoverImageRequest {
         if let bookId, !bookId.isEmpty, let base,
            let key = contentHashKey(identity: bookId, coverHash: coverHash),
            let url = coverURL(base: base, bookId: bookId, coverHash: coverHash) {
-            return ImageRequest(url: url, processors: processors, userInfo: [.imageIdKey: key])
+            var request = ImageRequest(url: url, processors: processors)
+            request.imageID = key
+            return request
         }
 
         // No reachable content-addressed source: the durable local file the caller resolved is the
@@ -60,9 +62,9 @@ enum CoverImageRequest {
         // poisoned key the old bug wrote, and during a switch (`coverPath == nil`, `bookId == B`)
         // it would let book A's still-cached bytes flash on book B. Passing `nil` also orphans any
         // stale `"<id>:cover"` disk entries. With a hash we keep the content-scoped `"<id>:<hash>"`.
-        let userInfo: [ImageRequest.UserInfoKey: any Sendable]? = contentHashKey(identity: bookId, coverHash: coverHash)
-            .map { [.imageIdKey: $0] }
-        return ImageRequest(url: url, processors: processors, userInfo: userInfo)
+        var request = ImageRequest(url: url, processors: processors)
+        if let key = contentHashKey(identity: bookId, coverHash: coverHash) { request.imageID = key }
+        return request
     }
 
     /// Whether a load was answered from Nuke's memory cache — the one case where the cover was never
