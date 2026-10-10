@@ -12,6 +12,8 @@ import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl
 import com.calypsan.listenup.client.data.remote.UploadApi
+import com.calypsan.listenup.client.data.remote.ArchiveUploadApi
+import com.calypsan.listenup.client.data.remote.ArchiveUploadApiContract
 import com.calypsan.listenup.client.data.remote.UploadApiContract
 import com.calypsan.listenup.client.data.repository.ImportRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UploadRepositoryImpl
@@ -65,14 +67,19 @@ internal val adminModule: Module =
         // ImportService RPC channel — admin Audiobookshelf import over RPC (binary upload stays REST).
         rpcChannel<ImportService>()
 
+        // Archive uploads (backup restore, Audiobookshelf import) — REST multipart. Its own binding so
+        // the browser can replace it: Ktor's JS engine buffers a request body whole (see
+        // browserUploadModule).
+        single<ArchiveUploadApiContract> { ArchiveUploadApi(clientFactory = get()) }
+
         // BackupRepository — admin backup/restore via BackupService RPC channel + REST upload.
         single<BackupRepository> {
-            BackupRepositoryImpl(channel = rpcChannel(), clientFactory = get())
+            BackupRepositoryImpl(channel = rpcChannel(), clientFactory = get(), archiveUploads = get())
         }
 
         // ImportRepository — admin Audiobookshelf import via ImportService RPC channel + REST upload.
         single<ImportRepository> {
-            ImportRepositoryImpl(channel = rpcChannel(), clientFactory = get())
+            ImportRepositoryImpl(channel = rpcChannel(), archiveUploads = get())
         }
 
         // UploadRepository — admin book upload. No RPC channel: the whole surface is REST, because

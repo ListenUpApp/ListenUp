@@ -158,6 +158,64 @@ class XhrUploadTransportTest :
             requests.size shouldBe 1
         }
 
+        test("postFile sends the picked file as the named part to the path, and answers the body") {
+            val requests = mutableListOf<FakeRequest>()
+            val result =
+                transport(requests, onSend = { it.answer(200, ARCHIVE_JSON) })
+                    .postFile(
+                        path = "/api/v1/admin/import/abs/upload",
+                        partName = "file",
+                        file = picked,
+                        filename = "library.audiobookshelf",
+                        timeoutMs = 600_000,
+                    )
+
+            result shouldBe AppResult.Success(ARCHIVE_JSON)
+            val request = requests.single()
+            request.method shouldBe "POST"
+            request.url shouldBe "http://listenup.local:8080/api/v1/admin/import/abs/upload"
+            request.timeout shouldBe 600_000
+            request.headers["Authorization"] shouldBe "Bearer stale-token"
+            request.headers["X-Client-Version"] shouldBe "9.9.9"
+            request.headers.containsKey("Content-Type") shouldBe false
+            val part =
+                request.body
+                    .shouldBeInstanceOf<FormData>()
+                    .asDynamic()
+                    .get("file")
+                    .unsafeCast<Any>()
+                    .shouldBeInstanceOf<File>()
+            part.name shouldBe "library.audiobookshelf"
+            part.size shouldBe picked.size
+        }
+
+        test("postFile heals a 401 once, and maps a refusal by its status") {
+            val requests = mutableListOf<FakeRequest>()
+            val healed =
+                transport(
+                    requests,
+                    onSend = { request ->
+                        if (request.headers["Authorization"] == "Bearer stale-token") {
+                            request.answer(401, "")
+                        } else {
+                            request.answer(200, ARCHIVE_JSON)
+                        }
+                    },
+                ).postFile(path = "/backup", partName = "backup", file = picked, filename = picked.name)
+            val refused =
+                transport(requests, onSend = { it.answer(422, "") })
+                    .postFile(path = "/backup", partName = "backup", file = picked, filename = picked.name)
+
+            healed shouldBe AppResult.Success(ARCHIVE_JSON)
+            requests.take(2).map { it.headers["Authorization"] } shouldContainExactly
+                listOf("Bearer stale-token", "Bearer fresh-token")
+            refused
+                .shouldBeInstanceOf<AppResult.Failure>()
+                .error
+                .shouldBeInstanceOf<TransportError.Server4xx>()
+                .statusCode shouldBe 422
+        }
+
         test("cancelling the upload aborts the request, so Cancel stops the bytes") {
             val requests = mutableListOf<FakeRequest>()
             coroutineScope {
@@ -178,6 +236,8 @@ class XhrUploadTransportTest :
 
 private const val SUMMARY_JSON = """{"sessionId":"s1","fileCount":1,"totalBytes":12}"""
 
+private const val ARCHIVE_JSON = """{"id":"abs-1"}"""
+
 /**
  * A stand-in for the browser's XMLHttpRequest, built as a plain JS object so the transport's
  * external-property reads and writes land on it exactly as they would on the real one.
@@ -193,6 +253,9 @@ private class FakeRequest(
     val headers = mutableMapOf<String, String>()
     var body: Any? = null
     var aborted = false
+
+    /** The timeout the transport set on the request, in milliseconds. */
+    val timeout: Int get() = request.timeout.unsafeCast<Int>()
 
     private val request: dynamic = js("({ upload: {}, status: 0, responseText: '' })")
 
