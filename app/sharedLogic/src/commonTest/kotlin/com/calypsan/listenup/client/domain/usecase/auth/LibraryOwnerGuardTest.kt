@@ -52,7 +52,7 @@ class LibraryOwnerGuardTest :
                     persistedUserId = { persistedUserId },
                     storedUserId = { storedUserId },
                     localSignOut = {
-                        if (signOutFails) throw IllegalStateException("x")
+                        if (signOutFails) error("x")
                         calls += "signOut"
                     },
                     deleteDeviceFiles = { calls += "deleteFiles" },

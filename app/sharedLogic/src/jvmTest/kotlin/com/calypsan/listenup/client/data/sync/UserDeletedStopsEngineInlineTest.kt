@@ -108,7 +108,7 @@ private class SucceedingCatchUp : CatchUp {
 
 private class FramesOnlyStreamClient(
     private val state: SyncEngineState,
-    private val flow: MutableSharedFlow<SyncFrame>,
+    flow: MutableSharedFlow<SyncFrame>,
 ) : SyncStreamClient {
     override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
     private var seeded: Long? = null

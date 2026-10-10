@@ -131,7 +131,11 @@ class LibraryResetHelperTest :
                         updatedAt = Timestamp(0L),
                     ),
                 )
-                db.cachedActiveSessionDao().observeWithBooks().first().shouldBeEmpty()
+                db
+                    .cachedActiveSessionDao()
+                    .observeWithBooks()
+                    .first()
+                    .shouldBeEmpty()
             } finally {
                 db.close()
             }
