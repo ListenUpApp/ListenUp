@@ -170,7 +170,19 @@ internal class SettingsRepositoryImpl(
         publishActiveUrl()
     }
 
-    override suspend fun getRemoteUrl(): ServerUrl? = secureStorage.read(KEY_REMOTE_URL)?.let { ServerUrl(it) }
+    /**
+     * Unlike [getActiveUrl]'s and [getServerUrl]'s values, which the app only writes after validating them,
+     * the remote URL arrives from the server's settings; a malformed stored value reads as none.
+     */
+    override suspend fun getRemoteUrl(): ServerUrl? =
+        secureStorage.read(KEY_REMOTE_URL)?.let { stored ->
+            try {
+                ServerUrl(stored)
+            } catch (_: IllegalArgumentException) {
+                logger.warn { "Stored $KEY_REMOTE_URL is not a valid http(s) URL; treating it as unset" }
+                null
+            }
+        }
 
     override suspend fun getActiveUrl(): ServerUrl? {
         val activeUrl = secureStorage.read(KEY_ACTIVE_URL)

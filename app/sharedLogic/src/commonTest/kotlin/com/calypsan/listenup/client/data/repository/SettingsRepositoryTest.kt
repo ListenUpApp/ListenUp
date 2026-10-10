@@ -105,6 +105,30 @@ class SettingsRepositoryTest :
             }
         }
 
+        // ========== A malformed stored remote URL reads as none ==========
+
+        test("getRemoteUrl reads a stored value that is not an http(s) URL as null instead of throwing") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("server_remote_url") } returns "example.com"
+                val repository = createRepository(storage = storage)
+
+                repository.getRemoteUrl() shouldBe null
+            }
+        }
+
+        test("getActiveUrl with no active or local URL and a malformed stored remote URL returns null") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("active_url") } returns null
+                everySuspend { storage.read("server_url") } returns null
+                everySuspend { storage.read("server_remote_url") } returns "example.com"
+                val repository = createRepository(storage = storage)
+
+                repository.getActiveUrl() shouldBe null
+            }
+        }
+
         // ========== Host change clears the session ==========
         //
         // The tokens on this device were issued by the old host and mean nothing to a new one, yet
