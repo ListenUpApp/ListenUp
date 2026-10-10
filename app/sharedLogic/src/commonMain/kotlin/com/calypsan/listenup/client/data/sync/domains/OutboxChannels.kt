@@ -19,6 +19,7 @@ import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.api.dto.entity.EntityMutation
+import com.calypsan.listenup.api.dto.worldevent.EventsBatch
 import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -245,6 +246,19 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
+    // Story World events: every write is one EventsBatch, applied atomically by WorldEventService.applyBatch. A
+    // single write is a batch of one, keyed by its event id with the op it carries (Upsert or Delete), so an
+    // unsent delete can be withdrawn by undo. Several new events recorded together are one batch keyed by the
+    // first id. Idempotent: a re-fired upsert re-applies the same snapshot, and a re-fired lone delete finds the
+    // event gone (NotFound folds to success for a batch of one).
+    val WorldEvents =
+        OutboxChannel(
+            name = SyncDomains.WORLD_EVENTS.name,
+            serializer = EventsBatch.serializer(),
+            ops = setOf(OpKind.Upsert, OpKind.Delete),
+            idempotent = true,
+        )
+
     /** The complete, ordered channel list — the set the sender map must bind exactly. */
     val all: List<OutboxChannel<*>> =
         listOf(
@@ -269,6 +283,7 @@ internal object OutboxChannels {
             CollectionBooks,
             Notifications,
             Entities,
+            WorldEvents,
         )
 
     private val byName: Map<String, OutboxChannel<*>> = all.associateBy { it.name }
