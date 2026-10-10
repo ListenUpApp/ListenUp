@@ -46,9 +46,11 @@ internal fun MutableList<NavKey>.openFromOutside(
  *
  * For a list pane that is the detail beside it too — the list's own back arrow leaves the list,
  * rather than quietly closing the book next to it. When [screen] is the top of the stack this is the
- * plain pop it replaces, and so is the fallback for a screen that has already left the stack.
+ * plain pop it replaces. A screen that has already left the stack pops nothing — a second tap on
+ * its Back must not remove the screen beneath it — and the root at index 0 is never removed, so a
+ * pop cannot empty the stack.
  */
 internal fun MutableList<NavKey>.popFrom(screen: NavKey) {
     val index = lastIndexOf(screen)
-    if (index >= 0) subList(index, size).clear() else removeAt(lastIndex)
+    if (index > 0) subList(index, size).clear()
 }

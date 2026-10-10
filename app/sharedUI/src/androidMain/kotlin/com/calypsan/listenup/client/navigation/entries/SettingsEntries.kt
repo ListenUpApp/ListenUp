@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.features.settings.HardcoverMatchScreen
 import com.calypsan.listenup.client.features.settings.HardcoverSettingsScreen
 import com.calypsan.listenup.client.features.settings.NotificationSettingsScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
+import com.calypsan.listenup.client.navigation.popFrom
 import com.calypsan.listenup.client.navigation.AdminCategories
 import com.calypsan.listenup.client.navigation.Devices
 import com.calypsan.listenup.client.navigation.HardcoverKeptOff
@@ -35,7 +36,7 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
             showDynamicColors = true,
             onNavigateToCategories = { backStack.add(AdminCategories) },
             onNavigateBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(Settings)
             },
             onNavigateToDevices = {
                 backStack.add(Devices)
@@ -57,7 +58,7 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
     entry<HardcoverSettings> {
         HardcoverSettingsScreen(
             onNavigateBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(HardcoverSettings)
             },
             onFindMatch = { bookId -> backStack.add(HardcoverMatch(bookId)) },
             onOpenKeptOff = { backStack.add(HardcoverKeptOff) },
@@ -67,11 +68,11 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
         HardcoverMatchScreen(
             bookId = args.bookId,
             onNavigateBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             // The screen is gone once the link lands, so Undo rides the shell's snackbar and scope.
             onLinked = { message, undoLabel, undo ->
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
                 scope.launch {
                     val result =
                         snackbarHostState.showSnackbar(
@@ -87,11 +88,11 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
     entry<HardcoverKeptOff> {
         HardcoverKeptOffScreen(
             onNavigateBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(HardcoverKeptOff)
             },
             // The shell's snackbar: when the last book syncs again this screen closes, and the message still shows.
             onSyncedAgain = { message, close ->
-                if (close) backStack.removeAt(backStack.lastIndex)
+                if (close) backStack.popFrom(HardcoverKeptOff)
                 scope.launch { snackbarHostState.showSnackbar(message) }
             },
         )
@@ -99,33 +100,33 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
     entry<NotificationSettings> {
         NotificationSettingsScreen(
             onNavigateBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(NotificationSettings)
             },
         )
     }
     entry<Licenses> {
         com.calypsan.listenup.client.features.settings.LicensesScreen(
-            onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
+            onNavigateBack = { backStack.popFrom(Licenses) },
             onLicenseClick = { uniqueId -> backStack.add(LicenseDetail(uniqueId)) },
         )
     }
     entry<LicenseDetail> { args ->
         com.calypsan.listenup.client.features.settings.LicenseDetailScreen(
             uniqueId = args.uniqueId,
-            onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
+            onNavigateBack = { backStack.popFrom(args) },
         )
     }
     entry<Storage> {
         com.calypsan.listenup.client.features.settings.StorageScreen(
             onNavigateBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(Storage)
             },
         )
     }
     entry<Devices> {
         com.calypsan.listenup.client.features.settings.DevicesScreen(
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(Devices)
             },
         )
     }

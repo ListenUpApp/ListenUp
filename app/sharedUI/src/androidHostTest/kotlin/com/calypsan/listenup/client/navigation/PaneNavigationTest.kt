@@ -90,10 +90,27 @@ class PaneNavigationTest :
             stack shouldBe listOf(Shell, BookDetail("b"))
         }
 
-        test("from a screen no longer on the stack, popFrom still pops the top") {
-            val stack = mutableListOf<NavKey>(Shell, BookDetail("b1"))
+        test("popping a screen that has already left removes nothing") {
+            val stack = mutableListOf<NavKey>(Shell, BookDetail("a"))
 
-            stack.popFrom(SeriesDetail("gone"))
+            stack.popFrom(BookEdit("a"))
+
+            stack shouldBe listOf(Shell, BookDetail("a"))
+        }
+
+        test("popping the same screen twice pops once") {
+            val stack = mutableListOf<NavKey>(Shell, BookDetail("a"), BookEdit("a"))
+
+            stack.popFrom(BookEdit("a"))
+            stack.popFrom(BookEdit("a"))
+
+            stack shouldBe listOf(Shell, BookDetail("a"))
+        }
+
+        test("a pop never empties the stack") {
+            val stack = mutableListOf<NavKey>(Shell)
+
+            stack.popFrom(Shell)
 
             stack shouldBe listOf(Shell)
         }

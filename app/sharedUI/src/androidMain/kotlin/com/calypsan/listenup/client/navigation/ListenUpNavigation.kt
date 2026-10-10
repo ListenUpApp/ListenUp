@@ -373,7 +373,7 @@ private fun ServerSetupNavigation() {
                             // Pop back to select; the auth screen takes over once AuthState updates
                         },
                         onBack = {
-                            backStack.removeAt(backStack.lastIndex)
+                            backStack.popFrom(ServerSetup)
                         },
                     )
                 }
@@ -473,7 +473,7 @@ private fun LoginNavigation(
                     com.calypsan.listenup.client.features.auth
                         .RegisterScreen(
                             onBackClick = {
-                                backStack.removeAt(backStack.lastIndex)
+                                backStack.popFrom(Register)
                             },
                         )
                 }
@@ -485,7 +485,7 @@ private fun LoginNavigation(
                         .ForgotPasswordScreen(
                             viewModel = viewModel,
                             onBack = {
-                                backStack.removeAt(backStack.lastIndex)
+                                backStack.popFrom(ForgotPassword)
                             },
                         )
                 }
@@ -739,7 +739,7 @@ private fun AuthenticatedNavigation(
     val currentAuthState by authSession.authState.collectAsStateWithLifecycle()
     LaunchedEffect(currentAuthState) {
         if (currentAuthState is AuthState.Authenticated && backStack.lastOrNull() == Login) {
-            backStack.removeAt(backStack.lastIndex)
+            backStack.popFrom(Login)
         }
     }
 
@@ -1081,7 +1081,7 @@ private fun authenticatedNavEntries(
         com.calypsan.listenup.client.features.auth.ForgotPasswordScreen(
             viewModel = viewModel,
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(ForgotPassword)
             },
         )
     }
