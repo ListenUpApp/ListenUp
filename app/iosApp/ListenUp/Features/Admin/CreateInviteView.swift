@@ -16,8 +16,7 @@ import Shared
 struct CreateInviteView: View {
     @Environment(\.dismiss) private var dismiss
 
-    // view-model-owner: CreateInviteObserver, which is built with it and passes it to its FlowBridge.
-    let viewModel: CreateInviteViewModel
+    @Environment(\.dependencies) private var deps
     @State private var observer: CreateInviteObserver?
 
     @State private var email = ""
@@ -50,7 +49,7 @@ struct CreateInviteView: View {
             }
         }
         .onAppear {
-            if observer == nil { observer = CreateInviteObserver(viewModel: viewModel) }
+            if observer == nil { observer = CreateInviteObserver(viewModel: deps.createCreateInviteViewModel()) }
         }
     }
 

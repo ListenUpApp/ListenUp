@@ -56,7 +56,7 @@ struct AdminView: View {
             if settings == nil { settings = AdminSettingsObserver(viewModel: deps.createAdminSettingsViewModel()) }
         }
         .sheet(isPresented: $showingInviteSheet) {
-            CreateInviteView(viewModel: deps.createCreateInviteViewModel())
+            CreateInviteView()
         }
         .messageAlert(alertBinding) { admin?.clearError() }
         .confirmationDialog(
