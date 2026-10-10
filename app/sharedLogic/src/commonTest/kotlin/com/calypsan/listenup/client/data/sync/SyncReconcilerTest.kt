@@ -337,8 +337,7 @@ private class OverlapTrackingCatchUp : CatchUp {
 
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> =
-        AppResult.Success(emptySet())
+    override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
 
     override suspend fun <T : Any> fetchTransient(
         handler: SyncDomainHandler<T>,

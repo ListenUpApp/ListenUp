@@ -740,8 +740,14 @@ internal class SyncEngine(
                             ledToCompletion = true
                             break
                         }
-                        PendingAccessChange.Coarse -> accessReconciler.reconcile(null)
-                        is PendingAccessChange.Delta -> accessReconciler.reconcile(work.scope)
+
+                        PendingAccessChange.Coarse -> {
+                            accessReconciler.reconcile(null)
+                        }
+
+                        is PendingAccessChange.Delta -> {
+                            accessReconciler.reconcile(work.scope)
+                        }
                     }
                 if (outcome is AccessReconcileOutcome.Requeue) {
                     if (requeueGranted) {

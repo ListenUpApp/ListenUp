@@ -68,7 +68,10 @@ class ShelfBookRejectedAddTest :
             runTest {
                 withHarness { h ->
                     h.repo.addBooksToShelf(ShelfId("s1"), listOf(BookId("b1")))
-                    h.db.shelfBookDao().findByShelfAndBook("s1", "b1").shouldNotBeNull()
+                    h.db
+                        .shelfBookDao()
+                        .findByShelfAndBook("s1", "b1")
+                        .shouldNotBeNull()
 
                     h.drainAndHeal()
 

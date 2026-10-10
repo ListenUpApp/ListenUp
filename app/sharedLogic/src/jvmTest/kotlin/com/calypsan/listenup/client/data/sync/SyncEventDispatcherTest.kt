@@ -60,7 +60,6 @@ class SyncEventDispatcherTest :
             override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
         }
 
-
         fun tagFrameAt(rev: Long): SyncFrame {
             val event =
                 SyncEvent.Created(
