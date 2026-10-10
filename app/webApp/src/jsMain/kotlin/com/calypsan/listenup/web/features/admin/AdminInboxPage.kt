@@ -272,11 +272,23 @@ private fun InboxBookButton(
             decorative = true,
         )
         Div(attrs = { classes("inbox-book-t") }) {
-            Span(attrs = { classes("inbox-book-title") }) { Text(book.title) }
-            // Absent, not an empty line: a book whose author the scan could not work out is one of
-            // the reasons it is sitting in here.
-            book.author?.takeIf { it.isNotBlank() }?.let { author ->
+            Span(attrs = {
+                classes("inbox-book-title")
+                // The line is clamped; the whole title is still one hover away.
+                attr("title", book.title)
+            }) { Text(book.title) }
+            // No byline when the scan could not work out the author — that is one of the reasons the
+            // book is sitting in here — but the line it would have taken is held, hidden from
+            // assistive technology, so the row is as tall as any other (the list is windowed by
+            // counting rows).
+            val author = book.author?.takeIf { it.isNotBlank() }
+            if (author != null) {
                 Span(attrs = { classes("inbox-book-by") }) { Text(author) }
+            } else {
+                Span(attrs = {
+                    classes("inbox-book-by-gap")
+                    attr("aria-hidden", "true")
+                }) { Text(NBSP) }
             }
         }
         Span(attrs = { classes("inbox-book-dur") }) {
@@ -284,6 +296,8 @@ private fun InboxBookButton(
         }
     }
 }
+
+private const val NBSP = "\u00A0"
 
 /** The folders the scan walked but could not turn into a book. */
 @Composable

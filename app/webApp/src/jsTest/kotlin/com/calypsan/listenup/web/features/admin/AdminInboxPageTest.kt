@@ -23,6 +23,9 @@ private val hosts = mutableListOf<HTMLElement>()
 /** The row's touch-target floor: comfortably over WCAG 2.5.8's 24px, matching the row's own rhythm. */
 private const val MIN_TARGET_PX = 44.0
 
+/** About 200 characters of ordinary words, so an unclamped title wraps rather than overflowing as one word. */
+private val LONG_TITLE = "The Long and Winding Account of ".repeat(7).trim()
+
 private const val TWO_HOURS_MS = 2L * 3_600_000
 
 internal fun inboxBook(
@@ -164,6 +167,39 @@ class AdminInboxPageTest :
         afterSpec {
             hosts.forEach { it.remove() }
             hosts.clear()
+        }
+
+        // The list is windowed by arithmetic, which is only right if every row is the same height:
+        // a long title that wraps, or a missing author line, would drift every offset below it.
+        test("every row is one height, whatever its title or whether it has an author") {
+            val host =
+                page(
+                    readyInbox(
+                        books =
+                            listOf(
+                                inboxBook(id = "b1", title = "Elantris", author = "Brandon Sanderson"),
+                                inboxBook(id = "b2", title = LONG_TITLE, author = "Brandon Sanderson"),
+                                inboxBook(id = "b3", title = "Elantris", author = ""),
+                            ),
+                    ),
+                )
+            awaitFrame()
+
+            val rows = host.querySelectorAll(".inbox-book-row").asList().filterIsInstance<HTMLElement>()
+            rows.size shouldBe 3
+            rows.map { it.getBoundingClientRect().height }.toSet().size shouldBe 1
+            bookRows(host).map { it.getBoundingClientRect().height }.toSet().size shouldBe 1
+        }
+
+        // The title is clamped, not cut: the whole of it is still there for a pointer and for a
+        // screen reader.
+        test("a clamped title still carries its full text") {
+            val long = LONG_TITLE
+            val host = page(readyInbox(books = listOf(inboxBook(title = long))))
+
+            host.querySelector(".inbox-book-title")!!.getAttribute("title") shouldBe long
+            host.querySelector(".inbox-book-title")!!.textContent shouldBe long
+            host.querySelector(".inbox-book-row input[type='checkbox']")!!.getAttribute("aria-label") shouldBe "Select $long"
         }
 
         test("a held book shows what it is, who wrote it, and how long it runs") {
