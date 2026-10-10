@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
@@ -42,6 +43,7 @@ import org.koin.test.verify.verify
  *  - the [RpcChannel] for `CollectionService` — owned by `collectionModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
+ *  - [PendingImageUploads] — owned by `mediaModule`.
  *  - [SyncDomainHandler] (books) — owned by `clientSyncModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
@@ -68,6 +70,7 @@ class BookModuleVerifyTest :
                         RpcChannel::class,
                         ImageRepository::class,
                         ImageStagingRepository::class,
+                        PendingImageUploads::class,
                         SyncDomainHandler::class,
                     ),
             )

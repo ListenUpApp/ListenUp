@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -29,6 +30,7 @@ import org.koin.test.verify.verify
  *  - [UpdateContributorUseCase] — owned by `contributorModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
+ *  - [PendingImageUploads] — owned by `mediaModule`.
  *  - [ContributorEditRepository] — owned by `contributorModule`.
  *  - [ContributorAliasDao] — owned by `persistenceModule`.
  *  - [ContributorDao] — owned by `persistenceModule`.
@@ -52,6 +54,7 @@ class ContributorPresentationModuleVerifyTest :
                         UpdateContributorUseCase::class,
                         ImageRepository::class,
                         ImageStagingRepository::class,
+                        PendingImageUploads::class,
                         ContributorEditRepository::class,
                         ContributorAliasDao::class,
                         ContributorDao::class,

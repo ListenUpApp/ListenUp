@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.domains.MirroredDomain
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
+import com.calypsan.listenup.client.data.repository.PendingImageUploadsImpl
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
@@ -98,6 +99,7 @@ class ClientSyncModuleVerifyTest :
                         Function3::class,
                         Boolean::class,
                         ImageStorage::class,
+                        PendingImageUploadsImpl::class,
                         DocumentStorage::class,
                         MirroredDomain::class,
                         com.calypsan.listenup.client.data.remote.RpcAuthRecovery::class,

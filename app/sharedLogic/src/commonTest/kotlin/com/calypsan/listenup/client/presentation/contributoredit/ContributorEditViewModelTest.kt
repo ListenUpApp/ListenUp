@@ -2,7 +2,10 @@ package com.calypsan.listenup.client.presentation.contributoredit
 
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
+import com.calypsan.listenup.client.test.fake.FakePendingImageUploads
 import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
@@ -64,6 +67,7 @@ class ContributorEditViewModelTest :
             val updateContributorUseCase: UpdateContributorUseCase = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
+            val pendingImageUploads = FakePendingImageUploads()
             val contributorEditRepository: ContributorEditRepository = mock()
             val contributorAliasDao: ContributorAliasDao =
                 mock {
@@ -82,6 +86,7 @@ class ContributorEditViewModelTest :
                     updateContributorUseCase = updateContributorUseCase,
                     imageRepository = imageRepository,
                     imageStagingRepository = imageStagingRepository,
+                    pendingImageUploads = pendingImageUploads,
                     contributorEditRepository = contributorEditRepository,
                     contributorAliasDao = contributorAliasDao,
                     contributorDao = contributorDao,
@@ -321,7 +326,7 @@ class ContributorEditViewModelTest :
             }
         }
 
-        test("a photo that did not upload still saves, and the user is told it did not upload") {
+        test("a photo that could not be sent still saves, is queued, and the user is told it will upload later") {
             runTest {
                 val fixture = createFixture()
                 everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
@@ -352,9 +357,43 @@ class ContributorEditViewModelTest :
 
                         awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
                     }
-                    awaitItem().shouldBeInstanceOf<TransportError.ImageNotUploaded>()
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageUploadQueued>()
                 }
                 verifySuspend { fixture.imageStagingRepository.commitContributorImageStaging("contributor-1") }
+                fixture.pendingImageUploads.pending shouldBe setOf(PendingImageKind.ContributorImage to "contributor-1")
+            }
+        }
+
+        test("a photo the server refused is not queued, and the user is told it could not be uploaded") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                everySuspend {
+                    fixture.imageStagingRepository.saveContributorImageStaging(any(), any())
+                } returns AppResult.Success(Unit)
+                every {
+                    fixture.imageStagingRepository.getContributorImageStagingPath("contributor-1")
+                } returns "/staging/contributor-1_staging.jpg"
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
+                } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                } returns AppResult.Failure(AuthError.PermissionDenied())
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(ContributorEditUiEvent.Save)
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageNotUploaded>()
+                }
+                fixture.pendingImageUploads.pending shouldBe emptySet()
             }
         }
 

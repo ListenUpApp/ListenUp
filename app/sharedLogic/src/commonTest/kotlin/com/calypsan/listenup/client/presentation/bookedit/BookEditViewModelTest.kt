@@ -768,7 +768,7 @@ class BookEditViewModelTest :
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
                 everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 everySuspend { fixture.updateBookUseCase(any(), any()) } returns
-                    AppResult.Success(SaveOutcome.SavedImageNotUploaded(TransportError.NetworkUnavailable()))
+                    AppResult.Success(SaveOutcome.SavedImageNotUploaded(TransportError.NetworkUnavailable(), willRetry = true))
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -780,6 +780,26 @@ class BookEditViewModelTest :
                         advanceUntilIdle()
                         awaitItem() shouldBe BookEditNavAction.NavigateBack
                     }
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageUploadQueued>()
+                }
+            }
+        }
+
+        test("a save whose cover was not queued says it could not be uploaded") {
+            runTest {
+                val fixture = createFixture()
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns
+                    AppResult.Success(SaveOutcome.SavedImageNotUploaded(TransportError.NetworkUnavailable(), willRetry = false))
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                    viewModel.onEvent(BookEditUiEvent.Save)
+                    advanceUntilIdle()
                     awaitItem().shouldBeInstanceOf<TransportError.ImageNotUploaded>()
                 }
             }

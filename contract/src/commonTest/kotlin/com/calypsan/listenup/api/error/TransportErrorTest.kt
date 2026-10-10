@@ -50,10 +50,18 @@ class TransportErrorTest :
             err.isRetryable shouldBe false
         }
 
-        test("ImageNotUploaded says the save went through and the image did not travel") {
-            val err = TransportError.ImageNotUploaded(debugInfo = "TRANSPORT_NETWORK_UNAVAILABLE")
-            err.message shouldBe "Saved. The new image couldn't be uploaded yet."
+        test("ImageNotUploaded says the save went through and the image was not taken") {
+            val err = TransportError.ImageNotUploaded(debugInfo = "AUTH_PERMISSION_DENIED")
+            err.message shouldBe "Saved. The new image couldn't be uploaded."
             err.code shouldBe "TRANSPORT_IMAGE_NOT_UPLOADED"
+            err.isRetryable shouldBe false
+            err.withCorrelationId("c-1") shouldBe err.copy(correlationId = "c-1")
+        }
+
+        test("ImageUploadQueued says the image will go up by itself") {
+            val err = TransportError.ImageUploadQueued(debugInfo = "TRANSPORT_NETWORK_UNAVAILABLE")
+            err.message shouldBe "Saved. The new image will upload when the server is reachable."
+            err.code shouldBe "TRANSPORT_IMAGE_UPLOAD_QUEUED"
             err.isRetryable shouldBe false
             err.withCorrelationId("c-1") shouldBe err.copy(correlationId = "c-1")
         }

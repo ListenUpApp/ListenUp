@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
 
 /**
  * Room mapping for the `books` domain — the aggregate apply behind [booksDomain].
@@ -94,9 +95,15 @@ internal class BookMirrorApply(
         // the downloader repopulates it. Deferred to POST-COMMIT — if a later child apply throws and
         // this aggregate transaction rolls back, Room keeps the old coverHash, so deleting the file
         // now would strand the book with no file and no hash change to re-trigger the download.
-        // Best-effort — a failed delete must not fail the sync write.
+        // Best-effort — a failed delete must not fail the sync write. Kept when the user's own new
+        // cover has not reached the server yet: the file is that cover, its pending upload reads it,
+        // and the hash on this event belongs to the image it is about to replace.
         if (existing != null && existing.coverHash != updatedEntity.coverHash) {
-            deferUntilCommit { val _ = imageStorage.deleteCover(bookId) }
+            deferUntilCommit {
+                if (!database.pendingImageUploadDao().exists(PendingImageKind.BookCover.name, bookId.value)) {
+                    val _ = imageStorage.deleteCover(bookId)
+                }
+            }
         }
 
         applyContributors(bookId, payload.contributors)

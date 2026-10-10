@@ -2,7 +2,9 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.DownloadDao
+import com.calypsan.listenup.client.data.local.db.PendingImageUploadDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -22,6 +24,8 @@ import org.koin.test.verify.verify
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [CoroutineScope] named `appScope` — owned by `appCoreModule`.
  *  - [DownloadDao] — owned by `persistenceModule`.
+ *  - [PendingImageUploadDao] — owned by `persistenceModule`.
+ *  - [AuthSession] — owned by `settingsModule`.
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [BookRepository] — owned by `bookModule`.
  *  - [DownloadEnqueuer] — owned by the platform download module.
@@ -37,6 +41,8 @@ class MediaModuleVerifyTest :
                         ImageStorage::class,
                         CoroutineScope::class,
                         DownloadDao::class,
+                        PendingImageUploadDao::class,
+                        AuthSession::class,
                         BookDao::class,
                         BookRepository::class,
                         ApiClientFactory::class,

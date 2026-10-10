@@ -543,3 +543,18 @@ internal val MIGRATION_21_22 =
             connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'admin_user_roster'")
         }
     }
+
+/**
+ * v22 → v23: adds `pending_image_upload`, the covers and photos a user saved on this device that have
+ * not reached the server. Non-destructive by construction — a CREATE only; no existing row is touched.
+ */
+internal val MIGRATION_22_23 =
+    object : Migration(22, 23) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `pending_image_upload` (`kind` TEXT NOT NULL, `entityId` TEXT NOT NULL, " +
+                    "`ownerUserId` TEXT NOT NULL, `enqueuedAt` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`kind`, `entityId`))",
+            )
+        }
+    }

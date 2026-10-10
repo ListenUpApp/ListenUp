@@ -347,7 +347,7 @@ class SeriesEditViewModelTest :
                 everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
                 everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
                 everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns
-                    AppResult.Success(SaveOutcome.SavedImageNotUploaded(TransportError.NetworkUnavailable()))
+                    AppResult.Success(SaveOutcome.SavedImageNotUploaded(TransportError.NetworkUnavailable(), willRetry = true))
 
                 val viewModel = fixture.build()
                 viewModel.loadSeries("series-1")
@@ -360,7 +360,7 @@ class SeriesEditViewModelTest :
                         advanceUntilIdle()
                         awaitItem() shouldBe SeriesEditNavAction.NavigateBack
                     }
-                    awaitItem().shouldBeInstanceOf<TransportError.ImageNotUploaded>()
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageUploadQueued>()
                 }
             }
         }

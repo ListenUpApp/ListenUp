@@ -6,8 +6,11 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.usecase.settle
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -39,10 +42,11 @@ private val logger = KotlinLogging.logger {}
  * )
  * ```
  */
-open class UpdateSeriesUseCase(
+open class UpdateSeriesUseCase internal constructor(
     private val seriesEditRepository: SeriesEditRepository,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
+    private val pendingImageUploads: PendingImageUploads,
 ) {
     /**
      * Update series with optional cover upload.
@@ -109,17 +113,12 @@ open class UpdateSeriesUseCase(
             }
         }
 
-        return when (val result = imageRepository.uploadSeriesCover(request.seriesId, pendingData, pendingFilename)) {
-            is AppResult.Success -> {
-                logger.info { "Cover uploaded to server" }
-                SaveOutcome.Saved
-            }
-
-            is AppResult.Failure -> {
-                logger.error { "Failed to upload cover: ${result.message}" }
-                SaveOutcome.SavedImageNotUploaded(result.error)
-            }
+        val result = imageRepository.uploadSeriesCover(request.seriesId, pendingData, pendingFilename)
+        when (result) {
+            is AppResult.Success -> logger.info { "Cover uploaded to server" }
+            is AppResult.Failure -> logger.error { "Failed to upload cover: ${result.message}" }
         }
+        return pendingImageUploads.settle(PendingImageKind.SeriesCover, request.seriesId, result)
     }
 }
 

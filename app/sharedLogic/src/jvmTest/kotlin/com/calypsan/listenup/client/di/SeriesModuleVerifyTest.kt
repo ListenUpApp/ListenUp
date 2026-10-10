@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -31,6 +32,7 @@ import org.koin.test.verify.verify
  *  - [SyncDomainHandler] (series) — owned by `clientSyncModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
+ *  - [PendingImageUploads] — owned by `mediaModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class SeriesModuleVerifyTest :
@@ -49,6 +51,7 @@ class SeriesModuleVerifyTest :
                         SyncDomainHandler::class,
                         ImageRepository::class,
                         ImageStagingRepository::class,
+                        PendingImageUploads::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
                     ),

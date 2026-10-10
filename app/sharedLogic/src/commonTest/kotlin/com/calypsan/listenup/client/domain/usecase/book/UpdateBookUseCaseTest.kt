@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.book
 
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
@@ -15,7 +17,9 @@ import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
 import com.calypsan.listenup.client.presentation.bookedit.ContributorRole
+import com.calypsan.listenup.client.test.fake.FakePendingImageUploads
 import com.calypsan.listenup.client.presentation.bookedit.EditableContributor
 import com.calypsan.listenup.client.presentation.bookedit.EditableGenre
 import com.calypsan.listenup.client.presentation.bookedit.EditableMood
@@ -55,12 +59,15 @@ class UpdateBookUseCaseTest :
 
         // ========== Test Fixtures ==========
 
-        class TestFixture {
+        class TestFixture(
+            canQueue: Boolean = true,
+        ) {
             val bookEditRepository: BookEditRepository = mock()
             val tagRepository: TagRepository = mock()
             val moodRepository: MoodRepository = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
+            val pendingImageUploads = FakePendingImageUploads(canQueue)
 
             fun build(): UpdateBookUseCase =
                 UpdateBookUseCase(
@@ -69,11 +76,12 @@ class UpdateBookUseCaseTest :
                     moodRepository = moodRepository,
                     imageRepository = imageRepository,
                     imageStagingRepository = imageStagingRepository,
+                    pendingImageUploads = pendingImageUploads,
                 )
         }
 
-        fun createFixture(): TestFixture {
-            val fixture = TestFixture()
+        fun createFixture(canQueue: Boolean = true): TestFixture {
+            val fixture = TestFixture(canQueue)
 
             // Default stubs for successful operations
             everySuspend { fixture.bookEditRepository.updateBook(any(), any()) } returns AppResult.Success(Unit)
@@ -786,6 +794,67 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 result.shouldBeInstanceOf<AppResult.Success<*>>().data shouldBe SaveOutcome.Saved
+            }
+        }
+
+        test("a cover upload that failed for a transient reason is queued to retry") {
+            runTest {
+                val pendingCover = PendingCover(data = byteArrayOf(1, 2, 3), filename = "cover.jpg")
+                val fixture = createFixture()
+                everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+
+                val result = fixture.build()(createUpdateRequest(pendingCover = pendingCover), createOriginalState())
+
+                fixture.pendingImageUploads.pending shouldBe setOf(PendingImageKind.BookCover to "book-1")
+                result
+                    .shouldBeInstanceOf<AppResult.Success<*>>()
+                    .data
+                    .shouldBeInstanceOf<SaveOutcome.SavedImageNotUploaded>()
+                    .willRetry shouldBe true
+            }
+        }
+
+        test("a cover upload that failed on a platform that cannot queue is not promised a retry") {
+            runTest {
+                val pendingCover = PendingCover(data = byteArrayOf(1, 2, 3), filename = "cover.jpg")
+                val fixture = createFixture(canQueue = false)
+                everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+
+                val result = fixture.build()(createUpdateRequest(pendingCover = pendingCover), createOriginalState())
+
+                fixture.pendingImageUploads.pending shouldBe emptySet()
+                result
+                    .shouldBeInstanceOf<AppResult.Success<*>>()
+                    .data
+                    .shouldBeInstanceOf<SaveOutcome.SavedImageNotUploaded>()
+                    .willRetry shouldBe false
+            }
+        }
+
+        test("a cover upload the server refused is not queued") {
+            runTest {
+                val pendingCover = PendingCover(data = byteArrayOf(1, 2, 3), filename = "cover.jpg")
+                val fixture = createFixture()
+                everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns
+                    AppResult.Failure(AuthError.PermissionDenied())
+
+                fixture.build()(createUpdateRequest(pendingCover = pendingCover), createOriginalState())
+
+                fixture.pendingImageUploads.pending shouldBe emptySet()
+            }
+        }
+
+        test("a cover upload that goes through clears an older queued upload for the same book") {
+            runTest {
+                val pendingCover = PendingCover(data = byteArrayOf(1, 2, 3), filename = "cover.jpg")
+                val fixture = createFixture()
+                fixture.pendingImageUploads.record(PendingImageKind.BookCover, "book-1")
+
+                fixture.build()(createUpdateRequest(pendingCover = pendingCover), createOriginalState())
+
+                fixture.pendingImageUploads.pending shouldBe emptySet()
             }
         }
 

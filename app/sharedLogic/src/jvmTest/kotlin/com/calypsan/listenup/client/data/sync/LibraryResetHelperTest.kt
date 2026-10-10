@@ -93,6 +93,27 @@ class LibraryResetHelperTest :
             }
         }
 
+        test("clearLibraryData that discards pending operations also discards pending image uploads") {
+            val db = createInMemoryTestDatabase()
+            try {
+                db.pendingImageUploadDao().record("BookCover", "b1", "u1", 1L)
+                val helper =
+                    LibraryResetHelperImpl(
+                        database = db,
+                        transactionRunner = RoomTransactionRunner(db),
+                        librarySyncContract = mock<LibrarySync>(),
+                    )
+
+                helper.clearLibraryData(discardPendingOperations = false)
+                db.pendingImageUploadDao().exists("BookCover", "b1") shouldBe true
+
+                helper.clearLibraryData(discardPendingOperations = true)
+                db.pendingImageUploadDao().exists("BookCover", "b1") shouldBe false
+            } finally {
+                db.close()
+            }
+        }
+
         test("clearLibraryData clears the presence snapshot") {
             val db = createInMemoryTestDatabase()
             try {

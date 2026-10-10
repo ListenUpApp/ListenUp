@@ -65,6 +65,7 @@ internal val seriesModule: Module =
                 seriesEditRepository = get(),
                 imageRepository = get(),
                 imageStagingRepository = get(),
+                pendingImageUploads = get(),
             )
         }
     }

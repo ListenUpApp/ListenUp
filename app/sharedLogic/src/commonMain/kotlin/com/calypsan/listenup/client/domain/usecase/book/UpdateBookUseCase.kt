@@ -16,8 +16,11 @@ import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.usecase.settle
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -42,12 +45,13 @@ private val logger = KotlinLogging.logger {}
  * }
  * ```
  */
-open class UpdateBookUseCase(
+open class UpdateBookUseCase internal constructor(
     private val bookEditRepository: BookEditRepository,
     private val tagRepository: TagRepository,
     private val moodRepository: MoodRepository,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
+    private val pendingImageUploads: PendingImageUploads,
 ) {
     /**
      * Save book changes.
@@ -304,26 +308,20 @@ open class UpdateBookUseCase(
             is AppResult.Failure -> logger.error { "Failed to commit staging cover: ${commitResult.message}" }
         }
 
-        // The local cover is already saved, so a failed upload does not fail the save; it is
-        // reported in the outcome so the screen can say the other devices will not see it yet.
-        return when (
-            val uploadResult =
-                imageRepository.uploadBookCover(
-                    bookId = current.bookId,
-                    imageData = pendingCover.data,
-                    filename = pendingCover.filename,
-                )
-        ) {
-            is AppResult.Success -> {
-                logger.info { "Cover uploaded to server" }
-                SaveOutcome.Saved
-            }
-
-            is AppResult.Failure -> {
-                logger.warn { "Failed to upload cover to server: ${uploadResult.message}" }
-                SaveOutcome.SavedImageNotUploaded(uploadResult.error)
-            }
+        // The local cover is already saved, so a failed upload does not fail the save. It is queued
+        // to retry when it can succeed later, and reported in the outcome so the screen can say the
+        // other devices will not see it yet.
+        val uploadResult =
+            imageRepository.uploadBookCover(
+                bookId = current.bookId,
+                imageData = pendingCover.data,
+                filename = pendingCover.filename,
+            )
+        when (uploadResult) {
+            is AppResult.Success -> logger.info { "Cover uploaded to server" }
+            is AppResult.Failure -> logger.warn { "Failed to upload cover to server: ${uploadResult.message}" }
         }
+        return pendingImageUploads.settle(PendingImageKind.BookCover, current.bookId, uploadResult)
     }
 
     /**

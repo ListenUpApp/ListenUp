@@ -41,6 +41,8 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * `books.releaseDate` for Publication order.
  * [MIGRATION_21_22] changes no schema: it rewinds the `admin_user_roster` cursor so the roster's permission
  * columns are re-pulled from the server.
+ * [MIGRATION_22_23] adds the `pending_image_upload` table: covers and photos saved on this device that have
+ * not yet reached the server, retried until the server answers.
  * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
@@ -108,8 +110,9 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         ReadingOrderEntity::class,
         ReadingOrderBookEntity::class,
         ReadingOrderFollowEntity::class,
+        PendingImageUploadEntity::class,
     ],
-    version = 22,
+    version = 23,
     exportSchema = true,
 )
 @ColumnTypeConverters(
@@ -208,6 +211,8 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun readingOrderBookDao(): ReadingOrderBookDao
 
     abstract fun readingOrderFollowDao(): ReadingOrderFollowDao
+
+    abstract fun pendingImageUploadDao(): PendingImageUploadDao
 }
 
 /**

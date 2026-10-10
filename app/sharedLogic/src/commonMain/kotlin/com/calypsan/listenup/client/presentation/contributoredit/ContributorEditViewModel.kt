@@ -11,8 +11,11 @@ import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.usecase.settle
 import com.calypsan.listenup.client.domain.usecase.toNotice
 import com.calypsan.listenup.client.domain.usecase.contributor.ContributorUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
@@ -252,6 +255,7 @@ class ContributorEditViewModel internal constructor(
     private val updateContributorUseCase: UpdateContributorUseCase,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
+    private val pendingImageUploads: PendingImageUploads,
     private val contributorEditRepository: ContributorEditRepository,
     private val contributorAliasDao: ContributorAliasDao,
     private val contributorDao: ContributorDao,
@@ -595,7 +599,8 @@ class ContributorEditViewModel internal constructor(
     /**
      * Commit the staged image to the durable local location and upload it to the server.
      * The local save is prioritized so the picked photo survives offline; a failed upload does not
-     * fail the save but is reported as [SaveOutcome.SavedImageNotUploaded]. Called from
+     * fail the save but is queued to retry when it can succeed later, and reported as
+     * [SaveOutcome.SavedImageNotUploaded]. Called from
      * [persistChanges] once metadata persists.
      */
     private suspend fun commitAndUploadImageIfPending(current: ContributorEditUiState): SaveOutcome {
@@ -610,17 +615,12 @@ class ContributorEditViewModel internal constructor(
         }
 
         // Then upload to the server; the local image is already saved either way.
-        return when (val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename)) {
-            is AppResult.Success -> {
-                logger.info { "Contributor image uploaded to server" }
-                SaveOutcome.Saved
-            }
-
-            is AppResult.Failure -> {
-                logger.error { "Failed to upload contributor image: ${result.message}" }
-                SaveOutcome.SavedImageNotUploaded(result.error)
-            }
+        val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename)
+        when (result) {
+            is AppResult.Success -> logger.info { "Contributor image uploaded to server" }
+            is AppResult.Failure -> logger.error { "Failed to upload contributor image: ${result.message}" }
         }
+        return pendingImageUploads.settle(PendingImageKind.ContributorImage, contributorId, result)
     }
 
     private fun updateHasChanges() {

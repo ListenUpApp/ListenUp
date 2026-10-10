@@ -46,6 +46,7 @@ import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncFrameApplier
 import com.calypsan.listenup.client.data.sync.SyncReconciler
+import com.calypsan.listenup.client.data.sync.PendingImageUploadScheduler
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncStreamClient
@@ -637,6 +638,20 @@ internal val clientSyncModule =
                 // The §6.5 auth gate: park the firehose + outbox on SessionLapsed, resume on re-auth.
                 authState = get<AuthSession>().authState,
             )
+        }
+
+        // Starts a pass over the pending image uploads when one can newly succeed: app start signed in,
+        // the network returning, the server connection coming up. Lives beside the outbox's own drain
+        // triggers but outside SyncEngine.
+        single(createdAtStart = true) {
+            PendingImageUploadScheduler(
+                uploads = get(),
+                authSession = get(),
+                networkMonitor = get(),
+                syncEngineState = get(),
+                errorBus = get(),
+                scope = get(qualifier = named(APP_SCOPE)),
+            ).apply { start() }
         }
 
         single(createdAtStart = true) {
