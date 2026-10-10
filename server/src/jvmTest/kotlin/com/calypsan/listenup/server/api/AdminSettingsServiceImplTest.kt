@@ -235,7 +235,11 @@ class AdminSettingsServiceImplTest :
 
                     svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "   ")).shouldSucceed()
 
-                    svc.getServerSettings().shouldSucceed().remoteUrl.shouldBeNull()
+                    svc
+                        .getServerSettings()
+                        .shouldSucceed()
+                        .remoteUrl
+                        .shouldBeNull()
                 }
             }
         }
