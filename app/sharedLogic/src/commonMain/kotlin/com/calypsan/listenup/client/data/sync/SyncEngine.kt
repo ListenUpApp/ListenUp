@@ -595,11 +595,10 @@ internal class SyncEngine(
             return
         }
 
-        // Set true ONLY where the loop below clears cursorStaleRunning under the lock; after that a
-        // follow-on leader may own the shared state, so the finally must not touch it.
-        var ledToCompletion = false
+        // `more` turns false ONLY where the loop below clears cursorStaleRunning under the lock; after
+        // that a follow-on leader may own the shared state, so the finally must not touch it.
+        var more = true
         try {
-            var more = true
             while (more) {
                 // Snapshot the waiters registered BEFORE this pass starts. They are satisfied the
                 // moment this pass ends — it began after their request, so it covers it.
@@ -624,7 +623,6 @@ internal class SyncEngine(
                             true
                         } else {
                             cursorStaleRunning = false
-                            ledToCompletion = true
                             false
                         }
                     }
@@ -634,7 +632,7 @@ internal class SyncEngine(
             // threw or was cancelled, so a future CursorStale can still recover. Any waiters
             // still outstanding (their covering pass never completed) must be released so coalesced
             // callers are not stranded — cancelled, not completed, since their request was not served.
-            if (!ledToCompletion) {
+            if (more) {
                 // NonCancellable for the same reason as lifecycleReconcile's cleanup: a contended
                 // `withLock` on the cancellation path would throw and strand `cursorStaleRunning` true,
                 // wedging all future CursorStale recovery.
@@ -723,9 +721,9 @@ internal class SyncEngine(
             }
         if (!leader) return
 
-        // Set true ONLY when the drain below returned None, which cleared the running flag under the
-        // lock. From then on a follow-on leader may own that state, so the finally must not touch it.
-        var ledToCompletion = false
+        // The last drained work: None means the drain below cleared the running flag under the lock, and
+        // from then on a follow-on leader may own that state, so the finally must not touch it.
+        var work: PendingAccessChange? = null
         try {
             // One retry budget per leader activation: a failed scope is re-folded into the
             // accumulator exactly once; if the retry fails too, the reconnect / next
@@ -733,21 +731,12 @@ internal class SyncEngine(
             // later starts a fresh leader with a fresh budget.
             var requeueGranted = true
             while (true) {
-                val work = accessChangedMutex.withLock { drainAccumulatedAccessChange() }
+                work = accessChangedMutex.withLock { drainAccumulatedAccessChange() }
                 val outcome =
                     when (work) {
-                        PendingAccessChange.None -> {
-                            ledToCompletion = true
-                            break
-                        }
-
-                        PendingAccessChange.Coarse -> {
-                            accessReconciler.reconcile(null)
-                        }
-
-                        is PendingAccessChange.Delta -> {
-                            accessReconciler.reconcile(work.scope)
-                        }
+                        PendingAccessChange.None -> break
+                        PendingAccessChange.Coarse -> accessReconciler.reconcile(null)
+                        is PendingAccessChange.Delta -> accessReconciler.reconcile(work.scope)
                     }
                 if (outcome is AccessReconcileOutcome.Requeue) {
                     if (requeueGranted) {
@@ -774,7 +763,7 @@ internal class SyncEngine(
             // NonCancellable, like the CursorStale cleanup, so a contended withLock on the
             // cancellation path can't strand accessChangedRunning = true and wedge every future
             // AccessChanged.
-            if (!ledToCompletion) {
+            if (work != PendingAccessChange.None) {
                 withContext(NonCancellable) {
                     accessChangedMutex.withLock { resetAccessChangeState() }
                 }

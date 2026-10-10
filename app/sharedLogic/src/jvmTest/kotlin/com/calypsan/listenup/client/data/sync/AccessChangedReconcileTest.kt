@@ -594,13 +594,15 @@ class AccessChangedReconcileTest :
                         launch { harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("b3"))) }
                     repeat(20) { yield() }
 
-                    // Leader 3 must have folded into leader 2's follow-up, not started a parallel reconcile.
-                    harness.fakeCatchUp.maxInFlight shouldBe 1
-
                     fetchGate.complete(Unit)
                     leader2.join()
                     leader3.join()
                 }
+
+                // Leader 3 folded into leader 2's follow-up. If leader 1's cleanup had cleared leader 2's
+                // running flag, leader 3 would have led a third activation (it queues behind the paging
+                // lock rather than overlapping, so the activation count is what shows it).
+                refreshCalls shouldBe 2
 
                 // b3's scope was folded into leader 2's follow-up rather than dropped.
                 val bookFetchIds =
@@ -753,16 +755,14 @@ private class FakeReconcileCatchUp : CatchUp {
         return AppResult.Success(ids)
     }
 
-    /** Targeted fetches currently inside [fetchTransient], and the most that ever overlapped. */
+    /** Targeted fetches currently inside [fetchTransient]. */
     var inFlight = 0
-    var maxInFlight = 0
 
     override suspend fun <T : Any> fetchTransient(
         handler: SyncDomainHandler<T>,
         fetch: TargetedFetch,
     ): AppResult<Set<String>> {
         inFlight++
-        maxInFlight = maxOf(maxInFlight, inFlight)
         try {
             return fetchTransientBody(handler, fetch)
         } finally {
