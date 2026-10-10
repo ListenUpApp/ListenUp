@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.auth
 
+import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -26,6 +27,9 @@ data class LoginRequest(
         require(password.length in PASSWORD_MIN..PASSWORD_MAX) {
             "password length out of bounds"
         }
+        require(email.length <= EMAIL_MAX) { "email too long" }
+        require(sessionLabel == null || sessionLabel.length <= SESSION_LABEL_MAX) { "sessionLabel too long" }
+        require(timezone.length <= TIMEZONE_MAX) { "timezone too long" }
     }
 }
 
@@ -47,6 +51,9 @@ data class RegisterRequest(
         require(displayName.isNotBlank()) {
             "display name must not be blank"
         }
+        require(email.length <= EMAIL_MAX) { "email too long" }
+        require(displayName.length <= UpdateProfileRequest.MAX_DISPLAY_NAME) { "displayName too long" }
+        require(sessionLabel == null || sessionLabel.length <= SESSION_LABEL_MAX) { "sessionLabel too long" }
     }
 }
 
@@ -65,3 +72,12 @@ data class RefreshRequest(
 
 const val PASSWORD_MIN = 8
 const val PASSWORD_MAX = 1024
+
+/** Longest email address the boundary accepts (the RFC 5321 maximum); anonymous callers reach these fields. */
+const val EMAIL_MAX = 254
+
+/** Longest session label the boundary accepts. */
+const val SESSION_LABEL_MAX = 128
+
+/** Longest IANA timezone identifier the boundary accepts. */
+const val TIMEZONE_MAX = 64

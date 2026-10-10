@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.EMAIL_MAX
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.api.error.ValidationError
@@ -91,12 +92,11 @@ open class LoginUseCase(
         }
 
     private fun isValidEmail(email: String): Boolean {
-        if (email.length > MAX_EMAIL_LENGTH) return false
+        if (email.length > EMAIL_MAX) return false
         return EMAIL_REGEX.matches(email)
     }
 
     private companion object {
-        const val MAX_EMAIL_LENGTH = 254
         val EMAIL_REGEX = Regex("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
     }
 }

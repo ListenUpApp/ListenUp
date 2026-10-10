@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -86,6 +87,43 @@ class AuthDtoContractTest :
             shouldThrow<IllegalArgumentException> {
                 RegisterRequest(email = "a@b", password = "x".repeat(7), displayName = "Alice")
             }
+        }
+
+        test("RegisterRequest bounds email, displayName and sessionLabel") {
+            RegisterRequest(email = "e".repeat(254), password = "x".repeat(8), displayName = "Alice")
+            RegisterRequest(email = "a@b", password = "x".repeat(8), displayName = "n".repeat(200))
+            RegisterRequest(email = "a@b", password = "x".repeat(8), displayName = "Alice", sessionLabel = "s".repeat(128))
+            shouldThrow<IllegalArgumentException> {
+                RegisterRequest(email = "e".repeat(255), password = "x".repeat(8), displayName = "Alice")
+            }
+            shouldThrow<IllegalArgumentException> {
+                RegisterRequest(email = "a@b", password = "x".repeat(8), displayName = "n".repeat(201))
+            }
+            shouldThrow<IllegalArgumentException> {
+                RegisterRequest(email = "a@b", password = "x".repeat(8), displayName = "Alice", sessionLabel = "s".repeat(129))
+            }
+        }
+
+        test("LoginRequest bounds email, sessionLabel and timezone") {
+            LoginRequest(email = "e".repeat(254), password = "x".repeat(8))
+            LoginRequest(email = "a@b", password = "x".repeat(8), sessionLabel = "s".repeat(128))
+            LoginRequest(email = "a@b", password = "x".repeat(8), timezone = "t".repeat(64))
+            shouldThrow<IllegalArgumentException> {
+                LoginRequest(email = "e".repeat(255), password = "x".repeat(8))
+            }
+            shouldThrow<IllegalArgumentException> {
+                LoginRequest(email = "a@b", password = "x".repeat(8), sessionLabel = "s".repeat(129))
+            }
+            shouldThrow<IllegalArgumentException> {
+                LoginRequest(email = "a@b", password = "x".repeat(8), timezone = "t".repeat(65))
+            }
+        }
+
+        test("AdminUserPatch accepts a null displayName and bounds a present one") {
+            AdminUserPatch()
+            AdminUserPatch(displayName = "n".repeat(200))
+            shouldThrow<IllegalArgumentException> { AdminUserPatch(displayName = " ") }
+            shouldThrow<IllegalArgumentException> { AdminUserPatch(displayName = "n".repeat(201)) }
         }
 
         test("auth requests round-trip through JSON") {

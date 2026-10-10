@@ -104,6 +104,29 @@ class SetupUseCaseTest :
             }
         }
 
+        test("setup rejects a name too long to store") {
+            runTest {
+                // The authRepository mock is unstubbed: reaching it would fail the test.
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                val result =
+                    useCase(
+                        email = "root@example.com",
+                        password = "password123",
+                        firstName = "F".repeat(100),
+                        lastName = "L".repeat(100),
+                    )
+
+                val ve =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                ve.message shouldBe "Name is too long"
+            }
+        }
+
         test("setup rejects blank last name") {
             runTest {
                 val fixture = createFixture()
