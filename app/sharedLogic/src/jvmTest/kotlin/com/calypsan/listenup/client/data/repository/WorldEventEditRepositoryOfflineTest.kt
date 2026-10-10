@@ -30,7 +30,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.EntityId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.StoryWorldHistoryId
-import com.calypsan.listenup.core.WorldEventId
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -77,17 +76,32 @@ class WorldEventEditRepositoryOfflineTest :
         test("recording writes Room with its mentions and queues a batch of one keyed by the new id") {
             runTest {
                 val rig = newRig()
-                val edit = rig.repo.recordEvent(JOINS_MARS).shouldBeInstanceOf<AppResult.Success<WorldEventEdit>>().data
+                val edit =
+                    rig.repo
+                        .recordEvent(JOINS_MARS)
+                        .shouldBeInstanceOf<AppResult.Success<WorldEventEdit>>()
+                        .data
 
-                val saved = rig.repo.observeEvent(edit.eventId).first().shouldNotBeNull()
+                val saved =
+                    rig.repo
+                        .observeEvent(edit.eventId)
+                        .first()
+                        .shouldNotBeNull()
                 saved.content shouldBe JOINS_MARS.content
                 saved.mentionIds shouldBe setOf(EntityId("darrow"), EntityId("mars"))
-                val op = rig.db.pendingOperationV2Dao().nextDispatchable().single()
+                val op =
+                    rig.db
+                        .pendingOperationV2Dao()
+                        .nextDispatchable()
+                        .single()
                 op.domainName shouldBe "world_events"
                 op.entityId shouldBe edit.eventId.value
                 op.opType shouldBe "upsert"
                 val batch = contractJson.decodeFromString(EventsBatch.serializer(), op.payload)
-                batch.ops.single().shouldBeInstanceOf<WorldEventOp.Upsert>().upsert.detail shouldBe "Primus"
+                batch.ops
+                    .single()
+                    .shouldBeInstanceOf<WorldEventOp.Upsert>()
+                    .upsert.detail shouldBe "Primus"
                 rig.db.close()
             }
         }
@@ -101,10 +115,17 @@ class WorldEventEditRepositoryOfflineTest :
                         .shouldBeInstanceOf<AppResult.Success<List<WorldEventEdit>>>()
                         .data
 
-                val op = rig.db.pendingOperationV2Dao().nextDispatchable().single()
+                val op =
+                    rig.db
+                        .pendingOperationV2Dao()
+                        .nextDispatchable()
+                        .single()
                 op.entityId shouldBe edits.first().eventId.value
                 contractJson.decodeFromString(EventsBatch.serializer(), op.payload).ops.size shouldBe 2
-                rig.repo.observeEventsForSeries(SAGA).first().size shouldBe 2
+                rig.repo
+                    .observeEventsForSeries(SAGA)
+                    .first()
+                    .size shouldBe 2
                 rig.db.close()
             }
         }
@@ -118,11 +139,17 @@ class WorldEventEditRepositoryOfflineTest :
                         .updateEvent(created.eventId, WorldEventContent(type = WorldEventType.NOTE, text = "second"))
                         .shouldBeInstanceOf<AppResult.Success<WorldEventEdit>>()
                         .data
-                edited.before.shouldNotBeNull().content.text shouldBe "first"
+                edited.before
+                    .shouldNotBeNull()
+                    .content.text shouldBe "first"
 
                 rig.repo.undo(edited) shouldBe AppResult.Success(Unit)
 
-                rig.repo.observeEvent(created.eventId).first().shouldNotBeNull().content.text shouldBe "first"
+                rig.repo
+                    .observeEvent(created.eventId)
+                    .first()
+                    .shouldNotBeNull()
+                    .content.text shouldBe "first"
                 rig.db.close()
             }
         }
@@ -133,12 +160,22 @@ class WorldEventEditRepositoryOfflineTest :
                 val created = (rig.repo.recordEvent(note("kept")) as AppResult.Success).data
                 rig.drain()
                 val deletion = (rig.repo.deleteEvent(created.eventId) as AppResult.Success).data
-                rig.repo.observeEvent(created.eventId).first().shouldBeNull()
+                rig.repo
+                    .observeEvent(created.eventId)
+                    .first()
+                    .shouldBeNull()
 
                 rig.repo.undo(deletion) shouldBe AppResult.Success(Unit)
 
-                rig.repo.observeEvent(created.eventId).first().shouldNotBeNull().content.text shouldBe "kept"
-                rig.db.pendingOperationV2Dao().nextDispatchable().shouldBeEmpty()
+                rig.repo
+                    .observeEvent(created.eventId)
+                    .first()
+                    .shouldNotBeNull()
+                    .content.text shouldBe "kept"
+                rig.db
+                    .pendingOperationV2Dao()
+                    .nextDispatchable()
+                    .shouldBeEmpty()
                 rig.sent.size shouldBe 1
                 rig.db.close()
             }
@@ -148,10 +185,24 @@ class WorldEventEditRepositoryOfflineTest :
             runTest {
                 val rig = newRig()
                 val wrongKind = JOINS_MARS.copy(content = JOINS_MARS.content.copy(objectId = EntityId("darrow")))
-                rig.repo.recordEvent(wrongKind).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<WorldEventError.WrongEntityKind>()
+                rig.repo
+                    .recordEvent(
+                        wrongKind,
+                    ).shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<WorldEventError.WrongEntityKind>()
                 val otherWorld = JOINS_MARS.copy(content = JOINS_MARS.content.copy(subjectId = EntityId("stranger")))
-                rig.repo.recordEvent(otherWorld).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<WorldEventError.EntityNotInWorld>()
-                rig.repo.recordEvent(note("  ")).shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>()
+                rig.repo
+                    .recordEvent(
+                        otherWorld,
+                    ).shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<WorldEventError.EntityNotInWorld>()
+                rig.repo
+                    .recordEvent(note("  "))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<ValidationError>()
                 rig.repo
                     .recordEvent(WorldEventDraft(WorldEventContent(WorldEventType.UNKNOWN, text = "x"), homeSeriesId = SAGA))
                     .shouldBeInstanceOf<AppResult.Failure>()
@@ -162,7 +213,10 @@ class WorldEventEditRepositoryOfflineTest :
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<ValidationError>()
-                rig.db.pendingOperationV2Dao().nextDispatchable().shouldBeEmpty()
+                rig.db
+                    .pendingOperationV2Dao()
+                    .nextDispatchable()
+                    .shouldBeEmpty()
                 rig.db.close()
             }
         }
@@ -196,11 +250,17 @@ class WorldEventEditRepositoryOfflineTest :
                     )
                 everySuspend { service.listHistory(any()) } returns AppResult.Success(listOf(serverDelete))
                 everySuspend { service.revert(any()) } returns
-                    AppResult.Success(serverDelete.copy(id = StoryWorldHistoryId("h-rev"), op = StoryWorldOp.REVERT, after = alive.copy(revision = 41)))
+                    AppResult.Success(
+                        serverDelete.copy(id = StoryWorldHistoryId("h-rev"), op = StoryWorldOp.REVERT, after = alive.copy(revision = 41)),
+                    )
 
                 rig.repo.undo(deletion) shouldBe AppResult.Success(Unit)
 
-                rig.repo.observeEvent(created.eventId).first().shouldNotBeNull().content.text shouldBe "revived"
+                rig.repo
+                    .observeEvent(created.eventId)
+                    .first()
+                    .shouldNotBeNull()
+                    .content.text shouldBe "revived"
                 rig.db.close()
             }
         }

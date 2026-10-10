@@ -88,7 +88,12 @@ class WorldEventMirrorApplyTest :
                 apply.upsert(payload("w1", mentionIds = listOf("c1", "g1", "stale")))
                 apply.upsert(payload("w1", mentionIds = listOf("c1", "g1"), revision = 6))
 
-                val row = db.worldEventDao().observeById("w1").first().shouldNotBeNull()
+                val row =
+                    db
+                        .worldEventDao()
+                        .observeById("w1")
+                        .first()
+                        .shouldNotBeNull()
                 row.event.type shouldBe WorldEventType.JOINS
                 row.event.detail shouldBe "Primus"
                 row.event.positionMs shouldBe 60_000L
@@ -101,7 +106,11 @@ class WorldEventMirrorApplyTest :
             runTest {
                 val db = createInMemoryTestDatabase()
                 WorldEventMirrorApply(db).upsert(payload("w1", type = WorldEventType.UNKNOWN))
-                db.worldEventDao().getById("w1").shouldNotBeNull().type shouldBe WorldEventType.UNKNOWN
+                db
+                    .worldEventDao()
+                    .getById("w1")
+                    .shouldNotBeNull()
+                    .type shouldBe WorldEventType.UNKNOWN
                 db.close()
             }
         }
@@ -111,7 +120,9 @@ class WorldEventMirrorApplyTest :
                 val db = createInMemoryTestDatabase()
                 val apply = WorldEventMirrorApply(db)
                 apply.upsert(payload("w1"))
-                apply.tombstoneFromItem(payload("w1", type = WorldEventType.UNKNOWN, revision = 9, deletedAt = 50, mentionIds = emptyList()))
+                apply.tombstoneFromItem(
+                    payload("w1", type = WorldEventType.UNKNOWN, revision = 9, deletedAt = 50, mentionIds = emptyList()),
+                )
 
                 db.worldEventDao().getById("w1").shouldBeNull()
                 val tombstone = db.worldEventDao().findById("w1").shouldNotBeNull()
@@ -146,7 +157,12 @@ class WorldEventMirrorApplyTest :
 
         test("world_events declares a Targeted Books gate, after every other book-keyed domain") {
             val db = createInMemoryTestDatabase()
-            val delta = worldEventsDomain(db).accessGate.shouldNotBeNull().delta.shouldBeInstanceOf<AccessDeltaPolicy.Targeted>()
+            val delta =
+                worldEventsDomain(db)
+                    .accessGate
+                    .shouldNotBeNull()
+                    .delta
+                    .shouldBeInstanceOf<AccessDeltaPolicy.Targeted>()
             delta.axis shouldBe ScopeAxis.Books
             delta.order shouldBe 9
             db.close()

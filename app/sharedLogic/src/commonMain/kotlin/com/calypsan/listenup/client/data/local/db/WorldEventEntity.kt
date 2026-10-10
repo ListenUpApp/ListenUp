@@ -124,7 +124,9 @@ internal interface WorldEventDao {
     fun observeMentioning(entityId: String): Flow<List<WorldEventWithMentions>>
 
     /** Tombstone [id], keeping [revision] so the server's tombstone echo still applies through the guard. */
-    @Query("UPDATE world_events SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id")
+    @Query(
+        "UPDATE world_events SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id",
+    )
     suspend fun softDelete(
         id: String,
         deletedAt: Long,

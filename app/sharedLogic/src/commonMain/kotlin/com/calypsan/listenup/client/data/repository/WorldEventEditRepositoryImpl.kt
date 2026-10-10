@@ -83,18 +83,33 @@ internal class WorldEventEditRepositoryImpl(
     override fun observeEventsMentioning(entityId: EntityId): Flow<List<WorldEvent>> =
         worldEventDao.observeMentioning(entityId.value).map { rows -> rows.map { it.toDomain() } }
 
-    override fun observeEvent(id: WorldEventId): Flow<WorldEvent?> = worldEventDao.observeById(id.value).map { it?.toDomain() }
+    override fun observeEvent(id: WorldEventId): Flow<WorldEvent?> =
+        worldEventDao.observeById(id.value).map {
+            it?.toDomain()
+        }
 
-    override suspend fun recordEvent(draft: WorldEventDraft): AppResult<WorldEventEdit> = recordEvents(listOf(draft)).map { it.single() }
+    override suspend fun recordEvent(draft: WorldEventDraft): AppResult<WorldEventEdit> =
+        recordEvents(listOf(draft)).map {
+            it.single()
+        }
 
     override suspend fun recordEvents(drafts: List<WorldEventDraft>): AppResult<List<WorldEventEdit>> =
         editMutex.withLock {
             if (drafts.isEmpty()) return@withLock AppResult.Success(emptyList())
             if (drafts.size > WorldEventRules.MAX_BATCH) {
-                return@withLock AppResult.Failure(ValidationError(message = "Send at most ${WorldEventRules.MAX_BATCH} changes at once."))
+                return@withLock AppResult.Failure(
+                    ValidationError(message = "Send at most ${WorldEventRules.MAX_BATCH} changes at once."),
+                )
             }
             val upserts =
-                drafts.map { draft -> upsertOf(WorldEventId(Uuid.random().toString()), draft.content, draft.homeSeriesId, draft.homeBookId) }
+                drafts.map { draft ->
+                    upsertOf(
+                        id = WorldEventId(Uuid.random().toString()),
+                        content = draft.content,
+                        homeSeriesId = draft.homeSeriesId,
+                        homeBookId = draft.homeBookId,
+                    )
+                }
             for (upsert in upserts) creationProblem(upsert)?.let { return@withLock AppResult.Failure(it) }
             val now = currentEpochMilliseconds()
             val rows = upserts.map { it.toRow(existing = null, now = now) }
@@ -106,7 +121,7 @@ internal class WorldEventEditRepositoryImpl(
                     op = OpKind.Upsert,
                 ) {
                     rows.forEach { applyRow(it) }
-                }.map { rows.map { WorldEventEdit(WorldEventId(it.id), before = null) } }
+                }.map { rows.map { row -> WorldEventEdit(WorldEventId(row.id), before = null) } }
         }
 
     override suspend fun updateEvent(
@@ -115,7 +130,13 @@ internal class WorldEventEditRepositoryImpl(
     ): AppResult<WorldEventEdit> =
         editMutex.withLock {
             val existing = worldEventDao.getById(id.value) ?: return@withLock notFound(id)
-            val upsert = upsertOf(id, content, existing.homeSeriesId?.let(::SeriesId), existing.homeBookId?.let(::BookId))
+            val upsert =
+                upsertOf(
+                    id = id,
+                    content = content,
+                    homeSeriesId = existing.homeSeriesId?.let(::SeriesId),
+                    homeBookId = existing.homeBookId?.let(::BookId),
+                )
             val type = if (upsert.type == WorldEventType.UNKNOWN) existing.type else upsert.type
             contentProblem(upsert, type)?.let { return@withLock AppResult.Failure(it) }
             val before = existing.toDomain(worldEventDao.mentionIdsFor(id.value))
@@ -139,7 +160,7 @@ internal class WorldEventEditRepositoryImpl(
             } else {
                 // Undo an edit: write the earlier content back over the live row, as a forward write.
                 val current = worldEventDao.getById(edit.eventId.value) ?: return@withLock notFound(edit.eventId)
-                write(upsertOf(edit.eventId, before.content, before.homeSeriesId, before.homeBookId), current)
+                write(before.asUpsert(), current)
             }
         }
     }
@@ -158,16 +179,25 @@ internal class WorldEventEditRepositoryImpl(
                     val tombstone = worldEventDao.findById(id.value)
                     if (tombstone != null) {
                         val restored =
-                            upsertOf(id, before.content, before.homeSeriesId, before.homeBookId)
-                                .toRow(existing = tombstone, now = tombstone.updatedAt)
+                            before.asUpsert().toRow(existing = tombstone, now = tombstone.updatedAt)
                         applyRow(restored)
                     }
                 }
             }.flatMap { outcome ->
                 when (outcome) {
-                    UnsentCancel.Cancelled, UnsentCancel.DeadLettered -> AppResult.Success(Unit)
-                    UnsentCancel.Attempted -> AppResult.Failure(TransportError.OutcomeUnknown(debugInfo = "delete of event=${id.value}"))
-                    UnsentCancel.NotQueued -> revertSentDelete(id)
+                    UnsentCancel.Cancelled, UnsentCancel.DeadLettered -> {
+                        AppResult.Success(Unit)
+                    }
+
+                    UnsentCancel.Attempted -> {
+                        AppResult.Failure(
+                            TransportError.OutcomeUnknown(debugInfo = "delete of event=${id.value}"),
+                        )
+                    }
+
+                    UnsentCancel.NotQueued -> {
+                        revertSentDelete(id)
+                    }
                 }
             }
 
@@ -183,7 +213,9 @@ internal class WorldEventEditRepositoryImpl(
         if (newest?.op != StoryWorldOp.DELETE || me == null || newest.actorId != me) {
             return AppResult.Failure(
                 WorldEventError.HistoryNotFound(
-                    debugInfo = "newest change of event=${id.value} is ${newest?.op ?: "absent"} by ${newest?.actorId ?: "nobody"}, not this user's DELETE",
+                    debugInfo =
+                        "newest change of event=${id.value} is ${newest?.op ?: "absent"} by " +
+                            "${newest?.actorId ?: "nobody"}, not this user's DELETE",
                 ),
             )
         }
@@ -200,7 +232,11 @@ internal class WorldEventEditRepositoryImpl(
     override suspend fun listHistory(id: WorldEventId): AppResult<List<WorldEventChange>> =
         channel.call(idempotent = true) { it.listHistory(id) }.map { changes -> changes.map { it.toDomain() } }
 
-    override suspend fun revert(changeId: StoryWorldHistoryId): AppResult<Unit> = channel.call { it.revert(changeId) }.map { }
+    override suspend fun revert(changeId: StoryWorldHistoryId): AppResult<Unit> =
+        channel
+            .call {
+                it.revert(changeId)
+            }.map { }
 
     /** The server's create rules, applied offline: home, type, content, then kinds and worlds against Room. */
     private suspend fun creationProblem(upsert: WorldEventUpsert): AppError? =
@@ -279,7 +315,8 @@ internal class WorldEventEditRepositoryImpl(
         worldEventDao.replaceMentions(row.id, localMentionIds(row))
     }
 
-    private fun <T> notFound(id: WorldEventId): AppResult<T> = AppResult.Failure(WorldEventError.NotFound(debugInfo = "event=${id.value}"))
+    private fun <T> notFound(id: WorldEventId): AppResult<T> =
+        AppResult.Failure(WorldEventError.NotFound(debugInfo = "event=${id.value}"))
 }
 
 /** The snapshot sent for [content] at this home: text and detail trimmed, a blank detail dropped. */
@@ -293,7 +330,7 @@ private fun upsertOf(
         id = id,
         type = content.type,
         text = content.text.trim(),
-        detail = content.detail?.trim()?.ifEmpty { null },
+        detail = content.detail?.run { trim().ifEmpty { null } },
         homeSeriesId = homeSeriesId,
         homeBookId = homeBookId,
         bookId = content.anchor?.bookId,
@@ -301,6 +338,10 @@ private fun upsertOf(
         subjectEntityId = content.subjectId,
         objectEntityId = content.objectId,
     )
+
+/** This event's content as the snapshot that writes it back at its own home. */
+private fun WorldEvent.asUpsert(): WorldEventUpsert =
+    upsertOf(id = id, content = content, homeSeriesId = homeSeriesId, homeBookId = homeBookId)
 
 /** [existing] (or a fresh row) carrying this upsert's content, live; an UNKNOWN type keeps the stored one. */
 private fun WorldEventUpsert.toRow(
@@ -370,9 +411,13 @@ private fun WorldEventChangeDto.toDomain(): WorldEventChange =
 private fun StoryWorldOp.toEventChangeOp(): WorldEventChangeOp =
     when (this) {
         StoryWorldOp.CREATE -> WorldEventChangeOp.CREATE
+
         StoryWorldOp.UPDATE -> WorldEventChangeOp.UPDATE
+
         StoryWorldOp.DELETE -> WorldEventChangeOp.DELETE
+
         StoryWorldOp.REVERT -> WorldEventChangeOp.REVERT
+
         // Never recorded for an event: events are not merged. Read as an update rather than fail a history page.
         StoryWorldOp.MERGE -> WorldEventChangeOp.UPDATE
     }
