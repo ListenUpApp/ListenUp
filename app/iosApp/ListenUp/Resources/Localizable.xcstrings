@@ -5161,6 +5161,16 @@
         }
       }
     },
+    "book.detail_rating_from_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rated on Hardcover"
+          }
+        }
+      }
+    },
     "book.detail_rating_heading": {
       "localizations": {
         "en": {

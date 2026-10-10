@@ -113,6 +113,8 @@ class FakeHardcoverLibrary(
         val editionId: Long?,
         val reads: MutableList<Read> = mutableListOf(),
         var updatedAt: String = "",
+        var rating: Double? = null,
+        var privacySettingId: Int = 1,
     )
 
     /** One catalog edition, with the book fields the lookups return. */
@@ -227,6 +229,28 @@ class FakeHardcoverLibrary(
                     shelf.reads += read
                     touchForRead(shelf)
                 }.id
+        }
+
+    /** Rates [hcBookId] on its shelf entry as the user would on Hardcover's site (null clears it). */
+    fun rate(
+        hcBookId: Long,
+        rating: Double?,
+    ): Unit =
+        synchronized(lock) {
+            val shelf = shelves.first { it.bookId == hcBookId }
+            shelf.rating = rating
+            touch(shelf)
+        }
+
+    /** Sets [hcBookId]'s shelf entry to Hardcover privacy [settingId] (1 Public, 2 Followers only, 3 Private). */
+    fun setPrivacy(
+        hcBookId: Long,
+        settingId: Int,
+    ): Unit =
+        synchronized(lock) {
+            val shelf = shelves.first { it.bookId == hcBookId }
+            shelf.privacySettingId = settingId
+            touch(shelf)
         }
 
     /** Changes read [readId] as the user would on Hardcover's site. */
@@ -550,6 +574,8 @@ class FakeHardcoverLibrary(
             put("book_id", shelf.bookId)
             put("updated_at", shelf.updatedAt)
             put("status_id", shelf.statusId)
+            put("rating", shelf.rating)
+            put("privacy_setting_id", shelf.privacySettingId)
             putJsonArray("user_book_reads") {
                 shelf.reads.sortedBy { it.id }.forEach { read ->
                     addJsonObject {

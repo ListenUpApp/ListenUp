@@ -3,6 +3,7 @@ package com.calypsan.listenup.api
 import com.calypsan.listenup.api.dto.BookRatingMutation
 import com.calypsan.listenup.api.dto.RateBookRequest
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
+import com.calypsan.listenup.api.sync.ListenerRatingSource
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import io.kotest.assertions.throwables.shouldThrow
@@ -71,5 +72,31 @@ class BookRatingContractTest :
         test("the book_ratings domain is in the catalog") {
             SyncDomains.all shouldContain SyncDomains.BOOK_RATINGS
             SyncDomains.BOOK_RATINGS.name shouldBe "book_ratings"
+        }
+
+        test("a rating's source round-trips, and a frame without one is a ListenUp rating") {
+            val imported =
+                BookRatingSyncPayload(
+                    id = "r1",
+                    bookId = "b1",
+                    userId = "u1",
+                    halfStars = 9,
+                    note = null,
+                    ratedAt = 10L,
+                    updatedAt = 20L,
+                    revision = 3L,
+                    source = ListenerRatingSource.HARDCOVER,
+                )
+            contractJson.decodeFromString<BookRatingSyncPayload>(contractJson.encodeToString(imported)) shouldBe imported
+
+            val oldFrame =
+                """{"id":"r1","bookId":"b1","userId":"u1","halfStars":9,"note":null,"ratedAt":10,"updatedAt":20,"revision":3}"""
+            contractJson.decodeFromString<BookRatingSyncPayload>(oldFrame).source shouldBe ListenerRatingSource.LISTENUP
+        }
+
+        test("a source this build has never heard of reads as a ListenUp rating") {
+            val future =
+                """{"id":"r1","bookId":"b1","userId":"u1","halfStars":9,"note":null,"ratedAt":10,"updatedAt":20,"revision":3,"source":"GOODREADS"}"""
+            contractJson.decodeFromString<BookRatingSyncPayload>(future).source shouldBe ListenerRatingSource.LISTENUP
         }
     })

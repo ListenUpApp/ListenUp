@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.sync.ListenerRatingSource
 import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.dto.BookRatingMutation
 import com.calypsan.listenup.api.dto.ExternalRatingsCheck
@@ -187,7 +188,14 @@ internal class BookRatingRepositoryImpl(
 }
 
 private fun BookRatingEntity.toDomain(): ListenerRating =
-    ListenerRating(bookId = bookId, userId = userId, halfStars = halfStars, note = note, ratedAtMs = ratedAt)
+    ListenerRating(
+        bookId = bookId,
+        userId = userId,
+        halfStars = halfStars,
+        note = note,
+        ratedAtMs = ratedAt,
+        fromHardcover = source == ListenerRatingSource.HARDCOVER.name,
+    )
 
 /**
  * [BookExternalRatingEntity.source] is always a real [ExternalRatingSource] name, never a foreign

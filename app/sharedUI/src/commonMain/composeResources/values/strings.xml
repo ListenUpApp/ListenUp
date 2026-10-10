@@ -517,6 +517,7 @@ One beautiful library.</string>
     <string name="book_detail_rating_count">%1$s ratings</string>
     <string name="book_detail_rating_count_one">1 rating</string>
     <string name="book_detail_rating_edit_note">Edit note</string>
+    <string name="book_detail_rating_from_hardcover">Rated on Hardcover</string>
     <string name="book_detail_rating_heading">Ratings</string>
     <string name="book_detail_rating_listeners_a11y">Your listeners: %1$s out of 5 stars, from %2$d ratings</string>
     <string name="book_detail_rating_listeners_a11y_one">Your listeners: %1$s out of 5 stars, from 1 rating</string>

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.hardcover
 
+import com.calypsan.listenup.api.sync.ListenerRatingSource
+import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
@@ -61,6 +63,7 @@ internal class PullRig(
     val shelfBooks = ShelfBookRepository(sql, bus, registry, clock)
     val shelfEntries = HardcoverShelfEntryStore(sql, clock)
     val wantToRead = HardcoverWantToRead(sql, shelfEntries, shelves, shelfBooks, BookAccessPolicy(sql, dbs.driver))
+    val ratings = BookRatingRepository(db = sql, bus = bus, registry = SyncRegistry(), driver = dbs.driver, clock = clock)
     val connections =
         HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock, wantToRead = wantToRead)
     val puller =
@@ -70,6 +73,7 @@ internal class PullRig(
             resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver), HardcoverExclusions(sql)),
             links = links,
             wantToRead = wantToRead,
+            ratingImport = HardcoverRatingImport(sql, ratings),
             rateLimiter = NoWaitRateLimiter(),
             sql = sql,
             clock = clock,
@@ -276,5 +280,99 @@ class HardcoverPullerTest :
                 .asPullFailure()
                 .shouldBeInstanceOf<HardcoverCall.Failed>()
                 .detail shouldContain "want to read"
+        }
+
+        test("a Hardcover rating of a library book arrives as the listener's own rating, marked as from Hardcover") {
+            pullTest {
+                connect()
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-03-01", editionId = 9_001L)
+                hardcover.rate(HC_BOOK, 4.5)
+
+                pull() shouldBe PullProgress.CAUGHT_UP
+
+                val mine = ratings.findForBook(BOOK).single()
+                mine.userId shouldBe USER
+                mine.halfStars shouldBe 9
+                mine.source shouldBe ListenerRatingSource.HARDCOVER
+            }
+        }
+
+        test("a rating of a book outside the library imports nothing, and the cursor passes it") {
+            pullTest {
+                connect()
+                hardcover.seedShelf(999_999L, HardcoverStatus.READ)
+                hardcover.rate(999_999L, 5.0)
+
+                pull() shouldBe PullProgress.CAUGHT_UP
+
+                ratings.findForBook(BOOK) shouldBe emptyList()
+                lastAfter() shouldBe PULL_EPOCH
+                pull()
+                lastAfter() shouldBe hardcover.shelfFor(999_999L)!!.updatedAt
+            }
+        }
+
+        test("a rating changed on Hardcover follows on the next pull") {
+            pullTest {
+                connect()
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-03-01", editionId = 9_001L)
+                hardcover.rate(HC_BOOK, 4.5)
+                pull()
+
+                hardcover.rate(HC_BOOK, 3.0)
+                pull()
+
+                ratings.findForBook(BOOK).single().halfStars shouldBe 6
+            }
+        }
+
+        test("a private Hardcover rating imports nothing; followers-only is not public either") {
+            pullTest {
+                connect()
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-03-01", editionId = 9_001L)
+                hardcover.rate(HC_BOOK, 4.5)
+                hardcover.setPrivacy(HC_BOOK, 3)
+                pull()
+                ratings.findForBook(BOOK) shouldBe emptyList()
+
+                hardcover.setPrivacy(HC_BOOK, 2)
+                pull()
+                ratings.findForBook(BOOK) shouldBe emptyList()
+            }
+        }
+
+        test("an imported rating that turns private is cleared, and returns if it turns public again") {
+            pullTest {
+                connect()
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-03-01", editionId = 9_001L)
+                hardcover.rate(HC_BOOK, 4.5)
+                pull()
+                ratings.findForBook(BOOK).single().halfStars shouldBe 9
+
+                hardcover.setPrivacy(HC_BOOK, 3)
+                pull()
+                ratings.findForBook(BOOK) shouldBe emptyList()
+
+                hardcover.setPrivacy(HC_BOOK, HardcoverPrivacy.PUBLIC)
+                pull()
+                ratings.findForBook(BOOK).single().halfStars shouldBe 9
+            }
+        }
+
+        test("a book taken off the Hardcover shelf keeps its imported rating through a full pull") {
+            pullTest {
+                connect()
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-03-01", editionId = 9_001L)
+                hardcover.rate(HC_BOOK, 4.5)
+                pull()
+                val before = ratings.findForBook(BOOK).single()
+
+                hardcover.deleteShelf(HC_BOOK)
+                clock.instant = clock.instant + FULL_PULL_INTERVAL
+                pullAll()
+
+                store.pullState(USER)!!.lastFullPullAt shouldBe clock.now().toEpochMilliseconds()
+                ratings.findForBook(BOOK).single() shouldBe before
+            }
         }
     })

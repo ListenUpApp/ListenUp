@@ -561,3 +561,21 @@ internal val MIGRATION_21_22 =
             )
         }
     }
+
+/**
+ * v22 → v23: `book_ratings.source` — where a listener's rating came from (Hardcover rating import).
+ *
+ * - Every existing row is a ListenUp rating (`DEFAULT 'LISTENUP'`).
+ * - The `book_ratings` cursor is deleted, as [MIGRATION_15_16] did for its domain: a newer server may
+ *   already have imported ratings from Hardcover, which this client stored without their source, and
+ *   the cursored pull never re-sends an unchanged row. A missing cursor is `since = 0`.
+ *
+ * Non-destructive: one ADD COLUMN and a cursor reset.
+ */
+internal val MIGRATION_22_23 =
+    object : Migration(22, 23) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `book_ratings` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'LISTENUP'")
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'book_ratings'")
+        }
+    }

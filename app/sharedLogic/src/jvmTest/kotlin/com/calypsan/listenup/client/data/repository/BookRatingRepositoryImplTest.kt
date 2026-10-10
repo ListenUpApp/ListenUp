@@ -433,6 +433,40 @@ class BookRatingRepositoryImplTest :
                 db.close()
             }
         }
+
+        test("a rating imported from Hardcover says so until the listener rates the book themselves") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val repo = repo(db)
+                db.bookRatingDao().upsert(
+                    BookRatingEntity(
+                        bookId = "b1",
+                        userId = "me",
+                        syncId = "r1",
+                        halfStars = 9,
+                        note = null,
+                        ratedAt = 1L,
+                        updatedAt = 1L,
+                        revision = 3L,
+                        source = "HARDCOVER",
+                    ),
+                )
+                repo
+                    .observeForBook("b1")
+                    .first()
+                    .single()
+                    .fromHardcover shouldBe true
+
+                repo.rate("b1", 6, null).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                repo
+                    .observeForBook("b1")
+                    .first()
+                    .single()
+                    .fromHardcover shouldBe false
+                db.close()
+            }
+        }
     })
 
 private fun entity(

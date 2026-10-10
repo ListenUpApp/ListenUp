@@ -106,6 +106,12 @@ struct BookRatingSection: View {
             // Geometry, not spacing: a 30 pt glyph centred in its 44 pt slot sits 7 pt in, so the first glyph
             // lines up with the text above it while its slot still reaches the edge.
             .padding(.leading, -7)
+            if dragging == nil, snapshot.mine?.fromHardcover == true {
+                // HIG: secondary information in a lighter, smaller style beneath the primary control.
+                Text(String(localized: "book.detail_rating_from_hardcover"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             if dragging != nil {
                 hint(String(localized: "book.detail_rating_saved_on_lift"))
             } else if let note = snapshot.mine?.note, !note.isEmpty {

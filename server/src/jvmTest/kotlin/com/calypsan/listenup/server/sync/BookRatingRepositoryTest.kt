@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
+import com.calypsan.listenup.api.sync.ListenerRatingSource
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -212,6 +213,7 @@ class BookRatingRepositoryTest :
                             updated_at = 1_000L,
                             revision = 0L,
                             client_op_id = null,
+                            source = "listenup",
                         )
                     }
 
@@ -318,5 +320,43 @@ class BookRatingRepositoryTest :
 
         test("requireSingleRatingRowUpdated is silent when the update matched its one row") {
             requireSingleRatingRowUpdated(rowsChanged = 1L, bookId = "book1", userId = "u1")
+        }
+
+        test("an imported rating keeps its source, and a person's later rating makes it ListenUp's") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestUser("u1")
+                val repo = BookRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                runTest {
+                    repo.upsert(rating("u1", 8).copy(source = ListenerRatingSource.HARDCOVER))
+                    repo.findForBook("book1").single().source shouldBe ListenerRatingSource.HARDCOVER
+
+                    repo.upsert(rating("u1", 6))
+
+                    val mine = repo.findForBook("book1").single()
+                    mine.halfStars shouldBe 6
+                    mine.source shouldBe ListenerRatingSource.LISTENUP
+                }
+            }
+        }
+
+        test("the Hardcover value last seen is stored per pair and read back with the row") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestUser("u1")
+                val repo = BookRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                runTest {
+                    repo.upsert(rating("u1", 8))
+                    sql.transaction {
+                        sql.bookRatingsQueries.setHardcoverSeen(hardcover_half_stars = 7L, book_id = "book1", user_id = "u1")
+                    }
+
+                    val row = sql.bookRatingsQueries.selectForImport(book_id = "book1", user_id = "u1").executeAsOne()
+                    row.hardcover_half_stars shouldBe 7L
+                    row.source shouldBe "listenup"
+                }
+            }
         }
     })

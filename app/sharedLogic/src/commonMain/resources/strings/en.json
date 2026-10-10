@@ -515,6 +515,7 @@
     "detail_delete_book_confirm": "Delete forever",
     "detail_delete_book_blocked": "“%1$s” is in the same folder, so deleting this book would take it too. Nothing was deleted.",
     "detail_rating_yours": "Your rating",
+    "detail_rating_from_hardcover": "Rated on Hardcover",
     "detail_rating_listeners_a11y": "Your listeners: %1$s out of 5 stars, from %2$d ratings",
     "detail_rating_listeners_a11y_one": "Your listeners: %1$s out of 5 stars, from 1 rating",
     "detail_rating_sheet_title": "Rate this book",
