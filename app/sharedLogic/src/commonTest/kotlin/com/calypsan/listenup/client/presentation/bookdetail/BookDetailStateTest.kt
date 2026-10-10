@@ -199,4 +199,37 @@ class BookDetailStateTest :
                 busy.retiredBy(BookLoad.Missing("book-1")) shouldBe BookDetailOverlay("book-1")
             }
         }
+
+        context("BookDetailPage") {
+            val restoring = BookDetailOverlay("book-1", visit = 3, isRestoringToAllBooks = true, showShelfPicker = true)
+
+            test("Room's word and the overlay it retires arrive in one value") {
+                val load = BookLoad.Loaded("book-1", snapshot(visibility = BookVisibility.Public))
+                val page = BookDetailPage(load = null, overlay = restoring).withLoad(load)
+                page.load shouldBe load
+                page.overlay.isRestoringToAllBooks shouldBe false
+                page.overlay.showShelfPicker shouldBe true
+            }
+
+            test("asking for the same book again keeps the visit and what is open") {
+                BookDetailPage(load = null, overlay = restoring).visiting("book-1").overlay shouldBe restoring
+            }
+
+            test("asking for another book starts the next visit with nothing open, and keeps the load") {
+                val load = BookLoad.Loaded("book-1", snapshot())
+                val page = BookDetailPage(load = load, overlay = restoring).visiting("book-2")
+                page.overlay shouldBe BookDetailOverlay("book-2", visit = 4)
+                page.load shouldBe load
+            }
+
+            test("coming back to a book is a new visit, not the old one") {
+                BookDetailPage(load = null, overlay = restoring).visiting("book-2").visiting("book-1").overlay shouldBe
+                    BookDetailOverlay("book-1", visit = 5)
+            }
+
+            test("a vanished row clears the overlay but keeps the visit") {
+                BookDetailPage(load = null, overlay = restoring).withLoad(BookLoad.Missing("book-1")).overlay shouldBe
+                    BookDetailOverlay("book-1", visit = 3)
+            }
+        }
     })

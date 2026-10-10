@@ -225,13 +225,15 @@ internal enum class ProgressOverride { Completed, Discarded, Restarted }
 /**
  * The reader's transient state on one book — open pickers, writes in flight, inline refusals — kept apart from what
  * Room says, so Room re-emitting (a sync frame, a download tick, a reachability flip) can never close a picker
- * mid-interaction. Keyed by [bookId]: switching books starts a fresh overlay, and a write that answers after the
- * switch cannot reach the new book.
+ * mid-interaction. Keyed by [visit], one number per visit to a book: switching books starts a fresh overlay with the
+ * next number, and a write that answers after the reader has left — even if they have since come back to the same
+ * book — cannot reach the visit they are on now.
  *
  * A new user-transient field on [BookDetailUiState.Ready] goes here and into [withOverlay].
  */
 internal data class BookDetailOverlay(
     val bookId: String?,
+    val visit: Int = 0,
     val isMarkingComplete: Boolean = false,
     val isDiscardingProgress: Boolean = false,
     val isRestarting: Boolean = false,
@@ -260,13 +262,40 @@ internal data class BookDetailOverlay(
             }
 
             load is BookLoad.Missing -> {
-                BookDetailOverlay(bookId)
+                BookDetailOverlay(bookId = bookId, visit = visit)
             }
 
             else -> {
                 val stillStranded = (load as BookLoad.Loaded).snapshot.visibility is BookVisibility.Stranded
                 copy(progressOverride = null, isRestoringToAllBooks = isRestoringToAllBooks && stillStranded)
             }
+        }
+}
+
+/**
+ * Room's latest word and the reader's overlay, held as one value so they always change together: a Room emission
+ * writes the load and the overlay it retires in a single step, and nothing — neither the screen nor an action's
+ * guard — can see the retired overlay beside the load before it.
+ */
+internal data class BookDetailPage(
+    val load: BookLoad?,
+    val overlay: BookDetailOverlay,
+) {
+    /** The page once Room has said [newLoad]. */
+    fun withLoad(newLoad: BookLoad): BookDetailPage =
+        BookDetailPage(load = newLoad, overlay = overlay.retiredBy(newLoad))
+
+    /**
+     * The page once the reader asks for [bookId]: the same book keeps whatever is open; another book starts the next
+     * visit with nothing open. The load stays, so coming back to a book that is still loaded shows it at once.
+     */
+    fun visiting(bookId: String): BookDetailPage =
+        if (overlay.bookId ==
+            bookId
+        ) {
+            this
+        } else {
+            copy(overlay = BookDetailOverlay(bookId = bookId, visit = overlay.visit + 1))
         }
 }
 
