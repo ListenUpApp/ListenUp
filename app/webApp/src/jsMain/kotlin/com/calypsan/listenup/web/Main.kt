@@ -33,58 +33,9 @@ import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.auth.graphConnectionHealth
-import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
-import com.calypsan.listenup.web.features.bookedit.graphBookEdit
-import com.calypsan.listenup.web.features.chaptereditor.graphChapterEditor
-import com.calypsan.listenup.web.features.books.graphMultiSelect
-import com.calypsan.listenup.web.features.bulkedit.graphBulkEdit
-import com.calypsan.listenup.web.features.browse.graphBrowseFacet
-import com.calypsan.listenup.web.features.browse.graphGenreDestination
-import com.calypsan.listenup.web.features.admin.graphCreateInvite
-import com.calypsan.listenup.web.features.admin.graphOrganize
-import com.calypsan.listenup.web.features.admin.graphUpload
-import com.calypsan.listenup.web.features.admin.graphUserDetail
-import com.calypsan.listenup.web.features.readers.graphBookReaders
-import com.calypsan.listenup.web.features.ratings.graphBookRatings
-import com.calypsan.listenup.web.features.search.graphSeeAll
-import com.calypsan.listenup.web.features.sync.graphDeadLetters
-import com.calypsan.listenup.web.features.match.graphMatchDetails
-import com.calypsan.listenup.web.features.contributordetail.graphContributorBooks
-import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
-import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
 import com.calypsan.listenup.web.features.library.graphLibrary
-import com.calypsan.listenup.web.features.nowplaying.graphPlayback
-import com.calypsan.listenup.web.features.discover.graphDiscover
-import com.calypsan.listenup.web.features.home.graphHome
 import com.calypsan.listenup.web.features.admin.AdminSessions
-import com.calypsan.listenup.web.features.admin.graphAdmin
-import com.calypsan.listenup.web.features.admin.graphAdminInbox
-import com.calypsan.listenup.web.features.admin.graphBackups
-import com.calypsan.listenup.web.features.admin.graphImportFlow
-import com.calypsan.listenup.web.features.admin.graphImports
-import com.calypsan.listenup.web.features.admin.graphCategories
-import com.calypsan.listenup.web.features.admin.graphRestore
-import com.calypsan.listenup.web.features.admin.graphCollectionDetail
-import com.calypsan.listenup.web.features.admin.graphCollections
-import com.calypsan.listenup.web.features.admin.graphServerSettings
-import com.calypsan.listenup.web.features.admin.graphLibrarySettings
-import com.calypsan.listenup.web.features.devices.graphDevices
-import com.calypsan.listenup.web.features.hardcover.graphBookHardcover
-import com.calypsan.listenup.web.features.hardcover.graphHardcover
-import com.calypsan.listenup.web.features.hardcover.graphHardcoverMatch
-import com.calypsan.listenup.web.features.licences.graphLicences
-import com.calypsan.listenup.web.features.settings.graphSettings
-import com.calypsan.listenup.web.features.shelf.graphShelfDetail
-import com.calypsan.listenup.web.features.shelf.graphShelfEdit
-import com.calypsan.listenup.web.features.search.graphSearch
-import com.calypsan.listenup.web.features.notifications.graphNotificationBell
-import com.calypsan.listenup.web.features.notifications.graphNotificationPrefs
-import com.calypsan.listenup.web.features.notifications.graphNotifications
 import com.calypsan.listenup.web.features.setup.graphLibrarySetup
-import com.calypsan.listenup.web.features.profile.graphEditProfile
-import com.calypsan.listenup.web.features.profile.graphProfile
-import com.calypsan.listenup.web.features.seriesdetail.graphSeriesDetail
-import com.calypsan.listenup.web.features.seriesedit.graphSeriesEdit
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -192,65 +143,9 @@ private fun bootInto(mount: Element) {
             AuthGate(
                 authGraph = graphAuth(koin),
                 router = router,
-                openBookDetail = graphBookDetail(koin),
-                openBookEdit = graphBookEdit(koin),
-                openChapterEditor = graphChapterEditor(koin),
-                matchDetails = graphMatchDetails(koin),
-                openContributorDetail = graphContributorDetail(koin),
-                openContributorBooks = graphContributorBooks(koin),
-                openContributorEdit = graphContributorEdit(koin),
-                openSeriesDetail = graphSeriesDetail(koin),
-                openSeriesEdit = graphSeriesEdit(koin),
-                openNotifications = graphNotifications(koin),
-                openNotificationPrefs = graphNotificationPrefs(koin),
+                graph = graphWeb(koin),
                 openLibrarySetup = graphLibrarySetup(koin),
                 openConnectionHealth = graphConnectionHealth(koin),
-                openProfile = graphProfile(koin),
-                openEditProfile = graphEditProfile(koin),
-                openNotificationBell = graphNotificationBell(koin),
-                openLibrary = graphLibrary(koin),
-                openHome = graphHome(koin),
-                openDiscover = graphDiscover(koin),
-                openSettings = graphSettings(koin),
-                openLicences = graphLicences(),
-                openDevices = graphDevices(koin),
-                openHardcover = graphHardcover(koin),
-                openAdmin = graphAdmin(koin),
-                admin =
-                    AdminSessions(
-                        librarySettings = graphLibrarySettings(koin),
-                        inbox = graphAdminInbox(koin),
-                        serverSettings = graphServerSettings(koin),
-                        categories = graphCategories(koin),
-                        collections = graphCollections(koin),
-                        collectionDetail = graphCollectionDetail(koin),
-                        backups = graphBackups(koin),
-                        restore = graphRestore(koin),
-                        imports = graphImports(koin),
-                        importFlow = graphImportFlow(koin),
-                        createInvite = graphCreateInvite(koin),
-                        userDetail = graphUserDetail(koin),
-                        upload = graphUpload(koin),
-                        organize = graphOrganize(koin),
-                        inboxBadge = graphInboxBadge(koin),
-                        restrictedBooks = graphRestrictedBooks(koin),
-                    ),
-                openShelfDetail = graphShelfDetail(koin),
-                openShelfEdit = graphShelfEdit(koin),
-                openSearch = graphSearch(koin),
-                openMultiSelect = graphMultiSelect(koin),
-                openBulkEdit = graphBulkEdit(koin),
-                openBrowseFacet = graphBrowseFacet(koin),
-                openGenreDestination = graphGenreDestination(koin),
-                openBookReaders = graphBookReaders(koin),
-                openBookRatings = graphBookRatings(koin),
-                openHardcoverMatch = graphHardcoverMatch(koin),
-                openBookHardcover = graphBookHardcover(koin),
-                openSeeAll = graphSeeAll(koin),
-                openDeadLetters = graphDeadLetters(koin),
-                openPlayback = graphPlayback(koin),
-                observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
-                observeCurrentUserId = { koin.get<UserRepository>().observeCurrentUser().map { it?.id?.value } },
                 observeThemeMode = { koin.get<LocalPreferences>().themeMode },
                 initialInviteCode = inviteCode,
                 observeErrors = { koin.get<ErrorBus>().errors },

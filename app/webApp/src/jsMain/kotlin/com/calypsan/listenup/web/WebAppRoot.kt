@@ -248,71 +248,23 @@ import com.calypsan.listenup.web.design.PageHeader
  * [com.calypsan.listenup.web.features.auth.AuthGate], not here — every auth branch needs it too,
  * and applying it in both places would nest `.luw` inside `.luw`.
  *
- * [openPlayback] is scoped to the shell rather than to a route: what is playing outlives the page
- * the listener happened to start it from. It has no default on purpose — see [fixedPlayback], which
- * is what a spec passes instead.
- *
- * [observeIsAdmin] gates the sidebar's Admin entry. No default for the same reason [openPlayback]
- * has none: a defaulted `flowOf(false)` would compile clean while silently hiding Admin from every
- * admin, and nothing would look broken from the outside.
- *
- * [openSearch] has no default for the same reason: a defaulted fake would compile clean and leave
- * the sidebar's Search item permanently landing on a page that never does anything. [openHome] is
- * the same story for the root route.
+ * [graph] is everything the shell opens; see [WebGraph] for why none of it has a default.
  */
 @Composable
 fun WebAppRoot(
     router: Router,
-    openBookDetail: OpenBookDetail,
-    openBookEdit: OpenBookEdit,
-    openChapterEditor: OpenChapterEditor,
-    matchDetails: MatchDetailsGraph,
-    openContributorDetail: OpenContributorDetail,
-    openContributorBooks: OpenContributorBooks,
-    openContributorEdit: OpenContributorEdit,
-    openSeriesDetail: OpenSeriesDetail,
-    openSeriesEdit: OpenSeriesEdit,
-    openNotifications: OpenNotifications,
-    openNotificationPrefs: OpenNotificationPrefs,
-    openLicences: OpenLicences,
-    openProfile: OpenProfile,
-    openEditProfile: OpenEditProfile,
-    openHome: OpenHome,
-    openDiscover: OpenDiscover,
-    openSettings: OpenSettings,
-    openDevices: OpenDevices,
-    openHardcover: OpenHardcover,
-    openAdmin: OpenAdmin,
-    admin: AdminSessions,
-    openShelfDetail: OpenShelfDetail,
-    openShelfEdit: OpenShelfEdit,
-    openLibrary: OpenLibrary,
-    openSearch: OpenSearch,
-    openMultiSelect: OpenMultiSelect,
-    openBulkEdit: OpenBulkEdit,
-    openBrowseFacet: OpenBrowseFacet,
-    openGenreDestination: OpenGenreDestination,
-    openBookReaders: OpenBookReaders,
-    openBookRatings: OpenBookRatings,
-    openHardcoverMatch: OpenHardcoverMatch,
-    openBookHardcover: OpenBookHardcover,
-    openSeeAll: OpenSeeAll,
-    openDeadLetters: OpenDeadLetters,
+    graph: WebGraph,
     onToast: (String) -> Unit,
     onActionToast: ShowActionToast,
-    openNotificationBell: OpenNotificationBell,
-    openPlayback: OpenPlayback,
-    observeIsAdmin: () -> Flow<Boolean>,
-    observeCurrentUserId: () -> Flow<String?>,
     onSignOut: () -> Unit = {},
 ) {
     var collapsed by remember { mutableStateOf(false) }
     // Starts false so a member never sees the entry flash; an admin's entry appears the moment
     // the repository's flow answers — the same read Book Edit gates its Collections field on.
-    val isAdmin by remember { observeIsAdmin() }.collectAsState(initial = false)
+    val isAdmin by remember { graph.observeIsAdmin() }.collectAsState(initial = false)
     // Starts null so the account menu never flashes a "Your profile" entry whose destination is
     // not yet known — the same reason `isAdmin` starts false.
-    val currentUserId by remember { observeCurrentUserId() }.collectAsState(initial = null)
+    val currentUserId by remember { graph.observeCurrentUserId() }.collectAsState(initial = null)
 
     // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
     // flight works in both directions: out to the detail hero, and back to the same tile on return.
@@ -324,13 +276,13 @@ fun WebAppRoot(
     // Opened once for the shell's lifetime, not per route: the badge is on the sidebar, which
     // outlives every page. Closing it with a route would blank the count the moment you navigated
     // away from the one page that proves it was right.
-    val unreadCount = notificationBadge(openNotificationBell)
+    val unreadCount = notificationBadge(graph.openNotificationBell)
     // Shell-lifetime, like the unread count: the held count rides Library in the sidebar, and the
     // Library page's inbox strip reads the same session.
-    val inbox = inboxBadge(admin.inboxBadge)
+    val inbox = inboxBadge(graph.admin.inboxBadge)
     // Shell-lifetime too: the lock on every book card, on every page, reads this one set.
-    val restrictedBookIds = restrictedBooks(admin.restrictedBooks)
-    val playback = playbackState(openPlayback)
+    val restrictedBookIds = restrictedBooks(graph.admin.restrictedBooks)
+    val playback = playbackState(graph.openPlayback)
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
     // A book, the person behind it, or the series it belongs to all live in the library, so
@@ -368,46 +320,14 @@ fun WebAppRoot(
             // **478 ms** of "Loading…" every single time, for a list the reader had just been looking
             // at. A Room-backed flow costs almost nothing to keep subscribed, and keeping it is what
             // makes going back instant instead of merely fast.
-            val librarySession = libraryState(openLibrary)
+            val librarySession = libraryState(graph.openLibrary)
             RouteContent(
                 router = router,
                 route = route,
                 page = page,
                 active = active,
-                openBookDetail = openBookDetail,
-                openBookEdit = openBookEdit,
-                openChapterEditor = openChapterEditor,
-                matchDetails = matchDetails,
-                openContributorDetail = openContributorDetail,
-                openContributorBooks = openContributorBooks,
-                openContributorEdit = openContributorEdit,
-                openSeriesDetail = openSeriesDetail,
-                openSeriesEdit = openSeriesEdit,
-                openNotifications = openNotifications,
-                openNotificationPrefs = openNotificationPrefs,
-                openLicences = openLicences,
-                openProfile = openProfile,
-                openEditProfile = openEditProfile,
+                graph = graph,
                 currentUserId = currentUserId,
-                openHome = openHome,
-                openDiscover = openDiscover,
-                openSettings = openSettings,
-                openDevices = openDevices,
-                openHardcover = openHardcover,
-                openAdmin = openAdmin,
-                admin = admin,
-                openShelfDetail = openShelfDetail,
-                openShelfEdit = openShelfEdit,
-                openSearch = openSearch,
-                openMultiSelect = openMultiSelect,
-                openBulkEdit = openBulkEdit,
-                openBrowseFacet = openBrowseFacet,
-                openGenreDestination = openGenreDestination,
-                openBookReaders = openBookReaders,
-                openBookRatings = openBookRatings,
-                openHardcoverMatch = openHardcoverMatch,
-                openBookHardcover = openBookHardcover,
-                openSeeAll = openSeeAll,
                 onToast = onToast,
                 onActionToast = onActionToast,
                 librarySession = librarySession,
@@ -419,7 +339,7 @@ fun WebAppRoot(
 
             // Above the playback notices, and unlike them it is not dismissible: a failed edit stays
             // until the reader retries or accepts the server's version. See [DeadLetterNotice].
-            val deadLetters = remember { openDeadLetters() }
+            val deadLetters = remember { graph.openDeadLetters() }
             DisposableEffect(deadLetters) { onDispose { deadLetters.close() } }
             DeadLetterNotice(
                 failed = deadLetters.failed.collectAsState().value,
@@ -448,7 +368,7 @@ fun WebAppRoot(
             )
 
             // Last of all: the palette overlays everything above it, including the transport bar.
-            CommandPaletteHost(router = router, openSearch = openSearch)
+            CommandPaletteHost(router = router, openSearch = graph.openSearch)
         }
     }
 }
@@ -753,40 +673,8 @@ private fun RouteContent(
     route: Route,
     page: String,
     active: String,
-    openBookDetail: OpenBookDetail,
-    openBookEdit: OpenBookEdit,
-    openChapterEditor: OpenChapterEditor,
-    matchDetails: MatchDetailsGraph,
-    openContributorDetail: OpenContributorDetail,
-    openContributorBooks: OpenContributorBooks,
-    openContributorEdit: OpenContributorEdit,
-    openSeriesDetail: OpenSeriesDetail,
-    openSeriesEdit: OpenSeriesEdit,
-    openNotifications: OpenNotifications,
-    openNotificationPrefs: OpenNotificationPrefs,
-    openLicences: OpenLicences,
-    openProfile: OpenProfile,
-    openEditProfile: OpenEditProfile,
+    graph: WebGraph,
     currentUserId: String?,
-    openHome: OpenHome,
-    openDiscover: OpenDiscover,
-    openSettings: OpenSettings,
-    openDevices: OpenDevices,
-    openHardcover: OpenHardcover,
-    openAdmin: OpenAdmin,
-    admin: AdminSessions,
-    openShelfDetail: OpenShelfDetail,
-    openShelfEdit: OpenShelfEdit,
-    openSearch: OpenSearch,
-    openMultiSelect: OpenMultiSelect,
-    openBulkEdit: OpenBulkEdit,
-    openBrowseFacet: OpenBrowseFacet,
-    openGenreDestination: OpenGenreDestination,
-    openBookReaders: OpenBookReaders,
-    openBookRatings: OpenBookRatings,
-    openHardcoverMatch: OpenHardcoverMatch,
-    openBookHardcover: OpenBookHardcover,
-    openSeeAll: OpenSeeAll,
     onToast: (String) -> Unit,
     onActionToast: ShowActionToast,
     librarySession: LibrarySession,
@@ -797,7 +685,7 @@ private fun RouteContent(
 ) {
     val shelfRoute = shelfRouteOf(route.segments)
     val bulkEditIds = route.bulkEditIds()
-    val feeds = FeedSelection(openMultiSelect, onHeroBookIdChange, onToast)
+    val feeds = FeedSelection(graph.openMultiSelect, onHeroBookIdChange, onToast)
     val bookId = route.idUnder(BOOK_KEY)
     // `/library/contributors` — the second segment turns the Library route into the people
     // behind it, rather than a route of its own, so the sidebar stays lit on Library either way.
@@ -827,20 +715,20 @@ private fun RouteContent(
     if (!route.isServed()) {
         NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
     } else if (bulkEditIds.isNotEmpty()) {
-        BulkEditRoute(router = router, openBulkEdit = openBulkEdit, bookIds = bulkEditIds, onToast = onToast)
+        BulkEditRoute(router = router, openBulkEdit = graph.openBulkEdit, bookIds = bulkEditIds, onToast = onToast)
     } else if (bookId != null) {
         BookRouteContent(
             bookId = bookId,
             router = router,
             route = route,
-            openBookDetail = openBookDetail,
-            openBookEdit = openBookEdit,
-            openChapterEditor = openChapterEditor,
-            matchDetails = matchDetails,
-            openBookReaders = openBookReaders,
-            openBookRatings = openBookRatings,
-            openHardcoverMatch = openHardcoverMatch,
-            openBookHardcover = openBookHardcover,
+            openBookDetail = graph.openBookDetail,
+            openBookEdit = graph.openBookEdit,
+            openChapterEditor = graph.openChapterEditor,
+            matchDetails = graph.matchDetails,
+            openBookReaders = graph.openBookReaders,
+            openBookRatings = graph.openBookRatings,
+            openHardcoverMatch = graph.openHardcoverMatch,
+            openBookHardcover = graph.openBookHardcover,
             onToast = onToast,
             onActionToast = onActionToast,
             playback = playback,
@@ -853,10 +741,10 @@ private fun RouteContent(
             contributorId = contributorId,
             route = route,
             router = router,
-            openContributorDetail = openContributorDetail,
-            openContributorBooks = openContributorBooks,
-            openContributorEdit = openContributorEdit,
-            matchDetails = matchDetails,
+            openContributorDetail = graph.openContributorDetail,
+            openContributorBooks = graph.openContributorBooks,
+            openContributorEdit = graph.openContributorEdit,
+            matchDetails = graph.matchDetails,
             currentUserId = currentUserId,
         )
     } else if (profileId != null) {
@@ -865,25 +753,25 @@ private fun RouteContent(
             editing = editingProfile,
             currentUserId = currentUserId,
             router = router,
-            openProfile = openProfile,
-            openEditProfile = openEditProfile,
+            openProfile = graph.openProfile,
+            openEditProfile = graph.openEditProfile,
         )
     } else if (browseTarget != null) {
         BrowseRouteContent(
             target = browseTarget,
             router = router,
-            openBrowseFacet = openBrowseFacet,
-            openGenreDestination = openGenreDestination,
+            openBrowseFacet = graph.openBrowseFacet,
+            openGenreDestination = graph.openGenreDestination,
         )
     } else if (page == NOTIFICATIONS_KEY) {
-        NotificationsRoute(router = router, openNotifications = openNotifications)
+        NotificationsRoute(router = router, openNotifications = graph.openNotifications)
     } else if (seriesId != null) {
         SeriesRouteContent(
             seriesId = seriesId,
             editingSeriesId = editingSeriesId,
             router = router,
-            openSeriesDetail = openSeriesDetail,
-            openSeriesEdit = openSeriesEdit,
+            openSeriesDetail = graph.openSeriesDetail,
+            openSeriesEdit = graph.openSeriesEdit,
             playback = playback,
         )
     } else if (isSeriesList) {
@@ -895,22 +783,22 @@ private fun RouteContent(
         LibraryRouteContent(
             librarySession = librarySession,
             inbox = inbox,
-            openMultiSelect = openMultiSelect,
+            openMultiSelect = graph.openMultiSelect,
             router = router,
             heroBookId = heroBookId,
             onHeroBookIdChange = onHeroBookIdChange,
             onToast = onToast,
         )
     } else if (page == SEARCH_KEY) {
-        SearchRouteContent(router = router, route = route, openSearch = openSearch, openSeeAll = openSeeAll)
+        SearchRouteContent(router = router, route = route, openSearch = graph.openSearch, openSeeAll = graph.openSeeAll)
     } else if (active == HOME_KEY) {
-        HomeRoute(router, openHome, feeds)
+        HomeRoute(router, graph.openHome, feeds)
     } else if (shelfRoute != null) {
         ShelfRouteContent(
             shelfRoute = shelfRoute,
             router = router,
-            openShelfDetail = openShelfDetail,
-            openShelfEdit = openShelfEdit,
+            openShelfDetail = graph.openShelfDetail,
+            openShelfEdit = graph.openShelfEdit,
             onHeroBookIdChange = onHeroBookIdChange,
         )
     } else if (isAccountRoute(route.segments, active)) {
@@ -918,18 +806,18 @@ private fun RouteContent(
             route = route,
             active = active,
             router = router,
-            openSettings = openSettings,
-            openDevices = openDevices,
-            openHardcover = openHardcover,
-            openAdmin = openAdmin,
-            openNotificationPrefs = openNotificationPrefs,
-            openLicences = openLicences,
-            admin = admin,
+            openSettings = graph.openSettings,
+            openDevices = graph.openDevices,
+            openHardcover = graph.openHardcover,
+            openAdmin = graph.openAdmin,
+            openNotificationPrefs = graph.openNotificationPrefs,
+            openLicences = graph.openLicences,
+            admin = graph.admin,
             onToast = onToast,
             onActionToast = onActionToast,
         )
     } else if (active == DISCOVER_KEY) {
-        DiscoverRoute(router, openDiscover, feeds)
+        DiscoverRoute(router, graph.openDiscover, feeds)
     } else {
         NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
     }
