@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto.hardcover
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -50,6 +52,7 @@ sealed interface HardcoverBookMatch {
      * on their To Read shelf: what keeping it off would take out of ListenUp (#1541). Both default to false,
      * so an older server's payload never asks for a confirmation it can't justify.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
     @SerialName("HardcoverBookMatch.Linked")
     data class Linked(
@@ -59,7 +62,10 @@ sealed interface HardcoverBookMatch {
         @SerialName("authors") val authors: List<String> = emptyList(),
         @SerialName("releaseYear") val releaseYear: Int? = null,
         @SerialName("chosenByYou") val chosenByYou: Boolean = false,
-        @SerialName("sync") val sync: HardcoverBookSync = HardcoverBookSync.NOTHING_SENT_YET,
+        /** Always encoded, so an app built before this default existed still finds the key. */
+        @SerialName("sync")
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+        val sync: HardcoverBookSync = HardcoverBookSync.NOTHING_SENT_YET,
         @SerialName("method") val method: HardcoverMatchMethod? = null,
         @SerialName("readsInReaders") val readsInReaders: Boolean = false,
         @SerialName("onToReadFromHardcover") val onToReadFromHardcover: Boolean = false,

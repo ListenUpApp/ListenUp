@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto.hardcover
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -77,6 +79,7 @@ sealed interface HardcoverConnection {
      * predates them reads as never synced, idle, healthy, As I listen, no history and none kept off — and a
      * mode or history state this build doesn't know reads as As I listen and no history too.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
     @SerialName("HardcoverConnection.Connected")
     data class Connected(
@@ -85,7 +88,10 @@ sealed interface HardcoverConnection {
         @SerialName("lastSyncedAt") val lastSyncedAt: Long? = null,
         @SerialName("isSyncing") val isSyncing: Boolean = false,
         @SerialName("syncProblem") val syncProblem: HardcoverSyncProblem? = null,
-        @SerialName("shareMode") val shareMode: HardcoverShareMode = HardcoverShareMode.AS_I_LISTEN,
+        /** Always encoded, so an app built before this default existed still finds the key. */
+        @SerialName("shareMode")
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+        val shareMode: HardcoverShareMode = HardcoverShareMode.AS_I_LISTEN,
         @SerialName("history") val history: HardcoverHistory = HardcoverHistory.None,
         @SerialName("keptOffBookCount") val keptOffBookCount: Int = 0,
     ) : HardcoverConnection
