@@ -39,7 +39,8 @@ class EveryRpcServiceIsRegisteredRule :
             }
 
             val jvm = registeredIn("/server/src/jvmMain/kotlin/com/calypsan/listenup/server/routes/RpcRoutes.jvm.kt")
-            val linux = registeredIn("/server/src/linuxMain/kotlin/com/calypsan/listenup/server/routes/RpcRoutes.linux.kt")
+            val linux =
+                registeredIn("/server/src/linuxMain/kotlin/com/calypsan/listenup/server/routes/RpcRoutes.linux.kt")
 
             withClue("RpcRoutes.jvm.kt is missing ${declared - jvm}; registers non-@Rpc ${jvm - declared}") {
                 jvm shouldBe declared

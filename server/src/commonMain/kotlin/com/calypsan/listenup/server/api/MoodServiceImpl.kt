@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -91,6 +92,7 @@ internal class MoodServiceImpl(
         return permissionPolicy.require(p, permission)
     }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun listMoods(): AppResult<List<MoodSummary>> {
         val moods = moodRepository.listAll()
         val summaries =
@@ -109,6 +111,7 @@ internal class MoodServiceImpl(
         )
     }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getMoodBySlug(slug: String): AppResult<MoodSummary?> {
         val mood = moodRepository.findBySlug(slug) ?: return AppResult.Success(null)
         val bookCount = countLiveJunctionsForMood(mood.id)

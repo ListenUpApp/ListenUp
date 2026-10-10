@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -96,6 +97,7 @@ internal class TagServiceImpl(
         return permissionPolicy.require(p, permission)
     }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun listTags(): AppResult<List<TagSummary>> {
         val tags = tagRepository.listAll()
         // Compute book counts via raw SQL sub-select to avoid N+1.
@@ -115,6 +117,7 @@ internal class TagServiceImpl(
         )
     }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getTagBySlug(slug: String): AppResult<TagSummary?> {
         val tag = tagRepository.findBySlug(slug) ?: return AppResult.Success(null)
         val bookCount = countLiveJunctionsForTag(tag.id)

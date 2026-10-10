@@ -451,6 +451,7 @@ class AuthServiceImpl(
      * KDoc for the completion contract. An unknown [userId] emits a single
      * [AuthError.RegistrationNotFound] and completes, rather than waiting forever.
      */
+    @OpenRead(reason = "public pre-auth surface")
     override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> =
         flow {
             // C3-style per-IP throttle (mirrors login/register/refresh): each open subscription
@@ -484,6 +485,7 @@ class AuthServiceImpl(
      * backstops a missed push. Never completes on its own; see the
      * [AuthServicePublic.observeRegistrationPolicy] KDoc for the consumer contract.
      */
+    @OpenRead(reason = "public pre-auth surface")
     override fun observeRegistrationPolicy(): Flow<RpcEvent<RegistrationPolicy>> =
         flow {
             // Same C3-style per-IP throttle as observeRegistrationStatus: each open subscription
@@ -560,6 +562,7 @@ class AuthServiceImpl(
     }
 
     /** Delegates to [PasswordResetService.observeStatus], behind the same per-IP subscription throttle. */
+    @OpenRead(reason = "public pre-auth surface")
     override fun observePasswordResetStatus(ticketId: String): Flow<RpcEvent<PasswordResetStatusEvent>> =
         flow {
             // Same C3-style per-IP throttle as observeRegistrationStatus/Policy: each open

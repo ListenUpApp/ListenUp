@@ -34,6 +34,7 @@ import com.calypsan.listenup.server.db.sqldelight.Invites
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.services.ActivityRecorder
@@ -383,6 +384,7 @@ class InviteServiceImpl(
             AppResult.Success(user)
         }
 
+    @OpenRead(reason = "public pre-auth surface")
     override suspend fun lookupInvite(code: String): AppResult<InvitePreview> {
         enforceRate(InviteRateBucket.LOOKUP)?.let { return AppResult.Failure(it) }
         val now = clock.now().toEpochMilliseconds()

@@ -153,12 +153,18 @@ class ScannerServiceImplTest :
                     val (service, _) = newService(fixture, scope = this)
                     service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
                     val adminResult =
-                        service.copyWith(principalOf(UserRole.ADMIN)).lastScanResult()
-                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>().data
+                        service
+                            .copyWith(principalOf(UserRole.ADMIN))
+                            .lastScanResult()
+                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>()
+                            .data
 
                     val memberResult =
-                        service.copyWith(principalOf(UserRole.MEMBER)).lastScanResult()
-                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>().data
+                        service
+                            .copyWith(principalOf(UserRole.MEMBER))
+                            .lastScanResult()
+                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>()
+                            .data
                     memberResult.shouldBeRedactedLike(adminResult)
                 }
             }
@@ -173,8 +179,11 @@ class ScannerServiceImplTest :
                     service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
 
                     val data =
-                        service.copyWith(principalOf(UserRole.ADMIN)).lastScanResult()
-                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>().data
+                        service
+                            .copyWith(principalOf(UserRole.ADMIN))
+                            .lastScanResult()
+                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>()
+                            .data
                     data.books.size shouldBe 1
                     data.rootPath.isNotBlank() shouldBe true
                 }
@@ -189,8 +198,11 @@ class ScannerServiceImplTest :
                     val (service, _) = newService(fixture, scope = this)
                     service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
                     val adminResult =
-                        service.copyWith(principalOf(UserRole.ADMIN)).lastScanResult()
-                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>().data
+                        service
+                            .copyWith(principalOf(UserRole.ADMIN))
+                            .lastScanResult()
+                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>()
+                            .data
 
                     val unscopedResult =
                         service.lastScanResult().shouldBeInstanceOf<AppResult.Success<ScanResult>>().data

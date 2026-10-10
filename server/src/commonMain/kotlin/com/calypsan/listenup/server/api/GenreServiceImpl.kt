@@ -18,6 +18,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.Genres
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -106,6 +107,7 @@ internal class GenreServiceImpl(
         return permissionPolicy.require(p, permission)
     }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun listGenres(): AppResult<List<GenreSummary>> =
         suspendTransaction(sqlDb) {
             val rows = sqlDb.genresQueries.listLiveOrderedByPath().executeAsList()
@@ -132,11 +134,13 @@ internal class GenreServiceImpl(
             AppResult.Success(summaries)
         }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getGenre(id: GenreId): AppResult<GenreSyncPayload?> {
         val payload = genreRepository.findById(id.value)
         return AppResult.Success(payload?.takeIf { it.deletedAt == null })
     }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getGenreChildren(parentId: GenreId): AppResult<List<GenreSyncPayload>> =
         suspendTransaction(sqlDb) {
             // Parent existence + liveness check inside the same transaction as the children read.
@@ -217,6 +221,7 @@ internal class GenreServiceImpl(
             AppResult.Success(stats)
         }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getGenreBySlug(slug: String): AppResult<GenreSummary?> =
         suspendTransaction(sqlDb) {
             val id =
