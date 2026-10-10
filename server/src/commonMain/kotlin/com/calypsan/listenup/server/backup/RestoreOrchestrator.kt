@@ -24,7 +24,7 @@ private val logger = loggerFor<RestoreOrchestrator>()
 
 /**
  * Orchestrates a live in-process restore: validate → drain → safety-copy → extract → close pool
- * → swap db file in place → reopen pool → migrate → done. On any failure in the swap/migrate
+ * → swap db file in place → migrate → reopen pool → done. On any failure in the swap/migrate
  * window, rolls back to the safety copy and reopens the pool on the original db.
  *
  * The [maintenance] gate is single-flight: only one restore can run at a time.
@@ -103,11 +103,13 @@ class RestoreOrchestrator(
                         if (manifest.includesImages) {
                             ManagedImageDirs.ALL.forEach { swapDir(Path(paths.stagingDir, it), paths.imageDir(it)) }
                         }
-                        dbHandle.reopenPool()
 
-                        // 6. migrate the swapped-in db forward to the current schema
+                        // 6. migrate the swapped-in db forward to the current schema while the pool is
+                        // still closed (the migration runs on its own admin connection), so no request or
+                        // worker ever queries an old-schema file with today's SQL.
                         eventBus.tryEmit(BackupEvent.Migrating)
                         val migratedTo = dbHandle.migrate() ?: manifest.schemaVersion
+                        dbHandle.reopenPool()
 
                         eventBus.tryEmit(BackupEvent.RestoreComplete(manifest.includesImages))
 

@@ -16,6 +16,7 @@ import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -53,6 +54,34 @@ class RestoreOrchestratorTest :
                 eventBus = eventBus,
                 changeBus = changeBus,
             )
+
+        test("nothing can query the restored database until it has been migrated") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.archive.create("order1", includeImages = false, onEvent = {})
+                    val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
+                    val poolOpenWhileMigrating = mutableListOf<Boolean>()
+                    // Unconfined + UNDISPATCHED: the collector resumes inline inside tryEmit, so the
+                    // probe reads the pool at the instant Migrating is announced.
+                    val probe =
+                        launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+                            eventBus.collect { event ->
+                                if (event is BackupEvent.Migrating) {
+                                    poolOpenWhileMigrating += fixture.handle.sqlDriver.isOpen
+                                }
+                            }
+                        }
+
+                    buildOrchestrator(fixture, eventBus = eventBus)
+                        .restore(BackupId("order1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    poolOpenWhileMigrating shouldBe listOf(false)
+                    fixture.handle.sqlDriver.isOpen shouldBe true
+                    probe.cancel()
+                }
+            }
+        }
 
         test("round-trip restore: db returns to pre-backup state after restore") {
             runTest {

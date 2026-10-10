@@ -25,14 +25,22 @@ class SwappableSqlDriver(
     @kotlin.concurrent.Volatile
     private var delegate: SqlDriver = initial
 
+    @kotlin.concurrent.Volatile
+    private var open: Boolean = true
+
+    /** True while a live driver is installed; false between a pre-swap [closeUnderlying] and the reinstall. */
+    val isOpen: Boolean get() = open
+
     /** Hard-closes the live driver ahead of an [installUnderlying] — the recoverable pre-swap close. */
     fun closeUnderlying() {
         delegate.close()
+        open = false
     }
 
     /** Installs a freshly-built driver as the live delegate (after a file swap). */
     fun installUnderlying(new: SqlDriver) {
         delegate = new
+        open = true
     }
 
     override fun <R> executeQuery(
