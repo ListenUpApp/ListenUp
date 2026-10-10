@@ -80,27 +80,18 @@ internal class AdminSettingsServiceImpl(
 
     override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> {
         principal.requireAdmin()?.let { return AppResult.Failure(it) }
-        // Validated before any write, so a refused store leaves every other field of the patch unapplied.
+        // Validated before any write, so a refused field leaves every other field of the patch unapplied.
+        val serverName = patch.serverName?.trim()
+        val remoteUrl = patch.remoteUrl?.trim()
         val region = patch.metadataRegion?.run { trim().lowercase() }
-        if (region != null && MetadataLocale.SUPPORTED.none { it.region == region }) {
-            return AppResult.Failure(AdminError.InvalidInput())
-        }
+        firstRefusal(serverName, remoteUrl, region)?.let { return AppResult.Failure(it) }
         var changed = false
-        patch.serverName?.let { name ->
-            val trimmed = name.trim()
-            if (trimmed.isBlank() || trimmed.length > MAX_SERVER_NAME) {
-                return AppResult.Failure(AdminError.InvalidInput())
-            }
-            settings.setServerName(trimmed)
+        serverName?.let { name ->
+            settings.setServerName(name)
             changed = true
         }
-        patch.remoteUrl?.let { url ->
-            val trimmed = url.trim()
-            // Blank clears; anything else must be a plain http(s) URL, the shape every app can use.
-            if (trimmed.length > MAX_REMOTE_URL || (trimmed.isNotEmpty() && !isHttpUrl(trimmed))) {
-                return AppResult.Failure(AdminError.InvalidInput(debugInfo = "remoteUrl must be an http(s) URL"))
-            }
-            settings.setRemoteUrl(trimmed)
+        remoteUrl?.let { url ->
+            settings.setRemoteUrl(url)
             changed = true
         }
         patch.holdNewBooksForReview?.let { enabled ->
@@ -207,6 +198,21 @@ internal class AdminSettingsServiceImpl(
                 libraryRepository.readMetadataRegion(libraryRegistry.currentLibrary()) ?: MetadataLocale.DEFAULT.region,
         )
 }
+
+/** The first reason the trimmed patch fields cannot be saved, or null when all of them can. */
+private fun firstRefusal(
+    serverName: String?,
+    remoteUrl: String?,
+    region: String?,
+): AdminError.InvalidInput? =
+    when {
+        region != null && MetadataLocale.SUPPORTED.none { it.region == region } -> AdminError.InvalidInput()
+        serverName != null && (serverName.isBlank() || serverName.length > MAX_SERVER_NAME) -> AdminError.InvalidInput()
+        // Blank clears; anything else must be a plain http(s) URL, the shape every app can use.
+        remoteUrl != null && (remoteUrl.length > MAX_REMOTE_URL || (remoteUrl.isNotEmpty() && !isHttpUrl(remoteUrl))) ->
+            AdminError.InvalidInput()
+        else -> null
+    }
 
 /** Whether [value] is a plain absolute http(s) URL, by the same rules the apps apply to a server address. */
 private fun isHttpUrl(value: String): Boolean =

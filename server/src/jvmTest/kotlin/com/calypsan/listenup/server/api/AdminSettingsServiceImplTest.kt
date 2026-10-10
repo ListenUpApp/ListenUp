@@ -205,6 +205,29 @@ class AdminSettingsServiceImplTest :
             }
         }
 
+        test("updateServerSettings with a good name and a bad remoteUrl saves neither") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+                    svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "https://example.com")).shouldSucceed()
+                    val before = svc.getServerSettings().shouldSucceed()
+
+                    svc
+                        .updateServerSettings(AdminServerSettingsPatch(serverName = "New Name", remoteUrl = "example.com"))
+                        .shouldFailWith<AdminError.InvalidInput>()
+
+                    val after = svc.getServerSettings().shouldSucceed()
+                    after.serverName shouldBe before.serverName
+                    after.remoteUrl shouldBe "https://example.com"
+                }
+            }
+        }
+
         test("updateServerSettings trims whitespace around a valid remoteUrl before storing it") {
             withSqlDatabase {
                 runTest {
