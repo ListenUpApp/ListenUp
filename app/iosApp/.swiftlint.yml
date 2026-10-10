@@ -110,12 +110,13 @@ custom_rules:
   # light and dark variants, and an increased contrast option for each variant". Screens name a
   # token (`Color.luTint`, `.luWarning`, `AvatarPalette`, `Color+Palette`) or a system colour; a new
   # colour is added to DesignSystem, as a Color Set or a solved token, with its contrast tested.
-  # Paths are regexes: `/ListenUp/` covers the app target only (not ListenUpTests or the widgets).
+  # Paths are regexes: `/ListenUp/` also matches any checkout that lives in a directory named
+  # ListenUp, so the other targets are excluded by name rather than left to a pattern that misses them.
   raw_color_literal_outside_design_system:
     name: "Raw colour literal outside DesignSystem"
     regex: '\b(?:UI)?Color\(\s*(?:\.sRGB\s*,\s*)?(?:hex|red)\s*:'
     included: '/ListenUp/'
-    excluded: '/ListenUp/DesignSystem/'
+    excluded: '/ListenUp/DesignSystem/|/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
     excluded_match_kinds:
       - comment
       - comment.mark
@@ -236,6 +237,7 @@ custom_rules:
     name: "Kotlin ViewModel held without an owner"
     regex: '(?s)\A(?!.*(?:\.own\(|view-model-owner:)).*?\b(?:let|var) \w*[vV]iewModel\w*: \w+ViewModel\b'
     included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
     message: >-
       This file stores a Kotlin ViewModel that nothing clears. Pass it to the observer's FlowBridge
       with bridge.own(viewModel), or add `// view-model-owner: <reason>` if another type owns it.
