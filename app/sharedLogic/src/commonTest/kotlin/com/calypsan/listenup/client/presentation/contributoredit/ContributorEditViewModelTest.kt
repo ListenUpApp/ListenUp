@@ -43,12 +43,13 @@ import kotlinx.coroutines.test.setMain
  * Tests for ContributorEditViewModel.
  *
  * Tests cover:
- * - Loading contributor for editing
+ * - Loading contributor for editing, including that a repeat load keeps unsaved edits
  * - Saving metadata via UpdateContributorUseCase
  * - Failure-branch error surfacing
+ * - The alias collector attaching once per contributor, however often the screen reloads
  *
- * Alias-related tests were removed with Books-C1's deletion of client-side
- * merge/unmerge — server-canonical alias management lands in Books-C2.
+ * Client-side merge/unmerge alias tests were removed with Books-C1's deletion of that
+ * path — server-canonical alias management lands in Books-C2.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ContributorEditViewModelTest :
