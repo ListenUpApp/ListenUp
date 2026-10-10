@@ -1,16 +1,21 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.worldevent.WorldEventOp
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.sync.WorldEventSyncPayload
 import com.calypsan.listenup.api.sync.WorldEventType
 import com.calypsan.listenup.core.WorldEventId
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.testing.domainFrames
 import com.calypsan.listenup.server.testing.eventUpsert
 import com.calypsan.listenup.server.testing.makeBookAccessible
+import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.record
+import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.seedSeriesWithBooks
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -22,6 +27,8 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.runTest
 
 private val ACTOR = UserId("u1")
@@ -108,6 +115,36 @@ class WorldEventAccessTest :
                         "viewer",
                         UserRole.MEMBER,
                     ) { policy }.shouldBeNull()
+                }
+            }
+        }
+
+        test("an edit that moves an event out of a member's sight reaches them as a content-free Deleted") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("viewer")
+                val bus = ChangeBus()
+                val repo = worldEventRepository(bus)
+                runTest {
+                    val mixed = seedSeriesWithBooks("Mixed", "open", "hidden")
+                    makeBookAccessible(sql, driver, bookId = "open", viewerId = "viewer")
+                    val policy = BookAccessPolicy(sql, driver)
+                    repo.record(eventUpsert("w1", text = "Eo dies", homeSeriesId = mixed.value, bookId = "open", positionMs = 5L))
+                    repo.record(eventUpsert("w1", text = "Eo sings", homeSeriesId = mixed.value, bookId = "hidden", positionMs = 6L))
+                    repo.record(eventUpsert("sentinel", homeSeriesId = mixed.value))
+
+                    val frames = mutableListOf<SyncFrame>()
+                    rpcFirehose(bus, memberPrincipal("viewer"), bookAccessPolicy = { policy })
+                        .domainFrames()
+                        .onEach { frames += it }
+                        .first { it.json.contains("sentinel") }
+
+                    val w1 =
+                        frames
+                            .map { contractJson.decodeFromString(SyncEvent.serializer(WorldEventSyncPayload.serializer()), it.json) }
+                            .filter { it.id == "w1" }
+                    w1.map { it::class } shouldBe listOf(SyncEvent.Created::class, SyncEvent.Deleted::class)
+                    frames.none { it.json.contains("hidden") || it.json.contains("Eo sings") } shouldBe true
                 }
             }
         }

@@ -301,6 +301,28 @@ private suspend fun isStoryWorldEventHidden(
 }
 
 /**
+ * What a subscriber receives in place of a [busEvent] the gate chain withheld, or null for nothing.
+ *
+ * A world event is the one gated row whose visibility an edit can take away: re-anchoring it to a book the
+ * member can't see (or a revert, or a series-merge undo, moving it) turns its `Updated` hidden, and a member who
+ * held the old copy would keep it until the next digest. So a withheld world-event `Updated` becomes a
+ * content-free `Deleted` at the same revision — identity only, exactly what an ungated tombstone already carries.
+ * A member who never held the row no-ops it; one who regains sight later re-applies the live row at that same
+ * revision (the client's guard skips only strictly older revisions). Entities can't move home, and a hidden
+ * `Created` was never held, so nothing else is replaced.
+ */
+internal fun withdrawalFor(busEvent: BusEvent<*>): SyncEvent.Deleted? {
+    if (busEvent.repo.domainName != WORLD_EVENTS_DOMAIN) return null
+    val update = busEvent.event as? SyncEvent.Updated<*> ?: return null
+    return SyncEvent.Deleted(
+        id = update.id,
+        revision = update.revision,
+        occurredAt = update.occurredAt,
+        clientOpId = null,
+    )
+}
+
+/**
  * Whether a live firehose [busEvent] on the `library_folders` domain must be withheld from
  * [role]. The domain is admin-only — its rows carry absolute server filesystem paths — so a
  * non-admin sees nothing on it.
