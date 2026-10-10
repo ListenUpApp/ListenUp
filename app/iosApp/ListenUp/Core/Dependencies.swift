@@ -6,8 +6,8 @@ import SwiftUI
 /// Dependency container wrapping Koin for SwiftUI-native injection: a single,
 /// typed access point to shared-module dependencies, with environment injection.
 @Observable
-final class Dependencies {
-    nonisolated(unsafe) static let shared = Dependencies()
+final class Dependencies: Sendable {
+    static let shared = Dependencies()
 
     private init() {}
 
@@ -83,14 +83,14 @@ final class Dependencies {
 
     // MARK: - Player coordinator (app-wide Swift singleton)
 
-    @MainActor private var cachedPlayerCoordinator: PlayerCoordinator?
+    private let playerSlot = PlayerCoordinatorSlot()
 
     /// The single app-wide player orchestrator. Built lazily on first access,
     /// injecting the KMP seam from Koin.
     @MainActor var playerCoordinator: PlayerCoordinator {
-        if let cachedPlayerCoordinator { return cachedPlayerCoordinator }
+        if let coordinator = playerSlot.coordinator { return coordinator }
         let coordinator = PlayerCoordinator(deps: self)
-        cachedPlayerCoordinator = coordinator
+        playerSlot.coordinator = coordinator
         return coordinator
     }
 
@@ -226,30 +226,33 @@ final class Dependencies {
     }
 }
 
+/// Holds the app's one `PlayerCoordinator`, on the main actor, so that `Dependencies` itself has no
+/// mutable state and can be shared across isolation domains.
+@MainActor
+private final class PlayerCoordinatorSlot {
+    var coordinator: PlayerCoordinator?
+    nonisolated init() {}
+}
+
 // MARK: - Locked cache
 
 /// Thread-safe memo cache for Koin-resolved singletons. Replaces the previous
 /// unsynchronized `[String: Any]` that raced when resolved off the main actor.
 final class LockedCache: Sendable {
-    /// The type-erased `[String: Any]` store can't be `Sendable` (its values are
-    /// arbitrary Koin singletons). The lock is the synchronization boundary, so the
-    /// dictionary is only ever touched while held — the `@unchecked` is sound.
-    private struct Storage: @unchecked Sendable {
-        var entries: [String: Any] = [:]
-    }
-
-    private let storage = OSAllocatedUnfairLock(initialState: Storage())
+    // Values are arbitrary Koin singletons, so the dictionary is not `Sendable`. The lock is the
+    // synchronization boundary: it is only ever touched inside `withLockUnchecked`.
+    private let storage = OSAllocatedUnfairLock<[String: Any]>(uncheckedState: [:])
 
     func resolve<T>(key: String, _ factory: () -> T) -> T {
-        storage.withLockUnchecked { storage in
-            if let cached = storage.entries[key] as? T { return cached }
+        storage.withLockUnchecked { entries in
+            if let cached = entries[key] as? T { return cached }
             let instance = factory()
-            storage.entries[key] = instance
+            entries[key] = instance
             return instance
         }
     }
 
-    var count: Int { storage.withLockUnchecked { $0.entries.count } }
+    var count: Int { storage.withLockUnchecked { $0.count } }
 }
 
 // MARK: - SwiftUI environment
