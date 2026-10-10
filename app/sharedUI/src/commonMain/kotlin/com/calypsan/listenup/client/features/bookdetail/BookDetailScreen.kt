@@ -373,97 +373,111 @@ private fun BookDetailReadyContent(
     var showRestartDialog by remember { mutableStateOf(false) }
     var showReleaseDialog by remember { mutableStateOf(false) }
 
-    // Opens Match details for this book.
-    val onFindMetadataClick: () -> Unit = {
-        onMatchDetailsClick(bookId)
-    }
-
     val book = state.book
-    val hasProgress = state.progress != null
+
+    // One instance for as long as none of what the actions reach for changes, so a recomposition
+    // that only moves `state` does not make both layouts recompose over fresh callbacks.
+    val actions =
+        remember(
+            bookId,
+            book,
+            viewModel,
+            scope,
+            platformActions,
+            instanceRepository,
+            snackbarHostState,
+            onBackClick,
+            onEditClick,
+            onMatchDetailsClick,
+            onEditChaptersClick,
+            onSeriesClick,
+            onContributorClick,
+            onGenreClick,
+            onTagClick,
+            onMoodClick,
+            onUserProfileClick,
+            onSeeAllReaders,
+            onFindHardcoverMatch,
+            onCollectionClick,
+        ) {
+            BookDetailActions(
+                onOpenDocument = { docId -> viewModel.onOpenDocument(docId) },
+                onBackClick = onBackClick,
+                onEditClick = { onEditClick(bookId) },
+                onFindMetadataClick = { onMatchDetailsClick(bookId) },
+                onEditChaptersClick = { onEditChaptersClick(bookId) },
+                onMarkCompleteClick = { showMarkCompleteDialog = true },
+                onMarkNotStartedClick = { showMarkNotStartedDialog = true },
+                onRestartClick = { showRestartDialog = true },
+                onAddToShelfClick = { viewModel.showShelfPicker() },
+                onAddToCollectionClick = { viewModel.showCollectionPicker() },
+                onShareClick = {
+                    scope.launch {
+                        // Use the RPC-backed server identity, not the legacy `getInstance` REST path: the
+                        // Kotlin server responds a bare (non-enveloped) body there, so decoding it as
+                        // `ApiResponse<Instance>` threw on every share. `getServerInfo` is pure RPC and
+                        // carries the `remoteUrl` + `instanceId` the share link needs. Mirrors iOS #1045.
+                        val result = instanceRepository.getServerInfo()
+                        if (result is AppResult.Success) {
+                            val info = result.data
+                            val url =
+                                ShareLinkCodec.encode(
+                                    ShareTarget.Book(
+                                        bookId = book.id,
+                                        serverInstanceId = info.instanceId,
+                                        serverUrl = info.remoteUrl?.trimEnd('/'),
+                                    ),
+                                )
+                            val text = "Check out ${book.title} on ListenUp!\n$url"
+                            platformActions.shareText(text, url)
+                        }
+                    }
+                },
+                onDeleteBookClick = {
+                    viewModel.clearDeleteError()
+                    showDeleteBookDialog = true
+                },
+                onPlayClick = { platformActions.playBook(BookId(bookId)) },
+                onRetryConnection = { viewModel.retryConnection() },
+                onPlayDisabledClick = {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            "Server is unreachable. Connect to your server to stream this book, or download it for offline playback.",
+                        )
+                    }
+                },
+                onUserProfileClick = onUserProfileClick,
+                onDownloadClick = {
+                    scope.launch {
+                        val result = platformActions.downloadBook(BookId(bookId))
+                        handleDownloadResult(result) { message -> snackbarHostState.showSnackbar(message) }
+                    }
+                },
+                onCancelClick = {
+                    scope.launch {
+                        platformActions.cancelDownload(BookId(bookId))
+                    }
+                },
+                onDeleteClick = { showDeleteDialog = true },
+                onSeriesClick = onSeriesClick,
+                onContributorClick = onContributorClick,
+                onGenreClick = onGenreClick,
+                onTagClick = onTagClick,
+                onMoodClick = onMoodClick,
+                onSeeAllReaders = onSeeAllReaders,
+                onFindHardcoverMatch = onFindHardcoverMatch,
+                onReleaseFromInboxClick = { showReleaseDialog = true },
+                onRestoreToAllBooksClick = { viewModel.restoreToAllBooks() },
+                onCollectionClick = onCollectionClick,
+            )
+        }
 
     BookDetailContent(
         bookId = bookId,
         state = state,
+        actions = actions,
         documents = documents,
-        onOpenDocument = { docId -> viewModel.onOpenDocument(docId) },
-        downloadStatus = state.downloadStatus,
-        isComplete = state.isComplete,
-        hasProgress = hasProgress,
-        isAdmin = state.isAdmin,
-        canEditMetadata = state.canEditMetadata,
-        isWaitingForWifi = state.isWaitingForWifi,
-        showPlaybackActions = state.isPlaybackAvailable,
-        onBackClick = onBackClick,
-        onEditClick = { onEditClick(bookId) },
-        onFindMetadataClick = onFindMetadataClick,
-        onEditChaptersClick = { onEditChaptersClick(bookId) },
-        onMarkCompleteClick = { showMarkCompleteDialog = true },
-        onMarkNotStartedClick = { showMarkNotStartedDialog = true },
-        onRestartClick = { showRestartDialog = true },
-        onAddToShelfClick = { viewModel.showShelfPicker() },
-        onAddToCollectionClick = { viewModel.showCollectionPicker() },
-        onShareClick = {
-            scope.launch {
-                // Use the RPC-backed server identity, not the legacy `getInstance` REST path: the
-                // Kotlin server responds a bare (non-enveloped) body there, so decoding it as
-                // `ApiResponse<Instance>` threw on every share. `getServerInfo` is pure RPC and
-                // carries the `remoteUrl` + `instanceId` the share link needs. Mirrors iOS #1045.
-                val result = instanceRepository.getServerInfo()
-                if (result is AppResult.Success) {
-                    val info = result.data
-                    val url =
-                        ShareLinkCodec.encode(
-                            ShareTarget.Book(
-                                bookId = book.id,
-                                serverInstanceId = info.instanceId,
-                                serverUrl = info.remoteUrl?.trimEnd('/'),
-                            ),
-                        )
-                    val text = "Check out ${book.title} on ListenUp!\n$url"
-                    platformActions.shareText(text, url)
-                }
-            }
-        },
-        onDeleteBookClick = {
-            viewModel.clearDeleteError()
-            showDeleteBookDialog = true
-        },
-        onPlayClick = { platformActions.playBook(BookId(bookId)) },
-        canPlay = state.canPlay,
-        canDownload = state.canDownload,
-        showServerWarning = state.showServerWarning,
         isPreparing = isPreparing,
-        onRetryConnection = { viewModel.retryConnection() },
-        onPlayDisabledClick = {
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    "Server is unreachable. Connect to your server to stream this book, or download it for offline playback.",
-                )
-            }
-        },
-        onUserProfileClick = onUserProfileClick,
-        onDownloadClick = {
-            scope.launch {
-                val result = platformActions.downloadBook(BookId(bookId))
-                handleDownloadResult(result) { message -> snackbarHostState.showSnackbar(message) }
-            }
-        },
-        onCancelClick = {
-            scope.launch {
-                platformActions.cancelDownload(BookId(bookId))
-            }
-        },
-        onDeleteClick = { showDeleteDialog = true },
-        onSeriesClick = onSeriesClick,
-        onContributorClick = onContributorClick,
-        onGenreClick = onGenreClick,
-        onTagClick = onTagClick,
-        onMoodClick = onMoodClick,
-        onSeeAllReaders = onSeeAllReaders,
-        onFindHardcoverMatch = onFindHardcoverMatch,
-        onReleaseFromInboxClick = { showReleaseDialog = true },
-        onRestoreToAllBooksClick = { viewModel.restoreToAllBooks() },
-        onCollectionClick = onCollectionClick,
         lastMatchRow = { modifier -> LastMatchHost(viewModel = viewModel, modifier = modifier) },
     )
 
@@ -597,53 +611,13 @@ private fun BookDetailReadyContent(
  * Main content container that handles responsive layout.
  * Uses WideBookDetail for tablets, ImmersiveBookDetail for phones.
  */
-@Suppress("LongParameterList")
 @Composable
 fun BookDetailContent(
     bookId: String,
     state: BookDetailUiState.Ready,
+    actions: BookDetailActions,
     documents: List<BookDocument> = emptyList(),
-    onOpenDocument: (docId: String) -> Unit = {},
-    downloadStatus: BookDownloadStatus,
-    isComplete: Boolean,
-    hasProgress: Boolean,
-    isAdmin: Boolean,
-    canEditMetadata: Boolean,
-    isWaitingForWifi: Boolean,
-    showPlaybackActions: Boolean,
-    onBackClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onFindMetadataClick: () -> Unit,
-    onEditChaptersClick: () -> Unit,
-    onMarkCompleteClick: () -> Unit,
-    onMarkNotStartedClick: () -> Unit,
-    onRestartClick: () -> Unit,
-    onAddToShelfClick: () -> Unit,
-    onAddToCollectionClick: () -> Unit,
-    onShareClick: () -> Unit,
-    onDeleteBookClick: () -> Unit,
-    onPlayClick: () -> Unit,
-    canPlay: Boolean,
-    canDownload: Boolean,
-    showServerWarning: Boolean,
     isPreparing: Boolean = false,
-    onRetryConnection: () -> Unit,
-    onPlayDisabledClick: () -> Unit,
-    onDownloadClick: () -> Unit,
-    onCancelClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onSeriesClick: (seriesId: String) -> Unit,
-    onContributorClick: (contributorId: String) -> Unit,
-    onGenreClick: (genreId: String) -> Unit,
-    onTagClick: (tagId: String, tagName: String) -> Unit,
-    onMoodClick: (moodId: String, moodName: String) -> Unit,
-    onUserProfileClick: (userId: String) -> Unit,
-    onSeeAllReaders: (bookId: String) -> Unit = {},
-    onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
-    onReleaseFromInboxClick: () -> Unit = {},
-    onRestoreToAllBooksClick: () -> Unit = {},
-    /** Opens a collection from the Visibility card; null (the frozen desktop) shows plain names. */
-    onCollectionClick: ((collectionId: String) -> Unit)? = null,
     /** Book Detail's last-match row ("Details matched … · See what changed · Undo last match"), under the actions. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
 ) {
@@ -661,94 +635,18 @@ fun BookDetailContent(
         WideBookDetail(
             bookId = bookId,
             state = state,
+            actions = actions,
             documents = documents,
-            onOpenDocument = onOpenDocument,
-            downloadStatus = downloadStatus,
-            isComplete = isComplete,
-            hasProgress = hasProgress,
-            isAdmin = isAdmin,
-            canEditMetadata = canEditMetadata,
-            isWaitingForWifi = isWaitingForWifi,
-            showPlaybackActions = showPlaybackActions,
-            onBackClick = onBackClick,
-            onEditClick = onEditClick,
-            onFindMetadataClick = onFindMetadataClick,
-            onEditChaptersClick = onEditChaptersClick,
-            onMarkCompleteClick = onMarkCompleteClick,
-            onMarkNotStartedClick = onMarkNotStartedClick,
-            onRestartClick = onRestartClick,
-            onAddToShelfClick = onAddToShelfClick,
-            onAddToCollectionClick = onAddToCollectionClick,
-            onShareClick = onShareClick,
-            onDeleteBookClick = onDeleteBookClick,
-            onPlayClick = onPlayClick,
-            onDownloadClick = onDownloadClick,
-            onCancelClick = onCancelClick,
-            onDeleteClick = onDeleteClick,
-            playEnabled = canPlay,
-            downloadEnabled = canDownload,
-            showServerWarning = showServerWarning,
             isPreparing = isPreparing,
-            onRetryConnection = onRetryConnection,
-            onPlayDisabledClick = onPlayDisabledClick,
-            onSeriesClick = onSeriesClick,
-            onContributorClick = onContributorClick,
-            onGenreClick = onGenreClick,
-            onTagClick = onTagClick,
-            onMoodClick = onMoodClick,
-            onUserProfileClick = onUserProfileClick,
-            onSeeAllReaders = onSeeAllReaders,
-            onFindHardcoverMatch = onFindHardcoverMatch,
-            onReleaseFromInboxClick = onReleaseFromInboxClick,
-            onRestoreToAllBooksClick = onRestoreToAllBooksClick,
-            onCollectionClick = onCollectionClick,
             lastMatchRow = lastMatchRow,
         )
     } else {
         ImmersiveBookDetail(
             bookId = bookId,
             state = state,
+            actions = actions,
             documents = documents,
-            onOpenDocument = onOpenDocument,
-            downloadStatus = downloadStatus,
-            isComplete = isComplete,
-            hasProgress = hasProgress,
-            isAdmin = isAdmin,
-            canEditMetadata = canEditMetadata,
-            isWaitingForWifi = isWaitingForWifi,
-            showPlaybackActions = showPlaybackActions,
-            onBackClick = onBackClick,
-            onEditClick = onEditClick,
-            onFindMetadataClick = onFindMetadataClick,
-            onEditChaptersClick = onEditChaptersClick,
-            onMarkCompleteClick = onMarkCompleteClick,
-            onMarkNotStartedClick = onMarkNotStartedClick,
-            onRestartClick = onRestartClick,
-            onAddToShelfClick = onAddToShelfClick,
-            onAddToCollectionClick = onAddToCollectionClick,
-            onShareClick = onShareClick,
-            onDeleteBookClick = onDeleteBookClick,
-            onPlayClick = onPlayClick,
-            canPlay = canPlay,
-            canDownload = canDownload,
-            showServerWarning = showServerWarning,
             isPreparing = isPreparing,
-            onRetryConnection = onRetryConnection,
-            onPlayDisabledClick = onPlayDisabledClick,
-            onDownloadClick = onDownloadClick,
-            onCancelClick = onCancelClick,
-            onDeleteClick = onDeleteClick,
-            onSeriesClick = onSeriesClick,
-            onContributorClick = onContributorClick,
-            onGenreClick = onGenreClick,
-            onTagClick = onTagClick,
-            onMoodClick = onMoodClick,
-            onUserProfileClick = onUserProfileClick,
-            onSeeAllReaders = onSeeAllReaders,
-            onFindHardcoverMatch = onFindHardcoverMatch,
-            onReleaseFromInboxClick = onReleaseFromInboxClick,
-            onRestoreToAllBooksClick = onRestoreToAllBooksClick,
-            onCollectionClick = onCollectionClick,
             lastMatchRow = lastMatchRow,
         )
     }
@@ -766,53 +664,15 @@ fun BookDetailContent(
  * frameless [AboutSection] (description + Genres + Tags), the connected [PrimaryActionsSection],
  * the frameless [DetailsSection], readers, and chapters.
  */
-@Suppress("LongParameterList", "LongMethod")
+@Suppress("LongMethod")
 @Composable
 private fun ImmersiveBookDetail(
     bookId: String,
     state: BookDetailUiState.Ready,
+    actions: BookDetailActions,
     documents: List<BookDocument> = emptyList(),
-    onOpenDocument: (docId: String) -> Unit = {},
-    downloadStatus: BookDownloadStatus,
-    isComplete: Boolean,
-    hasProgress: Boolean,
-    isAdmin: Boolean,
-    canEditMetadata: Boolean,
-    isWaitingForWifi: Boolean,
-    showPlaybackActions: Boolean,
-    onBackClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onFindMetadataClick: () -> Unit,
-    onEditChaptersClick: () -> Unit,
-    onMarkCompleteClick: () -> Unit,
-    onMarkNotStartedClick: () -> Unit,
-    onRestartClick: () -> Unit,
-    onAddToShelfClick: () -> Unit,
-    onAddToCollectionClick: () -> Unit,
-    onShareClick: () -> Unit,
-    onDeleteBookClick: () -> Unit,
-    onPlayClick: () -> Unit,
-    canPlay: Boolean,
-    canDownload: Boolean,
-    showServerWarning: Boolean,
     isPreparing: Boolean = false,
-    onRetryConnection: () -> Unit,
-    onPlayDisabledClick: () -> Unit,
-    onDownloadClick: () -> Unit,
-    onCancelClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onSeriesClick: (seriesId: String) -> Unit,
-    onContributorClick: (contributorId: String) -> Unit,
-    onGenreClick: (genreId: String) -> Unit,
-    onTagClick: (tagId: String, tagName: String) -> Unit,
-    onMoodClick: (moodId: String, moodName: String) -> Unit,
-    onUserProfileClick: (userId: String) -> Unit,
-    onSeeAllReaders: (bookId: String) -> Unit,
-    onFindHardcoverMatch: ((bookId: String) -> Unit)?,
-    onReleaseFromInboxClick: () -> Unit,
-    onRestoreToAllBooksClick: () -> Unit,
-    onCollectionClick: ((collectionId: String) -> Unit)?,
-    lastMatchRow: @Composable (Modifier) -> Unit,
+    lastMatchRow: @Composable (Modifier) -> Unit = {},
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -828,21 +688,21 @@ private fun ImmersiveBookDetail(
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
             title = book.title,
-            isComplete = isComplete,
-            hasProgress = hasProgress,
-            isAdmin = isAdmin,
-            canEditMetadata = canEditMetadata,
-            onBackClick = onBackClick,
-            onEditClick = onEditClick,
-            onFindMetadataClick = onFindMetadataClick,
-            onEditChaptersClick = onEditChaptersClick,
-            onMarkCompleteClick = onMarkCompleteClick,
-            onMarkNotStartedClick = onMarkNotStartedClick,
-            onRestartClick = onRestartClick,
-            onAddToShelfClick = onAddToShelfClick,
-            onAddToCollectionClick = onAddToCollectionClick,
-            onShareClick = onShareClick,
-            onDeleteClick = onDeleteBookClick,
+            isComplete = state.isComplete,
+            hasProgress = state.progress != null,
+            isAdmin = state.isAdmin,
+            canEditMetadata = state.canEditMetadata,
+            onBackClick = actions.onBackClick,
+            onEditClick = actions.onEditClick,
+            onFindMetadataClick = actions.onFindMetadataClick,
+            onEditChaptersClick = actions.onEditChaptersClick,
+            onMarkCompleteClick = actions.onMarkCompleteClick,
+            onMarkNotStartedClick = actions.onMarkNotStartedClick,
+            onRestartClick = actions.onRestartClick,
+            onAddToShelfClick = actions.onAddToShelfClick,
+            onAddToCollectionClick = actions.onAddToCollectionClick,
+            onShareClick = actions.onShareClick,
+            onDeleteClick = actions.onDeleteBookClick,
             showActions = !state.isHeld,
         )
 
@@ -852,10 +712,10 @@ private fun ImmersiveBookDetail(
             contentPadding = PaddingValues(bottom = 32.dp + playerInset),
         ) {
             // Offline advisory — streaming unavailable, downloads still play.
-            if (showServerWarning) {
+            if (state.showServerWarning) {
                 item {
                     OfflineBanner(
-                        onRetryClick = onRetryConnection,
+                        onRetryClick = actions.onRetryConnection,
                         compact = true,
                         modifier = screenPadding.padding(vertical = 8.dp),
                     )
@@ -883,8 +743,8 @@ private fun ImmersiveBookDetail(
                     seriesPaths = state.seriesPaths,
                     authors = book.authors,
                     narrators = book.narrators,
-                    onContributorClick = onContributorClick,
-                    onSeriesClick = onSeriesClick,
+                    onContributorClick = actions.onContributorClick,
+                    onSeriesClick = actions.onSeriesClick,
                     onShowCast = { castRole = it },
                     progress = state.progress,
                     timeRemaining = state.timeRemainingFormatted,
@@ -909,10 +769,10 @@ private fun ImmersiveBookDetail(
                 item {
                     HeldForReviewSection(
                         isReleasing = state.isReleasingFromInbox,
-                        onReleaseClick = onReleaseFromInboxClick,
-                        onEditClick = onEditClick,
-                        onMatchClick = onFindMetadataClick,
-                        onEditChaptersClick = onEditChaptersClick,
+                        onReleaseClick = actions.onReleaseFromInboxClick,
+                        onEditClick = actions.onEditClick,
+                        onMatchClick = actions.onFindMetadataClick,
+                        onEditChaptersClick = actions.onEditChaptersClick,
                         modifier = screenPadding.padding(top = 20.dp),
                     )
                 }
@@ -920,20 +780,20 @@ private fun ImmersiveBookDetail(
 
             // Primary actions — connected Play + Download group, kept above the description so the
             // primary action is reachable without scrolling past the synopsis.
-            if (showPlaybackActions && !state.isHeld) {
+            if (state.isPlaybackAvailable && !state.isHeld) {
                 item {
                     PrimaryActionsSection(
-                        downloadStatus = downloadStatus,
-                        onPlayClick = onPlayClick,
-                        onDownloadClick = onDownloadClick,
-                        onCancelClick = onCancelClick,
-                        onDeleteClick = onDeleteClick,
+                        downloadStatus = state.downloadStatus,
+                        onPlayClick = actions.onPlayClick,
+                        onDownloadClick = actions.onDownloadClick,
+                        onCancelClick = actions.onCancelClick,
+                        onDeleteClick = actions.onDeleteClick,
                         modifier = screenPadding.padding(top = 20.dp),
-                        isWaitingForWifi = isWaitingForWifi,
-                        playEnabled = canPlay,
-                        downloadEnabled = canDownload,
-                        onPlayDisabledClick = onPlayDisabledClick,
-                        showServerWarning = showServerWarning,
+                        isWaitingForWifi = state.isWaitingForWifi,
+                        playEnabled = state.canPlay,
+                        downloadEnabled = state.canDownload,
+                        onPlayDisabledClick = actions.onPlayDisabledClick,
+                        showServerWarning = state.showServerWarning,
                         isPreparing = isPreparing,
                     )
                 }
@@ -953,9 +813,9 @@ private fun ImmersiveBookDetail(
                     isCard = false,
                     isDescriptionExpanded = isDescriptionExpanded,
                     onToggleDescriptionExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
-                    onGenreClick = { genre -> onGenreClick(genre.id) },
-                    onTagClick = { tag -> onTagClick(tag.id, tag.displayName()) },
-                    onMoodClick = { mood -> onMoodClick(mood.id, mood.displayName()) },
+                    onGenreClick = { genre -> actions.onGenreClick(genre.id) },
+                    onTagClick = { tag -> actions.onTagClick(tag.id, tag.displayName()) },
+                    onMoodClick = { mood -> actions.onMoodClick(mood.id, mood.displayName()) },
                     creditsSlot = null,
                     modifier = screenPadding.padding(top = 24.dp),
                 )
@@ -970,9 +830,9 @@ private fun ImmersiveBookDetail(
                         BookVisibilitySection(
                             visibility = visibility,
                             isRestoring = state.isRestoringToAllBooks,
-                            onCollectionClick = onCollectionClick,
-                            onShowToAllMembers = onRestoreToAllBooksClick,
-                            onAddToCollection = onAddToCollectionClick,
+                            onCollectionClick = actions.onCollectionClick,
+                            onShowToAllMembers = actions.onRestoreToAllBooksClick,
+                            onAddToCollection = actions.onAddToCollectionClick,
                             modifier = screenPadding.padding(vertical = 8.dp),
                         )
                     }
@@ -990,8 +850,8 @@ private fun ImmersiveBookDetail(
                 item {
                     BookReadersSection(
                         bookId = bookId,
-                        onUserClick = onUserProfileClick,
-                        onSeeAllClick = onSeeAllReaders,
+                        onUserClick = actions.onUserProfileClick,
+                        onSeeAllClick = actions.onSeeAllReaders,
                         modifier = screenPadding.padding(vertical = 8.dp),
                     )
                 }
@@ -1000,7 +860,7 @@ private fun ImmersiveBookDetail(
                 item {
                     BookHardcoverSection(
                         bookId = bookId,
-                        onFindMatch = onFindHardcoverMatch,
+                        onFindMatch = actions.onFindHardcoverMatch,
                         modifier = screenPadding.padding(vertical = 8.dp),
                     )
                 }
@@ -1056,7 +916,7 @@ private fun ImmersiveBookDetail(
                     Spacer(modifier = Modifier.height(16.dp))
                     SupplementaryMaterialsSection(
                         documents = documents,
-                        onOpenDocument = onOpenDocument,
+                        onOpenDocument = actions.onOpenDocument,
                         modifier = screenPadding,
                     )
                 }
@@ -1071,7 +931,7 @@ private fun ImmersiveBookDetail(
                     language = book.language,
                     audioFiles = book.audioFiles,
                     credits = book.allContributors,
-                    onContributorClick = onContributorClick,
+                    onContributorClick = actions.onContributorClick,
                     modifier = screenPadding.padding(top = 8.dp),
                 )
             }
@@ -1082,7 +942,7 @@ private fun ImmersiveBookDetail(
                 role = role,
                 authors = book.authors,
                 narrators = book.narrators,
-                onContributorClick = onContributorClick,
+                onContributorClick = actions.onContributorClick,
                 onDismiss = { castRole = null },
             )
         }
