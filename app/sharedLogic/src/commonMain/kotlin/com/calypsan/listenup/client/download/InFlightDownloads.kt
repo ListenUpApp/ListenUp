@@ -19,7 +19,7 @@ import kotlinx.coroutines.sync.withPermit
  * second transfer of a file, and cancels through it, so a file still waiting for a slot never starts.
  */
 internal class InFlightDownloads {
-    private class Owned(
+    private data class Owned(
         val bookId: String,
         val job: Job,
     )

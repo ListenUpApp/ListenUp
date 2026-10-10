@@ -54,8 +54,8 @@ class InFlightDownloadsTest :
                 val permits = Semaphore(5)
                 val gate = CompletableDeferred<Unit>()
                 val runs = mutableListOf<String>()
-                val action: suspend (String) -> Unit = {
-                    runs += it
+                val action: suspend (String) -> Unit = { id ->
+                    runs += id
                     gate.await()
                 }
 
