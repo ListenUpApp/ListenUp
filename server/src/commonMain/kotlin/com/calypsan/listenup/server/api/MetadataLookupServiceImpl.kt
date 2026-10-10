@@ -49,6 +49,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.withCapturedFrames
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
+import com.calypsan.listenup.server.auth.requirePermission
 
 private val logger = loggerFor<MetadataLookupServiceImpl>()
 
@@ -124,16 +125,6 @@ internal class MetadataLookupServiceImpl(
         )
 
     /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
-
-    /**
      * Per-user throttle probe. A no-op (null) when no limiter or no principal is bound — the
      * same "only live where it is wired" shape as `AuthServiceImpl.enforceRate`.
      */
@@ -162,7 +153,7 @@ internal class MetadataLookupServiceImpl(
      * [MetadataError.NotFound], matching the absent-book answer, so the two cannot be told apart.
      */
     private suspend fun requireEditableBook(bookId: BookId): AppError? {
-        requirePermission(Permission.EDIT_METADATA)?.let { return it }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return it }
         val p = principal.current() ?: return AuthError.PermissionDenied()
         if (!bookAccessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
             return MetadataError.NotFound(debugInfo = "no book for id ${bookId.value}")
@@ -250,7 +241,7 @@ internal class MetadataLookupServiceImpl(
         asin: String,
         region: MetadataLocale,
     ): AppResult<MetadataBook?> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return when (val composed = composeBook(asin, region, refresh = true)) {
             is AppResult.Success -> AppResult.Success(composed.data?.toMetadataBookWithProvenance())
             is AppResult.Failure -> composed
@@ -352,7 +343,7 @@ internal class MetadataLookupServiceImpl(
         asin: String,
         region: MetadataLocale,
     ): AppResult<Mutated<Unit>> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Echo-in-response: withCapturedFrames collects the contributor's own upsert frame so the
         // originating device applies its result read-your-writes, instead of waiting on the firehose.
         return withCapturedFrames {
@@ -369,7 +360,7 @@ internal class MetadataLookupServiceImpl(
         bookId: BookId,
         region: MetadataLocale?,
     ): AppResult<CoverSearchResults> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return coverSearchService.searchCovers(bookId, region).map { CoverSearchResults(options = it) }
     }
 

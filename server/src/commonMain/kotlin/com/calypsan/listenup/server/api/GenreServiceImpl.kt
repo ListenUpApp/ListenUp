@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.api.dto.auth.Permission
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
@@ -28,6 +27,7 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
+import com.calypsan.listenup.server.auth.requirePermission
 
 private const val MIN_BROWSE_LIMIT = 1
 private const val MAX_BROWSE_LIMIT = 1000
@@ -96,16 +96,6 @@ internal class GenreServiceImpl(
             principal = principal,
             clock = clock,
         )
-
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
 
     @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun listGenres(): AppResult<List<GenreSummary>> =
@@ -250,7 +240,7 @@ internal class GenreServiceImpl(
         name: String,
         sortOrder: Int,
     ): AppResult<GenreId> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // 1. Slug normalization owns blank/empty-after-normalize validation.
         val slug = GenreSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
@@ -297,7 +287,7 @@ internal class GenreServiceImpl(
         id: GenreId,
         patch: GenreUpdate,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         val current = genreRepository.findById(id.value)
         if (current == null || current.deletedAt != null) {
             return AppResult.Failure(genreNotFound(id))
@@ -312,7 +302,7 @@ internal class GenreServiceImpl(
     }
 
     override suspend fun deleteGenre(id: GenreId): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         // Sequential single-engine cutover: the synchronous junction-delete + alias-removal commit
         // first, then the genre soft-delete runs through the substrate (its own transaction, bumping
         // revision + publishing), then the affected books are re-upserted through BookRepository. All
@@ -353,7 +343,7 @@ internal class GenreServiceImpl(
         id: GenreId,
         newParentId: GenreId?,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         val plan =
             when (val planResult = planMove(id, newParentId)) {
                 is MovePlanResult.Reject -> return AppResult.Failure(planResult.error)
@@ -373,7 +363,7 @@ internal class GenreServiceImpl(
         source: GenreId,
         target: GenreId,
     ): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val mergedBy =
             principal.current()?.run { userId.value } ?: return AppResult.Failure(AuthError.PermissionDenied())
         // Sequential single-engine cutover (see deleteGenre): synchronous relink + alias-repoint
@@ -410,12 +400,12 @@ internal class GenreServiceImpl(
     }
 
     override suspend fun listMergeReceipts(target: GenreId): AppResult<List<MergeReceipt>> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return AppResult.Success(mergeReceipts.openFor(target))
     }
 
     override suspend fun undoGenreMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return mergeReceipts.undo(receiptId)
     }
 
@@ -436,7 +426,7 @@ internal class GenreServiceImpl(
         rawString: String,
         genreId: GenreId,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         val trimmed = rawString.trim()
         // Sequential single-engine cutover (see deleteGenre): the alias-add, pending→junction
         // conversion, and pending-row delete commit first; the affected books are re-upserted

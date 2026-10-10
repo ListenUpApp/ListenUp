@@ -5,15 +5,12 @@ import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.dto.scanner.ScanScope
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
@@ -21,6 +18,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import com.calypsan.listenup.server.auth.requireAdmin
 
 /**
  * Thin [ScannerService] implementation. The work lives in [ScanOrchestrator];
@@ -57,7 +55,7 @@ internal class ScannerServiceImpl(
 ) : ScannerService {
     override suspend fun scanFull(): AppResult<ScanResultSummary> {
         // Admin-only: triggering a disk-walking full scan is a privileged server operation.
-        requireAdmin()?.let { return AppResult.Failure(it) }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return orchestrator.scanLibrary(resolveLibraryId()).map { it.toSummary() }
     }
 
@@ -65,13 +63,13 @@ internal class ScannerServiceImpl(
         val result =
             orchestrator.lastResult(resolveLibraryId())
                 ?: return AppResult.Failure(ScanError.LibraryPathNotConfigured())
-        return AppResult.Success(if (requireAdmin() == null) result else result.withoutLibraryContent())
+        return AppResult.Success(if (principal.requireAdmin() == null) result else result.withoutLibraryContent())
     }
 
     override fun observeProgress(): Flow<RpcEvent<ScanEvent>> =
         flow {
             // Resolved once per subscription: the role is fixed for the life of the connection.
-            val admin = requireAdmin() == null
+            val admin = principal.requireAdmin() == null
             emitAll(
                 eventBus
                     // Progress monitoring needs only the lightweight lifecycle/progress events. Each
@@ -89,12 +87,12 @@ internal class ScannerServiceImpl(
      * shape of the operator's disk.
      */
     override suspend fun listScanIssues(): AppResult<List<ScanIssue>> {
-        requireAdmin()?.let { return AppResult.Failure(it) }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(scanIssues.listOpen(resolveLibraryId()))
     }
 
     override suspend fun dismissScanIssue(issueId: String): AppResult<Unit> {
-        requireAdmin()?.let { return AppResult.Failure(it) }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         scanIssues.dismiss(issueId)
         return AppResult.Success(Unit)
     }
@@ -108,16 +106,6 @@ internal class ScannerServiceImpl(
             scanIssues = scanIssues,
             principal = principal,
         )
-
-    /**
-     * Admin gate: null when the caller is ROOT/ADMIN; [AuthError.PermissionDenied] for a
-     * member, and for an absent principal (fail-closed — an unscoped call must be denied
-     * rather than silently run privileged; mirrors [com.calypsan.listenup.server.api.LibraryAdminServiceImpl]).
-     */
-    private fun requireAdmin(): AppError? {
-        val caller = principal.current() ?: return AuthError.PermissionDenied()
-        return PermissionPolicy.requireAdmin(caller)
-    }
 }
 
 /**

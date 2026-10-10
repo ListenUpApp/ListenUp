@@ -26,8 +26,9 @@ import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
  * the [ADMIN_DENIAL_SHAPE] (a bare `.isAdmin()` that denies nothing does not count), or it carries
  * `@OpenToAllMembers(reason = "…")` with a non-blank reason.
  *
- * **Known limit.** The rule trusts the helper names in [GATE_CALLS]; each is a private one-liner over
- * `PermissionPolicy`, `isAdmin()` or an owner comparison. Adding a name here is a review of that helper.
+ * **Known limit.** The rule trusts the helper names in [GATE_CALLS]; each is a one-liner over
+ * `PermissionPolicy`, `isAdmin()` or an owner comparison, and `requireAdmin(` / `requirePermission(`
+ * name the shared helpers in `auth/CallerGates.kt`. Adding a name here is a review of that helper.
  */
 class MutatingRpcsAreGatedRule :
     FunSpec({

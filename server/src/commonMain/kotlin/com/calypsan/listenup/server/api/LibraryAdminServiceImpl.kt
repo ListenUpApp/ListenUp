@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
 import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.dto.SetupStatus
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.result.AppResult
@@ -15,7 +14,6 @@ import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.LibrarySyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
@@ -31,6 +29,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
+import com.calypsan.listenup.server.auth.requireAdmin
 
 private val logger = loggerFor<LibraryAdminServiceImpl>()
 
@@ -126,7 +125,7 @@ internal class LibraryAdminServiceImpl(
      */
     override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> {
         // Admin-only: walking the server filesystem must never be exposed to members.
-        requireAdmin()?.let { return AppResult.Failure(it) }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         logger.debug { "browseFilesystem: listing $path" }
         val startedAt = clock.now()
         val dir = Path(path)
@@ -195,7 +194,7 @@ internal class LibraryAdminServiceImpl(
     // ── Folder lifecycle ─────────────────────────────────────────────────────
 
     override suspend fun addFolder(path: String): AppResult<LibraryFolder> {
-        requireAdmin()?.let { return AppResult.Failure(it) }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return addFolderTo(libraryRegistry.currentLibrary(), path)
     }
 
@@ -264,7 +263,7 @@ internal class LibraryAdminServiceImpl(
     }
 
     override suspend fun removeFolder(folderId: FolderId): AppResult<Unit> {
-        requireAdmin()?.let { return AppResult.Failure(it) }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val existing =
             folderPage.items.firstOrNull { it.id == folderId.value }
@@ -295,13 +294,13 @@ internal class LibraryAdminServiceImpl(
 
     override suspend fun scanLibrary(): AppResult<Unit> {
         // Admin-only: triggering a scan is a privileged server operation.
-        requireAdmin()?.let { return AppResult.Failure(it) }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return scanOrchestrator.scanLibraryAsync(libraryRegistry.currentLibrary())
     }
 
     override suspend fun scanFolder(folderId: FolderId): AppResult<Unit> {
         // Admin-only: triggering a scan is a privileged server operation.
-        requireAdmin()?.let { return AppResult.Failure(it) }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val folderExists = folderPage.items.any { it.id == folderId.value && it.deletedAt == null }
         if (!folderExists) return AppResult.Failure(LibraryError.FolderNotFound())
@@ -325,16 +324,6 @@ internal class LibraryAdminServiceImpl(
         )
 
     // ── Internal helpers ─────────────────────────────────────────────────────
-
-    /**
-     * Admin gate: null when the caller is ROOT/ADMIN; [AuthError.PermissionDenied] for a
-     * member, and for an absent principal (a wiring bug — route handlers always [copyWith]
-     * the authenticated caller — denied rather than run unauthenticated).
-     */
-    private fun requireAdmin(): AppError? {
-        val caller = principal.current() ?: return AuthError.PermissionDenied()
-        return PermissionPolicy.requireAdmin(caller)
-    }
 
     /**
      * Checks whether any of [paths] is already registered as an active folder

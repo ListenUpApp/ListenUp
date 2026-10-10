@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import kotlin.time.Clock
+import com.calypsan.listenup.server.auth.requirePermission
 
 /**
  * Thin [SeriesService] implementation.
@@ -99,7 +100,8 @@ internal class SeriesServiceImpl(
      * the edit is allowed. Exposed as `internal` so the image-upload route can gate before reading the
      * multipart body; the update the route then makes re-gates internally as defense-in-depth.
      */
-    internal suspend fun checkCanEdit(): AppError? = requirePermission(Permission.EDIT_METADATA)
+    internal suspend fun checkCanEdit(): AppError? =
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
@@ -114,16 +116,6 @@ internal class SeriesServiceImpl(
             clock = clock,
             entityRepo = entityRepo,
         )
-
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
 
     override suspend fun getSeries(id: SeriesId): AppResult<SeriesSyncPayload?> =
         AppResult.Success(seriesRepo.findById(id.value))
@@ -151,7 +143,7 @@ internal class SeriesServiceImpl(
         id: SeriesId,
         patch: SeriesUpdate,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return when (val patched = seriesRepo.patchLive(id) { it.applyPatch(patch) }) {
             is AppResult.Failure -> AppResult.Failure(patched.error)
             is AppResult.Success -> if (patched.data == null) seriesNotFound(id) else AppResult.Success(Unit)
@@ -162,7 +154,7 @@ internal class SeriesServiceImpl(
         source: SeriesId,
         target: SeriesId,
     ): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val mergedBy =
             principal.current()?.run { userId.value } ?: return AppResult.Failure(AuthError.PermissionDenied())
         if (source.value == target.value) {
@@ -245,12 +237,12 @@ internal class SeriesServiceImpl(
     }
 
     override suspend fun listMergeReceipts(target: SeriesId): AppResult<List<MergeReceipt>> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return AppResult.Success(mergeReceipts.openFor(target))
     }
 
     override suspend fun undoSeriesMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return mergeReceipts.undo(receiptId)
     }
 
@@ -258,7 +250,7 @@ internal class SeriesServiceImpl(
         name: String,
         parentId: SeriesId?,
     ): AppResult<SeriesSyncPayload> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return hierarchy.create(name, parentId)
     }
 
@@ -266,7 +258,7 @@ internal class SeriesServiceImpl(
         id: SeriesId,
         parentId: SeriesId?,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return hierarchy.setParent(id, parentId)
     }
 
@@ -274,12 +266,12 @@ internal class SeriesServiceImpl(
         parentId: SeriesId,
         orderedChildIds: List<SeriesId>,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return hierarchy.reorderChildren(parentId, orderedChildIds)
     }
 
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
         return result
     }

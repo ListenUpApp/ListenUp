@@ -4,8 +4,6 @@ import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.dto.auth.Permission
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
@@ -23,6 +21,7 @@ import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.TagSlug
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
+import com.calypsan.listenup.server.auth.requirePermission
 
 private const val MAX_LIMIT = 1000
 private const val MIN_LIMIT = 1
@@ -85,16 +84,6 @@ internal class TagServiceImpl(
     private suspend fun accessibleBookIdFilter(): Set<String>? {
         val p = principal.current() ?: return emptySet()
         return accessPolicy.accessibleBookIds(p.userId.value, p.role)
-    }
-
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
     }
 
     @OpenRead(reason = "shared vocabulary; names no book")
@@ -173,7 +162,7 @@ internal class TagServiceImpl(
         bookId: BookId,
         name: String,
     ): AppResult<Tag> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate name.
         val slug = TagSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
@@ -220,7 +209,7 @@ internal class TagServiceImpl(
         bookId: BookId,
         tagId: TagId,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         if (!bookExists(bookId.value)) {
             return AppResult.Failure(TagError.BookNotFound())
         }
@@ -238,7 +227,7 @@ internal class TagServiceImpl(
         tagId: TagId,
         newName: String,
     ): AppResult<Tag> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate new name (we call normalize just for validation — slug is not changed).
         when (val slugResult = TagSlug.normalize(newName)) {
             is AppResult.Success -> Unit
@@ -253,7 +242,7 @@ internal class TagServiceImpl(
     }
 
     override suspend fun deleteTag(tagId: TagId): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (tagRepository.findById(tagId.value) == null) {
             return AppResult.Failure(TagError.NotFound())
         }

@@ -36,7 +36,6 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.OpenToAllMembers
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -44,6 +43,7 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.Duration.Companion.days
 import kotlin.time.ExperimentalTime
+import com.calypsan.listenup.server.auth.requireAdmin
 
 /**
  * [InviteService] implementation — the administrative lifecycle of an invite.
@@ -54,7 +54,8 @@ import kotlin.time.ExperimentalTime
  *
  * Every method is admin-gated: the caller must be ROOT or ADMIN, resolved from
  * [principal] (never from request fields). Non-admins receive
- * [AuthError.PermissionDenied]; an absent principal yields [AuthError.SessionExpired].
+ * [AuthError.PermissionDenied], as does an absent principal; a method that acts as the caller
+ * (rather than only gating on it) yields [AuthError.SessionExpired] when there is none.
  *
  * Minting stamps the calling admin into `createdBy`, generates a high-entropy
  * single-use code, and defaults expiry to [DEFAULT_EXPIRY_DAYS] days unless
@@ -158,7 +159,7 @@ class InviteServiceImpl(
         role: UserRole,
         expiresInDays: Int?,
     ): AppResult<InviteDto> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         if (!Email.isLikelyEmail(email)) return AppResult.Failure(InviteError.InvalidInput())
         if (displayName.isBlank() || displayName.length > UpdateProfileRequest.MAX_DISPLAY_NAME) {
@@ -199,7 +200,7 @@ class InviteServiceImpl(
     }
 
     override suspend fun listInvites(): AppResult<List<InviteSummary>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val now = clock.now().toEpochMilliseconds()
         return suspendTransaction(db) {
             AppResult.Success(
@@ -212,7 +213,7 @@ class InviteServiceImpl(
     }
 
     override suspend fun revokeInvite(id: InviteId): AppResult<Unit> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return suspendTransaction(db) {
             val invite =
                 db.invitesQueries.selectById(id = id.value).executeAsOneOrNull()
@@ -418,12 +419,6 @@ class InviteServiceImpl(
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────────
-
-    /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
-    private fun requireAdmin(): AppResult.Failure? {
-        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
-    }
 
     /**
      * Per-IP throttle probe for [bucket]. Returns an [AuthError.RateLimited] to short-circuit the

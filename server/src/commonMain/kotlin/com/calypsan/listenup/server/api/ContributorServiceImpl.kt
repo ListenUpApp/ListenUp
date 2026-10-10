@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -20,6 +19,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.auth.requirePermission
 
 /**
  * Thin [ContributorService] implementation.
@@ -107,7 +107,8 @@ internal class ContributorServiceImpl(
      * the edit is allowed. Exposed as `internal` so the image-upload route can gate before reading the
      * multipart body; the update the route then makes re-gates internally as defense-in-depth.
      */
-    internal suspend fun checkCanEdit(): AppError? = requirePermission(Permission.EDIT_METADATA)
+    internal suspend fun checkCanEdit(): AppError? =
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ContributorServiceImpl =
@@ -119,16 +120,6 @@ internal class ContributorServiceImpl(
             permissionPolicy = permissionPolicy,
             principal = principal,
         )
-
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
 
     override suspend fun getContributor(id: ContributorId): AppResult<ContributorSyncPayload?> =
         AppResult.Success(contributorRepo.findById(id.value))
@@ -156,7 +147,7 @@ internal class ContributorServiceImpl(
         id: ContributorId,
         patch: ContributorUpdate,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         val editorId = principal.current()?.run { userId.value }
         return when (
             val patched =
@@ -177,7 +168,7 @@ internal class ContributorServiceImpl(
         source: ContributorId,
         target: ContributorId,
     ): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (source.value == target.value) {
             return AppResult.Failure(ContributorError.MergeSelfTarget())
         }
@@ -270,7 +261,7 @@ internal class ContributorServiceImpl(
         contributorId: ContributorId,
         aliasName: String,
     ): AppResult<ContributorId> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = unmergeCore(contributorId, aliasName)
         return result
     }
@@ -345,7 +336,7 @@ internal class ContributorServiceImpl(
     }
 
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
         return result
     }

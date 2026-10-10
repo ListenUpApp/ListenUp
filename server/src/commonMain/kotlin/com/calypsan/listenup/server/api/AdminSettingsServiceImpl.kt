@@ -6,12 +6,10 @@ import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.AdminError
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
@@ -25,6 +23,7 @@ import com.calypsan.listenup.server.sidecar.SIDECAR_WRITES_ENABLED_KEY
 import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import kotlin.time.Clock
+import com.calypsan.listenup.server.auth.requireAdmin
 
 /** Max length for the operator-set server name. */
 private const val MAX_SERVER_NAME = 100
@@ -74,12 +73,12 @@ internal class AdminSettingsServiceImpl(
         )
 
     override suspend fun getServerSettings(): AppResult<AdminServerSettings> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(current())
     }
 
     override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         // Validated before any write, so a refused store leaves every other field of the patch unapplied.
         val region = patch.metadataRegion?.run { trim().lowercase() }
         if (region != null && MetadataLocale.SUPPORTED.none { it.region == region }) {
@@ -126,7 +125,7 @@ internal class AdminSettingsServiceImpl(
     }
 
     override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(ratingSourceStatuses())
     }
 
@@ -134,7 +133,7 @@ internal class AdminSettingsServiceImpl(
         source: ExternalRatingSource,
         enabled: Boolean,
     ): AppResult<List<RatingSourceStatus>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val sources = requireNotNull(sourceSettings) { "AdminSettingsServiceImpl.sourceSettings not wired" }
         val ratings = requireNotNull(externalRatings) { "AdminSettingsServiceImpl.externalRatings not wired" }
         sources.setEnabled(source, enabled)
@@ -145,22 +144,22 @@ internal class AdminSettingsServiceImpl(
     }
 
     override suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(requireHardcoverSource().status())
     }
 
     override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return requireHardcoverSource().setApiToken(token)
     }
 
     override suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(requireHardcoverSource().clearApiToken())
     }
 
     override suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(requireHardcoverSource().setMetadataEnabled(enabled))
     }
 
@@ -202,10 +201,4 @@ internal class AdminSettingsServiceImpl(
             metadataRegion =
                 libraryRepository.readMetadataRegion(libraryRegistry.currentLibrary()) ?: MetadataLocale.DEFAULT.region,
         )
-
-    /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
-    private fun requireAdmin(): AppResult.Failure? {
-        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
-    }
 }
