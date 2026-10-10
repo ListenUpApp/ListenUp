@@ -361,7 +361,7 @@ struct BookRatingSection: View {
             BookRatingSection(
                 snapshot: BookRatingsSnapshot(
                     listeners: ListenersAverage(averageHalfStars: 8, count: 3),
-                    mine: MyRating(halfStars: 9, note: "Loved it", fromHardcover: false),
+                    mine: MyRating(halfStars: 9, note: "Loved it"),
                     external: score,
                     breakdown: [],
                     canRefresh: false,
@@ -375,7 +375,7 @@ struct BookRatingSection: View {
             BookRatingSection(
                 snapshot: BookRatingsSnapshot(
                     listeners: ListenersAverage(averageHalfStars: 9, count: 1),
-                    mine: MyRating(halfStars: 9, note: nil, fromHardcover: false),
+                    mine: MyRating(halfStars: 9, note: nil),
                     external: nil,
                     breakdown: [],
                     canRefresh: false,

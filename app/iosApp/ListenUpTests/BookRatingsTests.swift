@@ -11,7 +11,12 @@ struct BookRatingsTests {
 
     // MARK: - Fixtures
 
-    private func rating(halfStars: Int, note: String? = nil, userId: String = "u1", fromHardcover: Bool = false) -> ListenerRating {
+    private func rating(
+        halfStars: Int,
+        note: String? = nil,
+        userId: String = "u1",
+        fromHardcover: Bool = false
+    ) -> ListenerRating {
         ListenerRating(
             bookId: "b1",
             userId: userId,
@@ -72,21 +77,6 @@ struct BookRatingsTests {
         )))
     }
 
-    @Test func readyCarriesThatMyRatingCameFromHardcover() {
-        let phase = BookRatingsObserver.phase(from: BookRatingsUiStateReady(
-            listeners: nil,
-            mine: rating(halfStars: 9, fromHardcover: true),
-            external: nil,
-            breakdown: [],
-            canRefresh: false,
-            isRefreshingExternal: false,
-            isCheckingExternal: false
-        ))
-
-        guard case .ready(let snapshot) = phase else { Issue.record("expected ready"); return }
-        #expect(snapshot.mine == MyRating(halfStars: 9, note: nil, fromHardcover: true))
-    }
-
     @Test func readyCarriesTheAverageAndMyRatingAsNativeValues() {
         let state = BookRatingsUiStateReady(
             listeners: ListenerAverage(averageHalfStars: 7.5, count: 3),
@@ -102,7 +92,7 @@ struct BookRatingsTests {
 
         #expect(phase == .ready(BookRatingsSnapshot(
             listeners: ListenersAverage(averageHalfStars: 7.5, count: 3),
-            mine: MyRating(halfStars: 7, note: "Loved the narrator", fromHardcover: false),
+            mine: MyRating(halfStars: 7, note: "Loved the narrator"),
             external: nil,
             breakdown: [],
             canRefresh: false,
@@ -299,14 +289,14 @@ struct BookRatingsTests {
     }
 
     @Test func removingARatingAsksFirstOnlyWhenANoteWouldBeLost() {
-        #expect(BookRatingSection.removeNeedsConfirmation(MyRating(halfStars: 8, note: "Loved it", fromHardcover: false)))
-        #expect(!BookRatingSection.removeNeedsConfirmation(MyRating(halfStars: 8, note: nil, fromHardcover: false)))
-        #expect(!BookRatingSection.removeNeedsConfirmation(MyRating(halfStars: 8, note: "", fromHardcover: false)))
+        #expect(BookRatingSection.removeNeedsConfirmation(MyRating(halfStars: 8, note: "Loved it")))
+        #expect(!BookRatingSection.removeNeedsConfirmation(MyRating(halfStars: 8, note: nil)))
+        #expect(!BookRatingSection.removeNeedsConfirmation(MyRating(halfStars: 8, note: "")))
     }
 
     @Test func theNoteActionSaysAddOrEdit() {
-        #expect(BookRatingSection.noteActionTitle(MyRating(halfStars: 8, note: nil, fromHardcover: false)) == "Add a Note")
-        #expect(BookRatingSection.noteActionTitle(MyRating(halfStars: 8, note: "Loved it", fromHardcover: false)) == "Edit Note")
+        #expect(BookRatingSection.noteActionTitle(MyRating(halfStars: 8, note: nil)) == "Add a Note")
+        #expect(BookRatingSection.noteActionTitle(MyRating(halfStars: 8, note: "Loved it")) == "Edit Note")
     }
 
     @Test func theValueSaysNotRatedUntilAStarIsChosen() {
@@ -495,5 +485,24 @@ struct BookRatingsTests {
         #expect(rows[0].isReading == false)
         #expect(rows[0].lastFinished == nil)
         #expect(rows[0].halfStars == 6)
+    }
+}
+
+// MARK: - Rated on Hardcover
+
+extension BookRatingsTests {
+    @Test func readyCarriesThatMyRatingCameFromHardcover() {
+        let phase = BookRatingsObserver.phase(from: BookRatingsUiStateReady(
+            listeners: nil,
+            mine: rating(halfStars: 9, fromHardcover: true),
+            external: nil,
+            breakdown: [],
+            canRefresh: false,
+            isRefreshingExternal: false,
+            isCheckingExternal: false
+        ))
+
+        guard case .ready(let snapshot) = phase else { Issue.record("expected ready"); return }
+        #expect(snapshot.mine == MyRating(halfStars: 9, note: nil, fromHardcover: true))
     }
 }

@@ -86,7 +86,9 @@ final class BookRatingsObserver {
                 listeners: ready.listeners.map {
                     ListenersAverage(averageHalfStars: $0.averageHalfStars, count: Int($0.count))
                 },
-                mine: ready.mine.map { MyRating(halfStars: Int($0.halfStars), note: $0.note, fromHardcover: $0.fromHardcover) },
+                mine: ready.mine.map {
+                    MyRating(halfStars: Int($0.halfStars), note: $0.note, fromHardcover: $0.fromHardcover)
+                },
                 external: external,
                 breakdown: ready.breakdown.map {
                     ExternalRatingRow(
@@ -181,7 +183,7 @@ struct MyRating: Equatable {
     let halfStars: Int
     let note: String?
     /// Imported from Hardcover and not touched since: the card says "Rated on Hardcover".
-    let fromHardcover: Bool
+    var fromHardcover = false
 }
 
 /// The ListenUp score: every enabled outside catalog, plus your listeners, each on its own curve
