@@ -150,7 +150,8 @@ class AppleDownloadService internal constructor(
         )
 
     override suspend fun getLocalPath(audioFileId: String): String? {
-        val path = downloadDao.getLocalPath(audioFileId) ?: return null
+        val stored = downloadDao.getLocalPath(audioFileId) ?: return null
+        val path = resolveDownloadPath(stored, appleDocumentsDirectory())
         if (fileManager.fileExists(path)) return path
         logger.warn { "Downloaded file missing, cleaning up: $audioFileId" }
         downloadDao.updateError(audioFileId, "File missing - deleted externally")
@@ -165,8 +166,10 @@ class AppleDownloadService internal constructor(
     override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> {
         if (audioFileIds.isEmpty()) return emptyMap()
         val completed = downloadRepository.getLocalPaths(audioFileIds)
+        val documentsDir = appleDocumentsDirectory()
         return buildMap {
-            for ((audioFileId, path) in completed) {
+            for ((audioFileId, storedPath) in completed) {
+                val path = resolveDownloadPath(storedPath, documentsDir)
                 if (fileManager.fileExists(path)) {
                     put(audioFileId, path)
                 } else {
@@ -376,7 +379,11 @@ class AppleDownloadService internal constructor(
 
         if (result) {
             val completed =
-                downloadDao.markCompleted(audioFileId, destPath.toString(), Clock.System.now().toEpochMilliseconds())
+                downloadDao.markCompleted(
+                    audioFileId,
+                    storedDownloadPath(destPath.toString()),
+                    Clock.System.now().toEpochMilliseconds(),
+                )
             if (completed == 0) {
                 // The user cancelled or deleted this book while the last bytes landed; nothing points at
                 // the file any more.

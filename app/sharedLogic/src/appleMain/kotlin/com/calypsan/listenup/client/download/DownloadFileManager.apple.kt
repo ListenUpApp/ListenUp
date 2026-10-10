@@ -40,7 +40,7 @@ actual class DownloadFileManager {
                     ).firstOrNull() as? NSURL
                     ?: error("Could not find documents directory")
 
-            val audiobooksUrl = documentsUrl.URLByAppendingPathComponent("audiobooks")!!
+            val audiobooksUrl = documentsUrl.URLByAppendingPathComponent(AUDIOBOOKS_DIR)!!
             val path = Path(audiobooksUrl.path!!)
 
             // Ensure directory exists
