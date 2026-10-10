@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.api.MatchDetails
@@ -66,6 +67,8 @@ internal fun Module.matchDetailsBindings(imageHome: Path) {
         val ladders = GenreHierarchyFromLadder(db, genres, GenreAutoCreator(genres))
         val ratings = get<ExternalRatingsFetcher>()
         val receipts = get<MatchReceiptStore>()
+        val ratingsRefresh: suspend (BookId, MetadataLocale) -> Unit =
+            { id, locale -> ratings.fetch(id, locale, refresh = true) }
         MatchDetails(
             reviewer = get<BookReviewer>(),
             applier =
@@ -95,7 +98,7 @@ internal fun Module.matchDetailsBindings(imageHome: Path) {
                             receipts = receipts,
                             now = ::currentEpochMilliseconds,
                         ),
-                    ratingsRefresh = { id, locale -> ratings.fetch(id, locale, refresh = true) },
+                    ratingsRefresh = ratingsRefresh,
                 ),
             undoer =
                 MatchUndoer(
@@ -113,6 +116,7 @@ internal fun Module.matchDetailsBindings(imageHome: Path) {
                     receipts = receipts,
                     imageHome = imageHome,
                 ),
+            ratingsRefresh = ratingsRefresh,
         )
     }
 }
