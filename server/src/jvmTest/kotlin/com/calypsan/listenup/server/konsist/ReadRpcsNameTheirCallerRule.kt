@@ -19,17 +19,15 @@ import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
  * **A read passes** if its body, comments stripped, (1) mentions a principal (`principal`, `principalProvider`, `callerPrincipal` ...); (2) calls one of
  * [MutatingRpcsAreGatedRule.GATE_CALLS]; (3) calls a function of the same class whose own body
  * mentions `principal` (so a read can delegate its access filter to a private helper); (4) carries
- * `@OpenRead(reason = "…")` with a non-blank reason; or (5) is listed in [UNREVIEWED_OPEN_READS].
- *
- * **[UNREVIEWED_OPEN_READS] is a backlog, not an exemption.** Each entry answers every member
- * identically and has not yet had an access decision. Shrink it; never grow it without a reviewer.
+ * `@OpenRead(reason = "…")` with a non-blank reason. There is no list of exceptions: a new read
+ * that cannot do one of these four has not yet had its access decision.
  *
  * **Known limit.** "Mentions `principal`" proves the caller is looked at, not that the answer is
  * filtered correctly; the rule keeps the question from being forgotten, it does not answer it.
  */
 class ReadRpcsNameTheirCallerRule :
     FunSpec({
-        test("every read ServiceImpl override names its caller, is @OpenRead with a reason, or is on the backlog") {
+        test("every read ServiceImpl override names its caller or is @OpenRead with a reason") {
             val scope = Konsist.scopeFromProduction("server")
             val reads = readOverrides(scope)
             // Vacuity guard: the scope reached server production and found its reads.
@@ -41,14 +39,6 @@ class ReadRpcsNameTheirCallerRule :
         }
     }) {
     companion object {
-        /**
-         * `Class.method` reads that answer every member identically and still await an access decision.
-         * See the class KDoc: this is a backlog.
-         */
-        val UNREVIEWED_OPEN_READS: Set<String> =
-            setOf(
-            )
-
         private val PRINCIPAL_WORD = Regex("""principal""", RegexOption.IGNORE_CASE)
 
         private val REASONED_ESCAPE = Regex("""@OpenRead\s*\(\s*(reason\s*=\s*)?"[^"]*\S[^"]*"\s*,?\s*\)""")
@@ -91,10 +81,7 @@ class ReadRpcsNameTheirCallerRule :
                         .asSequence()
                         .filter { it.hasOverrideModifier }
                         .filter { fn -> isPlainRead(fn) }
-                        .filterNot { fn ->
-                            "${cls.name}.${fn.name}" in
-                                UNREVIEWED_OPEN_READS
-                        }.filterNot { fn -> REASONED_ESCAPE.containsMatchIn(stripComments(fn.text)) }
+                        .filterNot { fn -> REASONED_ESCAPE.containsMatchIn(stripComments(fn.text)) }
                         .filterNot { fn ->
                             val body = stripComments(fn.text)
                             PRINCIPAL_WORD.containsMatchIn(body) ||
