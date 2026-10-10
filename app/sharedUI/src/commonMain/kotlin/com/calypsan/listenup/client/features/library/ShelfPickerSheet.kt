@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -367,7 +368,7 @@ private fun CreateShelfDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
-    var shelfName by remember { mutableStateOf("") }
+    var shelfName by rememberSaveable { mutableStateOf("") }
     val isValid = shelfName.isNotBlank()
     val focusRequester = remember { FocusRequester() }
 
