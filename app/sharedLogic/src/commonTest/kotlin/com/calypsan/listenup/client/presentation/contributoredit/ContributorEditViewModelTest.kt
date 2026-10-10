@@ -30,6 +30,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -172,6 +173,92 @@ class ContributorEditViewModelTest :
                 val state = viewModel.state.value
                 state.isLoading shouldBe false
                 state.error shouldBe "Contributor not found"
+            }
+        }
+
+        test("loading the id already loaded keeps unsaved edits") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("My edit"))
+
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "My edit"
+                viewModel.state.value.hasChanges shouldBe true
+            }
+        }
+
+        test("loading the id already loaded does not read the store a second time") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                val viewModel = fixture.build()
+
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.contributorRepository.getById("contributor-1") }
+            }
+        }
+
+        test("loading a different id replaces the form") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns
+                    createContributor(id = "contributor-1", name = "First")
+                everySuspend { fixture.contributorRepository.getById("contributor-2") } returns
+                    createContributor(id = "contributor-2", name = "Second")
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("My edit"))
+
+                viewModel.loadContributor("contributor-2")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "Second"
+                viewModel.state.value.hasChanges shouldBe false
+            }
+        }
+
+        test("a failed load can be retried for the same id") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns null
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns
+                    createContributor(name = "Recovered")
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "Recovered"
+            }
+        }
+
+        test("reloading does not stack alias collectors") {
+            runTest {
+                val fixture = createFixture()
+                val aliases = MutableStateFlow<List<String>>(emptyList())
+                every { fixture.contributorAliasDao.observeForContributor(any()) } returns aliases
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                val viewModel = fixture.build()
+
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                aliases.subscriptionCount.value shouldBe 1
             }
         }
 

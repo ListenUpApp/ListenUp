@@ -18,6 +18,7 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -317,47 +318,63 @@ class ContributorEditViewModel internal constructor(
     private var originalBirthDate: String = ""
     private var originalDeathDate: String = ""
 
+    /** The id whose data the form currently holds or is fetching; a repeat load for it is a no-op. */
+    private var loadedContributorId: String? = null
+    private var loadJob: Job? = null
+    private var aliasJob: Job? = null
+
     /**
      * Load contributor data for editing.
      */
     fun loadContributor(contributorId: String) {
-        viewModelScope.launch {
-            state.update { it.copy(isLoading = true, contributorId = contributorId) }
+        // The screen asks again whenever it is recreated (rotation, theme, fold). The form already
+        // holds this contributor, possibly with unsaved edits, so there is nothing to fetch.
+        if (loadedContributorId == contributorId) return
+        loadedContributorId = contributorId
 
-            val contributor = contributorRepository.getById(contributorId)
-            if (contributor == null) {
-                state.update { it.copy(isLoading = false, error = "Contributor not found") }
-                return@launch
+        loadJob?.cancel()
+        loadJob =
+            viewModelScope.launch {
+                state.update { it.copy(isLoading = true, contributorId = contributorId) }
+
+                val contributor = contributorRepository.getById(contributorId)
+                if (contributor == null) {
+                    // Let the same id be asked for again: nothing was loaded.
+                    loadedContributorId = null
+                    state.update { it.copy(isLoading = false, error = "Contributor not found") }
+                    return@launch
+                }
+
+                // Store original values
+                originalName = contributor.name
+                originalDescription = contributor.description.orEmpty()
+                originalWebsite = contributor.website.orEmpty()
+                originalBirthDate = contributor.birthDate.orEmpty()
+                originalDeathDate = contributor.deathDate.orEmpty()
+
+                state.update { editState ->
+                    editState.copy(
+                        isLoading = false,
+                        imagePath = contributor.imagePath,
+                        name = contributor.name,
+                        description = contributor.description.orEmpty(),
+                        website = contributor.website.orEmpty(),
+                        birthDate = contributor.birthDate.orEmpty(),
+                        deathDate = contributor.deathDate.orEmpty(),
+                        hasChanges = false,
+                    )
+                }
+
+                // Subscribe to Room aliases (single source of truth; updated by the firehose).
+                aliasJob?.cancel()
+                aliasJob =
+                    contributorAliasDao
+                        .observeForContributor(contributorId)
+                        .onEach { aliases -> state.update { it.copy(aliases = aliases) } }
+                        .launchIn(viewModelScope)
+
+                logger.debug { "Loaded contributor for editing: ${contributor.name}" }
             }
-
-            // Store original values
-            originalName = contributor.name
-            originalDescription = contributor.description.orEmpty()
-            originalWebsite = contributor.website.orEmpty()
-            originalBirthDate = contributor.birthDate.orEmpty()
-            originalDeathDate = contributor.deathDate.orEmpty()
-
-            state.update { editState ->
-                editState.copy(
-                    isLoading = false,
-                    imagePath = contributor.imagePath,
-                    name = contributor.name,
-                    description = contributor.description.orEmpty(),
-                    website = contributor.website.orEmpty(),
-                    birthDate = contributor.birthDate.orEmpty(),
-                    deathDate = contributor.deathDate.orEmpty(),
-                    hasChanges = false,
-                )
-            }
-
-            // Subscribe to Room aliases (single source of truth; updated by the firehose).
-            contributorAliasDao
-                .observeForContributor(contributorId)
-                .onEach { aliases -> state.update { it.copy(aliases = aliases) } }
-                .launchIn(viewModelScope)
-
-            logger.debug { "Loaded contributor for editing: ${contributor.name}" }
-        }
     }
 
     /**
