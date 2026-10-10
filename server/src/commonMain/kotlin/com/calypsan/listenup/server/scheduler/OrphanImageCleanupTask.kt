@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.scheduler
 import kotlinx.coroutines.CancellationException
 
 import com.calypsan.listenup.server.io.statFile
+import com.calypsan.listenup.server.media.ManagedImageDirs
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -122,9 +123,9 @@ internal class OrphanImageCleanupTask(
         val liveContributorImages = contributorRepository.listLiveImagePaths()
         val liveSeriesCovers = seriesRepository.listLiveCoverPaths().toFilenames()
         pinnedPhotos()?.let { pinned ->
-            sweepDir(Path(imageHome, "contributors"), (liveContributorImages + pinned).toFilenames(), "contributor")
+            sweepDir(Path(imageHome, ManagedImageDirs.CONTRIBUTORS), (liveContributorImages + pinned).toFilenames(), "contributor")
         }
-        sweepDir(Path(imageHome, "series"), liveSeriesCovers, "series")
+        sweepDir(Path(imageHome, ManagedImageDirs.SERIES), liveSeriesCovers, "series")
         sweepCovers()
     }
 
@@ -150,7 +151,7 @@ internal class OrphanImageCleanupTask(
                 log.warn(e) { "OrphanImageCleanupTask couldn't read which covers are live — leaving covers/ untouched" }
                 return
             }
-        sweepDir(Path(imageHome, "covers"), live.toFilenames(), "cover")
+        sweepDir(Path(imageHome, ManagedImageDirs.COVERS), live.toFilenames(), "cover")
     }
 
     /**
