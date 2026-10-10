@@ -481,6 +481,10 @@ internal val clientSyncModule =
                 store = get(),
                 transactionRunner = get(),
                 reportConnectionIssue = reporter::report,
+                // A failed catch-up on a digest-less domain (positions) must stop live frames from
+                // stepping its cursor over the gap. Resolved lazily at call time, like the
+                // dispatcher's engine callbacks, so construction order stays acyclic.
+                onUnbackedDomainFailed = { domain -> get<SyncEventDispatcher>().holdCursorUntilCatchUp(domain) },
             )
         }
 

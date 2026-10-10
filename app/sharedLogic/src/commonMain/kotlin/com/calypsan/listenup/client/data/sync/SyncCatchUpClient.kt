@@ -53,6 +53,10 @@ internal class SyncCatchUpClient(
     // Typed-failure forward to the connection-issue seam (spec §6.4). Defaults to a no-op so
     // fixtures that don't observe reporting need no change; production wires ConnectionHealthStore.
     private val reportConnectionIssue: (AppError) -> Unit = {},
+    // Told when a catch-up fails for a domain with no digest backstop: nothing but the cursor can
+    // redeliver its rows, so the live path must not step that cursor over the gap. No-op default,
+    // same as above.
+    private val onUnbackedDomainFailed: (domainName: String) -> Unit = {},
 ) : CatchUp {
     /** Drain catch-up for [handler]. Cursor advances incrementally per page. */
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> =
@@ -292,6 +296,7 @@ internal class SyncCatchUpClient(
                 if (result is AppResult.Failure) {
                     logger.warn { "catchUp($domainName) failed: ${result.error.code}" }
                     reportConnectionIssue(result.error)
+                    if (!typed.hasDigestBackstop) onUnbackedDomainFailed(domainName)
                 }
             }
         }

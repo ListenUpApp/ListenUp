@@ -60,6 +60,23 @@ class SyncEventDispatcherTest :
             override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
         }
 
+
+        fun tagFrameAt(rev: Long): SyncFrame {
+            val event =
+                SyncEvent.Created(
+                    id = "b$rev",
+                    revision = rev,
+                    occurredAt = 100L,
+                    clientOpId = null,
+                    payload = Tag("b$rev", "n", "n", rev, 100L),
+                )
+            return SyncFrame(
+                revision = rev,
+                domain = "tags",
+                json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+            )
+        }
+
         test("data event for a known domain is routed to its handler and advances the cursor") {
             runTest {
                 val registry = ClientSyncDomainRegistry()
@@ -728,6 +745,53 @@ class SyncEventDispatcherTest :
                 dispatcher.handle(frameAt(6L)) // succeeds, advances
 
                 cursorAdvanced shouldBe ("tags" to 6L)
+            }
+        }
+
+        test("a live frame does not advance an opt-out domain's cursor past a failed catch-up") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                registry.register(ScriptedHandler(ArrayDeque(listOf(AppResult.Success(Unit))), hasBackstop = false))
+                val cursors = mutableMapOf("tags" to 100L)
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursors[d] = r },
+                        cursorOf = { cursors[it] },
+                    )
+
+                dispatcher.holdCursorUntilCatchUp("tags")
+                dispatcher.handle(tagFrameAt(710L))
+
+                cursors["tags"] shouldBe 100L
+            }
+        }
+
+        test("the hold lifts once a later catch-up moves the cursor past the held point") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                registry.register(
+                    ScriptedHandler(
+                        ArrayDeque(listOf(AppResult.Success(Unit), AppResult.Success(Unit))),
+                        hasBackstop = false,
+                    ),
+                )
+                val cursors = mutableMapOf("tags" to 100L)
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursors[d] = r },
+                        cursorOf = { cursors[it] },
+                    )
+
+                dispatcher.holdCursorUntilCatchUp("tags")
+                dispatcher.handle(tagFrameAt(710L))
+                cursors["tags"] = 150L // a successful catch-up pulled the held range
+                dispatcher.handle(tagFrameAt(720L))
+
+                cursors["tags"] shouldBe 720L
             }
         }
     })

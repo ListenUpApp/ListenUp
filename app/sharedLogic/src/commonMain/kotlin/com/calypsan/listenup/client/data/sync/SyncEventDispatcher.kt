@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlin.coroutines.cancellation.CancellationException
 
 private val logger = KotlinLogging.logger {}
@@ -58,6 +60,18 @@ internal class SyncEventDispatcher(
         if (domainName !in frozenOptOutDomains) {
             frozenOptOutDomains[domainName] = cursorOf(domainName) ?: Long.MIN_VALUE
         }
+    }
+
+    // Written from the catch-up coroutine, read by the single frame collector — hence a StateFlow,
+    // not the plain map above, which stays collector-confined.
+    private val pendingHolds = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * A catch-up for [domainName] failed, so rows may sit between its cursor and the point the
+     * firehose resumed from. Until a catch-up moves the cursor, live frames must not step over them.
+     */
+    fun holdCursorUntilCatchUp(domainName: String) {
+        pendingHolds.update { it + domainName }
     }
 
     /** Route a sync frame: control events, data events, or no-op for a missing domain. */
@@ -166,6 +180,10 @@ internal class SyncEventDispatcher(
                 }
                 return
             }
+        if (!typed.hasDigestBackstop && domainName in pendingHolds.value) {
+            pendingHolds.update { it - domainName }
+            freeze(domainName)
+        }
         when (val result = typed.onEvent(event)) {
             is AppResult.Success -> {
                 // A frozen OptOut domain must not advance the cursor past its held (pre-hole)
