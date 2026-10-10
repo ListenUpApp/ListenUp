@@ -72,22 +72,44 @@ internal fun AttrsScope<*>.staggerChildrenOnArrival() {
     }
 }
 
-/** Staggers the on-screen children of [container] in now. */
+/**
+ * Staggers the on-screen children of [container] in now.
+ *
+ * A second call on the same container replaces the first sweep rather than adding to it: a
+ * `VirtualList` sweeps its first paint, then sweeps again over the fuller screenful it mounts once
+ * it has measured itself, and that has to read as one sweep from the top, not two overlapping.
+ */
 internal fun staggerIn(container: Element) {
+    sweeps.get(container)?.forEach { it.cancel() }
     val targets =
         container.children
             .asList()
             .mapNotNull(::staggerTargetOf)
             .filter { isOnScreen(it) && !isLanding(it) }
-    staggerDelays(targets.size).zip(targets).forEach { (delay, target) ->
-        animateComposited(
-            target,
-            listOf(Keyframe.opacity(0.0), Keyframe.opacity(1.0)),
-            MotionToken.ENTER,
-            delayMs = delay,
-            fill = MotionFill.BACKWARDS,
-        )
-    }
+    val motions =
+        staggerDelays(targets.size).zip(targets).map { (delay, target) ->
+            animateComposited(
+                target,
+                listOf(Keyframe.opacity(0.0), Keyframe.opacity(1.0)),
+                MotionToken.ENTER,
+                delayMs = delay,
+                fill = MotionFill.BACKWARDS,
+            )
+        }
+    sweeps.set(container, motions)
+}
+
+/** Each container's latest sweep, held only as long as the container itself is. */
+private val sweeps = WeakMap<Element, List<Motion>>()
+
+/** The browser's `WeakMap`, as much of it as the sweep uses. */
+private external class WeakMap<K : Any, V : Any> {
+    fun get(key: K): V?
+
+    fun set(
+        key: K,
+        value: V,
+    )
 }
 
 /**

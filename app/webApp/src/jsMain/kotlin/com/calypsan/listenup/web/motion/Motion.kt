@@ -107,6 +107,11 @@ internal class Motion(
         }
         animation.addEventListener("finish", { _: dynamic -> action() })
     }
+
+    /** Stops this motion, leaving the element in its resting state. Nothing to stop if it never started. */
+    fun cancel() {
+        if (animation != null) animation.cancel()
+    }
 }
 
 /**

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -120,9 +121,13 @@ internal fun <T> VirtualList(
                             },
                         )
                     }
+                tracker.container = element
                 // The first screenful sweeps in when the list arrives with its page. See Stagger.kt.
                 staggerOnArrival(element)
-                onDispose { detach?.invoke() }
+                onDispose {
+                    detach?.invoke()
+                    tracker.container = null
+                }
             }
         }
     }) {
@@ -157,6 +162,15 @@ internal fun <T> VirtualList(
             }
         }
         if (virtualised) Spacer(offsets.last() - offsets[shown.last])
+    }
+    // ⛔ The first paint is a fixed [FIRST_PAINT_ITEMS]; on a wide window the measured window mounts
+    // more a frame later, and swept only on mount those would appear at once while the tiles above
+    // them were still fading in. So the sweep runs again over the whole screenful once it exists —
+    // once, on the first measurement, never on a later resize.
+    val measured = metrics.known
+    DisposableEffect(measured) {
+        if (measured) tracker.container?.let(::staggerOnArrival)
+        onDispose { }
     }
 }
 
@@ -279,6 +293,9 @@ private data class RowWindow(
 private class WindowTracker {
     var offsets: List<Double> = emptyList()
     var view: ListView = ListView(top = 0.0, height = 0.0)
+
+    /** The list's own element, for the sweep that follows its first measurement. */
+    var container: Element? = null
 }
 
 /** Rows within [OVERSCAN_PX] of the viewport, clamped to what exists. */
