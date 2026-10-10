@@ -62,9 +62,6 @@ fun contractLibrary(
         series = series,
         authors = authors,
         narrators = narrators,
-        bookProgress = books.associate { it.id to PARTIAL_PROGRESS },
-        bookIsFinished = emptyMap(),
-        booksInProgress = emptyList(),
         seriesProgress = seriesProgress,
         syncState = if (syncing) SyncState.Syncing else SyncState.Idle,
         isServerScanning = false,
@@ -82,8 +79,8 @@ fun contractLibrary(
 /**
  * Part-read, so the progress bar actually renders.
  *
- * The page draws `.lib-progress` only when progress is greater than zero, so a contract built on
- * zero would assert against markup that was never emitted.
+ * The card draws its listening bar only for a started book, so a contract built on an unstarted one
+ * would assert against markup that was never emitted.
  */
 private const val PARTIAL_PROGRESS = 0.4f
 

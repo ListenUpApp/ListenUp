@@ -1020,7 +1020,7 @@ class LibraryViewModelTest :
 
         // ========== Book Progress Tests ==========
 
-        test("bookProgress calculates progress from positions and durations") {
+        test("bookStatus carries each started book's fraction and time left") {
             runTest {
                 // Given
                 val books =
@@ -1066,15 +1066,15 @@ class LibraryViewModelTest :
 
                 // Then
                 val loaded = viewModel.uiState.value as LibraryUiState.Loaded
-                loaded.bookProgress[BookId("book-1")] shouldBe 0.5f
-                loaded.bookProgress[BookId("book-2")] shouldBe 0.5f
+                loaded.bookStatus[BookId("book-1")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = 5_000L)
+                loaded.bookStatus[BookId("book-2")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = 10_000L)
             }
         }
 
-        test("bookProgress includes completed books for completion badge") {
+        test("a finished book's card status is Finished") {
             runTest {
-                // Given - book at 99%+ is considered complete
-                // (UI uses this to show completion badge instead of progress overlay)
+                // Given - a book marked finished (authoritative from the server); the card shows the
+                // finished badge and "Finished · length" instead of a progress mark
                 val books =
                     listOf(
                         createTestBook(id = "book-1", duration = 10_000L),
@@ -1084,7 +1084,7 @@ class LibraryViewModelTest :
                         BookId("book-1") to
                             PlaybackPosition(
                                 bookId = "book-1",
-                                positionMs = 9_950L, // 99.5% - should be included for completion badge
+                                positionMs = 9_950L,
                                 playbackSpeed = 1.0f,
                                 hasCustomSpeed = false,
                                 volumeBoostDb = 0f,
@@ -1093,6 +1093,7 @@ class LibraryViewModelTest :
                                 updatedAtMs = 0L,
                                 syncedAtMs = null,
                                 lastPlayedAtMs = null,
+                                isFinished = true,
                             ),
                     )
                 val fixture = createFixture()
@@ -1102,15 +1103,15 @@ class LibraryViewModelTest :
                 backgroundScope.launch { viewModel.uiState.collect { } }
                 advanceUntilIdle()
 
-                // Then - completed book is included with its progress (for completion badge)
+                // Then - the card says Finished, with the book's length
                 val loaded = viewModel.uiState.value as LibraryUiState.Loaded
-                loaded.bookProgress[BookId("book-1")] shouldBe 0.995f
+                loaded.bookStatus[BookId("book-1")] shouldBe BookCardStatus.Finished(durationMs = 10_000L)
             }
         }
 
-        // ========== booksInProgress Derivation Tests ==========
+        // ========== In progress filter Tests ==========
 
-        test("booksInProgress includes only started-but-unfinished books") {
+        test("the In progress filter shows only started, unfinished books") {
             runTest {
                 // Given — three books: not started, in progress, finished
                 val books =
@@ -1157,15 +1158,16 @@ class LibraryViewModelTest :
                 every { fixture.playbackPositionRepository.observeAll() } returns flowOf(positions)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }
+                viewModel.onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
                 advanceUntilIdle()
 
                 // Then — only the in-progress book appears
                 val loaded = viewModel.uiState.value as LibraryUiState.Loaded
-                loaded.booksInProgress.map { it.id.value } shouldBe listOf("in-progress")
+                loaded.books.map { it.id.value } shouldBe listOf("in-progress")
             }
         }
 
-        test("booksInProgress is empty when no books have partial progress") {
+        test("the In progress filter is empty, not the library, when no book has partial progress") {
             runTest {
                 // Given — one book, no positions
                 val books = listOf(createTestBook(id = "book-1", duration = 10_000L))
@@ -1173,11 +1175,13 @@ class LibraryViewModelTest :
                 every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }
+                viewModel.onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
                 advanceUntilIdle()
 
                 // Then
                 val loaded = viewModel.uiState.value as LibraryUiState.Loaded
-                loaded.booksInProgress shouldBe emptyList()
+                loaded.books shouldBe emptyList()
+                loaded.isFilteredEmpty shouldBe true
             }
         }
 
@@ -1209,8 +1213,8 @@ class LibraryViewModelTest :
 
                 // Then - state degrades gracefully to Loaded with empty progress maps rather than Error
                 val loaded = viewModel.uiState.value as LibraryUiState.Loaded
-                loaded.bookProgress.size shouldBe 0
-                loaded.bookIsFinished.size shouldBe 0
+                loaded.bookStatus.size shouldBe 0
+                loaded.statusCounts.all shouldBe 0
             }
         }
 
@@ -1384,7 +1388,7 @@ class LibraryViewModelTest :
 
                 // Then — progress IS reflected in new state...
                 val after = viewModel.uiState.value as LibraryUiState.Loaded
-                after.bookProgress[BookId("1")] shouldBe 0.5f
+                after.bookStatus[BookId("1")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = 5_000L)
                 // ...but the sorted lists are the SAME instances: the sort stage did not
                 // re-run (every applicable sort branch allocates a fresh list via .map).
                 after.books shouldBeSameInstanceAs before.books
@@ -1496,7 +1500,7 @@ class LibraryViewModelTest :
                         advanceUntilIdle()
 
                         val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
-                        after.bookProgress[BookId("1")] shouldBe 0.5f
+                        after.bookStatus[BookId("1")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = 5_000L)
                         after.contentRevision shouldBe before.contentRevision
                         states.cancel()
                     }

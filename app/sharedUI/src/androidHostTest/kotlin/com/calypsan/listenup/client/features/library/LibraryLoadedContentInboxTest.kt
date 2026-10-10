@@ -17,6 +17,8 @@ import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
+import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
@@ -181,15 +183,13 @@ class LibraryLoadedContentInboxTest {
             series = emptyList(),
             authors = emptyList(),
             narrators = emptyList(),
-            bookProgress = mapOf(book.id to 0.5f),
-            bookIsFinished = emptyMap(),
-            // In progress is a Books-grid view too: it must not carry the entry.
-            booksInProgress = listOf(book),
             seriesProgress = emptyMap(),
             syncState = SyncState.Idle,
             isServerScanning = false,
             scanProgress = null,
             isBuildingInitialLibrary = false,
+            statusCounts = BookStatusCounts(all = 1, inProgress = 1, notStarted = 0, finished = 0),
+            bookStatus = mapOf(book.id to BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = book.duration / 2)),
         )
     }
 

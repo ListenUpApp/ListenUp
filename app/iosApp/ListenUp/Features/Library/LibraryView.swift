@@ -191,7 +191,6 @@ struct LibraryView: View {
         case .books:
             BooksContent(
                 books: observer.books,
-                bookProgress: observer.bookProgress,
                 bookStatus: observer.bookStatus,
                 sortState: observer.booksSortState,
                 isLoading: observer.isLoading,

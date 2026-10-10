@@ -85,9 +85,8 @@ private data class SyncSnapshot(
     val isBuildingInitialLibrary: Boolean,
 )
 
-/** Progress maps derived from playback positions and book durations. */
+/** Per-book card state and finished flags, derived from playback positions and book durations. */
 private data class ProgressSnapshot(
-    val progressMap: Map<BookId, Float>,
     val finishedMap: Map<BookId, Boolean>,
     val cardStatus: Map<BookId, BookCardStatus>,
 )
@@ -575,13 +574,6 @@ class LibraryViewModel(
             series = sorted.series,
             authors = sorted.authors,
             narrators = sorted.narrators,
-            bookProgress = progress.progressMap,
-            bookIsFinished = progress.finishedMap,
-            booksInProgress =
-                sorted.books.filter { book ->
-                    val p = progress.progressMap[book.id]
-                    p != null && p > 0f && p < 1f && progress.finishedMap[book.id] != true
-                },
             seriesProgress = seriesProgress,
             syncState = sync.syncState,
             isServerScanning = sync.isServerScanning,
@@ -598,27 +590,10 @@ class LibraryViewModel(
         books: List<BookListItem>,
         positions: Map<BookId, PlaybackPosition>,
     ): ProgressSnapshot {
-        val bookDurations = books.associate { it.id to it.duration }
-        val progressMap = mutableMapOf<BookId, Float>()
-        val finishedMap = mutableMapOf<BookId, Boolean>()
-
-        for ((bookId, position) in positions) {
-            // Track isFinished for all positions (authoritative from server)
-            if (position.isFinished) {
-                finishedMap[bookId] = true
-            }
-
-            // Track progress for books with valid duration
-            val duration = bookDurations[bookId] ?: continue
-            if (duration <= 0) continue
-            val progress = (position.positionMs.toFloat() / duration).coerceIn(0f, 1f)
-            if (progress > 0f) {
-                progressMap[bookId] = progress
-            }
-        }
-
+        // isFinished is authoritative from the server; seriesProgress counts it.
+        val finishedMap = positions.filterValues { it.isFinished }.mapValues { true }
         val cardStatus = books.associate { it.id to cardStatusOf(it, positions[it.id]) }
-        return ProgressSnapshot(progressMap, finishedMap, cardStatus)
+        return ProgressSnapshot(finishedMap, cardStatus)
     }
 
     // ═══════════════════════════════════════════════════════════════════════

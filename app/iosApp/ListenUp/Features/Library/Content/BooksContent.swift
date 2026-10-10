@@ -10,7 +10,6 @@ import Shared
 /// - Loading, empty, and error states
 struct BooksContent: View {
     let books: [BookRow]
-    let bookProgress: [String: Float]
     /// What each book's card says about where the reader is with it (spec §2.6).
     var bookStatus: [String: LibraryCardState] = [:]
     let sortState: SortState?
@@ -183,7 +182,6 @@ struct BooksContent: View {
     private func bookCell(_ book: BookRow) -> some View {
         let card = BookCoverCard(
             book: book,
-            progress: bookProgress[book.id],
             isSelecting: selection.isSelecting,
             isSelected: selection.isSelected(book.id),
             libraryState: bookStatus[book.id],

@@ -9,7 +9,6 @@ final class LibraryObserver {
     // MARK: - Flattened state
 
     private(set) var books: [BookRow] = []
-    private(set) var bookProgress: [String: Float] = [:]
     private(set) var booksSortState: SortState?
     private(set) var series: [SeriesRow] = []
     private(set) var seriesProgress: [String: SeriesProgressState] = [:]
@@ -130,7 +129,6 @@ final class LibraryObserver {
             if contentRevision.advance(to: loaded.contentRevision) {
                 applyContent(loaded)
             }
-            assignIfChanged(\.bookProgress, mapProgress(loaded.bookProgress))
             assignIfChanged(\.bookStatus, mapStatus(loaded.bookStatus))
             assignIfChanged(\.seriesProgress, mapSeriesProgress(loaded.seriesProgress))
             assignIfChanged(\.isSyncing, loaded.isSyncing)
@@ -197,18 +195,8 @@ final class LibraryObserver {
         self[keyPath: sections] = cache.sections
     }
 
-    /// `Map<BookId, Float>` arrives as `[BookId: Float]` over the Swift Export
-    /// boundary — the `BookId` value-class key bridges as its wrapper type. Keys are
-    /// normalized to the book-id string the UI looks up by.
-    private func mapProgress(_ raw: [BookId: Float]) -> [String: Float] {
-        var result: [String: Float] = [:]
-        for (key, value) in raw {
-            result[key.value] = value
-        }
-        return result
-    }
-
-    /// Bridge `Map<BookId, BookCardStatus>` → `[String: LibraryCardState]`, keyed like `mapProgress`.
+    /// Bridge `Map<BookId, BookCardStatus>` → `[String: LibraryCardState]`. The `BookId` value-class
+    /// key bridges as its wrapper type; keys are normalized to the book-id string the UI looks up by.
     private func mapStatus(_ raw: [BookId: BookCardStatus]) -> [String: LibraryCardState] {
         var result: [String: LibraryCardState] = [:]
         for (key, value) in raw {
@@ -218,7 +206,7 @@ final class LibraryObserver {
     }
 
     /// Bridge `Map<SeriesId, SeriesProgress>` → `[String: SeriesProgressState]`.
-    /// The `SeriesId` value-class key bridges as its wrapper type, matching `mapProgress`.
+    /// The `SeriesId` value-class key bridges as its wrapper type, matching `mapStatus`.
     private func mapSeriesProgress(_ raw: [SeriesId: SeriesProgress]) -> [String: SeriesProgressState] {
         var result: [String: SeriesProgressState] = [:]
         for (key, value) in raw {
