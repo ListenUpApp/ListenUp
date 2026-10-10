@@ -226,6 +226,56 @@ class WorldEventRepository(
         }
     }
 
+    /**
+     * Restores the `before` of [changeId] as a new forward write and records REVERT: a CREATE reverts to a
+     * tombstone; anything else restores (and revives) the earlier snapshot in the event's current home.
+     *
+     * The change, the current row and the restore are read inside the write's transaction, so the REVERT's
+     * `before` is the row as it stands. The restored anchor must still be a live book of the world, and its
+     * participants entities of the world — deleted ones allowed, so a later delete never blocks an undo. Any
+     * refusal rolls back.
+     */
+    suspend fun revert(
+        changeId: StoryWorldHistoryId,
+        actor: UserId?,
+    ): AppResult<WorldEventChange> {
+        val ctx = writeContext()
+        return suspendTransaction(db) {
+            val rev = nextRevision()
+            val change =
+                history.find(changeId)
+                    ?: rollback(AppResult.Failure(WorldEventError.HistoryNotFound(debugInfo = "change=${changeId.value}")))
+            val current =
+                readPayload(change.eventId.value)
+                    ?: rollback(AppResult.Failure(WorldEventError.NotFound(debugInfo = "event=${change.eventId.value}")))
+            val restore =
+                change.before
+                    ?: return@suspendTransaction AppResult.Success(
+                        tombstone(before = current, op = StoryWorldOp.REVERT, actor = actor, ctx = ctx, revision = rev),
+                    )
+            val home = WorldHome(current.homeSeriesId, current.homeBookId)
+            val problem =
+                integrity.anchorProblem(restore.bookId, home)
+                    ?: integrity.participantProblem(
+                        restore.type,
+                        restore.subjectEntityId,
+                        restore.objectEntityId,
+                        home,
+                        requireLive = false,
+                    )
+            if (problem != null) rollback(AppResult.Failure(problem))
+            val restored =
+                restore.copy(
+                    homeSeriesId = current.homeSeriesId,
+                    homeBookId = current.homeBookId,
+                    revision = current.revision,
+                    updatedBy = actor?.value,
+                    deletedAt = null,
+                )
+            AppResult.Success(rewrite(before = current, after = restored, op = StoryWorldOp.REVERT, actor = actor, ctx = ctx, revision = rev))
+        }
+    }
+
     // ── In-transaction helpers ──
 
     private fun TransactionWithReturn<*>.applyUpsert(
