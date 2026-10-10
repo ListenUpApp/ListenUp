@@ -196,7 +196,7 @@ fun main() {
             window.history.replaceState(null, "", withoutInvite.toUrl())
         }
 
-        val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
+        val router = Router(beforeRouteChange = { captureHeroOriginBeforeRouteChange() })
         renderComposable(root = mount) {
             AuthGate(
                 authGraph = graphAuth(koin),

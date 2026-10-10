@@ -139,7 +139,7 @@ class RouterTest :
             // that holds on all three paths, which is why the hook is defined against it.
             val seen = mutableListOf<List<String>>()
             var observed: Router? = null
-            val router = Router(beforeRouteChange = { observed?.let { seen += it.current.segments } })
+            val router = Router(beforeRouteChange = { _ -> observed?.let { seen += it.current.segments } })
             observed = router
 
             try {
@@ -153,6 +153,24 @@ class RouterTest :
                 seen[1] shouldBe listOf("library")
                 seen[2] shouldBe listOf("library")
                 seen[3] shouldBe listOf("book", "42")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the hook is told how the route is changing") {
+            // Back restores a place; a link starts a new one; a filter keeps the one it is in. The
+            // hook is where that difference is first known, so it is told — not left to guess.
+            val changes = mutableListOf<RouteChange>()
+            val router = Router(beforeRouteChange = { changes += it })
+
+            try {
+                router.navigate(Route(listOf("library")))
+                router.replace(Route(listOf("library"), mapOf("sort" to "title")))
+                window.history.back()
+                nextPopstate()
+
+                changes shouldBe listOf(RouteChange.PUSH, RouteChange.REPLACE, RouteChange.POP)
             } finally {
                 router.dispose()
             }
