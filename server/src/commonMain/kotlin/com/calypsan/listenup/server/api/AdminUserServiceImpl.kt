@@ -91,6 +91,13 @@ class AdminUserServiceImpl(
      * showing stars from someone who no longer exists.
      */
     private val bookRatingRepository: BookRatingRepository? = null,
+    /**
+     * Nullable so the auth module assembles without the Hardcover module. When present, a deleted
+     * account's Hardcover tokens, book links and queued pushes are removed, so a removed user
+     * leaves no third-party credential at rest. A function type keeps `api/` from depending on the
+     * `hardcover` package.
+     */
+    private val forgetHardcoverConnection: (suspend (String) -> Unit)? = null,
     private val activityRecorder: ActivityRecorder? = null,
     /**
      * Nullable so the auth module assembles independently of the collections module
@@ -149,6 +156,7 @@ class AdminUserServiceImpl(
             principal = provider,
             publicProfileMaintainer = publicProfileMaintainer,
             bookRatingRepository = bookRatingRepository,
+            forgetHardcoverConnection = forgetHardcoverConnection,
             activityRecorder = activityRecorder,
             defaultGrantIssuer = defaultGrantIssuer,
             pushNotifier = pushNotifier,
@@ -319,6 +327,11 @@ class AdminUserServiceImpl(
             // path exists yet, unlike the roster/profile projections above).
             runCatchingCancellable { bookRatingRepository?.softDeleteAllForUser(id.value) }
                 .onFailure { log.warn(it) { "book ratings sweep failed for ${id.value}" } }
+
+            // Best-effort for the same reason: the account is already gone, and a Hardcover outage
+            // must not turn a completed deletion into a reported failure.
+            runCatchingCancellable { forgetHardcoverConnection?.invoke(id.value) }
+                .onFailure { log.warn(it) { "hardcover cleanup failed for ${id.value}" } }
         }
         return outcome
     }

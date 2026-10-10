@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.api.InstanceServiceImpl
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
 import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.AuthServiceImpl
@@ -77,6 +78,7 @@ private fun org.koin.core.module.Module.adminUserServiceSingle(applicationScope:
             clock = get(),
             publicProfileMaintainer = getOrNull(),
             bookRatingRepository = getOrNull(),
+            forgetHardcoverConnection = getOrNull<HardcoverConnectionStore>()?.let { store -> { userId -> store.delete(userId) } },
             activityRecorder = getOrNull(),
             defaultGrantIssuer = getOrNull(),
             pushNotifier = getOrNull(),
