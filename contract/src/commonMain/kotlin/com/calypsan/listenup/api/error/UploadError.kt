@@ -30,6 +30,8 @@ sealed interface UploadError : AppError {
         override val message: String = "That upload is no longer in progress."
         override val code: String = "UPLOAD_SESSION_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -49,6 +51,8 @@ sealed interface UploadError : AppError {
         override val message: String = "That file path isn't allowed."
         override val code: String = "UPLOAD_INVALID_FILE_PATH"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -64,6 +68,8 @@ sealed interface UploadError : AppError {
         override val message: String = "That upload is too large. Try uploading fewer books at once."
         override val code: String = "UPLOAD_SESSION_TOO_LARGE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -80,6 +86,8 @@ sealed interface UploadError : AppError {
         override val message: String = "That file didn't upload completely. Try it again."
         override val code: String = "UPLOAD_FILE_TRANSFER_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -95,6 +103,8 @@ sealed interface UploadError : AppError {
         override val message: String = "No audiobooks were found in that upload."
         override val code: String = "UPLOAD_NO_BOOKS_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -110,5 +120,7 @@ sealed interface UploadError : AppError {
         override val message: String = "Add a library folder before uploading books."
         override val code: String = "UPLOAD_NO_LIBRARY_FOLDER"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

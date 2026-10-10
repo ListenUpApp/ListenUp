@@ -22,6 +22,8 @@ sealed interface TransportError : AppError {
         override val message: String = "No internet connection. Check your network."
         override val code: String = "TRANSPORT_NETWORK_UNAVAILABLE"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Network operation timed out (connect, read, or request). */
@@ -34,6 +36,8 @@ sealed interface TransportError : AppError {
         override val message: String = "Connection timed out. Please try again."
         override val code: String = "TRANSPORT_TIMEOUT"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -52,6 +56,8 @@ sealed interface TransportError : AppError {
         override val message: String = "The request may not have completed. Check before retrying."
         override val code: String = "TRANSPORT_OUTCOME_UNKNOWN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -72,6 +78,8 @@ sealed interface TransportError : AppError {
         override val message: String = "Request rejected by server (HTTP $statusCode)."
         override val code: String = "TRANSPORT_SERVER_4XX"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Server returned a 5xx response. */
@@ -85,6 +93,8 @@ sealed interface TransportError : AppError {
         override val message: String = "Server error (HTTP $statusCode). Please try again."
         override val code: String = "TRANSPORT_SERVER_5XX"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -105,6 +115,8 @@ sealed interface TransportError : AppError {
         override val message: String = "Server response was malformed."
         override val code: String = "TRANSPORT_DATA_MALFORMED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -123,5 +135,7 @@ sealed interface TransportError : AppError {
         override val message: String = "The app and server versions don't match."
         override val code: String = "TRANSPORT_CONTRACT_MISMATCH"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

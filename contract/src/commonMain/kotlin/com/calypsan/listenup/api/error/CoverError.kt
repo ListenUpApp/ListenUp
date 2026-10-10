@@ -34,5 +34,7 @@ sealed interface CoverError : AppError {
         override val message: String = "This book doesn't have a cover to delete."
         override val code: String = "COVER_NOT_PRESENT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

@@ -39,6 +39,8 @@ sealed interface AdminError : AppError {
         override val message: String = "That user could not be found."
         override val code: String = "ADMIN_USER_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -54,6 +56,8 @@ sealed interface AdminError : AppError {
         override val message: String = "The root account cannot be modified or deleted."
         override val code: String = "ADMIN_CANNOT_MODIFY_ROOT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -69,6 +73,8 @@ sealed interface AdminError : AppError {
         override val message: String = "At least one admin must remain."
         override val code: String = "ADMIN_CANNOT_DEMOTE_LAST_ADMIN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -84,6 +90,8 @@ sealed interface AdminError : AppError {
         override val message: String = "You cannot delete your own account here."
         override val code: String = "ADMIN_CANNOT_DELETE_SELF"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -99,6 +107,8 @@ sealed interface AdminError : AppError {
         override val message: String = "At least one admin must remain."
         override val code: String = "ADMIN_CANNOT_DELETE_LAST_ADMIN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -114,5 +124,7 @@ sealed interface AdminError : AppError {
         override val message: String = "The request was invalid."
         override val code: String = "ADMIN_INVALID_INPUT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

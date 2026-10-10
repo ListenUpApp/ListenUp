@@ -33,6 +33,12 @@ sealed interface AppError {
 
     /** Technical debug detail — populated in debug builds, null in release. */
     val debugInfo: String?
+
+    /**
+     * This error carrying [id] as its correlation id, otherwise unchanged. The server stamps the
+     * request's id onto every error it returns, so the reference a user reads out finds the log line.
+     */
+    fun withCorrelationId(id: String?): AppError
 }
 
 /**
@@ -55,6 +61,8 @@ data class InternalError(
     override val message: String = "Something went wrong on the server."
     override val code: String = "INTERNAL_ERROR"
     override val isRetryable: Boolean = false
+
+    override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
 }
 
 /**
@@ -71,6 +79,8 @@ data class UnexpectedClientError(
     override val message: String = "Something went wrong in the app."
     override val code: String = "CLIENT_UNEXPECTED"
     override val isRetryable: Boolean = false
+
+    override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
 }
 
 /**
@@ -106,7 +116,9 @@ data class UnknownError(
     override val debugInfo: String? = null,
     @SerialName("isRetryable")
     override val isRetryable: Boolean = false,
-) : AppError
+) : AppError {
+    override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
+}
 
 /**
  * Input failed validation — surfaces both client-side pre-flight checks
@@ -132,4 +144,6 @@ data class ValidationError(
 ) : AppError {
     override val code: String = "VALIDATION_ERROR"
     override val isRetryable: Boolean = false
+
+    override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
 }

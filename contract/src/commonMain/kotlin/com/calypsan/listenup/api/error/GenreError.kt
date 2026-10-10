@@ -38,6 +38,8 @@ sealed interface GenreError : AppError {
         override val message: String = "This genre no longer exists."
         override val code: String = "GENRE_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -54,6 +56,8 @@ sealed interface GenreError : AppError {
         override val message: String = "Some of the changes couldn't be saved."
         override val code: String = "GENRE_INVALID_INPUT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -69,6 +73,8 @@ sealed interface GenreError : AppError {
         override val message: String = "Move or delete this genre's child genres first."
         override val code: String = "GENRE_HAS_DESCENDANTS"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -84,6 +90,8 @@ sealed interface GenreError : AppError {
         override val message: String = "A genre can't be merged with itself."
         override val code: String = "GENRE_MERGE_SELF_TARGET"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -100,6 +108,8 @@ sealed interface GenreError : AppError {
         override val message: String = "Can't move a genre under itself."
         override val code: String = "GENRE_MOVE_SELF_DESCENDANT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -116,6 +126,8 @@ sealed interface GenreError : AppError {
         override val message: String = "That raw string isn't in the unmapped queue."
         override val code: String = "GENRE_UNMAPPED_STRING_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -132,6 +144,8 @@ sealed interface GenreError : AppError {
         override val message: String = "A genre with that name already exists."
         override val code: String = "GENRE_SLUG_CONFLICT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** No merge receipt with the given id exists. */
@@ -144,6 +158,8 @@ sealed interface GenreError : AppError {
         override val message: String = "That merge can no longer be found."
         override val code: String = "GENRE_MERGE_RECEIPT_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The merge has already been undone. Raised to the second of two admins undoing at once. */
@@ -156,6 +172,8 @@ sealed interface GenreError : AppError {
         override val message: String = "That merge has already been undone."
         override val code: String = "GENRE_MERGE_ALREADY_UNDONE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -171,6 +189,8 @@ sealed interface GenreError : AppError {
         override val message: String = "This genre has since been merged into another. Undo that merge first."
         override val code: String = "GENRE_MERGE_TARGET_GONE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -187,5 +207,7 @@ sealed interface GenreError : AppError {
         override val message: String = "A genre with that name exists now. Rename or merge it, then undo."
         override val code: String = "GENRE_MERGE_SOURCE_NAME_TAKEN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

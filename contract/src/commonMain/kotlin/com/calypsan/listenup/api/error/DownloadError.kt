@@ -24,6 +24,8 @@ sealed interface DownloadError : AppError {
                 ?: "Download failed."
         override val code: String = "DOWNLOAD_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -45,6 +47,8 @@ sealed interface DownloadError : AppError {
         override val message: String = "Downloads aren't supported on this device."
         override val code: String = "DOWNLOAD_NOT_SUPPORTED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Not enough storage space to complete download. User must free space. */
@@ -60,6 +64,8 @@ sealed interface DownloadError : AppError {
                 ?: "Not enough storage space."
         override val code: String = "DOWNLOAD_INSUFFICIENT_STORAGE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -79,5 +85,7 @@ sealed interface DownloadError : AppError {
                 ?: "Failed to delete download."
         override val code: String = "DOWNLOAD_DELETE_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

@@ -36,6 +36,8 @@ sealed interface ShelfError : AppError {
         override val message: String = "Shelf not found."
         override val code: String = "SHELF_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -55,6 +57,8 @@ sealed interface ShelfError : AppError {
         override val message: String = "You don't have permission to do that."
         override val code: String = "SHELF_FORBIDDEN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -70,5 +74,7 @@ sealed interface ShelfError : AppError {
         override val message: String = "Shelf name is invalid."
         override val code: String = "SHELF_INVALID_NAME"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

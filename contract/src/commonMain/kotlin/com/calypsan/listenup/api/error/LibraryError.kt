@@ -40,6 +40,8 @@ sealed interface LibraryError : AppError {
         override val message: String = "Library not found."
         override val code: String = "LIBRARY_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -57,6 +59,8 @@ sealed interface LibraryError : AppError {
         override val message: String = "The path does not exist or is not readable."
         override val code: String = "LIBRARY_INVALID_PATH"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -75,6 +79,8 @@ sealed interface LibraryError : AppError {
         override val message: String = "That folder is already registered under another library."
         override val code: String = "LIBRARY_DUPLICATE_FOLDER"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -99,6 +105,8 @@ sealed interface LibraryError : AppError {
         override val message: String = "That folder took too long to read. Try browsing to a more specific path."
         override val code: String = "LIBRARY_BROWSE_TIMED_OUT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -116,5 +124,7 @@ sealed interface LibraryError : AppError {
         override val message: String = "Folder not found."
         override val code: String = "LIBRARY_FOLDER_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

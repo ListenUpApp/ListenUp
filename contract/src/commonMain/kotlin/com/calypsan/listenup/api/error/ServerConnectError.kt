@@ -36,6 +36,8 @@ sealed interface ServerConnectError : AppError {
             }
         override val code: String = "SERVER_CONNECT_INVALID_URL_${reason.uppercase()}"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -53,6 +55,8 @@ sealed interface ServerConnectError : AppError {
         override val message: String = "This doesn't appear to be a ListenUp server."
         override val code: String = "SERVER_CONNECT_NOT_LISTENUP_SERVER"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -69,6 +73,8 @@ sealed interface ServerConnectError : AppError {
         override val message: String = "Cannot reach server. Check that it's running and the URL is correct."
         override val code: String = "SERVER_CONNECT_NOT_REACHABLE"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -85,6 +91,8 @@ sealed interface ServerConnectError : AppError {
         override val message: String = "Couldn't verify the server. Please try again."
         override val code: String = "SERVER_CONNECT_VERIFICATION_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -106,6 +114,8 @@ sealed interface ServerConnectError : AppError {
         override val message: String = "Couldn't establish a secure connection to the server."
         override val code: String = "SERVER_CONNECT_TLS_FAILURE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -133,5 +143,7 @@ sealed interface ServerConnectError : AppError {
             "ListenUp needs local network access to find and connect to servers on your network."
         override val code: String = "SERVER_CONNECT_LOCAL_NETWORK_PERMISSION_DENIED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

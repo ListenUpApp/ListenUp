@@ -23,6 +23,8 @@ sealed interface LibraryWriteError : AppError {
         override val message: String = "This library folder isn't writable right now."
         override val code: String = "LIBRARY_WRITE_UNAVAILABLE"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -48,6 +50,8 @@ sealed interface LibraryWriteError : AppError {
         override val message: String = "That location isn't inside your library."
         override val code: String = "LIBRARY_WRITE_OUTSIDE_LIBRARY"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -74,5 +78,7 @@ sealed interface LibraryWriteError : AppError {
         override val message: String = "That folder is protected and can't be removed."
         override val code: String = "LIBRARY_WRITE_PROTECTED_PATH"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

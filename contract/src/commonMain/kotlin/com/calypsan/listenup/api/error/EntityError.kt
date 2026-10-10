@@ -23,6 +23,8 @@ sealed interface EntityError : AppError {
         override val message: String = "This story world entry no longer exists."
         override val code: String = "ENTITY_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -38,6 +40,8 @@ sealed interface EntityError : AppError {
         override val message: String = "That can't contain this entry."
         override val code: String = "ENTITY_INVALID_PARENT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The chosen parent is the entity itself or one of its own descendants. */
@@ -50,6 +54,8 @@ sealed interface EntityError : AppError {
         override val message: String = "An entry can't be placed inside itself."
         override val code: String = "ENTITY_CYCLE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Only entities of the same kind can be merged. */
@@ -62,6 +68,8 @@ sealed interface EntityError : AppError {
         override val message: String = "Only entries of the same kind can be merged."
         override val code: String = "ENTITY_MERGE_KIND_MISMATCH"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** No history entry with that id exists for anything the caller can see. */
@@ -74,5 +82,7 @@ sealed interface EntityError : AppError {
         override val message: String = "That change can no longer be found."
         override val code: String = "ENTITY_HISTORY_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

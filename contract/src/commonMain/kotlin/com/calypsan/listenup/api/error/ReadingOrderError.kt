@@ -31,6 +31,8 @@ sealed interface ReadingOrderError : AppError {
         override val message: String = "That reading order no longer exists."
         override val code: String = "READING_ORDER_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -46,6 +48,8 @@ sealed interface ReadingOrderError : AppError {
         override val message: String = "Only the person who made this reading order, or an admin, can change it."
         override val code: String = "READING_ORDER_FORBIDDEN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -60,6 +64,8 @@ sealed interface ReadingOrderError : AppError {
         override val message: String = "Reading order names need 1 to 80 characters."
         override val code: String = "READING_ORDER_INVALID_NAME"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -74,6 +80,8 @@ sealed interface ReadingOrderError : AppError {
         override val message: String = "This series already has a reading order with that name."
         override val code: String = "READING_ORDER_NAME_EXISTS"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -88,6 +96,8 @@ sealed interface ReadingOrderError : AppError {
         override val message: String = "Only books in this series and its sub-series can be added."
         override val code: String = "READING_ORDER_BOOK_OUTSIDE_SERIES"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -103,6 +113,8 @@ sealed interface ReadingOrderError : AppError {
         override val message: String = "That reading order isn't available for this series."
         override val code: String = "READING_ORDER_CHOICE_UNAVAILABLE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -117,5 +129,7 @@ sealed interface ReadingOrderError : AppError {
         override val message: String = "That change couldn't be made to the reading order."
         override val code: String = "READING_ORDER_INVALID_INPUT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

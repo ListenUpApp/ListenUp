@@ -26,6 +26,8 @@ sealed interface HardcoverError : AppError {
         override val message: String = "Hardcover isn't set up on this server."
         override val code: String = "HARDCOVER_NOT_CONFIGURED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Hardcover could not be reached, or answered with a temporary failure. Safe to retry. */
@@ -38,6 +40,8 @@ sealed interface HardcoverError : AppError {
         override val message: String = "Hardcover can't be reached right now. Try again shortly."
         override val code: String = "HARDCOVER_UNAVAILABLE"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -53,6 +57,8 @@ sealed interface HardcoverError : AppError {
         override val message: String = "The Hardcover account ListenUp uses needs to be reconnected."
         override val code: String = "HARDCOVER_CONNECTION_BROKEN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The user is already connected; disconnect first to connect a different account. */
@@ -65,6 +71,8 @@ sealed interface HardcoverError : AppError {
         override val message: String = "You're already connected to Hardcover."
         override val code: String = "HARDCOVER_ALREADY_CONNECTED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The caller has no Hardcover account connected, so there is nothing to search or link with. */
@@ -77,6 +85,8 @@ sealed interface HardcoverError : AppError {
         override val message: String = "Connect your Hardcover account first."
         override val code: String = "HARDCOVER_NOT_CONNECTED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -92,5 +102,7 @@ sealed interface HardcoverError : AppError {
         override val message: String = "Hardcover didn't accept that token. Check it and try again."
         override val code: String = "HARDCOVER_TOKEN_REJECTED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

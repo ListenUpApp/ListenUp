@@ -27,6 +27,8 @@ sealed interface ImportError : AppError {
         override val message: String = "Failed to upload backup file. Check your connection."
         override val code: String = "IMPORT_UPLOAD_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -44,6 +46,8 @@ sealed interface ImportError : AppError {
         override val message: String = "Server failed to analyze the backup."
         override val code: String = "IMPORT_ANALYSIS_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Applying import results (matching/creating books) failed. */
@@ -56,6 +60,8 @@ sealed interface ImportError : AppError {
         override val message: String = "Failed to apply import changes."
         override val code: String = "IMPORT_APPLY_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The requested import job does not exist or has already been deleted. */
@@ -68,6 +74,8 @@ sealed interface ImportError : AppError {
         override val message: String = "That import no longer exists."
         override val code: String = "IMPORT_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -83,5 +91,7 @@ sealed interface ImportError : AppError {
         override val message: String = "The import mapping references something that no longer exists."
         override val code: String = "IMPORT_MAPPING_INVALID"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

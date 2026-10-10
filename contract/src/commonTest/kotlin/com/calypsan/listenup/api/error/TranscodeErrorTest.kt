@@ -30,8 +30,8 @@ class TranscodeErrorTest :
             TranscodeError.TranscodeFailed().code shouldBe "TRANSCODE_FAILED"
         }
 
-        // Every family must be stampable, or a correlation id is lost on one transport and not the
-        // other — the exact drift CorrelationStamping exists to make impossible.
+        // Every variant must be stampable, or a correlation id is lost on one transport and not the
+        // other.
         test("a correlation id can be stamped onto every variant") {
             val stamped =
                 listOf(

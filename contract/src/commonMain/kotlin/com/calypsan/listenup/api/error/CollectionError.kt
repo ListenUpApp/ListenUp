@@ -37,6 +37,8 @@ sealed interface CollectionError : AppError {
         override val message: String = "Collection not found."
         override val code: String = "COLLECTION_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -57,6 +59,8 @@ sealed interface CollectionError : AppError {
         override val message: String = "You don't have permission to do that."
         override val code: String = "COLLECTION_FORBIDDEN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -75,6 +79,8 @@ sealed interface CollectionError : AppError {
         override val message: String = "System collections can't be modified."
         override val code: String = "COLLECTION_SYSTEM_READ_ONLY"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -90,6 +96,8 @@ sealed interface CollectionError : AppError {
         override val message: String = "Invalid collection input."
         override val code: String = "COLLECTION_INVALID_INPUT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -105,6 +113,8 @@ sealed interface CollectionError : AppError {
         override val message: String = "Book not found."
         override val code: String = "COLLECTION_BOOK_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -120,6 +130,8 @@ sealed interface CollectionError : AppError {
         override val message: String = "User not found."
         override val code: String = "COLLECTION_USER_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -135,6 +147,8 @@ sealed interface CollectionError : AppError {
         override val message: String = "You can't share a collection with yourself."
         override val code: String = "COLLECTION_SELF_SHARE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -150,6 +164,8 @@ sealed interface CollectionError : AppError {
         override val message: String = "This collection is already shared with that user."
         override val code: String = "COLLECTION_ALREADY_SHARED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -172,5 +188,7 @@ sealed interface CollectionError : AppError {
         override val message: String = "Some books couldn't be released. They're still in the inbox."
         override val code: String = "COLLECTION_RELEASE_INCOMPLETE"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

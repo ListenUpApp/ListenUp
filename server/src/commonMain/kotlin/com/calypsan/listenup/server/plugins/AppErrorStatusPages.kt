@@ -38,7 +38,6 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.UnknownError
 import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.error.ValidationError
-import com.calypsan.listenup.api.error.withCorrelationId as stampCorrelationId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.MalformedMultipartException
 import com.calypsan.listenup.server.io.MultipartPartTooLargeException
@@ -136,14 +135,6 @@ internal suspend fun respondAppError(
     call.attributes.put(TypedAppErrorSent, Unit)
     call.respond(typed.toHttpStatus(), typed)
 }
-
-/**
- * Server-side alias for the canonical [com.calypsan.listenup.api.error.withCorrelationId] stamp,
- * which lives in `:contract` (co-located with every [AppError] subtype) so the REST fold and the
- * RPC guard share one exhaustive implementation. Kept here under the `plugins` package so the many
- * route folds that `import ...plugins.withCorrelationId` need no churn; it forwards verbatim.
- */
-internal fun AppError.withCorrelationId(id: String?): AppError = stampCorrelationId(id)
 
 /**
  * Status mapping for typed [AppError]. Used by both REST handlers and tests.

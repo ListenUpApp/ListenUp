@@ -22,6 +22,8 @@ sealed interface SyncError : AppError {
         override val message: String = "Library sync failed. Please try again."
         override val code: String = "SYNC_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Real-time connection lost; reconnection failed. Live updates paused. */
@@ -34,6 +36,8 @@ sealed interface SyncError : AppError {
         override val message: String = "Lost connection to server. Changes may be delayed."
         override val code: String = "SYNC_REALTIME_DISCONNECTED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Push sync failed — local edits not yet persisted server-side. */
@@ -46,6 +50,8 @@ sealed interface SyncError : AppError {
         override val message: String = "Local changes could not be saved. They will retry shortly."
         override val code: String = "SYNC_PUSH_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -65,6 +71,8 @@ sealed interface SyncError : AppError {
         override val message: String = "The requested item could not be found."
         override val code: String = "SYNC_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -85,6 +93,8 @@ sealed interface SyncError : AppError {
         override val message: String = "This server does not provide that data."
         override val code: String = "SYNC_UNKNOWN_DOMAIN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -108,6 +118,8 @@ sealed interface SyncError : AppError {
         override val message: String = "Too much was requested at once."
         override val code: String = "SYNC_TOO_MANY_IDS"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -130,5 +142,7 @@ sealed interface SyncError : AppError {
         override val message: String = "That lookup is not available for this data."
         override val code: String = "SYNC_UNSUPPORTED_MATCH"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }
