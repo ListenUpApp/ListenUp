@@ -188,19 +188,25 @@ struct FlowBridgeTests {
 
     @Test func aBridgeWithNoActionsStillCancelsOnRelease() async {
         var received: [Int] = []
-        var receivedAtRelease = 0
         do {
             let bridge = FlowBridge()
-            bridge.bind(NumberSequence(values: Array(1...50))) { received.append($0) }
-            try? await Task.sleep(for: .milliseconds(30))
-            receivedAtRelease = received.count
+            // Wait for the first value, so the subscription is provably live when the bridge goes.
+            await withCheckedContinuation { continuation in
+                var resumed = false
+                bridge.bind(NumberSequence(values: Array(1...50))) { value in
+                    received.append(value)
+                    if !resumed {
+                        resumed = true
+                        continuation.resume()
+                    }
+                }
+            }
         }
-        // The bridge is gone; let the hop and any in-flight element settle, then watch for more.
+        // The bridge is gone; let any in-flight element settle, then watch for more.
         try? await Task.sleep(for: .milliseconds(100))
         let settled = received.count
-        try? await Task.sleep(for: .milliseconds(100))
+        try? await Task.sleep(for: .milliseconds(150))
 
-        #expect(receivedAtRelease > 0)
         #expect(received.count == settled)
         #expect(received.count < 50)
     }
