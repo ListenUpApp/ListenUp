@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.nav.rememberSession
 import com.calypsan.listenup.web.shell.NavBadgeKind
 import com.calypsan.listenup.web.features.admin.OpenInboxBadge
 import com.calypsan.listenup.web.features.admin.OpenRestrictedBooks
@@ -339,8 +340,7 @@ fun WebAppRoot(
 
             // Above the playback notices, and unlike them it is not dismissible: a failed edit stays
             // until the reader retries or accepts the server's version. See [DeadLetterNotice].
-            val deadLetters = remember { graph.openDeadLetters() }
-            DisposableEffect(deadLetters) { onDispose { deadLetters.close() } }
+            val deadLetters = rememberSession { graph.openDeadLetters() }
             DeadLetterNotice(
                 failed = deadLetters.failed.collectAsState().value,
                 onRetry = deadLetters.onRetry,
@@ -575,8 +575,7 @@ private fun SeeAllRoute(
     query: String,
     type: SearchHitType,
 ) {
-    val session = remember(query, type) { openSeeAll(query, type) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(query, type) { openSeeAll(query, type) }
 
     LaunchedEffect(session) {
         session.navActions.collect { action -> router.navigate(searchNavRoute(action)) }
@@ -621,9 +620,7 @@ private fun BrowseRouteContent(
 /**
  * Opens a browse-by-facet session over one tag or mood, and collects it.
  *
- * ⛔ Keyed on the facet, not merely remembered: `/tag/grimdark` → `/tag/found-family` is a move a
- * reader makes from the chips on a book, and a bare `remember { }` would strand them on the first
- * one they opened.
+ * `/tag/grimdark` → `/tag/found-family` is a move a reader makes from the chips on a book.
  */
 @Composable
 private fun BrowseFacetRoute(
@@ -632,8 +629,7 @@ private fun BrowseFacetRoute(
     kind: FacetKind,
     facetId: String,
 ) {
-    val session = remember(kind, facetId) { openBrowseFacet(kind, facetId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(kind, facetId) { openBrowseFacet(kind, facetId) }
 
     BrowseFacetPage(
         state = session.state.collectAsState().value,
@@ -642,16 +638,14 @@ private fun BrowseFacetRoute(
     )
 }
 
-/** Opens a genre destination and collects it. Keyed on the genre, as the facet route is — and for
- * the sharper reason: this page's own sub-genre pills navigate to sibling genres. */
+/** Opens a genre destination and collects it. This page's own sub-genre pills navigate to sibling genres. */
 @Composable
 private fun GenreDestinationRoute(
     router: Router,
     openGenreDestination: OpenGenreDestination,
     genreId: String,
 ) {
-    val session = remember(genreId) { openGenreDestination(genreId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(genreId) { openGenreDestination(genreId) }
 
     GenreDestinationPage(
         state = session.state.collectAsState().value,
@@ -841,8 +835,7 @@ private fun HomeRoute(
     openHome: OpenHome,
     feeds: FeedSelection,
 ) {
-    val session = remember { openHome() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openHome() }
 
     BookSelectionScaffold(feeds.openMultiSelect, router, feeds.onToast) { selection ->
         HomePage(
@@ -881,8 +874,7 @@ private fun DiscoverRoute(
     openDiscover: OpenDiscover,
     feeds: FeedSelection,
 ) {
-    val session = remember { openDiscover() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openDiscover() }
     val nowMs = remember { currentEpochMilliseconds() }
 
     BookSelectionScaffold(feeds.openMultiSelect, router, feeds.onToast) { selection ->
@@ -934,8 +926,7 @@ private fun SearchRoute(
     openSearch: OpenSearch,
     onSeeAll: (SearchHitType) -> Unit,
 ) {
-    val session = remember { openSearch() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openSearch() }
 
     // URL -> session: seed (and re-seed on Back/Forward) the query the address bar names.
     LaunchedEffect(session, route.query[SEARCH_QUERY_KEY]) {
@@ -1222,8 +1213,7 @@ private const val PALETTE_SHORTCUT_KEY = "k"
  */
 @Composable
 private fun playbackState(openPlayback: OpenPlayback): PlaybackSession {
-    val session = remember { openPlayback() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openPlayback() }
     // Shell-scoped for the same reason the session is: what is playing outlives the page, and
     // an OS control bound to a route would stop working the moment the reader navigated.
     val bridge = remember { browserMediaSession() }
@@ -1236,17 +1226,14 @@ private fun playbackState(openPlayback: OpenPlayback): PlaybackSession {
 }
 
 /**
- * Opens a Book Detail session for [bookId] and collects it, closing the previous one whenever the
- * book changes or the page goes away. Keyed on [bookId] so navigating between books tears the old
- * ViewModel down instead of stacking another live one behind it.
+ * Opens a Book Detail session for [bookId] and collects it.
  */
 @Composable
 private fun bookDetailSession(
     bookId: String,
     openBookDetail: OpenBookDetail,
 ): BookDetailSession {
-    val session = remember(bookId) { openBookDetail(bookId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(bookId) { openBookDetail(bookId) }
     return session
 }
 
@@ -1263,8 +1250,7 @@ private fun bookEditState(
     openBookEdit: OpenBookEdit,
     onLeave: () -> Unit,
 ): BookEditSession {
-    val session = remember(bookId) { openBookEdit(bookId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(bookId) { openBookEdit(bookId) }
     LaunchedEffect(session) {
         session.navActions.collect { action ->
             when (action) {
@@ -1298,8 +1284,7 @@ private fun ContributorEditRoute(
     openContributorEdit: OpenContributorEdit,
     contributorId: String,
 ) {
-    val session = remember(contributorId) { openContributorEdit(contributorId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(contributorId) { openContributorEdit(contributorId) }
 
     LaunchedEffect(session) {
         session.navActions.collect { action ->
@@ -1496,24 +1481,19 @@ private fun contributorBooksState(
     role: ContributorRole,
     openContributorBooks: OpenContributorBooks,
 ): ContributorBooksUiState {
-    val session = remember(contributorId, role) { openContributorBooks(contributorId, role.apiValue) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(contributorId, role) { openContributorBooks(contributorId, role.apiValue) }
     return session.state.collectAsState().value
 }
 
 /**
- * Opens a Contributor Detail session for [contributorId] and collects it, closing the previous one
- * whenever the person changes or the page goes away. Keyed on [contributorId] for the same reason
- * [bookDetailState] keys on `bookId` — a bare `remember { }` would keep showing the first person
- * forever after navigating to a second one.
+ * Opens a Contributor Detail session for [contributorId] and collects it.
  */
 @Composable
 private fun contributorDetailSession(
     contributorId: String,
     openContributorDetail: OpenContributorDetail,
 ): ContributorDetailSession {
-    val session = remember(contributorId) { openContributorDetail(contributorId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(contributorId) { openContributorDetail(contributorId) }
     return session
 }
 
@@ -1694,8 +1674,7 @@ private fun BookDetailRoute(
             }
         }
     }
-    val hardcoverSession = remember(bookId) { openBookHardcover(bookId) }
-    DisposableEffect(hardcoverSession) { onDispose { hardcoverSession.close() } }
+    val hardcoverSession = rememberSession(bookId) { openBookHardcover(bookId) }
     // Sharing suspends (it asks the server who it is), and the press that starts it is not a
     // composition. `rememberCoroutineScope` ties the work to this page: navigate away mid-share and
     // it is cancelled rather than resolving into a toast over a book the reader has left.
@@ -1810,27 +1789,24 @@ private fun bookPickersFor(detailSession: BookDetailSession): BookPickers =
     )
 
 /**
- * Opens a readers session for [bookId] and collects it, keyed on the book for the same reason
- * [bookDetailState] is.
+ * Opens a readers session for [bookId] and collects it.
  */
 @Composable
 private fun bookReadersState(
     bookId: String,
     openBookReaders: OpenBookReaders,
 ): BookReadersUiState {
-    val session = remember(bookId) { openBookReaders(bookId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(bookId) { openBookReaders(bookId) }
     return session.state.collectAsState().value
 }
 
-/** Opens a ratings session for [bookId], keyed on the book for the same reason [bookReadersState] is. */
+/** Opens a ratings session for [bookId]. */
 @Composable
 private fun bookRatingsSession(
     bookId: String,
     openBookRatings: OpenBookRatings,
 ): BookRatingsSession {
-    val session = remember(bookId) { openBookRatings(bookId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(bookId) { openBookRatings(bookId) }
     return session
 }
 
@@ -1924,8 +1900,7 @@ private fun ChapterEditorRoute(
     bookId: String,
     playback: PlaybackSession,
 ) {
-    val session = remember(bookId) { openChapterEditor(bookId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(bookId) { openChapterEditor(bookId) }
 
     val state = session.state.collectAsState().value
     val transport = playback.state.collectAsState().value
@@ -2022,8 +1997,7 @@ private fun BulkEditRoute(
     onToast: (String) -> Unit,
 ) {
     val key = bookIds.joinToString(",")
-    val session = remember(key) { openBulkEdit(bookIds) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(key) { openBulkEdit(bookIds) }
 
     val library = Route(listOf(LIBRARY_KEY))
 
@@ -2122,8 +2096,7 @@ private fun BookSelectionScaffold(
     onToast: (String) -> Unit,
     content: @Composable (BookSelection) -> Unit,
 ) {
-    val session = remember { openMultiSelect() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openMultiSelect() }
 
     val mode = session.selectionMode.collectAsState().value
     val selected = mode.selectedIds()
@@ -2286,8 +2259,7 @@ private fun NotificationsRoute(
     router: Router,
     openNotifications: OpenNotifications,
 ) {
-    val session = remember { openNotifications() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openNotifications() }
     val nowMs = remember { currentEpochMilliseconds() }
 
     NotificationsPage(
@@ -2330,8 +2302,7 @@ private fun NotificationPrefsRoute(
     router: Router,
     openNotificationPrefs: OpenNotificationPrefs,
 ) {
-    val session = remember { openNotificationPrefs() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openNotificationPrefs() }
 
     NotificationPrefsPage(
         state = session.state.collectAsState().value,
@@ -2360,8 +2331,7 @@ private fun HardcoverRoute(
     onActionToast: ShowActionToast,
     subPage: String?,
 ) {
-    val session = remember { openHardcover() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openHardcover() }
     val state = session.state.collectAsState().value
     // A Sync now that failed is brief: a toast with Try again says it, while the sync line stays as
     // it was. Keyed on the failure itself, so it is said once each time it arrives.
@@ -2462,8 +2432,7 @@ private fun HardcoverMatchRoute(
     onToast: (String) -> Unit,
     onActionToast: ShowActionToast,
 ) {
-    val session = remember(bookId) { openHardcoverMatch(bookId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(bookId) { openHardcoverMatch(bookId) }
     LaunchedEffect(session) {
         session.events.collect { event ->
             when (event) {
@@ -2546,8 +2515,7 @@ private fun ProfileRoute(
     userId: String,
     onEditProfile: () -> Unit,
 ) {
-    val session = remember(userId) { openProfile(userId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(userId) { openProfile(userId) }
 
     ProfilePage(
         state = session.state.collectAsState().value,
@@ -2586,8 +2554,7 @@ private fun EditProfileRoute(
         return
     }
 
-    val session = remember { openEditProfile() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openEditProfile() }
 
     var saveError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(session) {
@@ -2629,8 +2596,7 @@ private fun ImportsRoute(
     router: Router,
     openImports: OpenImports,
 ) {
-    val session = remember { openImports() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openImports() }
 
     ImportsPage(
         state = session.state.collectAsState().value,
@@ -2654,8 +2620,7 @@ private fun ImportFlowRoute(
     router: Router,
     openImportFlow: OpenImportFlow,
 ) {
-    val session = remember { openImportFlow() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openImportFlow() }
     val scope = rememberCoroutineScope()
 
     ImportFlowPage(
@@ -2693,8 +2658,7 @@ private fun BackupsRoute(
     router: Router,
     openBackups: OpenBackups,
 ) {
-    val session = remember { openBackups() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openBackups() }
     val scope = rememberCoroutineScope()
 
     // The sink and the name it will be saved under, held between starting a download and hearing
@@ -2757,8 +2721,7 @@ private fun RestoreRoute(
     openRestore: OpenRestore,
     backupId: String,
 ) {
-    val session = remember(backupId) { openRestore(backupId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(backupId) { openRestore(backupId) }
 
     RestorePage(
         state = session.state.collectAsState().value,
@@ -2779,8 +2742,7 @@ private fun CollectionsRoute(
     openCollections: OpenCollections,
     onToast: (String) -> Unit,
 ) {
-    val session = remember { openCollections() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openCollections() }
 
     CollectionsPage(
         state = session.state.collectAsState().value,
@@ -2799,9 +2761,9 @@ private fun CollectionsRoute(
 /**
  * `/admin/collections/{id}` — one collection's books and the people who can see it.
  *
- * ⛔ Keyed on [collectionId], and it has to be: `AdminCollectionDetailViewModel` takes the id as a
- * CONSTRUCTOR parameter and builds its observe pipeline around it in `init`, so a session cannot be
- * repointed. An unkeyed `remember` would keep showing the first collection visited.
+ * ⛔ `AdminCollectionDetailViewModel` takes the id as a CONSTRUCTOR parameter and builds its observe
+ * pipeline around it in `init`, so a session cannot be repointed: the key on [collectionId] is what
+ * makes a second collection a new session.
  */
 @Composable
 private fun CollectionDetailRoute(
@@ -2810,8 +2772,7 @@ private fun CollectionDetailRoute(
     collectionId: String,
     onToast: (String) -> Unit,
 ) {
-    val session = remember(collectionId) { openCollectionDetail(collectionId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(collectionId) { openCollectionDetail(collectionId) }
 
     CollectionDetailPage(
         state = session.state.collectAsState().value,
@@ -2849,8 +2810,7 @@ private fun CategoriesRoute(
     parentCrumb: String = "Admin",
     parent: Route = Route(listOf(ADMIN_KEY)),
 ) {
-    val session = remember { openCategories() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openCategories() }
 
     CategoriesPage(
         state = session.state.collectAsState().value,
@@ -2882,8 +2842,7 @@ private fun ServerSettingsRoute(
     router: Router,
     openServerSettings: OpenServerSettings,
 ) {
-    val session = remember { openServerSettings() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openServerSettings() }
 
     ServerSettingsPage(
         state = session.state.collectAsState().value,
@@ -2917,8 +2876,7 @@ private fun AdminInboxRoute(
     router: Router,
     openAdminInbox: OpenAdminInbox,
 ) {
-    val session = remember { openAdminInbox() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openAdminInbox() }
 
     AdminInboxPage(
         state = session.state.collectAsState().value,
@@ -2950,8 +2908,7 @@ private fun LibrarySettingsRoute(
     router: Router,
     openLibrarySettings: OpenLibrarySettings,
 ) {
-    val session = remember { openLibrarySettings() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openLibrarySettings() }
 
     var scanStarted by remember { mutableStateOf(false) }
     LaunchedEffect(session) {
@@ -2986,8 +2943,7 @@ private fun LibrarySettingsRoute(
  */
 @Composable
 private fun notificationBadge(openNotificationBell: OpenNotificationBell): Int {
-    val session = remember { openNotificationBell() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openNotificationBell() }
     return session.unreadCount.collectAsState().value
 }
 
@@ -2998,8 +2954,7 @@ private fun notificationBadge(openNotificationBell: OpenNotificationBell): Int {
  */
 @Composable
 private fun inboxBadge(openInboxBadge: OpenInboxBadge): InboxBadgeState {
-    val session = remember { openInboxBadge() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openInboxBadge() }
     return InboxBadgeState(
         heldCount = session.heldCount.collectAsState().value,
         previewBookIds = session.previewBookIds.collectAsState().value,
@@ -3012,8 +2967,7 @@ private fun inboxBadge(openInboxBadge: OpenInboxBadge): InboxBadgeState {
  */
 @Composable
 private fun restrictedBooks(openRestrictedBooks: OpenRestrictedBooks): Set<String> {
-    val session = remember { openRestrictedBooks() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openRestrictedBooks() }
     return session.restrictedBookIds.collectAsState().value
 }
 
@@ -3026,8 +2980,7 @@ private fun SeriesEditRoute(
     openSeriesEdit: OpenSeriesEdit,
     seriesId: String,
 ) {
-    val session = remember(seriesId) { openSeriesEdit(seriesId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(seriesId) { openSeriesEdit(seriesId) }
 
     LaunchedEffect(session) {
         session.navActions.collect { action ->
@@ -3060,18 +3013,14 @@ private fun SeriesEditRoute(
 }
 
 /**
- * Opens a Series Detail session for [seriesId] and collects it, closing the previous one whenever
- * the series changes or the page goes away. Keyed on [seriesId] for the same reason
- * [contributorDetailState] keys on `contributorId` — a bare `remember { }` would keep showing the
- * first series forever after navigating to a second one.
+ * Opens a Series Detail session for [seriesId] and collects it.
  */
 @Composable
 private fun seriesDetailSession(
     seriesId: String,
     openSeriesDetail: OpenSeriesDetail,
 ): SeriesDetailSession {
-    val session = remember(seriesId) { openSeriesDetail(seriesId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(seriesId) { openSeriesDetail(seriesId) }
     return session
 }
 
@@ -3081,8 +3030,7 @@ private fun seriesDetailSession(
  */
 @Composable
 private fun libraryState(openLibrary: OpenLibrary): LibrarySession {
-    val session = remember { openLibrary() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openLibrary() }
     return session
 }
 
@@ -3362,8 +3310,8 @@ private fun footerNav(
 /**
  * The `/shelf/{id}` branch — one shelf, its books, and the owner's controls.
  *
- * The session loads the shelf, keyed on [shelfId], so walking from one shelf to another replaces
- * the session rather than showing the previous shelf's books under the new one's name.
+ * Walking from one shelf to another replaces the session rather than showing the previous shelf's
+ * books under the new one's name.
  */
 @Composable
 private fun ShelfDetailRoute(
@@ -3372,8 +3320,7 @@ private fun ShelfDetailRoute(
     shelfId: String,
     onHeroBookIdChange: (String) -> Unit,
 ) {
-    val session = remember(shelfId) { openShelfDetail(shelfId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(shelfId) { openShelfDetail(shelfId) }
 
     // The ViewModel reports a refused mutation exactly once, into a channel. Held here so the page
     // can render it until dismissed — a message that vanished on the next recomposition would be
@@ -3419,8 +3366,7 @@ private fun ShelfEditRoute(
     openShelfEdit: OpenShelfEdit,
     shelfId: String?,
 ) {
-    val session = remember(shelfId) { openShelfEdit(shelfId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(shelfId) { openShelfEdit(shelfId) }
     var deleted by remember(shelfId) { mutableStateOf(false) }
 
     val goHome = { router.navigate(Route(emptyList())) }
@@ -3493,8 +3439,7 @@ private fun SettingsRoute(
     router: Router,
     openSettings: OpenSettings,
 ) {
-    val session = remember { openSettings() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openSettings() }
 
     SettingsPage(
         state = session.state.collectAsState().value,
@@ -3527,8 +3472,7 @@ private fun LicencesRoute(
     router: Router,
     openLicences: OpenLicences,
 ) {
-    val session = remember { openLicences() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openLicences() }
 
     LicencesPage(
         state = session.state.collectAsState().value,
@@ -3544,8 +3488,7 @@ private fun LicencesRoute(
  */
 @Composable
 private fun DevicesRoute(openDevices: OpenDevices) {
-    val session = remember { openDevices() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openDevices() }
     val nowMs = remember { currentEpochMilliseconds() }
 
     DevicesPage(
@@ -3580,8 +3523,7 @@ private fun AdminRoute(
     onOpenUser: (String) -> Unit,
     landOnPending: Boolean,
 ) {
-    val session = remember { openAdmin() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openAdmin() }
     val nowMs = remember { currentEpochMilliseconds() }
 
     AdminPage(
@@ -3733,8 +3675,7 @@ private fun UploadRoute(
     openUpload: OpenUpload,
     onToast: (String) -> Unit,
 ) {
-    val session = remember { openUpload() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openUpload() }
     val scope = rememberCoroutineScope()
 
     UploadPage(
@@ -3763,8 +3704,7 @@ private fun OrganizeRoute(
     openOrganize: OpenOrganize,
     onToast: (String) -> Unit,
 ) {
-    val session = remember { openOrganize() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openOrganize() }
 
     // ⛔ A Channel, so re-collecting never replays a confirmation the reader already dismissed.
     LaunchedEffect(session) {
@@ -3803,8 +3743,7 @@ private fun CreateInviteRoute(
     openCreateInvite: OpenCreateInvite,
     onToast: (String) -> Unit,
 ) {
-    val session = remember { openCreateInvite() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openCreateInvite() }
 
     CreateInvitePage(
         state = session.state.collectAsState().value,
@@ -3825,15 +3764,14 @@ private fun CreateInviteRoute(
     )
 }
 
-/** Opens one member's page and collects it. Keyed on the member, as every detail route is. */
+/** Opens one member's page and collects it. */
 @Composable
 private fun UserDetailRoute(
     router: Router,
     openUserDetail: OpenUserDetail,
     userId: String,
 ) {
-    val session = remember(userId) { openUserDetail(userId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(userId) { openUserDetail(userId) }
 
     UserDetailPage(
         state = session.state.collectAsState().value,

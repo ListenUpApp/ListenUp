@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel
@@ -17,8 +18,8 @@ class CollectionsSession(
     val onDelete: (String) -> Unit,
     val onClearError: () -> Unit,
     val onClearCreateSuccess: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the list gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenCollections = () -> CollectionsSession
@@ -74,8 +75,8 @@ class CollectionDetailSession(
     val onRevokeShare: (String) -> Unit,
     val onClearError: () -> Unit,
     val onClearSaveSuccess: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the detail page gets its state, keyed on which collection. */
 typealias OpenCollectionDetail = (collectionId: String) -> CollectionDetailSession

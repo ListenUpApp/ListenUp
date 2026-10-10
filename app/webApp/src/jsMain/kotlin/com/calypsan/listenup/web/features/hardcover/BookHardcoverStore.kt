@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.hardcover
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverViewModel
@@ -16,8 +17,8 @@ class BookHardcoverSession(
     val state: StateFlow<BookHardcoverUiState>,
     val onRemoveMatch: () -> Unit,
     val onSetSynced: (Boolean) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How Book Detail gets its Hardcover panel. */
 typealias OpenBookHardcover = (bookId: String) -> BookHardcoverSession

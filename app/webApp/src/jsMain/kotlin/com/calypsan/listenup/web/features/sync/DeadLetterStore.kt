@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.sync
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.sync.PendingOperationUi
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiEvent
@@ -36,8 +37,8 @@ class DeadLetterSession(
     val onDismiss: (String) -> Unit,
     val onRetryAll: () -> Unit,
     val onDismissAll: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the dead-letter surface gets its state. */
 typealias OpenDeadLetters = () -> DeadLetterSession

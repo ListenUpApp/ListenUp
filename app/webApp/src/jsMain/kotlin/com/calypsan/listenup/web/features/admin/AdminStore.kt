@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
@@ -26,8 +27,8 @@ class AdminSession(
     val onSetRegistrationPolicy: (RegistrationPolicy) -> Unit,
     val onClearError: () -> Unit,
     val onRetry: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its session. */
 typealias OpenAdmin = () -> AdminSession

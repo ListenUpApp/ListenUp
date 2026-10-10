@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.nav.rememberSession
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
@@ -80,8 +81,7 @@ private fun SignInSheet(
     authGraph: AuthGraph,
     onDismiss: () -> Unit,
 ) {
-    val session = remember { authGraph.openLogin() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { authGraph.openLogin() }
 
     ModalDialog(open = true, title = "Sign back in", onDismiss = onDismiss) {
         LoginForm(

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.nav.rememberSession
 import com.calypsan.listenup.web.WebGraph
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.devices.OpenDevices
@@ -179,8 +180,7 @@ fun AuthGate(
                 // SessionExpired from this very flow, so reading both would show two banners for
                 // one expired session — and the projection additionally carries the version-
                 // mismatch hint, which nothing on web could surface before.
-                val health = remember { openConnectionHealth() }
-                DisposableEffect(health) { onDispose { health.close() } }
+                val health = rememberSession { openConnectionHealth() }
                 ConnectionHealthBanner(
                     state = health.state.collectAsState().value,
                     authGraph = authGraph,
@@ -208,8 +208,7 @@ fun AuthGate(
 
 @Composable
 private fun SetupBranch(authGraph: AuthGraph) {
-    val session = remember { authGraph.openSetup() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { authGraph.openSetup() }
 
     AuthLayout(
         title = "Create admin account",
@@ -256,8 +255,7 @@ private fun LibrarySetupGate(
     sessionLapsed: Boolean,
     content: @Composable () -> Unit,
 ) {
-    val session = remember { openLibrarySetup() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openLibrarySetup() }
     val state by session.state.collectAsState()
 
     var finished by remember { mutableStateOf(false) }
@@ -372,8 +370,7 @@ private fun LoginBranch(
 
     when (pane) {
         LoginPane.Register -> {
-            val session = remember { authGraph.openRegister() }
-            DisposableEffect(session) { onDispose { session.close() } }
+            val session = rememberSession { authGraph.openRegister() }
 
             AuthLayout(title = "Create account", subtitle = "Ask this server's admin for access.") {
                 RegisterForm(
@@ -385,8 +382,7 @@ private fun LoginBranch(
         }
 
         LoginPane.Forgot -> {
-            val session = remember { authGraph.openForgotPassword() }
-            DisposableEffect(session) { onDispose { session.close() } }
+            val session = rememberSession { authGraph.openForgotPassword() }
 
             AuthLayout(
                 title = "Reset your password",
@@ -404,8 +400,7 @@ private fun LoginBranch(
         }
 
         LoginPane.Invite -> {
-            val session = remember { authGraph.openClaimInvite() }
-            DisposableEffect(session) { onDispose { session.close() } }
+            val session = rememberSession { authGraph.openClaimInvite() }
 
             // A code that arrived with the link is looked up immediately, so someone who followed
             // an invite lands on "X invited you to Y" rather than on a field asking them to
@@ -432,8 +427,7 @@ private fun LoginBranch(
         }
 
         LoginPane.SignIn -> {
-            val session = remember { authGraph.openLogin() }
-            DisposableEffect(session) { onDispose { session.close() } }
+            val session = rememberSession { authGraph.openLogin() }
 
             AuthLayout(title = "Sign in", subtitle = "Pick up right where you left off in your audiobook library.") {
                 LoginForm(
@@ -455,8 +449,7 @@ private fun PendingApprovalBranch(
     userId: String,
     email: String,
 ) {
-    val session = remember(userId, email) { authGraph.openPendingApproval(userId, email) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(userId, email) { authGraph.openPendingApproval(userId, email) }
 
     AuthLayout(title = "Waiting for approval", subtitle = "Your account needs an admin to let it in.") {
         PendingApprovalPanel(

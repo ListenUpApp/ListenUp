@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.model.BackupInfo
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
@@ -44,8 +45,8 @@ class BackupsSession(
     val onResetUpload: () -> Unit,
     val onClearError: () -> Unit,
     val onRetry: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its state. Production resolves the real ViewModels; specs hand over states. */
 typealias OpenBackups = () -> BackupsSession
@@ -122,8 +123,8 @@ class RestoreSession(
     val onRequest: () -> Unit,
     val onCancel: () -> Unit,
     val onConfirm: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the restore page gets its state, keyed on which backup. */
 typealias OpenRestore = (backupId: String) -> RestoreSession

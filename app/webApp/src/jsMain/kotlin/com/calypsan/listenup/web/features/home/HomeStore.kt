@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
@@ -32,8 +33,8 @@ class HomeSession(
     val onRetry: () -> Unit,
     /** Re-runs failed stats; offered only on the failed stats section. */
     val onRetryStats: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its session. Production resolves both real ViewModels out of the client graph

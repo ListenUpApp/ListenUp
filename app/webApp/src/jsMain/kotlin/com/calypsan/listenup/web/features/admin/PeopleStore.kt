@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
@@ -18,8 +19,8 @@ class CreateInviteSession(
     val onCreate: (email: String, role: String, expiresInDays: Int) -> Unit,
     val onClearError: () -> Unit,
     val onReset: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the invite form gets its state. */
 typealias OpenCreateInvite = () -> CreateInviteSession
@@ -60,8 +61,8 @@ class UserDetailSession(
     val state: StateFlow<UserDetailUiState>,
     val permissions: StateFlow<UserPermissionsUiState>,
     val actions: PermissionsPanelActions,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the member page gets its state. */
 typealias OpenUserDetail = (userId: String) -> UserDetailSession

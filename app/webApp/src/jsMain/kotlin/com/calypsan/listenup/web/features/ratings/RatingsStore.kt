@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.ratings
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsEvent
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
@@ -27,8 +28,8 @@ class BookRatingsSession(
     /** One-shot effects — the route shows "Rating removed" with Undo for [BookRatingsEvent.RatingRemoved]. */
     val events: Flow<BookRatingsEvent>,
     val refreshExternal: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How Book Detail gets its rating session. Production resolves the shared ViewModel. */
 typealias OpenBookRatings = (bookId: String) -> BookRatingsSession

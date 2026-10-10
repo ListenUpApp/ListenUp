@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.dto.organize.OrganizeAuthorForm
 import com.calypsan.listenup.api.dto.organize.OrganizePreset
@@ -26,8 +27,8 @@ class OrganizeSession(
     val onDismissPreview: () -> Unit,
     val onDismissReport: () -> Unit,
     val onResume: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the organizer screen gets its state. */
 typealias OpenOrganize = () -> OrganizeSession

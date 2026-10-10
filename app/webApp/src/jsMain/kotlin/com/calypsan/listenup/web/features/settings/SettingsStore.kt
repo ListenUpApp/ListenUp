@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.settings
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
@@ -39,8 +40,8 @@ class SettingsSession(
     val onAutoRewind: (Boolean) -> Unit,
     val onIgnoreTitleArticles: (Boolean) -> Unit,
     val onHideSingleBookSeries: (Boolean) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its session. */
 typealias OpenSettings = () -> SettingsSession

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.match
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.dto.match.BookCandidateKey
 import com.calypsan.listenup.api.dto.match.FieldChoice
@@ -46,8 +47,8 @@ class BookMatchSession(
     val setChapterNamesIncluded: (Boolean) -> Unit,
     val toggleChapter: (Int) -> Unit,
     val apply: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its session for a book. */
 typealias OpenBookMatch = (bookId: String) -> BookMatchSession

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.books
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -35,8 +36,8 @@ class MultiSelectSession(
     val onCreateShelfAndAdd: (String) -> Unit,
     val onAddToCollection: (String) -> Unit,
     val onCreateCollectionAndAdd: (String) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the library gets its selection. Production resolves the real ViewModel; specs hand one over. */
 typealias OpenMultiSelect = () -> MultiSelectSession

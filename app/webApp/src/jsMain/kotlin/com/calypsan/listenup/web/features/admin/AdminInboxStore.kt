@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
@@ -18,8 +19,8 @@ class AdminInboxSession(
     val onClearError: () -> Unit,
     val onClearReleaseResult: () -> Unit,
     val onRetry: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its session. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenAdminInbox = () -> AdminInboxSession

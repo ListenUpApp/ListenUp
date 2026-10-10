@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.hardcover
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.dto.hardcover.HardcoverShareMode
 import com.calypsan.listenup.client.presentation.hardcover.KeptOffBooksEvent
@@ -36,8 +37,8 @@ class HardcoverSession(
     val keptOff: StateFlow<KeptOffBooksUiState>,
     val keptOffEvents: Flow<KeptOffBooksEvent>,
     val onSyncAgain: (bookId: String) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its session. */
 typealias OpenHardcover = () -> HardcoverSession

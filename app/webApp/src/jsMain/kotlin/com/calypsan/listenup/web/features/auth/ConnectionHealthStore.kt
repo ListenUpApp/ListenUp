@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
@@ -11,8 +12,8 @@ import org.koin.core.Koin
 class ConnectionHealthSession(
     val state: StateFlow<ConnectionHealthUi>,
     val onDismiss: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the shell learns whether anything is wrong with its connection.
