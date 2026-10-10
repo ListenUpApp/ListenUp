@@ -12,6 +12,16 @@ internal enum class ImageKind(
     ;
 
     companion object {
+        private const val MIN_SNIFF_BYTES = 4
+        private const val WEBP_TAG_OFFSET = 8
+        private const val WEBP_MIN_BYTES = 12
+
+        private val JPEG_MAGIC = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte())
+        private val PNG_MAGIC = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)
+        private val GIF_MAGIC = "GIF8".encodeToByteArray()
+        private val RIFF_MAGIC = "RIFF".encodeToByteArray()
+        private val WEBP_TAG = "WEBP".encodeToByteArray()
+
         /** The kind [bytes] start as, or null when they are none of these. */
         fun sniff(bytes: ByteArray): ImageKind? =
             when {
@@ -31,15 +41,5 @@ internal enum class ImageKind(
 
         private fun ByteArray.startsWith(prefix: ByteArray): Boolean =
             size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
-
-        private const val MIN_SNIFF_BYTES = 4
-        private const val WEBP_TAG_OFFSET = 8
-        private const val WEBP_MIN_BYTES = 12
-
-        private val JPEG_MAGIC = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte())
-        private val PNG_MAGIC = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)
-        private val GIF_MAGIC = "GIF8".encodeToByteArray()
-        private val RIFF_MAGIC = "RIFF".encodeToByteArray()
-        private val WEBP_TAG = "WEBP".encodeToByteArray()
     }
 }
