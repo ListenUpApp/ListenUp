@@ -223,3 +223,20 @@ custom_rules:
       Use a `Spacing` token (`DesignSystem/LayoutTokens.swift`). Optical nudges (1–3pt), breathing
       room of 40pt and more, and geometry-derived insets stay literal.
     severity: error
+
+  # A shared Kotlin ViewModel has no ViewModelStore on iOS: unless something clears it, its scope
+  # and every flow it collects outlive the screen. The observer that is handed a fresh ViewModel
+  # gives it to its FlowBridge (`bridge.own(viewModel)`), which clears it on release.
+  #
+  # File-level and deliberately cheap, like swipe_actions_outside_list: a file that stores a Kotlin
+  # ViewModel must call `.own(`. A file that holds one it must NOT clear — a view passing it to its
+  # observer, or an observer over one of Dependencies' shared instances — says why with a
+  # `// view-model-owner: <who clears it, or why nobody does>` comment.
+  kotlin_view_model_without_owner:
+    name: "Kotlin ViewModel held without an owner"
+    regex: '(?s)\A(?!.*(?:\.own\(|view-model-owner:)).*?\b(?:let|var) \w*[vV]iewModel\w*: \w+ViewModel\b'
+    included: '/ListenUp/'
+    message: >-
+      This file stores a Kotlin ViewModel that nothing clears. Pass it to the observer's FlowBridge
+      with bridge.own(viewModel), or add `// view-model-owner: <reason>` if another type owns it.
+    severity: error
