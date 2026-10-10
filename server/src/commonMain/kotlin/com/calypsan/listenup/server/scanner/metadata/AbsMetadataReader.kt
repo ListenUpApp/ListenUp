@@ -2,7 +2,8 @@ package com.calypsan.listenup.server.scanner.metadata
 
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.server.io.fileIoDispatcher
-import com.calypsan.listenup.server.io.readText
+import com.calypsan.listenup.server.io.SIDECAR_MAX_BYTES
+import com.calypsan.listenup.server.io.readTextCapped
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
@@ -34,7 +35,11 @@ internal class AbsMetadataReader(
         withContext(fileIoDispatcher) {
             runCatching {
                 if (SystemFileSystem.metadataOrNull(file)?.isRegularFile != true) return@runCatching null
-                val raw = file.readText()
+                val raw =
+                    file.readTextCapped(SIDECAR_MAX_BYTES) ?: run {
+                        logger.warn { "metadata.json at $file is larger than $SIDECAR_MAX_BYTES bytes — skipping overlay" }
+                        return@runCatching null
+                    }
                 val element = json.parseToJsonElement(raw)
                 val flattened =
                     (element as? JsonObject)?.get("metadata")?.let { it as? JsonObject } ?: element

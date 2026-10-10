@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
+import kotlin.io.path.writeText
+import java.nio.file.Files
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
@@ -87,4 +89,18 @@ class NfoParserTest :
                 md.contributors shouldContain SidecarContributor("Kate Reading", "narrator")
             }
         }
+
+        test("a valid .nfo larger than the sidecar cap is skipped, not read into memory") {
+            runTest {
+                val dir = Files.createTempDirectory("listenup-oversize-")
+                try {
+                    val file = dir.resolve("big.nfo")
+                    file.writeText("<movie><title>Valid</title><!-- " + "x".repeat(1_100_000) + " --></movie>")
+                    parser.parse(IoPath(file.toString())).shouldBeNull()
+                } finally {
+                    dir.toFile().deleteRecursively()
+                }
+            }
+        }
+
     })

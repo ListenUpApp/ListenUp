@@ -116,4 +116,18 @@ class PlainTextParsersTest :
                 parser.supportedExtensions shouldBe emptySet()
             }
         }
+
+        test("a reader.txt larger than the sidecar cap is skipped, not read into memory") {
+            runTest {
+                val dir = Files.createTempDirectory("listenup-oversize-")
+                try {
+                    val file = dir.resolve("reader.txt")
+                    file.writeText("Michael Kramer\n".repeat(80_000))
+                    ReaderTxtParser().parse(IoPath(file.toString())).shouldBeNull()
+                } finally {
+                    dir.toFile().deleteRecursively()
+                }
+            }
+        }
+
     })

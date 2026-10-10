@@ -4,7 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.io.fileIoDispatcher
-import com.calypsan.listenup.server.io.readBytes
+import com.calypsan.listenup.server.io.readBytesCapped
 import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.http.ContentType
 import kotlinx.coroutines.withContext
@@ -12,6 +12,9 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
 private val log = loggerFor<CoverContentResolver>()
+
+/** The largest cover file read from a library folder. Matches the managed cover store's own limit. */
+internal const val LIBRARY_COVER_MAX_BYTES: Long = 10L * 1024 * 1024
 
 /**
  * A cover's full-size bytes paired with the content type they should be served under.
@@ -55,7 +58,7 @@ class CoverContentResolver internal constructor(
     private suspend fun fileContent(path: Path): CoverContent? {
         val bytes =
             withContext(fileIoDispatcher) {
-                if (SystemFileSystem.metadataOrNull(path)?.isRegularFile != true) null else path.readBytes()
+                if (SystemFileSystem.metadataOrNull(path)?.isRegularFile != true) null else path.readBytesCapped(LIBRARY_COVER_MAX_BYTES)
             }
         return bytes?.let { CoverContent(it, contentTypeForExtension(path)) }
     }

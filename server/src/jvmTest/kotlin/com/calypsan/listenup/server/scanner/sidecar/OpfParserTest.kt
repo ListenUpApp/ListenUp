@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
+import kotlin.io.path.writeText
+import java.nio.file.Files
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -187,6 +189,20 @@ class OpfParserTest :
                 parser.parse(opfPath)?.series shouldBe listOf(SeriesEntry(name = "The Wheel of Time", sequence = null))
             }
         }
+
+        test("a valid .opf larger than the sidecar cap is skipped, not read into memory") {
+            runTest {
+                val dir = Files.createTempDirectory("listenup-oversize-")
+                try {
+                    val file = dir.resolve("big.opf")
+                    file.writeText("<package><metadata><dc:title>Valid</dc:title></metadata><!-- " + "x".repeat(1_100_000) + " --></package>")
+                    parser.parse(IoPath(file.toString())).shouldBeNull()
+                } finally {
+                    dir.toFile().deleteRecursively()
+                }
+            }
+        }
+
     })
 
 private fun inlineOpf(date: String): IoPath {

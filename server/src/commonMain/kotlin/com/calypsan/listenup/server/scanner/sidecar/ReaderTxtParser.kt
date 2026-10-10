@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
-import com.calypsan.listenup.server.io.readText
+import com.calypsan.listenup.server.io.SIDECAR_MAX_BYTES
+import com.calypsan.listenup.server.io.readTextCapped
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 
@@ -21,12 +22,13 @@ internal class ReaderTxtParser : SidecarParser {
         try {
             val names =
                 file
-                    .readText()
-                    .removePrefix("﻿") // strip UTF-8 BOM
-                    .lineSequence()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .toList()
+                    .readTextCapped(SIDECAR_MAX_BYTES)
+                    ?.removePrefix("﻿") // strip UTF-8 BOM
+                    ?.lineSequence()
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    ?.toList()
+                    ?: return null
             if (names.isEmpty()) {
                 null
             } else {

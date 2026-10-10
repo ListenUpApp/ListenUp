@@ -15,6 +15,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.cover.LIBRARY_COVER_MAX_BYTES
 import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -23,6 +24,7 @@ import com.calypsan.listenup.server.scanner.toSummary
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.io.readBytes
+import com.calypsan.listenup.server.io.readBytesCapped
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -520,13 +522,12 @@ class BookPersister internal constructor(
      * Returns null when cover storage is unconfigured, the book has no cover, or
      * the filesystem cover file cannot be read.
      *
-     * For [CoverSource.Filesystem]: reads the image bytes from [scanRoot]/[file.relPath]
-     * using `kotlin.io.path.readBytes()` — consistent with the project's file-handling
-     * conventions; java.io.* is the JVM-only boundary this module already depends on.
+     * For [CoverSource.Filesystem]: reads the image bytes from [scanRoot]/[file.relPath],
+     * refusing a file larger than [LIBRARY_COVER_MAX_BYTES] before reading any of it.
      * For [CoverSource.Embedded]: uses the artwork bytes already in memory.
      *
      * This is intentionally done outside the DB transaction — file I/O does not belong
-     * inside an Exposed `suspendTransaction`.
+     * inside a `suspendTransaction`.
      */
     private fun extractPendingCover(
         analyzed: AnalyzedBook,
@@ -540,8 +541,15 @@ class BookPersister internal constructor(
 
             is CoverSource.Filesystem -> {
                 val coverPath = Path(scanRoot, cover.file.relPath)
-                runCatching { coverPath.readBytes() }
-                    .onFailure { e ->
+                runCatching { coverPath.readBytesCapped(LIBRARY_COVER_MAX_BYTES) }
+                    .onSuccess { bytes ->
+                        if (bytes == null) {
+                            log.warn {
+                                "Filesystem cover for ${analyzed.candidate.rootRelPath} is larger than " +
+                                    "$LIBRARY_COVER_MAX_BYTES bytes — storing no cover"
+                            }
+                        }
+                    }.onFailure { e ->
                         log.warn { "Could not read filesystem cover for ${analyzed.candidate.rootRelPath}: $e" }
                     }.getOrNull()
                     ?.let { bytes ->
