@@ -7,6 +7,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 
 private val logger = KotlinLogging.logger {}
 
@@ -32,10 +33,22 @@ internal class SyncReconciler(
     // fixtures that don't observe reporting need no change; production wires ConnectionHealthStore.
     private val reportConnectionIssue: (AppError) -> Unit = {},
 ) {
+    // Set from the frame collector, read under the engine's paging lock: a thread-safe flag, not a plain var.
+    private val unbackedRepullRequested = MutableStateFlow(false)
+
+    /**
+     * Asks the next [reconcileAll] to re-read every domain that has no digest from zero. Called when
+     * the server reports data written without live events (an import): such a domain's cursor may
+     * already be past those rows and nothing else would fetch them.
+     */
+    fun requestUnbackedRepull() {
+        unbackedRepullRequested.value = true
+    }
+
     /**
      * Reconcile all registered domains at the current [SyncCursorStore.highestCursor].
      * Returns immediately if no cursor has been stored yet (i.e. the client has never
-     * completed any catch-up pass).
+     * completed any catch-up pass); a pending [requestUnbackedRepull] is kept for the next pass.
      */
     suspend fun reconcileAll() {
         val max = store.highestCursor() ?: return
@@ -60,6 +73,36 @@ internal class SyncReconciler(
             } catch (e: Throwable) {
                 logger.warn(e) { "Repair failed for ${handler.domainName}; skipping" }
             }
+        }
+        if (unbackedRepullRequested.compareAndSet(expect = true, update = false)) repullUnbacked(handlers)
+    }
+
+    /**
+     * Re-reads every digest-less domain from zero. The request was taken before the re-read so one
+     * arriving meanwhile is not lost; it is put back unless every domain succeeded (including when
+     * this is cancelled part-way), so the next pass retries.
+     */
+    private suspend fun repullUnbacked(handlers: List<SyncDomainHandler<*>>) {
+        var allSucceeded = false
+        try {
+            allSucceeded =
+                handlers.filter { !it.hasDigestBackstop }.fold(true) { ok, handler -> repullFromZero(handler) && ok }
+        } finally {
+            if (!allSucceeded) unbackedRepullRequested.value = true
+        }
+    }
+
+    private suspend fun repullFromZero(handler: SyncDomainHandler<*>): Boolean {
+        @Suppress("UNCHECKED_CAST")
+        val typed = handler as SyncDomainHandler<Any>
+        return try {
+            logger.info { "Re-reading ${typed.domainName} from 0 (data written without live events)" }
+            catchUp.catchUpFromZero(typed) is AppResult.Success
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.warn(e) { "Unbacked re-read failed for ${typed.domainName}; will retry" }
+            false
         }
     }
 

@@ -539,7 +539,12 @@ internal val clientSyncModule =
                 // through lifecycleReconcile(force = true), whose forward catch-up drains the
                 // above-cursor rows before the digest pass. Same lazy-SyncEngine resolution as
                 // onCursorStale/onAccessChanged to break the construction cycle.
-                onLibraryDataChanged = { get<SyncEngine>().lifecycleReconcile(force = true) },
+                // Positions have no digest, so their cursor may already sit past the imported rows:
+                // ask the reconcile to re-read every digest-less domain from zero as well.
+                onLibraryDataChanged = {
+                    get<SyncReconciler>().requestUnbackedRepull()
+                    get<SyncEngine>().lifecycleReconcile(force = true)
+                },
                 reportCompat = get<ConnectionHealthStore>()::reportCompat,
             )
         }

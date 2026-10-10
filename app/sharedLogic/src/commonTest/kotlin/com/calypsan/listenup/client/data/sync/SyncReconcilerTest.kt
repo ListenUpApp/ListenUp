@@ -37,9 +37,11 @@ class SyncReconcilerTest :
         fun fakeHandler(
             name: String,
             rows: List<Pair<String, Long>>?,
+            hasBackstop: Boolean = true,
         ): SyncDomainHandler<Tag> =
             object : SyncDomainHandler<Tag> {
                 override val domainName = name
+                override val hasDigestBackstop = hasBackstop
                 override val payloadSerializer: KSerializer<Tag> = Tag.serializer()
 
                 override fun syncId(item: Tag): String = item.id
@@ -205,6 +207,75 @@ class SyncReconcilerTest :
                 SyncReconciler(registry, store, digestClient, catchUp).reconcileAll()
 
                 verifySuspend(VerifyMode.not) { catchUp.catchUpFromZero(any<SyncDomainHandler<Any>>()) }
+            }
+        }
+
+        // ---------------------------------------------------------------------------------
+        // requestUnbackedRepull: an import writes rows without live events; a digest-less domain's
+        // cursor may already be past them and nothing else would fetch them.
+        // ---------------------------------------------------------------------------------
+
+        test("requestUnbackedRepull re-reads only the digest-less domain from zero, once") {
+            runTest {
+                val max = 100L
+                val rows = listOf("b1" to 1L)
+                val positions = fakeHandler("playback_positions", rows = null, hasBackstop = false)
+                val books = fakeHandler("books", rows = rows)
+                val registry = ClientSyncDomainRegistry()
+                registry.register(positions)
+                registry.register(books)
+                val digestClient = fakeDigestClient(mapOf("books" to DigestComputer.compute(max, rows)))
+                val catchUp = RepullRecordingCatchUp()
+                val reconciler = SyncReconciler(registry, inMemoryStore(max), digestClient, catchUp)
+
+                reconciler.requestUnbackedRepull()
+                reconciler.reconcileAll()
+                catchUp.fromZero shouldContainExactly listOf("playback_positions")
+
+                // The request is consumed: a second pass with no new request re-reads nothing.
+                reconciler.reconcileAll()
+                catchUp.fromZero shouldContainExactly listOf("playback_positions")
+            }
+        }
+
+        test("a digest-less domain is not re-read from zero when nothing asked for it") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                registry.register(fakeHandler("playback_positions", rows = null, hasBackstop = false))
+                val catchUp = RepullRecordingCatchUp()
+
+                SyncReconciler(registry, inMemoryStore(100L), fakeDigestClient(emptyMap()), catchUp).reconcileAll()
+
+                catchUp.fromZero shouldBe emptyList()
+            }
+        }
+
+        test("a failed unbacked re-read keeps the request for the next reconcile") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                registry.register(fakeHandler("playback_positions", rows = null, hasBackstop = false))
+                val catchUp = RepullRecordingCatchUp(failFromZero = true)
+                val reconciler = SyncReconciler(registry, inMemoryStore(100L), fakeDigestClient(emptyMap()), catchUp)
+
+                reconciler.requestUnbackedRepull()
+                reconciler.reconcileAll()
+                catchUp.failFromZero = false
+                reconciler.reconcileAll()
+
+                catchUp.fromZero shouldContainExactly listOf("playback_positions", "playback_positions")
+            }
+        }
+
+        test("the unbacked re-read request survives a reconcile that has no cursor yet") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                registry.register(fakeHandler("playback_positions", rows = null, hasBackstop = false))
+                val catchUp = RepullRecordingCatchUp()
+                val noCursor = SyncReconciler(registry, inMemoryStore(null), fakeDigestClient(emptyMap()), catchUp)
+
+                noCursor.requestUnbackedRepull()
+                noCursor.reconcileAll()
+                catchUp.fromZero shouldBe emptyList()
             }
         }
 
@@ -391,3 +462,32 @@ private fun accessGatedHandler(
             prunedTo += candidateIds intersect accessibleIds
         }
     }
+
+/** [CatchUp] that records every from-zero re-read, optionally failing them. */
+private class RepullRecordingCatchUp(
+    var failFromZero: Boolean = false,
+) : CatchUp {
+    val fromZero = mutableListOf<String>()
+
+    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> {
+        fromZero += handler.domainName
+        return if (failFromZero) {
+            AppResult.Failure(SyncError.UnknownDomain(domain = handler.domainName))
+        } else {
+            AppResult.Success(Unit)
+        }
+    }
+
+    override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
+
+    override suspend fun <T : Any> fetchTransient(
+        handler: SyncDomainHandler<T>,
+        fetch: TargetedFetch,
+    ): AppResult<Set<String>> = AppResult.Success(emptySet())
+
+    override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
+}
