@@ -138,4 +138,23 @@ sealed interface TransportError : AppError {
 
         override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
+
+    /**
+     * A save went through but the new cover or photo did not reach the server. Client-local: the
+     * metadata is saved and the picked image is on this device, so nothing the user did needs
+     * redoing; this tells them the other devices will not see the image yet. Raised by the edit
+     * screens' save outcome, never by the wire. The cause's own code and detail ride in [debugInfo].
+     */
+    @Serializable
+    @SerialName("TransportError.ImageNotUploaded")
+    data class ImageNotUploaded(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : TransportError {
+        override val message: String = "Saved. The new image couldn't be uploaded yet."
+        override val code: String = "TRANSPORT_IMAGE_NOT_UPLOADED"
+        override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
+    }
 }

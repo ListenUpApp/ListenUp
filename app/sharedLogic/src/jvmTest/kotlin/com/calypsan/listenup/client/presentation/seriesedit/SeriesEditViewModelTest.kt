@@ -9,6 +9,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.MergeReceipt
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.SeriesDao
@@ -22,6 +23,7 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.domain.usecase.SaveOutcome
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
@@ -338,13 +340,59 @@ class SeriesEditViewModelTest :
             }
         }
 
+        test("a save whose cover did not upload still navigates back, and tells the user") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns
+                    AppResult.Success(SaveOutcome.SavedImageNotUploaded(TransportError.NetworkUnavailable()))
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("Updated Name"))
+
+                fixture.errorBus.errors.test {
+                    viewModel.navActions.test {
+                        viewModel.onEvent(SeriesEditUiEvent.SaveClicked)
+                        advanceUntilIdle()
+                        awaitItem() shouldBe SeriesEditNavAction.NavigateBack
+                    }
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageNotUploaded>()
+                }
+            }
+        }
+
+        test("a plainly saved series says nothing on the error bus") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns AppResult.Success(SaveOutcome.Saved)
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("Updated Name"))
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(SeriesEditUiEvent.SaveClicked)
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+            }
+        }
+
         test("SaveClicked with changes calls use case") {
             runTest {
                 val fixture = createFixture()
                 everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
                 everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
                 everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
-                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns AppResult.Success(SaveOutcome.Saved)
 
                 val viewModel = fixture.build()
                 viewModel.loadSeries("series-1")

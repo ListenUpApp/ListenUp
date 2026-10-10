@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.contributoredit
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
@@ -28,6 +29,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flow
@@ -316,6 +318,75 @@ class ContributorEditViewModelTest :
 
                 viewModel.state.value.stagingImagePath shouldBe null
                 viewModel.state.value.pendingImageData shouldBe null
+            }
+        }
+
+        test("a photo that did not upload still saves, and the user is told it did not upload") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                everySuspend {
+                    fixture.imageStagingRepository.saveContributorImageStaging(any(), any())
+                } returns AppResult.Success(Unit)
+                every {
+                    fixture.imageStagingRepository.getContributorImageStagingPath("contributor-1")
+                } returns "/staging/contributor-1_staging.jpg"
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
+                } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                } returns AppResult.Failure(TransportError.NetworkUnavailable())
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.navActions.test {
+                        viewModel.onEvent(ContributorEditUiEvent.Save)
+                        advanceUntilIdle()
+
+                        awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
+                    }
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageNotUploaded>()
+                }
+                verifySuspend { fixture.imageStagingRepository.commitContributorImageStaging("contributor-1") }
+            }
+        }
+
+        test("a photo that uploaded says nothing") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                everySuspend {
+                    fixture.imageStagingRepository.saveContributorImageStaging(any(), any())
+                } returns AppResult.Success(Unit)
+                every {
+                    fixture.imageStagingRepository.getContributorImageStagingPath("contributor-1")
+                } returns "/staging/contributor-1_staging.jpg"
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
+                } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                } returns AppResult.Success("https://example/photo.jpg")
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(ContributorEditUiEvent.Save)
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
             }
         }
 

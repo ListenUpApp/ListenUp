@@ -16,6 +16,8 @@ import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
+import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.usecase.toNotice
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
 import com.calypsan.listenup.client.presentation.bookedit.delegates.CollectionEditDelegate
 import com.calypsan.listenup.client.presentation.bookedit.delegates.ContributorEditDelegate
@@ -468,6 +470,8 @@ class BookEditViewModel(
 
             when (val result = updateBookUseCase(updateRequest, original)) {
                 is AppResult.Success -> {
+                    // The save went through; a cover that did not reach the server is said out loud.
+                    (result.data as? SaveOutcome.SavedImageNotUploaded)?.let { errorBus.emit(it.toNotice()) }
                     // Collections persist via a dedicated access-aware RPC, not the
                     // UpdateBookUseCase — dispatch only when the set actually changed.
                     val collectionsResult =

@@ -15,6 +15,8 @@ import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.SeriesUpdateRequest
+import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.usecase.toNotice
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -523,6 +525,8 @@ class SeriesEditViewModel internal constructor(
 
             when (result) {
                 is AppResult.Success -> {
+                    // The save went through; a cover that did not reach the server is said out loud.
+                    (result.data as? SaveOutcome.SavedImageNotUploaded)?.let { errorBus.emit(it.toNotice()) }
                     state.update { saving ->
                         saving.copy(
                             isSaving = false,

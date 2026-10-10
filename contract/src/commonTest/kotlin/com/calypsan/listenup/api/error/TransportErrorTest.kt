@@ -49,4 +49,12 @@ class TransportErrorTest :
             err.code shouldBe "TRANSPORT_DATA_MALFORMED"
             err.isRetryable shouldBe false
         }
+
+        test("ImageNotUploaded says the save went through and the image did not travel") {
+            val err = TransportError.ImageNotUploaded(debugInfo = "TRANSPORT_NETWORK_UNAVAILABLE")
+            err.message shouldBe "Saved. The new image couldn't be uploaded yet."
+            err.code shouldBe "TRANSPORT_IMAGE_NOT_UPLOADED"
+            err.isRetryable shouldBe false
+            err.withCorrelationId("c-1") shouldBe err.copy(correlationId = "c-1")
+        }
     })
