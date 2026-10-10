@@ -61,6 +61,7 @@ internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagS
             AccessGate(
                 liveIds = database.bookTagDao()::liveIds,
                 tombstoneByIds = database.bookTagDao()::tombstoneByIds,
+                unacknowledgedIds = database.bookTagDao()::unacknowledgedIds,
                 delta =
                     AccessDeltaPolicy.Targeted(
                         // After the books gate: a junction is only decidable once the book that

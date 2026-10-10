@@ -581,6 +581,8 @@ internal val clientSyncModule =
                 // The anti-flicker shield: every mirrored handler consults the outbox before applying
                 // an inbound snapshot, so an in-flight local edit is never clobbered by a stale echo.
                 inFlightOutbox = OutboxInFlightQuery(get<PendingOperationQueue>()::hasQueuedOpFor),
+                // The access prune spares optimistic revision-0 rows while their add is still queued.
+                hasQueuedOpIn = get<PendingOperationQueue>()::hasQueuedOpIn,
             ).apply { registerAll() }
         }
 

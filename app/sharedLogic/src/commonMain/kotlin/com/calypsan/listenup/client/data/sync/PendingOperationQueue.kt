@@ -470,6 +470,14 @@ internal class PendingOperationQueue(
     ): Boolean = dao.hasQueuedOp(domainName, entityId, ownerUserId = currentOwnerFlow.value)
 
     /**
+     * Whether [domainName] has any still-dispatchable op queued, for any entity. The access prune uses
+     * it to spare optimistic revision-0 rows while their add is in flight; dead letters do not count,
+     * so the prune resumes cleaning a refused add's leftover stub.
+     */
+    suspend fun hasQueuedOpIn(domainName: String): Boolean =
+        dao.hasQueuedOpInDomain(domainName, ownerUserId = currentOwnerFlow.value)
+
+    /**
      * Dispatch the earliest-enqueued op per (domain, entityId) group currently
      * available; each result mutates the row in place (delete on success; on
      * failure, [classifyFailure] decides whether to burn budget, park, or dead-letter).

@@ -33,6 +33,11 @@ internal data class AccessGate(
      * positions). Safe to run in both paths because these rows are re-fetched, never digested.
      */
     val afterPrune: suspend () -> Unit = {},
+    /**
+     * Wire ids of live rows the server has not acknowledged (revision 0): an optimistic add whose
+     * request may still be queued. Empty for a domain that never writes optimistically.
+     */
+    val unacknowledgedIds: suspend () -> List<String> = { emptyList() },
 )
 
 /**

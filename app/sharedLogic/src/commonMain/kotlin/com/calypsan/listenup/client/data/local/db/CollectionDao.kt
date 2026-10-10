@@ -87,6 +87,10 @@ internal interface CollectionDao {
     @Query("SELECT id FROM collections WHERE deletedAt IS NULL")
     suspend fun liveIds(): List<String>
 
+    /** Live collection ids the server has not acknowledged yet (revision 0): optimistic creates. */
+    @Query("SELECT id FROM collections WHERE deletedAt IS NULL AND revision = 0")
+    suspend fun unacknowledgedIds(): List<String>
+
     /**
      * Tombstone the given live collections by id — the chunked access-change prune.
      *
@@ -345,6 +349,10 @@ internal interface CollectionBookDao {
      */
     @Query("SELECT syncId FROM collection_books WHERE deletedAt IS NULL")
     suspend fun liveSyncIds(): List<String>
+
+    /** Live membership sync ids the server has not acknowledged yet (revision 0): optimistic adds. */
+    @Query("SELECT syncId FROM collection_books WHERE deletedAt IS NULL AND revision = 0")
+    suspend fun unacknowledgedIds(): List<String>
 
     /**
      * Live (non-tombstoned) junction [CollectionBookEntity.syncId] values whose [collectionId] is

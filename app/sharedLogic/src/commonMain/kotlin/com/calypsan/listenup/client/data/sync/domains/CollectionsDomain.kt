@@ -36,6 +36,7 @@ internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<Colle
             AccessGate(
                 liveIds = database.collectionDao()::liveIds,
                 tombstoneByIds = database.collectionDao()::tombstoneByIds,
+                unacknowledgedIds = database.collectionDao()::unacknowledgedIds,
                 // A collection is fetched by its own id; every requested id is a prune candidate.
                 delta =
                     AccessDeltaPolicy.Targeted(

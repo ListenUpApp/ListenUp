@@ -193,6 +193,10 @@ internal interface BookTagDao {
     @Query("SELECT syncId FROM book_tags WHERE deletedAt IS NULL")
     suspend fun liveIds(): List<String>
 
+    /** Live junction sync ids the server has not acknowledged yet (revision 0): optimistic adds. */
+    @Query("SELECT syncId FROM book_tags WHERE deletedAt IS NULL AND revision = 0")
+    suspend fun unacknowledgedIds(): List<String>
+
     /**
      * Live junction sync ids whose `bookId` is one of [bookIds] — the scoped
      * `AccessDeltaPolicy.Targeted` candidate set.
