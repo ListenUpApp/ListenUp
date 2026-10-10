@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `AdminInboxViewModel` — flattens the sealed `AdminInboxUiState` into a

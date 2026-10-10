@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Every sentence Match details composes, as pure functions over the shared types — so each one is

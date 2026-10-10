@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// A server-side directory, flattened for SwiftUI display.

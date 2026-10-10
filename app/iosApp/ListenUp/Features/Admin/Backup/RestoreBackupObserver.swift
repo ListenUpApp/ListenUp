@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `RestoreBackupViewModel` — the destructive restore of one already-staged backup.

@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `LibrarySettingsViewModel` — flattens the sealed `LibrarySettingsUiState`

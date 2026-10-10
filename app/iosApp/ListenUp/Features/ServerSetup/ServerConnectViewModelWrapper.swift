@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// What the user can do, from inside the app, about a connect failure.

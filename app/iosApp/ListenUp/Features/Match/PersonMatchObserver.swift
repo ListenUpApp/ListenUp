@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Observation
 import Shared
 

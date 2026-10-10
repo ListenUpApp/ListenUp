@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// A discovered server, flattened for SwiftUI display.

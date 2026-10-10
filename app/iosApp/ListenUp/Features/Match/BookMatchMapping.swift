@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// The one place Match details' shared states become native values. Pure, so every state the

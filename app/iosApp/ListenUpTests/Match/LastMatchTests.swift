@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Testing
 @testable import ListenUp
 @preconcurrency import Shared

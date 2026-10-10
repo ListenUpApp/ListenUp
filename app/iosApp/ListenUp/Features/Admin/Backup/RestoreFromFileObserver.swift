@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `RestoreFromFileViewModel` — the pick + upload step that precedes the destructive

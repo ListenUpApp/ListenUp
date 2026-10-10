@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// A native, value-typed projection of the shared `ContributorCandidate` for the merge picker.

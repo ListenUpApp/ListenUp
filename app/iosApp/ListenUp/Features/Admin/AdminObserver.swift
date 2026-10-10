@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `AdminViewModel` — flattens the sealed `AdminUiState` into a SwiftUI-native

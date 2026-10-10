@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `OrganizeSettingsViewModel` — flattens the sealed `OrganizeSettingsUiState` into a

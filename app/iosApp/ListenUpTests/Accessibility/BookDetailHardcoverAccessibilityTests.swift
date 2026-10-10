@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 import Testing
 @testable import ListenUp
