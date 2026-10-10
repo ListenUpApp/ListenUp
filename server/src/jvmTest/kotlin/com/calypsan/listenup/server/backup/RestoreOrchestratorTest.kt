@@ -86,8 +86,7 @@ class RestoreOrchestratorTest :
         test("a restore leaves the revision counter at or above where it was") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
-                    fun counter() =
-                        fixture.handle.queryScalarInt("SELECT value FROM sync_meta WHERE key = 'revision_counter'")
+                    fun counter() = fixture.handle.queryScalarInt("SELECT value FROM sync_meta WHERE key = 'revision_counter'")
                     fixture.handle.execSql("UPDATE sync_meta SET value = 10 WHERE key = 'revision_counter'")
                     fixture.archive.create("rev1", includeImages = false, onEvent = {})
                     // Writes after the backup: clients have now seen revisions up to 500.
@@ -106,8 +105,7 @@ class RestoreOrchestratorTest :
             // The other half of max(): a counter that was reset must not drag the restored one down.
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
-                    fun counter() =
-                        fixture.handle.queryScalarInt("SELECT value FROM sync_meta WHERE key = 'revision_counter'")
+                    fun counter() = fixture.handle.queryScalarInt("SELECT value FROM sync_meta WHERE key = 'revision_counter'")
                     fixture.handle.execSql("UPDATE sync_meta SET value = 500 WHERE key = 'revision_counter'")
                     fixture.archive.create("rev2", includeImages = false, onEvent = {})
                     fixture.handle.execSql("UPDATE sync_meta SET value = 10 WHERE key = 'revision_counter'")
@@ -274,7 +272,10 @@ class RestoreOrchestratorTest :
                         )
                     fixture.paths.ensureDirs()
                     ZipOutputStream(
-                        Files.newOutputStream(java.nio.file.Path.of(fixture.paths.archiveFor("late1").toString())),
+                        Files.newOutputStream(
+                            java.nio.file.Path
+                                .of(fixture.paths.archiveFor("late1").toString()),
+                        ),
                     ).use { zip ->
                         zip.putNextEntry(ZipEntry("listenup.db"))
                         zip.write(garbageBytes)
