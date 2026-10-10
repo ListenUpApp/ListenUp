@@ -69,10 +69,16 @@ class AudioFileLocatorTest :
         fun seedAndLocate(
             makeFile: (libraryRoot: java.nio.file.Path, bookDir: java.nio.file.Path, outside: java.nio.file.Path) -> Unit,
         ): Any? {
-            val libraryRoot = java.nio.file.Files.createTempDirectory("locator-lib")
-            val outside = java.nio.file.Files.createTempDirectory("locator-outside")
+            val libraryRoot =
+                java.nio.file.Files
+                    .createTempDirectory("locator-lib")
+            val outside =
+                java.nio.file.Files
+                    .createTempDirectory("locator-outside")
             try {
-                val bookDir = java.nio.file.Files.createDirectories(libraryRoot.resolve("Author/Book"))
+                val bookDir =
+                    java.nio.file.Files
+                        .createDirectories(libraryRoot.resolve("Author/Book"))
                 makeFile(libraryRoot, bookDir, outside)
                 var located: Any? = null
                 withSqlDatabase {
@@ -90,17 +96,17 @@ class AudioFileLocatorTest :
                             genreRepository = GenreRepository(sql, bus, registry),
                         )
                     runTest {
-                    repo.upsert(
-                        locatorFixture(
-                            bookId = "b1",
-                            fileId = "af1",
-                            rootRelPath = "Author/Book",
-                            filename = "01.m4b",
-                            format = "m4b",
-                            size = 1L,
-                        ),
-                    )
-                    located = AudioFileLocator(sql).locate("b1", "af1")
+                        repo.upsert(
+                            locatorFixture(
+                                bookId = "b1",
+                                fileId = "af1",
+                                rootRelPath = "Author/Book",
+                                filename = "01.m4b",
+                                format = "m4b",
+                                size = 1L,
+                            ),
+                        )
+                        located = AudioFileLocator(sql).locate("b1", "af1")
                     }
                 }
                 return located
@@ -113,8 +119,11 @@ class AudioFileLocatorTest :
         test("locate returns null when the file is a link to a file outside the library") {
             val result =
                 seedAndLocate { _, bookDir, outside ->
-                    val target = java.nio.file.Files.writeString(outside.resolve("secret"), "x")
-                    java.nio.file.Files.createSymbolicLink(bookDir.resolve("01.m4b"), target)
+                    val target =
+                        java.nio.file.Files
+                            .writeString(outside.resolve("secret"), "x")
+                    java.nio.file.Files
+                        .createSymbolicLink(bookDir.resolve("01.m4b"), target)
                 }
             result.shouldBeNull()
         }
@@ -122,7 +131,8 @@ class AudioFileLocatorTest :
         test("locate returns the location for a plain file inside the library") {
             val result =
                 seedAndLocate { _, bookDir, _ ->
-                    java.nio.file.Files.writeString(bookDir.resolve("01.m4b"), "x")
+                    java.nio.file.Files
+                        .writeString(bookDir.resolve("01.m4b"), "x")
                 }
             result.shouldNotBeNull()
         }

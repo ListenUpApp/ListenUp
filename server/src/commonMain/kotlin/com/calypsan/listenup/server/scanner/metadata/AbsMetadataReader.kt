@@ -37,7 +37,9 @@ internal class AbsMetadataReader(
                 if (SystemFileSystem.metadataOrNull(file)?.isRegularFile != true) return@runCatching null
                 val raw =
                     file.readTextCapped(SIDECAR_MAX_BYTES) ?: run {
-                        logger.warn { "metadata.json at $file is larger than $SIDECAR_MAX_BYTES bytes — skipping overlay" }
+                        logger.warn {
+                            "metadata.json at $file is larger than $SIDECAR_MAX_BYTES bytes — skipping overlay"
+                        }
                         return@runCatching null
                     }
                 val element = json.parseToJsonElement(raw)

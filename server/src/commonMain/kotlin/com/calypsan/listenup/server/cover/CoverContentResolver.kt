@@ -58,7 +58,13 @@ class CoverContentResolver internal constructor(
     private suspend fun fileContent(path: Path): CoverContent? {
         val bytes =
             withContext(fileIoDispatcher) {
-                if (SystemFileSystem.metadataOrNull(path)?.isRegularFile != true) null else path.readBytesCapped(LIBRARY_COVER_MAX_BYTES)
+                if (SystemFileSystem.metadataOrNull(path)?.isRegularFile !=
+                    true
+                ) {
+                    null
+                } else {
+                    path.readBytesCapped(LIBRARY_COVER_MAX_BYTES)
+                }
             }
         return bytes?.let { CoverContent(it, contentTypeForExtension(path)) }
     }

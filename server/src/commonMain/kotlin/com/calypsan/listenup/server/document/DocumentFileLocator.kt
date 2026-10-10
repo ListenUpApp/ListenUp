@@ -81,7 +81,11 @@ class DocumentFileLocator(
                 )
             // Read the live roots in the same transaction so the containment check below judges
             // the file against the folders that existed when the row was resolved.
-            location to sql.libraryFoldersQueries.selectLiveRootPaths().executeAsList().map { Path(it) }
+            location to
+                sql.libraryFoldersQueries
+                    .selectLiveRootPaths()
+                    .executeAsList()
+                    .map { Path(it) }
         }
 
     /** Missing is the caller's 404. Present but not a contained regular file is refused here. */

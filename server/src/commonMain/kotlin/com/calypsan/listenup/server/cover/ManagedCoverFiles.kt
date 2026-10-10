@@ -154,7 +154,10 @@ class ManagedCoverFiles(
 
         return when (source) {
             CoverSource.FILESYSTEM -> {
-                resolveFilesystemCover(bookDir, Path(resolved.libraryRoot))?.let { CoverInfo.Filesystem(it, resolved.hash) }
+                resolveFilesystemCover(
+                    bookDir,
+                    Path(resolved.libraryRoot),
+                )?.let { CoverInfo.Filesystem(it, resolved.hash) }
             }
 
             CoverSource.EMBEDDED -> {

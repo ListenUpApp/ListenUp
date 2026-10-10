@@ -20,15 +20,14 @@ internal class ReaderTxtParser : SidecarParser {
 
     override suspend fun parse(file: Path): SidecarMetadata? =
         try {
+            val text = file.readTextCapped(SIDECAR_MAX_BYTES) ?: return null
             val names =
-                file
-                    .readTextCapped(SIDECAR_MAX_BYTES)
-                    ?.removePrefix("﻿") // strip UTF-8 BOM
-                    ?.lineSequence()
-                    ?.map { it.trim() }
-                    ?.filter { it.isNotEmpty() }
-                    ?.toList()
-                    ?: return null
+                text
+                    .removePrefix("﻿") // strip UTF-8 BOM
+                    .lineSequence()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .toList()
             if (names.isEmpty()) {
                 null
             } else {

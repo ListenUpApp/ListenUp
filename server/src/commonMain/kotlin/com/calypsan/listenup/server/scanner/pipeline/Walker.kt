@@ -55,7 +55,7 @@ internal class Walker(
         flow {
             if (SystemFileSystem.metadataOrNull(root)?.isDirectory != true) return@flow
             val collected = mutableListOf<FileEntry>()
-            descend(root, root, containmentRoots, collected)
+            descend(root = root, dir = root, containmentRoots = containmentRoots, out = collected)
             collected.forEach { emit(it) }
         }.flowOn(fileIoDispatcher)
 
@@ -90,9 +90,22 @@ internal class Walker(
             }
             val meta = SystemFileSystem.metadataOrNull(child)
             when {
-                meta?.isDirectory == true -> descend(root, child, containmentRoots, out)
-                meta?.isRegularFile == true -> emitFile(root, child, out)
-                else -> logger.warn { "walk: $child is not a regular file — skipping" }
+                meta?.isDirectory == true -> {
+                    descend(
+                        root = root,
+                        dir = child,
+                        containmentRoots = containmentRoots,
+                        out = out,
+                    )
+                }
+
+                meta?.isRegularFile == true -> {
+                    emitFile(root, child, out)
+                }
+
+                else -> {
+                    logger.warn { "walk: $child is not a regular file — skipping" }
+                }
             }
         }
     }

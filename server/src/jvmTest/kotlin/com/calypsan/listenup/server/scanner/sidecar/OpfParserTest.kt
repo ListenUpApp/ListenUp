@@ -195,14 +195,16 @@ class OpfParserTest :
                 val dir = Files.createTempDirectory("listenup-oversize-")
                 try {
                     val file = dir.resolve("big.opf")
-                    file.writeText("<package><metadata><dc:title>Valid</dc:title></metadata><!-- " + "x".repeat(1_100_000) + " --></package>")
+                    file.writeText(
+                        "<package><metadata><dc:title>Valid</dc:title></metadata><!-- " +
+                            "x".repeat(1_100_000) + " --></package>",
+                    )
                     parser.parse(IoPath(file.toString())).shouldBeNull()
                 } finally {
                     dir.toFile().deleteRecursively()
                 }
             }
         }
-
     })
 
 private fun inlineOpf(date: String): IoPath {
