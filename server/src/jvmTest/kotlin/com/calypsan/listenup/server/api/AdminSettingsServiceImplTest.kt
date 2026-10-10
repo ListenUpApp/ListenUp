@@ -23,6 +23,7 @@ import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
@@ -197,10 +198,37 @@ class AdminSettingsServiceImplTest :
                         seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
                         svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "https://example.com")).shouldSucceed()
 
-                        svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = bad)).shouldFailWith<AdminError.InvalidInput>()
+                        val error =
+                            svc
+                                .updateServerSettings(AdminServerSettingsPatch(remoteUrl = bad))
+                                .shouldFailWith<ValidationError>()
+                        error.field shouldBe "remoteUrl"
+                        error.message shouldNotContain bad
 
                         svc.getServerSettings().shouldSucceed().remoteUrl shouldBe "https://example.com"
                     }
+                }
+            }
+        }
+
+        test("updateServerSettings refuses an over-long remoteUrl with a message that names the field") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+                    val tooLong = "https://example.com/" + "a".repeat(2048)
+
+                    val error =
+                        svc
+                            .updateServerSettings(AdminServerSettingsPatch(remoteUrl = tooLong))
+                            .shouldFailWith<ValidationError>()
+
+                    error.field shouldBe "remoteUrl"
+                    error.message shouldBe "Keep the remote address to 2048 characters."
                 }
             }
         }
@@ -219,7 +247,7 @@ class AdminSettingsServiceImplTest :
 
                     svc
                         .updateServerSettings(AdminServerSettingsPatch(serverName = "New Name", remoteUrl = "example.com"))
-                        .shouldFailWith<AdminError.InvalidInput>()
+                        .shouldFailWith<ValidationError>()
 
                     val after = svc.getServerSettings().shouldSucceed()
                     after.serverName shouldBe before.serverName

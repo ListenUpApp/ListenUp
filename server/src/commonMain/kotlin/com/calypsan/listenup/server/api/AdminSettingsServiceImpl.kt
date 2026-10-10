@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.AdminError
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
@@ -204,14 +206,31 @@ private fun firstRefusal(
     serverName: String?,
     remoteUrl: String?,
     region: String?,
-): AdminError.InvalidInput? =
+): AppError? =
     when {
         region != null && MetadataLocale.SUPPORTED.none { it.region == region } -> AdminError.InvalidInput()
         serverName != null && (serverName.isBlank() || serverName.length > MAX_SERVER_NAME) -> AdminError.InvalidInput()
-        // Blank clears; anything else must be a plain http(s) URL, the shape every app can use.
-        remoteUrl != null && (remoteUrl.length > MAX_REMOTE_URL || (remoteUrl.isNotEmpty() && !isHttpUrl(remoteUrl))) ->
-            AdminError.InvalidInput()
+        remoteUrl != null -> remoteUrlRefusal(remoteUrl)
         else -> null
+    }
+
+/** Blank clears the remote URL; anything else must be a plain http(s) URL, the shape every app can use. */
+private fun remoteUrlRefusal(remoteUrl: String): ValidationError? =
+    when {
+        remoteUrl.length > MAX_REMOTE_URL -> {
+            ValidationError(message = "Keep the remote address to $MAX_REMOTE_URL characters.", field = "remoteUrl")
+        }
+
+        remoteUrl.isNotEmpty() && !isHttpUrl(remoteUrl) -> {
+            ValidationError(
+                message = "Enter the remote address as a full URL starting with http:// or https://.",
+                field = "remoteUrl",
+            )
+        }
+
+        else -> {
+            null
+        }
     }
 
 /** Whether [value] is a plain absolute http(s) URL, by the same rules the apps apply to a server address. */
