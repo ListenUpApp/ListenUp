@@ -313,7 +313,7 @@ fun WebAppRoot(
                 onSignOut = onSignOut,
                 onOpenProfile =
                     currentUserId?.let { id ->
-                        { router.navigate(Route(listOf(PROFILE_KEY, id))) }
+                        { router.navigate(Routes.profile(id)) }
                     },
             )
             // Opened once for the shell's lifetime rather than per visit. Closing it on the way to a
@@ -362,9 +362,9 @@ fun WebAppRoot(
                 playback = playback,
                 // The expanded player's three destinations. `navigate`, not `replace`: leaving the
                 // player for a book is a page change, and Back should return to where you were.
-                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-                onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
-                onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
+                onOpenBook = { id -> router.navigate(Routes.book(id)) },
+                onOpenSeries = { id -> router.navigate(Routes.series(id)) },
+                onOpenContributor = { id -> router.navigate(Routes.contributor(id)) },
             )
 
             // Last of all: the palette overlays everything above it, including the transport bar.
@@ -381,7 +381,7 @@ fun WebAppRoot(
  * prefix matched — the library grid, or the book — and a broken link looked like a working one.
  * The same rule `/admin/user` already followed: a path no page names is not found.
  */
-private fun Route.isServed(): Boolean = segments.isEmpty() || ROUTE_SHAPES[segments.first()]?.invoke(segments) == true
+internal fun Route.isServed(): Boolean = segments.isEmpty() || ROUTE_SHAPES[segments.first()]?.invoke(segments) == true
 
 /** `/{key}` alone, or `/{key}/{section}` for one of [sections]. */
 private fun List<String>.isSection(vararg sections: String): Boolean = size == 1 || (size == 2 && this[1] in sections)
@@ -401,6 +401,72 @@ private fun List<String>.isSettingsShape(): Boolean =
 private fun List<String>.isAdminShape(): Boolean =
     size <= 2 ||
         (size == 3 && (this[1] in ADMIN_ID_PAGES || (this[1] == IMPORTS_KEY && this[2] == NEW_KEY)))
+
+/** Every route the shell navigates to, by name: the constructors for the shapes [ROUTE_SHAPES] accepts. */
+internal object Routes {
+    // Properties with getters, not stored values: `Route` compares by identity, and the router only
+    // announces a navigation whose route is a different instance from the current one.
+    val home: Route get() = Route(emptyList())
+
+    val admin: Route get() = Route(listOf(ADMIN_KEY))
+    val adminBackups: Route get() = Route(listOf(ADMIN_KEY, BACKUPS_KEY))
+    fun adminBackup(id: String): Route = Route(listOf(ADMIN_KEY, BACKUPS_KEY, id))
+    val adminCategories: Route get() = Route(listOf(ADMIN_KEY, CATEGORIES_KEY))
+    val adminCollections: Route get() = Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))
+    fun adminCollection(id: String): Route = Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))
+    val adminImports: Route get() = Route(listOf(ADMIN_KEY, IMPORTS_KEY))
+    val adminNewImport: Route get() = Route(listOf(ADMIN_KEY, IMPORTS_KEY, NEW_KEY))
+    val adminInbox: Route get() = Route(listOf(ADMIN_KEY, INBOX_KEY))
+    val adminInvite: Route get() = Route(listOf(ADMIN_KEY, INVITE_KEY))
+    val adminLibrary: Route get() = Route(listOf(ADMIN_KEY, LIBRARY_KEY))
+    val adminOrganize: Route get() = Route(listOf(ADMIN_KEY, ORGANIZE_KEY))
+    val adminServerSettings: Route get() = Route(listOf(ADMIN_KEY, SETTINGS_KEY))
+    val adminUpload: Route get() = Route(listOf(ADMIN_KEY, UPLOAD_KEY))
+    fun adminUser(id: String): Route = Route(listOf(ADMIN_KEY, USER_KEY, id))
+    fun book(id: String): Route = Route(listOf(BOOK_KEY, id))
+    fun bookChapters(id: String): Route = Route(listOf(BOOK_KEY, id, CHAPTERS_KEY))
+    fun bookEdit(id: String): Route = Route(listOf(BOOK_KEY, id, EDIT_KEY))
+    fun bookHardcover(id: String): Route = Route(listOf(BOOK_KEY, id, HARDCOVER_KEY))
+    fun bookMatch(id: String): Route = Route(listOf(BOOK_KEY, id, MATCH_KEY))
+    fun bookReaders(id: String): Route = Route(listOf(BOOK_KEY, id, READERS_KEY))
+    fun contributor(id: String): Route = Route(listOf(CONTRIBUTOR_KEY, id))
+    fun contributorEdit(id: String): Route = Route(listOf(CONTRIBUTOR_KEY, id, EDIT_KEY))
+    fun contributorMatch(id: String): Route = Route(listOf(CONTRIBUTOR_KEY, id, MATCH_KEY))
+    fun genre(id: String): Route = Route(listOf(GENRE_KEY, id))
+    val library: Route get() = Route(listOf(LIBRARY_KEY))
+    val libraryContributors: Route get() = Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))
+    val librarySeries: Route get() = Route(listOf(LIBRARY_KEY, SERIES_KEY))
+    fun mood(id: String): Route = Route(listOf(MOOD_KEY, id))
+    fun profile(id: String): Route = Route(listOf(PROFILE_KEY, id))
+    fun profileEdit(id: String): Route = Route(listOf(PROFILE_KEY, id, EDIT_KEY))
+    val search: Route get() = Route(listOf(SEARCH_KEY))
+    fun series(id: String): Route = Route(listOf(SERIES_KEY, id))
+    fun seriesEdit(id: String): Route = Route(listOf(SERIES_KEY, id, EDIT_KEY))
+    val settings: Route get() = Route(listOf(SETTINGS_KEY))
+    val settingsCategories: Route get() = Route(listOf(SETTINGS_KEY, CATEGORIES_KEY))
+    val settingsDevices: Route get() = Route(listOf(SETTINGS_KEY, DEVICES_KEY))
+    val settingsHardcover: Route get() = Route(listOf(SETTINGS_KEY, HARDCOVER_KEY))
+    val settingsHardcoverKeptOff: Route get() = Route(listOf(SETTINGS_KEY, HARDCOVER_KEY, KEPT_OFF_KEY))
+    val settingsLicences: Route get() = Route(listOf(SETTINGS_KEY, LICENCES_KEY))
+    val settingsNotifications: Route get() = Route(listOf(SETTINGS_KEY, NOTIFICATIONS_KEY))
+    val newShelf: Route get() = Route(listOf(SHELF_KEY, NEW_KEY))
+    fun shelf(id: String): Route = Route(listOf(SHELF_KEY, id))
+    fun shelfEdit(id: String): Route = Route(listOf(SHELF_KEY, id, EDIT_KEY))
+    fun tag(id: String): Route = Route(listOf(TAG_KEY, id))
+
+    /** `/search?q=…`: the search page seeded with [query]. */
+    fun searchFor(query: String): Route = Route(listOf(SEARCH_KEY), mapOf(SEARCH_QUERY_KEY to query))
+
+    /** `/search/{type}`: the single-type page, carrying [query] (the URL's own parameters). */
+    fun searchType(slug: String, query: Map<String, String>): Route = Route(listOf(SEARCH_KEY, slug), query)
+
+    /** `/books/edit?ids=…`: the bulk editor over [bookIds]. */
+    fun bulkEdit(bookIds: Collection<String>): Route =
+        Route(listOf(BOOKS_KEY, EDIT_KEY), mapOf(IDS_QUERY_KEY to bookIds.joinToString(",")))
+
+    /** `/admin?section=pending`: Admin opened on the pending-requests section. */
+    val adminPending: Route get() = Route(listOf(ADMIN_KEY), mapOf(SECTION_QUERY_KEY to PENDING_SECTION))
+}
 
 /** Every first segment the shell serves, and the shapes that may follow it. */
 private val ROUTE_SHAPES: Map<String, (List<String>) -> Boolean> =
@@ -497,12 +563,12 @@ private fun SeriesRouteContent(
     val session = seriesDetailSession(seriesId, openSeriesDetail)
     SeriesDetailPage(
         state = session.state.collectAsState().value,
-        onEdit = { router.navigate(Route(listOf(SERIES_KEY, seriesId, EDIT_KEY))) },
-        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+        onEdit = { router.navigate(Routes.seriesEdit(seriesId)) },
+        onOpenLibrary = { router.navigate(Routes.library) },
+        onOpenBook = { id -> router.navigate(Routes.book(id)) },
         onPlayBook = { id -> playback.onPlayBook(BookId(id)) },
         // Pushed, not popped to: Back from the ancestor still returns to this series.
-        onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+        onOpenSeries = { id -> router.navigate(Routes.series(id)) },
         onToggleSection = session.onToggleSection,
         addSubSeries = session.addSubSeries.collectAsState().value,
         onAddSubSeriesEvent = session.onAddSubSeriesEvent,
@@ -558,7 +624,7 @@ private fun SearchRouteContent(
         router = router,
         route = route,
         openSearch = openSearch,
-        onSeeAll = { type -> router.navigate(Route(listOf(SEARCH_KEY, type.slug()), route.query)) },
+        onSeeAll = { type -> router.navigate(Routes.searchType(type.slug(), route.query)) },
     )
 }
 
@@ -585,7 +651,7 @@ private fun SeeAllRoute(
         state = session.state.collectAsState().value,
         openableTypes = SEARCH_OPENABLE_TYPES,
         onOpenHit = session.onOpenHit,
-        onOpenSearch = { router.navigate(Route(listOf(SEARCH_KEY), mapOf(SEARCH_QUERY_KEY to query))) },
+        onOpenSearch = { router.navigate(Routes.searchFor(query)) },
     )
 }
 
@@ -633,8 +699,8 @@ private fun BrowseFacetRoute(
 
     BrowseFacetPage(
         state = session.state.collectAsState().value,
-        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onOpenBook = { id -> router.navigate(Routes.book(id)) },
+        onOpenLibrary = { router.navigate(Routes.library) },
     )
 }
 
@@ -649,9 +715,9 @@ private fun GenreDestinationRoute(
 
     GenreDestinationPage(
         state = session.state.collectAsState().value,
-        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-        onOpenGenre = { id -> router.navigate(Route(listOf(GENRE_KEY, id))) },
-        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onOpenBook = { id -> router.navigate(Routes.book(id)) },
+        onOpenGenre = { id -> router.navigate(Routes.genre(id)) },
+        onOpenLibrary = { router.navigate(Routes.library) },
         onToggleSubGenres = session.onToggleSubGenres,
     )
 }
@@ -707,7 +773,7 @@ private fun RouteContent(
     val editingProfile = route.segments.getOrNull(2) == EDIT_KEY
 
     if (!route.isServed()) {
-        NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
+        NotFoundPage(onGoHome = { router.navigate(Routes.home) })
     } else if (bulkEditIds.isNotEmpty()) {
         BulkEditRoute(router = router, openBulkEdit = graph.openBulkEdit, bookIds = bulkEditIds, onToast = onToast)
     } else if (bookId != null) {
@@ -813,7 +879,7 @@ private fun RouteContent(
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router, graph.openDiscover, feeds)
     } else {
-        NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
+        NotFoundPage(onGoHome = { router.navigate(Routes.home) })
     }
 }
 
@@ -843,12 +909,12 @@ private fun HomeRoute(
             stats = session.stats.collectAsState().value,
             onOpenBook = { id ->
                 feeds.onHeroBookIdChange(id)
-                router.navigate(Route(listOf(BOOK_KEY, id)))
+                router.navigate(Routes.book(id))
             },
-            onOpenSearch = { router.navigate(Route(listOf(SEARCH_KEY))) },
-            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-            onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
-            onCreateShelf = { router.navigate(Route(listOf(SHELF_KEY, NEW_KEY))) },
+            onOpenSearch = { router.navigate(Routes.search) },
+            onOpenLibrary = { router.navigate(Routes.library) },
+            onOpenShelf = { id -> router.navigate(Routes.shelf(id)) },
+            onCreateShelf = { router.navigate(Routes.newShelf) },
             onRetry = session.onRetry,
             onRetryStats = session.onRetryStats,
             selection = selection,
@@ -888,10 +954,10 @@ private fun DiscoverRoute(
             nowMs = nowMs,
             onOpenBook = { id ->
                 feeds.onHeroBookIdChange(id)
-                router.navigate(Route(listOf(BOOK_KEY, id)))
+                router.navigate(Routes.book(id))
             },
-            onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
-            onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
+            onOpenShelf = { id -> router.navigate(Routes.shelf(id)) },
+            onOpenProfile = { id -> router.navigate(Routes.profile(id)) },
             onSelectPeriod = session.onSelectPeriod,
             onSelectCategory = session.onSelectCategory,
             onRefresh = session.onRefresh,
@@ -1106,7 +1172,7 @@ private fun CommandPaletteHost(
             onSeeAll = { type ->
                 val query = uiState.query
                 closePalette(returnFocus = false)
-                router.navigate(Route(listOf(SEARCH_KEY, type.slug()), mapOf(SEARCH_QUERY_KEY to query)))
+                router.navigate(Routes.searchType(type.slug(), mapOf(SEARCH_QUERY_KEY to query)))
             },
         )
     }
@@ -1177,15 +1243,15 @@ private fun paletteKeyDownHandler(
  */
 private fun searchNavRoute(action: SearchNavAction): Route =
     when (action) {
-        is SearchNavAction.NavigateToBook -> Route(listOf(BOOK_KEY, action.bookId))
-        is SearchNavAction.NavigateToContributor -> Route(listOf(CONTRIBUTOR_KEY, action.contributorId))
-        is SearchNavAction.NavigateToSeries -> Route(listOf(SERIES_KEY, action.seriesId))
-        is SearchNavAction.NavigateToTag -> Route(listOf(TAG_KEY, action.tagId))
+        is SearchNavAction.NavigateToBook -> Routes.book(action.bookId)
+        is SearchNavAction.NavigateToContributor -> Routes.contributor(action.contributorId)
+        is SearchNavAction.NavigateToSeries -> Routes.series(action.seriesId)
+        is SearchNavAction.NavigateToTag -> Routes.tag(action.tagId)
     }
 
 /** Where the palette's Shift+Enter commits: `/search`, or `/search?q=…` for a non-blank query. */
 private fun paletteSearchRoute(query: String): Route =
-    if (query.isBlank()) Route(listOf(SEARCH_KEY)) else Route(listOf(SEARCH_KEY), mapOf(SEARCH_QUERY_KEY to query))
+    if (query.isBlank()) Routes.search else Routes.searchFor(query)
 
 /** True while a modal `<dialog>` is showing. Asked only while the palette is shut, so it is never the palette. */
 private fun anotherModalIsOpen(): Boolean = document.querySelector("dialog:modal") != null
@@ -1292,11 +1358,11 @@ private fun ContributorEditRoute(
                 ContributorEditNavAction.NavigateBack,
                 ContributorEditNavAction.SaveSuccess,
                 -> {
-                    router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId)))
+                    router.navigate(Routes.contributor(contributorId))
                 }
 
                 is ContributorEditNavAction.NavigateToMerged -> {
-                    router.replace(Route(listOf(CONTRIBUTOR_KEY, action.contributorId.value)))
+                    router.replace(Routes.contributor(action.contributorId.value))
                 }
             }
         }
@@ -1323,14 +1389,14 @@ private fun PersonMatchDetailsRoute(
     currentUserId: String?,
     contributorId: String,
 ) {
-    val person = Route(listOf(CONTRIBUTOR_KEY, contributorId))
+    val person = Routes.contributor(contributorId)
     PersonMatchRoute(
         contributorId = contributorId,
         graph = matchDetails,
         viewerId = currentUserId,
-        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onOpenLibrary = { router.navigate(Routes.library) },
         onOpenContributor = { router.navigate(person) },
-        onEditByHand = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
+        onEditByHand = { router.navigate(Routes.contributorEdit(contributorId)) },
         onApplied = { router.navigate(person) },
     )
 }
@@ -1375,7 +1441,7 @@ private fun ContributorRouteContent(
                 state = library?.let { if (role == ContributorRole.NARRATOR) it.narrators else it.authors },
                 role = role,
                 onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
-                onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
+                onOpenContributor = { id -> router.navigate(Routes.contributor(id)) },
                 sortState =
                     library?.let {
                         if (role ==
@@ -1406,10 +1472,10 @@ private fun ContributorRouteContent(
         roleBooksContributorId != null -> {
             ContributorBooksPage(
                 state = contributorBooksState(roleBooksContributorId, roleBooksRole, openContributorBooks),
-                onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-                onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
-                onOpenContributor = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, roleBooksContributorId))) },
-                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+                onOpenLibrary = { router.navigate(Routes.library) },
+                onOpenContributors = { router.navigate(Routes.libraryContributors) },
+                onOpenContributor = { router.navigate(Routes.contributor(roleBooksContributorId)) },
+                onOpenBook = { id -> router.navigate(Routes.book(id)) },
             )
         }
 
@@ -1433,7 +1499,7 @@ private fun ContributorRouteContent(
                 session.navActions.collect { action ->
                     when (action) {
                         ContributorDetailNavAction.Deleted -> {
-                            router.replace(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY)))
+                            router.replace(Routes.libraryContributors)
                         }
                     }
                 }
@@ -1444,12 +1510,12 @@ private fun ContributorRouteContent(
                 state = detail,
                 onConfirmDelete = session.onConfirmDelete,
                 onDismissDeleteError = session.onDismissDeleteError,
-                onEdit = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
-                onMatchMetadata = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, MATCH_KEY))) },
-                onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-                onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
-                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-                onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+                onEdit = { router.navigate(Routes.contributorEdit(contributorId)) },
+                onMatchMetadata = { router.navigate(Routes.contributorMatch(contributorId)) },
+                onOpenLibrary = { router.navigate(Routes.library) },
+                onOpenContributors = { router.navigate(Routes.libraryContributors) },
+                onOpenBook = { id -> router.navigate(Routes.book(id)) },
+                onOpenSeries = { id -> router.navigate(Routes.series(id)) },
                 onOpenRoleBooks = { roleValue ->
                     router.navigate(
                         Route(
@@ -1511,7 +1577,7 @@ private fun SeriesListRoute(
     SeriesListPage(
         state = librarySession.state.collectAsState().value,
         onEvent = librarySession.onEvent,
-        onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+        onOpenSeries = { id -> router.navigate(Routes.series(id)) },
         onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
     )
 }
@@ -1570,14 +1636,14 @@ private fun BookRouteContent(
             state = bookReadersState(readersBookId, openBookReaders),
             bookTitle = bookTitleOf(bookDetailSession(readersBookId, openBookDetail).state.collectAsState().value),
             nowMs = nowMs(),
-            onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
-            onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, readersBookId))) },
+            onOpenProfile = { id -> router.navigate(Routes.profile(id)) },
+            onOpenBook = { router.navigate(Routes.book(readersBookId)) },
         )
         return
     }
 
     if (matchingBookId != null) {
-        val here = Route(listOf(BOOK_KEY, matchingBookId, MATCH_KEY))
+        val here = Routes.bookMatch(matchingBookId)
         BookMatchRoute(
             bookId = matchingBookId,
             graph = matchDetails,
@@ -1587,10 +1653,10 @@ private fun BookRouteContent(
             // leave Match details rather than walk between its two views.
             onOpenCompare = { router.replace(Route(here.segments, mapOf(VIEW_QUERY_KEY to COMPARE_VIEW))) },
             onCloseCompare = { router.replace(here) },
-            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-            onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, matchingBookId))) },
+            onOpenLibrary = { router.navigate(Routes.library) },
+            onOpenBook = { router.navigate(Routes.book(matchingBookId)) },
             // After Apply, back to the book: its receipt says what changed and offers Undo.
-            onApplied = { router.navigate(Route(listOf(BOOK_KEY, matchingBookId))) },
+            onApplied = { router.navigate(Routes.book(matchingBookId)) },
         )
         return
     }
@@ -1610,13 +1676,13 @@ private fun BookRouteContent(
             bookEditState(
                 bookId = editingBookId,
                 openBookEdit = openBookEdit,
-                onLeave = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
+                onLeave = { router.navigate(Routes.book(editingBookId)) },
             )
         BookEditPage(
             state = editSession.state.collectAsState().value,
             onEvent = editSession.onEvent,
-            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-            onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
+            onOpenLibrary = { router.navigate(Routes.library) },
+            onOpenBook = { router.navigate(Routes.book(editingBookId)) },
         )
         return
     }
@@ -1686,7 +1752,7 @@ private fun BookDetailRoute(
                 // why — a page that simply disappears reads as the app losing the reader's place.
                 // (Web keeps no downloads, so there is no local copy to purge as Android does.)
                 val title = (detailSession.state.value as? BookDetailUiState.Ready)?.book?.title
-                router.navigate(Route(listOf(LIBRARY_KEY)))
+                router.navigate(Routes.library)
                 onToast(if (title != null) "“$title” was deleted." else "The book was deleted.")
             }
         }
@@ -1701,7 +1767,7 @@ private fun BookDetailRoute(
             // below deliberately is not — see Router.replace.
             router.replace(Route(route.segments, route.query + ("tab" to tab)))
         },
-        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onOpenLibrary = { router.navigate(Routes.library) },
         bookId = bookId,
         selection = parseSelection(route.query["sel"]),
         onSelectionChange = { selection ->
@@ -1739,16 +1805,16 @@ private fun BookDetailRoute(
         onClearDeleteError = detailSession.onClearDeleteError,
         onReleaseFromInbox = detailSession.onReleaseFromInbox,
         onRestoreToAllBooks = detailSession.onRestoreToAllBooks,
-        onOpenCollection = { id -> router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))) },
+        onOpenCollection = { id -> router.navigate(Routes.adminCollection(id)) },
         pickers = bookPickersFor(detailSession),
-        onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
-        onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },
-        onMatchMetadata = { router.navigate(Route(listOf(BOOK_KEY, bookId, MATCH_KEY))) },
-        onOpenGenre = { id -> router.navigate(Route(listOf(GENRE_KEY, id))) },
-        onOpenTag = { id -> router.navigate(Route(listOf(TAG_KEY, id))) },
-        onOpenMood = { id -> router.navigate(Route(listOf(MOOD_KEY, id))) },
-        onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
-        onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+        onEdit = { router.navigate(Routes.bookEdit(bookId)) },
+        onEditChapters = { router.navigate(Routes.bookChapters(bookId)) },
+        onMatchMetadata = { router.navigate(Routes.bookMatch(bookId)) },
+        onOpenGenre = { id -> router.navigate(Routes.genre(id)) },
+        onOpenTag = { id -> router.navigate(Routes.tag(id)) },
+        onOpenMood = { id -> router.navigate(Routes.mood(id)) },
+        onOpenContributor = { id -> router.navigate(Routes.contributor(id)) },
+        onOpenSeries = { id -> router.navigate(Routes.series(id)) },
         readers = bookReadersState(bookId, openBookReaders),
         ratings = ratingsSession.state.collectAsState().value,
         onRate = ratingsSession.rate,
@@ -1757,10 +1823,10 @@ private fun BookDetailRoute(
         onSetStars = ratingsSession.setStars,
         ratingStarsFocusRequest = ratingStarsFocusRequest,
         nowMs = nowMs(),
-        onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
-        onSeeAllReaders = { router.navigate(Route(listOf(BOOK_KEY, bookId, READERS_KEY))) },
+        onOpenProfile = { id -> router.navigate(Routes.profile(id)) },
+        onSeeAllReaders = { router.navigate(Routes.bookReaders(bookId)) },
         hardcover = hardcoverSession.state.collectAsState().value,
-        onFindHardcoverMatch = { router.navigate(Route(listOf(BOOK_KEY, bookId, HARDCOVER_KEY))) },
+        onFindHardcoverMatch = { router.navigate(Routes.bookHardcover(bookId)) },
         onRemoveHardcoverMatch = hardcoverSession.onRemoveMatch,
         onSetHardcoverSynced = hardcoverSession.onSetSynced,
         lastMatchRow = { BookLastMatch(session = detailSession, nowMs = nowMs()) },
@@ -1912,7 +1978,7 @@ private fun ChapterEditorRoute(
     var problem by remember(bookId) { mutableStateOf<String?>(null) }
     var pendingDiscard by remember(bookId) { mutableStateOf(false) }
     val isDirty = (state as? ChapterEditorUiState.Editing)?.isDirty == true
-    val book = Route(listOf(BOOK_KEY, bookId))
+    val book = Routes.book(bookId)
 
     LaunchedEffect(session) {
         session.events.collect { event ->
@@ -1999,7 +2065,7 @@ private fun BulkEditRoute(
     val key = bookIds.joinToString(",")
     val session = rememberSession(key) { openBulkEdit(bookIds) }
 
-    val library = Route(listOf(LIBRARY_KEY))
+    val library = Routes.library
 
     LaunchedEffect(session) {
         session.events.collect { event ->
@@ -2063,7 +2129,7 @@ private fun LibraryRouteContent(
             onEvent = librarySession.onEvent,
             onOpenBook = { id ->
                 onHeroBookIdChange(id)
-                router.navigate(Route(listOf(BOOK_KEY, id)))
+                router.navigate(Routes.book(id))
             },
             onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
             heroBookId = heroBookId,
@@ -2072,7 +2138,7 @@ private fun LibraryRouteContent(
             onToggleSelect = selection.onToggle,
             onStartSelecting = selection.onStart,
             inbox = inbox,
-            onOpenInbox = { router.navigate(Route(listOf(ADMIN_KEY, INBOX_KEY))) },
+            onOpenInbox = { router.navigate(Routes.adminInbox) },
         )
     }
 }
@@ -2140,7 +2206,7 @@ private fun BookSelectionScaffold(
             LaunchedEffect(selected) {
                 picking = null
                 router.navigate(
-                    Route(listOf(BOOKS_KEY, EDIT_KEY), mapOf(IDS_QUERY_KEY to selected.joinToString(","))),
+                    Routes.bulkEdit(selected),
                 )
             }
         }
@@ -2269,17 +2335,17 @@ private fun NotificationsRoute(
             session.onMarkRead(notification.id)
             when (val action = notification.toShortcutAction()) {
                 is ShortcutAction.NavigateToBook -> {
-                    router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
+                    router.navigate(Routes.book(action.bookId))
                 }
 
                 // Web's Admin page IS the pending-approvals surface, so this one lands — on the
                 // section itself, since the request sits below the fold.
                 is ShortcutAction.NavigateToPendingApprovals -> {
-                    router.navigate(Route(listOf(ADMIN_KEY), mapOf(SECTION_QUERY_KEY to PENDING_SECTION)))
+                    router.navigate(Routes.adminPending)
                 }
 
                 is ShortcutAction.NavigateToUserProfile -> {
-                    router.navigate(Route(listOf(PROFILE_KEY, action.userId)))
+                    router.navigate(Routes.profile(action.userId))
                 }
 
                 else -> {
@@ -2308,7 +2374,7 @@ private fun NotificationPrefsRoute(
         state = session.state.collectAsState().value,
         onSetPreference = session.onSetPreference,
         onRetry = session.onRetry,
-        onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
+        onOpenSettings = { router.navigate(Routes.settings) },
     )
 }
 
@@ -2367,9 +2433,9 @@ private fun HardcoverRoute(
         onSetShareMode = session.onSetShareMode,
         onSendHistory = session.onSendHistory,
         onDismissHistory = session.onDismissHistory,
-        onFindMatch = { bookId -> router.navigate(Route(listOf(BOOK_KEY, bookId, HARDCOVER_KEY))) },
-        onOpenKeptOff = { router.navigate(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY, KEPT_OFF_KEY))) },
-        onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
+        onFindMatch = { bookId -> router.navigate(Routes.bookHardcover(bookId)) },
+        onOpenKeptOff = { router.navigate(Routes.settingsHardcoverKeptOff) },
+        onOpenSettings = { router.navigate(Routes.settings) },
         nowMs = nowMs(),
     )
 }
@@ -2386,7 +2452,7 @@ private fun KeptOffRoute(
     onToast: (String) -> Unit,
 ) {
     val keptOff = session.keptOff.collectAsState().value
-    val toHardcover = { router.replace(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY))) }
+    val toHardcover = { router.replace(Routes.settingsHardcover) }
     LaunchedEffect(session) {
         session.keptOffEvents.collect { event ->
             when (event) {
@@ -2409,8 +2475,8 @@ private fun KeptOffRoute(
     KeptOffBooksPage(
         state = keptOff,
         onSyncAgain = session.onSyncAgain,
-        onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
-        onOpenHardcover = { router.navigate(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY))) },
+        onOpenSettings = { router.navigate(Routes.settings) },
+        onOpenHardcover = { router.navigate(Routes.settingsHardcover) },
     )
 }
 
@@ -2442,11 +2508,11 @@ private fun HardcoverMatchRoute(
                         ToastTone.Notice,
                         ToastAction("Undo", session.onUndoLink),
                     )
-                    router.replace(Route(listOf(BOOK_KEY, bookId)))
+                    router.replace(Routes.book(bookId))
                 }
 
                 HardcoverMatchEvent.MatchRemoved -> {
-                    router.replace(Route(listOf(BOOK_KEY, bookId)))
+                    router.replace(Routes.book(bookId))
                 }
 
                 // `AppError.message` is a user-facing constant per subtype — printed, not reworded.
@@ -2463,8 +2529,8 @@ private fun HardcoverMatchRoute(
         onSearchFor = session.onSearchFor,
         onPick = session.onPick,
         onRemoveMatch = session.onRemoveMatch,
-        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-        onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, bookId))) },
+        onOpenLibrary = { router.navigate(Routes.library) },
+        onOpenBook = { router.navigate(Routes.book(bookId)) },
     )
 }
 
@@ -2496,7 +2562,7 @@ private fun ProfileRouteContent(
             router = router,
             openProfile = openProfile,
             userId = userId,
-            onEditProfile = { router.navigate(Route(listOf(PROFILE_KEY, userId, EDIT_KEY))) },
+            onEditProfile = { router.navigate(Routes.profileEdit(userId)) },
         )
     }
 }
@@ -2519,8 +2585,8 @@ private fun ProfileRoute(
 
     ProfilePage(
         state = session.state.collectAsState().value,
-        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-        onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
+        onOpenBook = { id -> router.navigate(Routes.book(id)) },
+        onOpenShelf = { id -> router.navigate(Routes.shelf(id)) },
         onRetry = session.onRetry,
         onEditProfile = onEditProfile,
     )
@@ -2550,7 +2616,7 @@ private fun EditProfileRoute(
     currentUserId: String?,
 ) {
     if (currentUserId != null && currentUserId != userId) {
-        LaunchedEffect(userId) { router.replace(Route(listOf(PROFILE_KEY, userId))) }
+        LaunchedEffect(userId) { router.replace(Routes.profile(userId)) }
         return
     }
 
@@ -2564,7 +2630,7 @@ private fun EditProfileRoute(
 
                 // The refreshed profile is the confirmation, exactly as on Android — a notice here
                 // would be read on a page the reader has already left.
-                EditProfileEvent.SaveSucceeded -> router.navigate(Route(listOf(PROFILE_KEY, userId)))
+                EditProfileEvent.SaveSucceeded -> router.navigate(Routes.profile(userId))
             }
         }
     }
@@ -2583,7 +2649,7 @@ private fun EditProfileRoute(
             saveError = null
             session.onSave()
         },
-        onCancel = { router.navigate(Route(listOf(PROFILE_KEY, userId))) },
+        onCancel = { router.navigate(Routes.profile(userId)) },
         saveError = saveError,
     )
 }
@@ -2603,8 +2669,8 @@ private fun ImportsRoute(
         onDelete = { summary -> session.onDelete(summary.id) },
         onClearError = session.onClearError,
         onRetry = session.onRetry,
-        onNewImport = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY, NEW_KEY))) },
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onNewImport = { router.navigate(Routes.adminNewImport) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
     )
 }
 
@@ -2640,7 +2706,7 @@ private fun ImportFlowRoute(
         onSkipBook = session.onSkipBook,
         onApply = session.onApply,
         onReset = session.onReset,
-        onOpenImports = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY))) },
+        onOpenImports = { router.navigate(Routes.adminImports) },
     )
 }
 
@@ -2673,7 +2739,7 @@ private fun BackupsRoute(
     }
     LaunchedEffect(session) {
         session.uploaded.collect { backupId ->
-            router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY, backupId.value)))
+            router.navigate(Routes.adminBackup(backupId.value))
         }
     }
 
@@ -2700,8 +2766,8 @@ private fun BackupsRoute(
         onResetUpload = session.onResetUpload,
         onClearError = session.onClearError,
         onRetry = session.onRetry,
-        onRestore = { backup -> router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY, backup.id))) },
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onRestore = { backup -> router.navigate(Routes.adminBackup(backup.id)) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
     )
 }
 
@@ -2729,7 +2795,7 @@ private fun RestoreRoute(
         onRequest = session.onRequest,
         onCancel = session.onCancel,
         onConfirm = session.onConfirm,
-        onOpenBackups = { router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY))) },
+        onOpenBackups = { router.navigate(Routes.adminBackups) },
     )
 }
 
@@ -2749,8 +2815,8 @@ private fun CollectionsRoute(
         onCreate = session.onCreate,
         onDelete = session.onDelete,
         onClearError = session.onClearError,
-        onOpenCollection = { id -> router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))) },
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenCollection = { id -> router.navigate(Routes.adminCollection(id)) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
         onCreateConfirmed = {
             onToast("Collection created.")
             session.onClearCreateSuccess()
@@ -2788,7 +2854,7 @@ private fun CollectionDetailRoute(
         onShare = session.onShare,
         onRevokeShare = session.onRevokeShare,
         onClearError = session.onClearError,
-        onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
+        onOpenCollections = { router.navigate(Routes.adminCollections) },
         onSaveConfirmed = {
             onToast("Collection renamed.")
             session.onClearSaveSuccess()
@@ -2808,7 +2874,7 @@ private fun CategoriesRoute(
     router: Router,
     openCategories: OpenCategories,
     parentCrumb: String = "Admin",
-    parent: Route = Route(listOf(ADMIN_KEY)),
+    parent: Route = Routes.admin,
 ) {
     val session = rememberSession { openCategories() }
 
@@ -2859,7 +2925,7 @@ private fun ServerSettingsRoute(
         onSave = session.onSave,
         onClearError = session.onClearError,
         onRetry = session.onRetry,
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
         nowMs = nowMs(),
     )
 }
@@ -2886,12 +2952,12 @@ private fun AdminInboxRoute(
         onRelease = session.onRelease,
         onDismissIssue = session.onDismissIssue,
         onClearError = session.onClearError,
-        onOpenBookEdit = { id -> router.navigate(Route(listOf(BOOK_KEY, id, EDIT_KEY))) },
-        onOpenMatch = { id -> router.navigate(Route(listOf(BOOK_KEY, id, MATCH_KEY))) },
-        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+        onOpenBookEdit = { id -> router.navigate(Routes.bookEdit(id)) },
+        onOpenMatch = { id -> router.navigate(Routes.bookMatch(id)) },
+        onOpenBook = { id -> router.navigate(Routes.book(id)) },
         onClearReleaseResult = session.onClearReleaseResult,
         onRetry = session.onRetry,
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
     )
 }
 
@@ -2930,7 +2996,7 @@ private fun LibrarySettingsRoute(
         onOpenBrowserPath = session.onOpenBrowserPath,
         onBrowserUp = session.onBrowserUp,
         onClearError = session.onClearError,
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
     )
 }
 
@@ -2988,13 +3054,13 @@ private fun SeriesEditRoute(
                 // A saved form and a cancelled one both leave the same way — this ViewModel has no
                 // separate SaveSuccess, so the series' own page is where both land.
                 SeriesEditNavAction.NavigateBack -> {
-                    router.navigate(Route(listOf(SERIES_KEY, seriesId)))
+                    router.navigate(Routes.series(seriesId))
                 }
 
                 // ⛔ `replace`, not `navigate`. The merge deletes the series being edited, so a
                 // pushed entry would send Back to the editor of a series that no longer exists.
                 is SeriesEditNavAction.NavigateToMerged -> {
-                    router.replace(Route(listOf(SERIES_KEY, action.seriesId.value)))
+                    router.replace(Routes.series(action.seriesId.value))
                 }
             }
         }
@@ -3093,15 +3159,15 @@ private fun parseContributorRole(raw: String?): ContributorRole =
 private fun routeFor(facet: LibraryFacet): Route =
     when (facet) {
         LibraryFacet.Books -> {
-            Route(listOf(LIBRARY_KEY))
+            Routes.library
         }
 
         LibraryFacet.Series -> {
-            Route(listOf(LIBRARY_KEY, SERIES_KEY))
+            Routes.librarySeries
         }
 
         LibraryFacet.Authors -> {
-            Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))
+            Routes.libraryContributors
         }
 
         LibraryFacet.Narrators -> {
@@ -3334,12 +3400,12 @@ private fun ShelfDetailRoute(
         onDismissNotice = { notice = null },
         onOpenBook = { id ->
             onHeroBookIdChange(id)
-            router.navigate(Route(listOf(BOOK_KEY, id)))
+            router.navigate(Routes.book(id))
         },
         onRemoveBook = session.onRemoveBook,
         onReorder = session.onReorder,
-        onEditShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id, EDIT_KEY))) },
-        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onEditShelf = { id -> router.navigate(Routes.shelfEdit(id)) },
+        onOpenLibrary = { router.navigate(Routes.library) },
     )
 }
 
@@ -3369,14 +3435,14 @@ private fun ShelfEditRoute(
     val session = rememberSession(shelfId) { openShelfEdit(shelfId) }
     var deleted by remember(shelfId) { mutableStateOf(false) }
 
-    val goHome = { router.navigate(Route(emptyList())) }
+    val goHome = { router.navigate(Routes.home) }
 
     LaunchedEffect(session) {
         session.navActions.collect {
             if (shelfId == null || deleted) {
                 goHome()
             } else {
-                router.navigate(Route(listOf(SHELF_KEY, shelfId)))
+                router.navigate(Routes.shelf(shelfId))
             }
         }
     }
@@ -3390,7 +3456,7 @@ private fun ShelfEditRoute(
             session.onDelete()
         },
         onDismissError = session.onDismissError,
-        onCancel = { if (shelfId == null) goHome() else router.navigate(Route(listOf(SHELF_KEY, shelfId))) },
+        onCancel = { if (shelfId == null) goHome() else router.navigate(Routes.shelf(shelfId)) },
     )
 }
 
@@ -3451,13 +3517,13 @@ private fun SettingsRoute(
         onAutoRewind = session.onAutoRewind,
         onIgnoreTitleArticles = session.onIgnoreTitleArticles,
         onHideSingleBookSeries = session.onHideSingleBookSeries,
-        onOpenDevices = { router.navigate(Route(listOf(SETTINGS_KEY, DEVICES_KEY))) },
-        onOpenNotifications = { router.navigate(Route(listOf(SETTINGS_KEY, NOTIFICATIONS_KEY))) },
-        onOpenLicences = { router.navigate(Route(listOf(SETTINGS_KEY, LICENCES_KEY))) },
+        onOpenDevices = { router.navigate(Routes.settingsDevices) },
+        onOpenNotifications = { router.navigate(Routes.settingsNotifications) },
+        onOpenLicences = { router.navigate(Routes.settingsLicences) },
         hardcoverRow = session.hardcoverRow.collectAsState().value,
-        onOpenHardcover = { router.navigate(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY))) },
+        onOpenHardcover = { router.navigate(Routes.settingsHardcover) },
         canCurateLibrary = session.canCurateLibrary.collectAsState().value,
-        onOpenCategories = { router.navigate(Route(listOf(SETTINGS_KEY, CATEGORIES_KEY))) },
+        onOpenCategories = { router.navigate(Routes.settingsCategories) },
     )
 }
 
@@ -3476,7 +3542,7 @@ private fun LicencesRoute(
 
     LicencesPage(
         state = session.state.collectAsState().value,
-        onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
+        onOpenSettings = { router.navigate(Routes.settings) },
     )
 }
 
@@ -3650,7 +3716,7 @@ private fun AdminRouteContent(
                 UserDetailRoute(router = router, openUserDetail = admin.userDetail, userId = id)
             } else {
                 // `/admin/user` with nobody named is not a page — it is a link that lost its id.
-                NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
+                NotFoundPage(onGoHome = { router.navigate(Routes.home) })
             }
         }
 
@@ -3658,7 +3724,7 @@ private fun AdminRouteContent(
         // resolution the `size <= 1` guard reaches for `/admin/nonsense`, stated here as the
         // absence of a branch rather than as a length test.
         else -> {
-            NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
+            NotFoundPage(onGoHome = { router.navigate(Routes.home) })
         }
     }
 }
@@ -3693,7 +3759,7 @@ private fun UploadRoute(
         },
         onCancel = session.onCancel,
         onReset = session.onReset,
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
     )
 }
 
@@ -3732,7 +3798,7 @@ private fun OrganizeRoute(
                 onDismissReport = session.onDismissReport,
                 onResume = session.onResume,
             ),
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
     )
 }
 
@@ -3760,7 +3826,7 @@ private fun CreateInviteRoute(
                 )
             }
         },
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
     )
 }
 
@@ -3777,7 +3843,7 @@ private fun UserDetailRoute(
         state = session.state.collectAsState().value,
         permissions = session.permissions.collectAsState().value,
         actions = session.actions,
-        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        onOpenAdmin = { router.navigate(Routes.admin) },
     )
 }
 
@@ -3837,7 +3903,7 @@ private fun AccountRouteContent(
                 router = router,
                 openCategories = admin.categories,
                 parentCrumb = "Settings",
-                parent = Route(listOf(SETTINGS_KEY)),
+                parent = Routes.settings,
             )
         }
 
@@ -3846,17 +3912,17 @@ private fun AccountRouteContent(
         active == ADMIN_KEY && segments.size <= 1 -> {
             AdminRoute(
                 openAdmin = openAdmin,
-                onOpenLibrarySettings = { router.navigate(Route(listOf(ADMIN_KEY, LIBRARY_KEY))) },
-                onOpenInbox = { router.navigate(Route(listOf(ADMIN_KEY, INBOX_KEY))) },
-                onOpenServerSettings = { router.navigate(Route(listOf(ADMIN_KEY, SETTINGS_KEY))) },
-                onOpenCategories = { router.navigate(Route(listOf(ADMIN_KEY, CATEGORIES_KEY))) },
-                onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
-                onOpenBackups = { router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY))) },
-                onOpenImports = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY))) },
-                onOpenInvite = { router.navigate(Route(listOf(ADMIN_KEY, INVITE_KEY))) },
-                onOpenUpload = { router.navigate(Route(listOf(ADMIN_KEY, UPLOAD_KEY))) },
-                onOpenOrganize = { router.navigate(Route(listOf(ADMIN_KEY, ORGANIZE_KEY))) },
-                onOpenUser = { id -> router.navigate(Route(listOf(ADMIN_KEY, USER_KEY, id))) },
+                onOpenLibrarySettings = { router.navigate(Routes.adminLibrary) },
+                onOpenInbox = { router.navigate(Routes.adminInbox) },
+                onOpenServerSettings = { router.navigate(Routes.adminServerSettings) },
+                onOpenCategories = { router.navigate(Routes.adminCategories) },
+                onOpenCollections = { router.navigate(Routes.adminCollections) },
+                onOpenBackups = { router.navigate(Routes.adminBackups) },
+                onOpenImports = { router.navigate(Routes.adminImports) },
+                onOpenInvite = { router.navigate(Routes.adminInvite) },
+                onOpenUpload = { router.navigate(Routes.adminUpload) },
+                onOpenOrganize = { router.navigate(Routes.adminOrganize) },
+                onOpenUser = { id -> router.navigate(Routes.adminUser(id)) },
                 landOnPending = route.query[SECTION_QUERY_KEY] == PENDING_SECTION,
             )
         }
@@ -3871,7 +3937,7 @@ private fun AccountRouteContent(
         // A `/settings/anything-else` URL. Falls through to the shell's own not-found rather than
         // silently showing Settings, so a mistyped path says so.
         else -> {
-            NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
+            NotFoundPage(onGoHome = { router.navigate(Routes.home) })
         }
     }
 }
