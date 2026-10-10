@@ -182,17 +182,17 @@ class UnknownEnumValueFallbackTest :
             // built before the default existed then fails on the missing key.
             test("$jsonName: a value equal to its default is still written to the wire") {
                 val closed = serverInfo.copy(registrationPolicy = RegistrationPolicy.CLOSED)
-                json.encodeToString(ServerInfo.serializer(), closed) shouldContain "\"registrationPolicy\":\"CLOSED\""
+                json.encodeToString(ServerInfo.serializer(), closed) shouldContain """"registrationPolicy":"CLOSED""""
 
                 val member = user.copy(role = UserRole.MEMBER, status = UserStatus.ACTIVE)
                 val encodedUser = json.encodeToString(User.serializer(), member)
-                encodedUser shouldContain "\"role\":\"MEMBER\""
-                encodedUser shouldContain "\"status\":\"ACTIVE\""
+                encodedUser shouldContain """"role":"MEMBER""""
+                encodedUser shouldContain """"status":"ACTIVE""""
 
-                json.encodeToString(InviteDto.serializer(), invite.copy(role = UserRole.MEMBER)) shouldContain "\"role\":\"MEMBER\""
+                json.encodeToString(InviteDto.serializer(), invite.copy(role = UserRole.MEMBER)) shouldContain """"role":"MEMBER""""
 
                 encodeProvenance(mapOf(BookField.entries.first() to FieldProvenance(FieldSourceKind.USER))) shouldContain
-                    "\"kind\":\"USER\""
+                    """"kind":"USER""""
             }
         }
     })

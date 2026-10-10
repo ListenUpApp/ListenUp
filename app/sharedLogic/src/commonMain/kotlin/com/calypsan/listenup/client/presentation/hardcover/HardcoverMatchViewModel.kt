@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
 import com.calypsan.listenup.api.dto.hardcover.HardcoverMatchMethod
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HardcoverRepository
