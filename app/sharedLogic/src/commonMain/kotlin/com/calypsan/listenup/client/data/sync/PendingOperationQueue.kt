@@ -119,10 +119,48 @@ private enum class FailureDisposition {
 
 /**
  * True for the failures [classifyFailure] parks as pre-send: the request never reached a responding server, so
- * it cannot have landed — an unreachable or timed-out connect, or an auth rejection at the RPC handshake.
+ * it cannot have landed — an unreachable or timed-out connect, or an auth failure about the session rather than
+ * about this op.
  */
 private fun AppError.isPreSend(): Boolean =
-    this is TransportError.NetworkUnavailable || this is TransportError.Timeout || this is AuthError
+    this is TransportError.NetworkUnavailable ||
+        this is TransportError.Timeout ||
+        (this is AuthError && isAboutTheSession())
+
+/**
+ * Splits [AuthError] by what the server judged. A session-level failure rejects the channel before the op is
+ * looked at, so the op re-sends once the user is signed in again. Everything else is the server's verdict on the
+ * request, and a verdict must dead-letter so the entity heals to server truth.
+ *
+ * Exhaustive on purpose: a new subtype does not compile until its disposition is chosen here.
+ */
+private fun AuthError.isAboutTheSession(): Boolean =
+    when (this) {
+        is AuthError.SessionExpired,
+        is AuthError.SessionNotFound,
+        is AuthError.InvalidRefreshToken,
+        is AuthError.ServerInstanceChanged,
+        is AuthError.CredentialsUnavailable,
+        is AuthError.RateLimited,
+        -> true
+
+        is AuthError.InvalidCredentials,
+        is AuthError.PermissionDenied,
+        is AuthError.EmailAlreadyExists,
+        is AuthError.RegistrationDisabled,
+        is AuthError.SetupRequired,
+        is AuthError.SetupAlreadyComplete,
+        is AuthError.PendingApproval,
+        is AuthError.AccountDenied,
+        is AuthError.WeakPassword,
+        is AuthError.RegistrationNotFound,
+        is AuthError.ResetRequestNotFound,
+        is AuthError.ResetNotApproved,
+        is AuthError.ResetCodeIncorrect,
+        is AuthError.ResetAttemptsExhausted,
+        is AuthError.RootResetUnavailable,
+        -> false
+    }
 
 /**
  * True when a terminal failure is the server's verdict that the op did NOT land: a 4xx, or a typed domain
@@ -135,8 +173,9 @@ private fun AppError.isRefusal(): Boolean = this !is TransportError || this is T
 /**
  * Classify a drain failure against the budget contract. Unreachable failures ([TransportError.NetworkUnavailable],
  * [TransportError.Timeout] — post-B1 these are connect/pre-send only) never got a server verdict, so they park.
- * An [AuthError] is op-independent (the channel isn't authorized right now) and pre-delivery (401 at the RPC
- * handshake), so it parks too — never dead-letter a queued write on a transient token-refresh blip. A
+ * A session-level [AuthError] (one about the session, not the op) is op-independent and pre-delivery (401 at the RPC
+ * handshake), so it parks too — never dead-letter a queued write on a transient token-refresh blip. Any other
+ * [AuthError], such as [AuthError.PermissionDenied], is the server's verdict on the op and dead-letters. A
  * provably-sent-but-lost-response ([TransportError.OutcomeUnknown]) parks on a declared-idempotent channel
  * (safe to re-send) and dead-letters otherwise. A server-answered retryable failure (5xx) or a sanitized
  * escaped-exception fault ([InternalError], usually transient server trouble) burns budget. Everything else

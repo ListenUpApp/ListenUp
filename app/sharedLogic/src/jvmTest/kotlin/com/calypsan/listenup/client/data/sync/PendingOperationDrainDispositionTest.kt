@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.UnexpectedClientError
@@ -24,6 +25,37 @@ import kotlinx.serialization.builtins.serializer
 // assert behaviour for an undeclared domain. Do not reuse a real channel name here.
 private val upsertOnlyChannel =
     OutboxChannel("undeclared_test_domain", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
+
+// Session-level or client-local auth failures: the edit was never judged, so it parks and re-sends later.
+private val parkedAuthErrors: List<AuthError> =
+    listOf(
+        AuthError.SessionExpired(),
+        AuthError.SessionNotFound(),
+        AuthError.InvalidRefreshToken(familyRevoked = false),
+        AuthError.ServerInstanceChanged(),
+        AuthError.CredentialsUnavailable(),
+        AuthError.RateLimited(retryAfterSeconds = 1),
+    )
+
+// Every other auth failure is the server answering about the request: the op dead-letters.
+private val terminalAuthErrors: List<AuthError> =
+    listOf(
+        AuthError.PermissionDenied(),
+        AuthError.InvalidCredentials(),
+        AuthError.EmailAlreadyExists(),
+        AuthError.RegistrationDisabled(),
+        AuthError.SetupRequired(),
+        AuthError.SetupAlreadyComplete(),
+        AuthError.PendingApproval(),
+        AuthError.AccountDenied(),
+        AuthError.WeakPassword(reason = WeakPasswordReason.TOO_SHORT),
+        AuthError.RegistrationNotFound(),
+        AuthError.ResetRequestNotFound(),
+        AuthError.ResetNotApproved(),
+        AuthError.ResetCodeIncorrect(attemptsRemaining = 1),
+        AuthError.ResetAttemptsExhausted(),
+        AuthError.RootResetUnavailable(),
+    )
 
 /**
  * Drain-failure disposition rules for [PendingOperationQueue]: how each failure class (unreachable, auth,
@@ -108,6 +140,96 @@ class PendingOperationDrainDispositionTest :
                 db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
                 outcome.parkedFailures shouldBe 1
                 outcome.terminalFailures shouldBe 0
+                db.close()
+            }
+        }
+
+        parkedAuthErrors.forEach { error ->
+            test("${error::class.simpleName.orEmpty()} parks the op: the session failed before the edit was judged") {
+                runTest {
+                    val db = createInMemoryTestDatabase()
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender = PendingOperationSender { AppResult.Failure(error) },
+                            nowMillis = { 1_000L },
+                        )
+                    val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                    val outcome = queue.drain()
+                    val stored = db.pendingOperationV2Dao().get(opId)
+                    outcome.parkedFailures shouldBe 1
+                    outcome.terminalFailures shouldBe 0
+                    stored?.failureCount shouldBe 0
+                    queue.hasQueuedOpFor(upsertOnlyChannel.name, "t1") shouldBe true
+                    db.close()
+                }
+            }
+        }
+
+        terminalAuthErrors.forEach { error ->
+            test("${error::class.simpleName.orEmpty()} dead-letters the op: the server answered") {
+                runTest {
+                    val db = createInMemoryTestDatabase()
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender = PendingOperationSender { AppResult.Failure(error) },
+                            nowMillis = { 1_000L },
+                        )
+                    val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                    val outcome = queue.drain()
+                    val stored = db.pendingOperationV2Dao().get(opId)
+                    outcome.terminalFailures shouldBe 1
+                    outcome.parkedFailures shouldBe 0
+                    stored?.failureCount shouldBe MAX_RETRYABLE_ATTEMPTS + 1
+                    // A refusal did not land.
+                    stored?.mayHaveLanded shouldBe false
+                    // The anti-flicker shield lifts so the entity can heal.
+                    queue.hasQueuedOpFor(upsertOnlyChannel.name, "t1") shouldBe false
+                    db.close()
+                }
+            }
+        }
+
+        test("every AuthError subtype has a declared outbox disposition") {
+            (parkedAuthErrors + terminalAuthErrors).map { it::class }.toSet() shouldBe
+                AuthError::class.sealedSubclasses.toSet()
+        }
+
+        test("a permission refusal emits a heal request for the entity") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(AuthError.PermissionDenied()) },
+                        nowMillis = { 1_000L },
+                    )
+                queue.enqueue(OutboxChannels.Tags, "t1", OpKind.Update, "{}", "u1")
+                queue.drain()
+                val healed = withTimeout(5.seconds) { queue.observeHealRequests().first() }
+                healed shouldBe SentEntityRef(OutboxChannels.Tags.name, "t1")
+                db.close()
+            }
+        }
+
+        test("a permission refusal does not block a later edit to the same entity") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var calls = 0
+                val sender =
+                    PendingOperationSender {
+                        if (calls++ == 0) AppResult.Failure(AuthError.PermissionDenied()) else AppResult.Success(Unit)
+                    }
+                var clock = 0L
+                val queue = PendingOperationQueue(dao = db.pendingOperationV2Dao(), sender = sender, nowMillis = { clock++ })
+                val refused = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                queue.drain().terminalFailures shouldBe 1
+                queue.drain().sent shouldBe 1
+                val remaining = db.pendingOperationV2Dao().get(refused)
+                remaining?.failureCount shouldBe MAX_RETRYABLE_ATTEMPTS + 1
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly emptyList()
                 db.close()
             }
         }
