@@ -208,10 +208,14 @@ internal class GenreServiceImpl(
                 if (accessible != null) {
                     val reachable =
                         if (includeDescendants) {
-                            sqlDb.bookGenresQueries.genreBookDurationsSubtree(genreRow.path).executeAsList()
+                            sqlDb.bookGenresQueries
+                                .genreBookDurationsSubtree(genreRow.path)
+                                .executeAsList()
                                 .map { it.book_id to it.duration_ms }
                         } else {
-                            sqlDb.bookGenresQueries.genreBookDurationsDirect(genreId.value).executeAsList()
+                            sqlDb.bookGenresQueries
+                                .genreBookDurationsDirect(genreId.value)
+                                .executeAsList()
                                 .map { it.book_id to it.duration_ms }
                         }.filter { (bookId, _) -> bookId in accessible }
                     FacetStats(bookCount = reachable.size, totalDurationMs = reachable.sumOf { (_, ms) -> ms })

@@ -211,7 +211,6 @@ class TagServiceImplReadAccessTest :
                 }
             }
         }
-
     })
 
 private fun <T> List<T>.shouldBeEmptyList() {

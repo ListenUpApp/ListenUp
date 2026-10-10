@@ -211,7 +211,6 @@ class MoodServiceImplReadAccessTest :
                 }
             }
         }
-
     })
 
 private fun <T> List<T>.shouldBeEmptyList() {
