@@ -43,17 +43,26 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * - `registerScoped<AuthServiceAuthed> { guard(authService.copyWith(it) as AuthServiceAuthed) }`
  * - `registerScoped<BookService> { guard((bookService as BookServiceImpl).copyWith(it)) }`
  */
+private val REGISTRATION_TOKEN = Regex("""register(Service|Scoped)<""")
+
+/** True when [this] function source registers more services than it passes through `guard(...)`. */
+internal fun String.hasUnguardedRegistration(): Boolean {
+    val body = stripComments(this)
+    val registerCount = REGISTRATION_TOKEN.findAll(body).count()
+    val guardCount = Regex("""\bguard\s*\(""").findAll(body).count()
+    return guardCount < registerCount
+}
+
 class RpcServicesAreGuardedRule :
     FunSpec({
         test("every service registration passes its impl through guard(...)") {
-            val registrationToken = Regex("""register(Service|Scoped)<""")
             val registeringFunctions =
                 productionScope()
                     .functions()
                     // Exclude the registerScoped helper definition: it is the trusted plumbing
                     // that forwards guarding to its call sites (see KDoc).
                     .filterNot { fn -> fn.name == "registerScoped" }
-                    .filter { fn -> registrationToken.containsMatchIn(fn.text) }
+                    .filter { fn -> REGISTRATION_TOKEN.containsMatchIn(fn.text) }
 
             assertScopeNotEmpty(
                 registeringFunctions,
@@ -65,18 +74,9 @@ class RpcServicesAreGuardedRule :
 
             val offenders =
                 registeringFunctions
-                    .filter { fn ->
-                        val body = stripComments(fn.text)
-                        val registerCount = registrationToken.findAll(body).count()
-                        val guardCount = Regex("""\bguard\s*\(""").findAll(body).count()
-                        guardCount < registerCount
-                    }.map { fn -> "${fn.name} @ ${fn.path}" }
+                    .filter { fn -> fn.text.hasUnguardedRegistration() }
+                    .map { fn -> "${fn.name} @ ${fn.path}" }
 
             offenders.shouldBeEmpty()
         }
     })
-
-private fun stripComments(source: String): String =
-    source
-        .replace(Regex("""//[^\n]*"""), "")
-        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")

@@ -4,40 +4,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
 /**
- * Every RPC await on the tap-to-audio path carries an explicit latency budget.
- *
- * Three separate incidents in one week were the same bug: an await between the play tap and the
- * first audio sample that rode `RpcChannel`'s 15s `DEFAULT_RPC_TIMEOUT` instead of a budget sized
- * for a person waiting with a phone in their hand.
- *
- * - `PlaybackPrepareRepositoryImpl.getPosition` — 15s, and `idempotent = true` bought a second
- *   15s retry. **30s** of silence on a fully-downloaded book.
- * - `CachedAudioTokenProvider.prepareForPlayback` — awaited a token refresh unconditionally, as
- *   step 1, before it knew whether the book was even streaming. **8.08s of a 9.17s tap-to-audio**,
- *   measured on device, to fetch a token a downloaded book never uses.
- * - `PlaybackPreparer.fetchBookFromServer` — the first bug verbatim, at a second call site, still
- *   unfixed months later.
- *
- * Each was found by reading logs after a listener hit it. Each fix was correct and each left the
- * next unbudgeted await in place, because nothing made the omission visible. Prose didn't hold the
- * invariant — `fetchAuthoritativePosition`'s KDoc claimed it "never blocks", which is precisely
- * where a 30s stall hid in plain sight. This rule holds it instead.
- *
- * **The rule:** in the playback-start packages, every `channel.call(...)` / `rpcChannel.call(...)`
- * passes an explicit `timeout = `, and none passes `idempotent = true`. The retry leg is banned
- * here rather than merely discouraged because it silently *doubles* whatever budget is declared —
- * the mechanism that turned 15s into 30s twice.
- *
- * **Scope is deliberately narrow.** Only code reachable while a listener is staring at a play
- * button that hasn't responded yet. Background sync, catch-up and admin paths keep the 15s default;
- * nobody is waiting on those, and widening this rule would earn it a reputation for crying wolf.
- *
- * Sibling rule [NoThrowsInDataLayerRule] pins the result contract on the same layer; this one pins
- * the latency contract.
+ * `channel.call(` / `channel.call {` / `channel.callMutation(` / `channel.callMutation {` — the
+ * RpcChannel await, however the receiver is named at the call site. The brace form has no
+ * parenthesis and is the one that takes the default timeout.
  */
-// `channel.call(` / `channel.call {` / `channel.callMutation(` / `channel.callMutation {` — the
-// RpcChannel await, however the receiver is named at the call site. The brace form has no
-// parenthesis and is the one that takes the default timeout.
 private val rpcCall = Regex("""\b\w*[Cc]hannel\.call(Mutation)?\s*[({]""")
 
 /**
@@ -69,6 +39,38 @@ internal fun String.hasIdempotentRpcAwait(): Boolean {
     return rpcCall.containsMatchIn(body) && body.contains("idempotent = true")
 }
 
+/**
+ * Every RPC await on the tap-to-audio path carries an explicit latency budget.
+ *
+ * Three separate incidents in one week were the same bug: an await between the play tap and the
+ * first audio sample that rode `RpcChannel`'s 15s `DEFAULT_RPC_TIMEOUT` instead of a budget sized
+ * for a person waiting with a phone in their hand.
+ *
+ * - `PlaybackPrepareRepositoryImpl.getPosition` — 15s, and `idempotent = true` bought a second
+ *   15s retry. **30s** of silence on a fully-downloaded book.
+ * - `CachedAudioTokenProvider.prepareForPlayback` — awaited a token refresh unconditionally, as
+ *   step 1, before it knew whether the book was even streaming. **8.08s of a 9.17s tap-to-audio**,
+ *   measured on device, to fetch a token a downloaded book never uses.
+ * - `PlaybackPreparer.fetchBookFromServer` — the first bug verbatim, at a second call site, still
+ *   unfixed months later.
+ *
+ * Each was found by reading logs after a listener hit it. Each fix was correct and each left the
+ * next unbudgeted await in place, because nothing made the omission visible. Prose didn't hold the
+ * invariant — `fetchAuthoritativePosition`'s KDoc claimed it "never blocks", which is precisely
+ * where a 30s stall hid in plain sight. This rule holds it instead.
+ *
+ * **The rule:** in the playback-start packages, every `channel.call(...)` / `rpcChannel.call(...)`
+ * passes an explicit `timeout = `, and none passes `idempotent = true`. The retry leg is banned
+ * here rather than merely discouraged because it silently *doubles* whatever budget is declared —
+ * the mechanism that turned 15s into 30s twice.
+ *
+ * **Scope is deliberately narrow.** Only code reachable while a listener is staring at a play
+ * button that hasn't responded yet. Background sync, catch-up and admin paths keep the 15s default;
+ * nobody is waiting on those, and widening this rule would earn it a reputation for crying wolf.
+ *
+ * Sibling rule [NoThrowsInDataLayerRule] pins the result contract on the same layer; this one pins
+ * the latency contract.
+ */
 class PlaybackStartAwaitsAreBudgetedRule :
     FunSpec({
 

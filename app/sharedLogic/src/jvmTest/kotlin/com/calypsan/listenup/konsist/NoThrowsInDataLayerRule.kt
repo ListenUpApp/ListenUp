@@ -127,12 +127,17 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
     if (!body.containsThrowToken()) return false
 
     // Strip allowed patterns line by line; if any throw survives, it's disallowed.
-    return body.lineSequence().any { rawLine ->
-        val line = rawLine.trim()
-        // A comment that merely mentions "throw" (KDoc/inline) is not a throw statement. Skipping
-        // comment lines keeps prose from masquerading as a residual throw and pinning a file to the
-        // allowlist it no longer needs.
-        if (line.startsWith("//") || line.startsWith("*") || line.startsWith("/*")) return@any false
+    return body.lineSequence().any { it.isDisallowedThrowLine() }
+}
+
+/** True when this source line raises something this rule does not sanction. */
+internal fun String.isDisallowedThrowLine(): Boolean {
+    val line = trim()
+    // A comment that merely mentions "throw" (KDoc/inline) is not a throw statement. Skipping
+    // comment lines keeps prose from masquerading as a residual throw and pinning a file to the
+    // allowlist it no longer needs.
+    if (line.startsWith("//") || line.startsWith("*") || line.startsWith("/*")) return false
+    return (
         line.containsThrowToken() &&
             !SANCTIONED_RETHROW.containsMatchIn(line) && // cancellation rethrows: throw e / throw cause
             !line.contains("throw NotImplementedError(") && // placeholder
@@ -185,5 +190,5 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             // without re-deriving a coarser AppError via ErrorMapper. Never escapes the function it
             // is thrown from — pullCatching converts it back to the carried AppError.Failure.
             !line.contains("throw TypedAppErrorException(")
-    }
+    )
 }

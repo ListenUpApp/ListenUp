@@ -80,8 +80,3 @@ class SyncWritesGoThroughRepositoryRule :
         val BULK_REWRITE_ALLOWLIST = setOf("/server/api/GenreServiceImpl.kt")
     }
 }
-
-private fun stripComments(source: String): String =
-    source
-        .replace(Regex("""//[^\n]*"""), "")
-        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")

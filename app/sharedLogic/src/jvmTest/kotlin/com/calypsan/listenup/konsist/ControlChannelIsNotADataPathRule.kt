@@ -215,8 +215,3 @@ internal object ControlChannelDetector {
         return inBannedLayer && stripComments(source).contains("MutableSharedFlow<Unit>")
     }
 }
-
-private fun stripComments(source: String): String =
-    source
-        .replace(Regex("""//[^\n]*"""), "")
-        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")

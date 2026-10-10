@@ -39,8 +39,3 @@ class SyncDomainHandlersSelfRegisterRule :
             offenders.shouldBeEmpty()
         }
     })
-
-private fun stripComments(source: String): String =
-    source
-        .replace(Regex("""//[^\n]*"""), "")
-        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
