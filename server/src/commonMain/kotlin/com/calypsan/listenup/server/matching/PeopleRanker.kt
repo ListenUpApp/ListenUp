@@ -98,7 +98,7 @@ internal object PeopleRanker {
     /** A title's comparison key: lower-cased, apostrophes dropped ("Heaven's" is "Heavens"), punctuation as spaces. */
     private fun titleKey(title: String): String =
         title
-            .lowercase()
+            .foldForMatching()
             .replace(Regex("['’]"), "")
             .split(Regex("[^\\p{L}\\p{N}]+"))
             .filter { it.isNotEmpty() }

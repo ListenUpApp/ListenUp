@@ -12,6 +12,10 @@ private val HARDCOVER = MetadataProviderId.HARDCOVER
 /** People merge only on strong evidence: the same name *and* a library book both sources credit them on. */
 class PeopleMergerTest :
     FunSpec({
+        test("a name keyed with and without accents is one key") {
+            nameKey("Charlotte Brontë") shouldBe nameKey("Charlotte Bronte")
+        }
+
         test("the same name credited on the same book at two sources is one person, with both refs") {
             val merged =
                 PeopleMerger

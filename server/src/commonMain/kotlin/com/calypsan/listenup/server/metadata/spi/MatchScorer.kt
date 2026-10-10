@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata.spi
 
+import com.calypsan.listenup.server.matching.foldForMatching
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -197,7 +198,7 @@ internal object MatchScorer {
      * "the-way-of-kings") collapse to the same tokens.
      */
     private fun String.tokenize(): Set<String> =
-        buildString { this@tokenize.forEach { append(if (it.isLetterOrDigit()) it.lowercaseChar() else ' ') } }
+        buildString { this@tokenize.foldForMatching().forEach { append(if (it.isLetterOrDigit()) it else ' ') } }
             .split(' ')
             .filterTo(mutableSetOf()) { it.isNotEmpty() }
 }
