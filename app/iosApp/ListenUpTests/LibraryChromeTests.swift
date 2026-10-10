@@ -53,4 +53,19 @@ struct LibraryChromeTests {
         #expect(!LibrarySortOptions.offersArticleToggle(section: .authors, category: .name))
         #expect(!LibrarySortOptions.offersArticleToggle(section: .narrators, category: .name))
     }
+
+    // MARK: - Books subtitle and filtered-empty copy
+
+    @Test func booksSubtitleNamesCountFilterAndSort() {
+        let subtitle = LibrarySubtitle.books(count: 248, filter: .all, sortLabel: "Title")
+        #expect(subtitle == "248 books · All · Title")
+    }
+
+    @Test func booksSubtitleSaysOneBookInTheSingular() {
+        #expect(LibrarySubtitle.books(count: 1, filter: .finished, sortLabel: "Title") == "1 book · Finished · Title")
+    }
+
+    @Test func filteredEmptyCopyFollowsTheFilter() {
+        #expect(LibrarySubtitle.filteredEmpty(.finished) == String(localized: "library.filtered_empty_finished"))
+    }
 }

@@ -13,7 +13,13 @@ struct BooksContent: View {
     let bookProgress: [String: Float]
     let sortState: SortState?
     let isLoading: Bool
+    /// The library itself has no books.
     let isEmpty: Bool
+    /// The library has books, but `statusFilter` matches none of them.
+    var isFilteredEmpty = false
+    var statusFilter: BookStatusFilter = .all
+    /// Clears the status filter from the filtered-empty state.
+    var onShowAll: () -> Void = {}
     let errorMessage: String?
     /// Title-sort article handling. When sorting by Title, "The Hobbit" groups under H (ignoring the
     /// article); the section letters honor it too.
@@ -63,6 +69,8 @@ struct BooksContent: View {
                 errorState(message: error)
             } else if isEmpty {
                 emptyState
+            } else if isFilteredEmpty {
+                filteredEmptyState
             } else {
                 booksGrid
             }
@@ -227,6 +235,25 @@ struct BooksContent: View {
                     systemImage: "books.vertical",
                     description: Text(String(localized: "library.empty_description"))
                 )
+            }
+        }
+    }
+
+    // MARK: - Filtered-Empty State
+
+    /// The library has books, but the status filter matches none — never "your library is empty".
+    private var filteredEmptyState: some View {
+        LibrarySectionState(picker: picker) {
+            VStack(spacing: Spacing.m) {
+                if let inbox {
+                    LibraryInboxEntry(model: inbox)
+                        .padding(.horizontal, Spacing.m)
+                }
+                ContentUnavailableView {
+                    Text(LibrarySubtitle.filteredEmpty(statusFilter))
+                } actions: {
+                    Button(String(localized: "library.show_all_books")) { onShowAll() }
+                }
             }
         }
     }

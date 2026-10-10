@@ -81,7 +81,12 @@ struct LibraryView: View {
     private var sectionCount: String? {
         guard let observer, !observer.isLoading else { return nil }
         return switch selectedTab {
-        case .books: String(format: String(localized: "library.title_count"), observer.books.count)
+        case .books:
+            LibrarySubtitle.books(
+                count: observer.statusCounts.all,
+                filter: observer.statusFilter,
+                sortLabel: observer.booksSortState?.category.label ?? ""
+            )
         case .series: String(format: String(localized: "library.series_count"), observer.series.count)
         case .authors: String(format: String(localized: "library.author_count"), observer.authors.count)
         case .narrators: String(format: String(localized: "library.narrator_count"), observer.narrators.count)
@@ -136,7 +141,10 @@ struct LibraryView: View {
                     onCategorySelected: { observer.setBooksSortCategory($0) },
                     onDirectionToggle: { observer.toggleBooksSortDirection() },
                     ignoreTitleArticles: observer.ignoreTitleArticles,
-                    onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() }
+                    onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() },
+                    statusFilter: observer.statusFilter,
+                    statusCounts: observer.statusCounts,
+                    onStatusFilterSelected: { observer.setStatusFilter($0) }
                 )
             }
         case .series:
@@ -187,6 +195,9 @@ struct LibraryView: View {
                 sortState: observer.booksSortState,
                 isLoading: observer.isLoading,
                 isEmpty: observer.isEmpty,
+                isFilteredEmpty: observer.isFilteredEmpty,
+                statusFilter: observer.statusFilter,
+                onShowAll: { observer.setStatusFilter(.all) },
                 errorMessage: observer.errorMessage,
                 ignoreTitleArticles: observer.ignoreTitleArticles,
                 onRefresh: { observer.refresh() },

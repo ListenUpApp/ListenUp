@@ -46,11 +46,31 @@ enum LibrarySortOptions {
     }
 }
 
-/// The Library's Sort menu: the toolbar's one sort control for the section on screen.
+/// The Books subtitle ("248 books · All · Title") and the filtered-empty copy, pure for testing.
+enum LibrarySubtitle {
+    static func books(count: Int, filter: BookStatusFilter, sortLabel: String) -> String {
+        let books = count == 1
+            ? String(format: String(localized: "library.book_count"), count)
+            : String(format: String(localized: "library.book_count_plural"), count)
+        return [books, LibraryStatusOptions.label(filter), sortLabel].joined(separator: " · ")
+    }
+
+    static func filteredEmpty(_ filter: BookStatusFilter) -> String {
+        switch filter {
+        case .inProgress: String(localized: "library.filtered_empty_in_progress")
+        case .notStarted: String(localized: "library.filtered_empty_not_started")
+        case .finished: String(localized: "library.filtered_empty_finished")
+        case .all: ""
+        }
+    }
+}
+
+/// The Library's filter and sort menu: the toolbar's one control for the section on screen.
 ///
-/// A `Picker` inside a `Menu` (HIG, Menus: "a menu can … let people choose one option from a set,
+/// `Picker`s inside a `Menu` (HIG, Menus: "a menu can … let people choose one option from a set,
 /// displaying a checkmark next to the current choice") — the system draws the checkmarks and the
-/// selected state VoiceOver reads, where the old floating pill hand-drew them.
+/// selected state VoiceOver reads. The Books section leads with a "Show" group of reading-state
+/// filters, each with its whole-library count (board `Library-iPhone-FilterMenu`).
 struct LibrarySortMenu: View {
     let section: LibraryTab
     let sortState: SortState
@@ -58,13 +78,34 @@ struct LibrarySortMenu: View {
     let onDirectionToggle: () -> Void
     let ignoreTitleArticles: Bool
     let onToggleIgnoreArticles: () -> Void
+    /// The Books view's status filter; nil in the other sections, which have none.
+    var statusFilter: BookStatusFilter?
+    var statusCounts: LibraryStatusCounts = .zero
+    var onStatusFilterSelected: (BookStatusFilter) -> Void = { _ in }
 
     var body: some View {
         Menu {
-            Picker(String(localized: "library.sort_by"), selection: categoryBinding) {
-                ForEach(LibrarySortOptions.categories(for: section), id: \.self) { category in
-                    Text(category.label).tag(category)
+            if let statusFilter {
+                Section(String(localized: "library.status_filters_label")) {
+                    Picker(String(localized: "library.status_filters_label"), selection: statusBinding(statusFilter)) {
+                        ForEach(LibraryStatusOptions.filters, id: \.self) { filter in
+                            VStack {
+                                Text(LibraryStatusOptions.label(filter))
+                                Text("\(statusCounts.count(for: filter))")
+                            }
+                            .tag(filter)
+                        }
+                    }
+                    .pickerStyle(.inline)
                 }
+            }
+            Section(String(localized: "library.sort_by")) {
+                Picker(String(localized: "library.sort_by"), selection: categoryBinding) {
+                    ForEach(LibrarySortOptions.categories(for: section), id: \.self) { category in
+                        Text(category.label).tag(category)
+                    }
+                }
+                .pickerStyle(.inline)
             }
             Picker(String(localized: "library.sort_order"), selection: directionBinding) {
                 Label(String(localized: "library.sort_ascending"), systemImage: "arrow.up")
@@ -76,10 +117,25 @@ struct LibrarySortMenu: View {
                 Toggle(String(localized: "library.ignore_articles"), isOn: articlesBinding)
             }
         } label: {
-            Label(String(localized: "library.sort"), systemImage: "arrow.up.arrow.down")
+            if statusFilter != nil {
+                Label(String(localized: "library.filter_and_sort"), systemImage: "line.3.horizontal.decrease")
+            } else {
+                Label(String(localized: "library.sort"), systemImage: "arrow.up.arrow.down")
+            }
         }
-        .accessibilityValue(sortState.category.label)
+        .accessibilityValue(accessibilityValue)
         .haptic(.selectionTick, trigger: sortState)
+        .haptic(.selectionTick, trigger: statusFilter)
+    }
+
+    /// "In Progress, Title" for Books; the sort alone elsewhere.
+    private var accessibilityValue: String {
+        guard let statusFilter else { return sortState.category.label }
+        return "\(LibraryStatusOptions.label(statusFilter)), \(sortState.category.label)"
+    }
+
+    private func statusBinding(_ current: BookStatusFilter) -> Binding<BookStatusFilter> {
+        Binding(get: { current }, set: { if $0 != current { onStatusFilterSelected($0) } })
     }
 
     private var categoryBinding: Binding<SortCategory> {
