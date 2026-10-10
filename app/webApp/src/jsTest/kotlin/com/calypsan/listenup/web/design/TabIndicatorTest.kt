@@ -105,6 +105,18 @@ class TabIndicatorTest :
             host.ink().getBoundingClientRect().left shouldBe (host.tab("files").getBoundingClientRect().left plusOrMinus 0.5)
         }
 
+        test("a tab that changes width with no recomposition still carries the ink") {
+            active.value = "files"
+            val host = strip()
+            awaitFrame()
+
+            // What a web font swapping in does: the layout moves and Compose never hears of it.
+            host.tab("overview").style.paddingRight = "80px"
+            awaitInkMoved()
+
+            host.ink().getBoundingClientRect().left shouldBe (host.tab("files").getBoundingClientRect().left plusOrMinus 0.5)
+        }
+
         test("under reduced motion the ink moves without sliding") {
             reducedMotionOverride = true
             val host = strip()

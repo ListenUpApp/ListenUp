@@ -363,11 +363,15 @@ private fun observeScrollport(
     }
 }
 
-/** The browser's `ResizeObserver`, as much of it as the list uses. */
-private external class ResizeObserver(
+/** The browser's `ResizeObserver`, as much of it as the list and the tab ink use. */
+internal external class ResizeObserver(
     callback: (entries: dynamic, observer: dynamic) -> Unit,
 ) {
-    fun observe(target: Element)
+    /** [options] as the browser takes them, e.g. `{ box: "border-box" }`; content-box when omitted. */
+    fun observe(
+        target: Element,
+        options: dynamic = definedExternally,
+    )
 
     fun disconnect()
 }

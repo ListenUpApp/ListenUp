@@ -9,11 +9,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import kotlinx.browser.window
+import com.calypsan.listenup.web.design.ResizeObserver
 import org.jetbrains.compose.web.dom.Span
 import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
-import org.w3c.dom.events.Event
+import org.w3c.dom.asList
 
 /**
  * The single underline of a `Tabs` strip, which slides to the tab the reader picks over
@@ -26,6 +26,11 @@ import org.w3c.dom.events.Event
  *
  * It slides only when the ACTIVE TAB changes. Its first placement, a resize, or a count that widens
  * a tab ("Chapters 44" → "Chapters 1,244") move it without a slide — that is layout, not the reader.
+ *
+ * ⛔ Resizes come from a `ResizeObserver` on the strip and its tabs, not the window's `resize`. A web
+ * font swapping in (`font-display: swap`) re-widens every tab with no recomposition and no window
+ * change, and the tab's own underline is hidden while the ink is placed — so a stale ink is the
+ * only underline there is, under the wrong place.
  *
  * Non-restartable so it re-measures on every recomposition of its strip: a tab's label or count can
  * change without any of this function's own arguments changing.
@@ -77,9 +82,19 @@ internal fun TabIndicator(active: String) {
         onDispose { }
     }
     DisposableEffect(Unit) {
-        val onResize: (Event) -> Unit = { measure.value() }
-        window.addEventListener("resize", onResize)
-        onDispose { window.removeEventListener("resize", onResize) }
+        val resizes = ResizeObserver { _, _ -> measure.value() }
+        ink.element?.parentElement?.let { strip ->
+            resizes.observe(strip)
+            // The strip is full width, so a tab widening moves the tabs after it without the strip
+            // itself changing size: each tab is watched too — its border box, which is what places
+            // the tabs after it, not the content box a padding change would leave unchanged.
+            val borderBox: dynamic = js("({ box: 'border-box' })")
+            strip.children
+                .asList()
+                .filter { it !== ink.element }
+                .forEach { tab -> resizes.observe(tab, borderBox) }
+        }
+        onDispose { resizes.disconnect() }
     }
 }
 
