@@ -12,7 +12,7 @@
 #
 # This is a hard gate. It:
 #   1. extracts the sorted set of public exported names from the generated surface,
-#   2. diffs it against the committed baseline (scripts/export-surface-baseline.txt) —
+#   2. diffs it against the committed baseline (tools/scripts/export-surface-baseline.txt) —
 #      additions are candidate leaks to review, removals are surface shrink,
 #   3. asserts no banned name (server-only / internal-plumbing types that the export
 #      trim removed, plus generic infra types that must never reach the client) is
@@ -21,15 +21,20 @@
 #      surface matches the baseline.
 #
 # When the public surface legitimately changes, regenerate the baseline:
-#   bash scripts/export-surface-inventory.sh <Shared.swift> --update-baseline
+#   bash tools/scripts/export-surface-inventory.sh <Shared.swift> --update-baseline
 # and commit the diff — that diff is the review signal.
 #
 # Usage: export-surface-inventory.sh [path-to-Shared.swift] [--update-baseline]
-#   If no path is given (or it's missing), searches app/sharedLogic/build for the
-#   patched Shared.swift. The surface only exists after a Swift-Export build on a Mac.
+#   If no path is given, searches app/sharedLogic/build/**/SPMPackage for the patched
+#   Shared.swift and uses it only when exactly one exists; with several variants (device,
+#   simulator, Debug, Release) it refuses to guess and asks for the path. A path that is
+#   given but missing is an error. The surface only exists after a Swift-Export build on a Mac.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# This script lives at tools/scripts/, so the repo root is two levels up. Getting this wrong fails
+# silently: a wrong root searches a directory that does not exist and finds nothing.
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BASELINE="${SCRIPT_DIR}/export-surface-baseline.txt"
 
 UPDATE_BASELINE=0
@@ -41,20 +46,33 @@ for arg in "$@"; do
   esac
 done
 
-if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
-  echo "-> Shared.swift not at '${SHARED:-<unset>}'; searching app/sharedLogic/build ..."
-  # Prefer the patched SPMPackage copy (it carries the flat-typealias layer); fall back to any.
-  SHARED="$(find app/sharedLogic/build -name 'Shared.swift' -path '*Shared*' 2>/dev/null \
-    | grep -E 'SPMPackage' | head -1)"
-  [[ -z "$SHARED" ]] && SHARED="$(find app/sharedLogic/build -name 'Shared.swift' -path '*Shared*' 2>/dev/null | head -1)"
-fi
-if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
-  echo "export-surface-inventory: Shared.swift not found (run :app:sharedLogic:embedSwiftExportForXcode first)." >&2
-  # Fail closed, matching check-no-appresult-await.sh. The previous `exit 0` here meant a
-  # Swift-Export/Gradle change that RELOCATED the SPMPackage output would silently disarm this
-  # gate forever — leaving a WARN line in a green log. "The framework build step gates separately"
-  # does not hold: the same relocation breaks both, so neither would fail.
+if [[ -n "$SHARED" && ! -f "$SHARED" ]]; then
+  echo "export-surface-inventory: '${SHARED}' does not exist." >&2
   exit 2
+fi
+if [[ -z "$SHARED" ]]; then
+  # Search from the repo root, not the caller's cwd, and never pick between variants: --update-baseline
+  # rewrites a committed file, so a silent choice of a stale build is the defect to avoid.
+  CANDIDATES=()
+  while IFS= read -r candidate; do
+    CANDIDATES+=("$candidate")
+  done < <(find "$REPO_ROOT/app/sharedLogic/build" -name 'Shared.swift' -path '*SPMPackage*' 2>/dev/null | LC_ALL=C sort)
+  if [[ "${#CANDIDATES[@]}" -eq 0 ]]; then
+    echo "export-surface-inventory: Shared.swift not found under app/sharedLogic/build (run :app:sharedLogic:embedSwiftExportForXcode first)." >&2
+    # Fail closed, matching check-no-appresult-await.sh. The previous `exit 0` here meant a
+    # Swift-Export/Gradle change that RELOCATED the SPMPackage output would silently disarm this
+    # gate forever — leaving a WARN line in a green log. "The framework build step gates separately"
+    # does not hold: the same relocation breaks both, so neither would fail.
+    exit 2
+  fi
+  if [[ "${#CANDIDATES[@]}" -gt 1 ]]; then
+    echo "export-surface-inventory: several Shared.swift variants exist; pass the one to check as the first argument:" >&2
+    for candidate in "${CANDIDATES[@]}"; do
+      ls -l "$candidate" >&2
+    done
+    exit 2
+  fi
+  SHARED="${CANDIDATES[0]}"
 fi
 
 echo "== Export-surface inventory: $SHARED =="
