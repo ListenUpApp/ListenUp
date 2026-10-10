@@ -164,6 +164,27 @@ class ScrollMemoryTest :
             main.scrollTop shouldBe 0.0
         }
 
+        test("leaving while a place is still being restored keeps the place") {
+            val main = mount()
+            awaitFrame()
+            main.scrollTop = 1_500.0
+            go(RouteChange.PUSH, Route(listOf("short")))
+            awaitUntil("the short page") { main.scrollHeight < 1_000 }
+
+            // Back to a page not yet tall enough: the restoration is still waiting for height when
+            // the reader clicks away again, with the region sitting at 0.
+            grown.value = false
+            go(RouteChange.POP, Route(listOf("tall")))
+            awaitFrame()
+            go(RouteChange.PUSH, Route(listOf("short")))
+            awaitFrame()
+
+            grown.value = true
+            go(RouteChange.POP, Route(listOf("tall")))
+
+            awaitUntil("the original offset to come back") { main.scrollTop == 1_500.0 }
+        }
+
         test("work queued while a place is restored runs once it is") {
             var ran = false
             captureScrollBeforeRouteChange(RouteChange.POP)

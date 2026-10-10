@@ -46,6 +46,12 @@ private var lastChange: RouteChange? = null
 
 private var settling = false
 
+/**
+ * The Back restoration still placing the scroll, if one is. While it runs the region is not where
+ * the reader left it — it is where the page has grown to so far — so leaving now must not record it.
+ */
+private var restoration: Job? = null
+
 private val waitingForScroll = mutableListOf<() -> Unit>()
 
 /** How the router last moved — PUSH, REPLACE, POP — or null before it ever has. */
@@ -54,10 +60,15 @@ internal fun lastRouteChange(): RouteChange? = lastChange
 /**
  * The router's hook, called before the route moves: records the outgoing page's offset under its
  * URL, notes how the route is changing, and holds shared-element flights until the arrival settles.
+ *
+ * Mid-restoration it records nothing: the offset already saved is the place being returned to, and
+ * the region's offset is only partway there.
  */
 internal fun captureScrollBeforeRouteChange(change: RouteChange) {
-    showing?.let { (url, scrollport) ->
-        scrollport.element?.takeIf { it.isConnected }?.let { port -> rememberOffset(url, port.scrollTop) }
+    if (restoration?.isActive != true) {
+        showing?.let { (url, scrollport) ->
+            scrollport.element?.takeIf { it.isConnected }?.let { port -> rememberOffset(url, port.scrollTop) }
+        }
     }
     lastChange = change
     settling = true
@@ -85,6 +96,7 @@ internal fun forgetScrollMemory() {
     showing = null
     lastChange = null
     settling = false
+    restoration = null
     waitingForScroll.clear()
 }
 
@@ -106,6 +118,7 @@ internal fun ScrollRestoration(route: Route) {
         shown.path = path
         showing = route.toUrl() to scrollport
         val restoring = scrollport.element?.let { port -> arrive(route, port, isNewPath, scope) }
+        restoration = restoring
         if (restoring == null) settleScroll()
         onDispose { restoring?.cancel() }
     }
