@@ -5,7 +5,12 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.SyncState
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.SortState
 import org.junit.Assert.assertTrue
@@ -49,5 +54,43 @@ class BooksContentFilteredEmptyTest {
         composeRule.onNodeWithText("Show all books").performClick()
 
         assertTrue(showedAll)
+    }
+
+    @Test
+    fun `a filter that leaves one book counts it in the singular`() {
+        composeRule.setContent {
+            MaterialTheme {
+                BooksContent(
+                    books =
+                        listOf(
+                            BookListItem(
+                                id = BookId("b1"),
+                                libraryId = LibraryId("lib"),
+                                folderId = FolderId("folder"),
+                                title = "Piranesi",
+                                authors = emptyList(),
+                                narrators = emptyList(),
+                                duration = 3_600_000L,
+                                // A local path keeps BookCoverImage off the Koin-backed fallback.
+                                coverPath = "/tmp/cover-b1.webp",
+                                addedAt = Timestamp(0L),
+                                updatedAt = Timestamp(0L),
+                            ),
+                        ),
+                    hasLoadedBooks = true,
+                    syncState = SyncState.Idle,
+                    isServerScanning = false,
+                    sortState = SortState.booksDefault,
+                    ignoreTitleArticles = true,
+                    onCategorySelected = {},
+                    onDirectionToggle = {},
+                    onToggleIgnoreArticles = {},
+                    onBookClick = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("1 title").assertIsDisplayed()
     }
 }

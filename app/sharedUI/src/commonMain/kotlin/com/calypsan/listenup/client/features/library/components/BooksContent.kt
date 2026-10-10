@@ -311,7 +311,8 @@ fun BooksContent(
                         state = sortState,
                         categories = SortCategory.booksCategories,
                         count = books.size,
-                        unit = "titles",
+                        // A status filter can leave one book: "1 title", never "1 titles".
+                        unit = if (books.size == 1) "title" else "titles",
                         ignoreArticles = ignoreTitleArticles,
                         showArticleToggle = sortState.category == SortCategory.TITLE,
                         onCategorySelected = onCategorySelected,
