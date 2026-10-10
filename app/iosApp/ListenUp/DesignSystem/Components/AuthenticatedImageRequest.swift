@@ -24,7 +24,7 @@ enum AuthenticatedImageRequest {
         processors: [any ImageProcessing],
         cacheKey: String? = nil
     ) -> ImageRequest {
-        let userInfo: [ImageRequest.UserInfoKey: Any]? = cacheKey.map { [.imageIdKey: $0] }
+        let userInfo: [ImageRequest.UserInfoKey: any Sendable]? = cacheKey.map { [.imageIdKey: $0] }
         return ImageRequest(url: URL(fileURLWithPath: path), processors: processors, userInfo: userInfo)
     }
 
@@ -49,7 +49,7 @@ enum AuthenticatedImageRequest {
         guard let token else { return nil }
         var urlRequest = URLRequest(url: url)
         urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let userInfo: [ImageRequest.UserInfoKey: Any]? = cacheKey.map { [.imageIdKey: $0] }
+        let userInfo: [ImageRequest.UserInfoKey: any Sendable]? = cacheKey.map { [.imageIdKey: $0] }
         return ImageRequest(urlRequest: urlRequest, processors: processors, userInfo: userInfo)
     }
 }

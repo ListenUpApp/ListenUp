@@ -60,7 +60,7 @@ enum CoverImageRequest {
         // poisoned key the old bug wrote, and during a switch (`coverPath == nil`, `bookId == B`)
         // it would let book A's still-cached bytes flash on book B. Passing `nil` also orphans any
         // stale `"<id>:cover"` disk entries. With a hash we keep the content-scoped `"<id>:<hash>"`.
-        let userInfo: [ImageRequest.UserInfoKey: Any]? = contentHashKey(identity: bookId, coverHash: coverHash)
+        let userInfo: [ImageRequest.UserInfoKey: any Sendable]? = contentHashKey(identity: bookId, coverHash: coverHash)
             .map { [.imageIdKey: $0] }
         return ImageRequest(url: url, processors: processors, userInfo: userInfo)
     }
