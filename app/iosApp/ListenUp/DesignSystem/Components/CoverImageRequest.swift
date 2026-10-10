@@ -77,10 +77,12 @@ enum CoverImageRequest {
     /// Whether a finished load should switch the cover to its downloaded file: a real load failure
     /// (offline with a cold cache, no token, a server error) when there IS a file to fall back to.
     /// `LazyImage` also reports "no request yet" as a failure while the view has no size; that one
-    /// must not count, or the cover would never try the server.
+    /// must not count, or the cover would never try the server. A cancelled load (a cell scrolled away)
+    /// says nothing about the server, so it doesn't count either.
     static func shouldFallBackToLocalFile(after result: Result<ImageResponse, Error>, coverPath: String?) -> Bool {
         guard case .failure(let error) = result, coverPath?.isEmpty == false else { return false }
         if case ImagePipeline.Error.imageRequestMissing = error { return false }
+        if case ImagePipeline.Error.cancelled = error { return false }
         return true
     }
 

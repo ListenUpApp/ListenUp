@@ -134,6 +134,11 @@ struct CoverImageRequestTests {
         #expect(!CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: "/covers/a.jpg"))
     }
 
+    @Test func cancelledLoadIsNotALoadFailure() {
+        let result: Result<ImageResponse, Error> = .failure(ImagePipeline.Error.cancelled)
+        #expect(!CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: "/covers/a.jpg"))
+    }
+
     @Test func realFailureFallsBackOnlyWithAFile() {
         let result: Result<ImageResponse, Error> = .failure(URLError(.notConnectedToInternet))
         #expect(CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: "/covers/a.jpg"))
