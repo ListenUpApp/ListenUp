@@ -109,7 +109,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         WorldEventEntity::class,
         WorldEventMentionEntity::class,
     ],
-    version = 22,
+    version = 23,
     exportSchema = true,
 )
 @ColumnTypeConverters(
