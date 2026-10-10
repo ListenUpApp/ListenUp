@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTrans
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.EntityRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import kotlin.time.Clock
 
@@ -52,7 +53,7 @@ import kotlin.time.Clock
  * lock, so the SQLDelight writes serialize on the lone SQLDelight connection without the
  * cross-engine `SQLITE_BUSY` the prior Exposed-junction-write split exhibited.
  *
- * [mergeSeries] moves the source's books, sub-series and Story World entities into the target, and
+ * [mergeSeries] moves the source's books, sub-series, Story World entities and events into the target, and
  * [undoSeriesMerge] moves back whatever of them still sits where the merge put it.
  *
  * Hierarchy edits ([createSeries], [setSeriesParent], [reorderChildSeries]) are gated here and
@@ -83,6 +84,7 @@ internal class SeriesServiceImpl(
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val clock: Clock = Clock.System,
     private val entityRepo: EntityRepository? = null,
+    private val worldEventRepo: WorldEventRepository? = null,
 ) : SeriesService {
     private val hierarchy = SeriesHierarchyWrites(seriesRepo)
     private val mergeReceipts =
@@ -92,6 +94,7 @@ internal class SeriesServiceImpl(
             bookRepo = bookRepo,
             hierarchy = hierarchy,
             entityRepo = entityRepo,
+            worldEventRepo = worldEventRepo,
             readingOrders = SeriesMergeReadingOrders(orders = readingOrders, sqlDb = sqlDb),
             clock = clock,
         )
@@ -115,6 +118,7 @@ internal class SeriesServiceImpl(
             principal = principal,
             clock = clock,
             entityRepo = entityRepo,
+            worldEventRepo = worldEventRepo,
         )
 
     /**
@@ -227,6 +231,8 @@ internal class SeriesServiceImpl(
         // so undo can carry them back. Right after the relink, so a failure further down never leaves
         // them under a source that no longer holds the books that make them visible.
         entityRepo?.rehomeForSeriesMerge(receiptId, source, target)
+        // Then its events, after the entities, so their mentions recompute against entities already in the target.
+        worldEventRepo?.rehomeForSeriesMerge(receiptId, source, target)
 
         // Re-upsert each affected book — bumps revision + emits book.Updated per book.
         // One batched read replaces the per-book N+1 lookup.

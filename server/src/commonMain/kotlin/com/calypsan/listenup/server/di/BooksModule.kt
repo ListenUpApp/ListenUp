@@ -245,8 +245,8 @@ fun booksModule(
 
 /**
  * The [SeriesService] binding. Its merge moves the merged-away series' reading orders, so it needs the
- * reading-order repository, which `readingOrderModule` binds; it carries Story World entities too when
- * that domain is wired.
+ * reading-order repository, which `readingOrderModule` binds; it carries Story World entities and events too
+ * when those domains are wired.
  */
 private fun Module.seriesServiceBinding() {
     single<SeriesService> {
@@ -259,6 +259,7 @@ private fun Module.seriesServiceBinding() {
             permissionPolicy = get<PermissionPolicy>(),
             principal = unscopedPlaceholder("SeriesService"),
             entityRepo = getOrNull<EntityRepository>(),
+            worldEventRepo = getOrNull<WorldEventRepository>(),
         )
     }
 }

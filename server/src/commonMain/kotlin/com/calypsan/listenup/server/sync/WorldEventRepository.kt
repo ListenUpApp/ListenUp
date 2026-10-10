@@ -207,7 +207,8 @@ class WorldEventRepository(
     suspend fun listHistory(id: WorldEventId): List<WorldEventChange> = suspendTransaction(db) { history.listFor(id) }
 
     /** One history entry of an event, or null. */
-    suspend fun findChange(changeId: StoryWorldHistoryId): WorldEventChange? = suspendTransaction(db) { history.find(changeId) }
+    suspend fun findChange(changeId: StoryWorldHistoryId): WorldEventChange? =
+        suspendTransaction(db) { history.find(changeId) }
 
     // ── Writes ──
 
@@ -262,10 +263,14 @@ class WorldEventRepository(
             val rev = nextRevision()
             val change =
                 history.find(changeId)
-                    ?: rollback(AppResult.Failure(WorldEventError.HistoryNotFound(debugInfo = "change=${changeId.value}")))
+                    ?: rollback(
+                        AppResult.Failure(WorldEventError.HistoryNotFound(debugInfo = "change=${changeId.value}")),
+                    )
             val current =
                 readPayload(change.eventId.value)
-                    ?: rollback(AppResult.Failure(WorldEventError.NotFound(debugInfo = "event=${change.eventId.value}")))
+                    ?: rollback(
+                        AppResult.Failure(WorldEventError.NotFound(debugInfo = "event=${change.eventId.value}")),
+                    )
             val restore =
                 change.before
                     ?: return@suspendTransaction AppResult.Success(
@@ -290,7 +295,16 @@ class WorldEventRepository(
                     updatedBy = actor?.value,
                     deletedAt = null,
                 )
-            AppResult.Success(rewrite(before = current, after = restored, op = StoryWorldOp.REVERT, actor = actor, ctx = ctx, revision = rev))
+            AppResult.Success(
+                rewrite(
+                    before = current,
+                    after = restored,
+                    op = StoryWorldOp.REVERT,
+                    actor = actor,
+                    ctx = ctx,
+                    revision = rev,
+                ),
+            )
         }
     }
 
@@ -300,13 +314,24 @@ class WorldEventRepository(
 
     /** Tombstones every live event homed on or anchored to [bookId] (DELETE, no actor). Returns how many. */
     suspend fun softDeleteAllForBook(bookId: String): Int {
-        if (!suspendTransaction(db) { db.worldEventsQueries.hasLiveTouchingBook(bookId, bookId).executeAsOne() }) return 0
+        if (!suspendTransaction(
+                db,
+            ) { db.worldEventsQueries.hasLiveTouchingBook(bookId, bookId).executeAsOne() }
+        ) {
+            return 0
+        }
         val ctx = writeContext()
         return suspendTransaction(db) {
             val lease = RevisionLease(nextRevision())
             val live = db.worldEventsQueries.selectLiveIdsTouchingBook(bookId, bookId).executeAsList()
             live.forEach { id ->
-                tombstone(before = checkNotNull(readPayload(id)), op = StoryWorldOp.DELETE, actor = null, ctx = ctx, revision = lease.take())
+                tombstone(
+                    before = checkNotNull(readPayload(id)),
+                    op = StoryWorldOp.DELETE,
+                    actor = null,
+                    ctx = ctx,
+                    revision = lease.take(),
+                )
             }
             live.size
         }
@@ -325,7 +350,14 @@ class WorldEventRepository(
             val dead = cascadeDeletedFor(bookIds)
             dead.forEach { id ->
                 val before = checkNotNull(readPayload(id))
-                rewrite(before = before, after = before.copy(deletedAt = null), op = StoryWorldOp.REVERT, actor = null, ctx = ctx, revision = lease.take())
+                rewrite(
+                    before = before,
+                    after = before.copy(deletedAt = null),
+                    op = StoryWorldOp.REVERT,
+                    actor = null,
+                    ctx = ctx,
+                    revision = lease.take(),
+                )
             }
             dead.size
         }
@@ -335,6 +367,82 @@ class WorldEventRepository(
         bookIds.chunked(SQLITE_IN_CHUNK / 2).flatMap { chunk ->
             db.worldEventsQueries.selectCascadeDeletedForBooks(chunk, chunk).executeAsList()
         }
+
+    // ── Series merge (SeriesServiceImpl.mergeSeries / SeriesMergeReceipts.undo) ──
+
+    /**
+     * Records [source]'s live events against [receiptId], then re-homes each to [target] (UPDATE, no actor: a
+     * cascade of the series merge). Anchors stay — the books moved with the merge. Call after the entities
+     * re-home, so mentions recompute against entities already in [target]. Returns how many moved.
+     */
+    suspend fun rehomeForSeriesMerge(
+        receiptId: String,
+        source: SeriesId,
+        target: SeriesId,
+    ): Int {
+        val ctx = writeContext()
+        return suspendTransaction(db) {
+            val lease = RevisionLease(nextRevision())
+            db.seriesMergeReceiptsQueries.snapshotSourceWorldEvents(receipt_id = receiptId, source_id = source.value)
+            val moving = db.seriesMergeReceiptsQueries.selectReceiptWorldEventIds(receiptId).executeAsList()
+            moving.forEach { id ->
+                val before = checkNotNull(readPayload(id))
+                rewrite(
+                    before = before,
+                    after = before.copy(homeSeriesId = target.value),
+                    op = StoryWorldOp.UPDATE,
+                    actor = null,
+                    ctx = ctx,
+                    revision = lease.take(),
+                )
+            }
+            moving.size
+        }
+    }
+
+    /**
+     * The Story World events half of a series-merge undo, bound to this call's firehose context.
+     * [SeriesMergeUndo.restore] runs **inside** the undo's claim transaction, so the receipt is never marked
+     * undone without its events going home.
+     */
+    suspend fun prepareSeriesMergeUndo(): SeriesMergeUndo = SeriesMergeUndo(writeContext())
+
+    /** See [prepareSeriesMergeUndo]. */
+    inner class SeriesMergeUndo internal constructor(
+        private val ctx: WriteContext,
+    ) {
+        /**
+         * Moves [receiptId]'s events that are still live under [target] back to [source] (UPDATE, no actor), each in
+         * its current state. An event created under [target] since the merge is not on the receipt, so it stays.
+         * Mentions recompute against [source]'s world on the way back. Call inside [transaction], after the
+         * entities' restore. Returns how many moved back.
+         */
+        fun restore(
+            transaction: TransactionWithReturn<*>,
+            receiptId: String,
+            source: SeriesId,
+            target: SeriesId,
+        ): Int =
+            with(transaction) {
+                val lease = RevisionLease(nextRevision())
+                val returning =
+                    db.seriesMergeReceiptsQueries
+                        .selectReceiptWorldEventIds(receiptId)
+                        .executeAsList()
+                        .mapNotNull { id -> liveOrNull(id)?.takeIf { it.homeSeriesId == target.value } }
+                returning.forEach { before ->
+                    rewrite(
+                        before = before,
+                        after = before.copy(homeSeriesId = source.value),
+                        op = StoryWorldOp.UPDATE,
+                        actor = null,
+                        ctx = ctx,
+                        revision = lease.take(),
+                    )
+                }
+                returning.size
+            }
+    }
 
     // ── Targeted pull ──
 
@@ -352,19 +460,26 @@ class WorldEventRepository(
         extraWhere: SqlFragment?,
     ): Page<WorldEventSyncPayload> {
         if (matchColumn != BOOK_ID_COLUMN) {
-            return super.pullByIds(userId = userId, matchColumn = matchColumn, matchValues = matchValues, extraWhere = extraWhere)
+            return super.pullByIds(
+                userId = userId,
+                matchColumn = matchColumn,
+                matchValues = matchValues,
+                extraWhere = extraWhere,
+            )
         }
         val eventIds =
             suspendTransaction(db) {
                 matchValues
                     // The query binds each chunk three times (home, anchor, series membership).
                     .chunked(SQLITE_IN_CHUNK / BINDS_PER_TOUCHING_QUERY)
-                    .flatMap { chunk -> db.worldEventsQueries.selectIdsTouchingBooks(chunk, chunk, chunk).executeAsList() }
-                    .distinct()
+                    .flatMap { chunk ->
+                        db.worldEventsQueries.selectIdsTouchingBooks(chunk, chunk, chunk).executeAsList()
+                    }.distinct()
             }
         val items = mutableListOf<WorldEventSyncPayload>()
         for (chunk in eventIds.chunked(PULL_BY_ID_CHUNK)) {
-            items += super.pullByIds(userId = userId, matchColumn = "id", matchValues = chunk, extraWhere = extraWhere).items
+            items +=
+                super.pullByIds(userId = userId, matchColumn = "id", matchValues = chunk, extraWhere = extraWhere).items
         }
         return Page(items = items, nextCursor = null, hasMore = false)
     }
@@ -384,8 +499,13 @@ class WorldEventRepository(
         val home = WorldHome(upsert.homeSeriesId?.value, upsert.homeBookId?.value)
         integrity.anchorProblem(upsert.bookId?.value, home)?.let { return it }
         integrity
-            .participantProblem(type, upsert.subjectEntityId?.value, upsert.objectEntityId?.value, home, requireLive = true)
-            ?.let { return it }
+            .participantProblem(
+                type,
+                upsert.subjectEntityId?.value,
+                upsert.objectEntityId?.value,
+                home,
+                requireLive = true,
+            )?.let { return it }
         // The base stamps revision, created_at and updated_at; the stamps below are placeholders.
         val value =
             WorldEventSyncPayload(
