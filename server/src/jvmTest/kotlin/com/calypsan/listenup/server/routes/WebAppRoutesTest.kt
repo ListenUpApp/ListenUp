@@ -79,6 +79,25 @@ class WebAppRoutesTest :
             }
         }
 
+        test("the document and its assets carry the defensive headers") {
+            // The web client keeps its tokens in localStorage, so what the page is allowed to load,
+            // be framed by, or be sniffed into is the mitigation for that decision.
+            testApplication {
+                val root = webRoot()
+                application { routing { webAppRoutes(root) } }
+
+                listOf("/", "/assets/app.js").forEach { path ->
+                    val response = client.get(path)
+
+                    response.headers["X-Content-Type-Options"] shouldBe "nosniff"
+                    response.headers["Referrer-Policy"] shouldBe "same-origin"
+                    response.headers["X-Frame-Options"] shouldBe "DENY"
+                    response.headers["Cross-Origin-Opener-Policy"] shouldBe "same-origin"
+                    response.headers["Cross-Origin-Embedder-Policy"] shouldBe "require-corp"
+                }
+            }
+        }
+
         test("an unknown path falls back to the document, so client routing survives a reload") {
             testApplication {
                 val root = webRoot()

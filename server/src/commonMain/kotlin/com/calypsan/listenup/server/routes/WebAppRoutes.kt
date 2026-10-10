@@ -46,7 +46,7 @@ internal fun Route.webAppRoutes(
 ) {
     val bundle = WebBundle(webRoot, files)
 
-    install(CrossOriginIsolation)
+    install(WebResponseHeaders)
 
     get("/{path...}") {
         val segments =
@@ -121,20 +121,27 @@ private fun String.namesEtag(etag: String): Boolean =
 private fun List<String>.isSafe(): Boolean = none { it == ".." || it == "." }
 
 /**
- * Stamps the cross-origin isolation headers onto every response in this route subtree.
+ * Stamps the isolation and defensive headers onto every response in this route subtree.
  *
  * OPFS requires `SharedArrayBuffer`, which the browser withholds unless the page is
- * cross-origin isolated, which requires exactly this header pair. `require-corp` governs
+ * cross-origin isolated, which requires the COOP/COEP pair. `require-corp` governs
  * subresources as well as the document, so these apply to assets too — the wasm binary and the
  * SQLite worker are fetched rather than navigated to.
  *
- * The same pair is set for the dev and preview servers in `app/webApp/web/vite.config.ts`; if
- * one side changes, the other has to change with it.
+ * The rest defend the tokens the web client keeps in `localStorage`: `nosniff` stops a response
+ * being reinterpreted as script, `Referrer-Policy` keeps the path (a book, a share link) out of
+ * outbound requests, and `X-Frame-Options` refuses to be framed.
+ *
+ * The same headers are set for the dev and preview servers in `app/webApp/web/vite.config.ts`;
+ * if one side changes, the other has to change with it.
  */
-private val CrossOriginIsolation =
-    createRouteScopedPlugin("CrossOriginIsolation") {
+private val WebResponseHeaders =
+    createRouteScopedPlugin("WebResponseHeaders") {
         onCallRespond { call ->
             call.response.headers.append("Cross-Origin-Opener-Policy", "same-origin")
             call.response.headers.append("Cross-Origin-Embedder-Policy", "require-corp")
+            call.response.headers.append("X-Content-Type-Options", "nosniff")
+            call.response.headers.append("Referrer-Policy", "same-origin")
+            call.response.headers.append("X-Frame-Options", "DENY")
         }
     }

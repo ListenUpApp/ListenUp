@@ -8,14 +8,18 @@ import { resolve } from 'node:path'
 // load the synced modules by path.
 
 // OPFS needs SharedArrayBuffer, which the browser exposes only under cross-origin isolation,
-// which requires these two headers. This is the single place that sets them: one object feeds
-// the dev server, the preview server and the Kotest page.
+// which requires the first two headers. The rest defend the tokens the client keeps in
+// localStorage. This is the single place that sets them: one object feeds the dev server, the
+// preview server and the Kotest page.
 //
-// Production hosting must send these too. When the built assets are served by Ktor, that
-// route needs the same pair or the browser store silently loses OPFS.
-const crossOriginIsolation = {
+// Production hosting must send these too. When the built assets are served by Ktor, that route
+// (WebAppRoutes.kt) needs the same set or the browser store silently loses OPFS.
+const responseHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'same-origin',
+  'X-Frame-Options': 'DENY',
 }
 
 // The Ktor server in development. Production needs no proxy at all: Ktor serves the bundle, so
@@ -41,7 +45,7 @@ export default defineConfig({
     },
   },
   server: {
-    headers: crossOriginIsolation,
+    headers: responseHeaders,
     // The Kotlin output and the SQLite worker both live outside this project root, so Vite's
     // file-serving allowlist is widened to the whole :app:webApp directory.
     fs: { allow: [resolve(__dirname, '..')] },
@@ -50,7 +54,7 @@ export default defineConfig({
       '/healthz': { target: apiTarget, changeOrigin: true },
     },
   },
-  preview: { headers: crossOriginIsolation },
+  preview: { headers: responseHeaders },
   build: {
     rollupOptions: {
       // The Kotest page is a build input, not just a dev-server page, so `vite build` output can
