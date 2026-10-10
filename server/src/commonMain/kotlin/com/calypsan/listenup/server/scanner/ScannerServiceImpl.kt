@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
+import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ScanError
@@ -16,7 +17,9 @@ import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 /**
@@ -42,7 +45,8 @@ import kotlinx.coroutines.flow.map
  * full scan is a privileged server operation. The Koin singleton carries
  * [PrincipalProvider.None], so an unscoped `scanFull` call is denied rather than silently
  * run privileged; transports bind the caller's principal via [copyWith]. `lastScanResult()`
- * and `observeProgress()` stay ungated — visible to any authenticated user.
+ * and `observeProgress()` answer every signed-in caller, but a non-admin receives counts only:
+ * no paths and no book content.
  */
 internal class ScannerServiceImpl(
     private val orchestrator: ScanOrchestrator,
@@ -57,18 +61,27 @@ internal class ScannerServiceImpl(
         return orchestrator.scanLibrary(resolveLibraryId()).map { it.toSummary() }
     }
 
-    override suspend fun lastScanResult(): AppResult<ScanResult> =
-        orchestrator.lastResult(resolveLibraryId())?.let { AppResult.Success(it) }
-            ?: AppResult.Failure(ScanError.LibraryPathNotConfigured())
+    override suspend fun lastScanResult(): AppResult<ScanResult> {
+        val result =
+            orchestrator.lastResult(resolveLibraryId())
+                ?: return AppResult.Failure(ScanError.LibraryPathNotConfigured())
+        return AppResult.Success(if (requireAdmin() == null) result else result.withoutLibraryContent())
+    }
 
     override fun observeProgress(): Flow<RpcEvent<ScanEvent>> =
-        eventBus
-            // Progress monitoring needs only the lightweight lifecycle/progress events. Each
-            // [ScanEvent.Change] carries a full [AnalyzedBook] (metadata + artwork) — a 1000-book
-            // scan would stream multi-MB frames and OOM a subscriber that just wants progress.
-            // Per-book changes reach clients via the sync substrate (firehose + catch-up), not here.
-            .filter { it !is ScanEvent.Change }
-            .map { RpcEvent.Data(it) }
+        flow {
+            // Resolved once per subscription: the role is fixed for the life of the connection.
+            val admin = requireAdmin() == null
+            emitAll(
+                eventBus
+                    // Progress monitoring needs only the lightweight lifecycle/progress events. Each
+                    // [ScanEvent.Change] carries a full [AnalyzedBook] (metadata + artwork) — a 1000-book
+                    // scan would stream multi-MB frames and OOM a subscriber that just wants progress.
+                    // Per-book changes reach clients via the sync substrate (firehose + catch-up), not here.
+                    .filter { it !is ScanEvent.Change }
+                    .map { RpcEvent.Data(if (admin) it else it.withoutLibraryContent()) },
+            )
+        }
 
     /**
      * Admin-gated: a scan issue names a filesystem path, which is server-operator information and
@@ -106,3 +119,24 @@ internal class ScannerServiceImpl(
         return PermissionPolicy.requireAdmin(caller)
     }
 }
+
+/**
+ * What a non-admin may know about a scan: that it ran, and how big it was. Paths are operator
+ * information, and the book list would bypass per-book access.
+ */
+private fun ScanResult.withoutLibraryContent(): ScanResult =
+    copy(
+        rootPath = "",
+        books = emptyList(),
+        changes = emptyList(),
+        errors = emptyList(),
+        failedPaths = emptyList(),
+        scope = ScanScope.Full,
+    )
+
+private fun ScanEvent.withoutLibraryContent(): ScanEvent =
+    when (this) {
+        is ScanEvent.Started -> copy(rootPath = "")
+        is ScanEvent.Progress -> copy(currentFile = null, recentBooks = emptyList())
+        is ScanEvent.Change, is ScanEvent.Completed -> this
+    }

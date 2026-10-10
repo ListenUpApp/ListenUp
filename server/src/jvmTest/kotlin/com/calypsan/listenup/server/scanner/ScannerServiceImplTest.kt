@@ -9,7 +9,9 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
+import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
+import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
@@ -136,14 +138,33 @@ class ScannerServiceImplTest :
                     val (service, _) = newService(fixture, scope = this)
                     service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
 
-                    val result = service.lastScanResult()
+                    val result = service.copyWith(principalOf(UserRole.ADMIN)).lastScanResult()
                     val success = result.shouldBeInstanceOf<AppResult.Success<ScanResult>>()
                     success.data.books.size shouldBe 1
                 }
             }
         }
 
-        test("lastScanResult with a MEMBER principal is still allowed") {
+        test("lastScanResult gives a MEMBER the counts and none of the content") {
+            runTest {
+                audioLibrary {
+                    book("Author/Title") { tracks(count = 1) }
+                }.use { fixture ->
+                    val (service, _) = newService(fixture, scope = this)
+                    service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
+                    val adminResult =
+                        service.copyWith(principalOf(UserRole.ADMIN)).lastScanResult()
+                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>().data
+
+                    val memberResult =
+                        service.copyWith(principalOf(UserRole.MEMBER)).lastScanResult()
+                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>().data
+                    memberResult.shouldBeRedactedLike(adminResult)
+                }
+            }
+        }
+
+        test("lastScanResult gives an ADMIN the full result") {
             runTest {
                 audioLibrary {
                     book("Author/Title") { tracks(count = 1) }
@@ -151,14 +172,94 @@ class ScannerServiceImplTest :
                     val (service, _) = newService(fixture, scope = this)
                     service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
 
-                    val result = service.copyWith(principalOf(UserRole.MEMBER)).lastScanResult()
-                    result.shouldBeInstanceOf<AppResult.Success<ScanResult>>()
+                    val data =
+                        service.copyWith(principalOf(UserRole.ADMIN)).lastScanResult()
+                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>().data
+                    data.books.size shouldBe 1
+                    data.rootPath.isNotBlank() shouldBe true
                 }
+            }
+        }
+
+        test("lastScanResult without a bound principal is redacted like a member") {
+            runTest {
+                audioLibrary {
+                    book("Author/Title") { tracks(count = 1) }
+                }.use { fixture ->
+                    val (service, _) = newService(fixture, scope = this)
+                    service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
+                    val adminResult =
+                        service.copyWith(principalOf(UserRole.ADMIN)).lastScanResult()
+                            .shouldBeInstanceOf<AppResult.Success<ScanResult>>().data
+
+                    val unscopedResult =
+                        service.lastScanResult().shouldBeInstanceOf<AppResult.Success<ScanResult>>().data
+                    unscopedResult.shouldBeRedactedLike(adminResult)
+                }
+            }
+        }
+
+        test("observeProgress strips paths and titles for a MEMBER, keeps them for an ADMIN") {
+            runTest {
+                val eventBus = MutableSharedFlow<ScanEvent>(replay = 10)
+                val orchestrator =
+                    ScanOrchestrator(
+                        scannerFactory = { error("scannerFactory unused by observeProgress") },
+                        watcherSupervisor = NoOpWatcherSupervisor,
+                    )
+                val service = ScannerServiceImpl(orchestrator, { TEST_LIBRARY_ID }, eventBus.asSharedFlow(), NoScanIssues)
+                eventBus.emit(ScanEvent.Started(correlationId = "c", libraryId = TEST_LIBRARY_ID, rootPath = "/srv/books"))
+                eventBus.emit(
+                    ScanEvent.Progress(
+                        correlationId = "c",
+                        libraryId = TEST_LIBRARY_ID,
+                        phase = ScanPhase.ANALYZING,
+                        filesWalked = 7,
+                        booksAnalyzed = 3,
+                        errors = 0,
+                        booksTotal = 9,
+                        currentFile = "A/B/01.mp3",
+                        recentBooks = listOf(ScanBookRef("T", "A")),
+                    ),
+                )
+
+                suspend fun receivedBy(role: UserRole): List<ScanEvent> =
+                    service
+                        .copyWith(principalOf(role))
+                        .observeProgress()
+                        .take(2)
+                        .toList()
+                        .map { (it as RpcEvent.Data).value }
+
+                val member = receivedBy(UserRole.MEMBER)
+                (member[0] as ScanEvent.Started).rootPath shouldBe ""
+                val memberProgress = member[1] as ScanEvent.Progress
+                memberProgress.currentFile shouldBe null
+                memberProgress.recentBooks shouldBe emptyList()
+                memberProgress.filesWalked shouldBe 7
+                memberProgress.booksAnalyzed shouldBe 3
+                memberProgress.booksTotal shouldBe 9
+
+                val admin = receivedBy(UserRole.ADMIN)
+                (admin[0] as ScanEvent.Started).rootPath shouldBe "/srv/books"
+                val adminProgress = admin[1] as ScanEvent.Progress
+                adminProgress.currentFile shouldBe "A/B/01.mp3"
+                adminProgress.recentBooks shouldBe listOf(ScanBookRef("T", "A"))
             }
         }
     })
 
 private val TEST_LIBRARY_ID = LibraryId("test-lib")
+
+private fun ScanResult.shouldBeRedactedLike(full: ScanResult) {
+    books shouldBe emptyList()
+    changes shouldBe emptyList()
+    errors shouldBe emptyList()
+    failedPaths shouldBe emptyList()
+    rootPath shouldBe ""
+    scope shouldBe ScanScope.Full
+    filesWalked shouldBe full.filesWalked
+}
 
 private fun principalOf(role: UserRole) = PrincipalProvider { UserPrincipal(UserId("u-test"), SessionId("s-test"), role) }
 
