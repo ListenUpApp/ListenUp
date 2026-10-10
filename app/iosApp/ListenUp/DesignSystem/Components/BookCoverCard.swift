@@ -79,9 +79,10 @@ struct BookCoverCard: View {
                 .aspectRatio(1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-                .overlay(alignment: .topTrailing) {
-                    // Finished outranks the documents badge, and steps aside while selecting, as
-                    // Android's CompletionBadge does.
+                // The finished badge sits at the art's bottom-trailing corner (boards Library-iPhone and
+                // -iPad), clear of the documents badge and the restricted lock; a finished book has no
+                // progress bar to share the bottom edge with. It steps aside while selecting.
+                .overlay(alignment: .bottomTrailing) {
                     if libraryState?.isFinished == true && !isSelecting {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 22)) // decorative fixed size
@@ -90,7 +91,10 @@ struct BookCoverCard: View {
                             .background(Circle().fill(.white).padding(2))
                             .padding(Spacing.xs)
                             .accessibilityHidden(true)
-                    } else if book.hasDocuments {
+                    }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if book.hasDocuments {
                         Image(systemName: "book.closed.fill")
                             .font(.system(size: 11, weight: .semibold)) // decorative fixed size
                             .foregroundStyle(Color.listenUpOrange)
