@@ -220,10 +220,10 @@ class UnknownEnumValueFallbackTest :
                     FileEntry("a/b", "b", "", size = 1, mtimeMs = 2, fileType = FileType.UNKNOWN),
                 ) shouldContain
                     """"fileType":"""
-                json.encodeToString(OrganizeSettingsDto.serializer(), OrganizeSettingsDto()).let {
-                    it shouldContain """"preset":"""
-                    it shouldContain """"seriesPrefix":"""
-                    it shouldContain """"authorForm":"""
+                json.encodeToString(OrganizeSettingsDto.serializer(), OrganizeSettingsDto()).let { organizeJson ->
+                    organizeJson shouldContain """"preset":"""
+                    organizeJson shouldContain """"seriesPrefix":"""
+                    organizeJson shouldContain """"authorForm":"""
                 }
                 json.encodeToString(BookFindRequest.serializer(), BookFindRequest()) shouldContain """"strategy":"""
                 json.encodeToString(ReadingOrderFollowMutation.Choose.serializer(), ReadingOrderFollowMutation.Choose("s1")) shouldContain
