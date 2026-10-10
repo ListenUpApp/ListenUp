@@ -129,7 +129,12 @@ class BookDetailViewModel(
             flow3 = seriesRepository.observeHierarchy(),
             flow4 = tagRepository.observeAll(),
         ) { isAdmin, canEditMetadata, hierarchy, allTags ->
-            BookDetailAmbient(isAdmin, canEditMetadata, hierarchy, allTags)
+            BookDetailAmbient(
+                isAdmin = isAdmin,
+                canEditMetadata = canEditMetadata,
+                hierarchy = hierarchy,
+                allTags = allTags,
+            )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), BookDetailAmbient())
 
     // A StateFlow so a screen coming back to the same book shows it at once instead of Loading; it stops with
@@ -148,7 +153,12 @@ class BookDetailViewModel(
             flow3 = ambient,
             flow4 = overlay,
         ) { requested, load, ambientFacts, own ->
-            bookDetailUiState(requested, load, ambientFacts, own)
+            bookDetailUiState(
+                requestedBookId = requested,
+                load = load,
+                ambient = ambientFacts,
+                overlay = own,
+            )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookDetailUiState.Loading)
 
     /**
@@ -267,7 +277,7 @@ class BookDetailViewModel(
 
     /** Writes the overlay of the book on screen; nothing happens while no book is shown. */
     private fun updateShownOverlay(transform: (BookDetailOverlay) -> BookDetailOverlay) {
-        val bookId = shownReady()?.book?.id?.value ?: return
+        val bookId = shownReady()?.run { book.id.value } ?: return
         updateOverlay(bookId, transform)
     }
 
@@ -309,7 +319,7 @@ class BookDetailViewModel(
         startedAt: Long? = null,
         finishedAt: Long? = null,
     ) {
-        val bookId = shownReady()?.book?.id?.value ?: return
+        val bookId = shownReady()?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateOverlay(bookId) { it.copy(isMarkingComplete = true) }
             when (playbackPositionRepository.markComplete(BookId(bookId), startedAt, finishedAt)) {
@@ -332,7 +342,7 @@ class BookDetailViewModel(
      * Discard progress for the current book (start over / DNF).
      */
     fun discardProgress() {
-        val bookId = shownReady()?.book?.id?.value ?: return
+        val bookId = shownReady()?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateOverlay(bookId) { it.copy(isDiscardingProgress = true) }
             when (playbackPositionRepository.discardProgress(BookId(bookId))) {
@@ -355,7 +365,7 @@ class BookDetailViewModel(
      * Restart the current book from the beginning.
      */
     fun restartBook() {
-        val bookId = shownReady()?.book?.id?.value ?: return
+        val bookId = shownReady()?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateOverlay(bookId) { it.copy(isRestarting = true) }
             when (playbackPositionRepository.restartBook(BookId(bookId))) {
@@ -389,7 +399,7 @@ class BookDetailViewModel(
      * Add the current book to an existing shelf.
      */
     fun addBookToShelf(shelfId: String) {
-        val bookId = shownReady()?.book?.id?.value ?: return
+        val bookId = shownReady()?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateOverlay(bookId) { it.copy(isAddingToShelf = true) }
             when (val result = addBooksToShelfUseCase(ShelfId(shelfId), listOf(BookId(bookId)))) {
@@ -410,7 +420,7 @@ class BookDetailViewModel(
      * Create a new shelf and add the current book to it.
      */
     fun createShelfAndAddBook(name: String) {
-        val bookId = shownReady()?.book?.id?.value ?: return
+        val bookId = shownReady()?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateOverlay(bookId) { it.copy(isAddingToShelf = true) }
             when (val result = createShelfUseCase(name, null)) {
@@ -463,7 +473,7 @@ class BookDetailViewModel(
 
     /** Add this book to [collectionId] (additive — never affects the book's All Books membership). */
     fun addBookToCollection(collectionId: String) {
-        val bookId = shownReady()?.book?.id?.value ?: return
+        val bookId = shownReady()?.run { book.id.value } ?: return
         viewModelScope.launch {
             updateOverlay(bookId) { it.copy(isAddingToCollection = true) }
             when (val result = collectionRepository.addBook(collectionId, bookId)) {
@@ -532,7 +542,7 @@ class BookDetailViewModel(
      * confirm dialog so the reason is legible where the decision was made.
      */
     fun deleteBook() {
-        val bookId = shownReady()?.book?.id ?: return
+        val bookId = shownReady()?.run { book.id } ?: return
         viewModelScope.launch {
             updateOverlay(bookId.value) { it.copy(isDeletingBook = true, deleteError = null) }
             when (val result = bookRepository.deleteBook(bookId)) {
@@ -637,7 +647,7 @@ class BookDetailViewModel(
      * @param docId [BookDocument.id] of the tapped document.
      */
     fun onOpenDocument(docId: String) {
-        val bookId = shownReady()?.book?.id?.value ?: return
+        val bookId = shownReady()?.run { book.id.value } ?: return
         val doc = documents.value.find { it.id == docId } ?: return
         if (doc.format != "pdf") {
             _navActions.trySend(BookDetailNavAction.ShowViewerComingSoon)

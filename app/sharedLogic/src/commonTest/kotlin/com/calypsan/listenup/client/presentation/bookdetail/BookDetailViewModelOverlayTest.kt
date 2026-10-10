@@ -237,13 +237,13 @@ class BookDetailViewModelOverlayTest :
         test("admin status known before the book loads is on its first Ready, and follows live") {
             runTest {
                 val f = BookDetailFixture()
-                f.isAdmin.value = true
+                f.adminStatus.value = true
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
                 vm.ready().isAdmin shouldBe true
 
-                f.isAdmin.value = false
+                f.adminStatus.value = false
                 advanceUntilIdle()
                 vm.ready().isAdmin shouldBe false
             }
@@ -280,7 +280,7 @@ class BookDetailViewModelOverlayTest :
                 f.availability.update { it.copy(isWaitingForWifi = true) }
                 advanceUntilIdle()
                 vm.ready().isComplete shouldBe false
-                vm.ready().progress shouldBe (1_800_000f / 5_400_000f)
+                vm.ready().progress shouldBe 1_800_000f / 5_400_000f
             }
         }
 
@@ -322,7 +322,7 @@ class BookDetailViewModelOverlayTest :
         test("once a restored book is re-homed, being stranded again does not bring 'restoring' back") {
             runTest {
                 val f = BookDetailFixture()
-                f.isAdmin.value = true
+                f.adminStatus.value = true
                 f.visibility.setVisibility(BookId("book-1"), BookVisibility.Stranded)
                 val vm = watch(f.build())
                 vm.loadBook("book-1")

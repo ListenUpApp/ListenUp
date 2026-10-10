@@ -66,7 +66,7 @@ internal class BookDetailFixture {
                 isWaitingForWifi = false,
             ),
         )
-    val isAdmin = MutableStateFlow(false)
+    val adminStatus = MutableStateFlow(false)
     val allTags = MutableStateFlow<List<Tag>>(emptyList())
     val hierarchy = MutableStateFlow(SeriesHierarchy.Empty)
     val permissions = FakePermissionsRepository(Permission.EDIT_METADATA)
@@ -116,7 +116,7 @@ internal class BookDetailFixture {
         }
     private val userRepository: UserRepository =
         mock<UserRepository> {
-            every { observeIsAdmin() } returns isAdmin
+            every { observeIsAdmin() } returns adminStatus
             every { observeCurrentUser() } returns flowOf(null)
         }
     private val tagRepository: TagRepository = mock<TagRepository> { every { observeAll() } returns allTags }
