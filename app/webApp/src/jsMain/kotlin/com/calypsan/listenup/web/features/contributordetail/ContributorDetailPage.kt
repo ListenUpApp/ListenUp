@@ -35,6 +35,8 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.motion.staggerChildrenOnArrival
+import com.calypsan.listenup.web.motion.contributorHeroKey
+import com.calypsan.listenup.web.motion.heroTarget
 
 /**
  * Contributor Detail — the person behind the books, over the shared
@@ -252,6 +254,8 @@ private fun Hero(
             // Decorative: the hero's accessible name is the H1 beside it, not the monogram.
             attr("aria-hidden", "true")
             style { property("background", avatarTintFor(state.contributor.name)) }
+            // The arrival half of the avatar's flight from the Contributors list. See [heroTarget].
+            heroTarget(contributorHeroKey(state.contributor.idString))
         }) { Text(initialsFor(state.contributor.name)) }
 
         Div(attrs = { classes("cd-name-block") }) {

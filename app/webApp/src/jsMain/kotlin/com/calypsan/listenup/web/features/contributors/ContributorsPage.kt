@@ -23,6 +23,11 @@ import com.calypsan.listenup.web.design.initialsFor
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.motion.CoverSurface
+import com.calypsan.listenup.web.motion.contributorHeroKey
+import com.calypsan.listenup.web.motion.heroTile
+import com.calypsan.listenup.web.motion.recordHeroOrigin
+import org.w3c.dom.Element
 
 /**
  * The Contributors list — every author and narrator in the library, A to Z.
@@ -174,10 +179,10 @@ private fun ContributorRow(
         onKeyDown { event ->
             if (event.key == "Enter" || event.key == " ") {
                 event.preventDefault()
-                onOpen()
+                openWithOrigin(entry.contributor.idString, event.currentTarget as? Element, onOpen)
             }
         }
-        onClick { onOpen() }
+        onClick { event -> openWithOrigin(entry.contributor.idString, event.currentTarget as? Element, onOpen) }
     }) {
         Div(attrs = {
             classes("contrib-avatar")
@@ -185,6 +190,8 @@ private fun ContributorRow(
             // lead with the two-letter monogram.
             attr("aria-hidden", "true")
             style { property("background", avatarTintFor(entry.contributor.name)) }
+            // The return leg: Back from this person's page flies their avatar home here.
+            heroTile(contributorHeroKey(entry.contributor.idString))
         }) { Text(initialsFor(entry.contributor.name)) }
 
         Div(attrs = { classes("contrib-info") }) {
@@ -202,6 +209,22 @@ private fun ContributorRow(
             Icon(WebIcon.ChevronRight, size = CHEVRON_SIZE)
         }
     }
+}
+
+/**
+ * Opens [contributorId], first recording where the row's avatar is so their page's hero can fly in
+ * from it. Shared by pointer and keyboard so the flight is not a mouse-only courtesy — the same
+ * shape the library card's `openWithOrigin` takes.
+ */
+private fun openWithOrigin(
+    contributorId: String,
+    row: Element?,
+    onOpen: () -> Unit,
+) {
+    row?.querySelector(".contrib-avatar")?.let {
+        recordHeroOrigin(contributorHeroKey(contributorId), CoverSurface.GRID, it)
+    }
+    onOpen()
 }
 
 /**

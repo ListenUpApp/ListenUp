@@ -22,6 +22,11 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.motion.CoverSurface
+import com.calypsan.listenup.web.motion.heroTile
+import com.calypsan.listenup.web.motion.recordHeroOrigin
+import com.calypsan.listenup.web.motion.seriesHeroKey
+import org.w3c.dom.Element
 
 /**
  * Categories the Series tab sorts by — the three iOS's `SeriesContent` offers.
@@ -130,7 +135,13 @@ private fun SeriesCard(
     Button(attrs = {
         classes("srs-card")
         attr("type", "button")
-        onClick { onOpen() }
+        onClick { event ->
+            // Where the cover is NOW, before its page goes away — the series hero flies in from here.
+            (event.currentTarget as? Element)?.querySelector(".srs-cover")?.let {
+                recordHeroOrigin(seriesHeroKey(entry.series.id.value), CoverSurface.GRID, it)
+            }
+            onOpen()
+        }
     }) {
         // The first book stands for the series, the way a shelf shows its first spine. Absent when
         // the series somehow holds no books — a blank frame beats a broken image request.
@@ -139,6 +150,8 @@ private fun SeriesCard(
             Div(attrs = {
                 classes("srs-cover")
                 if (entry.subSeriesCount > 0) classes("is-stack")
+                // The return leg: Back from the series flies its hero home into this cover.
+                heroTile(seriesHeroKey(entry.series.id.value))
             }) {
                 Cover(title = first.title, imageUrl = coverUrl(first.id.value, first.coverHash, CARD_COVER_RUNG))
             }

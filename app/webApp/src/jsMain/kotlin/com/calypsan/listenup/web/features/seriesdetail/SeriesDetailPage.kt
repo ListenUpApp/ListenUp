@@ -30,6 +30,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.motion.seriesHeroKey
 
 /**
  * Series Detail — a series in reading order, over the shared
@@ -193,6 +194,7 @@ private fun Hero(
             imageUrl = first?.let { coverUrl(it.id.value, it.coverHash, COVER_RUNG) },
             size = COVER_SIZE,
             radius = COVER_RADIUS,
+            heroKey = seriesHeroKey(state.seriesId),
             decorative = true,
         )
         Div(attrs = { classes("sd-tblock") }) {
