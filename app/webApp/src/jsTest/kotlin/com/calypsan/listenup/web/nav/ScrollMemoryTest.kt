@@ -195,6 +195,17 @@ class ScrollMemoryTest :
             awaitUntil("the new page to start at the top") { main.scrollTop == 0.0 }
         }
 
+        test("an arrival outside any scroller still settles") {
+            captureScrollBeforeRouteChange(RouteChange.POP)
+            frames.mount(1280, 800) { ScrollRestoration(route.value) }
+            awaitFrame()
+            var ran = false
+
+            whenScrollSettled { ran = true }
+
+            ran shouldBe true
+        }
+
         test("work queued while a place is restored runs once it is") {
             var ran = false
             captureScrollBeforeRouteChange(RouteChange.POP)

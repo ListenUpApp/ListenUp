@@ -110,7 +110,16 @@ internal fun forgetScrollMemory() {
  */
 @Composable
 internal fun ScrollRestoration(route: Route) {
-    val scrollport = LocalScrollport.current ?: return
+    val scrollport = LocalScrollport.current
+    if (scrollport == null) {
+        // No scroller, so nothing to place: the arrival is settled the moment it lands. Returning
+        // without saying so would hold every waiting flight forever.
+        DisposableEffect(route) {
+            settleScroll()
+            onDispose { }
+        }
+        return
+    }
     val shown = remember { ShownPath() }
     val scope = rememberCoroutineScope()
     DisposableEffect(route) {
