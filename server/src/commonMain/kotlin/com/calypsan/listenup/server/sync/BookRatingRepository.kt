@@ -4,6 +4,7 @@ import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
+import com.calypsan.listenup.api.sync.ListenerRatingSource
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.db.sqldelight.Book_ratings
@@ -201,6 +202,7 @@ class BookRatingRepository(
                         revision = rev,
                         rated_at = now,
                         client_op_id = clientOpId,
+                        source = value.source.column(),
                         book_id = value.bookId,
                         user_id = value.userId,
                     ).value
@@ -217,6 +219,7 @@ class BookRatingRepository(
                 updated_at = now,
                 revision = rev,
                 client_op_id = clientOpId,
+                source = value.source.column(),
             )
         }
     }
@@ -295,6 +298,7 @@ class BookRatingRepository(
             updatedAt = updated_at,
             revision = revision,
             deletedAt = deleted_at,
+            source = ratingSourceOf(source),
         )
 
     private companion object {
@@ -323,3 +327,10 @@ internal fun requireSingleRatingRowUpdated(
 ) {
     check(rowsChanged == 1L) { "rating write for $bookId/$userId matched no row" }
 }
+
+/** `book_ratings.source` text for [ListenerRatingSource]: lower case, as the V98 CHECK spells it. */
+internal fun ListenerRatingSource.column(): String = name.lowercase()
+
+/** [ListenerRatingSource] from `book_ratings.source`; anything unrecognised is a ListenUp rating. */
+internal fun ratingSourceOf(column: String): ListenerRatingSource =
+    if (column == ListenerRatingSource.HARDCOVER.column()) ListenerRatingSource.HARDCOVER else ListenerRatingSource.LISTENUP
