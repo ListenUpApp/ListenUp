@@ -90,6 +90,7 @@ import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -106,6 +107,7 @@ import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.dsl.module
+import org.w3c.dom.Element
 import org.w3c.dom.Worker
 
 /**
@@ -120,7 +122,17 @@ import org.w3c.dom.Worker
  */
 fun main() {
     val mount = document.getElementById(MOUNT_ID) ?: return
+    try {
+        bootInto(mount)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        showBootFailure(mount, e)
+    }
+}
 
+/** Everything `main` does once it has somewhere to render; split out so one guard covers all of it. */
+private fun bootInto(mount: Element) {
     // Probe first, boot second. Every precondition below is checked without touching the store,
     // so a browser that can persist the database is unaffected.
     //
@@ -139,7 +151,18 @@ fun main() {
     // call can race the seed write and dial an unconfigured client. Sequencing render as this
     // coroutine's continuation (rather than firing both concurrently) makes that race structurally
     // impossible without blocking the JS thread — suspension yields, it doesn't freeze the tab.
-    CoroutineScope(Dispatchers.Default).launch {
+    // A failure before the mount has nothing else to say it, so the handler renders the reason.
+    // After the mount the app is already on screen and a stray child failure must not wipe it.
+    var mounted = false
+    val bootFailureHandler =
+        CoroutineExceptionHandler { _, failure ->
+            if (mounted) {
+                console.error("ListenUp: a background task failed", failure)
+            } else {
+                showBootFailure(mount, failure)
+            }
+        }
+    CoroutineScope(Dispatchers.Default + bootFailureHandler).launch {
         seedServerUrlIfNeeded(koin)
         // Device-local preferences sit behind a suspend read, so they arrive as a boot step or not
         // at all — the StateFlows start on hard-coded defaults and nothing else ever replaces them.
@@ -186,6 +209,7 @@ fun main() {
         }
 
         val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
+        mounted = true
         renderComposable(root = mount) {
             AuthGate(
                 authGraph = graphAuth(koin),
@@ -262,6 +286,42 @@ fun main() {
                     }
                 },
             )
+        }
+    }
+}
+
+/**
+ * Says why the app could not start, in place of the blank page a failure before the first render
+ * would otherwise leave.
+ *
+ * Private mode and blocked site data make browser storage throw, and Koin's eager singletons read
+ * it before anything is drawn. The reader can act on a reason and a retry; they cannot act on white.
+ * The failure is also logged, so the console keeps the stack the screen does not show.
+ */
+private fun showBootFailure(
+    mount: Element,
+    failure: Throwable,
+) {
+    console.error("ListenUp could not start", failure)
+    val reason = failure.message ?: failure::class.simpleName ?: "Unknown error"
+    renderComposable(root = mount) { BootFailure(reason) { window.location.reload() } }
+}
+
+@Composable
+private fun BootFailure(
+    reason: String,
+    onRetry: () -> Unit,
+) {
+    WebAppSurface {
+        Div(attrs = {
+            classes("lapse")
+            attr("role", "alert")
+        }) {
+            Div(attrs = { classes("lapse-text") }) {
+                Span(attrs = { classes("lapse-t") }) { Text("ListenUp could not start") }
+                Span(attrs = { classes("lapse-b") }) { Text(reason) }
+            }
+            Button(kind = ButtonKind.Primary, onClick = onRetry, label = "Try again") { Text("Try again") }
         }
     }
 }
