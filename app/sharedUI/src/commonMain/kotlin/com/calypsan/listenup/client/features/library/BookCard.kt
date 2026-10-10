@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -566,19 +567,28 @@ private fun BookCardCover(
                 )
             }
 
-            // Progress overlay
-            if (progress != null && progress > 0f) {
+            // A Library card (it names its progress) draws a thin line along the art's bottom edge,
+            // because its last line already says the time left (board Library-AndroidTablet); every
+            // other card keeps the percentage overlay.
+            if (progress != null && progress > 0f && progressDescription != null) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .semantics { this.contentDescription = progressDescription },
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primaryContainer,
+                    gapSize = 0.dp,
+                    drawStopIndicator = {},
+                )
+            } else if (progress != null && progress > 0f) {
                 ProgressOverlay(
                     progress = progress,
                     timeRemaining = timeRemaining,
-                    modifier =
-                        Modifier.align(Alignment.BottomCenter).then(
-                            if (progressDescription != null) {
-                                Modifier.semantics { this.contentDescription = progressDescription }
-                            } else {
-                                Modifier
-                            },
-                        ),
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
         }
@@ -685,7 +695,9 @@ private fun CompletionBadge(modifier: Modifier = Modifier) {
                     elevation = 3.dp,
                     shape = CircleShape,
                 ).background(
-                    color = MaterialTheme.colorScheme.tertiary,
+                    // The light cookie with a dark check (boards Main / Library-AndroidTablet): it reads
+                    // on any cover, where a mid-tone tertiary fill sank into one.
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
                     shape = cookieScallopShape(),
                 ),
         contentAlignment = Alignment.Center,
@@ -693,7 +705,7 @@ private fun CompletionBadge(modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.Default.Check,
             contentDescription = stringResource(Res.string.common_completed),
-            tint = MaterialTheme.colorScheme.onTertiary,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
             modifier = Modifier.size(18.dp),
         )
     }

@@ -55,6 +55,8 @@ class BookCardLibraryStatusTest {
 
         composeRule.onNodeWithText("40h 31m left").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("11 percent listened", useUnmergedTree = true).assertExists()
+        // A line on the art, not the percentage overlay: the last line already says the time left.
+        composeRule.onNodeWithText("11%", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
