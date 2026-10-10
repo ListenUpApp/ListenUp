@@ -942,5 +942,17 @@ WorldEntity
 WorldEntityChange
 WorldEntityChangeOp
 WorldEntityDraft
+WorldEvent
+WorldEventAnchor
+WorldEventChange
+WorldEventChangeOp
+WorldEventContent
+WorldEventDraft
+WorldEventEdit
+WorldEventEditRepository
+WorldEventError
+WorldEventError_SealedType
+WorldEventId
+WorldEventType
 YourCopyUi
 YourLabelUi

@@ -48,6 +48,14 @@ CREATE TABLE series_merge_receipt_entities (
     PRIMARY KEY (receipt_id, entity_id)
 );
 
+-- series_merge_receipt_world_events: the live Story World events the source series held at merge time,
+-- re-homed to the target by WorldEventRepository and moved back on undo.
+CREATE TABLE series_merge_receipt_world_events (
+    receipt_id TEXT NOT NULL REFERENCES series_merge_receipts(id) ON DELETE CASCADE,
+    event_id   TEXT NOT NULL,
+    PRIMARY KEY (receipt_id, event_id)
+);
+
 -- series_merge_receipt_reading_orders (#962): the live reading orders the source held at merge time,
 -- with the name each had there. The merge moves them onto the target (renaming one whose name the target
 -- already uses); undo hands back each one still on the target, under its old name. reading_order_id carries
@@ -159,3 +167,11 @@ FROM series_merge_receipt_reading_orders ro
 JOIN reading_orders o ON o.id = ro.reading_order_id
 WHERE ro.receipt_id = :receipt_id AND o.deleted_at IS NULL AND o.series_id = :target_id
 ORDER BY ro.name, ro.reading_order_id;
+
+-- The source series' live events, recorded before a merge re-homes them (WorldEventRepository).
+snapshotSourceWorldEvents:
+INSERT INTO series_merge_receipt_world_events (receipt_id, event_id)
+SELECT :receipt_id, w.id FROM world_events w WHERE w.home_series_id = :source_id AND w.deleted_at IS NULL;
+
+selectReceiptWorldEventIds:
+SELECT event_id FROM series_merge_receipt_world_events WHERE receipt_id = :receipt_id ORDER BY event_id;

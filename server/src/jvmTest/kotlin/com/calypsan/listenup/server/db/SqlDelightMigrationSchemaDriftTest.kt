@@ -155,6 +155,9 @@ private val SQ_TABLES =
         "entities",
         "story_world_history",
         "series_merge_receipt_entities",
+        "world_events",
+        "world_event_mentions",
+        "series_merge_receipt_world_events",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */

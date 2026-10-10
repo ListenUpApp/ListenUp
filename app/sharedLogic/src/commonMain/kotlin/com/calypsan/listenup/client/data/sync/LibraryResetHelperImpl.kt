@@ -77,6 +77,8 @@ internal class LibraryResetHelperImpl(
             database.adminUserRosterDao().deleteAll()
             database.notificationDao().deleteAll()
             database.entityDao().deleteAll()
+            database.worldEventDao().deleteAllMentions()
+            database.worldEventDao().deleteAll()
 
             // The local FTS5 index mirrors books/contributors/series content, not a domain of
             // its own — clear it alongside its source tables so no stale entry lingers between

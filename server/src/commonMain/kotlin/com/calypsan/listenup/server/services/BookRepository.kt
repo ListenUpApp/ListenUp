@@ -152,6 +152,8 @@ internal data class MatchCoverColumns(
  *   book soft-delete cascades through it.
  * @param entityRepository the Story World `entities` repository; the book soft-delete tombstones the
  *   book-homed entities through it, and a re-add revives them.
+ * @param worldEventRepository the Story World `world_events` repository; the book soft-delete tombstones the
+ *   events the book homes or anchors through it, and a re-add revives them.
  */
 class BookRepository(
     db: ListenUpDatabase,
@@ -168,6 +170,7 @@ class BookRepository(
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
     private val bookMoodRepository: com.calypsan.listenup.server.sync.BookMoodRepository? = null,
     private val entityRepository: com.calypsan.listenup.server.sync.EntityRepository? = null,
+    private val worldEventRepository: com.calypsan.listenup.server.sync.WorldEventRepository? = null,
     private val orphanParentPurger: OrphanParentPurger? = null,
     homeDir: Path? = null,
     coverImageStore: CoverImageStore? = null,
@@ -1161,6 +1164,7 @@ class BookRepository(
             bookMoodRepository?.softDeleteAllForBook(id.value)
             collectionBookRepository?.softDeleteAllForBook(id.value)
             entityRepository?.softDeleteAllForBook(id.value)
+            worldEventRepository?.softDeleteAllForBook(id.value)
             if (linkedParents != null) orphanParentPurger.purgeOrphaned(linkedParents)
         }
         return result
@@ -1168,8 +1172,8 @@ class BookRepository(
 
     /**
      * Revives the junction rows (`book_tags` / `book_moods` / `collection_books`) for [bookIds] that
-     * were tombstoned at or after [cascadeFloor], and the book-homed Story World entities the removal
-     * tombstoned (decided by their history, not the floor — see
+     * were tombstoned at or after [cascadeFloor], and the book-homed Story World entities and the events
+     * the book homes or anchors that the removal tombstoned (decided by their history, not the floor — see
      * [com.calypsan.listenup.server.sync.EntityRepository.reviveAllForBooks]) —
      * the same cascade [reviveByIds] runs for a folder re-add, reused by the scan revival paths.
      *
@@ -1190,6 +1194,8 @@ class BookRepository(
         bookMoodRepository?.reviveAllForBooks(bookIds, cascadeFloor)
         collectionBookRepository?.reviveAllForBooks(bookIds, cascadeFloor)
         entityRepository?.reviveAllForBooks(bookIds)
+        // After the entities, so revived events recompute their mentions against revived entities.
+        worldEventRepository?.reviveAllForBooks(bookIds)
     }
 
     /**

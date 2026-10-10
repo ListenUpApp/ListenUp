@@ -22,6 +22,7 @@ import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
+import com.calypsan.listenup.api.WorldEventService
 import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
@@ -54,6 +55,7 @@ import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
 import com.calypsan.listenup.client.data.sync.orSuccessIfNotFound
+import com.calypsan.listenup.client.data.sync.orSuccessIfSingleOpNotFound
 import com.calypsan.listenup.client.data.sync.outboxBinding
 import com.calypsan.listenup.client.data.sync.outboxSender
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
@@ -196,6 +198,7 @@ internal val clientSyncModule =
             val genreChannel = rpcChannel<GenreService>()
             val notificationChannel = rpcChannel<NotificationService>()
             val entityChannel = rpcChannel<EntityService>()
+            val worldEventChannel = rpcChannel<WorldEventService>()
             val readingOrderChannel = rpcChannel<ReadingOrderService>()
             outboxSender(
                 mapOf(
@@ -448,6 +451,11 @@ internal val clientSyncModule =
                                 entityChannel.call { it.deleteEntity(EntityId(id)) }.orSuccessIfNotFound()
                             }
                         }
+                    },
+                    // One outbox row is one EventsBatch, applied atomically. A lone edit or delete folds NotFound
+                    // (a delete has already won); a batch of several stands or falls together.
+                    outboxBinding(OutboxChannels.WorldEvents) { _, batch ->
+                        worldEventChannel.call { it.applyBatch(batch) }.orSuccessIfSingleOpNotFound(batch)
                     },
                 ) + readingOrderOutboxBindings(readingOrderChannel),
             )

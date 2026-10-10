@@ -137,7 +137,10 @@ internal class SyncStreamServiceImpl(
             }.filter { it.event.revision > (sinceRevision ?: 0L) }
             .mapNotNull { busEvent -> frameFor(busEvent, userId, role) }
 
-    /** [busEvent] as a wire frame, or null when it is scoped to another user or access-gated. */
+    /**
+     * [busEvent] as a wire frame, or null when it is scoped to another user or access-gated — save a gated event
+     * that [withdrawalFor] replaces with a content-free tombstone.
+     */
     private suspend fun frameFor(
         busEvent: BusEvent<*>,
         userId: String,
@@ -153,7 +156,7 @@ internal class SyncStreamServiceImpl(
                 "rpc firehose gated: domain=${busEvent.repo.domainName} " +
                     "event=${busEvent.event::class.simpleName.orEmpty()} userId=$userId reason=$gatedReason"
             }
-            return null
+            return withdrawalFor(busEvent)?.let { busEvent.repo.toSyncFrame(it) }
         }
         return busEvent.repo.toSyncFrame(busEvent.event)
     }

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.sync.EntityKind
+import com.calypsan.listenup.api.sync.WorldEventType
 import com.calypsan.listenup.client.data.local.db.ReadingOrderFollowEntity
 import com.calypsan.listenup.client.data.local.db.ReadingOrderBookEntity
 import com.calypsan.listenup.client.data.local.db.ReadingOrderEntity
@@ -17,6 +18,7 @@ import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.EntityEntity
+import com.calypsan.listenup.client.data.local.db.WorldEventEntity
 import com.calypsan.listenup.client.data.local.db.GenreEntity
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.local.db.MoodEntity
@@ -525,6 +527,22 @@ class LibraryResetHelperTest :
                                 )
                             },
                             isGone = { db.entityDao().findById("seed-entity") == null },
+                        ),
+                        DomainProbe(
+                            domainName = "world_events",
+                            seed = {
+                                db.worldEventDao().upsert(
+                                    WorldEventEntity(
+                                        id = "seed-event",
+                                        type = WorldEventType.NOTE,
+                                        text = "n",
+                                        homeBookId = "b1",
+                                        createdAt = 0L,
+                                        updatedAt = 0L,
+                                    ),
+                                )
+                            },
+                            isGone = { db.worldEventDao().findById("seed-event") == null },
                         ),
                         DomainProbe(
                             domainName = "admin_user_roster",

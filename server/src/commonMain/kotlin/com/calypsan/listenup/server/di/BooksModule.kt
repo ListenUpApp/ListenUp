@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.EntityRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
@@ -152,6 +153,7 @@ fun booksModule(
                 bookTagRepository = getOrNull<BookTagRepository>(),
                 bookMoodRepository = getOrNull<BookMoodRepository>(),
                 entityRepository = getOrNull<EntityRepository>(),
+                worldEventRepository = getOrNull<WorldEventRepository>(),
                 orphanParentPurger = get<OrphanParentPurger>(),
                 homeDir = homeDir,
                 coverImageStore = get<CoverImageStore>(),
@@ -243,8 +245,8 @@ fun booksModule(
 
 /**
  * The [SeriesService] binding. Its merge moves the merged-away series' reading orders, so it needs the
- * reading-order repository, which `readingOrderModule` binds; it carries Story World entities too when
- * that domain is wired.
+ * reading-order repository, which `readingOrderModule` binds; it carries Story World entities and events too
+ * when those domains are wired.
  */
 private fun Module.seriesServiceBinding() {
     single<SeriesService> {
@@ -257,6 +259,7 @@ private fun Module.seriesServiceBinding() {
             permissionPolicy = get<PermissionPolicy>(),
             principal = unscopedPlaceholder("SeriesService"),
             entityRepo = getOrNull<EntityRepository>(),
+            worldEventRepo = getOrNull<WorldEventRepository>(),
         )
     }
 }

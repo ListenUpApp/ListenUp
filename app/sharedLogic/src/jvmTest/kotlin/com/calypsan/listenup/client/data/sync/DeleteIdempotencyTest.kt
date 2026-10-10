@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.GenreMutation
 import com.calypsan.listenup.api.dto.entity.EntityMutation
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
+import com.calypsan.listenup.api.dto.worldevent.EventsBatch
+import com.calypsan.listenup.api.dto.worldevent.WorldEventOp
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.EntityError
@@ -13,6 +15,7 @@ import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.WorldEventError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.client.data.sync.domains.OpKind
@@ -20,6 +23,7 @@ import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.EntityId
+import com.calypsan.listenup.core.WorldEventId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -43,6 +47,7 @@ class DeleteIdempotencyTest :
                 ContributorError.NotFound(),
                 EntityError.NotFound(),
                 ReadingOrderError.NotFound(),
+                WorldEventError.NotFound(),
             ).forEach { notFound ->
                 AppResult.Failure(notFound).orSuccessIfNotFound() shouldBe AppResult.Success(Unit)
             }
@@ -127,5 +132,12 @@ class DeleteIdempotencyTest :
                 db.pendingOperationV2Dao().get(opId).shouldBeNull()
                 db.close()
             }
+        }
+        test("a world-event batch folds NotFound only when it is a batch of one") {
+            val lone = EventsBatch(listOf(WorldEventOp.Delete(WorldEventId("w1"))))
+            val several = EventsBatch(listOf(WorldEventOp.Delete(WorldEventId("w1")), WorldEventOp.Delete(WorldEventId("w2"))))
+            val notFound = AppResult.Failure(WorldEventError.NotFound())
+            notFound.orSuccessIfSingleOpNotFound(lone) shouldBe AppResult.Success(Unit)
+            notFound.orSuccessIfSingleOpNotFound(several) shouldBe notFound
         }
     })

@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.EntityRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
@@ -29,6 +30,7 @@ internal class SeriesMergeReceipts(
     private val bookRepo: BookRepository,
     private val hierarchy: SeriesHierarchyWrites,
     private val entityRepo: EntityRepository?,
+    private val worldEventRepo: WorldEventRepository?,
     private val readingOrders: SeriesMergeReadingOrders,
     private val clock: Clock,
 ) {
@@ -90,9 +92,9 @@ internal class SeriesMergeReceipts(
      *     nothing else has changed and the receipt stays open for a retry, instead of leaving books
      *     pointed at a tombstoned series with no way back.
      *  3. A write [claim] transaction re-validates exactly as [decide] did, then restores every
-     *     still-as-merged membership, carries back every Story World entity the merge moved that is
-     *     still live under the target, in its current state
-     *     ([EntityRepository.prepareSeriesMergeUndo]), and marks the receipt undone — see [claim] for
+     *     still-as-merged membership, carries back every Story World entity, and then every event, the
+     *     merge moved that is still live under the target, in its current state
+     *     ([EntityRepository.prepareSeriesMergeUndo], [WorldEventRepository.prepareSeriesMergeUndo]), and marks the receipt undone — see [claim] for
      *     why marking it is the transaction's first write. The entities move inside the claim because
      *     the mark makes any retry `MergeAlreadyUndone`: anything left for after it could be stranded.
      *  4. Every restored book is re-upserted (bumps revision, publishes `Updated`). One bad book
@@ -113,8 +115,9 @@ internal class SeriesMergeReceipts(
             is AppResult.Failure -> return AppResult.Failure(revived.error)
         }
         val entityUndo = entityRepo?.prepareSeriesMergeUndo()
+        val eventUndo = worldEventRepo?.prepareSeriesMergeUndo()
         val claim =
-            when (val decided = suspendTransaction(sqlDb) { claim(receiptId, entityUndo) }) {
+            when (val decided = suspendTransaction(sqlDb) { claim(receiptId, entityUndo, eventUndo) }) {
                 is SeriesUndoClaim.Refused -> return AppResult.Failure(decided.error)
                 is SeriesUndoClaim.Granted -> decided
             }
@@ -192,6 +195,7 @@ internal class SeriesMergeReceipts(
     private fun TransactionWithReturn<SeriesUndoClaim>.claim(
         receiptId: MergeReceiptId,
         entityUndo: EntityRepository.SeriesMergeUndo?,
+        eventUndo: WorldEventRepository.SeriesMergeUndo?,
     ): SeriesUndoClaim {
         val receipt =
             receipts.selectReceipt(receiptId.value).executeAsOneOrNull()
@@ -263,6 +267,12 @@ internal class SeriesMergeReceipts(
                 .executeAsList()
                 .map { RestorableChild(SeriesId(it.child_id), it.position?.toInt()) }
         entityUndo?.restore(
+            transaction = this,
+            receiptId = receipt.id,
+            source = SeriesId(receipt.source_id),
+            target = SeriesId(receipt.target_id),
+        )
+        eventUndo?.restore(
             transaction = this,
             receiptId = receipt.id,
             source = SeriesId(receipt.source_id),
