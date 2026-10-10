@@ -13,15 +13,7 @@ class ShippedMigrationChecksumTest :
     FunSpec({
 
         test("no shipped migration has changed since it reached main") {
-            val manifest =
-                checkNotNull(javaClass.getResource("/db/shipped-migration-checksums.txt")) {
-                    "db/shipped-migration-checksums.txt is missing from the test resources"
-                }.readText()
-                    .lineSequence()
-                    .map(String::trim)
-                    .filter { it.isNotEmpty() && !it.startsWith("#") }
-                    .map { line -> line.split(' ').let { (version, checksum) -> version.toInt() to checksum } }
-                    .toList()
+            val manifest = shippedManifest()
 
             val bundled = MigrationCatalog.all.associate { it.version to it }
             val drifted =
@@ -46,4 +38,25 @@ class ShippedMigrationChecksumTest :
 
             drifted.shouldBeEmpty()
         }
+
+        // A pin that relies on someone remembering to append it is no pin: V92, V93 and V96 shipped
+        // unpinned. Requiring every bundled migration makes a new migration's PR carry its own line.
+        test("every bundled migration is pinned") {
+            val pinned = shippedManifest().map { (version, _) -> version }.toSet()
+
+            MigrationCatalog.all
+                .filterNot { it.version in pinned }
+                .map { "V${it.version}__${it.name}.sql has no line in db/shipped-migration-checksums.txt." }
+                .shouldBeEmpty()
+        }
     })
+
+private fun shippedManifest(): List<Pair<Int, String>> =
+    checkNotNull(ShippedMigrationChecksumTest::class.java.getResource("/db/shipped-migration-checksums.txt")) {
+        "db/shipped-migration-checksums.txt is missing from the test resources"
+    }.readText()
+        .lineSequence()
+        .map(String::trim)
+        .filter { it.isNotEmpty() && !it.startsWith("#") }
+        .map { line -> line.split(' ').let { (version, checksum) -> version.toInt() to checksum } }
+        .toList()
