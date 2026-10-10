@@ -268,6 +268,28 @@ class BookMatchViewModelTest :
             }
         }
 
+        test("a source that timed out on Apply leaves the choices as they were, shows the error and reloads nothing") {
+            runTest(dispatcher) {
+                val rig = Rig()
+                subscribe(rig.vm)
+                advanceUntilIdle()
+                rig.vm.pick(BEST)
+                advanceUntilIdle()
+                rig.vm.chooseSource(BookField.DESCRIPTION, FieldChoice.KeepCurrent)
+                val reviewsBefore = rig.repo.reviewRequests.size
+                val failure = MetadataError.ExternalTimeout()
+                rig.repo.applyReply = { AppResult.Failure(failure) }
+                rig.vm.apply()
+                advanceUntilIdle()
+                val ready =
+                    rig.vm.reviewState.value
+                        .shouldBeInstanceOf<ReviewUiState.Ready>()
+                ready.applyError shouldBe failure
+                ready.changes.single().choice shouldBe FieldChoice.KeepCurrent
+                rig.repo.reviewRequests.size shouldBe reviewsBefore
+            }
+        }
+
         test("a failed Review carries its typed error") {
             runTest(dispatcher) {
                 val rig = Rig()

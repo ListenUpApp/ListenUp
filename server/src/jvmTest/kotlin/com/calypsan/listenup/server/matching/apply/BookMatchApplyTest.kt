@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.api.sync.SyncDomains
+import com.calypsan.listenup.server.matching.review.core
 import com.calypsan.listenup.server.sync.withCapturedFrames
 import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -25,12 +26,27 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Duration.Companion.seconds
 import io.kotest.assertions.throwables.shouldThrowAny
 
 private suspend fun MatchRig.applyCaptured(request: com.calypsan.listenup.api.dto.match.BookMatchApply) =
     withCapturedFrames { applier.apply(book(), request, US, appliedBy = "u1") }
 
 private fun AppResult<*>.error() = (this as AppResult.Failure).error
+
+/** A request choosing the description only Hardcover offers; Hardcover must answer the Review that offers it. */
+private suspend fun MatchRig.hardcoverDescriptionRequest(): com.calypsan.listenup.api.dto.match.BookMatchApply {
+    hardcover.core = AppResult.Success(core(description = "Hardcover description."))
+    val description = review().fields.single { it.field == BookField.DESCRIPTION }
+    val option = description.options.single { option -> option.sources.any { it.label == "Hardcover" } }
+    return fullRequest().copy(
+        fields = listOf(FieldDecision(BookField.DESCRIPTION, FieldChoice.Option(option.optionId))),
+        cover = ImageChoice.KeepCurrent,
+        genres = LabelSetChange(),
+        moods = LabelSetChange(),
+        chapterOrdinals = emptyList(),
+    )
+}
 
 class BookMatchApplyTest :
     FunSpec({
@@ -193,6 +209,53 @@ class BookMatchApplyTest :
                     val request =
                         rig.fullRequest().copy(
                             fields = listOf(FieldDecision(BookField.DESCRIPTION, FieldChoice.Option("audible:gone"))),
+                        )
+                    rig.applier
+                        .apply(rig.book(), request, US, "u1")
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.ReviewOutdated>()
+                }
+            }
+        }
+
+        test("a source that times out on Apply is ExternalTimeout, not ReviewOutdated") {
+            withSqlDatabase {
+                runTest {
+                    val rig = MatchRig(this@withSqlDatabase)
+                    rig.seedBook()
+                    val request = rig.hardcoverDescriptionRequest()
+                    rig.hardcover.slow = 30.seconds
+                    rig.applier
+                        .apply(rig.book(), request, US, "u1")
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.ExternalTimeout>()
+                }
+            }
+        }
+
+        test("a source that is rate-limited on Apply is ExternalRateLimited, not ReviewOutdated") {
+            withSqlDatabase {
+                runTest {
+                    val rig = MatchRig(this@withSqlDatabase)
+                    rig.seedBook()
+                    val request = rig.hardcoverDescriptionRequest()
+                    rig.hardcover.core = AppResult.Failure(MetadataError.ExternalRateLimited(retryAfterSeconds = 30))
+                    rig.applier
+                        .apply(rig.book(), request, US, "u1")
+                        .error()
+                        .shouldBeInstanceOf<MetadataError.ExternalRateLimited>()
+                }
+            }
+        }
+
+        test("an option id no answering source offers is still ReviewOutdated") {
+            withSqlDatabase {
+                runTest {
+                    val rig = MatchRig(this@withSqlDatabase)
+                    rig.seedBook()
+                    val request =
+                        rig.hardcoverDescriptionRequest().copy(
+                            fields = listOf(FieldDecision(BookField.DESCRIPTION, FieldChoice.Option("hardcover:gone"))),
                         )
                     rig.applier
                         .apply(rig.book(), request, US, "u1")

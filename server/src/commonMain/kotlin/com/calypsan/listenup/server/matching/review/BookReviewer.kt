@@ -47,6 +47,12 @@ internal data class BookReviewModel(
     val moods: List<ReviewedLabel>,
     val currentMoods: List<BookMood>,
     val chapters: ReviewedChapters?,
+    /**
+     * The typed reason a source this Review asked did not answer (rate-limited, else timed out), or null when they
+     * all did. Apply consults it when a chosen option is missing: an absent option from a source that did not
+     * answer is a transient failure, not a book that moved on.
+     */
+    val sourceFailure: AppError? = null,
 )
 
 /**
@@ -123,6 +129,7 @@ internal class BookReviewer(
                 moods = moodSuggestions,
                 currentMoods = moods,
                 chapters = chapters,
+                sourceFailure = transientFailure(options.coreFailures.values),
             ),
         )
     }
@@ -165,6 +172,19 @@ internal class BookReviewer(
     ): AppError {
         val failures = options.coreFailures.filterKeys { it.presentedAs().value in keyProviders }.values
         val asked = options.coreAsked.filter { it.presentedAs().value in keyProviders }
+        return transientFailure(failures) ?: when {
+            asked.isNotEmpty() && failures.size == asked.size -> {
+                MetadataError.ExternalUnavailable(debugInfo = "review: every candidate source failed")
+            }
+
+            else -> {
+                MetadataError.NotFound(debugInfo = "review: no candidate source has this edition")
+            }
+        }
+    }
+
+    /** A rate limit, else a timeout, among [failures]; null when neither happened. */
+    private fun transientFailure(failures: Collection<CoreFailure>): AppError? {
         val rateLimited = failures.filterIsInstance<CoreFailure.RateLimited>()
         return when {
             rateLimited.isNotEmpty() -> {
@@ -178,12 +198,8 @@ internal class BookReviewer(
                 MetadataError.ExternalTimeout(debugInfo = "review: a candidate source didn't answer in time")
             }
 
-            asked.isNotEmpty() && failures.size == asked.size -> {
-                MetadataError.ExternalUnavailable(debugInfo = "review: every candidate source failed")
-            }
-
             else -> {
-                MetadataError.NotFound(debugInfo = "review: no candidate source has this edition")
+                null
             }
         }
     }
