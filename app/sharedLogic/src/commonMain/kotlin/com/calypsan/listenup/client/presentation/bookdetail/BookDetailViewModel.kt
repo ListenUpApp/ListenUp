@@ -1,23 +1,14 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
-import com.calypsan.listenup.client.core.formatSeriesSequence
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.Permission
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.BookError
-import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDocument
-import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookVisibility
-import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Collection
-import com.calypsan.listenup.client.domain.model.Genre
-import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Shelf
-import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -27,20 +18,18 @@ import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
-import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
-import com.calypsan.listenup.client.presentation.match.UndoMatch
-import com.calypsan.listenup.client.domain.repository.SeriesRepository
-import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
-import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.presentation.match.UndoMatch
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
-import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -55,28 +44,33 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
 
 private val logger = KotlinLogging.logger {}
 
 /**
  * ViewModel for the Book Detail screen.
  *
- * Uses reactive flows with [flatMapLatest] to automatically switch observers
- * when navigating between books, eliminating manual Job cancellation.
+ * [state] is derived, never written: the requested book id, the [BookDetailPage] (Room's latest [BookLoad] and the
+ * reader's [BookDetailOverlay], held as one value), and the account-wide [BookDetailAmbient] facts combine through
+ * the pure [bookDetailUiState] into `stateIn(WhileSubscribed(5_000))`. Actions only write the overlay or call
+ * repositories, and read the page through the same pure function over the same sources. Room is observed
+ * only while a screen watches, and switching books cancels the previous book's observers through `flatMapLatest`.
+ * The shape is [com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel]'s.
  */
 @Suppress("LongParameterList") // DI constructor: each param is a distinct domain responsibility.
 @OptIn(ExperimentalCoroutinesApi::class)
 class BookDetailViewModel(
     private val bookRepository: BookRepository,
-    private val tagRepository: TagRepository,
+    tagRepository: TagRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
-    private val userRepository: UserRepository,
-    private val permissionsRepository: PermissionsRepository,
+    userRepository: UserRepository,
+    permissionsRepository: PermissionsRepository,
     shelfRepository: ShelfRepository,
     private val collectionRepository: CollectionRepository,
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
@@ -88,32 +82,28 @@ class BookDetailViewModel(
     private val inboxRepository: InboxRepository,
     private val bookVisibilityRepository: BookVisibilityRepository,
     private val bookEditRepository: BookEditRepository,
-    private val seriesRepository: SeriesRepository,
+    seriesRepository: SeriesRepository,
     undoMatch: UndoMatch,
     userProfileRepository: UserProfileRepository,
 ) : ViewModel() {
-    val state: StateFlow<BookDetailUiState>
-        field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
+    /**
+     * The requested book id. Writing it is the single entry point for switching books; every per-book flow
+     * below `flatMapLatest`s on it, so book-switch cancellation is automatic.
+     */
+    private val bookIdFlow = MutableStateFlow<String?>(null)
+
+    /**
+     * Room's latest word on the requested book and the reader's overlay on this visit to it, as one value: Room's
+     * emissions write it through [BookDetailPage.withLoad], [loadBook] through [BookDetailPage.visiting], and actions
+     * through [updateOverlay].
+     */
+    private val page = MutableStateFlow(BookDetailPage(load = null, overlay = BookDetailOverlay(bookId = null)))
 
     private val _navActions = Channel<BookDetailNavAction>(Channel.BUFFERED)
 
     /** One-shot navigation and side-effect events — collect once at the screen entry point. */
     val navActions: Flow<BookDetailNavAction> = _navActions.receiveAsFlow()
 
-    /**
-     * The currently requested book id. Writing to this flow is the single entry
-     * point for switching books — the main-load flatMapLatest subscribes here
-     * directly, so book-switch cancellation is automatic.
-     */
-    private val bookIdFlow = MutableStateFlow<String?>(null)
-
-    // Mirrors of book-INDEPENDENT flow-fed fields (admin status, all-tags). Updated
-    // inside the init collectors and read at [loadBookFlow] to seed the Ready state
-    // with the latest known values, since those collectors may have emitted while
-    // state was Loading (and been no-op'd by [updateReady]).
-    //
-    // Per-book genres/tags now flow through [BookDetail] directly via
-    // [BookRepository.observeBookDetail], so no mirror is needed for them.
     private val lastMatchRow =
         LastMatchRow(
             bookIds = bookIdFlow.filterNotNull(),
@@ -136,91 +126,43 @@ class BookDetailViewModel(
     /** How "Undo last match" ended — said once, as the receipt says it. */
     val lastMatchEvents: Flow<LastMatchEvent> = lastMatchRow.events
 
-    private var latestIsAdmin: Boolean = false
-    private var latestCanEditMetadata: Boolean = false
-    private var latestAllTags: List<Tag> = emptyList()
-    private var latestHierarchy: SeriesHierarchy = SeriesHierarchy.Empty
+    // A StateFlow so a screen coming back sees the last facts at once (no flash of isAdmin = false); it stops
+    // with [state], which owns the five-second grace.
+    private val ambient: StateFlow<BookDetailAmbient> =
+        combine(
+            flow = userRepository.observeIsAdmin(),
+            flow2 = permissionsRepository.observeCan(Permission.EDIT_METADATA),
+            flow3 = seriesRepository.observeHierarchy(),
+            flow4 = tagRepository.observeAll(),
+        ) { isAdmin, canEditMetadata, hierarchy, allTags ->
+            BookDetailAmbient(
+                isAdmin = isAdmin,
+                canEditMetadata = canEditMetadata,
+                hierarchy = hierarchy,
+                allTags = allTags,
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), BookDetailAmbient())
 
-    init {
-        // Observe admin status
-        viewModelScope.launch {
-            userRepository.observeIsAdmin().collect { isAdmin ->
-                latestIsAdmin = isAdmin
-                updateReady { it.copy(isAdmin = isAdmin) }
-            }
-        }
+    // Room's word on the requested book, folded into [page] together with the overlay it retires. Emits nothing:
+    // it is merged into [state] only so it runs exactly while a screen watches.
+    private val roomWrites: Flow<Nothing> =
+        bookIdFlow
+            .filterNotNull()
+            .flatMapLatest { id -> observeBook(id) }
+            .transform { load -> page.update { it.withLoad(load) } }
 
-        // Edit Book, Find Metadata and the chapter editor are Edit metadata's, not the admin's.
-        viewModelScope.launch {
-            permissionsRepository.observeCan(Permission.EDIT_METADATA).collect { can ->
-                latestCanEditMetadata = can
-                updateReady { it.copy(canEditMetadata = can) }
-            }
-        }
-
-        // The series hierarchy (book-independent): a re-parented series redraws every open path.
-        viewModelScope.launch {
-            seriesRepository.observeHierarchy().collect { hierarchy ->
-                latestHierarchy = hierarchy
-                updateReady { it.copy(seriesPaths = bookSeriesPaths(it.book.series, hierarchy)) }
-            }
-        }
-
-        // All tags observer (doesn't depend on current book - for tag picker)
-        viewModelScope.launch {
-            tagRepository
-                .observeAll()
-                .collect { allTags ->
-                    latestAllTags = allTags
-                    updateReady { it.copy(allTags = allTags) }
-                }
-        }
-
-        // Main load flow: bookIdFlow changes drive loadBookFlow, which emits
-        // Loading then maps the BookDetail flow to Ready (or Error if the row
-        // is absent). flatMapLatest cancels the previous observer on switch.
-        viewModelScope.launch {
-            bookIdFlow
-                .filterNotNull()
-                .flatMapLatest { id -> loadBookFlow(id) }
-                .collect { built -> state.value = built.preservingTransientOverlays(state.value) }
-        }
-    }
-
-    /**
-     * Carry user-driven transient overlay state (open pickers, in-flight action flags, inline
-     * errors) forward when [loadBookFlow] rebuilds [BookDetailUiState.Ready] from Room/availability.
-     *
-     * Those flows re-emit on every table invalidation (a sync firehose frame the sync engine
-     * applies, a download progress tick, a reachability flip) — each rebuild resets these overlay
-     * fields to their defaults. Without preserving them, any background emission would silently close
-     * an open shelf/collection picker (and its create dialog) mid-interaction — the create-from-book-
-     * detail bug. Only carried between two [Ready]s for the *same* load; a book switch emits [Loading]
-     * first (breaking the chain), so overlays never leak across books.
-     *
-     * NOTE: when adding a new user-transient field to [Ready], add it here too.
-     */
-    private fun BookDetailUiState.preservingTransientOverlays(previous: BookDetailUiState): BookDetailUiState {
-        if (this !is BookDetailUiState.Ready || previous !is BookDetailUiState.Ready) return this
-        return copy(
-            isMarkingComplete = previous.isMarkingComplete,
-            isDiscardingProgress = previous.isDiscardingProgress,
-            isRestarting = previous.isRestarting,
-            isLoadingTags = previous.isLoadingTags,
-            showShelfPicker = previous.showShelfPicker,
-            isAddingToShelf = previous.isAddingToShelf,
-            shelfError = previous.shelfError,
-            showCollectionPicker = previous.showCollectionPicker,
-            isAddingToCollection = previous.isAddingToCollection,
-            collectionError = previous.collectionError,
-            isDeletingBook = previous.isDeletingBook,
-            deleteError = previous.deleteError,
-            isReleasingFromInbox = previous.isReleasingFromInbox,
-            // Survives rebuilds only while the book is still stranded: the echo that re-homes it
-            // into All Books is exactly what ends the "restoring" state.
-            isRestoringToAllBooks = previous.isRestoringToAllBooks && visibility is BookVisibility.Stranded,
-        )
-    }
+    val state: StateFlow<BookDetailUiState> =
+        merge(
+            combine(bookIdFlow, page, ambient) { requested, current, ambientFacts ->
+                bookDetailUiState(
+                    requestedBookId = requested,
+                    load = current.load,
+                    ambient = ambientFacts,
+                    overlay = current.overlay,
+                )
+            },
+            roomWrites,
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookDetailUiState.Loading)
 
     /**
      * User's shelves for the shelf picker sheet.
@@ -277,50 +219,13 @@ class BookDetailViewModel(
         field = MutableStateFlow<Set<String>>(emptySet())
 
     /**
-     * Apply [transform] to state only if it is currently [BookDetailUiState.Ready].
-     * No-ops when state is [BookDetailUiState.Loading] or [BookDetailUiState.Error].
+     * Room's word on [bookId]: one-shot reads for the chapters and the saved position (PR 1 makes both live),
+     * then the row, its availability, the held set and its visibility, live.
      */
-    private fun updateReady(transform: (BookDetailUiState.Ready) -> BookDetailUiState.Ready) {
-        state.update { current ->
-            if (current is BookDetailUiState.Ready) transform(current) else current
-        }
-    }
-
-    /**
-     * Switch the view model to observe [bookId].
-     *
-     * Pushes into [bookIdFlow]; the main-load `flatMapLatest` in init collects
-     * `loadBookFlow(id)`, which subscribes to [BookRepository.observeBookDetail]
-     * and maps each emission into a [BookDetailUiState.Ready]. Switching books
-     * cancels the in-flight observer automatically.
-     */
-    fun loadBook(bookId: String) {
-        bookIdFlow.value = bookId
-    }
-
-    /**
-     * Pure flow that drives the main book-load pipeline for [bookId].
-     *
-     * Emits [BookDetailUiState.Loading] immediately, performs one-shot reads
-     * for chapters and the saved playback position, then maps the
-     * [BookRepository.observeBookDetail] flow into a stream of
-     * [BookDetailUiState.Ready] emissions. Genres and tags travel inside
-     * [BookDetail] itself, so a single observer drives the whole detail
-     * surface — no per-book genre or tag-for-book combine is needed.
-     *
-     * The caller ([init] block) collects into [state] via `flatMapLatest`, so
-     * switching books cancels the in-flight observer automatically.
-     */
-    private fun loadBookFlow(bookId: String): Flow<BookDetailUiState> =
+    private fun observeBook(bookId: String): Flow<BookLoad> =
         flow {
-            emit(BookDetailUiState.Loading)
-
-            // One-shot reads — these don't reactively update during a single
-            // book viewing. Domain chapters are mapped to UI models inside
-            // buildReady, where the playback position is known and the
-            // current-chapter highlight can be resolved.
-            val domainChapters = bookRepository.getChapters(bookId)
-            val position =
+            val chapters = bookRepository.getChapters(bookId)
+            val position: PlaybackPosition? =
                 when (val r = playbackPositionRepository.get(BookId(bookId))) {
                     is AppResult.Success -> {
                         r.data
@@ -331,7 +236,6 @@ class BookDetailViewModel(
                         null
                     }
                 }
-
             emitAll(
                 combine(
                     flow = bookRepository.observeBookDetail(bookId),
@@ -341,22 +245,19 @@ class BookDetailViewModel(
                     flow4 = bookVisibilityRepository.observeBookVisibility(BookId(bookId)),
                 ) { detail, availability, heldIds, visibility ->
                     if (detail == null) {
-                        BookDetailUiState.Error(BookError.NotFound())
+                        BookLoad.Missing(bookId)
                     } else {
-                        val held = BookId(bookId) in heldIds
-                        buildReady(detail, domainChapters, position).copy(
-                            downloadStatus = availability.downloadStatus,
-                            isPlaybackAvailable = availability.isPlaybackAvailable,
-                            // A held book is triage-only: no play, no download, and no "server
-                            // unreachable" nag about a playback that cannot happen. Forced off here
-                            // so a platform that misses the triage layout still cannot offer a
-                            // working Play or Download; the choke points refuse regardless.
-                            canPlay = availability.canPlay && !held,
-                            canDownload = availability.canDownload && !held,
-                            showServerWarning = availability.showServerWarning && !held,
-                            isWaitingForWifi = availability.isWaitingForWifi,
-                            isHeld = held,
-                            visibility = visibility,
+                        BookLoad.Loaded(
+                            bookId = bookId,
+                            snapshot =
+                                BookSnapshot(
+                                    detail = detail,
+                                    chapters = chapters,
+                                    position = position,
+                                    availability = availability,
+                                    isHeld = BookId(bookId) in heldIds,
+                                    visibility = visibility,
+                                ),
                         )
                     }
                 },
@@ -364,89 +265,49 @@ class BookDetailViewModel(
         }
 
     /**
-     * Map a [BookDetail] emission plus the one-shot [chapters]/[position] reads
-     * into a [BookDetailUiState.Ready]. Extracted from [loadBookFlow] to keep
-     * the flow body's cognitive complexity in check.
+     * The page as it stands right now — [bookDetailUiState] over the sources themselves rather than [state]'s last
+     * emission — or null while loading or failed. An action reads this, so a second tap in the same frame sees the
+     * first, and no guard ever pairs Room's newest word with an overlay from before it.
      */
-    private fun buildReady(
-        detail: BookDetail,
-        domainChapters: List<Chapter>,
-        position: PlaybackPosition?,
-    ): BookDetailUiState.Ready {
-        // Filter out subtitles that just restate a series the book belongs to (name, or name + book
-        // number) — checked against every membership now that a book can be in several series.
-        val displaySubtitle =
-            detail.subtitle?.takeUnless { subtitle ->
-                detail.series.any {
-                    // isSubtitleRedundant is a text heuristic and still takes text; the number is
-                    // formatted for it here rather than the function learning about Doubles.
-                    isSubtitleRedundant(subtitle, it.seriesName, it.sequence?.let(::formatSeriesSequence))
-                }
-            }
+    private fun currentReady(): BookDetailUiState.Ready? {
+        val current = page.value
+        return bookDetailUiState(
+            requestedBookId = bookIdFlow.value,
+            load = current.load,
+            ambient = ambient.value,
+            overlay = current.overlay,
+        ) as? BookDetailUiState.Ready
+    }
 
-        val progress =
-            if (position != null && detail.duration > 0) {
-                (position.positionMs.toFloat() / detail.duration).coerceIn(0f, 1f)
-            } else {
-                null
-            }
+    /** The book on screen and which visit to it this is: what an action captures, so its answer lands on that visit only. */
+    private fun currentVisit(): Visit? {
+        val ready = currentReady() ?: return null
+        val overlay = page.value.overlay
+        return Visit(ready, overlay.visit).takeIf { overlay.bookId == ready.book.id.value }
+    }
 
-        // Authoritative completion flag from the saved position
-        val isComplete = position?.isFinished == true
+    /** Writes [visit]'s overlay; a no-op once the reader has left that visit, so a late answer reaches no other. */
+    private fun updateOverlay(
+        visit: Visit,
+        transform: (BookDetailOverlay) -> BookDetailOverlay,
+    ) {
+        page.update { current ->
+            if (current.overlay.visit == visit.number) current.copy(overlay = transform(current.overlay)) else current
+        }
+    }
 
-        val hasMeaningfulProgress = progress != null && progress > 0f && !isComplete
+    /** Writes the overlay of the book on screen; nothing happens while no book is shown. */
+    private fun updateShownOverlay(transform: (BookDetailOverlay) -> BookDetailOverlay) {
+        updateOverlay(currentVisit() ?: return, transform)
+    }
 
-        // Resolve the current-chapter highlight only once the position is known.
-        // An un-started book (no meaningful progress) highlights nothing.
-        val currentIdx =
-            if (hasMeaningfulProgress) {
-                currentChapterIndex(domainChapters.map { it.startTime }, position?.positionMs ?: 0L)
-            } else {
-                null
-            }
-
-        val chapters =
-            domainChapters.mapIndexed { index, domainChapter ->
-                ChapterUiModel(
-                    id = domainChapter.id,
-                    title = domainChapter.title,
-                    duration = domainChapter.formatDuration(),
-                    imageUrl = null, // Placeholder
-                    isCurrent = index == currentIdx,
-                    startMs = domainChapter.startTime,
-                    durationMs = domainChapter.duration,
-                )
-            }
-
-        val timeRemaining =
-            if (hasMeaningfulProgress) {
-                val remainingMs = detail.duration - (position?.positionMs ?: 0L)
-                DurationFormatter.timeLeft(remainingMs.milliseconds)
-            } else {
-                null
-            }
-
-        return BookDetailUiState.Ready(
-            book = detail,
-            isAdmin = latestIsAdmin,
-            canEditMetadata = latestCanEditMetadata,
-            allTags = latestAllTags,
-            isComplete = isComplete,
-            startedAtMs = position?.startedAtMs,
-            subtitle = displaySubtitle,
-            seriesPaths = bookSeriesPaths(detail.series, latestHierarchy),
-            descriptionText = detail.description.orEmpty(),
-            narrators = detail.narratorNames,
-            year = detail.publishYear,
-            chapters = chapters,
-            progress = if (hasMeaningfulProgress) progress else null,
-            timeRemainingFormatted = timeRemaining,
-            addedAt = detail.addedAt.epochMillis,
-            hasScanWarning = detail.hasScanWarning,
-            genres = detail.genres,
-            tags = detail.tags,
-            moods = detail.moods,
-        )
+    /**
+     * Switch the view model to observe [bookId]. A different book starts a fresh overlay; the same book keeps
+     * whatever the reader has open.
+     */
+    fun loadBook(bookId: String) {
+        bookIdFlow.value = bookId
+        page.update { it.visiting(bookId) }
     }
 
     /** Opens See what changed for the last match: every change it made, with where each came from. */
@@ -478,17 +339,20 @@ class BookDetailViewModel(
         startedAt: Long? = null,
         finishedAt: Long? = null,
     ) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val visit = currentVisit() ?: return
+        val bookId = visit.bookId
         viewModelScope.launch {
-            updateReady { it.copy(isMarkingComplete = true) }
+            updateOverlay(visit) { it.copy(isMarkingComplete = true) }
             when (playbackPositionRepository.markComplete(BookId(bookId), startedAt, finishedAt)) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isMarkingComplete = false, isComplete = true) }
+                    updateOverlay(
+                        visit,
+                    ) { it.copy(isMarkingComplete = false, progressOverride = ProgressOverride.Completed) }
                     logger.info { "Marked book $bookId as complete" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isMarkingComplete = false) }
+                    updateOverlay(visit) { it.copy(isMarkingComplete = false) }
                     logger.error { "Failed to mark book $bookId as complete" }
                 }
             }
@@ -499,24 +363,20 @@ class BookDetailViewModel(
      * Discard progress for the current book (start over / DNF).
      */
     fun discardProgress() {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val visit = currentVisit() ?: return
+        val bookId = visit.bookId
         viewModelScope.launch {
-            updateReady { it.copy(isDiscardingProgress = true) }
+            updateOverlay(visit) { it.copy(isDiscardingProgress = true) }
             when (playbackPositionRepository.discardProgress(BookId(bookId))) {
                 is AppResult.Success -> {
-                    updateReady { ready ->
-                        ready.copy(
-                            isDiscardingProgress = false,
-                            isComplete = false,
-                            progress = null,
-                            timeRemainingFormatted = null,
-                        )
-                    }
+                    updateOverlay(
+                        visit,
+                    ) { it.copy(isDiscardingProgress = false, progressOverride = ProgressOverride.Discarded) }
                     logger.info { "Discarded progress for book $bookId" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isDiscardingProgress = false) }
+                    updateOverlay(visit) { it.copy(isDiscardingProgress = false) }
                     logger.error { "Failed to discard progress for book $bookId" }
                 }
             }
@@ -527,23 +387,20 @@ class BookDetailViewModel(
      * Restart the current book from the beginning.
      */
     fun restartBook() {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val visit = currentVisit() ?: return
+        val bookId = visit.bookId
         viewModelScope.launch {
-            updateReady { it.copy(isRestarting = true) }
+            updateOverlay(visit) { it.copy(isRestarting = true) }
             when (playbackPositionRepository.restartBook(BookId(bookId))) {
                 is AppResult.Success -> {
-                    updateReady { ready ->
-                        ready.copy(
-                            isRestarting = false,
-                            isComplete = false,
-                            progress = 0f,
-                        )
-                    }
+                    updateOverlay(
+                        visit,
+                    ) { it.copy(isRestarting = false, progressOverride = ProgressOverride.Restarted) }
                     logger.info { "Restarted book $bookId" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isRestarting = false) }
+                    updateOverlay(visit) { it.copy(isRestarting = false) }
                     logger.error { "Failed to restart book $bookId" }
                 }
             }
@@ -565,17 +422,18 @@ class BookDetailViewModel(
      * Add the current book to an existing shelf.
      */
     fun addBookToShelf(shelfId: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val visit = currentVisit() ?: return
+        val bookId = visit.bookId
         viewModelScope.launch {
-            updateReady { it.copy(isAddingToShelf = true) }
+            updateOverlay(visit) { it.copy(isAddingToShelf = true) }
             when (val result = addBooksToShelfUseCase(ShelfId(shelfId), listOf(BookId(bookId)))) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isAddingToShelf = false, showShelfPicker = false) }
+                    updateOverlay(visit) { it.copy(isAddingToShelf = false, showShelfPicker = false) }
                     logger.info { "Added book $bookId to shelf $shelfId" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isAddingToShelf = false, shelfError = result.message) }
+                    updateOverlay(visit) { it.copy(isAddingToShelf = false, shelfError = result.message) }
                     logger.error { "Failed to add book $bookId to shelf $shelfId: ${result.message}" }
                 }
             }
@@ -586,27 +444,28 @@ class BookDetailViewModel(
      * Create a new shelf and add the current book to it.
      */
     fun createShelfAndAddBook(name: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val visit = currentVisit() ?: return
+        val bookId = visit.bookId
         viewModelScope.launch {
-            updateReady { it.copy(isAddingToShelf = true) }
+            updateOverlay(visit) { it.copy(isAddingToShelf = true) }
             when (val result = createShelfUseCase(name, null)) {
                 is AppResult.Success -> {
                     val shelf = result.data
                     when (val addResult = addBooksToShelfUseCase(shelf.id, listOf(BookId(bookId)))) {
                         is AppResult.Success -> {
-                            updateReady { it.copy(isAddingToShelf = false, showShelfPicker = false) }
+                            updateOverlay(visit) { it.copy(isAddingToShelf = false, showShelfPicker = false) }
                             logger.info { "Created shelf '${shelf.name}' and added book $bookId" }
                         }
 
                         is AppResult.Failure -> {
-                            updateReady { it.copy(isAddingToShelf = false, shelfError = addResult.message) }
+                            updateOverlay(visit) { it.copy(isAddingToShelf = false, shelfError = addResult.message) }
                             logger.error { "Created shelf but failed to add book $bookId: ${addResult.message}" }
                         }
                     }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isAddingToShelf = false, shelfError = result.message) }
+                    updateOverlay(visit) { it.copy(isAddingToShelf = false, shelfError = result.message) }
                     logger.error { "Failed to create shelf '$name': ${result.message}" }
                 }
             }
@@ -614,42 +473,43 @@ class BookDetailViewModel(
     }
 
     fun clearShelfError() {
-        updateReady { it.copy(shelfError = null) }
+        updateShownOverlay { it.copy(shelfError = null) }
     }
 
     fun clearCollectionError() {
-        updateReady { it.copy(collectionError = null) }
+        updateShownOverlay { it.copy(collectionError = null) }
     }
 
     fun showShelfPicker() {
-        updateReady { it.copy(showShelfPicker = true) }
+        updateShownOverlay { it.copy(showShelfPicker = true) }
     }
 
     fun hideShelfPicker() {
-        updateReady { it.copy(showShelfPicker = false) }
+        updateShownOverlay { it.copy(showShelfPicker = false) }
     }
 
     fun showCollectionPicker() {
-        updateReady { it.copy(showCollectionPicker = true) }
+        updateShownOverlay { it.copy(showCollectionPicker = true) }
     }
 
     fun hideCollectionPicker() {
-        updateReady { it.copy(showCollectionPicker = false) }
+        updateShownOverlay { it.copy(showCollectionPicker = false) }
     }
 
     /** Add this book to [collectionId] (additive — never affects the book's All Books membership). */
     fun addBookToCollection(collectionId: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val visit = currentVisit() ?: return
+        val bookId = visit.bookId
         viewModelScope.launch {
-            updateReady { it.copy(isAddingToCollection = true) }
+            updateOverlay(visit) { it.copy(isAddingToCollection = true) }
             when (val result = collectionRepository.addBook(collectionId, bookId)) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
+                    updateOverlay(visit) { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
                     logger.info { "Added book $bookId to collection $collectionId" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isAddingToCollection = false, collectionError = result.message) }
+                    updateOverlay(visit) { it.copy(isAddingToCollection = false, collectionError = result.message) }
                     logger.error { "Failed to add book $bookId to collection $collectionId: ${result.message}" }
                 }
             }
@@ -664,28 +524,33 @@ class BookDetailViewModel(
      * library.
      */
     fun createCollectionAndAddBook(name: String) {
-        val book = (state.value as? BookDetailUiState.Ready)?.book ?: return
+        val visit = currentVisit() ?: return
+        val book = visit.ready.book
         val bookId = book.id.value
         viewModelScope.launch {
-            updateReady { it.copy(isAddingToCollection = true) }
+            updateOverlay(visit) { it.copy(isAddingToCollection = true) }
             when (val result = collectionRepository.create(book.libraryId.value, name)) {
                 is AppResult.Success -> {
                     val collection = result.data
                     when (val addResult = collectionRepository.addBook(collection.id, bookId)) {
                         is AppResult.Success -> {
-                            updateReady { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
+                            updateOverlay(
+                                visit,
+                            ) { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
                             logger.info { "Created collection '${collection.name}' and added book $bookId" }
                         }
 
                         is AppResult.Failure -> {
-                            updateReady { it.copy(isAddingToCollection = false, collectionError = addResult.message) }
+                            updateOverlay(
+                                visit,
+                            ) { it.copy(isAddingToCollection = false, collectionError = addResult.message) }
                             logger.error { "Created collection but failed to add book $bookId: ${addResult.message}" }
                         }
                     }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isAddingToCollection = false, collectionError = result.message) }
+                    updateOverlay(visit) { it.copy(isAddingToCollection = false, collectionError = result.message) }
                     logger.error { "Failed to create collection '$name': ${result.message}" }
                 }
             }
@@ -704,18 +569,19 @@ class BookDetailViewModel(
      * confirm dialog so the reason is legible where the decision was made.
      */
     fun deleteBook() {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id } ?: return
+        val visit = currentVisit() ?: return
+        val bookId = visit.ready.book.id
         viewModelScope.launch {
-            updateReady { it.copy(isDeletingBook = true, deleteError = null) }
+            updateOverlay(visit) { it.copy(isDeletingBook = true, deleteError = null) }
             when (val result = bookRepository.deleteBook(bookId)) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isDeletingBook = false) }
+                    updateOverlay(visit) { it.copy(isDeletingBook = false) }
                     logger.info { "Deleted book ${bookId.value} and its folder" }
                     _navActions.trySend(BookDetailNavAction.BookDeleted)
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isDeletingBook = false, deleteError = result.error) }
+                    updateOverlay(visit) { it.copy(isDeletingBook = false, deleteError = result.error) }
                     errorBus.emit(result.error)
                     logger.error { "Failed to delete book ${bookId.value}: ${result.error.code}" }
                 }
@@ -725,7 +591,7 @@ class BookDetailViewModel(
 
     /** Clears the inline delete refusal so the confirm dialog can be dismissed or retried cleanly. */
     fun clearDeleteError() {
-        updateReady { it.copy(deleteError = null) }
+        updateShownOverlay { it.copy(deleteError = null) }
     }
 
     /**
@@ -738,22 +604,23 @@ class BookDetailViewModel(
      * goes with it. A refusal goes to [errorBus] and the book stays held.
      */
     fun releaseFromInbox() {
-        val ready = state.value as? BookDetailUiState.Ready ?: return
-        if (!ready.isHeld || ready.isReleasingFromInbox) return
+        val visit = currentVisit() ?: return
+        val ready = visit.ready
         val book = ready.book
-        // Busy BEFORE the launch: a second tap in the same frame must already see it.
-        updateReady { it.copy(isReleasingFromInbox = true) }
+        val bookId = book.id.value
+        if (!ready.isHeld || ready.isReleasingFromInbox) return
+        updateOverlay(visit) { it.copy(isReleasingFromInbox = true) }
         viewModelScope.launch {
-            when (val result = inboxRepository.releaseBooks(book.libraryId.value, mapOf(book.id.value to emptyList()))) {
+            when (val result = inboxRepository.releaseBooks(book.libraryId.value, mapOf(bookId to emptyList()))) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isReleasingFromInbox = false) }
-                    logger.info { "Released ${book.id.value} from the inbox" }
+                    updateOverlay(visit) { it.copy(isReleasingFromInbox = false) }
+                    logger.info { "Released $bookId from the inbox" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isReleasingFromInbox = false) }
+                    updateOverlay(visit) { it.copy(isReleasingFromInbox = false) }
                     errorBus.emit(result.error)
-                    logger.error { "Failed to release ${book.id.value} from the inbox: ${result.error.code}" }
+                    logger.error { "Failed to release $bookId from the inbox: ${result.error.code}" }
                 }
             }
         }
@@ -771,11 +638,11 @@ class BookDetailViewModel(
      * nothing unless the book is stranded, not held, and no restore is already waiting.
      */
     fun restoreToAllBooks() {
-        val ready = state.value as? BookDetailUiState.Ready ?: return
-        if (ready.isHeld || ready.visibility !is BookVisibility.Stranded || ready.isRestoringToAllBooks) return
+        val visit = currentVisit() ?: return
+        val ready = visit.ready
         val bookId = ready.book.id
-        // Busy BEFORE the launch: a second tap in the same frame must already see it.
-        updateReady { it.copy(isRestoringToAllBooks = true) }
+        if (ready.isHeld || ready.visibility !is BookVisibility.Stranded || ready.isRestoringToAllBooks) return
+        updateOverlay(visit) { it.copy(isRestoringToAllBooks = true) }
         viewModelScope.launch {
             when (val result = bookEditRepository.setBookCollections(bookId, emptyList())) {
                 is AppResult.Success -> {
@@ -783,7 +650,7 @@ class BookDetailViewModel(
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isRestoringToAllBooks = false) }
+                    updateOverlay(visit) { it.copy(isRestoringToAllBooks = false) }
                     errorBus.emit(result.error)
                     logger.error { "Failed to queue ${bookId.value} back to All Books: ${result.error.code}" }
                 }
@@ -804,7 +671,7 @@ class BookDetailViewModel(
      * @param docId [BookDocument.id] of the tapped document.
      */
     fun onOpenDocument(docId: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val bookId = currentReady()?.run { book.id.value } ?: return
         val doc = documents.value.find { it.id == docId } ?: return
         if (doc.format != "pdf") {
             _navActions.trySend(BookDetailNavAction.ShowViewerComingSoon)
@@ -830,236 +697,10 @@ class BookDetailViewModel(
     }
 }
 
-/**
- * UI state for the Book Detail screen.
- *
- * Sealed hierarchy — [Ready] carries all book-dependent fields. Transient
- * action overlays ([isMarkingComplete], [isDiscardingProgress], [isRestarting],
- * [isAddingToShelf]) live on [Ready]; they may later be extracted
- * into a private overlay type.
- */
-sealed interface BookDetailUiState {
-    /** Pre-load placeholder or in-flight transition between books. */
-    data object Loading : BookDetailUiState
-
-    /** Book loaded successfully. */
-    data class Ready(
-        val book: BookDetail,
-        val isAdmin: Boolean = false,
-        /**
-         * The signed-in user may edit this book's metadata (Edit Book, Find Metadata, the chapter editor).
-         * From [PermissionsRepository]; admins always may. `isAdmin` stays for the admin-only actions
-         * (collections, delete).
-         */
-        val canEditMetadata: Boolean = false,
-        val isComplete: Boolean = false,
-        val startedAtMs: Long? = null,
-        val isMarkingComplete: Boolean = false,
-        val isDiscardingProgress: Boolean = false,
-        val isRestarting: Boolean = false,
-        val subtitle: String? = null,
-        /**
-         * The book's series as paths — one line per series, "Cosmere › Mistborn #1" — with every
-         * part a link. A membership already implied by a deeper one is left out.
-         */
-        val seriesPaths: List<BookSeriesPath> = emptyList(),
-        /**
-         * Book synopsis for the Description section. Named `descriptionText` (not `description`)
-         * deliberately: a Kotlin property called `description` is shadowed on the Swift/SKIE side by
-         * the universal `CustomStringConvertible.description`, so `ready.description` there returns
-         * the object's `toString()` instead of this field. The distinct name keeps the iOS accessor
-         * unambiguous.
-         */
-        val descriptionText: String = "",
-        val narrators: String = "",
-        val year: Int? = null,
-        val addedAt: Long? = null,
-        val hasScanWarning: Boolean = false,
-        val chapters: List<ChapterUiModel> = emptyList(),
-        val progress: Float? = null,
-        val timeRemainingFormatted: String? = null,
-        val genres: List<Genre> = emptyList(),
-        val tags: List<Tag> = emptyList(),
-        val allTags: List<Tag> = emptyList(),
-        val moods: List<Mood> = emptyList(),
-        val isLoadingTags: Boolean = false,
-        val showShelfPicker: Boolean = false,
-        val isAddingToShelf: Boolean = false,
-        val shelfError: String? = null,
-        val showCollectionPicker: Boolean = false,
-        val isAddingToCollection: Boolean = false,
-        val collectionError: String? = null,
-        /** True while [BookDetailViewModel.deleteBook] is in flight — the confirm dialog goes busy. */
-        val isDeletingBook: Boolean = false,
-        /**
-         * The typed refusal from the last delete attempt, or null. Held as an [AppError] rather
-         * than a rendered string so the UI can name the blocking book from
-         * [com.calypsan.listenup.api.error.BookError.FolderNotExclusive] instead of parsing a
-         * sentence back apart.
-         */
-        val deleteError: AppError? = null,
-        /**
-         * Held for review in the admin inbox — hidden from every member until released. A held book
-         * is **triage-only** (spec §8): when true, every platform renders the triage layout — the
-         * held section ("Held for review · Hidden from all members") with **Edit** and **Release**
-         * — and no other action. [canPlay], [canDownload] and [showServerWarning] are already forced
-         * false for it. Follows Room live; always false on a member's device.
-         */
-        val isHeld: Boolean = false,
-        /** True while [BookDetailViewModel.releaseFromInbox] is in flight — the Release button goes busy. */
-        val isReleasingFromInbox: Boolean = false,
-        /**
-         * Who cannot see this book — an admin's view only; null on a member's device, which cannot
-         * know. Live: a share added or revoked updates it with no refresh. The visibility section
-         * renders only [BookVisibility.Restricted] and [BookVisibility.Stranded]; for a held book
-         * ([isHeld], [BookVisibility.Held]) the inbox's held section already says "Hidden from all
-         * members", so the visibility section stays out of the triage layout.
-         */
-        val visibility: BookVisibility? = null,
-        /**
-         * True from [BookDetailViewModel.restoreToAllBooks] until the book stops being
-         * [BookVisibility.Stranded]. Usually that is at once, because the local write puts the book
-         * in All Books. When the book's library's All Books has not synced, the local write cannot,
-         * so this stays true until the server's echo does. That is the honest thing to show.
-         */
-        val isRestoringToAllBooks: Boolean = false,
-        val downloadStatus: BookDownloadStatus = BookDownloadStatus.NotDownloaded(""), // overwritten before emit; "" id never observed
-        val isPlaybackAvailable: Boolean = true,
-        val canPlay: Boolean = true,
-        val canDownload: Boolean = false,
-        val showServerWarning: Boolean = false,
-        val isWaitingForWifi: Boolean = false,
-    ) : BookDetailUiState
-
-    /** Load failure (e.g. the book is not in the local library); carries the typed [error] to localize. */
-    data class Error(
-        val error: AppError,
-    ) : BookDetailUiState
-}
-
-/**
- * Per-chapter row data for the book detail screen's chapter list. Pre-formatted
- * for direct display so the Composable layer does no formatting work.
- *
- * [isCurrent] marks the chapter the saved playback position currently sits in,
- * derived in the ViewModel from the position and each chapter's start time. It
- * drives the current-chapter highlight; it is `false` for every chapter when the
- * book has no meaningful progress.
- */
-data class ChapterUiModel(
-    val id: String,
-    val title: String,
-    val duration: String,
-    val imageUrl: String?,
-    val isCurrent: Boolean = false,
-    /**
-     * Where the chapter starts, in milliseconds. Carried alongside the formatted [duration]
-     * because a list is not the only way to draw chapters: the web Book Detail lays them out
-     * proportionally along the book, which needs the offsets themselves rather than text. The
-     * mobile screens render [duration] and ignore these.
-     */
-    val startMs: Long = 0L,
-    /** How long the chapter runs, in milliseconds. See [startMs]. */
-    val durationMs: Long = 0L,
-)
-
-/**
- * Index of the chapter currently playing: the last chapter whose start time is at or
- * before [positionMs], or null when there are no chapters. Pure — drives the
- * current-chapter highlight from playback position.
- */
-internal fun currentChapterIndex(
-    chapterStartTimesMs: List<Long>,
-    positionMs: Long,
-): Int? = chapterStartTimesMs.indexOfLast { it <= positionMs }.takeIf { it >= 0 }
-
-/**
- * Checks if a subtitle is redundant because it's just the series name and book number.
- *
- * Examples of redundant subtitles:
- * - "The Stormlight Archive, Book 1"
- * - "Mistborn #3"
- * - "Book 2 of The Wheel of Time"
- *
- * The heuristic removes the series name and common book number patterns,
- * then checks if there's any meaningful content left.
- */
-private fun isSubtitleRedundant(
-    subtitle: String,
-    seriesName: String?,
-    seriesSequence: String?,
-): Boolean {
-    // If no series info, subtitle is not redundant
-    if (seriesName.isNullOrBlank()) return false
-
-    val normalizedSubtitle = subtitle.lowercase().trim()
-    val normalizedSeriesName = seriesName.lowercase().trim()
-
-    // Check if subtitle contains the series name
-    if (!normalizedSubtitle.contains(normalizedSeriesName)) return false
-
-    // Remove series name from subtitle
-    var remaining = normalizedSubtitle.replace(normalizedSeriesName, "")
-
-    // Remove common book number patterns
-    val bookNumberPatterns =
-        listOf(
-            // "Book 1", "Book One", "Book I"
-            Regex(
-                """book\s*[#]?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|i{1,3}|iv|v|vi{0,3}|ix|x)""",
-                RegexOption.IGNORE_CASE,
-            ),
-            // "#1", "# 1"
-            Regex("""#\s*\d+"""),
-            // "Part 1", "Part One"
-            Regex("""part\s*[#]?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)""", RegexOption.IGNORE_CASE),
-            // "Volume 1", "Vol. 1", "Vol 1"
-            Regex("""vol(ume|\.?)?\s*[#]?\s*\d+""", RegexOption.IGNORE_CASE),
-            // Just a number (if sequence matches)
-            seriesSequence?.let { Regex("""\b${Regex.escape(it)}\b""") },
-        ).filterNotNull()
-
-    for (pattern in bookNumberPatterns) {
-        remaining = remaining.replace(pattern, "")
-    }
-
-    // Remove common separators and punctuation
-    remaining =
-        remaining
-            .replace(Regex("""[,.:;|\-–—/\\()\[\]{}]"""), " ")
-            .replace(Regex("""\s+"""), " ")
-            .trim()
-
-    // If very little meaningful content remains (less than 3 chars), it's redundant
-    return remaining.length < 3
-}
-
-/**
- * One-shot navigation and side-effect events emitted by [BookDetailViewModel].
- *
- * Consumed once at the screen entry point via [BookDetailViewModel.navActions].
- */
-sealed interface BookDetailNavAction {
-    /**
-     * Open the in-app document viewer for the given local file.
-     *
-     * @param localPath Absolute path to the cached document file on disk, as returned
-     *   by [DocumentRepository.ensureLocal].
-     */
-    data class OpenDocumentViewer(val localPath: String) : BookDetailNavAction
-
-    /**
-     * Show a transient snackbar informing the user that a viewer is not yet available
-     * for this document format.
-     */
-    data object ShowViewerComingSoon : BookDetailNavAction
-
-    /**
-     * The book was deleted from the server, folder and all — leave this screen.
-     *
-     * A one-shot event rather than a state flag because the row is about to disappear from Room
-     * when the tombstone syncs, and a detail screen watching a book that no longer exists has
-     * nothing honest left to render.
-     */
-    data object BookDeleted : BookDetailNavAction
+/** One visit to one book: the page an action started from, and the visit's number in [BookDetailOverlay.visit]. */
+private class Visit(
+    val ready: BookDetailUiState.Ready,
+    val number: Int,
+) {
+    val bookId: String get() = ready.book.id.value
 }
