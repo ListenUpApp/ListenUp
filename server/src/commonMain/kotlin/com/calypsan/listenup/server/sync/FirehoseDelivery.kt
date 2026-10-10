@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.EntitySyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.WorldEventSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.isAdmin
 
@@ -56,6 +57,12 @@ internal const val BOOK_EXTERNAL_RATINGS_DOMAIN = "book_external_ratings"
  * series-homed one iff at least one of the series' books is.
  */
 internal const val ENTITIES_DOMAIN = "entities"
+
+/**
+ * Story World events. Access-gated by home, like entities, and by the anchor book: an anchored event is
+ * visible only while its book is.
+ */
+internal const val WORLD_EVENTS_DOMAIN = "world_events"
 
 /**
  * Reading-order membership rows (#962). Gated like the book junctions above: a row names a book, so an
@@ -122,12 +129,12 @@ internal suspend fun firehoseGateReason(
             bookAccessPolicy = bookAccessPolicy,
         ) -> "bookJunction"
 
-        isEntityEventHidden(
+        isStoryWorldEventHidden(
             busEvent = busEvent,
             userId = userId,
             role = role,
             bookAccessPolicy = bookAccessPolicy,
-        ) -> "entity"
+        ) -> "storyWorld"
 
         isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
 
@@ -245,30 +252,33 @@ private fun activityBookIdOf(event: SyncEvent<*>): String? =
     }
 
 /**
- * Whether a live `entities` event must be withheld from `(userId, role)`. Mirrors the catch-up fragment
- * (`BookAccessPolicy.accessibleEntityIdsSql`): content events gate on the payload's home; ROOT/ADMIN and
- * tombstones always pass (a tombstone carries no content — `EntityRepository.minimizeTombstone`).
+ * Whether a live Story World event — on `entities` or `world_events` — must be withheld from `(userId, role)`.
+ * Mirrors the catch-up fragments (`BookAccessPolicy.accessibleEntityIdsSql` / `accessibleWorldEventIdsSql`):
+ * content events gate on the payload's home, and a world event on its anchor book too; ROOT/ADMIN and
+ * tombstones always pass (a tombstone carries no content — each repository's `minimizeTombstone`). One
+ * function for both domains keeps [firehoseGateReason]'s chain flat.
  */
-private suspend fun isEntityEventHidden(
+private suspend fun isStoryWorldEventHidden(
     busEvent: BusEvent<*>,
     userId: String,
     role: UserRole,
     bookAccessPolicy: () -> BookAccessPolicy,
 ): Boolean {
-    if (busEvent.repo.domainName != ENTITIES_DOMAIN) return false
+    val domain = busEvent.repo.domainName
+    if (domain != ENTITIES_DOMAIN && domain != WORLD_EVENTS_DOMAIN) return false
     if (role.isAdmin()) return false
     val payload =
         when (val event = busEvent.event) {
-            is SyncEvent.Created<*> -> checkNotNull(event.payload) as EntitySyncPayload
-            is SyncEvent.Updated<*> -> checkNotNull(event.payload) as EntitySyncPayload
+            is SyncEvent.Created<*> -> checkNotNull(event.payload)
+            is SyncEvent.Updated<*> -> checkNotNull(event.payload)
             is SyncEvent.Deleted -> return false
         }
-    return !bookAccessPolicy().canSeeEntityHome(
-        userId = userId,
-        role = role,
-        homeSeriesId = payload.homeSeriesId,
-        homeBookId = payload.homeBookId,
-    )
+    val policy = bookAccessPolicy()
+    return when (payload) {
+        is EntitySyncPayload -> !policy.canSeeEntityHome(userId, role, payload.homeSeriesId, payload.homeBookId)
+        is WorldEventSyncPayload -> !policy.canSeeWorldEvent(userId, role, payload.homeSeriesId, payload.homeBookId, payload.bookId)
+        else -> error("unexpected Story World payload ${payload::class.simpleName} on $domain")
+    }
 }
 
 /**

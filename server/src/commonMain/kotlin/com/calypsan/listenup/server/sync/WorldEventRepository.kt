@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.error.WorldEventError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.WorldEventSyncPayload
@@ -65,6 +66,23 @@ class WorldEventRepository(
         get() = WorldEventId(id)
 
     override fun idAsString(id: WorldEventId): String = id.value
+
+    /** A tombstone skips the access gate, so it carries identity only — not even its type, home or anchor. */
+    override fun minimizeTombstone(payload: WorldEventSyncPayload): WorldEventSyncPayload =
+        payload.copy(
+            homeSeriesId = null,
+            homeBookId = null,
+            bookId = null,
+            positionMs = null,
+            type = WorldEventType.UNKNOWN,
+            text = "",
+            detail = null,
+            subjectEntityId = null,
+            objectEntityId = null,
+            mentionIds = emptyList(),
+            createdBy = null,
+            updatedBy = null,
+        )
 
     override val substrate: SyncableSubstrateQueries =
         object : SyncableSubstrateQueries {
@@ -276,6 +294,39 @@ class WorldEventRepository(
         }
     }
 
+    // ── Targeted pull ──
+
+    /**
+     * The scoped `AccessChanged` delta asks this domain by **book id** (`TargetedMatch.BOOK_ID`). An event is
+     * touched by a book it is homed on, a book it is anchored to, or any book of the series it is homed on, so
+     * this resolves the asked-about books to every event they touch (tombstones included), then lets the base
+     * answer by event id — still access-filtered by [extraWhere], so a hidden event never comes back and the
+     * client tombstones it.
+     */
+    override suspend fun pullByIds(
+        userId: String?,
+        matchColumn: String,
+        matchValues: List<String>,
+        extraWhere: SqlFragment?,
+    ): Page<WorldEventSyncPayload> {
+        if (matchColumn != BOOK_ID_COLUMN) {
+            return super.pullByIds(userId = userId, matchColumn = matchColumn, matchValues = matchValues, extraWhere = extraWhere)
+        }
+        val eventIds =
+            suspendTransaction(db) {
+                matchValues
+                    // The query binds each chunk three times (home, anchor, series membership).
+                    .chunked(SQLITE_IN_CHUNK / BINDS_PER_TOUCHING_QUERY)
+                    .flatMap { chunk -> db.worldEventsQueries.selectIdsTouchingBooks(chunk, chunk, chunk).executeAsList() }
+                    .distinct()
+            }
+        val items = mutableListOf<WorldEventSyncPayload>()
+        for (chunk in eventIds.chunked(PULL_BY_ID_CHUNK)) {
+            items += super.pullByIds(userId = userId, matchColumn = "id", matchValues = chunk, extraWhere = extraWhere).items
+        }
+        return Page(items = items, nextCursor = null, hasMore = false)
+    }
+
     // ── In-transaction helpers ──
 
     private fun TransactionWithReturn<*>.applyUpsert(
@@ -471,5 +522,14 @@ class WorldEventRepository(
     private companion object {
         /** Bound variables per IN list, under SQLite's historical 999 limit with headroom. */
         const val SQLITE_IN_CHUNK = 900
+
+        /** Event ids per access-filtered id match in [pullByIds] (its access clause binds variables too). */
+        const val PULL_BY_ID_CHUNK = 500
+
+        /** [pullByIds]' book-touching query binds each book-id chunk this many times. */
+        const val BINDS_PER_TOUCHING_QUERY = 3
+
+        /** The column `TargetedMatch.BOOK_ID` resolves to (see SyncPullSupport). */
+        const val BOOK_ID_COLUMN = "book_id"
     }
 }
