@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.organize
 
+import com.calypsan.listenup.api.error.surfacedLogLine
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -90,7 +91,7 @@ class OrganizeOnEditRelocator(
 
                 is AppResult.Failure -> {
                     logger.warn {
-                        "organizer edit-relocation failed for ${bookId.value}: ${result.error.debugInfo ?: result.error.code}"
+                        "organizer edit-relocation failed for ${bookId.value}: ${result.error.surfacedLogLine()}"
                     }
                 }
             }
