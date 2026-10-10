@@ -210,9 +210,15 @@ class UnknownEnumValueFallbackTest :
                 json.encodeToString(CollectionShareSyncPayload.serializer(), readShare) shouldContain """"permission":"read""""
 
                 // Every other defaulted enum field, constructed at its default: the key must be written.
-                json.encodeToString(ScanIssue.serializer(), ScanIssue("i1", "A/B", ScanIssueReason.UNKNOWN, firstSeenAt = 1, lastSeenAt = 2)) shouldContain
+                json.encodeToString(
+                    ScanIssue.serializer(),
+                    ScanIssue("i1", "A/B", ScanIssueReason.UNKNOWN, firstSeenAt = 1, lastSeenAt = 2),
+                ) shouldContain
                     """"reason":"""
-                json.encodeToString(FileEntry.serializer(), FileEntry("a/b", "b", "", size = 1, mtimeMs = 2, fileType = FileType.UNKNOWN)) shouldContain
+                json.encodeToString(
+                    FileEntry.serializer(),
+                    FileEntry("a/b", "b", "", size = 1, mtimeMs = 2, fileType = FileType.UNKNOWN),
+                ) shouldContain
                     """"fileType":"""
                 json.encodeToString(OrganizeSettingsDto.serializer(), OrganizeSettingsDto()).let {
                     it shouldContain """"preset":"""
