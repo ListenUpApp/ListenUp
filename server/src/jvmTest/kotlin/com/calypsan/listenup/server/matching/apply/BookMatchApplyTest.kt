@@ -179,6 +179,44 @@ class BookMatchApplyTest :
             }
         }
 
+        test("a person who stays credited keeps their sort name and credited-as") {
+            withSqlDatabase {
+                runTest {
+                    val rig = MatchRig(this@withSqlDatabase)
+                    val seeded = rig.seedBook()
+                    rig.books
+                        .upsert(
+                            seeded.copy(
+                                contributors =
+                                    seeded.contributors.map {
+                                        if (it.name == "Andy Weir") {
+                                            it.copy(sortName = "Weir, Andy", creditedAs = "A. Weir")
+                                        } else {
+                                            it
+                                        }
+                                    },
+                            ),
+                        ).shouldSucceed()
+                    rig.book().contributors.single { it.name == "Andy Weir" }.let {
+                        it.sortName shouldBe "Weir, Andy"
+                        it.creditedAs shouldBe "A. Weir"
+                    }
+                    val authors = rig.review().fields.single { it.field == BookField.AUTHORS }
+                    val request =
+                        rig.fullRequest().copy(
+                            fields = listOf(FieldDecision(BookField.AUTHORS, FieldChoice.Option(authors.options.single().optionId))),
+                        )
+
+                    rig.applier.apply(rig.book(), request, US, "u1").shouldSucceed()
+
+                    rig.book().contributors.single { it.name == "Andy Weir" }.let {
+                        it.sortName shouldBe "Weir, Andy"
+                        it.creditedAs shouldBe "A. Weir"
+                    }
+                }
+            }
+        }
+
         test("a book that changed since the Review is ReviewOutdated, and nothing is written") {
             withSqlDatabase {
                 runTest {

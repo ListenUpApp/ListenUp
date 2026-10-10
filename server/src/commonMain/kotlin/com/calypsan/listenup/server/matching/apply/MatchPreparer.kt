@@ -150,15 +150,21 @@ internal class MatchPreparer(
         ) {
             names ?: return
             val credits =
-                names.map { name ->
-                    BookContributorPayload(
-                        id = catalogs.contributorId(name),
-                        name = name,
-                        sortName = null,
-                        role = role.apiValue,
-                        creditedAs = null,
-                    )
-                }
+                names
+                    .map { name -> name to catalogs.contributorId(name) }
+                    .distinctBy { (_, id) -> id }
+                    .map { (name, id) ->
+                        // A person who stays credited keeps how they are sorted and credited; only a new credit starts bare.
+                        val existing =
+                            current.firstOrNull { it.id == id && it.role.equals(role.apiValue, ignoreCase = true) }
+                        BookContributorPayload(
+                            id = id,
+                            name = name,
+                            sortName = existing?.sortName,
+                            role = role.apiValue,
+                            creditedAs = existing?.creditedAs,
+                        )
+                    }
             merged = merged.filterNot { it.role.equals(role.apiValue, ignoreCase = true) } + credits
         }
         replace(ContributorRole.AUTHOR, draft.authors)
