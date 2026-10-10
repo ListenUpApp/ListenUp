@@ -8,12 +8,13 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 
 /**
- * Tests for [wireName] — the `DeviceInfo.deviceType` string an Android session reports.
+ * Tests for [DeviceType.wireName] — the `DeviceInfo.deviceType` string a native session reports,
+ * on Android and iOS alike.
  *
- * The bug that motivates this: every Android session was reported as `"phone"`, hard-coded in the
- * Koin `DeviceInfoProvider`, even though `DeviceContextProvider` already classified the device as
+ * The bug that motivates this: a session was reported as `"phone"`, hard-coded in the Koin
+ * `DeviceInfoProvider`, even though `DeviceContextProvider` already classified the device as
  * Tv / Auto / Watch / Tablet / Phone. The Devices settings screen therefore drew a phone glyph
- * next to the user's tablet and their car.
+ * next to the user's tablet and their car (Android), or iPad (iOS).
  *
  * These names are persisted in the server's `sessions.device_type` column — the server stores the
  * string opaquely and validates nothing — so renaming one silently reclassifies existing sessions.
@@ -23,43 +24,43 @@ class DeviceTypeWireNameTest :
     FunSpec({
 
         test("Phone reports as phone") {
-            DeviceType.Phone.wireName() shouldBe "phone"
+            DeviceType.Phone.wireName shouldBe "phone"
         }
 
         test("Tablet reports as tablet") {
-            DeviceType.Tablet.wireName() shouldBe "tablet"
+            DeviceType.Tablet.wireName shouldBe "tablet"
         }
 
         test("Desktop reports as desktop") {
-            DeviceType.Desktop.wireName() shouldBe "desktop"
+            DeviceType.Desktop.wireName shouldBe "desktop"
         }
 
         test("Tv reports as tv") {
-            DeviceType.Tv.wireName() shouldBe "tv"
+            DeviceType.Tv.wireName shouldBe "tv"
         }
 
         test("Auto reports as auto") {
-            DeviceType.Auto.wireName() shouldBe "auto"
+            DeviceType.Auto.wireName shouldBe "auto"
         }
 
         test("Watch reports as watch") {
-            DeviceType.Watch.wireName() shouldBe "watch"
+            DeviceType.Watch.wireName shouldBe "watch"
         }
 
         test("Xr reports as xr") {
-            DeviceType.Xr.wireName() shouldBe "xr"
+            DeviceType.Xr.wireName shouldBe "xr"
         }
 
         test("every form factor gets a distinct name") {
             // A collision would silently merge two form factors in the Devices screen.
-            DeviceType.entries.map { it.wireName() }.toSet() shouldHaveSize DeviceType.entries.size
+            DeviceType.entries.map { it.wireName }.toSet() shouldHaveSize DeviceType.entries.size
         }
 
         test("every name is non-blank and lowercase") {
             // deviceVisualFor lowercases before matching, but the wire value is what the server
             // persists — emit it already normalised rather than relying on the reader.
             DeviceType.entries.forEach { type ->
-                val name = type.wireName()
+                val name = type.wireName
                 name.shouldNotBeBlank()
                 name shouldBe name.lowercase()
             }
@@ -69,7 +70,7 @@ class DeviceTypeWireNameTest :
             // DeviceInfo's init require() THROWS above DEVICE_FIELD_MAX, so an over-long name
             // would crash login rather than degrade.
             DeviceType.entries.forEach {
-                it.wireName().length shouldBeLessThanOrEqual DEVICE_FIELD_MAX
+                it.wireName.length shouldBeLessThanOrEqual DEVICE_FIELD_MAX
             }
         }
 
@@ -78,7 +79,7 @@ class DeviceTypeWireNameTest :
             // "speaker". These three are the form factors we can actually be; the rest fall
             // through to its generic device icon, which is honest.
             setOf(DeviceType.Phone, DeviceType.Tablet, DeviceType.Desktop)
-                .map { it.wireName() }
+                .map { it.wireName }
                 .toSet() shouldBe setOf("phone", "tablet", "desktop")
         }
     })

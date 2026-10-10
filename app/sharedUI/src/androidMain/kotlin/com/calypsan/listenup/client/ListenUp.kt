@@ -22,7 +22,6 @@ import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceInfoProvider
-import com.calypsan.listenup.client.device.wireName
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import com.calypsan.listenup.client.di.androidDownloadModule
 import com.calypsan.listenup.client.di.androidPlaybackModule
@@ -234,7 +233,7 @@ val playbackModule =
             // Detected once by DeviceContextProvider (UiModeManager + smallest-width) and bound in
             // sharedLogic's platformDeviceModule. Reporting a hard-coded phone type drew a phone
             // glyph next to the user's tablet and their car in the Devices screen.
-            val deviceType = get<DeviceContext>().type.wireName()
+            val deviceType = get<DeviceContext>().type.wireName
             // The user's chosen device name, matching iOS's UIDevice.name. Null-safe: deviceModel
             // below is already DevicesViewModel.resolveName's next fallback.
             val context: Context = get()
