@@ -246,6 +246,126 @@ class MoveManifestExecutorTest :
             }
         }
 
+        test("a move prunes the series and author folders it emptied, and never the library root") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-executor-prune-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedCatalog(sql)
+
+                // The production shape: an author folder holding one series folder holding one book.
+                val oldBookPath = "Arthur C. Clarke/Odyssey/Book 1 - 2001 A Space Odyssey"
+                val bookDir = libraryRoot.resolve(oldBookPath).also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("01.m4b"), "a")
+
+                runTest {
+                    val repo = buildBookRepository(sql, driver)
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b1",
+                            title = "The Way of Kings",
+                            rootRelPath = oldBookPath,
+                            contributors = listOf(authorPayload("c1", "Brandon Sanderson")),
+                            audioFiles = listOf(audioFilePayload("af1", "01.m4b")),
+                        ),
+                    )
+
+                    val entry = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings).entries.single()
+                    val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
+                    MoveManifestExecutor(broker, repo).execute(entry) shouldBe AppResult.Success(Unit)
+
+                    libraryRoot.resolve("Brandon Sanderson/The Way of Kings/The Way of Kings.m4b").toFile().exists() shouldBe true
+                    withClue("every folder the move left describing nothing goes, deepest first") {
+                        bookDir.toFile().exists() shouldBe false
+                        libraryRoot.resolve("Arthur C. Clarke/Odyssey").toFile().exists() shouldBe false
+                        libraryRoot.resolve("Arthur C. Clarke").toFile().exists() shouldBe false
+                    }
+                    withClue("the library folder root is never an ancestor the walk may reach") {
+                        libraryRoot.toFile().exists() shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("a move leaves every ancestor that still holds a sibling book") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-executor-prune-sibling-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedCatalog(sql)
+
+                val oldBookPath = "Arthur C. Clarke/Odyssey/Book 1 - 2001 A Space Odyssey"
+                val bookDir = libraryRoot.resolve(oldBookPath).also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("01.m4b"), "a")
+                // A sibling the plan does not touch: the user's own, untracked, beside the moved book.
+                val sibling =
+                    libraryRoot.resolve("Arthur C. Clarke/Odyssey/Book 2 - 2010 Odyssey Two").also { Files.createDirectories(it) }
+                Files.writeString(sibling.resolve("01.m4b"), "b")
+
+                runTest {
+                    val repo = buildBookRepository(sql, driver)
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b1",
+                            title = "The Way of Kings",
+                            rootRelPath = oldBookPath,
+                            contributors = listOf(authorPayload("c1", "Brandon Sanderson")),
+                            audioFiles = listOf(audioFilePayload("af1", "01.m4b")),
+                        ),
+                    )
+
+                    val entry = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings).entries.single()
+                    val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
+                    MoveManifestExecutor(broker, repo).execute(entry) shouldBe AppResult.Success(Unit)
+
+                    withClue("the sibling still lives in the series folder, so the chain stops there") {
+                        bookDir.toFile().exists() shouldBe false
+                        sibling.resolve("01.m4b").toFile().readText() shouldBe "b"
+                        libraryRoot.resolve("Arthur C. Clarke/Odyssey").toFile().exists() shouldBe true
+                        libraryRoot.resolve("Arthur C. Clarke").toFile().exists() shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("re-running a pruning manifest after it already landed converges without error") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-executor-prune-rerun-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedCatalog(sql)
+
+                val oldBookPath = "Arthur C. Clarke/Odyssey/Book 1 - 2001 A Space Odyssey"
+                val bookDir = libraryRoot.resolve(oldBookPath).also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("01.m4b"), "a")
+
+                runTest {
+                    val repo = buildBookRepository(sql, driver)
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b1",
+                            title = "The Way of Kings",
+                            rootRelPath = oldBookPath,
+                            contributors = listOf(authorPayload("c1", "Brandon Sanderson")),
+                            audioFiles = listOf(audioFilePayload("af1", "01.m4b")),
+                        ),
+                    )
+
+                    val entry = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings).entries.single()
+                    val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
+                    val executor = MoveManifestExecutor(broker, repo)
+                    executor.execute(entry) shouldBe AppResult.Success(Unit)
+
+                    // The crash-resume shape: the same entry again, every op already applied. The
+                    // ancestors are gone, so each prune op must skip rather than fail.
+                    executor.execute(entry) shouldBe AppResult.Success(Unit)
+
+                    val newDir = libraryRoot.resolve("Brandon Sanderson/The Way of Kings")
+                    newDir.toFile().listFiles()?.map { it.name } shouldBe listOf("The Way of Kings.m4b")
+                    libraryRoot.resolve("Arthur C. Clarke").toFile().exists() shouldBe false
+                    libraryRoot.toFile().exists() shouldBe true
+                    sql.booksQueries.selectById("b1").executeAsOne().root_rel_path shouldBe "Brandon Sanderson/The Way of Kings"
+                }
+            }
+        }
+
         test("watcher silence: executing a manifest fires zero watcher events") {
             withSqlDatabase {
                 val libraryRoot = Files.createTempDirectory("listenup-executor-watcher-")

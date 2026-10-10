@@ -108,6 +108,7 @@ class OrganizePlanBuilder(
                     MovePlanEntry(
                         bookId = book.id,
                         fromDir = fromDir,
+                        fromRootRelPath = book.root_rel_path,
                         toDir = toDir,
                         toRootRelPath = candidate,
                         files = applyRename(files = files, fromDir = fromDir, toDir = toDir, rename = rename),
@@ -142,6 +143,7 @@ class OrganizePlanBuilder(
         return MovePlanEntry(
             bookId = bookId,
             fromDir = dir,
+            fromRootRelPath = rootRelPath,
             toDir = dir,
             toRootRelPath = rootRelPath,
             files = listOf(FileMove(from = Path(dir, rename.from), to = Path(dir, rename.to))),
@@ -214,6 +216,7 @@ class OrganizePlanBuilder(
             MovePlanEntry(
                 bookId = bookId.value,
                 fromDir = fromDir,
+                fromRootRelPath = book.root_rel_path,
                 toDir = toDir,
                 toRootRelPath = candidate,
                 files = applyRename(files = files, fromDir = fromDir, toDir = toDir, rename = rename),
