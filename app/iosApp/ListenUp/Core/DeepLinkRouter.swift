@@ -28,6 +28,10 @@ final class DeepLinkRouter {
     private let deepLinkManager: DeepLinkManager
     private let bridge = FlowBridge()
 
+    /// The process's one router. Every window's root and tab shell use this instance, which is
+    /// what lets `claimShellOutcome(for:)` hand a link to exactly one of them.
+    static let shared = DeepLinkRouter()
+
     init(deepLinkManager: DeepLinkManager = Dependencies.shared.deepLinkManager) {
         self.deepLinkManager = deepLinkManager
         bridge.bind(deepLinkManager.pendingTarget) { [weak self] target in

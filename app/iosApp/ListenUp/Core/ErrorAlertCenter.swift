@@ -20,7 +20,7 @@ struct ErrorAlert: Identifiable, Equatable, Sendable {
 
 /// Holds the error alert on screen, and the ones waiting behind it.
 ///
-/// One per app, created in `RootView`. `GlobalErrorObserver` posts every `AppError` from the shared
+/// One per process (`shared`). `GlobalErrorObserver` posts every `AppError` from the shared
 /// bus here, and `errorAlertHost(_:)` presents them as a system alert — the iOS way (iosApp rule 10)
 /// rather than the Compose snackbar this replaced, which auto-dismissed after four seconds and was
 /// never announced to VoiceOver. A failure on the bus is a task the user started that didn't
@@ -44,6 +44,8 @@ final class ErrorAlertCenter {
 
     private(set) var current: ErrorAlert?
     private var queue: [ErrorAlert] = []
+
+    static let shared = ErrorAlertCenter()
 
     init() {}
 
@@ -76,12 +78,14 @@ final class ErrorAlertCenter {
 
 private struct ErrorAlertHost: ViewModifier {
     let center: ErrorAlertCenter
+    /// With several windows, only the front one presents the shared alert.
+    let isFrontWindow: Bool
 
     func body(content: Content) -> some View {
         content.alert(
             String(localized: "common.something_went_wrong"),
             isPresented: Binding(
-                get: { center.current != nil },
+                get: { isFrontWindow && center.current != nil },
                 set: { if !$0 { center.dismissCurrent() } }
             ),
             presenting: center.current
@@ -101,8 +105,9 @@ private struct ErrorAlertHost: ViewModifier {
 }
 
 extension View {
-    /// Presents `center`'s errors as a system alert. Apply once, on the authenticated shell.
-    func errorAlertHost(_ center: ErrorAlertCenter) -> some View {
-        modifier(ErrorAlertHost(center: center))
+    /// Presents `center`'s errors as a system alert, in the front window only. Apply once per window,
+    /// on the authenticated shell.
+    func errorAlertHost(_ center: ErrorAlertCenter, isFrontWindow: Bool) -> some View {
+        modifier(ErrorAlertHost(center: center, isFrontWindow: isFrontWindow))
     }
 }
