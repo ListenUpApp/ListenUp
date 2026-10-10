@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.cover
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import io.kotest.core.spec.style.FunSpec
@@ -54,5 +55,30 @@ class CoverContentResolverTest :
                     dir.toFile().deleteRecursively()
                 }
             }
+        }
+
+        suspend fun embeddedContentTypeFor(declaredMime: String): String? {
+            val cache = EmbeddedCoverCache()
+            val id = BookId("b1")
+            cache.getOrCompute(id) { EmbeddedArtwork(declaredMime, byteArrayOf(1, 2, 3)) }
+            val resolver =
+                CoverContentResolver(
+                    cache = cache,
+                    parser = EmbeddedMetadataParser(detector = AudioFormatDetector(), parsers = emptyList()),
+                )
+            return resolver
+                .content(id, CoverInfo.Embedded(IoPath("/library/b1/part1.m4b"), hash = null))
+                ?.contentType
+                ?.toString()
+        }
+
+        test("an embedded cover whose tag declares a non-image type is served as a JPEG") {
+            // The tag is whatever the file's author wrote, and it becomes the Content-Type of a
+            // same-origin response: text/html there would be a page on our origin.
+            runTest { embeddedContentTypeFor("text/html") shouldBe "image/jpeg" }
+        }
+
+        test("an embedded cover whose tag declares an allowed image type keeps it") {
+            runTest { embeddedContentTypeFor("image/png") shouldBe "image/png" }
         }
     })

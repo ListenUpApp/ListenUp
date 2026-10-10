@@ -93,6 +93,7 @@ class CoverResponder internal constructor(
 
         call.response.headers.append(HttpHeaders.ETag, etag)
         call.response.headers.append(HttpHeaders.CacheControl, CACHE_CONTROL_IMMUTABLE)
+        call.response.headers.append(NOSNIFF_HEADER, NOSNIFF)
         call.respondBytes(bytes, ContentType.Image.JPEG)
         return true
     }
@@ -119,6 +120,7 @@ class CoverResponder internal constructor(
             call.response.headers.append(HttpHeaders.ETag, etag)
             call.response.headers.append(HttpHeaders.CacheControl, CACHE_CONTROL_IMMUTABLE)
         }
+        call.response.headers.append(NOSNIFF_HEADER, NOSNIFF)
         call.respondBytes(resolved.bytes, resolved.contentType)
     }
 
@@ -132,5 +134,9 @@ class CoverResponder internal constructor(
          * cover bytes' content hash — any cover change becomes a new ETag.
          */
         const val CACHE_CONTROL_IMMUTABLE = "private, max-age=31536000, immutable"
+
+        /** A cover is an image and must be treated as nothing else, whatever its bytes look like. */
+        const val NOSNIFF_HEADER = "X-Content-Type-Options"
+        const val NOSNIFF = "nosniff"
     }
 }
