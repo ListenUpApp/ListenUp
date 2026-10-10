@@ -36,8 +36,9 @@ internal object ErrorMapper {
     /** How far down a cause chain to look; bounds the walk, and with it any cycle. */
     private const val MAX_CAUSE_DEPTH = 10
 
-    fun map(exception: Throwable): AppError =
-        when {
+    fun map(exception: Throwable): AppError {
+        val unreadableFile = findUnreadableFile(exception)
+        return when {
             // A transient refresh failure during a 401-heal (C5): the refresh outcome was network /
             // timeout / 5xx, NOT a server-confirmed dead token. Surface a RETRYABLE transport error and
             // keep the session — a network blip must never log the user out. Checked FIRST so the
@@ -101,8 +102,8 @@ internal object ErrorMapper {
             // failed request body as a ClosedByteChannelException — an IOException — with the real
             // reason in its cause chain, so the chain is searched. Placed above the TLS and IOException
             // arms, which would otherwise call it "no internet connection" and retry it.
-            findUnreadableFile(exception) != null -> {
-                UploadError.FileUnreadable(debugInfo = findUnreadableFile(exception)?.message)
+            unreadableFile != null -> {
+                UploadError.FileUnreadable(debugInfo = unreadableFile.message)
             }
 
             // TLS/SSL handshake or certificate failure: the socket connected but the secure channel
@@ -165,6 +166,7 @@ internal object ErrorMapper {
                 )
             }
         }
+    }
 
     /** The [FileUnreadableException] at or within [MAX_CAUSE_DEPTH] causes below [exception], if any. */
     private fun findUnreadableFile(exception: Throwable): FileUnreadableException? =
