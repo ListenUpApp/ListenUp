@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
@@ -94,8 +95,13 @@ internal class AdminSettingsServiceImpl(
             changed = true
         }
         patch.remoteUrl?.let { url ->
-            if (url.length > MAX_REMOTE_URL) return AppResult.Failure(AdminError.InvalidInput())
-            settings.setRemoteUrl(url)
+            val trimmed = url.trim()
+            if (trimmed.length > MAX_REMOTE_URL) return AppResult.Failure(AdminError.InvalidInput())
+            // Blank clears; anything else must be a plain http(s) URL, the shape every app can use.
+            if (trimmed.isNotEmpty() && !isHttpUrl(trimmed)) {
+                return AppResult.Failure(AdminError.InvalidInput(debugInfo = "remoteUrl must be an http(s) URL"))
+            }
+            settings.setRemoteUrl(trimmed)
             changed = true
         }
         patch.holdNewBooksForReview?.let { enabled ->
@@ -202,3 +208,12 @@ internal class AdminSettingsServiceImpl(
                 libraryRepository.readMetadataRegion(libraryRegistry.currentLibrary()) ?: MetadataLocale.DEFAULT.region,
         )
 }
+
+/** Whether [value] is a plain absolute http(s) URL, by the same rules the apps apply to a server address. */
+private fun isHttpUrl(value: String): Boolean =
+    try {
+        ServerUrl(value)
+        true
+    } catch (_: IllegalArgumentException) {
+        false
+    }

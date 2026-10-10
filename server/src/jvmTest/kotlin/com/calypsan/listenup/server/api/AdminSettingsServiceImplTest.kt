@@ -184,6 +184,62 @@ class AdminSettingsServiceImplTest :
             }
         }
 
+        // (e2) a remote URL that is not a plain http(s) URL is refused and the stored value is untouched
+        listOf("example.com", "https://exa mple.com", "https://user:pw@example.com").forEach { bad ->
+            test("updateServerSettings refuses remoteUrl '$bad' and keeps the previous value") {
+                withSqlDatabase {
+                    runTest {
+                        val (svc) =
+                            makeAdminSettingsService(
+                                db = this@withSqlDatabase,
+                                principal = principalFor("root1", UserRole.ROOT),
+                            )
+                        seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+                        svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "https://example.com")).shouldSucceed()
+
+                        svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = bad)).shouldFailWith<AdminError.InvalidInput>()
+
+                        svc.getServerSettings().shouldSucceed().remoteUrl shouldBe "https://example.com"
+                    }
+                }
+            }
+        }
+
+        test("updateServerSettings trims whitespace around a valid remoteUrl before storing it") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "  https://example.com  ")).shouldSucceed()
+
+                    svc.getServerSettings().shouldSucceed().remoteUrl shouldBe "https://example.com"
+                }
+            }
+        }
+
+        test("updateServerSettings with a blank remoteUrl clears the stored remote URL") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+                    svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "https://example.com")).shouldSucceed()
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "   ")).shouldSucceed()
+
+                    svc.getServerSettings().shouldSucceed().remoteUrl.shouldBeNull()
+                }
+            }
+        }
+
         // (f) a successful change broadcasts a content-free ServerInfoChanged nudge to all clients
         test("updateServerSettings broadcasts ServerInfoChanged on a successful change") {
             withSqlDatabase {
