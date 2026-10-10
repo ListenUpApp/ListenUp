@@ -20,6 +20,10 @@ runs:
     # (6m step cap), JVM (45m job cap) and web (30m job cap, inside Playwright's own apt call).
     # Pointing at the canonical archive removes the black hole; the Acquire deadlines bound
     # whatever else goes slow, so a retry has something to heal rather than a budget already spent.
+    # The image does not name the mirror in its sources file: it points that file at a mirror list,
+    # /etc/apt/apt-mirrors.txt, with Azure first. Rewriting only the sources file matched nothing,
+    # and on 2026-10-09 Azure still served ffmpeg at ~100 kB/s; so Azure leaves the list, and the
+    # canonical archive behind it becomes first.
     - name: Apply apt mirror and timeout policy
       shell: bash
       run: |
@@ -29,6 +33,10 @@ runs:
             sudo sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g' "$source_file"
           fi
         done
+        if [ -f /etc/apt/apt-mirrors.txt ]; then
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          echo "apt mirrors: $(tr '\n' ' ' < /etc/apt/apt-mirrors.txt)"
+        fi
         sudo tee /etc/apt/apt.conf.d/99listenup-fail-fast >/dev/null <<'CONF'
         Acquire::http::Timeout "20";
         Acquire::https::Timeout "20";
@@ -50,6 +58,11 @@ runs:
     # `timeout` per attempt is the point of this loop: without it a single hang consumes the whole
     # step budget and the retries never run at all, which is exactly how the 2026-08-19 linuxX64
     # failure got past an earlier version of this guard.
+    #
+    # A timeout that lands while dpkg is unpacking leaves it half-done, and every later apt call
+    # refuses with "dpkg was interrupted" until `dpkg --configure -a` finishes the job. On
+    # 2026-10-10 that turned one slow attempt into three failures. So each retry recovers dpkg
+    # first, and waits out a lock the killed attempt's dpkg may still hold.
     - name: Install packages
       if: inputs.packages != ''
       shell: bash
@@ -57,12 +70,16 @@ runs:
         PACKAGES: ${{ inputs.packages }}
       run: |
         for attempt in 1 2 3; do
-          if timeout 90 sudo apt-get update \
-             && timeout 210 sudo apt-get install -y --no-install-recommends $PACKAGES; then
+          if [ "$attempt" -gt 1 ]; then
+            timeout 60 sudo dpkg --configure -a \
+              || echo "::warning::dpkg --configure -a did not finish; the next attempt may refuse"
+          fi
+          if timeout 60 sudo apt-get -o DPkg::Lock::Timeout=30 update \
+             && timeout 210 sudo apt-get -o DPkg::Lock::Timeout=30 install -y --no-install-recommends $PACKAGES; then
             exit 0
           fi
           echo "::warning::apt attempt $attempt failed or hung; retrying in $((attempt * 10))s"
           sleep $((attempt * 10))
         done
-        echo "::error::apt could not install '$PACKAGES' after 3 attempts — mirrors unreachable"
+        echo "::error::apt could not install '$PACKAGES' after 3 attempts; the attempts above say why"
         exit 1
