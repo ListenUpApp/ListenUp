@@ -123,7 +123,11 @@ internal class OrphanImageCleanupTask(
         val liveContributorImages = contributorRepository.listLiveImagePaths()
         val liveSeriesCovers = seriesRepository.listLiveCoverPaths().toFilenames()
         pinnedPhotos()?.let { pinned ->
-            sweepDir(Path(imageHome, ManagedImageDirs.CONTRIBUTORS), (liveContributorImages + pinned).toFilenames(), "contributor")
+            sweepDir(
+                Path(imageHome, ManagedImageDirs.CONTRIBUTORS),
+                (liveContributorImages + pinned).toFilenames(),
+                "contributor",
+            )
         }
         sweepDir(Path(imageHome, ManagedImageDirs.SERIES), liveSeriesCovers, "series")
         sweepCovers()

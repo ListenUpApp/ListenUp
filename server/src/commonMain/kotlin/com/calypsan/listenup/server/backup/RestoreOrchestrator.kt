@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.io.copyDirectoryRecursively
 import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.media.ManagedImageDirs
 import com.calypsan.listenup.server.sync.ChangeBus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -75,8 +76,11 @@ class RestoreOrchestrator(
                 val rollbackDb = Path(paths.rollbackDir, "listenup.db")
                 SystemFileSystem.delete(rollbackDb, mustExist = false)
                 dbHandle.vacuumInto(rollbackDb.toString())
-                val rollbackCovers = copyDirAside(paths.coversDir, Path(paths.rollbackDir, "covers"))
-                val rollbackAvatars = copyDirAside(paths.avatarsDir, Path(paths.rollbackDir, "avatars"))
+                val asideDirs =
+                    ManagedImageDirs.ALL.mapNotNull { name ->
+                        copyDirAside(paths.imageDir(name), Path(paths.rollbackDir, name))
+                            ?.let { aside -> aside to paths.imageDir(name) }
+                    }
 
                 // 4. Extract snapshot to staging
                 if (SystemFileSystem.exists(paths.stagingDir)) deleteRecursively(paths.stagingDir)
@@ -97,8 +101,7 @@ class RestoreOrchestrator(
                         swapFile(Path(paths.stagingDir, "listenup.db"), paths.dbFile)
                         deleteDbSidecars()
                         if (manifest.includesImages) {
-                            swapDir(Path(paths.stagingDir, "covers"), paths.coversDir)
-                            swapDir(Path(paths.stagingDir, "avatars"), paths.avatarsDir)
+                            ManagedImageDirs.ALL.forEach { swapDir(Path(paths.stagingDir, it), paths.imageDir(it)) }
                         }
                         dbHandle.reopenPool()
 
@@ -132,11 +135,7 @@ class RestoreOrchestrator(
                         logger.error(e) { "restore swap/migrate failed — rolling back to safety copy" }
                         rollback(
                             rollbackDb = rollbackDb,
-                            asideDirs =
-                                listOfNotNull(
-                                    rollbackCovers?.let { aside -> aside to paths.coversDir },
-                                    rollbackAvatars?.let { aside -> aside to paths.avatarsDir },
-                                ),
+                            asideDirs = asideDirs,
                         )
                         deleteRecursively(paths.stagingDir)
                         eventBus.tryEmit(BackupEvent.RolledBack(e.message ?: "restore failed"))

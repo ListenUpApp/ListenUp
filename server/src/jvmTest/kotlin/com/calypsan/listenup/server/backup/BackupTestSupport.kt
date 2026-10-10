@@ -16,6 +16,15 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path as IoPath
 import kotlinx.io.files.SystemFileSystem
 
+/** The files [backupTestFixture] seeds when `withImages = true`, keyed by path relative to the home dir. */
+val SEEDED_IMAGES: Map<String, ByteArray> =
+    linkedMapOf(
+        "covers/cover1.jpg" to byteArrayOf(1, 2, 3, 4, 5),
+        "avatars/avatar1.png" to byteArrayOf(11, 12, 13),
+        "contributors/author1.jpg" to byteArrayOf(21, 22, 23, 24),
+        "series/series1.jpg" to byteArrayOf(31, 32),
+    )
+
 /** Fixture wiring a real [DatabaseHandle] + [BackupPaths] + [BackupArchive] in a temp home dir. */
 class BackupTestFixture(
     val homeDir: Path,
@@ -35,8 +44,8 @@ class BackupTestFixture(
  * the running server (configured via `listenup.home`) so the route's [BackupPaths] and the
  * fixture's [BackupPaths] both resolve archives under the same `backups/` subdirectory.
  *
- * If [withImages] is true, a dummy file is written into the `covers/` dir so
- * image-related code paths are exercised.
+ * If [withImages] is true, one small file with distinct bytes is written into each managed image
+ * directory ([SEEDED_IMAGES]) so image-related code paths are exercised.
  */
 fun backupTestFixture(
     homeDir: java.nio.file.Path? = null,
@@ -59,9 +68,11 @@ fun backupTestFixture(
     val paths = BackupPaths(IoPath(resolvedHomeDir.toString()))
 
     if (withImages) {
-        val coversDir = paths.coversDir
-        SystemFileSystem.createDirectories(coversDir)
-        SystemFileSystem.sink(IoPath(coversDir, "cover1.jpg")).buffered().use { it.write(byteArrayOf(1, 2, 3, 4, 5)) }
+        SEEDED_IMAGES.forEach { (rel, bytes) ->
+            val file = IoPath(resolvedHomeDir.toString(), rel)
+            file.parent?.let { SystemFileSystem.createDirectories(it) }
+            SystemFileSystem.sink(file).buffered().use { it.write(bytes) }
+        }
     }
 
     val archive =
@@ -110,10 +121,13 @@ fun DatabaseHandle.queryScalarString(sql: String): String? =
     }
 
 /**
- * Rewrites [archive] so the `listenup.db` entry's bytes are mutated (one byte
+ * Rewrites [archive] so the [entryName] entry's bytes are mutated (one byte
  * flipped), causing its SHA-256 to differ from the manifest's stored checksum.
  */
-fun tamperOneByteInsideZip(archive: IoPath) {
+fun tamperOneByteInsideZip(
+    archive: IoPath,
+    entryName: String = "listenup.db",
+) {
     val archiveNio =
         java.nio.file.Path
             .of(archive.toString())
@@ -125,7 +139,7 @@ fun tamperOneByteInsideZip(archive: IoPath) {
             ".zip",
         )
     try {
-        writeZipWithTamperedDb(archiveNio, tmp)
+        writeZipWithTamperedEntry(archiveNio, tmp, entryName)
         Files.move(tmp, archiveNio, StandardCopyOption.REPLACE_EXISTING)
     } catch (e: Exception) {
         Files.deleteIfExists(tmp)
@@ -133,27 +147,29 @@ fun tamperOneByteInsideZip(archive: IoPath) {
     }
 }
 
-private fun writeZipWithTamperedDb(
+private fun writeZipWithTamperedEntry(
     source: Path,
     dest: Path,
+    entryName: String,
 ) {
     ZipOutputStream(Files.newOutputStream(dest)).use { out ->
         ZipFile(source.toFile()).use { zf ->
             zf.entries().asSequence().forEach { entry ->
                 out.putNextEntry(ZipEntry(entry.name))
                 val bytes = zf.getInputStream(entry).readBytes()
-                out.write(flipDbBytes(entry.name, bytes))
+                out.write(flipByteOf(entryName, entry.name, bytes))
                 out.closeEntry()
             }
         }
     }
 }
 
-private fun flipDbBytes(
+private fun flipByteOf(
+    target: String,
     entryName: String,
     bytes: ByteArray,
 ): ByteArray {
-    if (entryName != "listenup.db" || bytes.isEmpty()) return bytes
+    if (entryName != target || bytes.isEmpty()) return bytes
     val idx = bytes.size / 2
     bytes[idx] = (bytes[idx].toInt() xor 0xFF).toByte()
     return bytes

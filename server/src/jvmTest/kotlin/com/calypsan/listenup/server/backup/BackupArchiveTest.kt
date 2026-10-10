@@ -5,6 +5,7 @@ import com.calypsan.listenup.server.compression.zip.withDeclaredUncompressedSize
 import com.calypsan.listenup.server.compression.zip.zipWithZeroFilledEntry
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.test.runTest
@@ -122,6 +123,62 @@ class BackupArchiveTest :
                         SystemFileSystem.exists(extracted) shouldBe true
                         val actual = SystemFileSystem.source(extracted).buffered().use { it.readByteArray() }
                         actual.toList() shouldBe bytes.toList()
+                    }
+                }
+            }
+        }
+
+        test("create+extract round-trips contributor photos and series covers") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    val seeded =
+                        linkedMapOf(
+                            "covers/cover1.jpg" to byteArrayOf(1, 1, 1),
+                            "avatars/avatar1.png" to byteArrayOf(9, 8, 7),
+                            "contributors/aaa.jpg" to byteArrayOf(4, 4, 4, 4),
+                            "contributors/bbb.png" to byteArrayOf(5, 5),
+                            "series/ccc.jpg" to byteArrayOf(6, 6, 6),
+                        )
+                    for ((rel, bytes) in seeded) {
+                        val target = IoPath(fixture.paths.imageDir(rel.substringBefore('/')), rel.substringAfter('/'))
+                        target.parent?.let { SystemFileSystem.createDirectories(it) }
+                        SystemFileSystem.sink(target).buffered().use { it.write(bytes) }
+                    }
+
+                    val archive = fixture.archive.create(id = "four-dirs", includeImages = true, onEvent = {})
+
+                    fixture.archive
+                        .open(archive)
+                        .checksums.keys shouldContainAll
+                        listOf("db", "covers", "avatars", "contributors", "series")
+
+                    val targetDir = IoPath(SystemTemporaryDirectory, "four-dirs-extract-${System.nanoTime()}")
+                    SystemFileSystem.createDirectories(targetDir)
+                    fixture.archive.extractTo(archive, targetDir)
+
+                    for ((rel, bytes) in seeded) {
+                        val extracted = IoPath(targetDir, rel)
+                        SystemFileSystem.exists(extracted) shouldBe true
+                        val actual = SystemFileSystem.source(extracted).buffered().use { it.readByteArray() }
+                        actual.toList() shouldBe bytes.toList()
+                    }
+                }
+            }
+        }
+
+        test("a tampered contributor photo fails extraction") {
+            runTest {
+                backupTestFixture(withImages = true).use { fixture ->
+                    val photo = IoPath(fixture.paths.imageDir("contributors"), "aaa.jpg")
+                    SystemFileSystem.sink(photo).buffered().use { it.write(byteArrayOf(4, 4, 4, 4)) }
+                    val archive = fixture.archive.create(id = "tamper-photo", includeImages = true, onEvent = {})
+
+                    tamperOneByteInsideZip(archive, entryName = "contributors/aaa.jpg")
+
+                    val targetDir = IoPath(SystemTemporaryDirectory, "tamper-photo-extract-${System.nanoTime()}")
+                    SystemFileSystem.createDirectories(targetDir)
+                    shouldThrow<BackupArchive.CorruptArchiveException> {
+                        fixture.archive.extractTo(archive, targetDir)
                     }
                 }
             }

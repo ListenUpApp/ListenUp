@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.hashSourceSha256
 import com.calypsan.listenup.server.io.listRegularFilesRecursively
 import com.calypsan.listenup.server.io.relativeTo
+import com.calypsan.listenup.server.media.ManagedImageDirs
 import kotlinx.coroutines.withContext
 import kotlinx.io.Buffer
 import kotlinx.io.RawSource
@@ -41,6 +42,8 @@ private const val MAX_MANIFEST_BYTES: Long = 64L * 1024 * 1024
  * - `listenup.db` — a transactionally-consistent SQLite snapshot (via `VACUUM INTO`)
  * - `covers/<relpath>` — book cover images (when [create] is called with `includeImages = true`)
  * - `avatars/<relpath>` — user avatar images (when `includeImages = true`)
+ * - `contributors/<relpath>` — author and narrator photos (when `includeImages = true`)
+ * - `series/<relpath>` — series covers (when `includeImages = true`)
  * - `manifest.json` — written last; carries checksums, versions, and statistics
  *
  * ZIP-slip safety: [extractTo] rejects any entry whose name is not [isSafeEntryName].
@@ -104,10 +107,10 @@ class BackupArchive(
                 }
 
                 if (includeImages) {
-                    checksums[COVERS_CHECKSUM_KEY] =
-                        addDirToZip(zip = zip, dir = paths.coversDir, prefix = COVERS_PREFIX, onEvent = onEvent)
-                    checksums[AVATARS_CHECKSUM_KEY] =
-                        addDirToZip(zip = zip, dir = paths.avatarsDir, prefix = AVATARS_PREFIX, onEvent = onEvent)
+                    for (name in ManagedImageDirs.ALL) {
+                        checksums[name] =
+                            addDirToZip(zip = zip, dir = paths.imageDir(name), prefix = "$name/", onEvent = onEvent)
+                    }
                 }
 
                 onEvent(BackupEvent.Finalizing)
@@ -242,35 +245,40 @@ class BackupArchive(
     private fun extractEntries(
         archive: Path,
         targetDir: Path,
-    ): ImageDigests {
-        val coversDigest = Sha256()
-        val avatarsDigest = Sha256()
+    ): Map<String, String> {
+        val digests = ManagedImageDirs.ALL.associateWith { Sha256() }
         try {
             ZipReader(archive).use { zr ->
                 for (entry in zr.entries()) {
-                    if (entry.name == MANIFEST_ENTRY) continue
-                    if (!isSafeEntryName(entry.name)) {
-                        throw CorruptArchiveException(
-                            "ZIP-slip detected: entry '${entry.name}' would escape the target directory",
-                        )
-                    }
-                    val target = Path(targetDir, entry.name)
-                    target.parent?.let { SystemFileSystem.createDirectories(it) }
-                    val digest =
-                        when {
-                            entry.name.startsWith(COVERS_PREFIX) -> coversDigest
-                            entry.name.startsWith(AVATARS_PREFIX) -> avatarsDigest
-                            else -> null
-                        }
-                    zr.openEntry(entry).buffered().use { src ->
-                        SystemFileSystem.sink(target).buffered().use { out -> src.drainInto(out, digest) }
+                    if (entry.name !=
+                        MANIFEST_ENTRY
+                    ) {
+                        extractEntry(zr = zr, entry = entry, targetDir = targetDir, digests = digests)
                     }
                 }
             }
-            return ImageDigests(covers = coversDigest.digestHex(), avatars = avatarsDigest.digestHex())
+            return digests.mapValues { (_, digest) -> digest.digestHex() }
         } finally {
-            coversDigest.close()
-            avatarsDigest.close()
+            digests.values.forEach { it.close() }
+        }
+    }
+
+    private fun extractEntry(
+        zr: ZipReader,
+        entry: ZipEntryInfo,
+        targetDir: Path,
+        digests: Map<String, Sha256>,
+    ) {
+        if (!isSafeEntryName(entry.name)) {
+            throw CorruptArchiveException(
+                "ZIP-slip detected: entry '${entry.name}' would escape the target directory",
+            )
+        }
+        val target = Path(targetDir, entry.name)
+        target.parent?.let { SystemFileSystem.createDirectories(it) }
+        val digest = ManagedImageDirs.ALL.firstOrNull { entry.name.startsWith("$it/") }?.let(digests::get)
+        zr.openEntry(entry).buffered().use { src ->
+            SystemFileSystem.sink(target).buffered().use { out -> src.drainInto(out, digest) }
         }
     }
 
@@ -278,12 +286,11 @@ class BackupArchive(
         archive: Path,
         targetDir: Path,
         manifest: BackupManifest,
-        imageSums: ImageDigests,
+        imageSums: Map<String, String>,
     ) {
         verifyExtractedDb(archive, targetDir, manifest)
         if (manifest.includesImages) {
-            checkImageChecksum(COVERS_CHECKSUM_KEY, manifest, imageSums.covers)
-            checkImageChecksum(AVATARS_CHECKSUM_KEY, manifest, imageSums.avatars)
+            imageSums.forEach { (name, actual) -> checkImageChecksum(name, manifest, actual) }
         }
     }
 
@@ -345,20 +352,11 @@ class BackupArchive(
         }
     }
 
-    private data class ImageDigests(
-        val covers: String,
-        val avatars: String,
-    )
-
     companion object {
         internal const val MANIFEST_ENTRY = "manifest.json"
         internal const val DB_ENTRY = "listenup.db"
-        internal const val COVERS_PREFIX = "covers/"
-        internal const val AVATARS_PREFIX = "avatars/"
 
         internal const val DB_CHECKSUM_KEY = "db"
-        internal const val COVERS_CHECKSUM_KEY = "covers"
-        internal const val AVATARS_CHECKSUM_KEY = "avatars"
     }
 }
 

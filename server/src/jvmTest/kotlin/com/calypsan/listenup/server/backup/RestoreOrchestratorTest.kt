@@ -272,13 +272,18 @@ class RestoreOrchestratorTest :
             }
         }
 
-        test("metadata-only restore: sentinel file in coversDir survives because includeImages=false") {
+        test("metadata-only restore: sentinel files in the managed image dirs survive because includeImages=false") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
                     // Write a sentinel file into coversDir before creating the backup
                     SystemFileSystem.createDirectories(fixture.paths.coversDir)
                     val sentinel = Path(fixture.paths.coversDir, "sentinel.jpg")
                     SystemFileSystem.sink(sentinel).buffered().use { it.write(byteArrayOf(0x01, 0x02, 0x03)) }
+
+                    val otherSentinels =
+                        listOf("contributors", "series").map { dir ->
+                            Path(fixture.paths.imageDir(dir), "sentinel.jpg").also { writeBytes(it, byteArrayOf(0x04)) }
+                        }
 
                     // Create a metadata-only backup (no images)
                     fixture.archive.create("meta1", includeImages = false, onEvent = {})
@@ -291,6 +296,101 @@ class RestoreOrchestratorTest :
 
                     // Sentinel file must still exist — images were not swapped
                     SystemFileSystem.exists(sentinel) shouldBe true
+                    otherSentinels.forEach { SystemFileSystem.exists(it) shouldBe true }
+                }
+            }
+        }
+
+        test("restore with images brings back contributor photos and series covers") {
+            runTest {
+                backupTestFixture(withImages = true).use { fixture ->
+                    fixture.archive.create("img1", includeImages = true, onEvent = {})
+
+                    val photo = Path(fixture.paths.imageDir("contributors"), "author1.jpg")
+                    val seriesCover = Path(fixture.paths.imageDir("series"), "series1.jpg")
+                    deleteTree(fixture.paths.imageDir("contributors"))
+                    writeBytes(seriesCover, byteArrayOf(99, 99, 99))
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("img1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    readBytes(photo).toList() shouldBe SEEDED_IMAGES.getValue("contributors/author1.jpg").toList()
+                    readBytes(seriesCover).toList() shouldBe SEEDED_IMAGES.getValue("series/series1.jpg").toList()
+                }
+            }
+        }
+
+        test("rollback leaves every managed image directory as it was") {
+            runTest {
+                backupTestFixture(withImages = true).use { fixture ->
+                    // A forged archive that includes images: garbage db (checksum-valid, so validate passes)
+                    // plus replacement bytes for every managed directory. The swap replaces the live
+                    // directories first and the migrate then fails, so only a full rollback brings them back.
+                    val garbageBytes = "not-a-sqlite-database-at-all".toByteArray()
+                    val manifest =
+                        BackupManifest(
+                            formatVersion = BackupManifest.FORMAT_VERSION,
+                            serverId = "srv-test",
+                            createdAt = System.currentTimeMillis(),
+                            appVersion = "0.0.0-test",
+                            schemaVersion = "0",
+                            includesImages = true,
+                            checksums = mapOf("db" to sha256OfBytes(garbageBytes)),
+                            bookCount = 0,
+                            userCount = 0,
+                        )
+                    fixture.paths.ensureDirs()
+                    ZipOutputStream(Files.newOutputStream(fixture.paths.archiveFor("mal-img").nio())).use { zip ->
+                        zip.putNextEntry(ZipEntry("listenup.db"))
+                        zip.write(garbageBytes)
+                        zip.closeEntry()
+                        SEEDED_IMAGES.keys.forEach { rel ->
+                            zip.putNextEntry(ZipEntry(rel))
+                            zip.write(byteArrayOf(-1, -1, -1))
+                            zip.closeEntry()
+                        }
+                        zip.putNextEntry(ZipEntry("manifest.json"))
+                        zip.write(manifest.toJson().toByteArray())
+                        zip.closeEntry()
+                    }
+
+                    val result = buildOrchestrator(fixture).restore(BackupId("mal-img"))
+
+                    val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                    failure.error.shouldBeInstanceOf<BackupError.RestoreFailed>().rolledBack shouldBe true
+                    SEEDED_IMAGES.forEach { (rel, bytes) ->
+                        readBytes(Path(fixture.homeDir.toString(), rel)).toList() shouldBe bytes.toList()
+                    }
+                }
+            }
+        }
+
+        test("an archive written without contributor and series directories leaves the live ones alone") {
+            runTest {
+                backupTestFixture(withImages = true).use { fixture ->
+                    val full = fixture.archive.create("full", includeImages = true, onEvent = {})
+                    val fullManifest = fixture.archive.open(full)
+                    val oldShape =
+                        fullManifest.copy(checksums = fullManifest.checksums.filterKeys { it in setOf("db", "covers", "avatars") })
+                    rebuildArchiveWithout(
+                        source = full,
+                        dest = fixture.paths.archiveFor("old-shape"),
+                        newManifest = oldShape,
+                        dropPrefixes = listOf("contributors/", "series/"),
+                    )
+
+                    val photo = Path(fixture.paths.imageDir("contributors"), "sentinel.jpg")
+                    val seriesCover = Path(fixture.paths.imageDir("series"), "sentinel.jpg")
+                    writeBytes(photo, byteArrayOf(7))
+                    writeBytes(seriesCover, byteArrayOf(8))
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("old-shape"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    SystemFileSystem.exists(photo) shouldBe true
+                    SystemFileSystem.exists(seriesCover) shouldBe true
                 }
             }
         }
@@ -425,4 +525,55 @@ private fun copyEntriesReplacingManifest(
         }
         out.closeEntry()
     }
+}
+
+private fun Path.nio(): java.nio.file.Path =
+    java.nio.file.Path
+        .of(toString())
+
+private fun readBytes(path: Path): ByteArray = Files.readAllBytes(path.nio())
+
+private fun writeBytes(
+    path: Path,
+    bytes: ByteArray,
+) {
+    Files.createDirectories(path.nio().parent)
+    Files.write(path.nio(), bytes)
+}
+
+private fun deleteTree(dir: Path) {
+    dir.nio().toFile().deleteRecursively()
+}
+
+/**
+ * Copies [source] into [dest] minus every entry under one of [dropPrefixes], replacing the manifest
+ * with [newManifest] — the shape of an archive written before those directories were archived.
+ */
+private fun rebuildArchiveWithout(
+    source: Path,
+    dest: Path,
+    newManifest: BackupManifest,
+    dropPrefixes: List<String>,
+) {
+    ZipOutputStream(Files.newOutputStream(dest.nio())).use { out ->
+        java.util.zip.ZipFile(source.nio().toFile()).use { zf ->
+            val kept = zf.entries().asSequence().filter { e -> dropPrefixes.none { e.name.startsWith(it) } }
+            for (entry in kept) copyEntry(out, zf, entry, newManifest)
+        }
+    }
+}
+
+private fun copyEntry(
+    out: ZipOutputStream,
+    zf: java.util.zip.ZipFile,
+    entry: ZipEntry,
+    newManifest: BackupManifest,
+) {
+    out.putNextEntry(ZipEntry(entry.name))
+    if (entry.name == "manifest.json") {
+        out.write(newManifest.toJson().toByteArray())
+    } else {
+        zf.getInputStream(entry).use { it.copyTo(out) }
+    }
+    out.closeEntry()
 }
