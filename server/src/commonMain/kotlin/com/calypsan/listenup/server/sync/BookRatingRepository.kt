@@ -333,4 +333,10 @@ internal fun ListenerRatingSource.column(): String = name.lowercase()
 
 /** [ListenerRatingSource] from `book_ratings.source`; anything unrecognised is a ListenUp rating. */
 internal fun ratingSourceOf(column: String): ListenerRatingSource =
-    if (column == ListenerRatingSource.HARDCOVER.column()) ListenerRatingSource.HARDCOVER else ListenerRatingSource.LISTENUP
+    if (column ==
+        ListenerRatingSource.HARDCOVER.column()
+    ) {
+        ListenerRatingSource.HARDCOVER
+    } else {
+        ListenerRatingSource.LISTENUP
+    }

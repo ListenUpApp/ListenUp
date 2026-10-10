@@ -451,11 +451,19 @@ class BookRatingRepositoryImplTest :
                         source = "HARDCOVER",
                     ),
                 )
-                repo.observeForBook("b1").first().single().fromHardcover shouldBe true
+                repo
+                    .observeForBook("b1")
+                    .first()
+                    .single()
+                    .fromHardcover shouldBe true
 
                 repo.rate("b1", 6, null).shouldBeInstanceOf<AppResult.Success<*>>()
 
-                repo.observeForBook("b1").first().single().fromHardcover shouldBe false
+                repo
+                    .observeForBook("b1")
+                    .first()
+                    .single()
+                    .fromHardcover shouldBe false
                 db.close()
             }
         }

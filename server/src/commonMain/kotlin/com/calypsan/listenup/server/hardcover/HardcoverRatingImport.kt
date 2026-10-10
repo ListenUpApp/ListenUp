@@ -19,7 +19,12 @@ import kotlin.uuid.Uuid
 internal fun hardcoverHalfStars(rating: Double?): Int? =
     rating
         ?.takeIf { it > 0.0 }
-        ?.let { (it * 2).roundToInt().coerceIn(ListenerRatingLimits.MIN_HALF_STARS, ListenerRatingLimits.MAX_HALF_STARS) }
+        ?.let { stars ->
+            (stars * 2).roundToInt().coerceIn(
+                ListenerRatingLimits.MIN_HALF_STARS,
+                ListenerRatingLimits.MAX_HALF_STARS,
+            )
+        }
 
 /**
  * Brings a listener's own Hardcover ratings into their ListenUp ratings, filling gaps only: a rating
@@ -57,17 +62,27 @@ class HardcoverRatingImport(
         bookId: String,
         hcHalfStars: Int?,
     ): AppResult<Unit> {
-        val row = suspendTransaction(sql) { sql.bookRatingsQueries.selectForImport(bookId, userId).executeAsOneOrNull() }
+        val row =
+            suspendTransaction(sql) { sql.bookRatingsQueries.selectForImport(bookId, userId).executeAsOneOrNull() }
         val outcome =
             when {
                 row == null -> {
-                    hcHalfStars?.let { write(userId, bookId, it, wireId = Uuid.random().toString(), note = null) } ?: done
+                    hcHalfStars?.let { stars ->
+                        write(
+                            userId = userId,
+                            bookId = bookId,
+                            halfStars = stars,
+                            wireId = Uuid.random().toString(),
+                            note = null,
+                        )
+                    }
+                        ?: done
                 }
 
                 row.deleted_at != null -> {
                     val seen = row.hardcover_half_stars?.toInt()
                     if (hcHalfStars != null && seen != null && seen != hcHalfStars) {
-                        write(userId, bookId, hcHalfStars, wireId = row.id, note = null)
+                        write(userId = userId, bookId = bookId, halfStars = hcHalfStars, wireId = row.id, note = null)
                     } else {
                         done
                     }
@@ -82,7 +97,7 @@ class HardcoverRatingImport(
                 }
 
                 hcHalfStars != row.half_stars.toInt() -> {
-                    write(userId, bookId, hcHalfStars, wireId = row.id, note = row.note)
+                    write(userId = userId, bookId = bookId, halfStars = hcHalfStars, wireId = row.id, note = row.note)
                 }
 
                 else -> {

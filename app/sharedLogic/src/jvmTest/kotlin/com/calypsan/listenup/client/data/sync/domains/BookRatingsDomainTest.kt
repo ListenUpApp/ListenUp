@@ -71,10 +71,18 @@ class BookRatingsDomainTest :
                             source = ListenerRatingSource.HARDCOVER,
                         )
                     apply.upsert(imported)
-                    db.bookRatingDao().find("b1", "u1").shouldNotBeNull().source shouldBe "HARDCOVER"
+                    db
+                        .bookRatingDao()
+                        .find("b1", "u1")
+                        .shouldNotBeNull()
+                        .source shouldBe "HARDCOVER"
 
                     apply.upsert(imported.copy(halfStars = 6, revision = 6L, source = ListenerRatingSource.LISTENUP))
-                    db.bookRatingDao().find("b1", "u1").shouldNotBeNull().source shouldBe "LISTENUP"
+                    db
+                        .bookRatingDao()
+                        .find("b1", "u1")
+                        .shouldNotBeNull()
+                        .source shouldBe "LISTENUP"
                 }
             } finally {
                 db.close()
