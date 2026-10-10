@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
@@ -63,9 +64,8 @@ interface AuthGraph {
  * An open login screen and the teardown for it.
  *
  * A browser has no `ViewModelStore` owner, so the composition owns the lifetime: it opens a
- * session when the branch appears and calls [close] when the branch goes. Unlike
- * `BookDetailViewModel`, the auth ViewModels expose a public idempotent `close()`, so no store is
- * needed.
+ * session when the branch appears and calls [close] when the branch goes, which clears the
+ * ViewModel's store.
  */
 class LoginSession(
     val state: StateFlow<LoginUiState>,
@@ -151,31 +151,34 @@ fun graphAuth(koin: Koin): AuthGraph =
 
         override fun openLogin(): LoginSession {
             val viewModel = koin.get<LoginViewModel>()
+            val store = ViewModelStore().apply { put(LOGIN_STORE_KEY, viewModel) }
             return LoginSession(
                 state = viewModel.state,
                 submit = viewModel::onLoginSubmit,
                 clearError = viewModel::clearError,
-                close = viewModel::close,
+                close = store::clear,
             )
         }
 
         override fun openSetup(): SetupSession {
             val viewModel = koin.get<SetupViewModel>()
+            val store = ViewModelStore().apply { put(SETUP_STORE_KEY, viewModel) }
             return SetupSession(
                 state = viewModel.state,
                 submit = viewModel::onSetupSubmit,
                 clearError = viewModel::clearError,
-                close = viewModel::close,
+                close = store::clear,
             )
         }
 
         override fun openRegister(): RegisterSession {
             val viewModel = koin.get<RegisterViewModel>()
+            val store = ViewModelStore().apply { put(REGISTER_STORE_KEY, viewModel) }
             return RegisterSession(
                 state = viewModel.state,
                 submit = viewModel::onRegisterSubmit,
                 clearError = viewModel::clearError,
-                close = viewModel::close,
+                close = store::clear,
             )
         }
 
@@ -184,34 +187,44 @@ fun graphAuth(koin: Koin): AuthGraph =
             email: String,
         ): PendingApprovalSession {
             val viewModel = koin.get<PendingApprovalViewModel> { parametersOf(userId, email) }
+            val store = ViewModelStore().apply { put(PENDING_APPROVAL_STORE_KEY, viewModel) }
             return PendingApprovalSession(
                 state = viewModel.state,
                 checkStatus = viewModel::checkStatus,
                 cancelRegistration = viewModel::cancelRegistration,
                 acknowledgeApproval = viewModel::acknowledgeApproval,
-                close = viewModel::close,
+                close = store::clear,
             )
         }
 
         override fun openForgotPassword(): ForgotPasswordSession {
             val viewModel = koin.get<ForgotPasswordViewModel>()
+            val store = ViewModelStore().apply { put(FORGOT_PASSWORD_STORE_KEY, viewModel) }
             return ForgotPasswordSession(
                 state = viewModel.state,
                 requestReset = viewModel::requestReset,
                 completeReset = viewModel::completeReset,
                 checkStatus = viewModel::checkStatus,
                 retryRequest = viewModel::retryRequest,
-                close = viewModel::close,
+                close = store::clear,
             )
         }
 
         override fun openClaimInvite(): ClaimInviteSession {
             val viewModel = koin.get<ClaimInviteViewModel>()
+            val store = ViewModelStore().apply { put(CLAIM_INVITE_STORE_KEY, viewModel) }
             return ClaimInviteSession(
                 state = viewModel.state,
                 lookUp = viewModel::onCodeEntered,
                 claim = viewModel::onClaimSubmit,
-                close = viewModel::close,
+                close = store::clear,
             )
         }
     }
+
+private const val LOGIN_STORE_KEY = "auth-login"
+private const val SETUP_STORE_KEY = "auth-setup"
+private const val REGISTER_STORE_KEY = "auth-register"
+private const val PENDING_APPROVAL_STORE_KEY = "auth-pending-approval"
+private const val FORGOT_PASSWORD_STORE_KEY = "auth-forgot-password"
+private const val CLAIM_INVITE_STORE_KEY = "auth-claim-invite"
