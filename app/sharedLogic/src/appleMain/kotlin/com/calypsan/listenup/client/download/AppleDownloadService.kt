@@ -42,6 +42,9 @@ import platform.Foundation.NSFileManager
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
+import platform.Foundation.NSURLErrorCancelled
+import platform.Foundation.NSURLErrorDomain
+import platform.Foundation.NSURLErrorTimedOut
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionDownloadDelegateProtocol
 import platform.Foundation.NSURLSessionDownloadTask
@@ -554,7 +557,7 @@ internal class DownloadSessionDelegate(
         val audioFileId = taskIsWaitingForConnectivity.taskDescription?.split("|")?.getOrNull(1) ?: return
         lock.withLock { waitingForConnectivity += taskIsWaitingForConnectivity.taskIdentifier }
         logger.info { "Download waiting for an allowed network: $audioFileId" }
-        scope.launch { downloadDao.updateState(audioFileId, DownloadState.QUEUED) }
+        scope.launch { downloadDao.updateStateIfTransferring(audioFileId, DownloadState.QUEUED) }
     }
 
     /**
@@ -679,7 +682,7 @@ internal class DownloadSessionDelegate(
         val statusCode = httpResponse?.statusCode ?: 0
         if (statusCode !in 200L..299L && statusCode != 0L) {
             logger.error { "Download HTTP $statusCode for $filename" }
-            scope.launch { downloadDao.updateError(audioFileId, "HTTP error: $statusCode") }
+            scope.launch { downloadDao.markFailedIfNotTerminal(audioFileId, "HTTP error: $statusCode") }
             failTask(taskId)
             return
         }
@@ -691,7 +694,7 @@ internal class DownloadSessionDelegate(
 
         if (!moved) {
             logger.error { "Failed to move downloaded file: $filename" }
-            scope.launch { downloadDao.updateError(audioFileId, "Failed to save file") }
+            scope.launch { downloadDao.markFailedIfNotTerminal(audioFileId, "Failed to save file") }
             failTask(taskId)
             return
         }
@@ -703,7 +706,7 @@ internal class DownloadSessionDelegate(
                 ?.get(platform.Foundation.NSFileSize) as? Long ?: 0L
         if (fileSize == 0L) {
             logger.error { "Downloaded file is empty: $filename" }
-            scope.launch { downloadDao.updateError(audioFileId, "Downloaded file is empty") }
+            scope.launch { downloadDao.markFailedIfNotTerminal(audioFileId, "Downloaded file is empty") }
             failTask(taskId)
             return
         }
@@ -727,7 +730,7 @@ internal class DownloadSessionDelegate(
         // Bytes are moving again after a connectivity hold — undo the QUEUED the wait reported.
         if (lock.withLock { waitingForConnectivity.remove(taskId) }) {
             scope.launch {
-                downloadDao.updateState(
+                downloadDao.updateStateIfTransferring(
                     audioFileId,
                     DownloadState.DOWNLOADING,
                     Clock.System.now().toEpochMilliseconds(),
@@ -760,14 +763,32 @@ internal class DownloadSessionDelegate(
         if (didCompleteWithError == null) return
         val taskId = task.taskIdentifier
         val audioFileId = task.taskDescription?.split("|")?.getOrNull(1)
+        // Read before failTask: removePending clears the waiting set.
+        val wasWaitingForNetwork = lock.withLock { taskId in waitingForConnectivity }
+        val cancelled =
+            didCompleteWithError.domain == NSURLErrorDomain && didCompleteWithError.code == NSURLErrorCancelled
+        val waitRanOut =
+            wasWaitingForNetwork &&
+                didCompleteWithError.domain == NSURLErrorDomain &&
+                didCompleteWithError.code == NSURLErrorTimedOut
 
-        logger.error { "Download error: ${didCompleteWithError.localizedDescription}" }
-        if (audioFileId != null) {
-            scope.launch { downloadDao.updateError(audioFileId, didCompleteWithError.localizedDescription) }
-        } else {
-            logger.error { "Failed download task $taskId carries no usable tag; no row to mark" }
+        when {
+            // The user (or a teardown) stopped this transfer. Not a failure: recording one would put a
+            // cancelled row back among the incomplete ones, and the next foreground would restart it.
+            cancelled -> logger.info { "Download task $taskId cancelled" }
+
+            audioFileId == null -> logger.error { "Failed download task $taskId carries no usable tag; no row to mark" }
+
+            // Nothing was attempted — the task only ever waited for a network it was allowed to use.
+            // Charging the retry budget for that would strand a wifi-only download after three waits.
+            waitRanOut -> scope.launch { downloadDao.updateStateIfTransferring(audioFileId, DownloadState.QUEUED) }
+
+            else -> {
+                logger.error { "Download error: ${didCompleteWithError.localizedDescription}" }
+                scope.launch { downloadDao.markFailedIfNotTerminal(audioFileId, didCompleteWithError.localizedDescription) }
+            }
         }
-        // Unconditional tail: the continuation is resumed even when the tag is unusable.
+        // Unconditional tail: the continuation is resumed whatever the branch.
         failTask(taskId)
     }
 }

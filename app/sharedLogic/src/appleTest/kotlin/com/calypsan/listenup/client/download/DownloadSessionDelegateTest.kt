@@ -19,6 +19,9 @@ import platform.Foundation.NSFileManager
 import platform.Foundation.NSString
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
+import platform.Foundation.NSURLErrorCancelled
+import platform.Foundation.NSURLErrorDomain
+import platform.Foundation.NSURLErrorTimedOut
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionDownloadTask
 import platform.Foundation.NSUTF8StringEncoding
@@ -68,6 +71,93 @@ class DownloadSessionDelegateTest :
                     session = NSURLSession.sharedSession,
                     task = downloadTask,
                     didCompleteWithError = NSError.errorWithDomain("test", 1, null),
+                )
+
+                awaiting.await() shouldBe false
+                runCurrent()
+                dao.errors shouldBe listOf("file1" to DownloadState.FAILED)
+                dao.unguardedErrors shouldBe emptyList()
+            }
+        }
+
+        test("a cancelled task resumes the caller with false and records nothing") {
+            runTest {
+                val dao = FakeDownloadDao()
+                val delegate = DownloadSessionDelegate(dao, backgroundScope)
+                delegate.setYielding(true)
+                val downloadTask = task("book1|file1|a.m4b|/tmp/a.m4b")
+
+                val awaiting =
+                    async {
+                        suspendCancellableCoroutine { cont ->
+                            delegate.registerDownload(downloadTask, cont, "/tmp/a.m4b", "book1")
+                        }
+                    }
+                runCurrent()
+
+                delegate.URLSession(
+                    session = NSURLSession.sharedSession,
+                    task = downloadTask,
+                    didCompleteWithError = NSError.errorWithDomain(NSURLErrorDomain, NSURLErrorCancelled, null),
+                )
+
+                awaiting.await() shouldBe false
+                runCurrent()
+                dao.errors shouldBe emptyList()
+                dao.states shouldBe emptyList()
+                dao.unguardedErrors shouldBe emptyList()
+            }
+        }
+
+        test("a timeout while waiting for an allowed network re-queues without charging a retry") {
+            runTest {
+                val dao = FakeDownloadDao()
+                val delegate = DownloadSessionDelegate(dao, backgroundScope)
+                delegate.setYielding(true)
+                val downloadTask = task("book1|file1|a.m4b|/tmp/a.m4b")
+
+                val awaiting =
+                    async {
+                        suspendCancellableCoroutine { cont ->
+                            delegate.registerDownload(downloadTask, cont, "/tmp/a.m4b", "book1")
+                        }
+                    }
+                runCurrent()
+
+                delegate.URLSession(session = NSURLSession.sharedSession, taskIsWaitingForConnectivity = downloadTask)
+                runCurrent()
+                delegate.URLSession(
+                    session = NSURLSession.sharedSession,
+                    task = downloadTask,
+                    didCompleteWithError = NSError.errorWithDomain(NSURLErrorDomain, NSURLErrorTimedOut, null),
+                )
+
+                awaiting.await() shouldBe false
+                runCurrent()
+                dao.errors shouldBe emptyList()
+                dao.states.last() shouldBe ("file1" to DownloadState.QUEUED)
+            }
+        }
+
+        test("a timeout while bytes were moving is a real failure") {
+            runTest {
+                val dao = FakeDownloadDao()
+                val delegate = DownloadSessionDelegate(dao, backgroundScope)
+                delegate.setYielding(true)
+                val downloadTask = task("book1|file1|a.m4b|/tmp/a.m4b")
+
+                val awaiting =
+                    async {
+                        suspendCancellableCoroutine { cont ->
+                            delegate.registerDownload(downloadTask, cont, "/tmp/a.m4b", "book1")
+                        }
+                    }
+                runCurrent()
+
+                delegate.URLSession(
+                    session = NSURLSession.sharedSession,
+                    task = downloadTask,
+                    didCompleteWithError = NSError.errorWithDomain(NSURLErrorDomain, NSURLErrorTimedOut, null),
                 )
 
                 awaiting.await() shouldBe false
@@ -174,13 +264,14 @@ class DownloadSessionDelegateTest :
     })
 
 /**
- * In-memory [DownloadDao]. Only the members the delegate actually calls record anything;
- * `updateError` is left to its interface default so the recorded call is the real
- * [DownloadDao.updateErrorWithState] the default routes through.
+ * In-memory [DownloadDao]. Only the members the delegate actually calls record anything.
+ * [unguardedErrors] captures the unguarded `updateErrorWithState` write so a test can prove the
+ * delegate no longer uses it.
  */
 @Suppress("TooManyFunctions")
 private class FakeDownloadDao : DownloadDao {
     val errors = mutableListOf<Pair<String, DownloadState>>()
+    val unguardedErrors = mutableListOf<Pair<String, DownloadState>>()
     val states = mutableListOf<Pair<String, DownloadState>>()
     val progress = mutableListOf<Triple<String, Long, Long>>()
 
@@ -189,7 +280,7 @@ private class FakeDownloadDao : DownloadDao {
         error: String,
         state: DownloadState,
     ) {
-        errors += audioFileId to state
+        unguardedErrors += audioFileId to state
     }
 
     override suspend fun updateState(
@@ -236,13 +327,17 @@ private class FakeDownloadDao : DownloadDao {
     override suspend fun markFailedIfNotTerminal(
         audioFileId: String,
         error: String,
-    ): Unit = TODO("not used")
+    ) {
+        errors += audioFileId to DownloadState.FAILED
+    }
 
     override suspend fun updateStateIfTransferring(
         audioFileId: String,
         state: DownloadState,
         startedAt: Long?,
-    ): Unit = TODO("not used")
+    ) {
+        states += audioFileId to state
+    }
 
     override suspend fun updateStateForBookExcluding(
         bookId: String,
