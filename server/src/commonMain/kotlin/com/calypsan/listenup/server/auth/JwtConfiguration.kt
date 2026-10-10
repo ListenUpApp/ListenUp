@@ -148,16 +148,6 @@ data class JwtConfiguration(
             throw JwtVerificationException(reason, e)
         }
 
-    private fun constantTimeEquals(
-        a: ByteArray,
-        b: ByteArray,
-    ): Boolean {
-        if (a.size != b.size) return false
-        var diff = 0
-        for (i in a.indices) diff = diff or (a[i].toInt() xor b[i].toInt())
-        return diff == 0
-    }
-
     companion object {
         private const val MIN_SECRET_BYTES = 32
         private val DEFAULT_ACCESS_TOKEN_TTL: Duration = 15.minutes

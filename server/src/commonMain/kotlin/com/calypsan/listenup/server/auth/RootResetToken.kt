@@ -39,7 +39,7 @@ class RootResetToken private constructor(
     ): ConsumeOutcome {
         val at = armedAt ?: return ConsumeOutcome.Rejected(ConsumeOutcome.Reason.UNARMED)
         if (now > at.plus(WINDOW)) return ConsumeOutcome.Rejected(ConsumeOutcome.Reason.EXPIRED)
-        if (candidate != token) return ConsumeOutcome.Rejected(ConsumeOutcome.Reason.WRONG_TOKEN)
+        if (!constantTimeEquals(candidate, token)) return ConsumeOutcome.Rejected(ConsumeOutcome.Reason.WRONG_TOKEN)
         return if (consumed.compareAndSet(expect = false, update = true)) {
             ConsumeOutcome.Consumed
         } else {

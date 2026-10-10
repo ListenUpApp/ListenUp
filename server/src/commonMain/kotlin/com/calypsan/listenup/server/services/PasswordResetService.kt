@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PasswordPolicy
 import com.calypsan.listenup.server.auth.PepperedHasher
 import com.calypsan.listenup.server.auth.ResetCodeGenerator
+import com.calypsan.listenup.server.auth.constantTimeEquals
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlinx.coroutines.delay
@@ -236,9 +237,11 @@ class PasswordResetService(
                         return@suspendTransaction CompletionOutcome.NotApproved
                     }
 
-                    val claimOk = hasher.hash(CLAIM_DOMAIN + claimSecret) == row.device_claim_hash
+                    val claimOk = constantTimeEquals(hasher.hash(CLAIM_DOMAIN + claimSecret), row.device_claim_hash)
                     val codeOk =
-                        hasher.hash(CODE_DOMAIN + ResetCodeGenerator.normalize(code)) == row.code_hash
+                        row.code_hash?.let {
+                            constantTimeEquals(hasher.hash(CODE_DOMAIN + ResetCodeGenerator.normalize(code)), it)
+                        } ?: false
 
                     if (!claimOk || !codeOk) {
                         db.passwordResetRequestsQueries.incrementAttempts(rowUuid)
@@ -415,7 +418,7 @@ class PasswordResetService(
         val (rowUuid, issuedAtRaw, sig) = parts
         val issuedAt = issuedAtRaw.toLongOrNull() ?: return null
         val expectedSig = hasher.hash(TICKET_DOMAIN + rowUuid + "." + issuedAt).take(TICKET_SIG_LENGTH)
-        if (sig != expectedSig) return null
+        if (!constantTimeEquals(sig, expectedSig)) return null
         return ParsedTicketId(rowUuid = rowUuid, issuedAt = issuedAt)
     }
 
