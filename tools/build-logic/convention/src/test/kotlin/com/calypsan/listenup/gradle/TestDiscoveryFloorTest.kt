@@ -40,7 +40,8 @@ class TestDiscoveryFloorTest {
     fun `reads the spec class of every testcase`() {
         val reports =
             listOf(
-                """<testsuite name="KonsistScopeTest[jvm]" tests="2"><testcase name="a[jvm]" classname="com.x.KonsistScopeTest" time="0"/>""" +
+                """<testsuite name="KonsistScopeTest[jvm]" tests="2">""" +
+                    """<testcase name="a[jvm]" classname="com.x.KonsistScopeTest" time="0"/>""" +
                     """<testcase name="b[jvm]" classname="com.x.KonsistScopeTest" time="0"/></testsuite>""",
                 """<testsuite name="Other[jvm]" tests="1"><testcase name="c[jvm]" classname="com.y.Other" time="0"/></testsuite>""",
             )

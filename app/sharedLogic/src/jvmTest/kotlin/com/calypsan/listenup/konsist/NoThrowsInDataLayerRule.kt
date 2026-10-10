@@ -137,58 +137,56 @@ internal fun String.isDisallowedThrowLine(): Boolean {
     // comment lines keeps prose from masquerading as a residual throw and pinning a file to the
     // allowlist it no longer needs.
     if (line.startsWith("//") || line.startsWith("*") || line.startsWith("/*")) return false
-    return (
-        line.containsThrowToken() &&
-            !SANCTIONED_RETHROW.containsMatchIn(line) && // cancellation rethrows: throw e / throw cause
-            !line.contains("throw NotImplementedError(") && // placeholder
-            // not-connected guard: RPC-proxy factories throw this typed exception when no server
-            // URL is configured (an expected pre-connection state). ErrorMapper folds it to a
-            // transient NetworkUnavailable; it is a configuration guard, not a swallowed failure.
-            !line.contains("throw ServerUrlNotConfiguredException(") &&
-            // unsupported-scheme guard: the twin of the not-connected guard above. A persisted
-            // server URL the RPC transport can't upgrade to WebSocket is a bad URL, and ErrorMapper
-            // folds this typed exception to ServerConnectError.InvalidUrl so the user gets an
-            // actionable message. It replaced a stringly `error(...)` that this rule could not see
-            // at all before THROW_EQUIVALENTS existed.
-            !line.contains("throw ServerUrlSchemeUnsupportedException(") &&
-            // outcome-unknown transport signal: RpcProxyCache throws this when an RPC frame was sent
-            // but the response was lost, so it can't be retried. catchingRpcResult immediately folds
-            // it to a typed AppResult.Failure(TransportError.OutcomeUnknown) — a transport signal, not
-            // a propagated/swallowed failure (same rationale as ServerUrlNotConfiguredException).
-            !line.contains("throw RpcOutcomeUnknownException(") &&
-            // downstream-emit marker: RpcProxyCache.pipe wraps a throw from the DOWNSTREAM collector
-            // in this internal marker so streaming/resubscribe can tell a consumer-side abort apart
-            // from an upstream transport fault. It never escapes the file — both catch clauses unwrap
-            // it and re-raise its cause. A control-flow signal, not a swallowed failure.
-            !line.contains("throw DownstreamEmitException(") &&
-            // transient-auth-refresh signal (C5): RpcProxyCache throws this when a 401-heal refresh
-            // fails TRANSIENTLY (network/timeout/5xx), so the boundary folds it to a RETRYABLE
-            // TransportError and KEEPS the session instead of misreading a network blip as logout.
-            // Same category as RpcOutcomeUnknownException — a typed transport signal, not a swallowed
-            // failure.
-            !line.contains("throw TransientAuthRefreshException(") &&
-            // Its counterpart: RpcProxyCache throws this when the same heal's refresh comes back
-            // server-confirmed DEAD, so the boundary types it as SessionExpired and the reader is
-            // sent to sign in. Typed for the same reason as the line above — the two outcomes must
-            // not be guessed apart at the boundary, least of all from a status string the browser
-            // does not provide.
-            !line.contains("throw SessionLapsedException(") &&
-            // Flow error channel: RegistrationStatusStreamImpl throws this typed failure INTO the
-            // stream so the ViewModel's catch-retry-then-poll fallback fires — a business
-            // RpcEvent.Error (e.g. an unrecognised registration id) must not look like a silent
-            // "still pending". Flow-returning APIs have no AppResult seat; the thrown value is
-            // typed and consumed at the collection site, not swallowed.
-            !line.contains("throw RegistrationStatusStreamFailure(") &&
-            // Same pattern, same rationale: PasswordResetRepositoryImpl.observeStatus mirrors
-            // RegistrationStatusStreamImpl.streamStatus exactly, throwing this typed failure on a
-            // server-surfaced RpcEvent.Error rather than letting it look like "still pending".
-            !line.contains("throw PasswordResetStatusStreamFailure(") &&
-            // pullCatching's sanctioned early-exit signal (core/ResultCatching.kt): pullCatching's
-            // `block` is `crossinline`, so a plain `return` cannot short-circuit it — throwing this
-            // marker and unwrapping it in the crossinline's own catch clause is the only way to bail
-            // out of a block that mixes plain throwing work with an already-AppResult-returning call
-            // without re-deriving a coarser AppError via ErrorMapper. Never escapes the function it
-            // is thrown from — pullCatching converts it back to the carried AppError.Failure.
-            !line.contains("throw TypedAppErrorException(")
-    )
+    return line.containsThrowToken() &&
+        !SANCTIONED_RETHROW.containsMatchIn(line) && // cancellation rethrows: throw e / throw cause
+        !line.contains("throw NotImplementedError(") && // placeholder
+        // not-connected guard: RPC-proxy factories throw this typed exception when no server
+        // URL is configured (an expected pre-connection state). ErrorMapper folds it to a
+        // transient NetworkUnavailable; it is a configuration guard, not a swallowed failure.
+        !line.contains("throw ServerUrlNotConfiguredException(") &&
+        // unsupported-scheme guard: the twin of the not-connected guard above. A persisted
+        // server URL the RPC transport can't upgrade to WebSocket is a bad URL, and ErrorMapper
+        // folds this typed exception to ServerConnectError.InvalidUrl so the user gets an
+        // actionable message. It replaced a stringly `error(...)` that this rule could not see
+        // at all before THROW_EQUIVALENTS existed.
+        !line.contains("throw ServerUrlSchemeUnsupportedException(") &&
+        // outcome-unknown transport signal: RpcProxyCache throws this when an RPC frame was sent
+        // but the response was lost, so it can't be retried. catchingRpcResult immediately folds
+        // it to a typed AppResult.Failure(TransportError.OutcomeUnknown) — a transport signal, not
+        // a propagated/swallowed failure (same rationale as ServerUrlNotConfiguredException).
+        !line.contains("throw RpcOutcomeUnknownException(") &&
+        // downstream-emit marker: RpcProxyCache.pipe wraps a throw from the DOWNSTREAM collector
+        // in this internal marker so streaming/resubscribe can tell a consumer-side abort apart
+        // from an upstream transport fault. It never escapes the file — both catch clauses unwrap
+        // it and re-raise its cause. A control-flow signal, not a swallowed failure.
+        !line.contains("throw DownstreamEmitException(") &&
+        // transient-auth-refresh signal (C5): RpcProxyCache throws this when a 401-heal refresh
+        // fails TRANSIENTLY (network/timeout/5xx), so the boundary folds it to a RETRYABLE
+        // TransportError and KEEPS the session instead of misreading a network blip as logout.
+        // Same category as RpcOutcomeUnknownException — a typed transport signal, not a swallowed
+        // failure.
+        !line.contains("throw TransientAuthRefreshException(") &&
+        // Its counterpart: RpcProxyCache throws this when the same heal's refresh comes back
+        // server-confirmed DEAD, so the boundary types it as SessionExpired and the reader is
+        // sent to sign in. Typed for the same reason as the line above — the two outcomes must
+        // not be guessed apart at the boundary, least of all from a status string the browser
+        // does not provide.
+        !line.contains("throw SessionLapsedException(") &&
+        // Flow error channel: RegistrationStatusStreamImpl throws this typed failure INTO the
+        // stream so the ViewModel's catch-retry-then-poll fallback fires — a business
+        // RpcEvent.Error (e.g. an unrecognised registration id) must not look like a silent
+        // "still pending". Flow-returning APIs have no AppResult seat; the thrown value is
+        // typed and consumed at the collection site, not swallowed.
+        !line.contains("throw RegistrationStatusStreamFailure(") &&
+        // Same pattern, same rationale: PasswordResetRepositoryImpl.observeStatus mirrors
+        // RegistrationStatusStreamImpl.streamStatus exactly, throwing this typed failure on a
+        // server-surfaced RpcEvent.Error rather than letting it look like "still pending".
+        !line.contains("throw PasswordResetStatusStreamFailure(") &&
+        // pullCatching's sanctioned early-exit signal (core/ResultCatching.kt): pullCatching's
+        // `block` is `crossinline`, so a plain `return` cannot short-circuit it — throwing this
+        // marker and unwrapping it in the crossinline's own catch clause is the only way to bail
+        // out of a block that mixes plain throwing work with an already-AppResult-returning call
+        // without re-deriving a coarser AppError via ErrorMapper. Never escapes the function it
+        // is thrown from — pullCatching converts it back to the carried AppError.Failure.
+        !line.contains("throw TypedAppErrorException(")
 }
