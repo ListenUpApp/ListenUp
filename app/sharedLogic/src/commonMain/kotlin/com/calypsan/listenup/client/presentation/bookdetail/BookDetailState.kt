@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.core.formatSeriesSequence
 import com.calypsan.listenup.client.domain.model.BookDetail
@@ -194,4 +196,126 @@ private fun isSubtitleRedundant(
 
     // If very little meaningful content remains (less than 3 chars), it's redundant
     return remaining.length < 3
+}
+
+/** Where loading the requested book stands. Loading itself is not a value here: it is any load of another id. */
+internal sealed interface BookLoad {
+    /** The book this load is about. */
+    val bookId: String
+
+    /** Room has no row for [bookId]. */
+    data class Missing(
+        override val bookId: String,
+    ) : BookLoad
+
+    /** Room's latest word on [bookId]. */
+    data class Loaded(
+        override val bookId: String,
+        val snapshot: BookSnapshot,
+    ) : BookLoad
+}
+
+/**
+ * What the reader's own action shows before Room catches up. The position is read once per load, so after Mark
+ * finished, Discard progress or Restart the page shows the outcome at once; the next Room emission re-derives it.
+ * PR 1 makes the position live and deletes this.
+ */
+internal enum class ProgressOverride { Completed, Discarded, Restarted }
+
+/**
+ * The reader's transient state on one book — open pickers, writes in flight, inline refusals — kept apart from what
+ * Room says, so Room re-emitting (a sync frame, a download tick, a reachability flip) can never close a picker
+ * mid-interaction. Keyed by [bookId]: switching books starts a fresh overlay, and a write that answers after the
+ * switch cannot reach the new book.
+ *
+ * A new user-transient field on [BookDetailUiState.Ready] goes here and into [withOverlay].
+ */
+internal data class BookDetailOverlay(
+    val bookId: String?,
+    val isMarkingComplete: Boolean = false,
+    val isDiscardingProgress: Boolean = false,
+    val isRestarting: Boolean = false,
+    val showShelfPicker: Boolean = false,
+    val isAddingToShelf: Boolean = false,
+    val shelfError: String? = null,
+    val showCollectionPicker: Boolean = false,
+    val isAddingToCollection: Boolean = false,
+    val collectionError: String? = null,
+    val isDeletingBook: Boolean = false,
+    val deleteError: AppError? = null,
+    val isReleasingFromInbox: Boolean = false,
+    val isRestoringToAllBooks: Boolean = false,
+    val progressOverride: ProgressOverride? = null,
+) {
+    /**
+     * What a fresh Room emission for [load] retires: the optimistic progress (Room has spoken), and "restoring"
+     * once the book is no longer stranded — for good, so being stranded again later does not resurrect it. A
+     * vanished row clears everything, as the old Error-breaks-the-chain behaviour did. Another book's load is
+     * none of this overlay's business.
+     */
+    fun retiredBy(load: BookLoad): BookDetailOverlay =
+        when {
+            load.bookId != bookId -> {
+                this
+            }
+
+            load is BookLoad.Missing -> {
+                BookDetailOverlay(bookId)
+            }
+
+            else -> {
+                val stillStranded = (load as BookLoad.Loaded).snapshot.visibility is BookVisibility.Stranded
+                copy(progressOverride = null, isRestoringToAllBooks = isRestoringToAllBooks && stillStranded)
+            }
+        }
+}
+
+/** This page with the reader's [overlay] laid on it. */
+internal fun BookDetailUiState.Ready.withOverlay(overlay: BookDetailOverlay): BookDetailUiState.Ready {
+    val shown =
+        copy(
+            isMarkingComplete = overlay.isMarkingComplete,
+            isDiscardingProgress = overlay.isDiscardingProgress,
+            isRestarting = overlay.isRestarting,
+            showShelfPicker = overlay.showShelfPicker,
+            isAddingToShelf = overlay.isAddingToShelf,
+            shelfError = overlay.shelfError,
+            showCollectionPicker = overlay.showCollectionPicker,
+            isAddingToCollection = overlay.isAddingToCollection,
+            collectionError = overlay.collectionError,
+            isDeletingBook = overlay.isDeletingBook,
+            deleteError = overlay.deleteError,
+            isReleasingFromInbox = overlay.isReleasingFromInbox,
+            // The echo that re-homes a stranded book is exactly what ends "restoring".
+            isRestoringToAllBooks = overlay.isRestoringToAllBooks && visibility is BookVisibility.Stranded,
+        )
+    return when (overlay.progressOverride) {
+        null -> shown
+        ProgressOverride.Completed -> shown.copy(isComplete = true)
+        ProgressOverride.Discarded -> shown.copy(isComplete = false, progress = null, timeRemainingFormatted = null)
+        ProgressOverride.Restarted -> shown.copy(isComplete = false, progress = 0f)
+    }
+}
+
+/**
+ * Book Detail's whole screen state. `Loading` whenever the latest [load] is not for [requestedBookId], so a page
+ * can only ever describe the book that was asked for; the [overlay] applies only to that book.
+ */
+internal fun bookDetailUiState(
+    requestedBookId: String?,
+    load: BookLoad?,
+    ambient: BookDetailAmbient,
+    overlay: BookDetailOverlay,
+): BookDetailUiState {
+    if (requestedBookId == null || load == null || load.bookId != requestedBookId) return BookDetailUiState.Loading
+    return when (load) {
+        is BookLoad.Missing -> {
+            BookDetailUiState.Error(BookError.NotFound())
+        }
+
+        is BookLoad.Loaded -> {
+            val own = overlay.takeIf { it.bookId == requestedBookId } ?: BookDetailOverlay(requestedBookId)
+            load.snapshot.toReady(ambient).withOverlay(own)
+        }
+    }
 }
