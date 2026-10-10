@@ -53,6 +53,7 @@ private fun page(
     onOpenHardcover: () -> Unit = {},
     canCurateLibrary: Boolean = false,
     onOpenCategories: () -> Unit = {},
+    onDownloadLogs: (() -> Unit)? = null,
 ) {
     SettingsPage(
         state = state,
@@ -70,6 +71,7 @@ private fun page(
         onOpenHardcover = onOpenHardcover,
         canCurateLibrary = canCurateLibrary,
         onOpenCategories = onOpenCategories,
+        onDownloadLogs = onDownloadLogs,
     )
 }
 
@@ -298,5 +300,35 @@ class SettingsPageTest :
 
             val listener = mounts.mount { page(canCurateLibrary = false) }
             listener.textContent.orEmpty() shouldNotContain "Merge and delete genres for everyone"
+        }
+
+        // Android's "Share logs" row, as a browser can do it: the recent log arrives as a file.
+        test("About offers the recent logs as a download") {
+            var downloads = 0
+            val host = mounts.mount { page(onDownloadLogs = { downloads++ }) }
+            val entry =
+                host
+                    .querySelectorAll("button")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .single { it.textContent.orEmpty().contains("Download logs") }
+            entry.textContent.orEmpty() shouldContain "Export recent app logs for troubleshooting"
+
+            val about =
+                host
+                    .querySelectorAll(".set-section")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .single { it.querySelector(".set-section-h")?.textContent == "About" }
+            about.contains(entry) shouldBe true
+
+            entry.click()
+            downloads shouldBe 1
+        }
+
+        test("with no log buffer there is no download to offer") {
+            val host = mounts.mount { page(onDownloadLogs = null) }
+
+            host.textContent.orEmpty() shouldNotContain "Download logs"
         }
     })

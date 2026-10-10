@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.web.lifecycle.Playhead
+import com.calypsan.listenup.web.logging.installRecentLogCapture
 import com.calypsan.listenup.web.lifecycle.flushPositionWhenHidden
 import com.calypsan.listenup.web.lifecycle.keepCoverCookieFreshWhileVisible
 import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
@@ -121,6 +122,10 @@ import org.w3c.dom.Worker
 fun main() {
     val mount = document.getElementById(MOUNT_ID) ?: return
 
+    // First, so everything below logs into the recent-log buffer Settings → Download logs saves.
+    // Below the guard: the test page boots no app, and its specs install nothing global.
+    val recentLogs = installRecentLogCapture()
+
     // Probe first, boot second. Every precondition below is checked without touching the store,
     // so a browser that can persist the database is unaffected.
     //
@@ -133,7 +138,13 @@ fun main() {
 
     // The worker is the one thing :app:sharedLogic cannot supply — it ships no worker script —
     // so it is the browser application's contribution to an otherwise shared graph.
-    val koin = startWebKoin(module { single<Worker> { createSqliteWorker() } }).koin
+    val koin =
+        startWebKoin(
+            module {
+                single<Worker> { createSqliteWorker() }
+                single { recentLogs }
+            },
+        ).koin
 
     // The server URL must be seeded before the composition mounts, or a ViewModel's first RPC
     // call can race the seed write and dial an unconfigured client. Sequencing render as this
