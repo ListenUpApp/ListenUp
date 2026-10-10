@@ -96,9 +96,8 @@ internal class AdminSettingsServiceImpl(
         }
         patch.remoteUrl?.let { url ->
             val trimmed = url.trim()
-            if (trimmed.length > MAX_REMOTE_URL) return AppResult.Failure(AdminError.InvalidInput())
             // Blank clears; anything else must be a plain http(s) URL, the shape every app can use.
-            if (trimmed.isNotEmpty() && !isHttpUrl(trimmed)) {
+            if (trimmed.length > MAX_REMOTE_URL || (trimmed.isNotEmpty() && !isHttpUrl(trimmed))) {
                 return AppResult.Failure(AdminError.InvalidInput(debugInfo = "remoteUrl must be an http(s) URL"))
             }
             settings.setRemoteUrl(trimmed)
