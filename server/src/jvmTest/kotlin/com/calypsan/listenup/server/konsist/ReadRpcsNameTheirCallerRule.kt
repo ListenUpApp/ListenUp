@@ -47,13 +47,10 @@ class ReadRpcsNameTheirCallerRule :
          */
         val UNREVIEWED_OPEN_READS: Set<String> =
             setOf(
-                "ContributorServiceImpl.getContributor", // one contributor row, whichever books they wrote
-                "SeriesServiceImpl.getSeries", // one series row, whichever books it holds
                 "GenreServiceImpl.getGenreStats", // book count and total duration across all books, not the caller's
                 "MoodServiceImpl.getMoodStats", // book count and total duration across all books, not the caller's
                 "TagServiceImpl.getTagStats", // book count and total duration across all books, not the caller's
                 "GenreServiceImpl.listUnmappedStrings", // raw genre strings from scanned books, with book counts
-                "LibraryAdminServiceImpl.getSetupStatus", // whether the library has folders and whether a scan runs
             )
 
         private val PRINCIPAL_WORD = Regex("""principal""", RegexOption.IGNORE_CASE)

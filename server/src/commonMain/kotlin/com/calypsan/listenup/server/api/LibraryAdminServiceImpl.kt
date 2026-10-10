@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.LibrarySyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
@@ -96,6 +97,7 @@ internal class LibraryAdminServiceImpl(
         return AppResult.Success(payload.toLibraryWithFolders())
     }
 
+    @OpenRead(reason = "onboarding flags only; names no book, folder or path")
     override suspend fun getSetupStatus(): AppResult<SetupStatus> {
         // Open to any authenticated caller: drives first-launch onboarding before any admin exists.
         // needsSetup is true when THE library has no folders (not when there are no libraries —

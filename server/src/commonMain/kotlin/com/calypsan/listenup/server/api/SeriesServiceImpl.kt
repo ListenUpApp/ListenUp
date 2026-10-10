@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -117,6 +118,7 @@ internal class SeriesServiceImpl(
             entityRepo = entityRepo,
         )
 
+    @OpenRead(reason = "every member already receives every series row through sync")
     override suspend fun getSeries(id: SeriesId): AppResult<SeriesSyncPayload?> =
         AppResult.Success(seriesRepo.findById(id.value))
 

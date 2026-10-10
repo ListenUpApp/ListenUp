@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -121,6 +122,7 @@ internal class ContributorServiceImpl(
             principal = principal,
         )
 
+    @OpenRead(reason = "every member already receives every contributor row through sync")
     override suspend fun getContributor(id: ContributorId): AppResult<ContributorSyncPayload?> =
         AppResult.Success(contributorRepo.findById(id.value))
 
