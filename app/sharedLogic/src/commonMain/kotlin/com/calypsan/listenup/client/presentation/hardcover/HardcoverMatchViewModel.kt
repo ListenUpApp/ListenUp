@@ -204,9 +204,19 @@ class HardcoverMatchViewModel(
             (search.value as? HardcoverSearchState.Results)?.run { rows.firstOrNull { it.hcBookId == hcBookId } }
                 ?: return
         if (!pending.compareAndSet(PendingAction.None, PendingAction.Linking(hcBookId))) return
-        val replaced = (subject.value as? MatchSubject.Found)?.currentMatch
         viewModelScope.launch {
             try {
+                val replaced =
+                    when (val known = knownCurrentMatch()) {
+                        is AppResult.Success -> {
+                            known.data
+                        }
+
+                        is AppResult.Failure -> {
+                            eventChannel.send(HardcoverMatchEvent.ShowError(known.error))
+                            return@launch
+                        }
+                    }
                 val event =
                     when (val result = repository.linkBook(BookId(bookId), row.hcBookId, row.hcEditionId)) {
                         is AppResult.Success -> {
@@ -294,14 +304,42 @@ class HardcoverMatchViewModel(
         }
     }
 
+    /**
+     * The book's match today, read again if opening the screen could not read it. Linking over a match
+     * that was never read would leave Undo with nothing to put back, so an unreadable match stops the link.
+     */
+    private suspend fun knownCurrentMatch(): AppResult<HardcoverMatchedBook?> {
+        val found = subject.value as? MatchSubject.Found ?: return AppResult.Success(null)
+        if (found.matchKnown) return AppResult.Success(found.currentMatch)
+        return when (val read = repository.bookMatch(BookId(bookId))) {
+            is AppResult.Success -> {
+                val current = (read.data as? HardcoverBookMatch.Linked)?.toMatchedBook()
+                subject.update { (it as? MatchSubject.Found)?.copy(currentMatch = current, matchKnown = true) ?: it }
+                AppResult.Success(current)
+            }
+
+            is AppResult.Failure -> {
+                read
+            }
+        }
+    }
+
     private suspend fun load() {
         val book = bookRepository.getBookListItem(bookId)
         if (book == null) {
             subject.value = MatchSubject.Missing
             return
         }
-        val current = repository.bookMatch(BookId(bookId)).getOrNull() as? HardcoverBookMatch.Linked
-        subject.value = MatchSubject.Found(book, current?.toMatchedBook())
+        subject.value =
+            when (val read = repository.bookMatch(BookId(bookId))) {
+                is AppResult.Success -> {
+                    MatchSubject.Found(book, (read.data as? HardcoverBookMatch.Linked)?.toMatchedBook(), matchKnown = true)
+                }
+
+                is AppResult.Failure -> {
+                    MatchSubject.Found(book, currentMatch = null, matchKnown = false)
+                }
+            }
         query.value = book.title
         runSearch(book.title, book)
     }
@@ -403,10 +441,14 @@ private sealed interface MatchSubject {
     /** The book is no longer in the library on this device. */
     data object Missing : MatchSubject
 
-    /** The book, as the library has it, and its match today ([currentMatch], or null). */
+    /**
+     * The book, as the library has it, and its match today ([currentMatch], or null). [matchKnown] is false
+     * when reading the match failed, so a null [currentMatch] then means "unknown", not "none".
+     */
     data class Found(
         val book: BookListItem,
         val currentMatch: HardcoverMatchedBook?,
+        val matchKnown: Boolean,
     ) : MatchSubject
 }
 
