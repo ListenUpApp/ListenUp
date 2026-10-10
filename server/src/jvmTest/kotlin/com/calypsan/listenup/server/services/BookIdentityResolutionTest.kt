@@ -226,7 +226,11 @@ private class ResolutionFixture(
             .executeAsOne()
             .deleted_at != null
 
-    fun rowCount(): Int = dbs.sql.booksQueries.selectIdsByFolder(FOLDER.value).executeAsList().size
+    fun rowCount(): Int =
+        dbs.sql.booksQueries
+            .selectIdsByFolder(FOLDER.value)
+            .executeAsList()
+            .size
 }
 
 private fun resolutionFixture(dbs: SqlTestDatabases): ResolutionFixture {

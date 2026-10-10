@@ -83,8 +83,7 @@ internal class BookFinder(
                     }
             val sizesByBook =
                 rows
-                    .map { it.id }
-                    .distinct()
+                    .mapTo(mutableSetOf()) { it.id }
                     .chunked(SQLITE_IN_CHUNK)
                     .flatMap { chunk ->
                         db.bookAudioFilesQueries.selectSizesForBooks(chunk).executeAsList()

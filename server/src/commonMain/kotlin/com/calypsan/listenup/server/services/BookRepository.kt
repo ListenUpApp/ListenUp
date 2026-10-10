@@ -739,7 +739,7 @@ class BookRepository(
         val occupiedPaths =
             candidates
                 .map { it.rootRelPath }
-                .filter { folderRoot != null && SystemFileSystem.metadataOrNull(Path(folderRoot, it))?.isDirectory == true }
+                .filter { relPath -> folderRoot != null && isDirectoryOnDisk(folderRoot, relPath) }
                 .toSet()
         return trustedMove(candidates, identityFile.size, occupiedPaths + analyzed.candidate.rootRelPath)
     }
@@ -747,6 +747,11 @@ class BookRepository(
     /** The file whose inode anchors this book's identity — the same pick as [identityInode], with its size. */
     private fun CandidateBook.identityFile(): FileEntry? =
         files.firstOrNull { it.fileType == FileType.AUDIO && it.inode != null }
+
+    private fun isDirectoryOnDisk(
+        folderRoot: String,
+        rootRelPath: String,
+    ): Boolean = SystemFileSystem.metadataOrNull(Path(folderRoot, rootRelPath))?.isDirectory == true
 
     private suspend fun folderRootPath(folderId: FolderId): String? =
         suspendTransaction(db) {
@@ -768,8 +773,7 @@ class BookRepository(
         pathsInThisIngest: Set<String>,
     ): BookId? =
         candidates
-            .filter { identityFileSize in it.audioFileSizes && it.rootRelPath !in pathsInThisIngest }
-            .singleOrNull()
+            .singleOrNull { identityFileSize in it.audioFileSizes && it.rootRelPath !in pathsInThisIngest }
             ?.bookId
 
     /**
@@ -1038,7 +1042,11 @@ class BookRepository(
         // per-book read transactions with two reads for the whole scan.
         val byPath = bookFinder.findExistingByPaths(folderId, valid.map { it.candidate.rootRelPath })
         val pathsInThisIngest = valid.mapTo(mutableSetOf()) { it.candidate.rootRelPath }
-        val inodeCandidates = bookFinder.findInodeCandidates(folderId, valid.mapNotNull { it.candidate.identityInode() })
+        val inodeCandidates =
+            bookFinder.findInodeCandidates(
+                folderId,
+                valid.mapNotNull { it.candidate.identityInode() },
+            )
 
         // Resolve each book's stable BookId in memory from the bulk maps (natural key, then a
         // corroborated inode move, then a fresh UUID) — the same model resolveOrInsert applies per book.
@@ -1051,11 +1059,13 @@ class BookRepository(
         val resolved =
             valid.map { analyzed ->
                 val rootRelPath = analyzed.candidate.rootRelPath
+                val identityFile = analyzed.candidate.identityFile()
+                val candidates = identityFile?.inode?.let { inodeCandidates[it] }
                 val movedFrom =
-                    analyzed.candidate.identityFile()?.let { file ->
-                        file.inode
-                            ?.let { inodeCandidates[it] }
-                            ?.let { trustedMove(it, file.size, pathsInThisIngest) }
+                    if (identityFile != null && candidates != null) {
+                        trustedMove(candidates, identityFile.size, pathsInThisIngest)
+                    } else {
+                        null
                     }
                 val existing = byPath[rootRelPath] ?: movedFrom
                 Resolved(analyzed, existing ?: BookId(Uuid.random().toString()), isNew = existing == null)
