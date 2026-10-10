@@ -122,6 +122,11 @@ import org.w3c.dom.Worker
  */
 fun main() {
     val mount = document.getElementById(MOUNT_ID) ?: return
+    bootGuarded(mount)
+}
+
+/** Boots into [mount], or says why it could not: the one guard over everything that runs before the first render. */
+private fun bootGuarded(mount: Element) {
     try {
         bootInto(mount)
     } catch (e: CancellationException) {
@@ -131,7 +136,6 @@ fun main() {
     }
 }
 
-/** Everything `main` does once it has somewhere to render; split out so one guard covers all of it. */
 private fun bootInto(mount: Element) {
     // Probe first, boot second. Every precondition below is checked without touching the store,
     // so a browser that can persist the database is unaffected.
@@ -171,34 +175,7 @@ private fun bootInto(mount: Element) {
         // wrong theme and then correct it in front of the reader.
         koin.get<LocalPreferences>().initializeLocalPreferences()
         connectSyncWhenAuthenticated(koin, this)
-        // The disposer is deliberately discarded: this scope lives as long as the tab does.
-        flushPositionWhenHidden(
-            playhead = {
-                // Resolved per event, not at boot: `koin.get<PlaybackManager>()` would build the
-                // whole playback graph before anyone had asked to play anything.
-                val manager = koin.get<PlaybackManager>()
-                manager.currentBookId.value?.let { Playhead(it, manager.currentPositionMs.value) }
-            },
-            flush = { koin.get<ProgressTracker>().savePositionNow(it.bookId, it.positionMs) },
-            isHidden = { document.asDynamic().visibilityState == "hidden" },
-            scope = this,
-        )
-        recoverSyncOnReturn(
-            recover = { koin.get<SyncRepository>().recoverRealtime() },
-            isVisible = { document.asDynamic().visibilityState == "visible" },
-            scope = this,
-        )
-        // Covers authenticate with a cookie the DOM sends on its own; keep its token usable while
-        // the tab is on screen (and only then). See keepCoverCookieFreshWhileVisible.
-        keepCoverCookieFreshWhileVisible(
-            ensureFresh = {
-                if (koin.get<AuthSession>().authState.value is AuthState.Authenticated) {
-                    koin.get<AudioTokenProvider>().prepareForPlayback()
-                }
-            },
-            isVisible = { document.asDynamic().visibilityState == "visible" },
-            scope = this,
-        )
+        startLifecycleHooks(koin, this)
 
         // Read and strip BEFORE the router is built, so it never sees the code: the router
         // reads `window.location` in its constructor, and an entry it captured with the code in
@@ -288,6 +265,44 @@ private fun bootInto(mount: Element) {
             )
         }
     }
+}
+
+/**
+ * Starts the tab-lifetime behaviours that outlive any one screen: saving the playhead when the tab
+ * hides, recovering realtime sync on return, and keeping the cover cookie fresh.
+ */
+private fun startLifecycleHooks(
+    koin: Koin,
+    scope: CoroutineScope,
+) {
+    // The disposer is deliberately discarded: this scope lives as long as the tab does.
+    flushPositionWhenHidden(
+        playhead = {
+            // Resolved per event, not at boot: `koin.get<PlaybackManager>()` would build the
+            // whole playback graph before anyone had asked to play anything.
+            val manager = koin.get<PlaybackManager>()
+            manager.currentBookId.value?.let { Playhead(it, manager.currentPositionMs.value) }
+        },
+        flush = { koin.get<ProgressTracker>().savePositionNow(it.bookId, it.positionMs) },
+        isHidden = { document.asDynamic().visibilityState == "hidden" },
+        scope = scope,
+    )
+    recoverSyncOnReturn(
+        recover = { koin.get<SyncRepository>().recoverRealtime() },
+        isVisible = { document.asDynamic().visibilityState == "visible" },
+        scope = scope,
+    )
+    // Covers authenticate with a cookie the DOM sends on its own; keep its token usable while
+    // the tab is on screen (and only then). See keepCoverCookieFreshWhileVisible.
+    keepCoverCookieFreshWhileVisible(
+        ensureFresh = {
+            if (koin.get<AuthSession>().authState.value is AuthState.Authenticated) {
+                koin.get<AudioTokenProvider>().prepareForPlayback()
+            }
+        },
+        isVisible = { document.asDynamic().visibilityState == "visible" },
+        scope = scope,
+    )
 }
 
 /**

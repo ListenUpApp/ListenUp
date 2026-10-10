@@ -140,7 +140,7 @@ private fun scrollState(offset: Double): dynamic {
     return state
 }
 
-private fun scrollOffsetOf(state: dynamic): Double? = (state.scroll as? Double)
+private fun scrollOffsetOf(state: dynamic): Double? = state.scroll as? Double
 
 private fun locationRoute(): Route = Route.parse(window.location.pathname + window.location.search)
 

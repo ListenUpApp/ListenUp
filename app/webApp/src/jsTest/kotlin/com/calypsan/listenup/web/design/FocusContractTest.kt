@@ -41,7 +41,7 @@ class FocusContractTest :
                         if (nested != null) collect(nested)
                         continue
                     }
-                    val removes = (rule.style.outlineStyle as? String) == "none"
+                    val removes = rule.style.outlineStyle as? String == "none"
                     val radius = (rule.style.borderRadius as? String).orEmpty()
                     selectorText.split(",").forEach { found += FocusRule(it.trim(), removes, radius) }
                 }
