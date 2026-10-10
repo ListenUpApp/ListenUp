@@ -43,6 +43,10 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
             else -> keying.refetchFor(outboxKey)
         }
 
+    override suspend fun discardUnacknowledged(outboxKey: String) {
+        domain.outboxKeying?.discardUnacknowledged?.invoke(outboxKey)
+    }
+
     init {
         registry.register(this)
     }

@@ -101,12 +101,20 @@ internal interface ShelfBookDao {
     suspend fun deleteAll()
 
     /**
-     * All rows (including tombstones) with [revision][ShelfBookEntity.revision] <= [max], for digest computation.
+     * All live rows the server has acknowledged (revision above 0) up to [max], for digest computation.
      *
-     * The id is the synthetic `"$shelfId:$bookId"` — the same form the server uses on the wire.
+     * A revision-0 row is an optimistic add the server has not acknowledged; the server cannot
+     * have it, so counting it would make the domain read as drifted until the add drains.
      */
-    @Query("SELECT id AS id, revision FROM shelf_books WHERE deletedAt IS NULL AND revision <= :max")
+    @Query("SELECT id AS id, revision FROM shelf_books WHERE deletedAt IS NULL AND revision > 0 AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** Removes the optimistic row of a pair whose add the server never acknowledged (revision 0). */
+    @Query("DELETE FROM shelf_books WHERE shelfId = :shelfId AND bookId = :bookId AND revision = 0")
+    suspend fun deleteUnacknowledged(
+        shelfId: String,
+        bookId: String,
+    )
 
     /** The stored revision of the row with synthetic [id], tombstones included; null when never seen. */
     @Query("SELECT revision FROM shelf_books WHERE id = :id LIMIT 1")
