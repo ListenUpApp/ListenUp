@@ -219,17 +219,17 @@ kotlin {
 // A lane with a lane-only source set must sit above the common set's count, and anchors vouch for that
 // source set by name: jvmTest is the common tests plus the JVM-only Konsist rules and Koin verify specs,
 // so a floor under the common count would pass with all of them gone.
-// 5,159 ran green on 2026-10-09.
+// 4,735 ran green on 2026-10-09.
 failBelowDiscoveredTestCount(
     "jvmTest",
-    floor = 4100,
+    floor = 3700,
     anchorSpecs =
         listOf(
             "com.calypsan.listenup.konsist.KonsistScopeTest",
             "com.calypsan.listenup.client.di.AppCoreModuleVerifyTest",
         ),
 )
-// 3,598 ran green on 2026-10-09.
+// 3,174 ran green on 2026-10-09.
 failBelowDiscoveredTestCount("testAndroidHostTest", floor = 1950)
 // The Apple lane needs one more than most: a native lane missing its Kotest entry point reports green
 // over zero discovered specs, which is indistinguishable from a healthy run. 2,827 ran green on

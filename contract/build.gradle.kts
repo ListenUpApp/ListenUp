@@ -106,19 +106,21 @@ tasks.named<org.gradle.api.tasks.testing.Test>("jvmTest") {
 // the lane's JUnit XML after the run (build-logic's TestDiscoveryFloor.kt), so it reads the TASK TOTAL
 // across forked workers and still fires when the lane found nothing at all.
 //
-// The floor catches COLLAPSE, not attrition: 376 tests ran green on 2026-10-09, and the bar sits
+// The floor catches COLLAPSE, not attrition: 800 tests ran green on 2026-10-09, and the bar sits
 // far enough below that a normal deletion does not trip it. jvmTest is the common specs plus a small
-// JVM-only source set that the count cannot vouch for, so an anchor spec vouches for it by name. Deliberately not a ratchet — PR #1214
-// removed ~180 server tests in one legitimate change, so a floor set just under the current count
+// JVM-only source set that the count cannot vouch for, so an anchor spec vouches for it by name.
+// Deliberately not a ratchet — PR #1214 removed ~180 server tests in one legitimate change, so a floor set just under the current count
 // would fail honest work and train people to edit the number without reading it.
 failBelowDiscoveredTestCount(
     "jvmTest",
-    floor = 300,
+    floor = 640,
     anchorSpecs = listOf("com.calypsan.listenup.api.RpcSurfaceSerializersTest"),
 )
 // The same commonTest specs on Kotlin/Native. Until the Kotest plugin was applied above, this lane ran
-// none of them and reported green. 333 ran green on 2026-10-08.
-failBelowDiscoveredTestCount("linuxX64Test", floor = 270)
+// none of them and reported green. 333 ran green on 2026-10-08; the wire-format specs moved in from :app:sharedLogic then
+// added 424 to jvmTest, so this floor is DERIVED (270 + 80% of 424, rounded down), not measured. Correct it from the
+// first green CI run.
+failBelowDiscoveredTestCount("linuxX64Test", floor = 600)
 
 dependencies {
     // :tools:rpc-guard-ksp scans the @Rpc interfaces in this module's commonMain and

@@ -4,7 +4,7 @@ import com.calypsan.listenup.api.sync.SyncControl
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
-class SyncControlContractTest :
+class SyncControlSignalFramesContractTest :
     FunSpec({
         test("ServerInfoChanged round-trips on the polymorphic SyncControl surface") {
             val original: SyncControl = SyncControl.ServerInfoChanged
