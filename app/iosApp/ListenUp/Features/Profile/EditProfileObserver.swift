@@ -53,11 +53,10 @@ final class EditProfileObserver {
 
     init(viewModel: EditProfileViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

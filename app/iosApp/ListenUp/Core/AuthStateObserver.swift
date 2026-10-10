@@ -39,8 +39,6 @@ final class AuthStateObserver {
         }
     }
 
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
-
     // MARK: - Mapping
 
     private func apply(_ authState: AuthState) {

@@ -32,6 +32,7 @@ final class PersonMatchObserver {
 
     init(viewModel: PersonMatchViewModel, userRepository: UserRepository = KoinHelper.shared.getUserRepository()) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.findState) { [weak self] in self?.applyFind($0) }
         bridge.bind(viewModel.reviewState) { [weak self] in self?.applyReview($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
@@ -40,13 +41,6 @@ final class PersonMatchObserver {
             viewerId = user?.idString
             if let lastReview { review = PersonMatchMapping.review(from: lastReview, viewerId: viewerId) }
         }
-    }
-
-    // Isolated deinit (SE-0371): iOS has no ViewModelStore to call `onCleared`, so the observer closes the shared
-    // ViewModel itself — otherwise an in-flight search, review or Apply keeps its scope alive after the screen.
-    isolated deinit {
-        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
-        viewModel.close()
     }
 
     // MARK: - Find

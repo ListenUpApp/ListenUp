@@ -114,12 +114,11 @@ final class SeriesDetailObserver {
 
     init(viewModel: SeriesDetailViewModel, playerCoordinator: PlayerCoordinator) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         self.playerCoordinator = playerCoordinator
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.addSubSeries) { [weak self] in self?.applyAddSubSeries($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

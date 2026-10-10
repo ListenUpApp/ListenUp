@@ -18,6 +18,7 @@ final class SearchObserver {
     /// clears it (`nil`) once the push is enqueued.
     var pendingNavigation: SearchRoute?
 
+    // view-model-owner: nobody — Dependencies.searchViewModel is shared for the process.
     private let viewModel: SearchViewModel
     private let bridge = FlowBridge()
 
@@ -26,8 +27,6 @@ final class SearchObserver {
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

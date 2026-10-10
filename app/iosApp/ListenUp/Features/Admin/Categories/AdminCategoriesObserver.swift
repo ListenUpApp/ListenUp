@@ -26,13 +26,12 @@ final class AdminCategoriesObserver {
 
     init(viewModel: AdminCategoriesViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.phase = Self.phase(from: $0) }
         bridge.bind(viewModel.mergeHistory) { [weak self] open in
             self?.mergeHistory = open.map(GenreMergeHistoryModel.init)
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

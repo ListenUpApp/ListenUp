@@ -27,10 +27,9 @@ final class BookReadersObserver {
 
     init(viewModel: BookReadersViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - State mapping
 

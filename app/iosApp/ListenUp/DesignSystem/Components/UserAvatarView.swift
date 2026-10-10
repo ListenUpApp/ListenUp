@@ -194,8 +194,6 @@ final class AvatarProfileObserver {
             self?.version = profile?.updatedAt ?? 0
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 }
 
 // MARK: - Preview

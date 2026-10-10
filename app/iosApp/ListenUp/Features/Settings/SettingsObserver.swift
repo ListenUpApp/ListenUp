@@ -60,13 +60,12 @@ final class SettingsObserver {
         stopPlayback: @escaping () async -> Void
     ) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         self.stopPlayback = stopPlayback
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.hardcoverRow) { [weak self] in self?.hardcoverRow = HardcoverRowValue(from: $0) }
         bridge.bind(viewModel.canCurateLibrary) { [weak self] value in self?.canCurateLibrary = value }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - State mapping
 

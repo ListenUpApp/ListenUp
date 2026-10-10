@@ -147,11 +147,10 @@ final class BookEditObserver {
 
     init(viewModel: BookEditViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func loadBook(bookId: String) {
         viewModel.loadBook(bookId: bookId)

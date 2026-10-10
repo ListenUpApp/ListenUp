@@ -25,13 +25,12 @@ final class RestoreBackupObserver {
 
     init(viewModel: RestoreBackupViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.progress) { [weak self] event in
             self?.statusLabel = Self.statusLabel(from: event)
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

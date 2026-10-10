@@ -28,11 +28,10 @@ final class RestoreFromFileObserver {
 
     init(viewModel: RestoreFromFileViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navigation) { [weak self] id in self?.stagedBackupId = id.value }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

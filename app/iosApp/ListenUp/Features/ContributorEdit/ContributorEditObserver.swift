@@ -41,14 +41,13 @@ final class ContributorEditObserver {
 
     init(viewModel: ContributorEditViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
         bridge.bind(viewModel.mergeCandidates) { [weak self] candidates in
             self?.mergeCandidates = candidates.map(MergeCandidate.init)
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func loadContributor(contributorId: String) { viewModel.loadContributor(contributorId: contributorId) }
 

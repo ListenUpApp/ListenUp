@@ -13,10 +13,9 @@ final class UserPermissionsObserver {
 
     init(viewModel: UserPermissionsViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }
 
     // MARK: - Actions
 

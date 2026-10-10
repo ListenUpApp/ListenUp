@@ -35,10 +35,9 @@ final class LeaderboardObserver {
 
     init(viewModel: LeaderboardViewModel = Dependencies.shared.createLeaderboardViewModel()) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

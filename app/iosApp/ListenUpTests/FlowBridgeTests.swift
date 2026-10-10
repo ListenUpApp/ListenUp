@@ -154,4 +154,54 @@ struct FlowBridgeTests {
         // No crash, and delivery stopped — the cancellation took effect.
         #expect(received.count < 3)
     }
+
+    @Test func releaseActionsRunWhenTheBridgeIsReleased() async {
+        var ran = 0
+        do {
+            let bridge = FlowBridge()
+            bridge.onRelease { ran += 1 }
+        }
+        // An `isolated deinit` may hop to the main actor, so poll rather than assert at once.
+        for _ in 0..<200 where ran == 0 {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(ran == 1)
+    }
+
+    @Test func releaseRunsActionsOnceAndCancelsSubscriptions() async {
+        let bridge = FlowBridge()
+        var ran = 0
+        var received: [Int] = []
+        bridge.bind(NumberSequence(values: Array(1...50))) { received.append($0) }
+        bridge.onRelease { ran += 1 }
+
+        bridge.release()
+        bridge.release()
+        let receivedAtRelease = received.count
+        try? await Task.sleep(for: .milliseconds(100))
+
+        #expect(ran == 1)
+        // Nothing more is delivered once the bridge has released its subscriptions.
+        #expect(received.count == receivedAtRelease)
+        #expect(received.count < 50)
+    }
+
+    @Test func aBridgeWithNoActionsStillCancelsOnRelease() async {
+        var received: [Int] = []
+        var receivedAtRelease = 0
+        do {
+            let bridge = FlowBridge()
+            bridge.bind(NumberSequence(values: Array(1...50))) { received.append($0) }
+            try? await Task.sleep(for: .milliseconds(30))
+            receivedAtRelease = received.count
+        }
+        // The bridge is gone; let the hop and any in-flight element settle, then watch for more.
+        try? await Task.sleep(for: .milliseconds(100))
+        let settled = received.count
+        try? await Task.sleep(for: .milliseconds(100))
+
+        #expect(receivedAtRelease > 0)
+        #expect(received.count == settled)
+        #expect(received.count < 50)
+    }
 }

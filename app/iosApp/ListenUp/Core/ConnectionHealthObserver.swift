@@ -28,12 +28,11 @@ final class ConnectionHealthObserver {
 
     init(viewModel: ConnectionHealthViewModel = KoinHelper.shared.getConnectionHealthViewModel()) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] ui in
             self?.apply(ui)
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

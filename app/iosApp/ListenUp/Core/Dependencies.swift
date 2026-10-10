@@ -25,11 +25,13 @@ final class Dependencies {
 
     // MARK: - Screen-scoped ViewModels (fresh per screen)
 
-    // These wrap a bare Koin `factory` and are owned by a single screen's wrapper, which closes the
-    // VM in its `isolated deinit` (#1192 — there is no ViewModelStore on iOS to call `onCleared`).
-    // They must therefore be resolved FRESH each time: a `resolve {}`-memoized instance, once closed
-    // on the first dismiss, would be handed back to the next screen already torn down. `make*`
-    // signals factory semantics (mirrors `makePendingApprovalViewModel`).
+    // A `make…`/`create…` ViewModel wraps a bare Koin `factory`: fresh per call, owned by the one
+    // observer it is handed to, which passes it to `bridge.own` so it is cleared when the observer is
+    // released (there is no ViewModelStore on iOS to call `onCleared`). They must be resolved FRESH
+    // each time: a `resolve {}`-memoized instance, once cleared on the first dismiss, would be handed
+    // back to the next screen already torn down. The three properties under "singletons" below are
+    // the opposite — shared for the life of the process, and never owned. `make*` signals factory
+    // semantics (mirrors `makePendingApprovalViewModel`).
     func makeServerConnectViewModel() -> ServerConnectViewModel { KoinHelper.shared.getServerConnectViewModel() }
     func makeLoginViewModel() -> LoginViewModel { KoinHelper.shared.getLoginViewModel() }
     func makeForgotPasswordViewModel() -> ForgotPasswordViewModel { KoinHelper.shared.getForgotPasswordViewModel() }
@@ -43,6 +45,8 @@ final class Dependencies {
 
     // MARK: - ViewModels (singletons)
 
+    // view-model-owner: nobody — these three are shared for the process and never cleared, because
+    // the next screen receives the same instance.
     var libraryViewModel: LibraryViewModel { resolve { KoinHelper.shared.getLibraryViewModel() } }
     var syncRepository: any SyncRepository { resolve { KoinHelper.shared.getSyncRepository() } }
     var homeStatsViewModel: HomeStatsViewModel { resolve { KoinHelper.shared.getHomeStatsViewModel() } }

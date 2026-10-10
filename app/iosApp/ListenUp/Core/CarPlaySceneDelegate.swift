@@ -34,7 +34,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     /// Valid only between connect and disconnect, so it is held weakly and every use is optional.
     private weak var interfaceController: CPInterfaceController?
 
-    /// Built on connect and released on disconnect: their `isolated deinit`s close the underlying
+    /// Built on connect and released on disconnect: their bridges clear the underlying
     /// Kotlin ViewModels, whose stream jobs would otherwise outlive the car session (#1192).
     private var home: HomeViewModelWrapper?
     private var library: CarPlayLibraryWrapper?

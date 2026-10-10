@@ -13,10 +13,9 @@ final class UserDetailObserver {
 
     init(viewModel: UserDetailViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }
 
     // MARK: - State mapping
 

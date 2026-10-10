@@ -32,6 +32,7 @@ final class BookMatchObserver {
 
     init(viewModel: BookMatchViewModel, userRepository: UserRepository = KoinHelper.shared.getUserRepository()) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.findState) { [weak self] in self?.applyFind($0) }
         bridge.bind(viewModel.reviewState) { [weak self] in self?.applyReview($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
@@ -40,13 +41,6 @@ final class BookMatchObserver {
             viewerId = user?.idString
             if let lastReview { review = BookMatchMapping.review(from: lastReview, viewerId: viewerId) }
         }
-    }
-
-    // Isolated deinit (SE-0371): iOS has no ViewModelStore to call `onCleared`, so the observer closes the shared
-    // ViewModel itself — otherwise an in-flight search, review or Apply keeps its scope alive after the screen.
-    isolated deinit {
-        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
-        viewModel.close()
     }
 
     // MARK: - Find
@@ -174,19 +168,13 @@ final class MatchReceiptObserver {
 
     init(viewModel: MatchReceiptViewModel, subject: MatchReceiptSubject = .book) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         self.subject = subject
         bridge.bind(viewModel.state) { [weak self] state in
             guard let self else { return }
             lastState = state
             phase = BookMatchMapping.receipt(from: state, subject: self.subject)
         }
-    }
-
-    // Isolated deinit (SE-0371): iOS has no ViewModelStore to call `onCleared`, so the observer closes the shared
-    // ViewModel itself — otherwise an in-flight Undo keeps its scope alive after the page.
-    isolated deinit {
-        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
-        viewModel.close()
     }
 
     func undo() { viewModel.undo() }

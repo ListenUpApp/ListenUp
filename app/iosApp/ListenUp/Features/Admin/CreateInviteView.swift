@@ -16,6 +16,7 @@ import Shared
 struct CreateInviteView: View {
     @Environment(\.dismiss) private var dismiss
 
+    // view-model-owner: CreateInviteObserver, which is built with it and passes it to its FlowBridge.
     let viewModel: CreateInviteViewModel
     @State private var observer: CreateInviteObserver?
 

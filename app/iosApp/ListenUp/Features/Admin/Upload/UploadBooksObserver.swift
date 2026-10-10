@@ -36,10 +36,9 @@ final class UploadBooksObserver {
 
     init(viewModel: UploadBooksViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply(Self.phase(from: $0)) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

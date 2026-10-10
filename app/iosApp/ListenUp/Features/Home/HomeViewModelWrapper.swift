@@ -25,16 +25,9 @@ final class HomeViewModelWrapper {
 
     init(viewModel: HomeViewModel = Dependencies.shared.makeHomeViewModel()) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.snackbarMessages) { [weak self] in self?.inlineError = $0 }
-    }
-
-    // Isolated deinit (SE-0371): runs hopped onto the main actor, so the non-Sendable Kotlin
-    // viewModel can be closed here. No ViewModelStore on iOS calls onCleared, so this wrapper must
-    // (#1192) — else the VM's stream/poll jobs orphan and run forever.
-    isolated deinit {
-        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
-        viewModel.close()
     }
 
     // MARK: - Actions

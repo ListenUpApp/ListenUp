@@ -45,6 +45,4 @@ final class GlobalErrorObserver {
         else { return message }
         return String(format: String(localized: "error.server_reference"), String(id.prefix(8)))
     }
-
-    deinit { bridge.cancelAll() }   // nonisolated-safe; see FlowBridge.
 }

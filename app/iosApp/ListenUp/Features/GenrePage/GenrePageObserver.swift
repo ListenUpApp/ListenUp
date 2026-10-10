@@ -29,12 +29,11 @@ final class GenrePageObserver {
 
     init(viewModel: GenreDestinationViewModel, fallbackName: String) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         self.fallbackName = fallbackName
         self.name = fallbackName
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

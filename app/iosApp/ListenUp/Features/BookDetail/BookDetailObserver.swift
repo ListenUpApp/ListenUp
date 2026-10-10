@@ -174,6 +174,7 @@ final class BookDetailObserver {
         downloadService: DownloadService
     ) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         self.playerCoordinator = playerCoordinator
         self.downloadService = downloadService
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
@@ -207,8 +208,6 @@ final class BookDetailObserver {
             ShelfRow(id: $0.id, name: $0.name, containsBook: shelfIdsContainingBook.contains($0.id))
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

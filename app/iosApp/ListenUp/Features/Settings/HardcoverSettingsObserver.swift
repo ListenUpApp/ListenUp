@@ -109,12 +109,11 @@ final class HardcoverSettingsObserver {
     /// ViewModel's "open the approval page" lands in the same place a tapped link would.
     init(viewModel: HardcoverSettingsViewModel, openURL: @escaping @MainActor (URL) -> Void) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         self.openURL = openURL
         bridge.bind(viewModel.uiState) { [weak self] in self?.phase = Self.phase(from: $0) }
         bridge.bind(viewModel.events) { [weak self] in self?.apply(Self.effect(of: $0)) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

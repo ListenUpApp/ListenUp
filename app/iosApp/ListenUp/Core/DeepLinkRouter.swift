@@ -34,8 +34,6 @@ final class DeepLinkRouter {
         }
     }
 
-    deinit { bridge.cancelAll() }
-
     /// Decode an incoming universal-link URL and stash it on the shared
     /// seam; the `pendingTarget` binding above drives `resolve`.
     func receive(url: URL) {

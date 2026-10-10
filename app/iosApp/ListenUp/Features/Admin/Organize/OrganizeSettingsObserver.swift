@@ -29,11 +29,10 @@ final class OrganizeSettingsObserver {
 
     init(viewModel: OrganizeSettingsViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.phase = Self.phase(from: $0) }
         bridge.bind(viewModel.events) { [weak self] in self?.apply(Self.effect(of: $0)) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

@@ -23,11 +23,10 @@ final class CreateEditShelfObserver {
 
     init(viewModel: CreateEditShelfViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func prepareCreate() { viewModel.initCreate() }
     func prepareEdit(shelfId: String) { viewModel.initEdit(shelfId: shelfId) }
