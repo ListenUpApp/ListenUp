@@ -63,7 +63,7 @@ class FakeDownloadRepository(
         audioFileId: String,
         localPath: String,
         completedAt: Long,
-    ): AppResult<Unit> = AppResult.Success(Unit)
+    ): AppResult<Boolean> = AppResult.Success(true)
 
     override suspend fun markPaused(audioFileId: String): AppResult<Unit> = AppResult.Success(Unit)
 

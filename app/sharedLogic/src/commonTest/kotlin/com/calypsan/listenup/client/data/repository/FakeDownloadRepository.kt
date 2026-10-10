@@ -99,17 +99,24 @@ internal open class FakeDownloadRepository(
         audioFileId: String,
         localPath: String,
         completedAt: Long,
-    ): AppResult<Unit> {
+    ): AppResult<Boolean> {
         markCompletedFailure?.let { return AppResult.Failure(it) }
+        // Mirror the production guarded DAO query: a cancelled or deleted row is left alone.
+        var completed = false
         update(audioFileId) { entry ->
-            entry.copy(
-                state = DownloadState.COMPLETED,
-                localPath = localPath,
-                completedAt = completedAt,
-                downloadedBytes = entry.totalBytes,
-            )
+            completed = entry.state != DownloadState.CANCELLED && entry.state != DownloadState.DELETED
+            if (!completed) {
+                entry
+            } else {
+                entry.copy(
+                    state = DownloadState.COMPLETED,
+                    localPath = localPath,
+                    completedAt = completedAt,
+                    downloadedBytes = entry.totalBytes,
+                )
+            }
         }
-        return AppResult.Success(Unit)
+        return AppResult.Success(completed)
     }
 
     override suspend fun markPaused(audioFileId: String): AppResult<Unit> {
