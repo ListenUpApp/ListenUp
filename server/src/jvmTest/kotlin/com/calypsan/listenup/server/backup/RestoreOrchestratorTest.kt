@@ -15,6 +15,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -247,9 +248,7 @@ class RestoreOrchestratorTest :
             }
         }
 
-        // Pins today's behaviour: rollback restores the safety copy, which predates the late write.
-        // Whoever fixes the gap flips the final assertion back to 1 as their RED.
-        test("KNOWN GAP: a write made after the safety copy is lost when the restore rolls back") {
+        test("a write made just before the pool closes survives a rolled-back restore") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
                     fixture.handle.execSql(
@@ -285,8 +284,8 @@ class RestoreOrchestratorTest :
                         zip.closeEntry()
                     }
 
-                    // Swapping is emitted after the safety copy and before the pool closes, so a row
-                    // inserted here is exactly a write that landed during the restore.
+                    // Swapping is emitted just before the pool closes, so a row inserted here is a
+                    // write that landed during the restore; the safety copy is taken after the close.
                     val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
                     val probe =
                         launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
@@ -304,7 +303,76 @@ class RestoreOrchestratorTest :
                         .error
                         .shouldBeInstanceOf<BackupError.RestoreFailed>()
                         .rolledBack shouldBe true
-                    fixture.handle.queryScalarInt("SELECT COUNT(*) FROM late_test WHERE v = 'late'") shouldBe 0
+                    fixture.handle.queryScalarInt("SELECT COUNT(*) FROM late_test WHERE v IN ('row-B', 'late')") shouldBe 2
+                    probe.cancel()
+                }
+            }
+        }
+
+        test("a corrupt archive fails before anything is copied or closed") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS untouched_test(v TEXT)",
+                        "INSERT INTO untouched_test(v) VALUES ('row-B')",
+                    )
+                    fixture.paths.ensureDirs()
+                    writeBytes(fixture.paths.archiveFor("junk1"), "this is not a zip".toByteArray())
+
+                    // A file too small to be a zip escapes validate() as a MalformedZipException rather than
+                    // a Failure today; either way the restore must stop before touching anything.
+                    val outcome =
+                        try {
+                            buildOrchestrator(fixture).restore(BackupId("junk1"))
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            null
+                        }
+                    outcome?.shouldBeInstanceOf<AppResult.Failure>()
+
+                    fixture.handle.sqlDriver.isOpen shouldBe true
+                    SystemFileSystem.exists(Path(fixture.paths.rollbackDir, "listenup.db")) shouldBe false
+                    fixture.handle.queryScalarString("SELECT v FROM untouched_test") shouldBe "row-B"
+                }
+            }
+        }
+
+        test("the swap window is closed to writers: a write through the driver while migrating is refused") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS window_test(v TEXT)",
+                        "INSERT INTO window_test(v) VALUES ('row-A')",
+                    )
+                    fixture.archive.create("window1", includeImages = false, onEvent = {})
+                    fixture.handle.execSql("INSERT INTO window_test(v) VALUES ('row-B')")
+
+                    val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
+                    val refused = mutableListOf<Boolean>()
+                    val probe =
+                        launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+                            eventBus.collect { event ->
+                                if (event is BackupEvent.Migrating) {
+                                    refused +=
+                                        runCatching {
+                                            fixture.handle.sqlDriver.execute(
+                                                identifier = null,
+                                                sql = "INSERT INTO window_test(v) VALUES ('sneaky')",
+                                                parameters = 0,
+                                            )
+                                        }.isFailure
+                                }
+                            }
+                        }
+
+                    buildOrchestrator(fixture, eventBus = eventBus)
+                        .restore(BackupId("window1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    refused shouldBe listOf(true)
+                    fixture.handle.queryScalarString("SELECT v FROM window_test") shouldBe "row-A"
+                    fixture.handle.queryScalarInt("SELECT COUNT(*) FROM window_test") shouldBe 1
                     probe.cancel()
                 }
             }

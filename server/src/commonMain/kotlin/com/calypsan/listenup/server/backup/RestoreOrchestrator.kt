@@ -22,10 +22,13 @@ import kotlinx.io.files.SystemFileSystem
 
 private val logger = loggerFor<RestoreOrchestrator>()
 
+private const val ROLLBACK_DB_NAME = "listenup.db"
+
 /**
- * Orchestrates a live in-process restore: validate → drain → safety-copy → extract → close pool
- * → swap db file in place → migrate → reopen pool → done. On any failure in the swap/migrate
- * window, rolls back to the safety copy and reopens the pool on the original db.
+ * Orchestrates a live in-process restore: validate → drain → extract → copy image dirs aside → close
+ * pool → safety-copy the db (nothing can write now) → swap db file in place → migrate → reopen pool →
+ * done. On any failure in the swap/migrate window, rolls back to the safety copy and reopens the pool
+ * on the original db. A failure before the pool closes (e.g. extraction) touches nothing.
  *
  * The [maintenance] gate is single-flight: only one restore can run at a time.
  * The [DatabaseHandle.sqlDriver] object identity is preserved across the swap so repositories
@@ -69,23 +72,29 @@ class RestoreOrchestrator(
 
             try {
                 eventBus.tryEmit(BackupEvent.Draining)
-                maintenance.drain()
+                if (!maintenance.drain()) {
+                    logger.warn {
+                        "restore: requests still in flight after drain timeout; they fail once the database closes"
+                    }
+                }
 
-                // 3. Safety copy (pool still live)
+                // 3. Extract snapshot to staging (slow; the database is untouched and still serving)
+                if (SystemFileSystem.exists(paths.stagingDir)) deleteRecursively(paths.stagingDir)
+                SystemFileSystem.createDirectories(paths.stagingDir)
+                archive.extractTo(archivePath, paths.stagingDir)
+
+                // 4. Image directories aside. A stale database copy from an earlier attempt must not
+                // survive into this one, or rollback could swap it in.
                 SystemFileSystem.createDirectories(paths.rollbackDir)
-                val rollbackDb = Path(paths.rollbackDir, "listenup.db")
+                val rollbackDb = Path(paths.rollbackDir, ROLLBACK_DB_NAME)
+                val rollbackDbPartial = Path(paths.rollbackDir, "$ROLLBACK_DB_NAME.partial")
                 SystemFileSystem.delete(rollbackDb, mustExist = false)
-                dbHandle.vacuumInto(rollbackDb.toString())
+                SystemFileSystem.delete(rollbackDbPartial, mustExist = false)
                 val asideDirs =
                     ManagedImageDirs.ALL.mapNotNull { name ->
                         copyDirAside(paths.imageDir(name), Path(paths.rollbackDir, name))
                             ?.let { aside -> aside to paths.imageDir(name) }
                     }
-
-                // 4. Extract snapshot to staging
-                if (SystemFileSystem.exists(paths.stagingDir)) deleteRecursively(paths.stagingDir)
-                SystemFileSystem.createDirectories(paths.stagingDir)
-                archive.extractTo(archivePath, paths.stagingDir)
 
                 // 5. Swap — NonCancellable so a cancellation mid-swap cannot leave the
                 // pool closed forever. Once closePool() is called the swap MUST run to a
@@ -99,6 +108,11 @@ class RestoreOrchestrator(
                     // must roll back and reopen the pool — see the catch below.
                     @Suppress("SuspendFunSwallowedCancellation")
                     try {
+                        // Safety copy of the database as it stands now that the driver refuses work. Written
+                        // to a .partial name and renamed only when complete, so rollback never sees half a copy.
+                        dbHandle.vacuumInto(rollbackDbPartial.toString())
+                        swapFile(rollbackDbPartial, rollbackDb)
+
                         swapFile(Path(paths.stagingDir, "listenup.db"), paths.dbFile)
                         deleteDbSidecars()
                         if (manifest.includesImages) {
