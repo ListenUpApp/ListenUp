@@ -188,18 +188,18 @@ class BookMatchApplyTest :
                         .upsert(
                             seeded.copy(
                                 contributors =
-                                    seeded.contributors.map {
-                                        if (it.name == "Andy Weir") {
-                                            it.copy(sortName = "Weir, Andy", creditedAs = "A. Weir")
+                                    seeded.contributors.map { credit ->
+                                        if (credit.name == "Andy Weir") {
+                                            credit.copy(sortName = "Weir, Andy", creditedAs = "A. Weir")
                                         } else {
-                                            it
+                                            credit
                                         }
                                     },
                             ),
                         ).shouldSucceed()
-                    rig.book().contributors.single { it.name == "Andy Weir" }.let {
-                        it.sortName shouldBe "Weir, Andy"
-                        it.creditedAs shouldBe "A. Weir"
+                    rig.book().contributors.single { it.name == "Andy Weir" }.let { credit ->
+                        credit.sortName shouldBe "Weir, Andy"
+                        credit.creditedAs shouldBe "A. Weir"
                     }
                     val authors = rig.review().fields.single { it.field == BookField.AUTHORS }
                     val request =
@@ -209,9 +209,9 @@ class BookMatchApplyTest :
 
                     rig.applier.apply(rig.book(), request, US, "u1").shouldSucceed()
 
-                    rig.book().contributors.single { it.name == "Andy Weir" }.let {
-                        it.sortName shouldBe "Weir, Andy"
-                        it.creditedAs shouldBe "A. Weir"
+                    rig.book().contributors.single { it.name == "Andy Weir" }.let { credit ->
+                        credit.sortName shouldBe "Weir, Andy"
+                        credit.creditedAs shouldBe "A. Weir"
                     }
                 }
             }

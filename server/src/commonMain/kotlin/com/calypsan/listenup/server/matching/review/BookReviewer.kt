@@ -172,35 +172,27 @@ internal class BookReviewer(
     ): AppError {
         val failures = options.coreFailures.filterKeys { it.presentedAs().value in keyProviders }.values
         val asked = options.coreAsked.filter { it.presentedAs().value in keyProviders }
-        return transientFailure(failures) ?: when {
-            asked.isNotEmpty() && failures.size == asked.size -> {
-                MetadataError.ExternalUnavailable(debugInfo = "review: every candidate source failed")
-            }
-
-            else -> {
-                MetadataError.NotFound(debugInfo = "review: no candidate source has this edition")
-            }
+        transientFailure(failures)?.let { return it }
+        return if (asked.isNotEmpty() && failures.size == asked.size) {
+            MetadataError.ExternalUnavailable(debugInfo = "review: every candidate source failed")
+        } else {
+            MetadataError.NotFound(debugInfo = "review: no candidate source has this edition")
         }
     }
 
     /** A rate limit, else a timeout, among [failures]; null when neither happened. */
     private fun transientFailure(failures: Collection<CoreFailure>): AppError? {
         val rateLimited = failures.filterIsInstance<CoreFailure.RateLimited>()
-        return when {
-            rateLimited.isNotEmpty() -> {
-                MetadataError.ExternalRateLimited(
-                    debugInfo = "review: a candidate source is rate-limited",
-                    retryAfterSeconds = rateLimited.mapNotNull { it.retryAfterSeconds }.maxOrNull(),
-                )
-            }
-
-            failures.any { it == CoreFailure.TimedOut } -> {
-                MetadataError.ExternalTimeout(debugInfo = "review: a candidate source didn't answer in time")
-            }
-
-            else -> {
-                null
-            }
+        if (rateLimited.isNotEmpty()) {
+            return MetadataError.ExternalRateLimited(
+                debugInfo = "review: a candidate source is rate-limited",
+                retryAfterSeconds = rateLimited.mapNotNull { it.retryAfterSeconds }.maxOrNull(),
+            )
+        }
+        return if (CoreFailure.TimedOut in failures) {
+            MetadataError.ExternalTimeout(debugInfo = "review: a candidate source didn't answer in time")
+        } else {
+            null
         }
     }
 

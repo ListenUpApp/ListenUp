@@ -113,7 +113,8 @@ class MatchDetailsServiceTest :
                     val rig = MatchRig(this@withSqlDatabase) { id, _ -> refreshed += id.value }
                     rig.seedBook()
                     val admin = rig.service().copyWith(rootPrincipal())
-                    val key = admin.findBookMatches(BookId(BOOK), BookFindRequest()).shouldSucceed().candidates.first().key
+                    val found = admin.findBookMatches(BookId(BOOK), BookFindRequest()).shouldSucceed()
+                    val key = found.candidates.first().key
                     val review = admin.reviewBookMatch(BookId(BOOK), key, null).shouldSucceed()
                     val request =
                         BookMatchApply(

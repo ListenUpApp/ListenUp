@@ -243,7 +243,7 @@ class BookFinderTest :
             runTest {
                 val rig = Rig()
                 var linked: Long? = null
-                rig.hardcover.answer = { AppResult.Success(FindAnswer(listOf(phm("link-$linked")), setOf(FindStep.TEXT))) }
+                rig.hardcover.answer = { AppResult.Success(FindAnswer(listOf(phm("link-${linked ?: "none"}")), setOf(FindStep.TEXT))) }
                 rig.find().sources[1] shouldBe SourceStatus.Answered(HARDCOVER, 1)
 
                 linked = 77L

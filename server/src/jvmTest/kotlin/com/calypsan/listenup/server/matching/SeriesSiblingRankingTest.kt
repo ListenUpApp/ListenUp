@@ -99,7 +99,11 @@ class SeriesSiblingRankingTest :
                     hit("B1", WAY_OF_KINGS, hours = 45),
                     hit("B3", WORDS_OF_RADIANCE, hours = 30),
                 )
-            ranked.map { it.key.refs.single().id } shouldBe listOf("B1", "B2", "B3")
+            ranked.map { candidate ->
+                candidate.key.refs
+                    .single()
+                    .id
+            } shouldBe listOf("B1", "B2", "B3")
             ranked.map { it.isBest } shouldBe listOf(true, false, false)
             ranked.map { it.tier } shouldBe listOf(MatchTier.STRONG, MatchTier.STRONG, MatchTier.MAYBE)
         }

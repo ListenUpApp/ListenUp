@@ -70,7 +70,7 @@ internal class HardcoverFind(
      * state [find] reads beyond the lookup, so a link made or removed never meets an answer from before it.
      */
     suspend fun cacheDiscriminator(lookup: FindLookup): String? =
-        if (lookup.identify && lookup.keys.none { it.id.toLongOrNull() != null }) {
+        if (lookup.identify && lookup.keys.all { it.id.toLongOrNull() == null }) {
             links.catalogBookFor(lookup.bookId)?.toString()
         } else {
             null
