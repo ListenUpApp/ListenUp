@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
-import com.calypsan.listenup.client.core.formatSeriesSequence
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.Permission
@@ -9,9 +8,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
-import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Collection
-import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
@@ -36,7 +33,6 @@ import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
-import com.calypsan.listenup.client.core.DurationFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -55,7 +51,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
 
 private val logger = KotlinLogging.logger {}
 
@@ -339,111 +334,20 @@ class BookDetailViewModel(
                     if (detail == null) {
                         BookDetailUiState.Error(BookError.NotFound())
                     } else {
-                        val held = BookId(bookId) in heldIds
-                        buildReady(detail, domainChapters, position).copy(
-                            downloadStatus = availability.downloadStatus,
-                            isPlaybackAvailable = availability.isPlaybackAvailable,
-                            // A held book is triage-only: no play, no download, and no "server
-                            // unreachable" nag about a playback that cannot happen. Forced off here
-                            // so a platform that misses the triage layout still cannot offer a
-                            // working Play or Download; the choke points refuse regardless.
-                            canPlay = availability.canPlay && !held,
-                            canDownload = availability.canDownload && !held,
-                            showServerWarning = availability.showServerWarning && !held,
-                            isWaitingForWifi = availability.isWaitingForWifi,
-                            isHeld = held,
+                        BookSnapshot(
+                            detail = detail,
+                            chapters = domainChapters,
+                            position = position,
+                            availability = availability,
+                            isHeld = BookId(bookId) in heldIds,
                             visibility = visibility,
+                        ).toReady(
+                            BookDetailAmbient(latestIsAdmin, latestCanEditMetadata, latestHierarchy, latestAllTags),
                         )
                     }
                 },
             )
         }
-
-    /**
-     * Map a [BookDetail] emission plus the one-shot [chapters]/[position] reads
-     * into a [BookDetailUiState.Ready]. Extracted from [loadBookFlow] to keep
-     * the flow body's cognitive complexity in check.
-     */
-    private fun buildReady(
-        detail: BookDetail,
-        domainChapters: List<Chapter>,
-        position: PlaybackPosition?,
-    ): BookDetailUiState.Ready {
-        // Filter out subtitles that just restate a series the book belongs to (name, or name + book
-        // number) — checked against every membership now that a book can be in several series.
-        val displaySubtitle =
-            detail.subtitle?.takeUnless { subtitle ->
-                detail.series.any {
-                    // isSubtitleRedundant is a text heuristic and still takes text; the number is
-                    // formatted for it here rather than the function learning about Doubles.
-                    isSubtitleRedundant(subtitle, it.seriesName, it.sequence?.let(::formatSeriesSequence))
-                }
-            }
-
-        val progress =
-            if (position != null && detail.duration > 0) {
-                (position.positionMs.toFloat() / detail.duration).coerceIn(0f, 1f)
-            } else {
-                null
-            }
-
-        // Authoritative completion flag from the saved position
-        val isComplete = position?.isFinished == true
-
-        val hasMeaningfulProgress = progress != null && progress > 0f && !isComplete
-
-        // Resolve the current-chapter highlight only once the position is known.
-        // An un-started book (no meaningful progress) highlights nothing.
-        val currentIdx =
-            if (hasMeaningfulProgress) {
-                currentChapterIndex(domainChapters.map { it.startTime }, position?.positionMs ?: 0L)
-            } else {
-                null
-            }
-
-        val chapters =
-            domainChapters.mapIndexed { index, domainChapter ->
-                ChapterUiModel(
-                    id = domainChapter.id,
-                    title = domainChapter.title,
-                    duration = domainChapter.formatDuration(),
-                    imageUrl = null, // Placeholder
-                    isCurrent = index == currentIdx,
-                    startMs = domainChapter.startTime,
-                    durationMs = domainChapter.duration,
-                )
-            }
-
-        val timeRemaining =
-            if (hasMeaningfulProgress) {
-                val remainingMs = detail.duration - (position?.positionMs ?: 0L)
-                DurationFormatter.timeLeft(remainingMs.milliseconds)
-            } else {
-                null
-            }
-
-        return BookDetailUiState.Ready(
-            book = detail,
-            isAdmin = latestIsAdmin,
-            canEditMetadata = latestCanEditMetadata,
-            allTags = latestAllTags,
-            isComplete = isComplete,
-            startedAtMs = position?.startedAtMs,
-            subtitle = displaySubtitle,
-            seriesPaths = bookSeriesPaths(detail.series, latestHierarchy),
-            descriptionText = detail.description.orEmpty(),
-            narrators = detail.narratorNames,
-            year = detail.publishYear,
-            chapters = chapters,
-            progress = if (hasMeaningfulProgress) progress else null,
-            timeRemainingFormatted = timeRemaining,
-            addedAt = detail.addedAt.epochMillis,
-            hasScanWarning = detail.hasScanWarning,
-            genres = detail.genres,
-            tags = detail.tags,
-            moods = detail.moods,
-        )
-    }
 
     /** Opens See what changed for the last match: every change it made, with where each came from. */
     fun seeWhatChanged() {
@@ -830,75 +734,4 @@ class BookDetailViewModel(
             }
         }
     }
-}
-
-/**
- * Index of the chapter currently playing: the last chapter whose start time is at or
- * before [positionMs], or null when there are no chapters. Pure — drives the
- * current-chapter highlight from playback position.
- */
-internal fun currentChapterIndex(
-    chapterStartTimesMs: List<Long>,
-    positionMs: Long,
-): Int? = chapterStartTimesMs.indexOfLast { it <= positionMs }.takeIf { it >= 0 }
-
-/**
- * Checks if a subtitle is redundant because it's just the series name and book number.
- *
- * Examples of redundant subtitles:
- * - "The Stormlight Archive, Book 1"
- * - "Mistborn #3"
- * - "Book 2 of The Wheel of Time"
- *
- * The heuristic removes the series name and common book number patterns,
- * then checks if there's any meaningful content left.
- */
-private fun isSubtitleRedundant(
-    subtitle: String,
-    seriesName: String?,
-    seriesSequence: String?,
-): Boolean {
-    // If no series info, subtitle is not redundant
-    if (seriesName.isNullOrBlank()) return false
-
-    val normalizedSubtitle = subtitle.lowercase().trim()
-    val normalizedSeriesName = seriesName.lowercase().trim()
-
-    // Check if subtitle contains the series name
-    if (!normalizedSubtitle.contains(normalizedSeriesName)) return false
-
-    // Remove series name from subtitle
-    var remaining = normalizedSubtitle.replace(normalizedSeriesName, "")
-
-    // Remove common book number patterns
-    val bookNumberPatterns =
-        listOf(
-            // "Book 1", "Book One", "Book I"
-            Regex(
-                """book\s*[#]?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|i{1,3}|iv|v|vi{0,3}|ix|x)""",
-                RegexOption.IGNORE_CASE,
-            ),
-            // "#1", "# 1"
-            Regex("""#\s*\d+"""),
-            // "Part 1", "Part One"
-            Regex("""part\s*[#]?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)""", RegexOption.IGNORE_CASE),
-            // "Volume 1", "Vol. 1", "Vol 1"
-            Regex("""vol(ume|\.?)?\s*[#]?\s*\d+""", RegexOption.IGNORE_CASE),
-            // Just a number (if sequence matches)
-            seriesSequence?.let { Regex("""\b${Regex.escape(it)}\b""") },
-        ).filterNotNull()
-
-    for (pattern in bookNumberPatterns) {
-        remaining = remaining.replace(pattern, "")
-    }
-
-    // Remove common separators and punctuation
-    remaining =
-        remaining
-            .replace(Regex("""[,.:;|\-–—/\\()\[\]{}]"""), " ")
-            .replace(Regex("""\s+"""), " ")
-            .trim()
-
-    // If very little meaningful content remains (less than 3 chars), it's redundant
-    return remaining.length < 3
 }
