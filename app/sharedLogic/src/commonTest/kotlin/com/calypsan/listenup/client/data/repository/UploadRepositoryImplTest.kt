@@ -264,6 +264,35 @@ class UploadRepositoryImplTest :
             }
         }
 
+        test("a file send that throws ends the upload as failed and abandons, rather than killing the collector") {
+            runTest {
+                // The browser engine threw a RangeError from inside the request build — not an
+                // AppResult, not even an Exception. The upload must still land in Failed, with the
+                // staged session cleaned up, or the screen sits on "Sending" forever.
+                val api =
+                    object : UploadApiContract by RecordingApi() {
+                        var abandoned = 0
+
+                        override suspend fun uploadFile(
+                            sessionId: String,
+                            relPath: String,
+                            source: FileSource,
+                            onProgress: suspend (Long, Long?) -> Unit,
+                        ): AppResult<UploadSessionSummary> = throw EngineFault("Invalid array length")
+
+                        override suspend fun abandon(sessionId: String): AppResult<Unit> {
+                            abandoned++
+                            return AppResult.Success(Unit)
+                        }
+                    }
+
+                val steps = UploadRepositoryImpl(api).upload(listOf(candidate("01.m4b", 10))).toList()
+
+                steps.last().shouldBeInstanceOf<UploadStep.Failed>()
+                api.abandoned shouldBe 1
+            }
+        }
+
         test("does not retry a failure the server says is not retryable") {
             runTest {
                 val api =
@@ -280,3 +309,8 @@ class UploadRepositoryImplTest :
             }
         }
     })
+
+/** A non-[Exception] throwable, the shape a JS engine fault takes when it crosses into Kotlin. */
+private class EngineFault(
+    message: String,
+) : Throwable(message)
