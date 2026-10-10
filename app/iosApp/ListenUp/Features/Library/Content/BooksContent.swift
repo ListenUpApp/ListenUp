@@ -47,7 +47,9 @@ struct BooksContent: View {
     }
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: 150), spacing: layout.gridSpacing)]
+        // Top-aligned: a card with a "Read by" line is taller than one without, and a centred row would
+        // stagger the covers.
+        [GridItem(.adaptive(minimum: 150), spacing: layout.gridSpacing, alignment: .top)]
     }
 
     /// A letter group wrapped as `Identifiable` — the grid's outer `ForEach` needs stable per-section
