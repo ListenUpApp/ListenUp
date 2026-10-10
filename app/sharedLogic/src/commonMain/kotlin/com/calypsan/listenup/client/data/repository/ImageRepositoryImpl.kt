@@ -9,6 +9,9 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -30,6 +33,9 @@ internal class ImageRepositoryImpl(
     private val appScope: CoroutineScope,
 ) : ImageRepository,
     ImageStagingRepository {
+    private val seriesCoverLock = reentrantLock()
+    private val seriesCoversInFlight = mutableSetOf<String>()
+
     // ========== Book Cover Operations ==========
 
     override suspend fun deleteBookCover(bookId: BookId): AppResult<Unit> = imageDownloader.deleteCover(bookId)
@@ -43,6 +49,23 @@ internal class ImageRepositoryImpl(
 
     override fun ensureContributorImageCached(contributorId: String) {
         appScope.launch { imageDownloader.downloadContributorImage(contributorId) }
+    }
+
+    override fun ensureSeriesCoverCached(seriesId: String) {
+        // One fetch per series at a time. The lock is never held across a suspension point.
+        val isNewFetch = seriesCoverLock.withLock { seriesCoversInFlight.add(seriesId) }
+        if (!isNewFetch) return
+        appScope.launch {
+            try {
+                val _ = imageDownloader.downloadSeriesCover(seriesId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "Series cover fetch failed for $seriesId; the next open retries" }
+            } finally {
+                seriesCoverLock.withLock { seriesCoversInFlight.remove(seriesId) }
+            }
+        }
     }
 
     override fun ensureUserAvatarCached(userId: String) {

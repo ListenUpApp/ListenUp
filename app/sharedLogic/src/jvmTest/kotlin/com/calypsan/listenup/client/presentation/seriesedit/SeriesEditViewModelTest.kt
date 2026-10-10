@@ -168,6 +168,52 @@ class SeriesEditViewModelTest :
             }
         }
 
+        test("a missing local cover with a server cover is requested once on load") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns
+                    createSeries().copy(coverPath = "/covers/series-1.jpg")
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                every { fixture.imageRepository.ensureSeriesCoverCached(any()) } returns Unit
+
+                fixture.build().loadSeries("series-1")
+                advanceUntilIdle()
+
+                verify(VerifyMode.exactly(1)) { fixture.imageRepository.ensureSeriesCoverCached("series-1") }
+            }
+        }
+
+        test("a local cover that exists is not requested on load") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns
+                    createSeries().copy(coverPath = "/covers/series-1.jpg")
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns true
+                every { fixture.imageRepository.getSeriesCoverPath("series-1") } returns "/local/series-1.jpg"
+
+                fixture.build().loadSeries("series-1")
+                advanceUntilIdle()
+
+                verify(VerifyMode.not) { fixture.imageRepository.ensureSeriesCoverCached(any()) }
+            }
+        }
+
+        test("a series with no server cover is not requested on load") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+
+                fixture.build().loadSeries("series-1")
+                advanceUntilIdle()
+
+                verify(VerifyMode.not) { fixture.imageRepository.ensureSeriesCoverCached(any()) }
+            }
+        }
+
         // #1061: the merges folded into this series, and undoing one.
         test("loading a series lists the merges folded into it") {
             runTest {

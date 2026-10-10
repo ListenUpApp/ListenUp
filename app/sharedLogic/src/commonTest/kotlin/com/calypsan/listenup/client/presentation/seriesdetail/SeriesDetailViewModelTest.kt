@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
 import com.calypsan.listenup.client.presentation.seriesedit.PendingSubSeriesMove
 import com.calypsan.listenup.core.SeriesId
 import dev.mokkery.everySuspend
+import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import dev.mokkery.answering.returns
@@ -42,6 +43,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -83,6 +85,7 @@ class SeriesDetailViewModelTest :
             every { fixture.seriesRepository.observeSeriesWithBooks(any()) } returns fixture.seriesFlow
             every { fixture.seriesRepository.observeSeriesLineage(any()) } returns fixture.lineageFlow
             every { fixture.imageRepository.seriesCoverExists(any()) } returns false
+            every { fixture.imageRepository.ensureSeriesCoverCached(any()) } returns Unit
             every { fixture.playbackPositionRepository.observeAll() } returns fixture.positionsFlow
             every { fixture.networkMonitor.onlineFlow } returns fixture.online
             every { fixture.seriesRepository.observeHierarchy() } returns fixture.hierarchyFlow
@@ -173,6 +176,54 @@ class SeriesDetailViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.state.value shouldBe SeriesDetailUiState.Idle
+            }
+        }
+
+        // ========== Missing series cover ==========
+
+        // Opens the screen and drives several state emissions (every playback tick rebuilds the state).
+        fun TestScope.openWithEmissions(
+            fixture: TestFixture,
+            series: Series,
+        ) {
+            val viewModel = fixture.build()
+            backgroundScope.launch { viewModel.state.collect { } }
+            viewModel.loadSeries("series-1")
+            fixture.seriesFlow.value = createSeriesWithBooks(series, listOf(createBook()), mapOf("book-1" to 1.0))
+            testScheduler.advanceUntilIdle()
+            repeat(3) { tick ->
+                fixture.positionsFlow.value =
+                    mapOf(BookId("book-1") to createPosition("book-1", positionMs = 1000L * (tick + 1)))
+                testScheduler.advanceUntilIdle()
+            }
+        }
+
+        test("a missing local cover with a server cover is requested exactly once across many emissions") {
+            runTest {
+                val fixture = createFixture()
+                openWithEmissions(fixture, createSeries().copy(coverPath = "/covers/series-1.jpg"))
+
+                verify(VerifyMode.exactly(1)) { fixture.imageRepository.ensureSeriesCoverCached("series-1") }
+            }
+        }
+
+        test("a local cover that exists is not requested") {
+            runTest {
+                val fixture = createFixture()
+                every { fixture.imageRepository.seriesCoverExists(any()) } returns true
+                every { fixture.imageRepository.getSeriesCoverPath(any()) } returns "/local/series-1.jpg"
+                openWithEmissions(fixture, createSeries().copy(coverPath = "/covers/series-1.jpg"))
+
+                verify(VerifyMode.not) { fixture.imageRepository.ensureSeriesCoverCached(any()) }
+            }
+        }
+
+        test("a series with no server cover is not requested") {
+            runTest {
+                val fixture = createFixture()
+                openWithEmissions(fixture, createSeries())
+
+                verify(VerifyMode.not) { fixture.imageRepository.ensureSeriesCoverCached(any()) }
             }
         }
 

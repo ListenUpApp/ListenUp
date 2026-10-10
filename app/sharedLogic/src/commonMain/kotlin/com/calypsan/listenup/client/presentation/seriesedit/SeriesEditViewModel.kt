@@ -230,6 +230,8 @@ class SeriesEditViewModel internal constructor(
                 if (imageRepository.seriesCoverExists(seriesId)) {
                     imageRepository.getSeriesCoverPath(seriesId)
                 } else {
+                    // Missing locally but present on the server: fetch it for the next open.
+                    if (series.coverPath != null) imageRepository.ensureSeriesCoverCached(seriesId)
                     null
                 }
 
