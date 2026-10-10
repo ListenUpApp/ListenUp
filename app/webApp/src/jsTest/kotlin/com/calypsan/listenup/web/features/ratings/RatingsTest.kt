@@ -71,7 +71,8 @@ private fun rating(
     halfStars: Int,
     note: String? = null,
     userId: String = "me",
-) = ListenerRating(bookId = "b1", userId = userId, halfStars = halfStars, note = note, ratedAtMs = 0L)
+    fromHardcover: Boolean = false,
+) = ListenerRating(bookId = "b1", userId = userId, halfStars = halfStars, note = note, ratedAtMs = 0L, fromHardcover = fromHardcover)
 
 private fun ready(
     mine: ListenerRating? = null,
@@ -294,6 +295,16 @@ class RatingsTest :
             host.textContent!!.shouldContainString("Not rated")
             host.textContent!!.shouldContainString("Tap a star. Drag for half stars.")
             button(host, "Remove").shouldBeNull()
+        }
+
+        test("your rating from Hardcover says so; one set here does not") {
+            val imported = panel(ready(mine = rating(9, fromHardcover = true)))
+            awaitFrame()
+            imported.textContent!!.shouldContainString("Rated on Hardcover")
+
+            val yours = panel(ready(mine = rating(9)))
+            awaitFrame()
+            (yours.textContent ?: "").contains("Rated on Hardcover") shouldBe false
         }
 
         test("the panel's stars are a slider named Your rating, saying the value it shows") {
