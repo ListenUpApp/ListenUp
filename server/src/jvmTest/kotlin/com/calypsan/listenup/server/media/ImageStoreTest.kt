@@ -64,6 +64,14 @@ class ImageStoreTest :
                 store.pathFor("u1").shouldBeNull()
             }
         }
+        test("refuses a GIF, which avatars and covers never accepted") {
+            val dir = Files.createTempDirectory("imagestore-")
+            runTest {
+                val store = ImageStore(IoPath(dir.toString()), maxBytes = 1_000_000)
+                shouldThrowInvalid { store.store("u1", "GIF89a".encodeToByteArray() + ByteArray(16), "image/gif") }
+                store.pathFor("u1").shouldBeNull()
+            }
+        }
         test("rejects oversize input") {
             val dir = Files.createTempDirectory("imagestore-")
             runTest {

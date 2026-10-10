@@ -29,14 +29,7 @@ class ImageStore(
         val sha256: String,
     )
 
-    private enum class Kind(
-        val ext: String,
-        val contentType: String,
-    ) {
-        JPEG("jpg", "image/jpeg"),
-        PNG("png", "image/png"),
-        WEBP("webp", "image/webp"),
-    }
+    private val accepted = setOf(ImageKind.JPEG, ImageKind.PNG, ImageKind.WEBP)
 
     /**
      * Validates [bytes] by magic number, writes the file to `<baseDir>/<key>.<ext>`, and
@@ -93,7 +86,7 @@ class ImageStore(
      * Checks all supported extensions in order.
      */
     fun pathFor(key: String): Path? =
-        Kind.entries
+        accepted
             .mapNotNull { safeResolve(key, it.ext) }
             .firstOrNull { SystemFileSystem.metadataOrNull(it)?.isRegularFile == true }
 
@@ -102,7 +95,7 @@ class ImageStore(
      * or `"application/octet-stream"` if the extension is unrecognised.
      */
     fun contentTypeFor(path: Path): String =
-        Kind.entries.firstOrNull { path.name.endsWith(".${it.ext}") }?.contentType
+        accepted.firstOrNull { path.name.endsWith(".${it.ext}") }?.contentType
             ?: "application/octet-stream"
 
     /** Removes the stored image for [key] if one exists. Idempotent. */
@@ -111,16 +104,16 @@ class ImageStore(
     }
 
     private fun deleteExisting(key: String) {
-        Kind.entries.forEach { kind ->
+        accepted.forEach { kind ->
             safeResolve(key, kind.ext)?.let { SystemFileSystem.delete(it, mustExist = false) }
         }
     }
 
     private fun deleteOtherExtensions(
         key: String,
-        keep: Kind,
+        keep: ImageKind,
     ) {
-        Kind.entries.filter { it != keep }.forEach { kind ->
+        accepted.filter { it != keep }.forEach { kind ->
             safeResolve(key, kind.ext)?.let { SystemFileSystem.delete(it, mustExist = false) }
         }
     }
@@ -138,60 +131,6 @@ class ImageStore(
         return resolved.takeIf { it.toString().startsWith(baseDir.toString()) }
     }
 
-    private fun sniff(bytes: ByteArray): Kind? {
-        if (bytes.size < MIN_SNIFF_BYTES) return null
-        if (isJpeg(bytes)) return Kind.JPEG
-        if (isPng(bytes)) return Kind.PNG
-        if (isWebp(bytes)) return Kind.WEBP
-        return null
-    }
-
-    private fun isJpeg(b: ByteArray): Boolean =
-        b[OFFSET_0] == JPEG_BYTE_0 && b[OFFSET_1] == JPEG_BYTE_1 && b[OFFSET_2] == JPEG_BYTE_2
-
-    private fun isPng(b: ByteArray): Boolean =
-        b[OFFSET_0] == PNG_BYTE_0 && b[OFFSET_1] == PNG_BYTE_1 && b[OFFSET_2] == PNG_BYTE_2 && b[OFFSET_3] == PNG_BYTE_3
-
-    private fun isWebp(b: ByteArray): Boolean =
-        b.size >= WEBP_MIN_BYTES &&
-            b[OFFSET_0] == WEBP_RIFF_0 && b[OFFSET_1] == WEBP_RIFF_1 &&
-            b[OFFSET_2] == WEBP_RIFF_2 && b[OFFSET_3] == WEBP_RIFF_3 &&
-            b[WEBP_OFFSET_8] == WEBP_SIG_8 && b[WEBP_OFFSET_9] == WEBP_SIG_9 &&
-            b[WEBP_OFFSET_10] == WEBP_SIG_10 && b[WEBP_OFFSET_11] == WEBP_SIG_11
-
-    private companion object {
-        const val MIN_SNIFF_BYTES = 4
-        const val WEBP_MIN_BYTES = 12
-
-        // Byte offsets used for magic-number probing
-        const val OFFSET_0 = 0
-        const val OFFSET_1 = 1
-        const val OFFSET_2 = 2
-        const val OFFSET_3 = 3
-        const val WEBP_OFFSET_8 = 8
-        const val WEBP_OFFSET_9 = 9
-        const val WEBP_OFFSET_10 = 10
-        const val WEBP_OFFSET_11 = 11
-
-        // JPEG magic: FF D8 FF
-        val JPEG_BYTE_0: Byte = 0xFF.toByte()
-        val JPEG_BYTE_1: Byte = 0xD8.toByte()
-        val JPEG_BYTE_2: Byte = 0xFF.toByte()
-
-        // PNG magic: 89 50 4E 47
-        val PNG_BYTE_0: Byte = 0x89.toByte()
-        val PNG_BYTE_1: Byte = 0x50.toByte()
-        val PNG_BYTE_2: Byte = 0x4E.toByte()
-        val PNG_BYTE_3: Byte = 0x47.toByte()
-
-        // WebP magic: "RIFF" at 0..3, "WEBP" at 8..11
-        val WEBP_RIFF_0: Byte = 'R'.code.toByte()
-        val WEBP_RIFF_1: Byte = 'I'.code.toByte()
-        val WEBP_RIFF_2: Byte = 'F'.code.toByte()
-        val WEBP_RIFF_3: Byte = 'F'.code.toByte()
-        val WEBP_SIG_8: Byte = 'W'.code.toByte()
-        val WEBP_SIG_9: Byte = 'E'.code.toByte()
-        val WEBP_SIG_10: Byte = 'B'.code.toByte()
-        val WEBP_SIG_11: Byte = 'P'.code.toByte()
-    }
+    // GIF is deliberately outside the set: avatars and covers have never accepted it.
+    private fun sniff(bytes: ByteArray): ImageKind? = ImageKind.sniff(bytes)?.takeIf { it in accepted }
 }
