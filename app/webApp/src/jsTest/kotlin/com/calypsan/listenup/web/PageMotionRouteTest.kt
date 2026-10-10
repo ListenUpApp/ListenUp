@@ -80,10 +80,22 @@ class PageMotionRouteTest :
                 repeat(3) { awaitFrame() }
                 val leftAt = main.scrollTop
 
+                startRecordingAnimations()
                 card()!!.click()
                 awaitUntil("Book Detail") { host.querySelector(".bd-head") != null }
                 main.scrollTop shouldBe 0.0
+                // ⛔ Back only once the outbound flight has landed. Back reads the hero where it is
+                // DRAWN, so a reversal mid-flight flies home from wherever the cover has got to — and
+                // a Back before its first frame finds the cover still standing on its tile, where
+                // there is nowhere to fly. Going Back the instant Book Detail mounted raced that
+                // frame: here Back usually came first and the outbound flight never started; on CI
+                // the flight started, Back measured the cover still on its tile, and nothing flew.
+                awaitUntil("the cover to fly out to Book Detail and land") {
+                    val hero = host.querySelector(".bd-head .cover") as? HTMLElement
+                    hero != null && hero in recordedAnimations() && hero.motions().isEmpty()
+                }
 
+                stopRecordingAnimations()
                 startRecordingAnimations()
                 window.history.back()
 
