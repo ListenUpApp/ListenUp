@@ -87,7 +87,7 @@ class TabIndicatorTest :
 
             val slide = host.ink().motions().single()
             durationOf(slide) shouldBe MotionToken.MOVE.millis
-            (animatedProperties(slide) - setOf("transform", "transformOrigin")) shouldBe emptySet()
+            animatedProperties(slide) - setOf("transform", "transformOrigin") shouldBe emptySet()
 
             delay(400)
             host.ink().getBoundingClientRect().left shouldBe (host.tab("files").getBoundingClientRect().left plusOrMinus 0.5)

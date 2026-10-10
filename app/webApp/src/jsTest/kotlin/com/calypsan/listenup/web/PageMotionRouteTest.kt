@@ -74,7 +74,7 @@ class PageMotionRouteTest :
                 val style = window.getComputedStyle(grid)
                 val columns = style.getPropertyValue("grid-template-columns").split(" ").count { it.isNotBlank() }
                 val gap = style.getPropertyValue("row-gap").removeSuffix("px").toDoubleOrNull() ?: 0.0
-                main.scrollTop = (OPENED_INDEX / columns) * (first.getBoundingClientRect().height + gap)
+                main.scrollTop = OPENED_INDEX / columns * (first.getBoundingClientRect().height + gap)
                 awaitUntil("the opened book's card to render") { card() != null }
                 card()!!.scrollIntoView(js("({ block: 'center' })"))
                 repeat(3) { awaitFrame() }

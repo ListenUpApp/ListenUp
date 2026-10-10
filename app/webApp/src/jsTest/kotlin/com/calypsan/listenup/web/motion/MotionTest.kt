@@ -81,7 +81,7 @@ class MotionTest :
             )
 
             // transform-origin rides every frame unchanged: it positions the transform, it is not animated.
-            (animatedProperties(element.motions().single()) - setOf("opacity", "transform", "transformOrigin")) shouldBe emptySet()
+            animatedProperties(element.motions().single()) - setOf("opacity", "transform", "transformOrigin") shouldBe emptySet()
         }
 
         test("a delayed motion holds its first frame until it starts") {

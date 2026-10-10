@@ -36,18 +36,16 @@ internal fun durationOf(animation: dynamic): Int = timingOf(animation, "duration
  */
 internal fun startRecordingAnimations() {
     js(
-        """
-        (function () {
-          if (Element.prototype.__luOriginalAnimate) return;
-          var original = Element.prototype.animate;
-          window.__luAnimated = [];
-          Element.prototype.__luOriginalAnimate = original;
-          Element.prototype.animate = function (keyframes, options) {
-            window.__luAnimated.push(this);
-            return original.call(this, keyframes, options);
-          };
-        })()
-        """,
+        "(function () {" +
+            "if (Element.prototype.__luOriginalAnimate) return;" +
+            "var original = Element.prototype.animate;" +
+            "window.__luAnimated = [];" +
+            "Element.prototype.__luOriginalAnimate = original;" +
+            "Element.prototype.animate = function (keyframes, options) {" +
+            "window.__luAnimated.push(this);" +
+            "return original.call(this, keyframes, options);" +
+            "};" +
+            "})()",
     )
 }
 
@@ -58,15 +56,13 @@ internal fun recordedAnimations(): List<Element> =
 /** Puts `Element.prototype.animate` back. Safe to call when nothing is recording. */
 internal fun stopRecordingAnimations() {
     js(
-        """
-        (function () {
-          var original = Element.prototype.__luOriginalAnimate;
-          if (!original) return;
-          Element.prototype.animate = original;
-          delete Element.prototype.__luOriginalAnimate;
-          window.__luAnimated = [];
-        })()
-        """,
+        "(function () {" +
+            "var original = Element.prototype.__luOriginalAnimate;" +
+            "if (!original) return;" +
+            "Element.prototype.animate = original;" +
+            "delete Element.prototype.__luOriginalAnimate;" +
+            "window.__luAnimated = [];" +
+            "})()",
     )
 }
 
