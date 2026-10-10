@@ -4,6 +4,9 @@ import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scan.ScanIssueReason
 import com.calypsan.listenup.client.domain.model.InboxBookItem
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
+import com.calypsan.listenup.web.InShell
+import com.calypsan.listenup.web.ViewportFrame
+import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
@@ -12,7 +15,10 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.ints.shouldBeLessThan
 import kotlinx.browser.document
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
@@ -22,6 +28,17 @@ private val hosts = mutableListOf<HTMLElement>()
 
 /** The row's touch-target floor: comfortably over WCAG 2.5.8's 24px, matching the row's own rhythm. */
 private const val MIN_TARGET_PX = 44.0
+
+/** A library's first scan: enough books that drawing every one of them is the cost being avoided. */
+private const val MANY_BOOKS = 500
+
+private const val FRAME_WIDTH = 1280
+
+private const val FRAME_HEIGHT = 800
+
+private const val SETTLE_TIMEOUT_MS = 4_000L
+
+private const val FRAME_MS = 16L
 
 /** About 200 characters of ordinary words, so an unclamped title wraps rather than overflowing as one word. */
 private val LONG_TITLE = "The Long and Winding Account of ".repeat(7).trim()
@@ -152,6 +169,37 @@ private fun button(
         .filterIsInstance<HTMLElement>()
         .firstOrNull { it.textContent?.trim() == label }
 
+/** The inbox inside the real shell, whose content region is the scrollport its list windows against. */
+private fun ViewportFrames.mountInShell(state: AdminInboxUiState): ViewportFrame =
+    mount(FRAME_WIDTH, FRAME_HEIGHT) {
+        InShell {
+            AdminInboxPage(
+                state = state,
+                onToggleBook = {},
+                onSelectAll = {},
+                onClearSelection = {},
+                onRelease = {},
+                onDismissIssue = {},
+                onClearError = {},
+                onClearReleaseResult = {},
+                onRetry = {},
+                onOpenAdmin = {},
+            )
+        }
+    }
+
+/** Waits, frame by frame, until [condition] holds — or fails naming [what]. */
+private suspend fun awaitUntil(
+    what: String,
+    condition: () -> Boolean,
+) {
+    try {
+        withTimeout(SETTLE_TIMEOUT_MS) { while (!condition()) delay(FRAME_MS) }
+    } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
+        throw AssertionError("timed out waiting for: $what", timeout)
+    }
+}
+
 /**
  * The admin inbox.
  *
@@ -164,10 +212,14 @@ private fun button(
 class AdminInboxPageTest :
     FunSpec({
 
+        val frames = ViewportFrames()
+
         afterSpec {
             hosts.forEach { it.remove() }
             hosts.clear()
         }
+
+        afterTest { frames.disposeAll() }
 
         // The list is windowed by arithmetic, which is only right if every row is the same height:
         // a long title that wraps, or a missing author line, would drift every offset below it.
@@ -200,6 +252,43 @@ class AdminInboxPageTest :
             host.querySelector(".inbox-book-title")!!.getAttribute("title") shouldBe long
             host.querySelector(".inbox-book-title")!!.textContent shouldBe long
             host.querySelector(".inbox-book-row input[type='checkbox']")!!.getAttribute("aria-label") shouldBe "Select $long"
+        }
+
+        test("a long inbox renders only the rows near the viewport") {
+            val books = (1..MANY_BOOKS).map { inboxBook(id = "b$it", title = "Book $it") }
+            val frame = frames.mountInShell(readyInbox(books = books))
+
+            awaitUntil("the inbox list to window") { frame.findAll(".vl-spacer").isNotEmpty() }
+
+            frame.findAll(".inbox-book").size shouldBeLessThan MANY_BOOKS / 2
+        }
+
+        // Windowing must not forget: selection lives in the state, so a row scrolled out and back is
+        // drawn selected again, and the count is every book's, not only the rendered ones.
+        test("selection survives scrolling a row out of the window and back") {
+            val books = (1..MANY_BOOKS).map { inboxBook(id = "b$it", title = "Book $it") }
+            val frame =
+                frames.mountInShell(
+                    readyInbox(books = books, selectedBookIds = books.map { it.id }.toSet()),
+                )
+            awaitUntil("the inbox list to window") { frame.findAll(".vl-spacer").isNotEmpty() }
+            val main = frame.find(".shell-main")
+
+            fun firstRowChecked(): Boolean? =
+                frame
+                    .findAll(".inbox-book-row")
+                    .firstOrNull { it.querySelector("input")?.getAttribute("aria-label") == "Select Book 1" }
+                    ?.let { (it.querySelector("input") as HTMLInputElement).checked }
+
+            firstRowChecked() shouldBe true
+            main.scrollTop = main.scrollHeight.toDouble()
+            awaitUntil("Book 1 to leave the window") { firstRowChecked() == null }
+            main.scrollTop = 0.0
+            awaitUntil("Book 1 to return") { firstRowChecked() != null }
+
+            firstRowChecked() shouldBe true
+            frame.findAll("button").first { it.textContent?.trim() == "Release $MANY_BOOKS" }
+            frame.findAll("button").first { it.textContent?.trim() == "Deselect all" }
         }
 
         test("a held book shows what it is, who wrote it, and how long it runs") {
