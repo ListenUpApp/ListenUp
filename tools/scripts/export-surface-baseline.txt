@@ -91,6 +91,8 @@ BackupSummary
 BiographyUi
 BookAvailability
 BookCandidateKey
+BookCardStatus
+BookCardStatus_SealedType
 BookContributor
 BookContributorInput
 BookDetail
@@ -147,6 +149,8 @@ BookSearchState
 BookSeries
 BookSeriesInput
 BookSeriesPath
+BookStatusCounts
+BookStatusFilter
 BookSummaryFields
 BookUpdate
 BookUpdateRequest
