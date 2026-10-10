@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
+import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.matching.review.AUDNEXUS
 import com.calypsan.listenup.server.matching.review.HARDCOVER
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
@@ -21,6 +22,7 @@ import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.testing.shouldSucceed
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -28,6 +30,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Duration.Companion.seconds
+import org.slf4j.event.Level
 
 private val US = MetadataLocale("us")
 
@@ -236,6 +239,25 @@ class PersonReviewerTest :
                     .review(key = PersonCandidateKey(listOf(ExternalRef("audible", "B0RAY"))))
                     .error()
                     .shouldBeInstanceOf<MetadataError.ExternalTimeout>()
+            }
+        }
+
+        test("a source that misses the deadline is logged with the operation and the deadline") {
+            runTest {
+                val rig = Rig()
+                rig.audnexus.slow = 30.seconds
+                // installTestCapture() mutates the JVM-global SLF4J factory; safe only because :server:jvmTest
+                // runs specs sequentially.
+                val capture = ListenUpLoggerFactory.installTestCapture()
+                try {
+                    rig.review(key = PersonCandidateKey(listOf(ExternalRef("audible", "B0RAY"))))
+
+                    capture.events
+                        .filter { it.level == Level.WARN }
+                        .map { it.message } shouldContain "enrichment: person-profile from audnexus didn't answer within 8s"
+                } finally {
+                    ListenUpLoggerFactory.removeTestCapture()
+                }
             }
         }
 
