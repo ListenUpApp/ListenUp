@@ -221,6 +221,26 @@ class WorldEventEditRepositoryOfflineTest :
             }
         }
 
+        test("an edit may keep a participant deleted since, but may not newly name a deleted one") {
+            runTest {
+                val rig = newRig()
+                rig.db.entityDao().upsert(cast("sons", EntityKind.GROUP))
+                val created = (rig.repo.recordEvent(JOINS_MARS) as AppResult.Success).data
+                rig.db.entityDao().softDelete(id = "mars", deletedAt = 1L, revision = 1L)
+                rig.db.entityDao().softDelete(id = "sons", deletedAt = 1L, revision = 1L)
+
+                rig.repo
+                    .updateEvent(created.eventId, JOINS_MARS.content.copy(detail = "Imperator"))
+                    .shouldBeInstanceOf<AppResult.Success<WorldEventEdit>>()
+                rig.repo
+                    .updateEvent(created.eventId, JOINS_MARS.content.copy(objectId = EntityId("sons")))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<WorldEventError.EntityNotInWorld>()
+                rig.db.close()
+            }
+        }
+
         test("undo of a sent delete reverts the user's own DELETE online and writes the revived row") {
             runTest {
                 val service = mock<WorldEventService>()

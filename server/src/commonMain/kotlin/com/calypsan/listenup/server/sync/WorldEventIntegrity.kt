@@ -54,20 +54,29 @@ internal class WorldEventIntegrity(
     }
 
     /**
-     * Why [subjectId] / [objectId] can't fill [type]'s parts in [home], or null: an entity of another home — or,
-     * when [requireLive], a deleted one — is [WorldEventError.EntityNotInWorld]; a wrong kind is
-     * [WorldEventError.WrongEntityKind]. A revert passes `requireLive = false`: undo must not be blocked by a
-     * later delete.
+     * Why [subjectId] / [objectId] can't fill [type]'s parts in [home], or null: an entity of another home — or a
+     * deleted one not in [mayBeDeleted] — is [WorldEventError.EntityNotInWorld]; a wrong kind is
+     * [WorldEventError.WrongEntityKind]. [mayBeDeleted] is what the write keeps rather than newly names: an edit
+     * passes the participants the stored event already has, so deleting a character never freezes the events
+     * that name it; a revert passes the ones it restores, so undo is never blocked by a later delete.
      */
     fun participantProblem(
         type: WorldEventType,
         subjectId: String?,
         objectId: String?,
         home: WorldHome,
-        requireLive: Boolean,
+        mayBeDeleted: Set<String>,
     ): WorldEventError? {
-        val subjectKind = subjectId?.let { kindInWorld(it, home, requireLive) ?: return notInWorld(it) }
-        val objectKind = objectId?.let { kindInWorld(it, home, requireLive) ?: return notInWorld(it) }
+        val subjectKind =
+            subjectId?.let { id ->
+                kindInWorld(id, home, requireLive = id !in mayBeDeleted)
+                    ?: return notInWorld(id)
+            }
+        val objectKind =
+            objectId?.let { id ->
+                kindInWorld(id, home, requireLive = id !in mayBeDeleted)
+                    ?: return notInWorld(id)
+            }
         return WorldEventRules.kindProblem(type, subjectKind, objectKind)
     }
 

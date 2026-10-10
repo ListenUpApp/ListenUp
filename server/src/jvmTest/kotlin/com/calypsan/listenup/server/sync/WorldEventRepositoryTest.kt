@@ -230,6 +230,31 @@ class WorldEventRepositoryTest :
             }
         }
 
+        test("an edit may keep a participant deleted since, but may not newly name a deleted one") {
+            withSqlDatabase {
+                runTest {
+                    val world = world()
+                    val saga = world.saga.value
+
+                    fun joins(
+                        text: String,
+                        obj: String,
+                    ) = eventUpsert("w1", type = WorldEventType.JOINS, text = text, homeSeriesId = saga, subject = "darrow", obj = obj)
+                    world.entities.upsertEntity(entityPayload("sons", kind = EntityKind.GROUP, homeSeriesId = saga), ACTOR)
+                    world.events.record(joins(text = "", obj = "mars"))
+                    world.entities.deleteEntity(EntityId("mars"), ACTOR)
+                    world.entities.deleteEntity(EntityId("sons"), ACTOR)
+
+                    world.events.record(joins(text = "a typo, fixed", obj = "mars"))
+                    world.events
+                        .findById(WorldEventId("w1"))
+                        .shouldNotBeNull()
+                        .text shouldBe "a typo, fixed"
+                    world.refusal(joins(text = "", obj = "sons")).shouldBeInstanceOf<WorldEventError.EntityNotInWorld>()
+                }
+            }
+        }
+
         test("an edit carrying UNKNOWN keeps the stored type") {
             withSqlDatabase {
                 runTest {

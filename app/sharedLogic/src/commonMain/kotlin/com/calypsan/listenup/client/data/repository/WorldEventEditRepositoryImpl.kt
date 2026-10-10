@@ -138,7 +138,12 @@ internal class WorldEventEditRepositoryImpl(
                     homeBookId = existing.homeBookId?.let(::BookId),
                 )
             val type = if (upsert.type == WorldEventType.UNKNOWN) existing.type else upsert.type
-            contentProblem(upsert, type)?.let { return@withLock AppResult.Failure(it) }
+            val stillNamed =
+                setOfNotNull(
+                    existing.subjectEntityId,
+                    existing.objectEntityId,
+                ).mapTo(HashSet(), ::EntityId)
+            contentProblem(upsert, type, mayBeDeleted = stillNamed)?.let { return@withLock AppResult.Failure(it) }
             val before = existing.toDomain(worldEventDao.mentionIdsFor(id.value))
             write(upsert, existing).map { WorldEventEdit(id, before = before) }
         }
@@ -242,15 +247,17 @@ internal class WorldEventEditRepositoryImpl(
     private suspend fun creationProblem(upsert: WorldEventUpsert): AppError? =
         WorldEventRules.homeProblem(upsert.homeSeriesId, upsert.homeBookId)
             ?: WorldEventRules.creationProblem(upsert.type)
-            ?: contentProblem(upsert, upsert.type)
+            ?: contentProblem(upsert, upsert.type, mayBeDeleted = emptySet())
 
+    /** [mayBeDeleted]: the participants the stored event already names, which may have been deleted since. */
     private suspend fun contentProblem(
         upsert: WorldEventUpsert,
         type: WorldEventType,
+        mayBeDeleted: Set<EntityId>,
     ): AppError? =
         WorldEventRules.contentProblem(upsert, type)
             ?: anchorProblem(upsert)
-            ?: participantProblem(upsert, type)
+            ?: participantProblem(upsert, type, mayBeDeleted)
 
     /** A book-homed event can be pinned only to its own book; series membership is the server's to check. */
     private fun anchorProblem(upsert: WorldEventUpsert): AppError? {
@@ -259,22 +266,27 @@ internal class WorldEventEditRepositoryImpl(
         return if (anchor == home) null else WorldEventError.InvalidAnchor(debugInfo = "book=${anchor.value}")
     }
 
+    /**
+     * The server's participant rule: each is an entity of the event's world, and live unless [mayBeDeleted] — an
+     * edit that keeps a deleted character is allowed, so deleting one never freezes the events naming it.
+     */
     private suspend fun participantProblem(
         upsert: WorldEventUpsert,
         type: WorldEventType,
+        mayBeDeleted: Set<EntityId>,
     ): AppError? {
-        val subjectKind = upsert.subjectEntityId?.let { kindInWorld(it, upsert) ?: return notInWorld(it) }
-        val objectKind = upsert.objectEntityId?.let { kindInWorld(it, upsert) ?: return notInWorld(it) }
+        val subjectKind = upsert.subjectEntityId?.let { kindInWorld(it, upsert, mayBeDeleted) ?: return notInWorld(it) }
+        val objectKind = upsert.objectEntityId?.let { kindInWorld(it, upsert, mayBeDeleted) ?: return notInWorld(it) }
         return WorldEventRules.kindProblem(type, subjectKind, objectKind)
     }
 
-    /** The kind of [id] if it is a live entity of [upsert]'s world, else null. */
+    /** The kind of [id] if it is an entity of [upsert]'s world — live, or deleted and in [mayBeDeleted] — else null. */
     private suspend fun kindInWorld(
         id: EntityId,
         upsert: WorldEventUpsert,
+        mayBeDeleted: Set<EntityId>,
     ): EntityKind? =
-        entityDao
-            .getById(id.value)
+        (if (id in mayBeDeleted) entityDao.findById(id.value) else entityDao.getById(id.value))
             ?.takeIf { it.homeSeriesId == upsert.homeSeriesId?.value && it.homeBookId == upsert.homeBookId?.value }
             ?.kind
 

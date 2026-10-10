@@ -221,7 +221,8 @@ class WorldEventRepository(
      * - [WorldEventRules.contentProblem] for the type being written;
      * - a deleted event stays deleted: an edit or delete of it is [WorldEventError.NotFound] (only [revert] or a
      *   book re-add revives);
-     * - the anchor is a live book of the world; subject and object are live entities of the world of allowed kinds;
+     * - the anchor is a live book of the world; subject and object are entities of the world of allowed kinds, and
+     *   live unless the stored event already names them (a deleted character never freezes its events);
      * - authorship is the server's (`createdBy` on create, `updatedBy` every time), whatever the payload claims.
      *
      * Any refusal rolls the whole batch back and returns it.
@@ -301,7 +302,7 @@ class WorldEventRepository(
                         subjectId = restore.subjectEntityId,
                         objectId = restore.objectEntityId,
                         home = home,
-                        requireLive = false,
+                        mayBeDeleted = setOfNotNull(restore.subjectEntityId, restore.objectEntityId),
                     )
             if (problem != null) rollback(AppResult.Failure(problem))
             val restored =
@@ -521,7 +522,7 @@ class WorldEventRepository(
                 subjectId = upsert.subjectEntityId?.value,
                 objectId = upsert.objectEntityId?.value,
                 home = home,
-                requireLive = true,
+                mayBeDeleted = setOfNotNull(before?.subjectEntityId, before?.objectEntityId),
             )?.let { return it }
         // The base stamps revision, created_at and updated_at; the stamps below are placeholders.
         val value =
