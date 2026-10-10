@@ -364,3 +364,25 @@ custom_rules:
     message: >-
       iosApp rule 7: isolate the state (@MainActor) or guard it (OSAllocatedUnfairLock).
     severity: error
+
+  # The deep-link router and the error surface are one per process. Each listens to a shared Kotlin
+  # flow, so a second instance — one per iPad window, which is what `@State` on the root view
+  # gives — resolves every link and raises every alert again. Use `.shared` (and
+  # `GlobalErrorObserver.activate()`); only the type's own file constructs it. The test and
+  # extension targets build their own or none.
+  second_process_wide_instance:
+    name: "Second instance of a process-wide object"
+    regex: '\b(?:DeepLinkRouter|ErrorAlertCenter|GlobalErrorObserver)\('
+    included: '/ListenUp/'
+    excluded: '/ListenUp/Core/(?:DeepLinkRouter|ErrorAlertCenter|GlobalErrorObserver)\.swift|/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      One per process: use DeepLinkRouter.shared, ErrorAlertCenter.shared or
+      GlobalErrorObserver.activate(). A second instance duplicates every link and alert.
+    severity: error
