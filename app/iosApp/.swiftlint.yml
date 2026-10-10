@@ -242,3 +242,125 @@ custom_rules:
       This file stores a Kotlin ViewModel that nothing clears. Pass it to the observer's FlowBridge
       with bridge.own(viewModel), or add `// view-model-owner: <reason>` if another type owns it.
     severity: error
+
+  # ── Idioms the app has already left behind ──
+  # These idioms are at zero in the app. The rules exist so a contributor working from an older
+  # guide cannot bring one back unnoticed. The rules scoped to `/ListenUp/` also name the other
+  # targets in `excluded`, for the same reason as `raw_color_literal_outside_design_system`.
+  legacy_swift_idiom_observation:
+    name: "Legacy observation idiom"
+    regex: '\bObservableObject\b|@(?:Published|StateObject|ObservedObject|EnvironmentObject)\b|^import Combine\b'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      Use @Observable with @State / @Environment / @Bindable; Kotlin flows arrive through FlowBridge.
+    severity: error
+
+  legacy_swift_idiom_swiftui:
+    name: "Legacy SwiftUI idiom"
+    regex: '\bNavigationView\b|\bPreviewProvider\b|\.foregroundColor\(|\bAnyView\(|\bUIScreen\.main\b'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      Use NavigationStack, #Preview, .foregroundStyle, a concrete or @ViewBuilder view, and geometry
+      from the view tree.
+    severity: error
+
+  legacy_swift_idiom_xctest:
+    name: "XCTest import"
+    regex: '^import XCTest\b'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: Tests use Swift Testing (@Test, #expect).
+    severity: error
+
+  legacy_swift_idiom_forced:
+    name: "Forced try or cast"
+    regex: '\btry!|\bas!'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: Handle the failure with try? / do-catch, or as?.
+    severity: error
+
+  legacy_swift_idiom_logging:
+    name: "NSLog or print"
+    regex: '\bNSLog\(|(?<![\w.])print\('
+    included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: Log through Log (Core/Logger.swift); a preview action can be empty.
+    severity: error
+
+  legacy_swift_idiom_dispatch:
+    name: "DispatchQueue.main.async"
+    regex: '\bDispatchQueue\.main\.async\b'
+    included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: Use Task { @MainActor in … } or a .task modifier.
+    severity: error
+
+  legacy_swift_idiom_formatter:
+    name: "DateFormatter or NumberFormatter"
+    regex: '\b(?:Date|Number)Formatter\(\)'
+    included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      Use FormatStyle (.formatted(…), ISODate.parse); a shared mutable formatter is the alternative
+      this avoids.
+    severity: error
+
+  unsafe_concurrency_escape:
+    name: "Unsafe concurrency escape"
+    regex: 'nonisolated\(unsafe\)|@unchecked\s+Sendable'
+    included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      iosApp rule 7: isolate the state (@MainActor) or guard it (OSAllocatedUnfairLock).
+    severity: error

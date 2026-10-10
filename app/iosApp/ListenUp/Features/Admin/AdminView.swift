@@ -115,13 +115,13 @@ struct AdminView: View {
         }
     }
 
-    /// Acts on the first settled arrival only. The scroll waits a turn of the main queue so the list
+    /// Acts on the first settled arrival only. The scroll waits a turn of the main actor so the list
     /// has laid out the rows it is scrolling to.
     private func arrive(_ arrival: AdminArrival, proxy: ScrollViewProxy) {
         guard !hasArrived, arrival != .waiting else { return }
         hasArrived = true
         if case .scroll(let section) = arrival {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 withAnimation { proxy.scrollTo(section, anchor: .top) }
             }
         }
