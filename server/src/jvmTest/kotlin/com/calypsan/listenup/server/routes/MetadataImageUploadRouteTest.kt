@@ -109,6 +109,50 @@ class MetadataImageUploadRouteTest :
             }
         }
 
+        test("PUT /api/v1/contributors/{id}/image with a PNG is stored as .png and served as image/png") {
+            val libraryRoot = Files.createTempDirectory("listenup-img-upload-png-")
+            val homeDir = Files.createTempDirectory("listenup-img-upload-png-home-")
+            val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A) + ByteArray(16)
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = mintRootToken()
+
+                    val contributorRepo by application.inject<ContributorRepository>()
+                    val id = contributorRepo.resolveOrCreate("Png Author", sortName = null)
+
+                    client
+                        .put("/api/v1/contributors/${id.value}/image") {
+                            bearerAuth(token)
+                            setBody(
+                                MultiPartFormDataContent(
+                                    formData {
+                                        append(
+                                            "file",
+                                            png,
+                                            Headers.build {
+                                                append(HttpHeaders.ContentType, "image/png")
+                                                append(HttpHeaders.ContentDisposition, "filename=\"image.png\"")
+                                            },
+                                        )
+                                    },
+                                ),
+                            )
+                        }.status shouldBe HttpStatusCode.NoContent
+
+                    contributorRepo.findById(id.value)?.imagePath shouldBe "contributors/${hashBytesSha256(png)}.png"
+                    val served = client.get("/api/v1/contributors/${id.value}/photo") { bearerAuth(token) }
+                    served.status shouldBe HttpStatusCode.OK
+                    served.headers[HttpHeaders.ContentType] shouldBe "image/png"
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
         test("PUT /api/v1/series/{id}/cover as ROOT → 204, coverPath set, file served back") {
             val libraryRoot = Files.createTempDirectory("listenup-img-upload-series-")
             val homeDir = Files.createTempDirectory("listenup-img-upload-series-home-")
