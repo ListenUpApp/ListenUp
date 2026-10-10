@@ -81,12 +81,12 @@ class WorldEventAccessTest :
                             repo = repo,
                             event =
                                 SyncEvent.Created(
-                                    id = "w-$anchor",
+                                    id = "w-${anchor ?: "none"}",
                                     revision = 1L,
                                     occurredAt = 0L,
                                     payload =
                                         WorldEventSyncPayload(
-                                            id = "w-$anchor",
+                                            id = "w-${anchor ?: "none"}",
                                             homeSeriesId = mixed.value,
                                             bookId = anchor,
                                             positionMs = anchor?.let { 1L },

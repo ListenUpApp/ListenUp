@@ -215,7 +215,11 @@ class WorldEventServiceImplTest :
                     val deletion = world.newestChange("w1")
                     deletion.op shouldBe StoryWorldOp.DELETE
 
-                    world.asMember("nocontrib").revert(deletion.id).failure().shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    world
+                        .asMember("nocontrib")
+                        .revert(deletion.id)
+                        .failure()
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
                     member.revert(deletion.id).shouldBeInstanceOf<AppResult.Success<WorldEventChange>>()
 
                     world.asRoot().applyBatch(batchOf(eventUpsert("secret", homeSeriesId = saga, bookId = "hidden", positionMs = 1L)))

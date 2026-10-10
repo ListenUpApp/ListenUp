@@ -33,8 +33,8 @@ class V97MigrationTest :
                     .apply { deleteOnExit() }
                     .absolutePath
             MigrationRunner(path).migrate()
-            return fileBackedTestDataSource("jdbc:sqlite:$path").also {
-                it.execute(
+            return fileBackedTestDataSource("jdbc:sqlite:$path").apply {
+                execute(
                     "INSERT INTO book_series (id, name, normalized_name, revision, created_at, updated_at) " +
                         "VALUES ('s1', 'S', 's', 1, 1, 1)",
                 )

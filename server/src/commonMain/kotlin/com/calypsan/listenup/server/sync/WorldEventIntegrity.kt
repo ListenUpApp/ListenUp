@@ -34,9 +34,21 @@ internal class WorldEventIntegrity(
         if (bookId == null) return null
         val inWorld =
             when {
-                home.bookId != null -> bookId == home.bookId && db.worldEventsQueries.isLiveBook(bookId).executeAsOne()
-                home.seriesId != null -> db.worldEventsQueries.isLiveBookInSeries(book_id = bookId, series_id = home.seriesId).executeAsOne()
-                else -> false
+                home.bookId != null -> {
+                    bookId == home.bookId && db.worldEventsQueries.isLiveBook(bookId).executeAsOne()
+                }
+
+                home.seriesId != null -> {
+                    db.worldEventsQueries
+                        .isLiveBookInSeries(
+                            book_id = bookId,
+                            series_id = home.seriesId,
+                        ).executeAsOne()
+                }
+
+                else -> {
+                    false
+                }
             }
         return if (inWorld) null else WorldEventError.InvalidAnchor(debugInfo = "book=$bookId")
     }
@@ -62,15 +74,35 @@ internal class WorldEventIntegrity(
     /** The entities of [event]'s world (deleted ones included) that its text, subject and object name, sorted. */
     fun mentionIds(event: WorldEventSyncPayload): List<String> {
         val candidates =
-            (MentionTokens.extractMentionIds(event.text) + setOfNotNull(event.subjectEntityId, event.objectEntityId)).toList()
+            (
+                MentionTokens.extractMentionIds(
+                    event.text,
+                ) + setOfNotNull(event.subjectEntityId, event.objectEntityId)
+            ).toList()
         if (candidates.isEmpty()) return emptyList()
         return candidates
             .chunked(SQLITE_IN_CHUNK)
             .flatMap { chunk ->
                 when {
-                    event.homeBookId != null -> db.worldEventsQueries.selectEntityIdsInBook(chunk, event.homeBookId).executeAsList()
-                    event.homeSeriesId != null -> db.worldEventsQueries.selectEntityIdsInSeries(chunk, event.homeSeriesId).executeAsList()
-                    else -> emptyList()
+                    event.homeBookId != null -> {
+                        db.worldEventsQueries
+                            .selectEntityIdsInBook(
+                                chunk,
+                                event.homeBookId,
+                            ).executeAsList()
+                    }
+
+                    event.homeSeriesId != null -> {
+                        db.worldEventsQueries
+                            .selectEntityIdsInSeries(
+                                chunk,
+                                event.homeSeriesId,
+                            ).executeAsList()
+                    }
+
+                    else -> {
+                        emptyList()
+                    }
                 }
             }.sorted()
     }
@@ -81,7 +113,9 @@ internal class WorldEventIntegrity(
         requireLive: Boolean,
     ): EntityKind? {
         val row = db.entitiesQueries.selectById(entityId).executeAsOneOrNull() ?: return null
-        val usable = row.home_series_id == home.seriesId && row.home_book_id == home.bookId && (!requireLive || row.deleted_at == null)
+        val usable =
+            row.home_series_id == home.seriesId && row.home_book_id == home.bookId &&
+                (!requireLive || row.deleted_at == null)
         return if (usable) EntityKind.fromName(row.kind.uppercase()) else null
     }
 

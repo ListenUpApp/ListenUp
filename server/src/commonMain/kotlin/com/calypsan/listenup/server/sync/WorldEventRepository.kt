@@ -236,8 +236,23 @@ class WorldEventRepository(
             for (op in ops) {
                 val refusal =
                     when (op) {
-                        is WorldEventOp.Upsert -> applyUpsert(op.upsert, actor, ctx, lease.take())
-                        is WorldEventOp.Delete -> applyDelete(op.id, actor, ctx, lease.take())
+                        is WorldEventOp.Upsert -> {
+                            applyUpsert(
+                                upsert = op.upsert,
+                                actor = actor,
+                                ctx = ctx,
+                                revision = lease.take(),
+                            )
+                        }
+
+                        is WorldEventOp.Delete -> {
+                            applyDelete(
+                                id = op.id,
+                                actor = actor,
+                                ctx = ctx,
+                                revision = lease.take(),
+                            )
+                        }
                     }
                 if (refusal != null) rollback(AppResult.Failure(refusal))
             }
@@ -280,10 +295,10 @@ class WorldEventRepository(
             val problem =
                 integrity.anchorProblem(restore.bookId, home)
                     ?: integrity.participantProblem(
-                        restore.type,
-                        restore.subjectEntityId,
-                        restore.objectEntityId,
-                        home,
+                        type = restore.type,
+                        subjectId = restore.subjectEntityId,
+                        objectId = restore.objectEntityId,
+                        home = home,
                         requireLive = false,
                     )
             if (problem != null) rollback(AppResult.Failure(problem))
@@ -500,10 +515,10 @@ class WorldEventRepository(
         integrity.anchorProblem(upsert.bookId?.value, home)?.let { return it }
         integrity
             .participantProblem(
-                type,
-                upsert.subjectEntityId?.value,
-                upsert.objectEntityId?.value,
-                home,
+                type = type,
+                subjectId = upsert.subjectEntityId?.value,
+                objectId = upsert.objectEntityId?.value,
+                home = home,
                 requireLive = true,
             )?.let { return it }
         // The base stamps revision, created_at and updated_at; the stamps below are placeholders.

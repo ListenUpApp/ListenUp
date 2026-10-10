@@ -55,13 +55,27 @@ internal class WorldEventServiceImpl(
 
     override suspend fun listEventsForSeries(seriesId: SeriesId): AppResult<List<WorldEventSyncPayload>> {
         val caller = principal.current() ?: return denied()
-        if (!accessPolicy.canAccessSeries(caller.userId.value, caller.role, seriesId.value)) return AppResult.Success(emptyList())
+        if (!accessPolicy.canAccessSeries(
+                caller.userId.value,
+                caller.role,
+                seriesId.value,
+            )
+        ) {
+            return AppResult.Success(emptyList())
+        }
         return AppResult.Success(visibleTo(caller, eventRepo.listLiveForSeries(seriesId)))
     }
 
     override suspend fun listEventsForBook(bookId: BookId): AppResult<List<WorldEventSyncPayload>> {
         val caller = principal.current() ?: return denied()
-        if (!accessPolicy.canAccess(caller.userId.value, caller.role, bookId.value)) return AppResult.Success(emptyList())
+        if (!accessPolicy.canAccess(
+                caller.userId.value,
+                caller.role,
+                bookId.value,
+            )
+        ) {
+            return AppResult.Success(emptyList())
+        }
         // A book-homed event can only be anchored to its own book, which the caller can see.
         return AppResult.Success(eventRepo.listLiveForBook(bookId))
     }
@@ -88,7 +102,11 @@ internal class WorldEventServiceImpl(
         val event = eventRepo.findById(change.eventId) ?: return missing
         if (!canSee(caller, event)) return missing
         val restoredAnchor = change.before?.bookId
-        if (restoredAnchor != null && !accessPolicy.canAccess(caller.userId.value, caller.role, restoredAnchor)) return missing
+        if (restoredAnchor != null &&
+            !accessPolicy.canAccess(caller.userId.value, caller.role, restoredAnchor)
+        ) {
+            return missing
+        }
         permissionPolicy.require(caller, Permission.CONTRIBUTE_STORY_WORLD)?.let { return AppResult.Failure(it) }
         return eventRepo.revert(changeId, caller.userId)
     }
@@ -130,7 +148,12 @@ internal class WorldEventServiceImpl(
         upsert: WorldEventUpsert,
     ): AppError? {
         val homeVisible =
-            accessPolicy.canSeeEntityHome(caller.userId.value, caller.role, upsert.homeSeriesId?.value, upsert.homeBookId?.value)
+            accessPolicy.canSeeEntityHome(
+                userId = caller.userId.value,
+                role = caller.role,
+                homeSeriesId = upsert.homeSeriesId?.value,
+                homeBookId = upsert.homeBookId?.value,
+            )
         if (!homeVisible) return notFound(upsert.id)
         // A stored event out of sight answers NotFound before the repository's rules could say it exists.
         val existing = eventRepo.findById(upsert.id)
@@ -168,8 +191,19 @@ internal class WorldEventServiceImpl(
 
     private fun WorldEventOp.normalized(): WorldEventOp =
         when (this) {
-            is WorldEventOp.Delete -> this
-            is WorldEventOp.Upsert -> WorldEventOp.Upsert(upsert.copy(text = upsert.text.trim(), detail = upsert.detail?.trim()?.ifEmpty { null }))
+            is WorldEventOp.Delete -> {
+                this
+            }
+
+            is WorldEventOp.Upsert -> {
+                WorldEventOp
+                    .Upsert(
+                        upsert.copy(
+                            text = upsert.text.trim(),
+                            detail = upsert.detail?.run { trim().ifEmpty { null } },
+                        ),
+                    )
+            }
         }
 
     private fun <T> denied(): AppResult<T> = AppResult.Failure(AuthError.PermissionDenied())

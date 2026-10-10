@@ -64,10 +64,18 @@ class WorldEventRepositoryRevertTest :
                     val creation = repo.listHistory(W1).single()
 
                     val undoCreate = repo.revert(creation.id, ACTOR).shouldBeInstanceOf<AppResult.Success<WorldEventChange>>().data
-                    repo.findById(W1).shouldNotBeNull().deletedAt.shouldNotBeNull()
+                    repo
+                        .findById(W1)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
 
                     repo.revert(undoCreate.id, ACTOR).shouldBeInstanceOf<AppResult.Success<WorldEventChange>>()
-                    repo.findById(W1).shouldNotBeNull().deletedAt.shouldBeNull()
+                    repo
+                        .findById(W1)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
                 }
             }
         }
@@ -102,7 +110,14 @@ class WorldEventRepositoryRevertTest :
                     entities.upsertEntity(entityPayload("mars", kind = EntityKind.GROUP, homeSeriesId = saga.value), ACTOR)
                     val repo = worldEventRepository()
                     repo.record(
-                        eventUpsert("w1", type = WorldEventType.JOINS, text = "", homeSeriesId = saga.value, subject = "darrow", obj = "mars"),
+                        eventUpsert(
+                            "w1",
+                            type = WorldEventType.JOINS,
+                            text = "",
+                            homeSeriesId = saga.value,
+                            subject = "darrow",
+                            obj = "mars",
+                        ),
                     )
                     repo.applyBatch(listOf(WorldEventOp.Delete(W1)), ACTOR)
                     entities.deleteEntity(EntityId("mars"), ACTOR)

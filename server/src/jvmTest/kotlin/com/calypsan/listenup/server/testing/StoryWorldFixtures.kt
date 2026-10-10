@@ -79,7 +79,8 @@ internal fun entityPayload(
 internal fun SqlTestDatabases.worldEventRepository(
     bus: ChangeBus = ChangeBus(),
     clock: Clock = Clock.System,
-): WorldEventRepository = WorldEventRepository(db = sql, bus = bus, registry = SyncRegistry(), driver = driver, clock = clock)
+): WorldEventRepository =
+    WorldEventRepository(db = sql, bus = bus, registry = SyncRegistry(), driver = driver, clock = clock)
 
 /** A world-event upsert; exactly one of [homeSeriesId] / [homeBookId] should be set. */
 internal fun eventUpsert(

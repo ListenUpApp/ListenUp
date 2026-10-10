@@ -271,7 +271,7 @@ class BookAccessPolicy(
         homeBookId: String?,
         anchorBookId: String?,
     ): Boolean =
-        canSeeEntityHome(userId, role, homeSeriesId, homeBookId) &&
+        canSeeEntityHome(userId = userId, role = role, homeSeriesId = homeSeriesId, homeBookId = homeBookId) &&
             (anchorBookId == null || canAccess(userId, role, anchorBookId))
 
     /**

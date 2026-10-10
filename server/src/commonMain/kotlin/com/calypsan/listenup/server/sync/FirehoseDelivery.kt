@@ -275,9 +275,28 @@ private suspend fun isStoryWorldEventHidden(
         }
     val policy = bookAccessPolicy()
     return when (payload) {
-        is EntitySyncPayload -> !policy.canSeeEntityHome(userId, role, payload.homeSeriesId, payload.homeBookId)
-        is WorldEventSyncPayload -> !policy.canSeeWorldEvent(userId, role, payload.homeSeriesId, payload.homeBookId, payload.bookId)
-        else -> error("unexpected Story World payload ${payload::class.simpleName} on $domain")
+        is EntitySyncPayload -> {
+            !policy.canSeeEntityHome(
+                userId = userId,
+                role = role,
+                homeSeriesId = payload.homeSeriesId,
+                homeBookId = payload.homeBookId,
+            )
+        }
+
+        is WorldEventSyncPayload -> {
+            !policy.canSeeWorldEvent(
+                userId = userId,
+                role = role,
+                homeSeriesId = payload.homeSeriesId,
+                homeBookId = payload.homeBookId,
+                anchorBookId = payload.bookId,
+            )
+        }
+
+        else -> {
+            error("unexpected Story World payload ${payload::class} on $domain")
+        }
     }
 }
 

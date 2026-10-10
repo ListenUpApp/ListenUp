@@ -159,7 +159,10 @@ class WorldEventRepositoryTest :
                         eventUpsert("w1", type = WorldEventType.NOTE, text = text, homeSeriesId = world.saga.value, obj = "institute"),
                     )
 
-                    world.events.findById(WorldEventId("w1")).shouldNotBeNull().mentionIds shouldBe listOf("darrow", "institute")
+                    world.events
+                        .findById(WorldEventId("w1"))
+                        .shouldNotBeNull()
+                        .mentionIds shouldBe listOf("darrow", "institute")
                     world.events.listLiveMentioning(EntityId("institute")).map { it.id } shouldBe listOf("w1")
                     world.events.listLiveMentioning(EntityId("stranger")).shouldBeEmpty()
                 }
@@ -179,7 +182,10 @@ class WorldEventRepositoryTest :
                     val tombstone = world.events.findById(WorldEventId("w1")).shouldNotBeNull()
                     tombstone.deletedAt.shouldNotBeNull()
                     tombstone.mentionIds.shouldBeEmpty()
-                    world.events.listHistory(WorldEventId("w1")).first().op shouldBe StoryWorldOp.DELETE
+                    world.events
+                        .listHistory(WorldEventId("w1"))
+                        .first()
+                        .op shouldBe StoryWorldOp.DELETE
                     world.events
                         .applyBatch(listOf(WorldEventOp.Delete(WorldEventId("w1"))), ACTOR)
                         .shouldBeInstanceOf<AppResult.Failure>()
@@ -207,7 +213,14 @@ class WorldEventRepositoryTest :
                     world.entities.deleteEntity(EntityId("institute"), ACTOR)
                     world
                         .refusal(
-                            eventUpsert("d", type = WorldEventType.MOVES_TO, text = "", homeSeriesId = saga, subject = "darrow", obj = "institute"),
+                            eventUpsert(
+                                "d",
+                                type = WorldEventType.MOVES_TO,
+                                text = "",
+                                homeSeriesId = saga,
+                                subject = "darrow",
+                                obj = "institute",
+                            ),
                         ).shouldBeInstanceOf<WorldEventError.EntityNotInWorld>()
                     world
                         .refusal(eventUpsert("e", type = WorldEventType.UNKNOWN, homeSeriesId = saga))
@@ -223,10 +236,24 @@ class WorldEventRepositoryTest :
                     val world = world()
                     val saga = world.saga.value
                     world.events.record(
-                        eventUpsert("w1", type = WorldEventType.BELONGS_TO, text = "", homeSeriesId = saga, subject = "darrow", obj = "reds"),
+                        eventUpsert(
+                            "w1",
+                            type = WorldEventType.BELONGS_TO,
+                            text = "",
+                            homeSeriesId = saga,
+                            subject = "darrow",
+                            obj = "reds",
+                        ),
                     )
                     world.events.record(
-                        eventUpsert("w1", type = WorldEventType.UNKNOWN, text = "revealed", homeSeriesId = saga, subject = "darrow", obj = "reds"),
+                        eventUpsert(
+                            "w1",
+                            type = WorldEventType.UNKNOWN,
+                            text = "revealed",
+                            homeSeriesId = saga,
+                            subject = "darrow",
+                            obj = "reds",
+                        ),
                     )
 
                     val saved = world.events.findById(WorldEventId("w1")).shouldNotBeNull()

@@ -23,6 +23,7 @@ class BookAccessPolicyWorldEventTest :
                     val mixed = seedSeriesWithBooks("Mixed", "open", "hidden")
                     makeBookAccessible(sql, driver, bookId = "open", viewerId = "viewer")
                     val policy = BookAccessPolicy(sql, driver)
+
                     suspend fun sees(
                         series: String?,
                         book: String?,
