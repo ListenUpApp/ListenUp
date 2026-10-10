@@ -25,6 +25,7 @@ internal class InviteRepositoryImpl(
     private val authSession: ClientAuthSession,
     private val userRepository: UserRepository,
     private val deviceInfoProvider: DeviceInfoProvider,
+    private val beforeSignIn: suspend (incomingUserId: String) -> Unit,
 ) : InviteRepository {
     override suspend fun lookupInvite(code: String): AppResult<InvitePreview> =
         channel.call(idempotent = true) { it.lookupInvite(code) }
@@ -45,6 +46,8 @@ internal class InviteRepositoryImpl(
             }
         if (result is AppResult.Success) {
             val session = result.data
+            // Whoever owned the local copy must be gone before this user is written into it.
+            beforeSignIn(session.user.id.value)
             // Persist the user locally BEFORE flipping auth state. saveAuthTokens moves
             // AuthState to Authenticated, which immediately spins up the post-login startup
             // check; that check reads the current user, so Room must already hold it or the

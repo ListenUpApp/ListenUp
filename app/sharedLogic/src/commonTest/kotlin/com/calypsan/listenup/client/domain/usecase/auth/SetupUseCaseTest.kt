@@ -40,6 +40,7 @@ private class SetupFixture {
             authSession = authSession,
             userRepository = userRepository,
             deviceInfoProvider = { DeviceInfo() },
+            beforeSignIn = {},
         )
 }
 

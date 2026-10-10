@@ -38,6 +38,7 @@ private class RegisterFixture {
             authSession = authSession,
             userRepository = userRepository,
             deviceInfoProvider = { DeviceInfo() },
+            beforeSignIn = {},
         )
 }
 
