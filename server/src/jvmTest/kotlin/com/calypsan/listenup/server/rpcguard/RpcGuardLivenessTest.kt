@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.awaitCancellation
@@ -63,6 +64,40 @@ class RpcGuardLivenessTest :
                 received.shouldBe(emptyList())
             }
         }
+
+        test("a live session's ordinary call reaches the service") {
+            runTest {
+                val service = CountingScannerService()
+                val guarded = guard(service) { true }
+
+                guarded.scanFull().shouldBeInstanceOf<AppResult.Success<ScanResultSummary>>()
+                service.scanFullCalls shouldBe 1
+            }
+        }
+
+        test("a revoked session answers an ordinary call with SessionExpired and never reaches the service") {
+            runTest {
+                val service = CountingScannerService()
+                var alive = true
+                val guarded = guard(service) { alive }
+                guarded.scanFull()
+
+                alive = false
+                val failure = guarded.scanFull().shouldBeInstanceOf<AppResult.Failure>()
+
+                failure.error.shouldBeInstanceOf<AuthError.SessionExpired>()
+                failure.error.correlationId.shouldNotBeNull()
+                service.scanFullCalls shouldBe 1
+            }
+        }
+
+        test("an unarmed guard never blocks an ordinary call") {
+            runTest {
+                val guarded = guard(CountingScannerService())
+
+                guarded.scanFull().shouldBeInstanceOf<AppResult.Success<ScanResultSummary>>()
+            }
+        }
     })
 
 // Mirrors the ~30s poll the generated guard inlines (a file-private const per streaming guard, not a
@@ -72,6 +107,37 @@ private const val PRODUCTION_POLL_MILLIS = 30_000L
 /** Emits nothing and hangs forever — models a live progress/firehose stream awaiting events. */
 private class HangingScannerService : ScannerService {
     override suspend fun scanFull(): AppResult<ScanResultSummary> = error("unused")
+
+    override suspend fun lastScanResult(): AppResult<ScanResult> = error("unused")
+
+    override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = flow { awaitCancellation() }
+
+    override suspend fun listScanIssues() = AppResult.Success(emptyList<com.calypsan.listenup.api.dto.scan.ScanIssue>())
+
+    override suspend fun dismissScanIssue(issueId: String) = AppResult.Success(Unit)
+}
+
+/** Answers `scanFull` with a success and counts how many ordinary calls got past the guard. */
+private class CountingScannerService : ScannerService {
+    var scanFullCalls = 0
+        private set
+
+    override suspend fun scanFull(): AppResult<ScanResultSummary> {
+        scanFullCalls++
+        return AppResult.Success(
+            ScanResultSummary(
+                correlationId = "scan",
+                totalBooks = 0,
+                added = 0,
+                modified = 0,
+                removed = 0,
+                moved = 0,
+                errors = 0,
+                durationMs = 0,
+                filesWalked = 0,
+            ),
+        )
+    }
 
     override suspend fun lastScanResult(): AppResult<ScanResult> = error("unused")
 

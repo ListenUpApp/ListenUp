@@ -110,88 +110,101 @@ private fun Route.authedRpc(services: RpcServices) {
         rpcConfig { serialization { json(contractJson) } }
         // scanFull() is ROOT/ADMIN-gated inside ScannerServiceImpl, so the registration binds
         // the caller's principal like every other authed service.
-        // Streaming services pass a per-connection liveness predicate so the guard severs a revoked
-        // stream mid-flight (C2). The gate reads the caller's session from the same principal the
-        // service is scoped to and re-checks it against sessionLiveness on a ~30s cadence.
-        registerScoped<ScannerService> { provider ->
-            guard(
-                (services.scannerService as ScannerServiceImpl).copyWith(provider),
-                streamLiveness(provider, services.sessionLiveness),
-            )
+        // Every service gets the connection's cached session-liveness probe (`live`): the generated guard
+        // refuses an ordinary call on a revoked session, and a stream re-checks it on a ~30s cadence. The
+        // JWT is only verified when the socket opens, so without this a revoked socket keeps its authority.
+        registerScoped<ScannerService>(services.sessionLiveness) { provider, live ->
+            guard((services.scannerService as ScannerServiceImpl).copyWith(provider), live)
         }
-        registerScoped<AuthServiceAuthed> { guard(services.authService.copyWith(it) as AuthServiceAuthed) }
-        registerScoped<BookService> { guard((services.bookService as BookServiceImpl).copyWith(it)) }
-        registerScoped<ContributorService> { provider ->
-            guard(
-                (services.contributorService as ContributorServiceImpl).copyWith(provider),
-            )
+        registerScoped<AuthServiceAuthed>(services.sessionLiveness) { provider, live ->
+            guard(services.authService.copyWith(provider) as AuthServiceAuthed, live)
         }
-        registerScoped<SeriesService> { guard((services.seriesService as SeriesServiceImpl).copyWith(it)) }
-        registerScoped<EntityService> { guard((services.entityService as EntityServiceImpl).copyWith(it)) }
-        registerScoped<PlaybackService> { guard((services.playbackService as PlaybackServiceImpl).copyWith(it)) }
-        registerScoped<PlaybackProgressService> { provider ->
-            guard((services.playbackProgressService as PlaybackProgressServiceImpl).copyWith(provider))
+        registerScoped<BookService>(services.sessionLiveness) { provider, live ->
+            guard((services.bookService as BookServiceImpl).copyWith(provider), live)
         }
-        registerScoped<MetadataLookupService> { provider ->
-            guard((services.metadataLookupService as MetadataLookupServiceImpl).copyWith(provider))
+        registerScoped<ContributorService>(services.sessionLiveness) { provider, live ->
+            guard((services.contributorService as ContributorServiceImpl).copyWith(provider), live)
         }
-        registerScoped<MatchingService> { guard((services.matchingService as MatchingServiceImpl).copyWith(it)) }
-        registerScoped<LibraryAdminService> { provider ->
-            guard(
-                (services.libraryAdminService as LibraryAdminServiceImpl).copyWith(provider),
-            )
+        registerScoped<SeriesService>(services.sessionLiveness) { provider, live ->
+            guard((services.seriesService as SeriesServiceImpl).copyWith(provider), live)
         }
-        registerScoped<TagService> { guard((services.tagService as TagServiceImpl).copyWith(it)) }
-        registerScoped<MoodService> { guard((services.moodService as MoodServiceImpl).copyWith(it)) }
-        registerScoped<BookRatingService> { guard((services.bookRatingService as BookRatingServiceImpl).copyWith(it)) }
-        registerScoped<OrganizeService> { guard((services.organizeService as OrganizeServiceImpl).copyWith(it)) }
-        registerScoped<GenreService> { guard((services.genreService as GenreServiceImpl).copyWith(it)) }
-        registerScoped<CollectionService> { guard((services.collectionService as CollectionServiceImpl).copyWith(it)) }
-        registerScoped<ShelfService> { guard((services.shelfService as ShelfServiceImpl).copyWith(it)) }
-        registerScoped<ReadingOrderService> {
-            guard((services.readingOrderService as ReadingOrderServiceImpl).copyWith(it))
+        registerScoped<EntityService>(services.sessionLiveness) { provider, live ->
+            guard((services.entityService as EntityServiceImpl).copyWith(provider), live)
         }
-        registerScoped<SocialService> { guard((services.socialService as SocialServiceImpl).copyWith(it)) }
-        registerScoped<AdminUserService> { guard((services.adminUserService as AdminUserServiceImpl).copyWith(it)) }
-        registerScoped<AdminSettingsService> { provider ->
-            guard(
-                (services.adminSettingsService as AdminSettingsServiceImpl).copyWith(provider),
-            )
+        registerScoped<PlaybackService>(services.sessionLiveness) { provider, live ->
+            guard((services.playbackService as PlaybackServiceImpl).copyWith(provider), live)
         }
-        registerScoped<InviteService> { guard(services.inviteService.copyWith(it) as InviteService) }
-        registerScoped<ProfileService> { guard((services.profileService as ProfileServiceImpl).copyWith(it)) }
-        registerScoped<UserPreferencesService> { provider ->
-            guard(
-                (services.userPreferencesService as UserPreferencesServiceImpl).copyWith(provider),
-            )
+        registerScoped<PlaybackProgressService>(services.sessionLiveness) { provider, live ->
+            guard((services.playbackProgressService as PlaybackProgressServiceImpl).copyWith(provider), live)
         }
-        registerScoped<PushService> { guard((services.pushService as PushServiceImpl).copyWith(it)) }
-        registerScoped<NotificationService> { provider ->
-            guard((services.notificationService as NotificationServiceImpl).copyWith(provider))
+        registerScoped<MetadataLookupService>(services.sessionLiveness) { provider, live ->
+            guard((services.metadataLookupService as MetadataLookupServiceImpl).copyWith(provider), live)
         }
-        registerScoped<BackupService> { provider ->
-            guard(
-                (services.backupService as BackupServiceImpl).copyWith(provider),
-                streamLiveness(provider, services.sessionLiveness),
-            )
+        registerScoped<MatchingService>(services.sessionLiveness) { provider, live ->
+            guard((services.matchingService as MatchingServiceImpl).copyWith(provider), live)
         }
-        registerScoped<ImportService> { provider ->
-            guard(
-                (services.importService as ImportServiceImpl).copyWith(provider),
-                streamLiveness(provider, services.sessionLiveness),
-            )
+        registerScoped<LibraryAdminService>(services.sessionLiveness) { provider, live ->
+            guard((services.libraryAdminService as LibraryAdminServiceImpl).copyWith(provider), live)
         }
-        registerScoped<HardcoverService> { provider ->
-            guard(
-                (services.hardcoverService as HardcoverServiceImpl).copyWith(provider),
-                streamLiveness(provider, services.sessionLiveness),
-            )
+        registerScoped<TagService>(services.sessionLiveness) { provider, live ->
+            guard((services.tagService as TagServiceImpl).copyWith(provider), live)
         }
-        registerScoped<SyncStreamService> { provider ->
-            guard(
-                (services.syncStreamService as SyncStreamServiceImpl).copyWith(provider),
-                streamLiveness(provider, services.sessionLiveness),
-            )
+        registerScoped<MoodService>(services.sessionLiveness) { provider, live ->
+            guard((services.moodService as MoodServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<BookRatingService>(services.sessionLiveness) { provider, live ->
+            guard((services.bookRatingService as BookRatingServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<OrganizeService>(services.sessionLiveness) { provider, live ->
+            guard((services.organizeService as OrganizeServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<GenreService>(services.sessionLiveness) { provider, live ->
+            guard((services.genreService as GenreServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<CollectionService>(services.sessionLiveness) { provider, live ->
+            guard((services.collectionService as CollectionServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<ShelfService>(services.sessionLiveness) { provider, live ->
+            guard((services.shelfService as ShelfServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<ReadingOrderService>(services.sessionLiveness) { provider, live ->
+            guard((services.readingOrderService as ReadingOrderServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<SocialService>(services.sessionLiveness) { provider, live ->
+            guard((services.socialService as SocialServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<AdminUserService>(services.sessionLiveness) { provider, live ->
+            guard((services.adminUserService as AdminUserServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<AdminSettingsService>(services.sessionLiveness) { provider, live ->
+            guard((services.adminSettingsService as AdminSettingsServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<InviteService>(services.sessionLiveness) { provider, live ->
+            guard(services.inviteService.copyWith(provider) as InviteService, live)
+        }
+        registerScoped<ProfileService>(services.sessionLiveness) { provider, live ->
+            guard((services.profileService as ProfileServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<UserPreferencesService>(services.sessionLiveness) { provider, live ->
+            guard((services.userPreferencesService as UserPreferencesServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<PushService>(services.sessionLiveness) { provider, live ->
+            guard((services.pushService as PushServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<NotificationService>(services.sessionLiveness) { provider, live ->
+            guard((services.notificationService as NotificationServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<BackupService>(services.sessionLiveness) { provider, live ->
+            guard((services.backupService as BackupServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<ImportService>(services.sessionLiveness) { provider, live ->
+            guard((services.importService as ImportServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<HardcoverService>(services.sessionLiveness) { provider, live ->
+            guard((services.hardcoverService as HardcoverServiceImpl).copyWith(provider), live)
+        }
+        registerScoped<SyncStreamService>(services.sessionLiveness) { provider, live ->
+            guard((services.syncStreamService as SyncStreamServiceImpl).copyWith(provider), live)
         }
     }
 }
