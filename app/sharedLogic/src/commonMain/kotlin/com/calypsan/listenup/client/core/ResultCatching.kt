@@ -12,9 +12,12 @@ import com.calypsan.listenup.api.error.AppError
 fun Failure(throwable: Throwable): AppResult.Failure = AppResult.Failure(ErrorMapper.map(throwable))
 
 /**
- * Catch exceptions in a suspend block and wrap them in [AppResult]. Re-throws
+ * Catch throwables in a suspend block and wrap them in [AppResult]. Re-throws
  * [CancellationException] to preserve coroutine cancellation; routes all other
  * throwables through [ErrorMapper] via [Failure].
+ *
+ * Catches [Throwable], not [Exception], matching the RPC boundary (`catchingRpcResult`): in the
+ * browser a native error such as `RangeError` is a [Throwable] but not an [Exception].
  */
 @OptIn(ExperimentalContracts::class)
 suspend inline fun <T> suspendRunCatching(crossinline block: suspend () -> T): AppResult<T> {
@@ -23,7 +26,7 @@ suspend inline fun <T> suspendRunCatching(crossinline block: suspend () -> T): A
         AppResult.Success(block())
     } catch (e: CancellationException) {
         throw e
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         Failure(e)
     }
 }
@@ -54,6 +57,6 @@ internal suspend inline fun <T> pullCatching(crossinline block: suspend () -> T)
         throw e
     } catch (e: TypedAppErrorException) {
         AppResult.Failure(e.error)
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         Failure(e)
     }
