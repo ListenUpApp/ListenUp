@@ -173,7 +173,9 @@ class BookDetailViewModelOverlayTest :
                 vm.loadBook("book-2")
                 advanceUntilIdle()
 
-                vm.ready().book.id.value shouldBe "book-2"
+                vm
+                    .ready()
+                    .book.id.value shouldBe "book-2"
                 vm.ready().showShelfPicker shouldBe false
                 vm.ready().showCollectionPicker shouldBe false
             }

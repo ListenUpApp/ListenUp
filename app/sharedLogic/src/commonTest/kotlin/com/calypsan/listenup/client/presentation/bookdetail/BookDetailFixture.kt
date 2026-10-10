@@ -33,6 +33,7 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -99,7 +100,8 @@ internal class BookDetailFixture {
     val playbackPositionRepository: PlaybackPositionRepository =
         mock<PlaybackPositionRepository> {
             everySuspend { get(any<BookId>()) } calls { AppResult.Success(position) }
-            everySuspend { markComplete(any(), any(), any()) } calls { markCompleteGate?.await() ?: AppResult.Success(Unit) }
+            everySuspend { markComplete(any(), any(), any()) } calls
+                { markCompleteGate?.await() ?: AppResult.Success(Unit) }
             everySuspend { discardProgress(any()) } returns AppResult.Success(Unit)
             everySuspend { restartBook(any()) } returns AppResult.Success(Unit)
         }
@@ -129,7 +131,10 @@ internal class BookDetailFixture {
         }
     private val documentRepository: DocumentRepository =
         mock<DocumentRepository> { every { observeDocuments(any()) } returns flowOf(emptyList()) }
-    private val seriesRepository: SeriesRepository = mock<SeriesRepository> { every { observeHierarchy() } returns hierarchy }
+    private val seriesRepository: SeriesRepository =
+        mock<SeriesRepository> {
+            every { observeHierarchy() } returns hierarchy
+        }
 
     fun build(): BookDetailViewModel =
         BookDetailViewModel(
@@ -168,6 +173,7 @@ internal class BookDetailFixture {
  * something watches it, and an action acts on the book the screen is showing — so a spec that reads
  * `state.value` or calls an action must watch first.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 internal fun TestScope.watch(vm: BookDetailViewModel): BookDetailViewModel {
     backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
     return vm
