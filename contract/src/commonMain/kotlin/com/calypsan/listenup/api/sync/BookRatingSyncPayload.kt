@@ -32,4 +32,6 @@ data class BookRatingSyncPayload(
     @SerialName("revision") override val revision: Long,
     /** Tombstone instant when the rating was cleared, else null. */
     @SerialName("deletedAt") override val deletedAt: Long? = null,
+    /** Where this rating came from: Hardcover-imported until the listener touches it. Absent on older frames = [ListenerRatingSource.LISTENUP]. */
+    @SerialName("source") val source: ListenerRatingSource = ListenerRatingSource.LISTENUP,
 ) : SyncPayload
