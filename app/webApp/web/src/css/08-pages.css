@@ -1163,5 +1163,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .lib-filters { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 @media (max-width: 759px) {
   .lib-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .lib-filters .pill { flex-shrink: 0; }
+  /* A 44px touch target on phones without growing the pill: the hit area reaches past its edge. */
+  .lib-filters .pill { flex-shrink: 0; position: relative; }
+  .lib-filters .pill::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 }
