@@ -160,6 +160,18 @@ class ChangeBusTest :
             }
         }
 
+        test("emitted events carry consecutive tail positions across both publish paths") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                repeat(3) { i -> bus.publish(repo = repo, event = tagCreated(id = "p$i", revision = i + 1L)) }
+                bus.release(bus.reserve(repo = repo, event = tagCreated(id = "r0", revision = 4L)))
+                bus.release(bus.reserve(repo = repo, event = tagCreated(id = "r1", revision = 5L)))
+
+                bus.subscribe().replayCache.map { it.tailPosition } shouldBe listOf(0L, 1L, 2L, 3L, 4L)
+            }
+        }
+
         test("a rolled-back savepoint does not announce the write it had already reserved") {
             withSqlDatabase {
                 val bus = ChangeBus()
