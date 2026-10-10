@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.admin
 import com.calypsan.listenup.api.dto.uploads.UploadedBook
 import com.calypsan.listenup.api.dto.uploads.UploadedBookStatus
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.client.core.BlobFileSource
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadSelectionRefusal
 import com.calypsan.listenup.web.MountRegistry
@@ -14,12 +15,12 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.asList
 import org.w3c.files.File
-import com.calypsan.listenup.web.UPLOAD_BYTE_CEILING
 import com.calypsan.listenup.web.candidatesFrom
 import com.calypsan.listenup.web.relPathOf
 import com.calypsan.listenup.web.uploadRefusalSentence
@@ -203,19 +204,24 @@ class UploadTest :
             relPathOf(inFolderFile("01.m4b", "The Way of Kings/01.m4b")) shouldBe "The Way of Kings/01.m4b"
         }
 
-        test("a pick becomes candidates carrying their own bytes and paths") {
-            val candidates = candidatesFrom(listOf(inFolderFile("01.m4b", "Dune/01.m4b", "hello"))).shouldNotBeNull()
+        test("a pick becomes candidates carrying their paths and the picked files themselves") {
+            // ⛔ The file itself, never its bytes: a picked audiobook read into the tab's memory is
+            // what capped a browser upload at what a tab could hold. The upload transport hands
+            // this File to the browser, which streams it from disk.
+            val picked = inFolderFile("01.m4b", "Dune/01.m4b", "hello")
+            val candidates = candidatesFrom(listOf(picked))
 
             candidates.map { it.relPath } shouldContainExactly listOf("Dune/01.m4b")
-            candidates.single().source.filename shouldBe "01.m4b"
-            candidates.single().source.size shouldBe 5L
+            val source = candidates.single().source.shouldBeInstanceOf<BlobFileSource>()
+            (source.file === picked) shouldBe true
+            source.filename shouldBe "01.m4b"
+            source.size shouldBe 5L
         }
 
-        test("a selection too large for the tab is refused before anything is read") {
-            // ⛔ Refused up front rather than part-way through: every file is read into memory
-            // because `FileSource.openChannel()` is synchronous and a browser's read is not, so
-            // the alternative to a sentence here is an allocation crash mid-folder.
-            candidatesFrom(listOf(oversizeFile())).shouldBeNull()
+        test("a selection larger than a tab could hold is still a selection") {
+            // The browser reads nothing up front any more, so the only limits left are the shared
+            // ones the server sets — not where a tab's allocations give out.
+            candidatesFrom(listOf(hugeFile())).single().source.size shouldBe HUGE_BYTES
         }
 
         // The shared rule decides what is refused; the browser only has to say it. Same sentences as
@@ -279,6 +285,9 @@ private fun inFolderFile(
     content: String = "x",
 ) = browserFile(name, content, relativePath, size = null)
 
-private fun oversizeFile() = browserFile("big.m4b", "x", relativePath = null, size = UPLOAD_BYTE_CEILING + 1)
+private fun hugeFile() = browserFile("big.m4b", "x", relativePath = null, size = HUGE_BYTES.toDouble())
+
+/** 5 GiB — more than any tab could have held, when a pick was read into memory first. */
+private const val HUGE_BYTES = 5L * 1024 * 1024 * 1024
 
 private const val GIB = 1024L * 1024 * 1024

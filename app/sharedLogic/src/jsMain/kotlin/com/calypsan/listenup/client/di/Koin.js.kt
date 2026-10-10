@@ -39,7 +39,7 @@ internal actual fun initializeKoin(additionalModules: List<Module>) {
  * and `:app:webApp` appends its platform modules (the worker) to this list in its own
  * `startKoin { … }`.
  */
-fun jsSharedModules(): List<Module> = sharedModules + browserPlaybackModule
+fun jsSharedModules(): List<Module> = sharedModules + browserPlaybackModule + browserUploadModule
 
 /**
  * Browser discovery module: binds [NoDiscoveryService] — mDNS does not exist in a browser and
