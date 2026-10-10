@@ -361,7 +361,10 @@ class MoveManifestExecutorTest :
                     newDir.toFile().listFiles()?.map { it.name } shouldBe listOf("The Way of Kings.m4b")
                     libraryRoot.resolve("Arthur C. Clarke").toFile().exists() shouldBe false
                     libraryRoot.toFile().exists() shouldBe true
-                    sql.booksQueries.selectById("b1").executeAsOne().root_rel_path shouldBe "Brandon Sanderson/The Way of Kings"
+                    sql.booksQueries
+                        .selectById("b1")
+                        .executeAsOne()
+                        .root_rel_path shouldBe "Brandon Sanderson/The Way of Kings"
                 }
             }
         }
