@@ -21,60 +21,6 @@ data class PatchOutcome(
  * the build can assert loudly when a tool bump shifts the generated shape and a regex matches zero.
  */
 object SwiftExportSourcePatcher {
-    /**
-     * Swift reserved words. A generated case identifier that collides with one must be
-     * back-tick-escaped by the camelCase pass.
-     */
-    internal val swiftKeywords: Set<String> =
-        setOf(
-            "default",
-            "case",
-            "where",
-            "class",
-            "enum",
-            "protocol",
-            "struct",
-            "init",
-            "deinit",
-            "self",
-            "super",
-            "import",
-            "return",
-            "func",
-            "var",
-            "let",
-            "if",
-            "else",
-            "for",
-            "in",
-            "do",
-            "try",
-            "catch",
-            "throw",
-            "true",
-            "false",
-            "nil",
-            "is",
-            "as",
-            "guard",
-            "switch",
-            "public",
-            "private",
-            "internal",
-            "static",
-            "extension",
-            "associatedtype",
-            "operator",
-            "repeat",
-            "while",
-            "break",
-            "continue",
-            "fallthrough",
-            "defer",
-            "subscript",
-            "typealias",
-        )
-
     private const val FLAT_TYPEALIAS_MARKER = "// --- swift-export flat typealias layer (generated) ---"
     private const val SEALED_ALIAS_MARKER = "// --- swift-export sealed subtype aliases (generated) ---"
 
@@ -157,8 +103,29 @@ object SwiftExportSourcePatcher {
     private fun linesOf(content: String): List<String> =
         content.lines().let { if (it.isNotEmpty() && it.last().isEmpty()) it.dropLast(1) else it }
 
-    /** `{` minus `}` on one line — the brace arithmetic every block walk below is built on. */
-    private fun braceDelta(line: String): Int = line.count { it == '{' } - line.count { it == '}' }
+    /**
+     * `{` minus `}` on one line — the brace arithmetic every block walk below is built on. Braces inside
+     * a double-quoted string literal (honouring `\"`) and after a `//` comment marker do not count;
+     * multi-line strings and block comments are not tracked.
+     */
+    private fun braceDelta(line: String): Int {
+        var delta = 0
+        var inString = false
+        var i = 0
+        while (i < line.length) {
+            val c = line[i]
+            when {
+                inString && c == '\\' -> i++
+                c == '"' -> inString = !inString
+                inString -> Unit
+                c == '/' && line.startsWith("//", i) -> return delta
+                c == '{' -> delta++
+                c == '}' -> delta--
+            }
+            i++
+        }
+        return delta
+    }
 
     /** Exclusive end of the block whose opening brace sits on line [open]: the first line after the depth returns to zero. */
     private fun blockEnd(
@@ -174,13 +141,24 @@ object SwiftExportSourcePatcher {
         return end
     }
 
-    /** Index of the line that closes the signature opened on line [from], or -1 when none does. */
+    /**
+     * Index of the line that closes the signature opened on line [from], or -1 when none does. The scan
+     * gives up at the next declaration or closing brace: a bodiless declaration (a protocol requirement)
+     * has no closing line, and must not borrow a later function's.
+     */
     private fun signatureCloseIndex(
         lines: List<String>,
         from: Int,
     ): Int {
         var j = from
-        while (j < lines.size && !signatureClose.containsMatchIn(lines[j])) j++
+        while (j < lines.size && !signatureClose.containsMatchIn(lines[j])) {
+            j++
+            if (j < lines.size &&
+                (funcDeclaration.containsMatchIn(lines[j]) || lines[j].trimStart().startsWith("}"))
+            ) {
+                return -1
+            }
+        }
         return if (j < lines.size) j else -1
     }
 
@@ -228,6 +206,7 @@ object SwiftExportSourcePatcher {
         val out = ArrayList<String>(lines.size)
         var changed = false
         var armed = false
+        var inSignature = false
         var inBody = false
         var depth = 0
         for (line in lines) {
@@ -235,12 +214,33 @@ object SwiftExportSourcePatcher {
             when {
                 !inBody && unavailable.containsMatchIn(line) -> {
                     armed = true
+                    inSignature = false
+                }
+
+                // More attributes or comments may sit between the annotation and its declaration.
+                armed && !inSignature && line.isBlank() -> {
+                    Unit
+                }
+
+                armed && !inSignature && line.trimStart().let { it.startsWith("@") || it.startsWith("//") } -> {
+                    Unit
+                }
+
+                // The annotated declaration is not a function (a property, a typealias): nothing to neutralize,
+                // and the next available function must not inherit the annotation.
+                armed && !inSignature && !funcDeclaration.containsMatchIn(line) -> {
+                    armed = false
                 }
 
                 armed && signatureClose.containsMatchIn(line) -> {
                     inBody = true
                     armed = false
+                    inSignature = false
                     depth = 1
+                }
+
+                armed -> {
+                    inSignature = true
                 }
 
                 inBody -> {
@@ -356,10 +356,10 @@ object SwiftExportSourcePatcher {
                 i++
                 continue
             }
-            var depth = lines[i].count { it == '{' } - lines[i].count { it == '}' }
+            var depth = braceDelta(lines[i])
             var end = i + 1
             while (end < lines.size && depth > 0) {
-                depth += lines[end].count { it == '{' } - lines[end].count { it == '}' }
+                depth += braceDelta(lines[end])
                 end++
             }
             val doomedCases = HashSet<String>()
@@ -420,10 +420,10 @@ object SwiftExportSourcePatcher {
                 i++
                 continue
             }
-            var depth = lines[i].count { it == '{' } - lines[i].count { it == '}' }
+            var depth = braceDelta(lines[i])
             var end = i + 1
             while (end < lines.size && depth > 0) {
-                depth += lines[end].count { it == '{' } - lines[end].count { it == '}' }
+                depth += braceDelta(lines[end])
                 end++
             }
             val body = i + 1 until end
@@ -503,9 +503,22 @@ object SwiftExportSourcePatcher {
         if (namespaces.size == 1) {
             namespaces.first()
         } else {
-            namespaces.firstOrNull { it.contains(".client.domain.model") }
-                ?: namespaces.firstOrNull { it.contains(".client.domain") }
+            // Sorted so that two namespaces at the same preference level resolve by rule, not hash order.
+            val ordered = namespaces.sorted()
+            ordered.firstOrNull { it.contains(".client.domain.model") }
+                ?: ordered.firstOrNull { it.contains(".client.domain") }
         }
+
+    /**
+     * The type names [appendFlatTypealiases] leaves without a flat alias because several packages
+     * declare them and none is preferred, sorted. They stay reachable by their qualified name.
+     */
+    internal fun ambiguousFlatNames(sourceContents: List<String>): List<String> =
+        packageLevelTypes(sourceContents)
+            .filter { (name, namespaces) ->
+                name != "Companion" && !name.startsWith("_") && preferredNamespace(namespaces) == null
+            }.keys
+            .sorted()
 
     /**
      * Type name -> every package it is declared DIRECTLY in. Only depth 1 of a package extension
@@ -678,6 +691,36 @@ object SwiftExportSourcePatcher {
         return rewritten
     }
 
+    /**
+     * The enums in [content] that declare a `NONE` case (or, once the camelCase pass has run, `none`).
+     * Information for the build log, not a gate: see [toCamel] for why it matters.
+     */
+    internal fun enumsWithNoneCase(content: String): List<String> {
+        val found = ArrayList<String>()
+        var enumName: String? = null
+        var enumDepth = -1
+        var depth = 0
+        for (line in linesOf(content)) {
+            val start = if (enumName == null) enumStart.find(line) else null
+            if (start != null) {
+                enumName = start.groupValues[2]
+                enumDepth = depth
+            } else if (enumName != null && noneCaseDecl.matches(line)) {
+                found.add(enumName)
+            }
+            depth += braceDelta(line)
+            if (enumName != null && depth <= enumDepth) enumName = null
+        }
+        return found
+    }
+
+    private val noneCaseDecl = Regex("""^\s*case (?:NONE|none)\s*$""")
+
+    /**
+     * SCREAMING_SNAKE -> camelCase. `NONE` becomes `none`, which is deliberately not back-ticked: iOS
+     * reads `OrganizeSeriesPrefix.none`. On an optional value `.none` means `Optional.none`, so a bridged
+     * enum with a `NONE` case must never be switched over as an optional from Swift.
+     */
     private fun toCamel(name: String): String {
         val camel =
             name
@@ -690,7 +733,8 @@ object SwiftExportSourcePatcher {
 
     /**
      * Walks a generated SPM package dir, applies every transform to the right files, returns
-     * per-pass counts keyed `patchSource` / `camelCase` / `flatTypealias` / `sealedAlias`. The only
+     * per-pass counts keyed `patchSource` / `camelCase` / `flatTypealias` / `sealedAlias`, plus the
+     * informational `noneCaseEnums` and `ambiguousFlatNames` counts the build logs. The only
      * File-touching code; mirrors [LocalizationArtifacts]'s role around [LocalizationGenerator].
      *
      * Order matches the original `doLast`: per-file passes first (`patchSource`, `camelCase`), then
@@ -704,6 +748,8 @@ object SwiftExportSourcePatcher {
                 "camelCase" to 0,
                 "flatTypealias" to 0,
                 "sealedAlias" to 0,
+                "noneCaseEnums" to 0,
+                "ambiguousFlatNames" to 0,
             )
         }
 
@@ -717,7 +763,9 @@ object SwiftExportSourcePatcher {
         }
 
         var camelCaseCount = 0
+        var noneCaseEnumCount = 0
         for (file in moduleSourceFiles(root)) {
+            noneCaseEnumCount += enumsWithNoneCase(file.readText()).size
             val outcome = camelCaseEnumCases(file.readText())
             if (outcome.count > 0) {
                 file.writeText(outcome.content)
@@ -753,6 +801,8 @@ object SwiftExportSourcePatcher {
             "camelCase" to camelCaseCount,
             "flatTypealias" to flatTypealiasCount,
             "sealedAlias" to sealedAliasCount,
+            "noneCaseEnums" to noneCaseEnumCount,
+            "ambiguousFlatNames" to ambiguousFlatNames(sourceContents).size,
         )
     }
 

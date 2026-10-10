@@ -198,4 +198,119 @@ class SwiftExportSourcePatcherTest {
         val outcome = SwiftExportSourcePatcher.appendFlatTypealiases("", listOf(drifted))
         assertEquals(0, outcome.count)
     }
+
+    // ---- negative fixtures: shapes the passes could mishandle -----------------------------------
+
+    private val neutralized = """fatalError("swift-export: unavailable operator")"""
+
+    @Test
+    fun `an unavailable property does not arm the next available operator`() {
+        val out = SwiftExportSourcePatcher.patchSource(fixture("unavailable-property-then-operator.swift"), "Shared").content
+
+        assertTrue(out.contains("this._plus(other: other)"), "the available operator keeps its bridged body")
+        assertFalse(out.contains(neutralized), "nothing here is an unavailable operator")
+    }
+
+    @Test
+    fun `an unavailable typealias does not arm the next available operator`() {
+        val out = SwiftExportSourcePatcher.patchSource(fixture("unavailable-typealias-then-operator.swift"), "Shared").content
+
+        assertTrue(out.contains("this._plus(other: other)"), "the available operator keeps its bridged body")
+        assertFalse(out.contains(neutralized), "nothing here is an unavailable operator")
+    }
+
+    @Test
+    fun `a bodiless requirement is kept and only the undefined-type func is deleted`() {
+        val out = SwiftExportSourcePatcher.patchSource(fixture("bodiless-func.swift"), "Shared").content
+
+        assertTrue(out.contains("func requirement() -> Swift.Int"), "protocol requirement stays")
+        assertTrue(out.contains("func other() -> Swift.Int"), "the requirement ahead of the doomed func stays")
+        assertTrue(out.contains("public func plain() -> Swift.Int {\n    return 1\n}"), "ordinary func stays whole")
+        assertTrue(out.contains("public protocol Sink {"), "the protocol declaration stays")
+        assertFalse(out.contains("func Format("), "the undefined-type func is deleted")
+    }
+
+    @Test
+    fun `a brace inside a string literal or a comment does not shift the block depth`() {
+        val source = fixture("brace-in-literal.swift")
+
+        val aliases = SwiftExportSourcePatcher.appendFlatTypealiases("", listOf(source))
+        assertEquals(2, aliases.count, "Alpha and Beta are both package-level")
+        assertTrue(aliases.content.contains("public typealias Alpha = "))
+        assertTrue(aliases.content.contains("public typealias Beta = "))
+
+        val camel = SwiftExportSourcePatcher.camelCaseEnumCases(source).content
+        assertTrue(camel.contains("case gold"), "GOLD is rewritten")
+        assertTrue(camel.contains("case silverPlus"), "SILVER_PLUS follows a comment with a brace and is still rewritten")
+        assertTrue(camel.contains("case .silverPlus: return"), "its reference is rewritten too")
+    }
+
+    @Test
+    fun `NONE camel-cases to none, which iOS relies on for OrganizeSeriesPrefix`() {
+        val out = SwiftExportSourcePatcher.camelCaseEnumCases(fixture("enum-edge-cases.swift")).content
+
+        assertTrue(out.contains("case none"), "NONE -> none")
+        assertTrue(out.contains("case .none: return"), ".NONE -> .none")
+        assertTrue(out.contains("""return "NONE""""), "the wire-name literal is untouched")
+        assertTrue(out.contains("case bookNDash"), "siblings camel-case as usual")
+    }
+
+    @Test
+    fun `enumsWithNoneCase names the enums whose NONE case becomes none`() {
+        val source = fixture("enum-edge-cases.swift")
+
+        assertEquals(listOf("OrganizeSeriesPrefix"), SwiftExportSourcePatcher.enumsWithNoneCase(source))
+        // Still found once the camelCase pass has run, so a rebuild over patched output reports the same.
+        val patched = SwiftExportSourcePatcher.camelCaseEnumCases(source).content
+        assertEquals(listOf("OrganizeSeriesPrefix"), SwiftExportSourcePatcher.enumsWithNoneCase(patched))
+    }
+
+    private fun packageSource(
+        namespace: String,
+        vararg types: String,
+    ): String =
+        "extension ExportedKotlinPackages.$namespace {\n" +
+            types.joinToString("") { "    public final class $it: KotlinRuntime.KotlinBase {\n    }\n" } +
+            "}\n"
+
+    @Test
+    fun `a name declared in two sibling client domain packages resolves to the smallest namespace every time`() {
+        repeat(50) {
+            val sources =
+                listOf(
+                    packageSource("com.calypsan.listenup.client.domain.beta", "Widget"),
+                    packageSource("com.calypsan.listenup.client.domain.alpha", "Widget"),
+                )
+            val outcome = SwiftExportSourcePatcher.appendFlatTypealiases("", sources)
+
+            assertTrue(
+                outcome.content.contains(
+                    "public typealias Widget = ExportedKotlinPackages.com.calypsan.listenup.client.domain.alpha.Widget",
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `a name declared in two unrelated packages is reported as ambiguous and gets no alias`() {
+        val sources =
+            listOf(
+                packageSource("com.calypsan.listenup.one", "Gadget", "Solo"),
+                packageSource("com.calypsan.listenup.two", "Gadget"),
+            )
+        val outcome = SwiftExportSourcePatcher.appendFlatTypealiases("", sources)
+
+        assertEquals(listOf("Gadget"), SwiftExportSourcePatcher.ambiguousFlatNames(sources))
+        assertFalse(outcome.content.contains("typealias Gadget"), "ambiguous name stays qualified")
+        assertTrue(outcome.content.contains("typealias Solo"), "the unambiguous neighbour is aliased")
+        assertEquals(1, outcome.count)
+    }
+
+    @Test
+    fun `a single-letter case is left uppercase`() {
+        val out = SwiftExportSourcePatcher.camelCaseEnumCases(fixture("enum-edge-cases.swift")).content
+
+        assertTrue(Regex("""(?m)^\s*case A$""").containsMatchIn(out), "case A stays")
+        assertTrue(out.contains("case best"), "BEST becomes best")
+    }
 }
