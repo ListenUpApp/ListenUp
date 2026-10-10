@@ -13,10 +13,9 @@ import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 /**
  * UI state for the Book Detail screen.
  *
- * Sealed hierarchy — [Ready] carries all book-dependent fields. Transient
- * action overlays ([isMarkingComplete], [isDiscardingProgress], [isRestarting],
- * [isAddingToShelf]) live on [Ready]; they may later be extracted
- * into a private overlay type.
+ * Sealed hierarchy — [Ready] carries all book-dependent fields. Its transient fields (open pickers, writes in
+ * flight, inline refusals) come from the ViewModel's private per-book overlay, laid over what Room says, so a Room
+ * re-emission never closes a picker and a book switch never carries one over.
  */
 sealed interface BookDetailUiState {
     /** Pre-load placeholder or in-flight transition between books. */

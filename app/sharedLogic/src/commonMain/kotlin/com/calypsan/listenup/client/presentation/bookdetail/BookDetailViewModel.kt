@@ -3,14 +3,12 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.Permission
-import com.calypsan.listenup.api.error.BookError
-import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.Collection
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Shelf
-import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -20,19 +18,18 @@ import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
-import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
-import com.calypsan.listenup.client.presentation.match.UndoMatch
-import com.calypsan.listenup.client.domain.repository.SeriesRepository
-import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
-import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.presentation.match.UndoMatch
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -47,6 +44,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -57,17 +55,20 @@ private val logger = KotlinLogging.logger {}
 /**
  * ViewModel for the Book Detail screen.
  *
- * Uses reactive flows with [flatMapLatest] to automatically switch observers
- * when navigating between books, eliminating manual Job cancellation.
+ * [state] is derived, never written: the requested book id, the book's [BookLoad] from Room, the account-wide
+ * [BookDetailAmbient] facts and the reader's [BookDetailOverlay] combine through the pure [bookDetailUiState]
+ * into `stateIn(WhileSubscribed(5_000))`. Actions only write the overlay or call repositories. Room is observed
+ * only while a screen watches, and switching books cancels the previous book's observers through `flatMapLatest`.
+ * The shape is [com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel]'s.
  */
 @Suppress("LongParameterList") // DI constructor: each param is a distinct domain responsibility.
 @OptIn(ExperimentalCoroutinesApi::class)
 class BookDetailViewModel(
     private val bookRepository: BookRepository,
-    private val tagRepository: TagRepository,
+    tagRepository: TagRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
-    private val userRepository: UserRepository,
-    private val permissionsRepository: PermissionsRepository,
+    userRepository: UserRepository,
+    permissionsRepository: PermissionsRepository,
     shelfRepository: ShelfRepository,
     private val collectionRepository: CollectionRepository,
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
@@ -79,32 +80,24 @@ class BookDetailViewModel(
     private val inboxRepository: InboxRepository,
     private val bookVisibilityRepository: BookVisibilityRepository,
     private val bookEditRepository: BookEditRepository,
-    private val seriesRepository: SeriesRepository,
+    seriesRepository: SeriesRepository,
     undoMatch: UndoMatch,
     userProfileRepository: UserProfileRepository,
 ) : ViewModel() {
-    val state: StateFlow<BookDetailUiState>
-        field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
+    /**
+     * The requested book id. Writing it is the single entry point for switching books; every per-book flow
+     * below `flatMapLatest`s on it, so book-switch cancellation is automatic.
+     */
+    private val bookIdFlow = MutableStateFlow<String?>(null)
+
+    /** The reader's transient state on the requested book. Only actions and [BookDetailOverlay.retiredBy] write it. */
+    private val overlay = MutableStateFlow(BookDetailOverlay(bookId = null))
 
     private val _navActions = Channel<BookDetailNavAction>(Channel.BUFFERED)
 
     /** One-shot navigation and side-effect events — collect once at the screen entry point. */
     val navActions: Flow<BookDetailNavAction> = _navActions.receiveAsFlow()
 
-    /**
-     * The currently requested book id. Writing to this flow is the single entry
-     * point for switching books — the main-load flatMapLatest subscribes here
-     * directly, so book-switch cancellation is automatic.
-     */
-    private val bookIdFlow = MutableStateFlow<String?>(null)
-
-    // Mirrors of book-INDEPENDENT flow-fed fields (admin status, all-tags). Updated
-    // inside the init collectors and read at [loadBookFlow] to seed the Ready state
-    // with the latest known values, since those collectors may have emitted while
-    // state was Loading (and been no-op'd by [updateReady]).
-    //
-    // Per-book genres/tags now flow through [BookDetail] directly via
-    // [BookRepository.observeBookDetail], so no mirror is needed for them.
     private val lastMatchRow =
         LastMatchRow(
             bookIds = bookIdFlow.filterNotNull(),
@@ -127,91 +120,36 @@ class BookDetailViewModel(
     /** How "Undo last match" ended — said once, as the receipt says it. */
     val lastMatchEvents: Flow<LastMatchEvent> = lastMatchRow.events
 
-    private var latestIsAdmin: Boolean = false
-    private var latestCanEditMetadata: Boolean = false
-    private var latestAllTags: List<Tag> = emptyList()
-    private var latestHierarchy: SeriesHierarchy = SeriesHierarchy.Empty
+    // A StateFlow so a screen coming back sees the last facts at once (no flash of isAdmin = false); it stops
+    // with [state], which owns the five-second grace.
+    private val ambient: StateFlow<BookDetailAmbient> =
+        combine(
+            flow = userRepository.observeIsAdmin(),
+            flow2 = permissionsRepository.observeCan(Permission.EDIT_METADATA),
+            flow3 = seriesRepository.observeHierarchy(),
+            flow4 = tagRepository.observeAll(),
+        ) { isAdmin, canEditMetadata, hierarchy, allTags ->
+            BookDetailAmbient(isAdmin, canEditMetadata, hierarchy, allTags)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), BookDetailAmbient())
 
-    init {
-        // Observe admin status
-        viewModelScope.launch {
-            userRepository.observeIsAdmin().collect { isAdmin ->
-                latestIsAdmin = isAdmin
-                updateReady { it.copy(isAdmin = isAdmin) }
-            }
-        }
+    // A StateFlow so a screen coming back to the same book shows it at once instead of Loading; it stops with
+    // [state], which owns the five-second grace.
+    private val bookLoad: StateFlow<BookLoad?> =
+        bookIdFlow
+            .filterNotNull()
+            .flatMapLatest { id -> observeBook(id) }
+            .onEach { load -> overlay.update { it.retiredBy(load) } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
 
-        // Edit Book, Find Metadata and the chapter editor are Edit metadata's, not the admin's.
-        viewModelScope.launch {
-            permissionsRepository.observeCan(Permission.EDIT_METADATA).collect { can ->
-                latestCanEditMetadata = can
-                updateReady { it.copy(canEditMetadata = can) }
-            }
-        }
-
-        // The series hierarchy (book-independent): a re-parented series redraws every open path.
-        viewModelScope.launch {
-            seriesRepository.observeHierarchy().collect { hierarchy ->
-                latestHierarchy = hierarchy
-                updateReady { it.copy(seriesPaths = bookSeriesPaths(it.book.series, hierarchy)) }
-            }
-        }
-
-        // All tags observer (doesn't depend on current book - for tag picker)
-        viewModelScope.launch {
-            tagRepository
-                .observeAll()
-                .collect { allTags ->
-                    latestAllTags = allTags
-                    updateReady { it.copy(allTags = allTags) }
-                }
-        }
-
-        // Main load flow: bookIdFlow changes drive loadBookFlow, which emits
-        // Loading then maps the BookDetail flow to Ready (or Error if the row
-        // is absent). flatMapLatest cancels the previous observer on switch.
-        viewModelScope.launch {
-            bookIdFlow
-                .filterNotNull()
-                .flatMapLatest { id -> loadBookFlow(id) }
-                .collect { built -> state.value = built.preservingTransientOverlays(state.value) }
-        }
-    }
-
-    /**
-     * Carry user-driven transient overlay state (open pickers, in-flight action flags, inline
-     * errors) forward when [loadBookFlow] rebuilds [BookDetailUiState.Ready] from Room/availability.
-     *
-     * Those flows re-emit on every table invalidation (a sync firehose frame the sync engine
-     * applies, a download progress tick, a reachability flip) — each rebuild resets these overlay
-     * fields to their defaults. Without preserving them, any background emission would silently close
-     * an open shelf/collection picker (and its create dialog) mid-interaction — the create-from-book-
-     * detail bug. Only carried between two [Ready]s for the *same* load; a book switch emits [Loading]
-     * first (breaking the chain), so overlays never leak across books.
-     *
-     * NOTE: when adding a new user-transient field to [Ready], add it here too.
-     */
-    private fun BookDetailUiState.preservingTransientOverlays(previous: BookDetailUiState): BookDetailUiState {
-        if (this !is BookDetailUiState.Ready || previous !is BookDetailUiState.Ready) return this
-        return copy(
-            isMarkingComplete = previous.isMarkingComplete,
-            isDiscardingProgress = previous.isDiscardingProgress,
-            isRestarting = previous.isRestarting,
-            isLoadingTags = previous.isLoadingTags,
-            showShelfPicker = previous.showShelfPicker,
-            isAddingToShelf = previous.isAddingToShelf,
-            shelfError = previous.shelfError,
-            showCollectionPicker = previous.showCollectionPicker,
-            isAddingToCollection = previous.isAddingToCollection,
-            collectionError = previous.collectionError,
-            isDeletingBook = previous.isDeletingBook,
-            deleteError = previous.deleteError,
-            isReleasingFromInbox = previous.isReleasingFromInbox,
-            // Survives rebuilds only while the book is still stranded: the echo that re-homes it
-            // into All Books is exactly what ends the "restoring" state.
-            isRestoringToAllBooks = previous.isRestoringToAllBooks && visibility is BookVisibility.Stranded,
-        )
-    }
+    val state: StateFlow<BookDetailUiState> =
+        combine(
+            flow = bookIdFlow,
+            flow2 = bookLoad,
+            flow3 = ambient,
+            flow4 = overlay,
+        ) { requested, load, ambientFacts, own ->
+            bookDetailUiState(requested, load, ambientFacts, own)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookDetailUiState.Loading)
 
     /**
      * User's shelves for the shelf picker sheet.
@@ -268,50 +206,13 @@ class BookDetailViewModel(
         field = MutableStateFlow<Set<String>>(emptySet())
 
     /**
-     * Apply [transform] to state only if it is currently [BookDetailUiState.Ready].
-     * No-ops when state is [BookDetailUiState.Loading] or [BookDetailUiState.Error].
+     * Room's word on [bookId]: one-shot reads for the chapters and the saved position (PR 1 makes both live),
+     * then the row, its availability, the held set and its visibility, live.
      */
-    private fun updateReady(transform: (BookDetailUiState.Ready) -> BookDetailUiState.Ready) {
-        state.update { current ->
-            if (current is BookDetailUiState.Ready) transform(current) else current
-        }
-    }
-
-    /**
-     * Switch the view model to observe [bookId].
-     *
-     * Pushes into [bookIdFlow]; the main-load `flatMapLatest` in init collects
-     * `loadBookFlow(id)`, which subscribes to [BookRepository.observeBookDetail]
-     * and maps each emission into a [BookDetailUiState.Ready]. Switching books
-     * cancels the in-flight observer automatically.
-     */
-    fun loadBook(bookId: String) {
-        bookIdFlow.value = bookId
-    }
-
-    /**
-     * Pure flow that drives the main book-load pipeline for [bookId].
-     *
-     * Emits [BookDetailUiState.Loading] immediately, performs one-shot reads
-     * for chapters and the saved playback position, then maps the
-     * [BookRepository.observeBookDetail] flow into a stream of
-     * [BookDetailUiState.Ready] emissions. Genres and tags travel inside
-     * [BookDetail] itself, so a single observer drives the whole detail
-     * surface — no per-book genre or tag-for-book combine is needed.
-     *
-     * The caller ([init] block) collects into [state] via `flatMapLatest`, so
-     * switching books cancels the in-flight observer automatically.
-     */
-    private fun loadBookFlow(bookId: String): Flow<BookDetailUiState> =
+    private fun observeBook(bookId: String): Flow<BookLoad> =
         flow {
-            emit(BookDetailUiState.Loading)
-
-            // One-shot reads — these don't reactively update during a single
-            // book viewing. Domain chapters are mapped to UI models inside
-            // buildReady, where the playback position is known and the
-            // current-chapter highlight can be resolved.
-            val domainChapters = bookRepository.getChapters(bookId)
-            val position =
+            val chapters = bookRepository.getChapters(bookId)
+            val position: PlaybackPosition? =
                 when (val r = playbackPositionRepository.get(BookId(bookId))) {
                     is AppResult.Success -> {
                         r.data
@@ -322,7 +223,6 @@ class BookDetailViewModel(
                         null
                     }
                 }
-
             emitAll(
                 combine(
                     flow = bookRepository.observeBookDetail(bookId),
@@ -332,22 +232,53 @@ class BookDetailViewModel(
                     flow4 = bookVisibilityRepository.observeBookVisibility(BookId(bookId)),
                 ) { detail, availability, heldIds, visibility ->
                     if (detail == null) {
-                        BookDetailUiState.Error(BookError.NotFound())
+                        BookLoad.Missing(bookId)
                     } else {
-                        BookSnapshot(
-                            detail = detail,
-                            chapters = domainChapters,
-                            position = position,
-                            availability = availability,
-                            isHeld = BookId(bookId) in heldIds,
-                            visibility = visibility,
-                        ).toReady(
-                            BookDetailAmbient(latestIsAdmin, latestCanEditMetadata, latestHierarchy, latestAllTags),
+                        BookLoad.Loaded(
+                            bookId = bookId,
+                            snapshot =
+                                BookSnapshot(
+                                    detail = detail,
+                                    chapters = chapters,
+                                    position = position,
+                                    availability = availability,
+                                    isHeld = BookId(bookId) in heldIds,
+                                    visibility = visibility,
+                                ),
                         )
                     }
                 },
             )
         }
+
+    /** The page on screen, or null while loading or failed — the book an action acts on. */
+    private fun shownReady(): BookDetailUiState.Ready? = state.value as? BookDetailUiState.Ready
+
+    /** [bookId]'s overlay, or null once the reader has moved to another book. */
+    private fun overlayOf(bookId: String): BookDetailOverlay? = overlay.value.takeIf { it.bookId == bookId }
+
+    /** Writes [bookId]'s overlay; a no-op once the reader has moved on, so a late answer cannot reach another book. */
+    private fun updateOverlay(
+        bookId: String,
+        transform: (BookDetailOverlay) -> BookDetailOverlay,
+    ) {
+        overlay.update { current -> if (current.bookId == bookId) transform(current) else current }
+    }
+
+    /** Writes the overlay of the book on screen; nothing happens while no book is shown. */
+    private fun updateShownOverlay(transform: (BookDetailOverlay) -> BookDetailOverlay) {
+        val bookId = shownReady()?.book?.id?.value ?: return
+        updateOverlay(bookId, transform)
+    }
+
+    /**
+     * Switch the view model to observe [bookId]. A different book starts a fresh overlay; the same book keeps
+     * whatever the reader has open.
+     */
+    fun loadBook(bookId: String) {
+        bookIdFlow.value = bookId
+        if (overlay.value.bookId != bookId) overlay.value = BookDetailOverlay(bookId = bookId)
+    }
 
     /** Opens See what changed for the last match: every change it made, with where each came from. */
     fun seeWhatChanged() {
@@ -378,17 +309,19 @@ class BookDetailViewModel(
         startedAt: Long? = null,
         finishedAt: Long? = null,
     ) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val bookId = shownReady()?.book?.id?.value ?: return
         viewModelScope.launch {
-            updateReady { it.copy(isMarkingComplete = true) }
+            updateOverlay(bookId) { it.copy(isMarkingComplete = true) }
             when (playbackPositionRepository.markComplete(BookId(bookId), startedAt, finishedAt)) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isMarkingComplete = false, isComplete = true) }
+                    updateOverlay(
+                        bookId,
+                    ) { it.copy(isMarkingComplete = false, progressOverride = ProgressOverride.Completed) }
                     logger.info { "Marked book $bookId as complete" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isMarkingComplete = false) }
+                    updateOverlay(bookId) { it.copy(isMarkingComplete = false) }
                     logger.error { "Failed to mark book $bookId as complete" }
                 }
             }
@@ -399,24 +332,19 @@ class BookDetailViewModel(
      * Discard progress for the current book (start over / DNF).
      */
     fun discardProgress() {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val bookId = shownReady()?.book?.id?.value ?: return
         viewModelScope.launch {
-            updateReady { it.copy(isDiscardingProgress = true) }
+            updateOverlay(bookId) { it.copy(isDiscardingProgress = true) }
             when (playbackPositionRepository.discardProgress(BookId(bookId))) {
                 is AppResult.Success -> {
-                    updateReady { ready ->
-                        ready.copy(
-                            isDiscardingProgress = false,
-                            isComplete = false,
-                            progress = null,
-                            timeRemainingFormatted = null,
-                        )
-                    }
+                    updateOverlay(
+                        bookId,
+                    ) { it.copy(isDiscardingProgress = false, progressOverride = ProgressOverride.Discarded) }
                     logger.info { "Discarded progress for book $bookId" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isDiscardingProgress = false) }
+                    updateOverlay(bookId) { it.copy(isDiscardingProgress = false) }
                     logger.error { "Failed to discard progress for book $bookId" }
                 }
             }
@@ -427,23 +355,19 @@ class BookDetailViewModel(
      * Restart the current book from the beginning.
      */
     fun restartBook() {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val bookId = shownReady()?.book?.id?.value ?: return
         viewModelScope.launch {
-            updateReady { it.copy(isRestarting = true) }
+            updateOverlay(bookId) { it.copy(isRestarting = true) }
             when (playbackPositionRepository.restartBook(BookId(bookId))) {
                 is AppResult.Success -> {
-                    updateReady { ready ->
-                        ready.copy(
-                            isRestarting = false,
-                            isComplete = false,
-                            progress = 0f,
-                        )
-                    }
+                    updateOverlay(
+                        bookId,
+                    ) { it.copy(isRestarting = false, progressOverride = ProgressOverride.Restarted) }
                     logger.info { "Restarted book $bookId" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isRestarting = false) }
+                    updateOverlay(bookId) { it.copy(isRestarting = false) }
                     logger.error { "Failed to restart book $bookId" }
                 }
             }
@@ -465,17 +389,17 @@ class BookDetailViewModel(
      * Add the current book to an existing shelf.
      */
     fun addBookToShelf(shelfId: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val bookId = shownReady()?.book?.id?.value ?: return
         viewModelScope.launch {
-            updateReady { it.copy(isAddingToShelf = true) }
+            updateOverlay(bookId) { it.copy(isAddingToShelf = true) }
             when (val result = addBooksToShelfUseCase(ShelfId(shelfId), listOf(BookId(bookId)))) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isAddingToShelf = false, showShelfPicker = false) }
+                    updateOverlay(bookId) { it.copy(isAddingToShelf = false, showShelfPicker = false) }
                     logger.info { "Added book $bookId to shelf $shelfId" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isAddingToShelf = false, shelfError = result.message) }
+                    updateOverlay(bookId) { it.copy(isAddingToShelf = false, shelfError = result.message) }
                     logger.error { "Failed to add book $bookId to shelf $shelfId: ${result.message}" }
                 }
             }
@@ -486,27 +410,27 @@ class BookDetailViewModel(
      * Create a new shelf and add the current book to it.
      */
     fun createShelfAndAddBook(name: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val bookId = shownReady()?.book?.id?.value ?: return
         viewModelScope.launch {
-            updateReady { it.copy(isAddingToShelf = true) }
+            updateOverlay(bookId) { it.copy(isAddingToShelf = true) }
             when (val result = createShelfUseCase(name, null)) {
                 is AppResult.Success -> {
                     val shelf = result.data
                     when (val addResult = addBooksToShelfUseCase(shelf.id, listOf(BookId(bookId)))) {
                         is AppResult.Success -> {
-                            updateReady { it.copy(isAddingToShelf = false, showShelfPicker = false) }
+                            updateOverlay(bookId) { it.copy(isAddingToShelf = false, showShelfPicker = false) }
                             logger.info { "Created shelf '${shelf.name}' and added book $bookId" }
                         }
 
                         is AppResult.Failure -> {
-                            updateReady { it.copy(isAddingToShelf = false, shelfError = addResult.message) }
+                            updateOverlay(bookId) { it.copy(isAddingToShelf = false, shelfError = addResult.message) }
                             logger.error { "Created shelf but failed to add book $bookId: ${addResult.message}" }
                         }
                     }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isAddingToShelf = false, shelfError = result.message) }
+                    updateOverlay(bookId) { it.copy(isAddingToShelf = false, shelfError = result.message) }
                     logger.error { "Failed to create shelf '$name': ${result.message}" }
                 }
             }
@@ -514,42 +438,42 @@ class BookDetailViewModel(
     }
 
     fun clearShelfError() {
-        updateReady { it.copy(shelfError = null) }
+        updateShownOverlay { it.copy(shelfError = null) }
     }
 
     fun clearCollectionError() {
-        updateReady { it.copy(collectionError = null) }
+        updateShownOverlay { it.copy(collectionError = null) }
     }
 
     fun showShelfPicker() {
-        updateReady { it.copy(showShelfPicker = true) }
+        updateShownOverlay { it.copy(showShelfPicker = true) }
     }
 
     fun hideShelfPicker() {
-        updateReady { it.copy(showShelfPicker = false) }
+        updateShownOverlay { it.copy(showShelfPicker = false) }
     }
 
     fun showCollectionPicker() {
-        updateReady { it.copy(showCollectionPicker = true) }
+        updateShownOverlay { it.copy(showCollectionPicker = true) }
     }
 
     fun hideCollectionPicker() {
-        updateReady { it.copy(showCollectionPicker = false) }
+        updateShownOverlay { it.copy(showCollectionPicker = false) }
     }
 
     /** Add this book to [collectionId] (additive — never affects the book's All Books membership). */
     fun addBookToCollection(collectionId: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val bookId = shownReady()?.book?.id?.value ?: return
         viewModelScope.launch {
-            updateReady { it.copy(isAddingToCollection = true) }
+            updateOverlay(bookId) { it.copy(isAddingToCollection = true) }
             when (val result = collectionRepository.addBook(collectionId, bookId)) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
+                    updateOverlay(bookId) { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
                     logger.info { "Added book $bookId to collection $collectionId" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isAddingToCollection = false, collectionError = result.message) }
+                    updateOverlay(bookId) { it.copy(isAddingToCollection = false, collectionError = result.message) }
                     logger.error { "Failed to add book $bookId to collection $collectionId: ${result.message}" }
                 }
             }
@@ -564,28 +488,32 @@ class BookDetailViewModel(
      * library.
      */
     fun createCollectionAndAddBook(name: String) {
-        val book = (state.value as? BookDetailUiState.Ready)?.book ?: return
+        val book = shownReady()?.book ?: return
         val bookId = book.id.value
         viewModelScope.launch {
-            updateReady { it.copy(isAddingToCollection = true) }
+            updateOverlay(bookId) { it.copy(isAddingToCollection = true) }
             when (val result = collectionRepository.create(book.libraryId.value, name)) {
                 is AppResult.Success -> {
                     val collection = result.data
                     when (val addResult = collectionRepository.addBook(collection.id, bookId)) {
                         is AppResult.Success -> {
-                            updateReady { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
+                            updateOverlay(
+                                bookId,
+                            ) { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
                             logger.info { "Created collection '${collection.name}' and added book $bookId" }
                         }
 
                         is AppResult.Failure -> {
-                            updateReady { it.copy(isAddingToCollection = false, collectionError = addResult.message) }
+                            updateOverlay(
+                                bookId,
+                            ) { it.copy(isAddingToCollection = false, collectionError = addResult.message) }
                             logger.error { "Created collection but failed to add book $bookId: ${addResult.message}" }
                         }
                     }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isAddingToCollection = false, collectionError = result.message) }
+                    updateOverlay(bookId) { it.copy(isAddingToCollection = false, collectionError = result.message) }
                     logger.error { "Failed to create collection '$name': ${result.message}" }
                 }
             }
@@ -604,18 +532,18 @@ class BookDetailViewModel(
      * confirm dialog so the reason is legible where the decision was made.
      */
     fun deleteBook() {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id } ?: return
+        val bookId = shownReady()?.book?.id ?: return
         viewModelScope.launch {
-            updateReady { it.copy(isDeletingBook = true, deleteError = null) }
+            updateOverlay(bookId.value) { it.copy(isDeletingBook = true, deleteError = null) }
             when (val result = bookRepository.deleteBook(bookId)) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isDeletingBook = false) }
+                    updateOverlay(bookId.value) { it.copy(isDeletingBook = false) }
                     logger.info { "Deleted book ${bookId.value} and its folder" }
                     _navActions.trySend(BookDetailNavAction.BookDeleted)
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isDeletingBook = false, deleteError = result.error) }
+                    updateOverlay(bookId.value) { it.copy(isDeletingBook = false, deleteError = result.error) }
                     errorBus.emit(result.error)
                     logger.error { "Failed to delete book ${bookId.value}: ${result.error.code}" }
                 }
@@ -625,7 +553,7 @@ class BookDetailViewModel(
 
     /** Clears the inline delete refusal so the confirm dialog can be dismissed or retried cleanly. */
     fun clearDeleteError() {
-        updateReady { it.copy(deleteError = null) }
+        updateShownOverlay { it.copy(deleteError = null) }
     }
 
     /**
@@ -638,28 +566,23 @@ class BookDetailViewModel(
      * goes with it. A refusal goes to [errorBus] and the book stays held.
      */
     fun releaseFromInbox() {
-        val ready = state.value as? BookDetailUiState.Ready ?: return
-        if (!ready.isHeld || ready.isReleasingFromInbox) return
+        val ready = shownReady() ?: return
         val book = ready.book
-        // Busy BEFORE the launch: a second tap in the same frame must already see it.
-        updateReady { it.copy(isReleasingFromInbox = true) }
+        val bookId = book.id.value
+        // The overlay, not `state`: a second tap in the same frame must see the first, before `state` recombines.
+        if (!ready.isHeld || overlayOf(bookId)?.isReleasingFromInbox != false) return
+        updateOverlay(bookId) { it.copy(isReleasingFromInbox = true) }
         viewModelScope.launch {
-            when (
-                val result =
-                    inboxRepository.releaseBooks(
-                        book.libraryId.value,
-                        mapOf(book.id.value to emptyList()),
-                    )
-            ) {
+            when (val result = inboxRepository.releaseBooks(book.libraryId.value, mapOf(bookId to emptyList()))) {
                 is AppResult.Success -> {
-                    updateReady { it.copy(isReleasingFromInbox = false) }
-                    logger.info { "Released ${book.id.value} from the inbox" }
+                    updateOverlay(bookId) { it.copy(isReleasingFromInbox = false) }
+                    logger.info { "Released $bookId from the inbox" }
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isReleasingFromInbox = false) }
+                    updateOverlay(bookId) { it.copy(isReleasingFromInbox = false) }
                     errorBus.emit(result.error)
-                    logger.error { "Failed to release ${book.id.value} from the inbox: ${result.error.code}" }
+                    logger.error { "Failed to release $bookId from the inbox: ${result.error.code}" }
                 }
             }
         }
@@ -677,11 +600,15 @@ class BookDetailViewModel(
      * nothing unless the book is stranded, not held, and no restore is already waiting.
      */
     fun restoreToAllBooks() {
-        val ready = state.value as? BookDetailUiState.Ready ?: return
-        if (ready.isHeld || ready.visibility !is BookVisibility.Stranded || ready.isRestoringToAllBooks) return
+        val ready = shownReady() ?: return
         val bookId = ready.book.id
-        // Busy BEFORE the launch: a second tap in the same frame must already see it.
-        updateReady { it.copy(isRestoringToAllBooks = true) }
+        // The overlay, not `state`: a second tap in the same frame must see the first, before `state` recombines.
+        if (ready.isHeld || ready.visibility !is BookVisibility.Stranded ||
+            overlayOf(bookId.value)?.isRestoringToAllBooks != false
+        ) {
+            return
+        }
+        updateOverlay(bookId.value) { it.copy(isRestoringToAllBooks = true) }
         viewModelScope.launch {
             when (val result = bookEditRepository.setBookCollections(bookId, emptyList())) {
                 is AppResult.Success -> {
@@ -689,7 +616,7 @@ class BookDetailViewModel(
                 }
 
                 is AppResult.Failure -> {
-                    updateReady { it.copy(isRestoringToAllBooks = false) }
+                    updateOverlay(bookId.value) { it.copy(isRestoringToAllBooks = false) }
                     errorBus.emit(result.error)
                     logger.error { "Failed to queue ${bookId.value} back to All Books: ${result.error.code}" }
                 }
@@ -710,7 +637,7 @@ class BookDetailViewModel(
      * @param docId [BookDocument.id] of the tapped document.
      */
     fun onOpenDocument(docId: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
+        val bookId = shownReady()?.book?.id?.value ?: return
         val doc = documents.value.find { it.id == docId } ?: return
         if (doc.format != "pdf") {
             _navActions.trySend(BookDetailNavAction.ShowViewerComingSoon)
