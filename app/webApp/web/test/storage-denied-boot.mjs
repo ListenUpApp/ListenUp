@@ -8,6 +8,7 @@ import { chromium } from 'playwright'
 import { preview } from 'vite'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { recordCspViolations, readCspViolations } from './csp-violations.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const server = await preview({ root, preview: { port: 0 } })
@@ -23,6 +24,7 @@ await page.addInitScript(() => {
   Object.defineProperty(window, 'localStorage', { get: refuse })
 })
 
+await recordCspViolations(page)
 await page.goto(base, { waitUntil: 'load' })
 const rendered = await page
   .waitForFunction(() => (document.querySelector('#app')?.textContent ?? '').trim().length > 0, null, {
@@ -31,11 +33,14 @@ const rendered = await page
   .then(() => true)
   .catch(() => false)
 const text = (await page.textContent('#app')) ?? ''
+const violations = await readCspViolations(page)
 
 await browser.close()
 await server.close()
 
+for (const v of violations) console.log(`  ${v}`)
 console.log(`#app text: ${JSON.stringify(text.slice(0, 200))}`)
 if (!rendered) console.log('  #app stayed empty: a browser that refuses storage got a blank page')
-console.log(rendered ? 'RESULT: PASS' : 'RESULT: FAIL')
-process.exit(rendered ? 0 : 1)
+const ok = rendered && violations.length === 0
+console.log(ok ? 'RESULT: PASS' : 'RESULT: FAIL')
+process.exit(ok ? 0 : 1)

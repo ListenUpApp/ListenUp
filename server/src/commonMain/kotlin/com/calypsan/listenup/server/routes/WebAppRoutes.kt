@@ -121,6 +121,37 @@ private fun String.namesEtag(etag: String): Boolean =
 private fun List<String>.isSafe(): Boolean = none { it == ".." || it == "." }
 
 /**
+ * The policy the web client is served under, because it keeps its tokens in `localStorage` and a
+ * script that runs on this origin can read them.
+ *
+ * Derived from what the bundle loads: its own module scripts, the one inline theme script in
+ * `index.html` (allowed by hash, so `script-src` needs neither `'unsafe-inline'` nor
+ * `'unsafe-eval'`), the SQLite wasm, same-origin workers, and `blob:` for upload previews,
+ * downloads and hls.js's MediaSource. Images may come from other hosts because catalogue cover art
+ * is loaded by URL. `style-src` keeps `'unsafe-inline'` because Compose HTML writes element style
+ * attributes.
+ *
+ * One policy, three places that must agree: this list, `vite.config.ts` (the preview server the
+ * browser gates run through), and the hash of the inline script in `index.html`.
+ * `app/webApp/web/test/csp.test.mjs` fails if any pair drifts.
+ */
+private val ContentSecurityPolicy =
+    listOf(
+        "default-src 'self'",
+        "script-src 'self' 'wasm-unsafe-eval' 'sha256-t35doVXbm2Sd99v4KIDSEw65Hyhn2ufZacjI2HErZWk='",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob: https: http:",
+        "media-src 'self' blob:",
+        "font-src 'self'",
+        "connect-src 'self'",
+        "worker-src 'self' blob:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    ).joinToString("; ")
+
+/**
  * Stamps the isolation and defensive headers onto every response in this route subtree.
  *
  * OPFS requires `SharedArrayBuffer`, which the browser withholds unless the page is
@@ -130,10 +161,11 @@ private fun List<String>.isSafe(): Boolean = none { it == ".." || it == "." }
  *
  * The rest defend the tokens the web client keeps in `localStorage`: `nosniff` stops a response
  * being reinterpreted as script, `Referrer-Policy` keeps the path (a book, a share link) out of
- * outbound requests, and `X-Frame-Options` refuses to be framed.
+ * outbound requests, `X-Frame-Options` refuses to be framed, and [ContentSecurityPolicy] bounds what
+ * the page may load or run.
  *
- * The same headers are set for the dev and preview servers in `app/webApp/web/vite.config.ts`;
- * if one side changes, the other has to change with it.
+ * The same headers are set for the dev and preview servers in `app/webApp/web/vite.config.ts`
+ * (the policy for preview only); if one side changes, the other has to change with it.
  */
 private val WebResponseHeaders =
     createRouteScopedPlugin("WebResponseHeaders") {
@@ -143,5 +175,6 @@ private val WebResponseHeaders =
             call.response.headers.append("X-Content-Type-Options", "nosniff")
             call.response.headers.append("Referrer-Policy", "same-origin")
             call.response.headers.append("X-Frame-Options", "DENY")
+            call.response.headers.append("Content-Security-Policy", ContentSecurityPolicy)
         }
     }

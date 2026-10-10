@@ -22,6 +22,32 @@ const responseHeaders = {
   'X-Frame-Options': 'DENY',
 }
 
+// The policy the production page runs under. Derived from what the bundle actually loads: its own
+// module scripts, the one inline theme script in index.html (allowed by hash, so script-src needs
+// neither 'unsafe-inline' nor 'unsafe-eval'), the SQLite wasm, same-origin workers, and blob: for
+// upload previews, downloads and hls.js's MediaSource. Images may come from other hosts because
+// catalogue cover art is loaded by URL; images cannot run script. style-src keeps 'unsafe-inline'
+// because Compose HTML writes element style attributes.
+//
+// ONE policy, THREE places that must agree: this array, the Ktor route (WebAppRoutes.kt), and the
+// hash of the inline script in index.html. test/csp.test.mjs fails if any pair drifts. It is
+// applied to preview only: the dev server injects its own inline client script, and a production
+// policy there would break development for no benefit.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval' 'sha256-t35doVXbm2Sd99v4KIDSEw65Hyhn2ufZacjI2HErZWk='",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https: http:",
+  "media-src 'self' blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ')
+
 // The Ktor server in development. Production needs no proxy at all: Ktor serves the bundle, so
 // the page and the API share an origin by construction. This makes development match that.
 //
@@ -54,7 +80,7 @@ export default defineConfig({
       '/healthz': { target: apiTarget, changeOrigin: true },
     },
   },
-  preview: { headers: responseHeaders },
+  preview: { headers: { ...responseHeaders, 'Content-Security-Policy': contentSecurityPolicy } },
   build: {
     rollupOptions: {
       // The Kotest page is a build input, not just a dev-server page, so `vite build` output can
