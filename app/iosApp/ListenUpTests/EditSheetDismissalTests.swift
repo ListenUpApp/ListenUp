@@ -22,8 +22,8 @@ struct EditSheetDismissalTests {
     @Test func aRatingIsAChangeOnlyWhenItDiffersFromTheOneTheSheetOpenedOn() {
         #expect(!RateBookSheet.hasChanges(halfStars: 0, note: "", openedOn: nil))
         #expect(RateBookSheet.hasChanges(halfStars: 6, note: "", openedOn: nil))
-        #expect(!RateBookSheet.hasChanges(halfStars: 6, note: "Good", openedOn: MyRating(halfStars: 6, note: "Good")))
-        #expect(RateBookSheet.hasChanges(halfStars: 6, note: "Great", openedOn: MyRating(halfStars: 6, note: "Good")))
+        #expect(!RateBookSheet.hasChanges(halfStars: 6, note: "Good", openedOn: MyRating(halfStars: 6, note: "Good", fromHardcover: false)))
+        #expect(RateBookSheet.hasChanges(halfStars: 6, note: "Great", openedOn: MyRating(halfStars: 6, note: "Good", fromHardcover: false)))
     }
 
     @Test func aShelfDraftIsAChangeOnlyWhenItDiffersFromWhatItOpenedOn() {
