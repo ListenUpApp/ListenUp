@@ -1,7 +1,5 @@
 package com.calypsan.listenup.web
 
-import com.calypsan.listenup.core.FileSource
-import io.ktor.utils.io.ByteReadChannel
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.io.Buffer
@@ -12,7 +10,6 @@ import org.w3c.dom.HTMLAnchorElement
 import org.w3c.dom.url.URL
 import org.w3c.files.Blob
 import org.w3c.files.BlobPropertyBag
-import org.w3c.files.File
 
 /**
  * A [RawSink] that keeps everything written to it, for a caller that wants the bytes afterwards.
@@ -74,25 +71,6 @@ internal fun saveToDisk(
     anchor.click()
     anchor.remove()
     URL.revokeObjectURL(url)
-}
-
-/**
- * A picked browser file, as the shared [FileSource] the upload path speaks.
- *
- * The bytes are read once by the caller and replayed on each [openChannel], because the interface
- * promises a fresh channel from the beginning every time and a `File`'s own stream is single-use.
- * That means a picked backup is in memory too — the same browser limitation [BufferingSink]
- * documents, from the other direction.
- */
-internal class BrowserFileSource(
-    private val file: File,
-    private val bytes: ByteArray,
-) : FileSource {
-    override val filename: String get() = file.name
-
-    override val size: Long get() = bytes.size.toLong()
-
-    override fun openChannel(): ByteReadChannel = ByteReadChannel(bytes)
 }
 
 /**

@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.core.BlobFileSource
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
@@ -190,7 +191,6 @@ import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.Timestamp
-import com.calypsan.listenup.web.BrowserFileSource
 import com.calypsan.listenup.web.BufferingSink
 import com.calypsan.listenup.web.features.admin.BackupsPage
 import com.calypsan.listenup.web.features.admin.ImportFlowPage
@@ -202,7 +202,6 @@ import com.calypsan.listenup.web.features.admin.OpenBackups
 import com.calypsan.listenup.web.features.admin.OpenRestore
 import com.calypsan.listenup.web.features.admin.RestorePage
 import com.calypsan.listenup.web.features.admin.formatWhen
-import com.calypsan.listenup.web.readByteArray
 import com.calypsan.listenup.web.saveToDisk
 import com.calypsan.listenup.web.features.admin.CollectionDetailPage
 import com.calypsan.listenup.web.features.admin.CollectionsPage
@@ -2706,9 +2705,8 @@ private fun ImportsRoute(
 /**
  * `/admin/imports/new` — one import run.
  *
- * The picked file is read here and wrapped as the shared `FileSource`, the same bridge the backup
- * upload uses. A read failure is a browser-local dead end: it logs and drops the pick, and the page
- * stays on Idle so the reader can simply pick again.
+ * The picked file is handed on as a [BlobFileSource], never read: the browser streams it from disk
+ * as it uploads, the same bridge the backup upload uses.
  */
 @Composable
 private fun ImportFlowRoute(
@@ -2717,16 +2715,10 @@ private fun ImportFlowRoute(
 ) {
     val session = remember { openImportFlow() }
     DisposableEffect(session) { onDispose { session.close() } }
-    val scope = rememberCoroutineScope()
 
     ImportFlowPage(
         state = session.state.collectAsState().value,
-        onStart = { file ->
-            scope.launch {
-                val bytes = file.readByteArray() ?: return@launch
-                session.onStart(BrowserFileSource(file, bytes))
-            }
-        },
+        onStart = { file -> session.onStart(BlobFileSource(file)) },
         onMapUser = { match, userId -> session.onMapUser(match.absUserId, userId) },
         onSkipUser = { match -> session.onSkipUser(match.absUserId) },
         onOpenBookSearch = session.onOpenBookSearch,
@@ -2746,8 +2738,8 @@ private fun ImportFlowRoute(
  * ⛔ **This route is where the browser's two file seams live**, and neither belongs in the page.
  * A download writes into a [BufferingSink] and reaches the browser only when the ViewModel says the
  * transfer succeeded — the ViewModel closes the sink in a `finally`, before it knows, so saving on
- * close would deliver a truncated archive named as though it were whole. An upload reads the picked
- * file once and wraps it as the shared `FileSource` the repository speaks.
+ * close would deliver a truncated archive named as though it were whole. An upload hands the picked
+ * file on as a [BlobFileSource], never read, so the browser streams it from disk.
  */
 @Composable
 private fun BackupsRoute(
@@ -2756,7 +2748,6 @@ private fun BackupsRoute(
 ) {
     val session = remember { openBackups() }
     DisposableEffect(session) { onDispose { session.close() } }
-    val scope = rememberCoroutineScope()
 
     // The sink and the name it will be saved under, held between starting a download and hearing
     // that it finished. Null whenever no download is in flight.
@@ -2786,14 +2777,7 @@ private fun BackupsRoute(
         onAskDelete = session.onAskDelete,
         onDismissDelete = session.onDismissDelete,
         onDelete = session.onDelete,
-        onPickFile = { file ->
-            scope.launch {
-                // A read failure is a browser-local dead end: it logs and drops the pick, and the
-                // screen is untouched so the reader can simply pick again.
-                val bytes = file.readByteArray() ?: return@launch
-                session.onPickFile(BrowserFileSource(file, bytes))
-            }
-        },
+        onPickFile = { file -> session.onPickFile(BlobFileSource(file)) },
         onResetUpload = session.onResetUpload,
         onClearError = session.onClearError,
         onRetry = session.onRetry,

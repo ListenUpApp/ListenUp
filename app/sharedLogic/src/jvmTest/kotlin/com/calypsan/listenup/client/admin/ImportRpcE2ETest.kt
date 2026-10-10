@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.imports.ImportAnalysis
 import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.ArchiveUploadApi
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.testinfra.StripSocketTimeout
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -140,7 +141,7 @@ class ImportRpcE2ETest :
                     val repository =
                         ImportRepositoryImpl(
                             channel = RpcChannel.forTest(rpcClient.importServiceProxy(accessToken)),
-                            clientFactory = clientFactory,
+                            archiveUploads = ArchiveUploadApi(clientFactory = clientFactory),
                         )
 
                     // Drive the flow directly in the testApplication suspend scope — do NOT wrap in

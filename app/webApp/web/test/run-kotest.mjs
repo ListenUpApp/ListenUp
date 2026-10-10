@@ -20,7 +20,7 @@ import { isSettled, problemsFor } from './settle.mjs'
 // Raise it when specs are added. Lowering it needs a reason.
 //
 // The server-free lane (`pnpm test` / :app:webApp:webKotest) and the server-backed lane
-// (`pnpm test:auth`) compile the same bundle; the second additionally enables the six specs
+// (`pnpm test:auth`) compile the same bundle; the second additionally enables the eight specs
 // that need a live server. Two lanes, two exact floors — that is what keeps "this lane skips
 // some specs" from decaying into "this lane silently stopped running them".
 //

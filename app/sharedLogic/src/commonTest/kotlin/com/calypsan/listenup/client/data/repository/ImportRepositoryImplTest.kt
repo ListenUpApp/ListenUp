@@ -66,11 +66,11 @@ class ImportRepositoryImplTest :
 
         fun stubResult() = ImportResult(importedCount = 8, booksNotInLibrary = 3, perUser = emptyMap())
 
-        /** upload is not under test here — a relaxed ApiClientFactory mock stands in. */
+        /** upload is not under test here — a relaxed archive-upload mock stands in. */
         fun buildRepo(service: ImportService): ImportRepositoryImpl =
             ImportRepositoryImpl(
                 channel = RpcChannel.forTest(service),
-                clientFactory = mock(MockMode.autofill),
+                archiveUploads = mock(MockMode.autofill),
             )
 
         // ── analyze ───────────────────────────────────────────────────────────

@@ -27,7 +27,8 @@ import kotlin.coroutines.resumeWithException
 private const val FILE_TRANSFER_TIMEOUT_MS = 60 * 60 * 1_000
 
 /**
- * Sends one picked browser file into an upload session with the browser's own XMLHttpRequest.
+ * Sends one picked browser file to the server with the browser's own XMLHttpRequest: a book file
+ * into an upload session ([upload]), or an archive to a restore or import endpoint ([postFile]).
  *
  * Why not Ktor: its JS engine does not stream a request body. It drains the whole body into a
  * `ByteArray` and copies that into a `Uint8Array` before calling `fetch`, so an audiobook of a few
@@ -36,9 +37,9 @@ private const val FILE_TRANSFER_TIMEOUT_MS = 60 * 60 * 1_000
  * into a `FormData` as-is, the browser reads it from disk as the request drains, and
  * `upload.onprogress` reports bytes that actually left.
  *
- * The request is the one the Ktor path sends: same endpoint, `relPath` on the query string, the
- * file as the form's only part with its filename on the part (the server takes the first file
- * part, whatever it is called), the same bearer credential and client-version headers. A 401 gets
+ * The request is the one the Ktor path sends: same endpoint and query string, the file as the
+ * form's only part with its filename on the part, the same bearer credential and client-version
+ * headers. A 401 gets
  * the single refresh-and-retry the Ktor bearer plugin gives every other request, so an upload that
  * outlives a short-lived access token does not end the session. Every failure is typed the way the
  * Ktor path types it: a status through [ErrorMapper.forHttpStatus], a dropped connection as an
@@ -75,13 +76,47 @@ class XhrUploadTransport(
         file: Blob,
         filename: String,
         onProgress: suspend (Long, Long?) -> Unit,
-    ): AppResult<UploadSessionSummary> {
+    ): AppResult<UploadSessionSummary> =
+        postFile(
+            path = UploadRoutePaths.file(sessionId),
+            // The server takes the first file part, whatever it is called.
+            partName = "file",
+            file = file,
+            filename = filename,
+            query = mapOf(UploadRoutePaths.REL_PATH_PARAM to relPath),
+            onProgress = onProgress,
+        ).flatMap { body ->
+            suspendRunCatching { appJson.decodeFromString(UploadSessionSummary.serializer(), body) }
+        }
+
+    /**
+     * Posts [file] to [path] on the server as the form part [partName], named [filename], with
+     * [query] on the URL, and answers the 2xx response body. Progress is reported as [upload]
+     * reports it; [timeoutMs] bounds the whole request.
+     */
+    suspend fun postFile(
+        path: String,
+        partName: String,
+        file: Blob,
+        filename: String,
+        query: Map<String, String> = emptyMap(),
+        timeoutMs: Int = FILE_TRANSFER_TIMEOUT_MS,
+        onProgress: suspend (Long, Long?) -> Unit = { _, _ -> },
+    ): AppResult<String> {
         val base = serverUrl() ?: return Failure(ServerUrlNotConfiguredException())
         val url =
-            URLBuilder("${base.trimEnd('/')}${UploadRoutePaths.file(sessionId)}")
-                .apply { parameters.append(UploadRoutePaths.REL_PATH_PARAM, relPath) }
+            URLBuilder("${base.trimEnd('/')}$path")
+                .apply { query.forEach { (name, value) -> parameters.append(name, value) } }
                 .buildString()
-        val outgoing = OutgoingFile(url = url, file = file, filename = filename, onProgress = onProgress)
+        val outgoing =
+            OutgoingFile(
+                url = url,
+                partName = partName,
+                file = file,
+                filename = filename,
+                timeoutMs = timeoutMs,
+                onProgress = onProgress,
+            )
 
         return suspendRunCatching {
             val first = send(outgoing, accessToken())
@@ -124,7 +159,7 @@ class XhrUploadTransport(
             if (token != null) request.setRequestHeader(HttpHeaders.Authorization, "Bearer $token")
             clientHeaders.forEach { (name, value) -> request.setRequestHeader(name, value) }
             // No Content-Type: the browser writes the multipart one, boundary included.
-            request.timeout = FILE_TRANSFER_TIMEOUT_MS
+            request.timeout = outgoing.timeoutMs
             request.upload.onprogress = { event ->
                 onBytes(event.loaded.toLong(), if (event.lengthComputable) event.total.toLong() else null)
             }
@@ -136,27 +171,29 @@ class XhrUploadTransport(
             }
             request.ontimeout = {
                 continuation.resumeWithException(
-                    HttpRequestTimeoutException(outgoing.url, FILE_TRANSFER_TIMEOUT_MS.toLong()),
+                    HttpRequestTimeoutException(outgoing.url, outgoing.timeoutMs.toLong()),
                 )
             }
             continuation.invokeOnCancellation { request.abort() }
 
             val form = FormData()
-            form.append("file", outgoing.file, outgoing.filename)
+            form.append(outgoing.partName, outgoing.file, outgoing.filename)
             request.send(form)
         }
 
-    private suspend fun XhrReply.toResult(url: String): AppResult<UploadSessionSummary> =
+    private fun XhrReply.toResult(url: String): AppResult<String> =
         if (status in SUCCESS_STATUSES) {
-            suspendRunCatching { appJson.decodeFromString(UploadSessionSummary.serializer(), body) }
+            AppResult.Success(body)
         } else {
             AppResult.Failure(ErrorMapper.forHttpStatus(status, debugInfo = "POST $url answered $status"))
         }
 
     private class OutgoingFile(
         val url: String,
+        val partName: String,
         val file: Blob,
         val filename: String,
+        val timeoutMs: Int,
         val onProgress: suspend (Long, Long?) -> Unit,
     )
 
