@@ -8,6 +8,9 @@ import com.calypsan.listenup.web.animatedProperties
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.durationOf
 import com.calypsan.listenup.web.motions
+import com.calypsan.listenup.web.nav.RouteChange
+import com.calypsan.listenup.web.nav.captureScrollBeforeRouteChange
+import com.calypsan.listenup.web.nav.forgetScrollMemory
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import org.jetbrains.compose.web.dom.Div
@@ -29,6 +32,8 @@ class PageArrivalTest :
             frames.disposeAll()
             page.value = "library"
             reducedMotionOverride = null
+            forgetScrollMemory()
+            forgetPageArrival()
         }
 
         fun mount(): ViewportFrame =
@@ -82,5 +87,27 @@ class PageArrivalTest :
 
             frame.find(".shell-main").motions().size shouldBe 0
             frame.find(".page-body").motions().size shouldBe 0
+        }
+
+        test("a link to a new page opens a stagger window") {
+            mount()
+            awaitFrame()
+
+            captureScrollBeforeRouteChange(RouteChange.PUSH)
+            page.value = "settings"
+            awaitFrame()
+
+            isArriving() shouldBe true
+        }
+
+        test("Back to a page opens none: the reader has seen it") {
+            mount()
+            awaitFrame()
+
+            captureScrollBeforeRouteChange(RouteChange.POP)
+            page.value = "settings"
+            awaitFrame()
+
+            isArriving() shouldBe false
         }
     })

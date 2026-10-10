@@ -3,6 +3,8 @@ package com.calypsan.listenup.web.motion
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import com.calypsan.listenup.web.nav.RouteChange
+import com.calypsan.listenup.web.nav.lastRouteChange
 import org.jetbrains.compose.web.dom.Div
 import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
@@ -45,6 +47,9 @@ internal fun PageArrival(
         if (element != null && isPageChange(previous, page)) {
             element.parentElement?.let(::fadePageIn)
             settleContentIn(element)
+            // A link opens the stagger window; Back returns to a place already seen, which comes
+            // back instantly. See Stagger.kt.
+            if (lastRouteChange() == RouteChange.PUSH) markPageArrival()
         }
         onDispose { }
     }

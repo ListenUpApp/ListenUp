@@ -34,6 +34,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.web.design.PageHeader
+import com.calypsan.listenup.web.motion.staggerChildrenOnArrival
 
 /**
  * Contributor Detail — the person behind the books, over the shared
@@ -189,7 +190,10 @@ private fun ReadyContent(
         key(section.role) {
             Div(attrs = { classes("cd-role-section") }) {
                 Panel(title = section.displayName, trailing = { CountBadge(section.bookCount) }) {
-                    Div(attrs = { classes("cd-tile-grid") }) {
+                    Div(attrs = {
+                        classes("cd-tile-grid")
+                        staggerChildrenOnArrival()
+                    }) {
                         section.previewBooks.forEach { book ->
                             key(book.id.value) {
                                 RoleTile(

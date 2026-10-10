@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.calypsan.listenup.web.motion.staggerOnArrival
 import kotlinx.browser.window
 import org.jetbrains.compose.web.css.height
 import org.jetbrains.compose.web.css.px
@@ -119,6 +120,8 @@ internal fun <T> VirtualList(
                             },
                         )
                     }
+                // The first screenful sweeps in when the list arrives with its page. See Stagger.kt.
+                staggerOnArrival(element)
                 onDispose { detach?.invoke() }
             }
         }
