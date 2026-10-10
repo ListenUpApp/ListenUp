@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.presentation.home
 
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.cancel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.currentHourOfDay
@@ -104,24 +103,6 @@ class HomeViewModel(
     private val syncRepository: SyncRepository,
     private val currentHour: () -> Int = { currentHourOfDay() },
 ) : ViewModel() {
-    private var closed = false
-
-    override fun onCleared() {
-        super.onCleared()
-        close()
-    }
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android reaches it via [onCleared] when the
-     * `ViewModelStore` clears the entry; iOS has no store, so the screen's wrapper calls it from its
-     * `isolated deinit` (#1192) — else viewModelScope streams/one-shots orphan when the screen goes.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        viewModelScope.cancel()
-    }
-
     private val snackbarChannel = Channel<String>(Channel.BUFFERED)
     val snackbarMessages: Flow<String> = snackbarChannel.receiveAsFlow()
 

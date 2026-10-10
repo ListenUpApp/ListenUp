@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.client.presentation.close
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.test.fake.FakePlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager

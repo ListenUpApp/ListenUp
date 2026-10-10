@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.presentation.visibility
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -33,12 +32,4 @@ class RestrictedBooksViewModel(
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = emptySet(),
             )
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android and web clear it through their
-     * `ViewModelStore`; iOS has none, so its observer calls this from its `isolated deinit` (#1192).
-     */
-    fun close() {
-        viewModelScope.cancel()
-    }
 }

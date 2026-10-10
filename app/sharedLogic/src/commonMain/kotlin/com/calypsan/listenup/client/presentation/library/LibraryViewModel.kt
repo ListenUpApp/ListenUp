@@ -29,7 +29,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.concurrent.Volatile
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -462,29 +461,6 @@ class LibraryViewModel(
                 viewModelScope.launch { libraryPreferences.setIgnoreTitleArticles(newValue) }
             }
         }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════════
-
-    private var closed = false
-
-    override fun onCleared() {
-        super.onCleared()
-        close()
-    }
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android reaches it via [onCleared] when the
-     * `ViewModelStore` clears the entry; iOS has no store, so the owning wrapper (the CarPlay
-     * Library tab's) calls it from its `isolated deinit` (#1192) — else viewModelScope
-     * streams/one-shots orphan when the session goes.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        viewModelScope.cancel()
     }
 
     // ═══════════════════════════════════════════════════════════════════════

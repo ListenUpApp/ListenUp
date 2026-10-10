@@ -53,7 +53,6 @@ class ForgotPasswordViewModel internal constructor(
 
     private var streamJob: Job? = null
     private var pollJob: Job? = null
-    private var closed = false
 
     /** The address most recently requested, so a declined request can be re-opened in one tap. */
     private var lastRequestedEmail: String? = null
@@ -66,26 +65,6 @@ class ForgotPasswordViewModel internal constructor(
                 beginWatching(ticketId)
             }
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        close()
-    }
-
-    /**
-     * Cancels the stream watch and the poll loop. Idempotent — safe to call more than once, or
-     * after [onCleared] already ran.
-     *
-     * Android/Desktop never call this directly: [onCleared] delegates here when the framework's
-     * `ViewModelStore` clears this entry. iOS has no `ViewModelStore`, so the owning screen's
-     * wrapper calls [close] itself from `isolated deinit`; without it the stream/poll jobs would
-     * run forever, orphaned.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        stopWatching()
     }
 
     /**

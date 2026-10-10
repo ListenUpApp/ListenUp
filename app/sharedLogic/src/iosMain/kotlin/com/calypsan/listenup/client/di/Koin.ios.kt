@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import androidx.lifecycle.ViewModel
+import com.calypsan.listenup.client.presentation.close
 import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
 import com.calypsan.listenup.client.data.repository.AppleLocalNetworkAccess
 import com.calypsan.listenup.core.configureLogging
@@ -199,6 +201,12 @@ private fun <T : Any> resolveWithParams(
  */
 object KoinHelper {
     fun getInstanceRepository(): InstanceRepository = resolve(InstanceRepository::class)
+
+    /**
+     * Clears a screen-scoped ViewModel. iOS has no `ViewModelStore`, so the Swift observer that owns
+     * the ViewModel calls this when it is released.
+     */
+    fun closeViewModel(viewModel: ViewModel) = viewModel.close()
 
     fun getServerConnectViewModel(): ServerConnectViewModel = resolve(ServerConnectViewModel::class)
 

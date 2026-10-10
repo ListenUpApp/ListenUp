@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.BookId
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -65,14 +64,6 @@ class InboxBadgeViewModel(
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = emptyList(),
             )
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android clears it through its
-     * `ViewModelStore`; iOS has none, so the observer calls this from its `isolated deinit` (#1192).
-     */
-    fun close() {
-        viewModelScope.cancel()
-    }
 }
 
 /** How many held covers the Library entry fans out (canvas: three). */

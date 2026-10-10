@@ -25,7 +25,6 @@ import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,8 +67,8 @@ private const val SELECTION_SAMPLE_SIZE = 5
  * the work Apply does both come from `actionsFor`, so the count on screen cannot disagree with what
  * happens — there is no second code path to fall out of step.
  *
- * Every client drives it the same way: read [state], call the setters, collect [events], and call
- * [close] when the screen goes.
+ * Every client drives it the same way: read [state], call the setters, collect [events], and clear
+ * the ViewModel when the screen goes.
  *
  * The constructor is `internal` because [BulkEditApplier] is — the planner and the applier are one
  * mechanism inside `:app:sharedLogic` and neither belongs on the export surface. The class itself
@@ -86,8 +85,6 @@ class BulkEditViewModel internal constructor(
     tagRepository: TagRepository,
     moodRepository: MoodRepository,
 ) : ViewModel() {
-    private var closed = false
-
     private val books = MutableStateFlow<List<BookDetail>?>(null)
     private val edits = MutableStateFlow<List<BulkEdit>>(emptyList())
     private val applying = MutableStateFlow(false)
@@ -313,21 +310,6 @@ class BulkEditViewModel internal constructor(
             applying.value = false
             eventChannel.trySend(BulkEditEvent.Applied(changedCount = changed))
         }
-    }
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android reaches it via [onCleared]; iOS from
-     * the screen wrapper's `isolated deinit`; web when the editor session closes.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        viewModelScope.cancel()
-    }
-
-    override fun onCleared() {
-        close()
-        super.onCleared()
     }
 
     /**

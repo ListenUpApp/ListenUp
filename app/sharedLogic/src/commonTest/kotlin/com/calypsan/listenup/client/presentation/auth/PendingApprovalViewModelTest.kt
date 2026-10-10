@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.auth
 
+import com.calypsan.listenup.client.presentation.close
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus
