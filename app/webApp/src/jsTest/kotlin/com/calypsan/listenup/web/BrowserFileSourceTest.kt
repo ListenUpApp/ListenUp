@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.core.FileUnreadableException
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.longs.shouldBeLessThanOrEqual
@@ -97,7 +98,7 @@ class BrowserFileSourceTest :
             }
         }
 
-        test("a slice that cannot be read closes the channel with an error") {
+        test("a slice that cannot be read closes the channel with a FileUnreadableException") {
             var call = 0
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
             try {
@@ -107,8 +108,10 @@ class BrowserFileSourceTest :
                         if (call == 3) null else readFileSlice(file, start, end)
                     })
 
-                // Ending early would hand the server a short file as though it were whole.
-                shouldThrowAny { source.openChannel().readAll() }
+                // Ending early would hand the server a short file as though it were whole. And it must
+                // say WHY: an IOException would be read as the network being down and retried.
+                val failure = shouldThrowAny { source.openChannel().readAll() }
+                generateSequence(failure) { it.cause }.any { it is FileUnreadableException } shouldBe true
             } finally {
                 scope.cancel()
             }

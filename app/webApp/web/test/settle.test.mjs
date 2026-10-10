@@ -162,8 +162,8 @@ test('the committed baseline names both lanes', () => {
   assert.equal(baseline.serverBacked > 0, true)
 })
 
-test('the server-backed lane runs exactly seven tests the server-free lane skips', () => {
-  // The seven `.config(enabled = serverBooted)` sites are the whole documented difference between
+test('the server-backed lane runs exactly eight tests the server-free lane skips', () => {
+  // The eight `.config(enabled = serverBooted)` sites are the whole documented difference between
   // the lanes. An eighth must land with a matching change here, in the same commit:
   //   RpcTransportTest.kt:41
   //   AuthArcTest.kt:34
@@ -172,7 +172,8 @@ test('the server-backed lane runs exactly seven tests the server-free lane skips
   //   playback/HlsPlaybackTest.kt:97
   //   playback/HlsPlaybackTest.kt:148
   //   TwoTabSessionTest.kt:24
-  assert.equal(baseline.serverBacked - baseline.serverFree, 7)
+  //   UnreadableUploadTest.kt:50
+  assert.equal(baseline.serverBacked - baseline.serverFree, 8)
 })
 
 test('the baseline is not a stale fraction of the suite', () => {

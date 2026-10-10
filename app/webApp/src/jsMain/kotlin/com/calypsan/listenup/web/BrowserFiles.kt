@@ -1,11 +1,11 @@
 package com.calypsan.listenup.web
 
 import com.calypsan.listenup.core.FileSource
+import com.calypsan.listenup.core.FileUnreadableException
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.writeFully
 import io.ktor.utils.io.writer
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.io.IOException
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.io.Buffer
@@ -88,8 +88,9 @@ internal fun saveToDisk(
  * reading it.
  *
  * A slice the browser cannot read (the file was moved, deleted, or its disk went away mid-upload)
- * closes the channel with an [IOException], so the transfer fails and says so, rather than ending
- * early as though the file were whole.
+ * closes the channel with a [FileUnreadableException], so the transfer fails and says so, rather
+ * than ending early as though the file were whole. It is deliberately not an `IOException`: the
+ * upload boundary reads those as the network being down, and would retry a file that is gone.
  *
  * [scope] must be the upload's own: cancelling it stops the pump, so an abandoned upload stops
  * reading the disk.
@@ -111,7 +112,8 @@ internal class BrowserFileSource(
                 var offset = 0.0
                 while (offset < end) {
                     val next = minOf(offset + sliceBytes, end)
-                    val bytes = readSlice(file, offset, next) ?: throw IOException("Could not read ${file.name}")
+                    val bytes =
+                        readSlice(file, offset, next) ?: throw FileUnreadableException("Could not read ${file.name}")
                     channel.writeFully(bytes)
                     channel.flush()
                     offset = next

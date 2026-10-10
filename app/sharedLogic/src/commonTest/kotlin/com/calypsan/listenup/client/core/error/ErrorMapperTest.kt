@@ -3,10 +3,12 @@ package com.calypsan.listenup.client.core.error
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
+import com.calypsan.listenup.core.FileUnreadableException
 import io.ktor.client.plugins.websocket.WebSocketException
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -83,6 +85,44 @@ class ErrorMapperTest :
 
             val networkUnavailable = error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
             networkUnavailable.isRetryable shouldBe true
+        }
+
+        // ========== FileUnreadableException → UploadError.FileUnreadable ==========
+
+        // A failed request body reaches the mapper as a ClosedByteChannelException (an IOException)
+        // with the real reason buried in its cause chain; reading only the outer type calls a
+        // deleted file "no internet connection" and retries it.
+        test("an IOException whose cause chain ends in FileUnreadableException is a file error") {
+            val unreadable = FileUnreadableException("Could not read book.m4b")
+            val exception = IOException("channel closed", IllegalStateException("writer failed", RuntimeException("wrapped", unreadable)))
+
+            val error = ErrorMapper.map(exception).shouldBeInstanceOf<UploadError.FileUnreadable>()
+
+            error.code shouldBe "UPLOAD_FILE_UNREADABLE"
+            error.isRetryable shouldBe false
+        }
+
+        test("a FileUnreadableException thrown directly is a file error") {
+            val error = ErrorMapper.map(FileUnreadableException("Could not read book.m4b"))
+
+            error.shouldBeInstanceOf<UploadError.FileUnreadable>().debugInfo shouldBe "Could not read book.m4b"
+        }
+
+        test("an IOException with no unreadable file behind it is still the network") {
+            ErrorMapper
+                .map(IOException("channel closed", IllegalStateException("writer failed")))
+                .shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+        }
+
+        // The walk is bounded so a pathological chain (or a cycle, which common code cannot build)
+        // cannot hang the mapper; a file error buried past the bound is not looked for.
+        test("a file error buried absurdly deep in the cause chain is not searched for") {
+            val deep =
+                (1..50).fold(FileUnreadableException("Could not read book.m4b") as Throwable) { cause, depth ->
+                    IOException("link $depth", cause)
+                }
+
+            ErrorMapper.map(deep).shouldBeInstanceOf<TransportError.NetworkUnavailable>()
         }
 
         // ========== ClientValidationException → ValidationError ==========
