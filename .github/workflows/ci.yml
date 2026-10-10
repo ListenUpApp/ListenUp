@@ -128,7 +128,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.13.1
+          package_json_file: app/webApp/web/package.json
 
       - name: Set up Node
         uses: actions/setup-node@v7
@@ -165,6 +165,11 @@ jobs:
       - name: Run Kotest specs in Chromium
         run: ./gradlew :app:webApp:webKotest --no-daemon
 
+      # The bundle the server image ships. Until this step, it was built and boot-checked only in
+      # release.yml, so a minification or precompression regression first surfaced as a blocked release.
+      - name: Build and boot-check the production web bundle
+        run: ./gradlew :app:webApp:webBundle --no-daemon
+
   test-web-browser-server:
     name: Test (web browser, server-backed)
     runs-on: ubuntu-latest
@@ -196,7 +201,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.13.1
+          package_json_file: app/webApp/web/package.json
 
       - name: Set up Node
         uses: actions/setup-node@v7

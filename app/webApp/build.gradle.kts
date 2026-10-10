@@ -215,6 +215,12 @@ tasks.register<Exec>("webBundle") {
     inputs.dir(webRoot.dir("scripts"))
     inputs.file(webRoot.file("index.html"))
     inputs.file(webRoot.file("package.json"))
+    // Also read by `pnpm build:check`; an undeclared one lets Gradle call the bundle up to date after it changed.
+    inputs.file(webRoot.file("vite.config.ts"))
+    inputs.file(webRoot.file("pnpm-lock.yaml"))
+    inputs.dir(webRoot.dir("test"))
+    inputs.dir(webRoot.dir("public"))
+    inputs.dir(layout.projectDirectory.dir("worker"))
     outputs.dir(webRoot.dir("dist"))
 }
 
