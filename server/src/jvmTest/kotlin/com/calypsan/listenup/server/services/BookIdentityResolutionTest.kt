@@ -125,6 +125,50 @@ class BookIdentityResolutionTest :
             }
         }
 
+        context("bulk ingest of only the changed books") {
+            test("a hardlinked twin is its own book while the original's folder is still on disk") {
+                val libraryRoot = createTempDirectory("book-identity")
+                try {
+                    libraryRoot.resolve("X").createDirectories()
+                    withSqlDatabase {
+                        sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                        runTest {
+                            val fx = resolutionFixture(this@withSqlDatabase)
+                            fx.ingestAll(book("X", inode = 100L, size = 5_000L))
+                            val xId = fx.idAt("X").shouldNotBeNull()
+
+                            fx.ingestAll(book("Y", inode = 100L, size = 5_000L))
+
+                            fx.idAt("Y").shouldNotBeNull() shouldNotBe xId
+                            fx.idAt("X") shouldBe xId
+                        }
+                    }
+                } finally {
+                    libraryRoot.toFile().deleteRecursively()
+                }
+            }
+
+            test("a folder that moved away from disk keeps its id when only the new location is ingested") {
+                val libraryRoot = createTempDirectory("book-identity")
+                try {
+                    withSqlDatabase {
+                        sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                        runTest {
+                            val fx = resolutionFixture(this@withSqlDatabase)
+                            fx.ingestAll(book("X", inode = 100L, size = 5_000L))
+                            val xId = fx.idAt("X").shouldNotBeNull()
+
+                            fx.ingestAll(book("Y", inode = 100L, size = 5_000L))
+
+                            fx.idAt("Y") shouldBe xId
+                        }
+                    }
+                } finally {
+                    libraryRoot.toFile().deleteRecursively()
+                }
+            }
+        }
+
         context("single ingest") {
             test("a moved book folder keeps its id") {
                 withSqlDatabase {

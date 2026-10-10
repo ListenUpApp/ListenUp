@@ -68,6 +68,16 @@ private const val PERSIST_CHUNK_SIZE = 250
 private const val SQLITE_IN_CHUNK = 900
 
 /**
+ * Where a live book can be known to sit while an inode match is judged: [pathsInThisIngest] are the
+ * paths in the batch being written, and [folderRoot] (null when unknown) is the directory the disk is
+ * asked about for the paths a batch cannot speak for.
+ */
+private data class MoveOccupancy(
+    val pathsInThisIngest: Set<String>,
+    val folderRoot: String?,
+)
+
+/**
  * A book resolved + prepared by [BookRepository.resolveOrInsertAll]'s suspend prepare phase, ready for
  * the synchronous chunked write loop. [payload] is the built aggregate; [extras] carries the
  * pre-resolved managed cover, system-collection id (on genuine insert), and genre ids the synchronous
@@ -735,13 +745,30 @@ class BookRepository(
         val inode = identityFile.inode ?: return null
         val candidates = bookFinder.findInodeCandidates(folderId, listOf(inode))[inode].orEmpty()
         if (candidates.isEmpty()) return null
-        val folderRoot = folderRootPath(folderId)
-        val occupiedPaths =
+        val occupancy = MoveOccupancy(setOf(analyzed.candidate.rootRelPath), folderRootPath(folderId))
+        return trustedMoveOnDisk(candidates, identityFile.size, occupancy)
+    }
+
+    /**
+     * [trustedMove] with the disk consulted: a candidate that passes the size witness but whose
+     * recorded folder is still a directory under [folderRoot] is occupied by that book, so it cannot
+     * be what moved. The batch alone cannot say so — a lone or incremental ingest carries only the
+     * changed books, never the unchanged original. The disk is probed only for size-corroborated
+     * candidates, so an ingest with no inode matches does no file I/O. An unknown folder root probes
+     * nothing.
+     */
+    private fun trustedMoveOnDisk(
+        candidates: List<BookFinder.InodeCandidate>,
+        identityFileSize: Long,
+        occupancy: MoveOccupancy,
+    ): BookId? {
+        val folderRoot = occupancy.folderRoot
+        val occupiedOnDisk =
             candidates
+                .filter { identityFileSize in it.audioFileSizes }
                 .map { it.rootRelPath }
                 .filter { relPath -> folderRoot != null && isDirectoryOnDisk(folderRoot, relPath) }
-                .toSet()
-        return trustedMove(candidates, identityFile.size, occupiedPaths + analyzed.candidate.rootRelPath)
+        return trustedMove(candidates, identityFileSize, occupancy.pathsInThisIngest + occupiedOnDisk)
     }
 
     /** The file whose inode anchors this book's identity — the same pick as [identityInode], with its size. */
@@ -764,7 +791,9 @@ class BookRepository(
     /**
      * The existing book this inode match may be trusted to mean, or null. An inode number is reused
      * after a delete and shared by hardlinks, so it is believed only when the file is the same size
-     * as one recorded for that book and the book's own path is not also being ingested.
+     * as one recorded for that book and the book's own path is not occupied — [pathsInThisIngest]
+     * carries every path the caller already knows is held by a live book, in this batch or on disk
+     * (see [trustedMoveOnDisk]).
      * Two stored books that both corroborate are ambiguous, so neither is believed.
      */
     private fun trustedMove(
@@ -1047,6 +1076,9 @@ class BookRepository(
                 folderId,
                 valid.mapNotNull { it.candidate.identityInode() },
             )
+        // Read once per batch, and only when an inode matched something that needs the disk's word.
+        val folderRoot = if (inodeCandidates.isEmpty()) null else folderRootPath(folderId)
+        val occupancy = MoveOccupancy(pathsInThisIngest, folderRoot)
 
         // Resolve each book's stable BookId in memory from the bulk maps (natural key, then a
         // corroborated inode move, then a fresh UUID) — the same model resolveOrInsert applies per book.
@@ -1063,7 +1095,7 @@ class BookRepository(
                 val candidates = identityFile?.inode?.let { inodeCandidates[it] }
                 val movedFrom =
                     if (identityFile != null && candidates != null) {
-                        trustedMove(candidates, identityFile.size, pathsInThisIngest)
+                        trustedMoveOnDisk(candidates, identityFile.size, occupancy)
                     } else {
                         null
                     }
