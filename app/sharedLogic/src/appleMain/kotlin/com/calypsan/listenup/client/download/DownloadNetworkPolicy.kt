@@ -6,8 +6,14 @@ import platform.Foundation.NSURLSessionConfiguration
 /** Per-request timeout for download tasks, in seconds. */
 private const val REQUEST_TIMEOUT_SECONDS = 60.0
 
-/** Whole-resource timeout for a single download, in seconds (1 hour for large files). */
-private const val RESOURCE_TIMEOUT_SECONDS = 3600.0
+/**
+ * Whole-resource timeout for a single download, in seconds (seven days, NSURLSession's own default).
+ *
+ * Stated explicitly because a short value cannot work here: there is no resume data, so a timeout
+ * restarts the file from byte zero, and time spent waiting for Wi-Fi or yielding to playback counts
+ * against the same budget.
+ */
+private const val RESOURCE_TIMEOUT_SECONDS = 604_800.0
 
 /**
  * The configuration behind the download session.
