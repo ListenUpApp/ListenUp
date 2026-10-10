@@ -350,7 +350,7 @@ private class FakeDownloadDao : DownloadDao {
         localPath: String,
         completedAt: Long,
         state: DownloadState,
-    ): Unit = TODO("not used")
+    ): Int = TODO("not used")
 
     override suspend fun markDeletedForBook(bookId: String): Unit = TODO("not used")
 

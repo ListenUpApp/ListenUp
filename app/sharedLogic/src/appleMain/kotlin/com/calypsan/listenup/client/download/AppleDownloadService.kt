@@ -375,8 +375,16 @@ class AppleDownloadService internal constructor(
             }
 
         if (result) {
-            downloadDao.markCompleted(audioFileId, destPath.toString(), Clock.System.now().toEpochMilliseconds())
-            logger.info { "Downloaded: $filename (${audioFile.size / BYTES_PER_MEGABYTE}MB)" }
+            val completed =
+                downloadDao.markCompleted(audioFileId, destPath.toString(), Clock.System.now().toEpochMilliseconds())
+            if (completed == 0) {
+                // The user cancelled or deleted this book while the last bytes landed; nothing points at
+                // the file any more.
+                NSFileManager.defaultManager.removeItemAtPath(destPath.toString(), error = null)
+                logger.info { "Discarded $filename: it finished after the download was cancelled or deleted" }
+            } else {
+                logger.info { "Downloaded: $filename (${audioFile.size / BYTES_PER_MEGABYTE}MB)" }
+            }
         } else {
             // Error already logged/stored by delegate
             logger.error { "Download failed: $filename" }

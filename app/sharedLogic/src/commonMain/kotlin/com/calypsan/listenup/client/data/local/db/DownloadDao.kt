@@ -156,7 +156,11 @@ internal interface DownloadDao {
         total: Long,
     )
 
-    // Mark completed
+    /**
+     * Mark a row completed, unless the user cancelled or deleted it. A transfer that finishes after
+     * that choice must not resurrect the row. Returns the number of rows changed: 0 means the file
+     * landed after the cancel or delete and the caller still holds bytes nothing points at.
+     */
     @Query(
         """
         UPDATE downloads SET
@@ -164,7 +168,7 @@ internal interface DownloadDao {
             localPath = :localPath,
             completedAt = :completedAt,
             downloadedBytes = totalBytes
-        WHERE audioFileId = :audioFileId
+        WHERE audioFileId = :audioFileId AND state NOT IN ('CANCELLED', 'DELETED')
     """,
     )
     suspend fun markCompletedWithState(
@@ -172,18 +176,19 @@ internal interface DownloadDao {
         localPath: String,
         completedAt: Long,
         state: DownloadState,
-    )
+    ): Int
 
     suspend fun markCompleted(
         audioFileId: String,
         localPath: String,
         completedAt: Long,
-    ) = markCompletedWithState(
-        audioFileId = audioFileId,
-        localPath = localPath,
-        completedAt = completedAt,
-        state = DownloadState.COMPLETED,
-    )
+    ): Int =
+        markCompletedWithState(
+            audioFileId = audioFileId,
+            localPath = localPath,
+            completedAt = completedAt,
+            state = DownloadState.COMPLETED,
+        )
 
     // Mark error
     @Query(

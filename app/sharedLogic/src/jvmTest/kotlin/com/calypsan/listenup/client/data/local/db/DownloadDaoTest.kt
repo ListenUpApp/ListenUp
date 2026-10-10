@@ -342,4 +342,46 @@ class DownloadDaoTest :
                 db.close()
             }
         }
+
+        test("markCompleted does not overwrite a row the user cancelled or deleted") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    val terminal = listOf(DownloadState.CANCELLED, DownloadState.DELETED)
+                    dao.insertAll(terminal.map { entity("file-$it", state = it) })
+
+                    terminal.forEach { state ->
+                        dao.markCompleted("file-$state", "/late/file.mp3", completedAt = 99L) shouldBe 0
+                        val row = dao.getByAudioFileId("file-$state")!!
+                        row.state shouldBe state
+                        row.localPath shouldBe null
+                        row.completedAt shouldBe null
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("markCompleted completes a DOWNLOADING or QUEUED row") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    val live = listOf(DownloadState.DOWNLOADING, DownloadState.QUEUED)
+                    dao.insertAll(live.map { entity("file-$it", state = it) })
+
+                    live.forEach { state ->
+                        dao.markCompleted("file-$state", "/done/file.mp3", completedAt = 99L) shouldBe 1
+                        val row = dao.getByAudioFileId("file-$state")!!
+                        row.state shouldBe DownloadState.COMPLETED
+                        row.localPath shouldBe "/done/file.mp3"
+                        row.completedAt shouldBe 99L
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
     })

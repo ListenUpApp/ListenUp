@@ -171,7 +171,7 @@ private class FailingUpdateStateDownloadDao(
         localPath: String,
         completedAt: Long,
         state: DownloadState,
-    ) = error("not needed by cancelForBook")
+    ): Int = error("not needed by cancelForBook")
 
     override suspend fun updateErrorWithState(
         audioFileId: String,
