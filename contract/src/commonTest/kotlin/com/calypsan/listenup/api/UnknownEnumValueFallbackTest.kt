@@ -193,6 +193,18 @@ class UnknownEnumValueFallbackTest :
 
                 encodeProvenance(mapOf(BookField.entries.first() to FieldProvenance(FieldSourceKind.USER))) shouldContain
                     """"kind":"USER""""
+
+                val readShare =
+                    CollectionShareSyncPayload(
+                        id = "s1",
+                        collectionId = "c1",
+                        sharedWithUserId = "u1",
+                        sharedByUserId = "u2",
+                        permission = SharePermission.Read,
+                        revision = 1,
+                        updatedAt = 2,
+                    )
+                json.encodeToString(CollectionShareSyncPayload.serializer(), readShare) shouldContain """"permission":"read""""
             }
         }
     })

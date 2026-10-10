@@ -1,6 +1,8 @@
 package com.calypsan.listenup.api.sync
 
 import com.calypsan.listenup.api.dto.SharePermission
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -72,6 +74,7 @@ data class CollectionBookSyncPayload(
  * Represents a grant of [permission] on [collectionId] from [sharedByUserId] to
  * [sharedWithUserId]. Soft-deletes via [deletedAt] represent revoked shares.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("CollectionShareSyncPayload")
 data class CollectionShareSyncPayload(
@@ -87,8 +90,11 @@ data class CollectionShareSyncPayload(
      * The level of access granted. Defaults to [SharePermission.Read] so a permission level this
      * build does not know (an additive member on a newer server) falls back to least privilege
      * rather than throwing — a share is never widened by a decode it did not understand.
+     * Always encoded, so an app built before this default existed still finds the key.
      */
-    @SerialName("permission") val permission: SharePermission = SharePermission.Read,
+    @SerialName("permission")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val permission: SharePermission = SharePermission.Read,
     /** Sync revision counter — bumped on every write. */
     @SerialName("revision") override val revision: Long,
     /** Epoch millis of the last server-side write. */
