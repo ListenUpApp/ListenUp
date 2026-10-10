@@ -2,16 +2,16 @@ package com.calypsan.listenup.server.media
 
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.hashBytesSha256
-import com.calypsan.listenup.server.io.writeBytes
+import com.calypsan.listenup.server.io.writeBytesAtomically
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
 /**
- * Reusable validate-store-serve primitive for user-uploaded images, rooted at [baseDir]
+ * Reusable validate-store-serve primitive for images, rooted at [baseDir]
  * (e.g. `$LISTENUP_HOME/avatars`). Validates the bytes are a real JPEG/PNG/WebP by magic number
  * (not the declared content type) and enforces [maxBytes]. Files are stored as `<key>.<ext>`.
- * Designed to back avatars, and built to extend to book covers.
+ * Backs avatars, book covers, matched covers and contributor photos.
  */
 class ImageStore(
     private val baseDir: Path,
@@ -40,8 +40,8 @@ class ImageStore(
 
     /**
      * Validates [bytes] by magic number, writes the file to `<baseDir>/<key>.<ext>`, and
-     * returns a [StoredImage] describing the result. Any previously stored image for [key]
-     * is replaced (delete-then-write).
+     * returns a [StoredImage] describing the result. The new file lands atomically; only then are
+     * the other extensions for [key] removed, so a failed write never destroys the previous image.
      *
      * @throws InvalidImageException if [bytes] exceed [maxBytes] or carry an unsupported magic number,
      * or if [key] would escape [baseDir] via path traversal.
@@ -55,11 +55,35 @@ class ImageStore(
             if (bytes.size.toLong() > maxBytes) throw InvalidImageException("image exceeds $maxBytes bytes")
             val kind = sniff(bytes) ?: throw InvalidImageException("unsupported image (declared=$declaredContentType)")
             SystemFileSystem.createDirectories(baseDir)
-            deleteExisting(key)
             val target =
                 safeResolve(key, kind.ext)
                     ?: throw InvalidImageException("invalid key")
-            target.writeBytes(bytes)
+            target.writeBytesAtomically(bytes)
+            deleteOtherExtensions(key, keep = kind)
+            StoredImage(target, kind.contentType, hashBytesSha256(bytes))
+        }
+
+    /**
+     * Stores [bytes] under a [key] derived from their content. The file is shared by every row that
+     * holds the same picture, so nothing is ever removed and an existing file is left untouched.
+     *
+     * @throws InvalidImageException as [store] does.
+     */
+    suspend fun storeContentAddressed(
+        key: String,
+        bytes: ByteArray,
+        declaredContentType: String,
+    ): StoredImage =
+        withContext(fileIoDispatcher) {
+            if (bytes.size.toLong() > maxBytes) throw InvalidImageException("image exceeds $maxBytes bytes")
+            val kind = sniff(bytes) ?: throw InvalidImageException("unsupported image (declared=$declaredContentType)")
+            SystemFileSystem.createDirectories(baseDir)
+            val target =
+                safeResolve(key, kind.ext)
+                    ?: throw InvalidImageException("invalid key")
+            if (SystemFileSystem.metadataOrNull(target)?.isRegularFile != true) {
+                target.writeBytesAtomically(bytes)
+            }
             StoredImage(target, kind.contentType, hashBytesSha256(bytes))
         }
 
@@ -88,6 +112,15 @@ class ImageStore(
 
     private fun deleteExisting(key: String) {
         Kind.entries.forEach { kind ->
+            safeResolve(key, kind.ext)?.let { SystemFileSystem.delete(it, mustExist = false) }
+        }
+    }
+
+    private fun deleteOtherExtensions(
+        key: String,
+        keep: Kind,
+    ) {
+        Kind.entries.filter { it != keep }.forEach { kind ->
             safeResolve(key, kind.ext)?.let { SystemFileSystem.delete(it, mustExist = false) }
         }
     }

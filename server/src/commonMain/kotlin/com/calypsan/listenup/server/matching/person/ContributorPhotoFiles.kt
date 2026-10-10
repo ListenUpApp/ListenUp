@@ -37,7 +37,7 @@ internal class ContributorPhotoFiles(
             }
         return try {
             // The declared type only colours a rejection message; the sniff decides.
-            val stored = store.store(key = hashBytesSha256(bytes), bytes = bytes, declaredContentType = "image/*")
+            val stored = store.storeContentAddressed(key = hashBytesSha256(bytes), bytes = bytes, declaredContentType = "image/*")
             "contributors/${stored.path.name}"
         } catch (e: CancellationException) {
             throw e
