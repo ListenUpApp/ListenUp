@@ -249,6 +249,66 @@ class RestoreOrchestratorTest :
             }
         }
 
+        // Pins today's behaviour: rollback restores the safety copy, which predates the late write.
+        // Whoever fixes the gap flips the final assertion back to 1 as their RED.
+        test("KNOWN GAP: a write made after the safety copy is lost when the restore rolls back") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS late_test(v TEXT)",
+                        "INSERT INTO late_test(v) VALUES ('row-B')",
+                    )
+
+                    val garbageBytes = "not-a-sqlite-database-at-all".toByteArray()
+                    val manifest =
+                        BackupManifest(
+                            formatVersion = BackupManifest.FORMAT_VERSION,
+                            serverId = "srv-test",
+                            createdAt = System.currentTimeMillis(),
+                            appVersion = "0.0.0-test",
+                            schemaVersion = "0",
+                            includesImages = false,
+                            checksums = mapOf("db" to sha256OfBytes(garbageBytes)),
+                            bookCount = 0,
+                            userCount = 0,
+                        )
+                    fixture.paths.ensureDirs()
+                    ZipOutputStream(
+                        Files.newOutputStream(java.nio.file.Path.of(fixture.paths.archiveFor("late1").toString())),
+                    ).use { zip ->
+                        zip.putNextEntry(ZipEntry("listenup.db"))
+                        zip.write(garbageBytes)
+                        zip.closeEntry()
+                        zip.putNextEntry(ZipEntry("manifest.json"))
+                        zip.write(manifest.toJson().toByteArray())
+                        zip.closeEntry()
+                    }
+
+                    // Swapping is emitted after the safety copy and before the pool closes, so a row
+                    // inserted here is exactly a write that landed during the restore.
+                    val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
+                    val probe =
+                        launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+                            eventBus.collect { event ->
+                                if (event is BackupEvent.Swapping) {
+                                    fixture.handle.execSql("INSERT INTO late_test(v) VALUES ('late')")
+                                }
+                            }
+                        }
+
+                    val result = buildOrchestrator(fixture, eventBus = eventBus).restore(BackupId("late1"))
+
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BackupError.RestoreFailed>()
+                        .rolledBack shouldBe true
+                    fixture.handle.queryScalarInt("SELECT COUNT(*) FROM late_test WHERE v = 'late'") shouldBe 0
+                    probe.cancel()
+                }
+            }
+        }
+
         test("rolled-back restore does not broadcast: the DB is back to its pre-restore state") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
