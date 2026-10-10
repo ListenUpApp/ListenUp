@@ -1,5 +1,5 @@
 -- book_ratings: syncable, soft-deletable, revision-tracked. One listener's rating of one book.
--- Column set matches V72__book_ratings.sql exactly.
+-- Column set matches V72__book_ratings.sql plus V98__book_rating_source.sql.
 -- FK declarations (REFERENCES books/users) are omitted here: SQLDelight cannot resolve
 -- cross-table references for tables not yet defined in this schema's .sq files. The
 -- constraints (including the half_stars CHECK) are present in the migration DDL and
@@ -16,6 +16,8 @@ CREATE TABLE book_ratings (
     revision     INTEGER NOT NULL,
     deleted_at   INTEGER,
     client_op_id TEXT,
+    source       TEXT    NOT NULL DEFAULT 'listenup',
+    hardcover_half_stars INTEGER,
     PRIMARY KEY (book_id, user_id)
 );
 
