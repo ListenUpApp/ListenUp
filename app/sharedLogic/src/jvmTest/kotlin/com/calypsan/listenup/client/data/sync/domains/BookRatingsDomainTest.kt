@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync.domains
 
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
+import com.calypsan.listenup.api.sync.ListenerRatingSource
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import io.kotest.core.spec.style.FunSpec
@@ -47,6 +48,34 @@ class BookRatingsDomainTest :
             val db = createInMemoryTestDatabase()
             try {
                 bookRatingsDomain(db, FakeAuthSession()).accessGate.shouldNotBeNull()
+            } finally {
+                db.close()
+            }
+        }
+
+        test("an imported rating is mirrored with its source; a ListenUp one replaces it") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val apply = BookRatingMirrorApply(db)
+                    val imported =
+                        BookRatingSyncPayload(
+                            id = "r1",
+                            bookId = "b1",
+                            userId = "u1",
+                            halfStars = 9,
+                            note = null,
+                            ratedAt = 1L,
+                            updatedAt = 2L,
+                            revision = 5L,
+                            source = ListenerRatingSource.HARDCOVER,
+                        )
+                    apply.upsert(imported)
+                    db.bookRatingDao().find("b1", "u1").shouldNotBeNull().source shouldBe "HARDCOVER"
+
+                    apply.upsert(imported.copy(halfStars = 6, revision = 6L, source = ListenerRatingSource.LISTENUP))
+                    db.bookRatingDao().find("b1", "u1").shouldNotBeNull().source shouldBe "LISTENUP"
+                }
             } finally {
                 db.close()
             }

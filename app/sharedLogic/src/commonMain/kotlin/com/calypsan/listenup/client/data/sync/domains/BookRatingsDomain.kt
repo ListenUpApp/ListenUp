@@ -79,6 +79,7 @@ internal class BookRatingMirrorApply(
                 updatedAt = payload.updatedAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
+                source = payload.source.name,
             ),
         )
     }
