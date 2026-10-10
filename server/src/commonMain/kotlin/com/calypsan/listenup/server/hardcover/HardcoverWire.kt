@@ -182,6 +182,9 @@ internal data class ChangedUserBookWire(
     @SerialName("book_id") val bookId: Long,
     @SerialName("updated_at") val updatedAt: String,
     @SerialName("status_id") val statusId: Int = 0,
+    @SerialName("rating") val rating: Double? = null,
+    // Non-null on Hardcover; a missing value is treated as not public, so nothing private ever imports by accident.
+    @SerialName("privacy_setting_id") val privacySettingId: Int? = null,
     @SerialName("user_book_reads") val reads: List<UserBookReadWire> = emptyList(),
     @SerialName("edition") val edition: PulledEditionWire? = null,
     @SerialName("book") val book: BookWire? = null,
@@ -198,6 +201,8 @@ internal data class ChangedUserBookWire(
             editionAsin = edition?.asin?.takeIf { it.isNotBlank() },
             editionIsbns = listOfNotNull(edition?.isbn13, edition?.isbn10).filter { it.isNotBlank() },
             defaultAudioEditionId = book?.defaultAudioEditionId,
+            ratingHalfStars = hardcoverHalfStars(rating),
+            privacySettingId = privacySettingId,
         )
 }
 
