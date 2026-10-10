@@ -111,7 +111,7 @@ private fun authenticated() = AuthState.Authenticated(userId = UserId("u1"), ses
 @OptIn(ExperimentalCoroutinesApi::class)
 private class Rig private constructor(
     private val testScope: TestScope,
-    private val states: Flow<AuthState>,
+    states: Flow<AuthState>,
     private val emitter: suspend (AuthState) -> Unit,
     signInThrows: Boolean,
 ) {

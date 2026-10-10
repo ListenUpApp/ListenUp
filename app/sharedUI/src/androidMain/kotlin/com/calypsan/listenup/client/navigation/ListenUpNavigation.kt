@@ -567,7 +567,13 @@ internal suspend fun handleShortcutAction(
         }
 
         is ShortcutAction.SleepTimer -> {
-            startSleepTimerFromShortcut(action, homeRepository, playback, backStack, onSelectShellDestination)
+            startSleepTimerFromShortcut(
+                action = action,
+                homeRepository = homeRepository,
+                playback = playback,
+                backStack = backStack,
+                onSelectShellDestination = onSelectShellDestination,
+            )
         }
     }
 }
@@ -599,7 +605,8 @@ private suspend fun startSleepTimerFromShortcut(
         return
     }
 
-    val recent = (homeRepository.getContinueListening(1) as? AppResult.Success)?.data?.firstOrNull()
+    val latest = homeRepository.getContinueListening(1)
+    val recent = if (latest is AppResult.Success) latest.data.firstOrNull() else null
     if (recent == null) {
         logger.warn { "No recent book to start a sleep timer on" }
         resetToShell(backStack)
@@ -678,7 +685,6 @@ private fun AuthenticatedNavigation(
 
     // One search-request channel for the `/` key and the launcher's Search shortcut alike.
     val searchRequests = remember { ShellSearchRequests() }
-
     // ViewModels for shortcut action handling
     val nowPlayingViewModel: NowPlayingViewModel = koinViewModel()
 
@@ -744,35 +750,12 @@ private fun AuthenticatedNavigation(
     // own sign-out does.
     val onSignOut: () -> Unit = { scope.launch { logoutUseCase() } }
 
-    // Resolve a pending BOOK share-link target against the connected server.
-    // Invite targets are handled at the top level; this block ignores them.
-    val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
-    val wrongServerMessage = stringResource(Res.string.error_book_wrong_server)
-    val notConnectedMessage = stringResource(Res.string.error_book_not_connected)
-    LaunchedEffect(pendingTarget) {
-        val book = pendingTarget as? ShareTarget.Book ?: return@LaunchedEffect
-        when (val resolution = ShareTargetResolver.resolve(book, serverConfig.getConnectedServerId())) {
-            is ShareResolution.OpenBook -> {
-                resetToShell(backStack)
-                backStack.add(BookDetail(resolution.bookId.value))
-            }
-
-            is ShareResolution.WrongServer -> {
-                snackbarHostState.showSnackbar(wrongServerMessage)
-            }
-
-            is ShareResolution.NotConnected -> {
-                snackbarHostState.showSnackbar(notConnectedMessage)
-            }
-
-            // OpenInviteClaim handled at top level; NoAccess not produced by the pure resolver
-            // (an inaccessible book opens Book Detail, which shows its own empty state).
-            else -> {}
-        }
-        // consumeTarget after showSnackbar (which suspends until dismissed) so the link stays live
-        // until the user has actually seen the error.
-        deepLinkManager.consumeTarget()
-    }
+    ShareLinkEffect(
+        deepLinkManager = deepLinkManager,
+        serverConfig = serverConfig,
+        backStack = backStack,
+        snackbarHostState = snackbarHostState,
+    )
 
     ShortcutActionEffect(
         shortcutActionManager = shortcutActionManager,
@@ -827,6 +810,7 @@ private fun AuthenticatedNavigation(
                                                 onDestinationChange = { currentShellDestination = it },
                                                 readiness = { readiness },
                                                 onSignOut = onSignOut,
+                                                onOpenSearch = searchRequests::request,
                                             ),
                                         nowPlayingViewModel = nowPlayingViewModel,
                                         startupViewModel = startupViewModel,
@@ -838,7 +822,6 @@ private fun AuthenticatedNavigation(
                                         homeRepository = homeRepository,
                                         snackbarHostState = snackbarHostState,
                                         pendingSelectionExit = pendingSelectionExit,
-                                        onOpenSearch = searchRequests::request,
                                     ),
                             )
                         }
@@ -857,6 +840,48 @@ private fun AuthenticatedNavigation(
                 }
             }
         }
+    }
+}
+
+/**
+ * Resolves a pending BOOK share-link target against the connected server. Invite targets are
+ * handled at the top level; this ignores them.
+ *
+ * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
+ */
+@Composable
+private fun ShareLinkEffect(
+    deepLinkManager: DeepLinkManager,
+    serverConfig: ServerConfig,
+    backStack: NavBackStack<NavKey>,
+    snackbarHostState: SnackbarHostState,
+) {
+    val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
+    val wrongServerMessage = stringResource(Res.string.error_book_wrong_server)
+    val notConnectedMessage = stringResource(Res.string.error_book_not_connected)
+    LaunchedEffect(pendingTarget) {
+        val book = pendingTarget as? ShareTarget.Book ?: return@LaunchedEffect
+        when (val resolution = ShareTargetResolver.resolve(book, serverConfig.getConnectedServerId())) {
+            is ShareResolution.OpenBook -> {
+                resetToShell(backStack)
+                backStack.add(BookDetail(resolution.bookId.value))
+            }
+
+            is ShareResolution.WrongServer -> {
+                snackbarHostState.showSnackbar(wrongServerMessage)
+            }
+
+            is ShareResolution.NotConnected -> {
+                snackbarHostState.showSnackbar(notConnectedMessage)
+            }
+
+            // OpenInviteClaim handled at top level; NoAccess not produced by the pure resolver
+            // (an inaccessible book opens Book Detail, which shows its own empty state).
+            else -> {}
+        }
+        // consumeTarget after showSnackbar (which suspends until dismissed) so the link stays live
+        // until the user has actually seen the error.
+        deepLinkManager.consumeTarget()
     }
 }
 
@@ -947,6 +972,7 @@ private data class ShellWiring(
     val onDestinationChange: (ShellDestination) -> Unit,
     val readiness: () -> LibraryReadiness,
     val onSignOut: () -> Unit,
+    val onOpenSearch: () -> Unit,
 )
 
 /**
@@ -969,7 +995,6 @@ private fun authenticatedNavEntries(
     homeRepository: HomeRepository,
     snackbarHostState: SnackbarHostState,
     pendingSelectionExit: PendingSelectionExit,
-    onOpenSearch: () -> Unit,
 ) = entryProvider {
     shellEntry(
         backStack = backStack,
@@ -1001,7 +1026,7 @@ private fun authenticatedNavEntries(
                 nowPlayingViewModel = nowPlayingViewModel,
                 backStack = backStack,
                 onSelectShellDestination = shell.onDestinationChange,
-                onOpenSearch = onOpenSearch,
+                onOpenSearch = shell.onOpenSearch,
             ),
     )
     // Re-auth entry pushed by the shell banner's "Sign in" action while SessionLapsed.
