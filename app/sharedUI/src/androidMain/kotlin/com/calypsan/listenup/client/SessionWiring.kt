@@ -58,7 +58,8 @@ internal class SessionWiring(
                     signedOutActedOn = false
                     if (state != wiredFor) {
                         wiredFor = state as AuthState.Authenticated
-                        guarded("sign-in", onSignedIn)                    }
+                        guarded("sign-in", onSignedIn)
+                    }
                 }
 
                 SessionPhase.SignedOut -> {
@@ -70,7 +71,9 @@ internal class SessionWiring(
                 }
 
                 // A lapsed session keeps its shell, but its next sign-in has new credentials.
-                SessionPhase.Undecided -> if (state is AuthState.SessionLapsed) wiredFor = null
+                SessionPhase.Undecided -> {
+                    if (state is AuthState.SessionLapsed) wiredFor = null
+                }
             }
         }
     }

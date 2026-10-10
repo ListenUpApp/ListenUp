@@ -236,8 +236,7 @@ class ListenUpShortcutManagerTest {
 
     private fun emptyHomeRepository(): HomeRepository =
         object : HomeRepository {
-            override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
-                AppResult.Success(emptyList())
+            override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = AppResult.Success(emptyList())
 
             override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
         }

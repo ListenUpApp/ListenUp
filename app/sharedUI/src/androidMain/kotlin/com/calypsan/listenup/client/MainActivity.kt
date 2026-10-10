@@ -300,7 +300,9 @@ class MainActivity : ComponentActivity() {
                 if (bookId != null) {
                     logger.debug { "Received PLAY_BOOK shortcut action - bookId=$bookId" }
                     shortcutActionManager.setPendingAction(ShortcutAction.PlayBook(bookId))
-                    get<ListenUpShortcutManager>().reportShortcutUsed("${ShortcutActions.SHORTCUT_ID_BOOK_PREFIX}$bookId")
+                    get<ListenUpShortcutManager>().reportShortcutUsed(
+                        "${ShortcutActions.SHORTCUT_ID_BOOK_PREFIX}$bookId",
+                    )
                 } else {
                     logger.warn { "PLAY_BOOK action missing book_id extra" }
                 }
