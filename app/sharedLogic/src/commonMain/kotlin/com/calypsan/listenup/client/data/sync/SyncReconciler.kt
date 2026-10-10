@@ -17,9 +17,11 @@ private val logger = KotlinLogging.logger {}
  * delivered by neither catch-up nor the firehose.
  *
  * The cursor is captured once at the top of [reconcileAll] so every domain gets a stable,
- * identical comparison point regardless of live firehose events arriving concurrently. Domains
- * are reconciled in parallel. Per-domain failures are logged and skipped; reconciliation
- * never throws into the engine or blocks the live stream.
+ * identical comparison point regardless of live firehose events arriving concurrently. Digests
+ * are compared in parallel (one small call per domain), but drifted domains are repaired one at a
+ * time: each repair pages a whole domain, and decoding several domains' pages at once is the
+ * peak-heap spike [SyncCatchUpClient]'s page size exists to avoid. Per-domain failures are logged
+ * and skipped; reconciliation never throws into the engine or blocks the live stream.
  */
 internal class SyncReconciler(
     private val registry: ClientSyncDomainRegistry,
@@ -38,31 +40,45 @@ internal class SyncReconciler(
     suspend fun reconcileAll() {
         val max = store.highestCursor() ?: return
         val handlers = registry.registeredDomains().mapNotNull { registry.lookup(it) }
-        coroutineScope {
-            handlers
-                .map { handler ->
-                    @Suppress("UNCHECKED_CAST")
-                    val typed = handler as SyncDomainHandler<Any>
-                    async { reconcileOne(typed, max) }
-                }.awaitAll()
+        // Comparing is one small digest call per domain, so it runs in parallel; repairing pages a
+        // whole domain, so it runs one at a time (see the class KDoc).
+        val drifted =
+            coroutineScope {
+                handlers
+                    .map { handler ->
+                        @Suppress("UNCHECKED_CAST")
+                        val typed = handler as SyncDomainHandler<Any>
+                        async { typed.takeIf { hasDrifted(it, max) } }
+                    }.awaitAll()
+                    .filterNotNull()
+            }
+        for (handler in drifted) {
+            try {
+                repairDrift(handler)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                logger.warn(e) { "Repair failed for ${handler.domainName}; skipping" }
+            }
         }
     }
 
     /**
-     * Reconcile a single domain: compute the local digest at [max], fetch the server digest,
-     * and trigger a full re-pull if they differ.
+     * Whether [handler]'s local digest at [max] differs from the server's. False for an opted-out
+     * domain and for any comparison that could not be made — a failure is logged and skipped, never
+     * thrown.
      *
      * Callers cast [SyncDomainHandler]<*> to [SyncDomainHandler]<Any> before calling here,
      * mirroring the [SyncCatchUpClient.catchUpAll] pattern. The generic type parameter is not
      * observed inside this method — only [SyncDomainHandler.domainName] and
      * [SyncDomainHandler.localDigestRows] are called, both of which are type-parameter-agnostic.
      */
-    private suspend fun <T : Any> reconcileOne(
+    private suspend fun <T : Any> hasDrifted(
         handler: SyncDomainHandler<T>,
         max: Long,
-    ) {
+    ): Boolean {
         try {
-            val rows = handler.localDigestRows(max) ?: return // null = opted out
+            val rows = handler.localDigestRows(max) ?: return false // null = opted out
             val local = DigestComputer.compute(max, rows)
             val remote =
                 when (val r = digestClient.fetch(handler.domainName, max)) {
@@ -73,16 +89,15 @@ internal class SyncReconciler(
                     is AppResult.Failure -> {
                         logger.warn { "Digest fetch failed for ${handler.domainName}: ${r.error.code}" }
                         reportConnectionIssue(r.error)
-                        return
+                        return false
                     }
                 }
-            if (local.count != remote.count || local.hash != remote.hash) {
-                repairDrift(handler)
-            }
+            return local.count != remote.count || local.hash != remote.hash
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Throwable) {
             logger.warn(e) { "Reconcile failed for ${handler.domainName}; skipping" }
+            return false
         }
     }
 
