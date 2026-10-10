@@ -192,6 +192,7 @@ struct LibraryView: View {
             BooksContent(
                 books: observer.books,
                 bookProgress: observer.bookProgress,
+                bookStatus: observer.bookStatus,
                 sortState: observer.booksSortState,
                 isLoading: observer.isLoading,
                 isEmpty: observer.isEmpty,

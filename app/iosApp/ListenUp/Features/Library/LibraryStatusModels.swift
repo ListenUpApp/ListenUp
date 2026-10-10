@@ -14,6 +14,27 @@ enum LibraryCardState: Equatable {
         case .finished(let finished): .finished(durationMs: finished.value.durationMs)
         }
     }
+
+    /// The card's last line (spec §2.6): "40h 31m left", "Finished · 12h 4m", or the length.
+    var lastLine: String {
+        switch self {
+        case .inProgress(_, let timeLeftMs):
+            String(format: String(localized: "book.time_left"), DurationFormatting.hoursMinutes(ms: timeLeftMs))
+        case .finished(let durationMs):
+            String(format: String(localized: "library.card_finished_length"), DurationFormatting.hoursMinutes(ms: durationMs))
+        case .notStarted(let durationMs):
+            DurationFormatting.hoursMinutes(ms: durationMs)
+        }
+    }
+
+    var isFinished: Bool {
+        if case .finished = self { true } else { false }
+    }
+
+    /// How far along a started book is; nil when not started or finished.
+    var fraction: Float? {
+        if case .inProgress(let fraction, _) = self { fraction } else { nil }
+    }
 }
 
 /// Whole-library counts per reading state, as Swift `Int`s.

@@ -16,14 +16,41 @@ struct BookCoverCard: View {
     let isSelecting: Bool
     /// Whether this book is currently selected (filled vs. empty circle).
     let isSelected: Bool
+    /// When non-nil this is a Library card (spec §2.6): the state drives the progress bar, the
+    /// finished badge and the last line, and replaces `progress`'s time-left capsule.
+    let libraryState: LibraryCardState?
+    /// Whether the card may add a "Read by …" line. It does so only at 160 pt or wider (spec §2.6).
+    let showsNarrator: Bool
 
     @Environment(\.restrictedBooks) private var restrictedBooks
+    @State private var isWideEnoughForNarrator = false
 
-    init(book: BookRow, progress: Float? = nil, isSelecting: Bool = false, isSelected: Bool = false) {
+    init(
+        book: BookRow,
+        progress: Float? = nil,
+        isSelecting: Bool = false,
+        isSelected: Bool = false,
+        libraryState: LibraryCardState? = nil,
+        showsNarrator: Bool = false
+    ) {
         self.book = book
         self.progress = progress
         self.isSelecting = isSelecting
         self.isSelected = isSelected
+        self.libraryState = libraryState
+        self.showsNarrator = showsNarrator
+    }
+
+    /// The progress the cover's bar draws: a Library card's own fraction, else the caller's.
+    private var barProgress: Float? {
+        if let libraryState { return libraryState.fraction }
+        return progress
+    }
+
+    private var accessibilityText: String {
+        let base = CoverAccessibility.label(title: book.title, author: book.authorNames) ?? book.title
+        guard let libraryState else { return base }
+        return "\(base), \(libraryState.lastLine)"
     }
 
     var body: some View {
@@ -32,10 +59,11 @@ struct BookCoverCard: View {
             bookInfo
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: Bool.self) { $0.size.width >= 160 } action: { isWideEnoughForNarrator = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             RestrictedMarker.label(
-                CoverAccessibility.label(title: book.title, author: book.authorNames) ?? book.title,
+                accessibilityText,
                 isRestricted: restrictedBooks?.isRestricted(book.id) == true
             )
         )
@@ -52,7 +80,17 @@ struct BookCoverCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
                 .overlay(alignment: .topTrailing) {
-                    if book.hasDocuments {
+                    // Finished outranks the documents badge, and steps aside while selecting, as
+                    // Android's CompletionBadge does.
+                    if libraryState?.isFinished == true && !isSelecting {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 22)) // decorative fixed size
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, Color.listenUpOrange)
+                            .background(Circle().fill(.white).padding(2))
+                            .padding(Spacing.xs)
+                            .accessibilityHidden(true)
+                    } else if book.hasDocuments {
                         Image(systemName: "book.closed.fill")
                             .font(.system(size: 11, weight: .semibold)) // decorative fixed size
                             .foregroundStyle(Color.listenUpOrange)
@@ -82,7 +120,7 @@ struct BookCoverCard: View {
                 }
                 // Time remaining for in-progress books — a small capsule above the progress bar.
                 .overlay(alignment: .bottomLeading) {
-                    if let progress, progress > 0, progress < 1, book.duration > 0 {
+                    if libraryState == nil, let progress, progress > 0, progress < 1, book.duration > 0 {
                         Text(timeLeftLabel(progress: progress))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.white)
@@ -95,8 +133,8 @@ struct BookCoverCard: View {
                 }
 
             // Progress bar overlay
-            if let progress, progress > 0 {
-                progressOverlay(progress: progress)
+            if let barProgress, barProgress > 0 {
+                progressOverlay(progress: barProgress)
             }
         }
         // On the whole cover stack, so its badges and progress bar lift with the artwork.
@@ -144,6 +182,21 @@ struct BookCoverCard: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .foregroundStyle(.secondary)
+
+            if showsNarrator, isWideEnoughForNarrator, !book.narratorNames.isEmpty {
+                Text(String(format: String(localized: "library.card_read_by"), book.narratorNames))
+                    .font(.caption)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let libraryState {
+                Text(libraryState.lastLine)
+                    .font(libraryState.fraction != nil ? .caption.weight(.semibold) : .caption)
+                    .lineLimit(1)
+                    .foregroundStyle(libraryState.fraction != nil ? Color.listenUpOrange : Color.secondary)
+            }
         }
     }
 }

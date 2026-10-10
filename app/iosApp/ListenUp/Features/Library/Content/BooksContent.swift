@@ -11,6 +11,8 @@ import Shared
 struct BooksContent: View {
     let books: [BookRow]
     let bookProgress: [String: Float]
+    /// What each book's card says about where the reader is with it (spec §2.6).
+    var bookStatus: [String: LibraryCardState] = [:]
     let sortState: SortState?
     let isLoading: Bool
     /// The library itself has no books.
@@ -183,7 +185,9 @@ struct BooksContent: View {
             book: book,
             progress: bookProgress[book.id],
             isSelecting: selection.isSelecting,
-            isSelected: selection.isSelected(book.id)
+            isSelected: selection.isSelected(book.id),
+            libraryState: bookStatus[book.id],
+            showsNarrator: true
         )
         if selection.isSelecting {
             Button { selection.toggle(book.id) } label: { card }

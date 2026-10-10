@@ -26,4 +26,17 @@ struct LibraryStatusModelsTests {
     @Test func filtersAreOfferedInBoardOrder() {
         #expect(LibraryStatusOptions.filters == [.all, .inProgress, .notStarted, .finished])
     }
+
+    @Test func lastLineCopyFollowsTheState() {
+        #expect(LibraryCardState.inProgress(fraction: 0.1, timeLeftMs: 145_860_000).lastLine
+                == String(format: String(localized: "book.time_left"), DurationFormatting.hoursMinutes(ms: 145_860_000)))
+        #expect(LibraryCardState.finished(durationMs: 43_440_000).lastLine
+                == String(format: String(localized: "library.card_finished_length"), DurationFormatting.hoursMinutes(ms: 43_440_000)))
+        #expect(LibraryCardState.notStarted(durationMs: 43_440_000).lastLine == DurationFormatting.hoursMinutes(ms: 43_440_000))
+    }
+
+    @Test func lastLineReadsInEnglish() {
+        #expect(LibraryCardState.inProgress(fraction: 0.1, timeLeftMs: 145_860_000).lastLine == "40h 31m left")
+        #expect(LibraryCardState.finished(durationMs: 43_440_000).lastLine == "Finished · 12h 4m")
+    }
 }
