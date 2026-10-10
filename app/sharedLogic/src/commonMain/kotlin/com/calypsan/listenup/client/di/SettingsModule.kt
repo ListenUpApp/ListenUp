@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.connection.FallbackTrust
 import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SyncedPlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -35,6 +36,8 @@ internal val settingsModule: Module =
             SettingsRepositoryImpl(
                 secureStorage = get(),
                 authSession = lazy { scope.get<AuthSession>() },
+                // Resolved on first use so Settings -> Instance -> Settings stays an acyclic construction.
+                allowsFallback = { candidate, current -> scope.get<FallbackTrust>().allows(candidate, current) },
             )
         }
 

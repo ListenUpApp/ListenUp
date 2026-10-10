@@ -28,10 +28,15 @@ private val logger = KotlinLogging.logger {}
  * construction or in `init`, so the lazy wrapper is safe.
  *
  * All sensitive values are stored via `SecureStorage` (encrypted at rest).
+ *
+ * `allowsFallback` is asked before the active URL moves to the other of the local/remote addresses.
+ * It is a function rather than an `InstanceRepository` because the instance repository reads this
+ * class's storage, and a direct dependency would close that cycle.
  */
 internal class SettingsRepositoryImpl(
     private val secureStorage: SecureStorage,
     authSession: Lazy<AuthSession>,
+    private val allowsFallback: suspend (candidateUrl: String, currentUrl: String?) -> Boolean,
 ) : com.calypsan.listenup.client.domain.repository.ServerConfig,
     com.calypsan.listenup.client.domain.repository.LibrarySync,
     com.calypsan.listenup.client.domain.repository.LibraryPreferences,
@@ -184,6 +189,11 @@ internal class SettingsRepositoryImpl(
                 remoteUrl -> localUrl
                 else -> remoteUrl ?: localUrl
             } ?: return null
+
+        if (!allowsFallback(fallback, currentActive)) {
+            logger.info { "Fallback address did not identify as this server; staying on the current one" }
+            return null
+        }
 
         secureStorage.save(KEY_ACTIVE_URL, fallback)
         logger.info { "Switched active URL to: $fallback" }

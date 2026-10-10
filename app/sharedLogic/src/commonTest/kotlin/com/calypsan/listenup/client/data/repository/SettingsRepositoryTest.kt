@@ -34,7 +34,7 @@ class SettingsRepositoryTest :
         fun createRepository(
             storage: SecureStorage = createMockStorage(),
             authSession: AuthSession = createMockAuthSession(),
-        ): SettingsRepositoryImpl = SettingsRepositoryImpl(storage, lazyOf(authSession))
+        ): SettingsRepositoryImpl = SettingsRepositoryImpl(storage, lazyOf(authSession), allowsFallback = { _, _ -> true })
 
         test("setThemeMode both persists the choice and tells whoever is watching") {
             // The seam the theme switcher hangs off. Persisting without emitting would leave the

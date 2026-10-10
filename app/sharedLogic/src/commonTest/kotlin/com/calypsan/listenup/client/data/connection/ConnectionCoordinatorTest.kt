@@ -57,6 +57,95 @@ class ConnectionCoordinatorTest :
                 every { stopDiscovery() } returns Unit
             }
 
+        /** A fallback gate that admits exactly the addresses the instance repository can reach. */
+        fun reachableViaInstance(instance: InstanceRepository): suspend (String, String?) -> Boolean =
+            { candidate, _ -> instance.findReachableUrl(listOf(candidate)) == candidate }
+
+        /** Local unreachable, no relocation: the remote is the only candidate left. */
+        fun remoteOnlyConfig(): ServerConfig =
+            mock<ServerConfig> {
+                every { activeUrl } returns MutableStateFlow<ServerUrl?>(null)
+                everySuspend { getActiveUrl() } returns ServerUrl(local)
+                everySuspend { getServerUrl() } returns ServerUrl(local)
+                everySuspend { getRemoteUrl() } returns ServerUrl(remote)
+                everySuspend { getConnectedServerId() } returns null
+                everySuspend { setActiveUrl(any()) } returns Unit
+            }
+
+        fun onlineNetwork(): NetworkMonitor =
+            mock<NetworkMonitor> {
+                every { onlineFlow } returns MutableStateFlow(true)
+                every { isOnline() } returns true
+            }
+
+        test("a reachable remote that is a different instance is not made active") {
+            val scope = TestScope(StandardTestDispatcher())
+            val serverConfig = remoteOnlyConfig()
+            val instance = mock<InstanceRepository> { everySuspend { findReachableUrl(any()) } returns null }
+            val coordinator =
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    idleDiscovery(),
+                    onlineNetwork(),
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = { _, _ -> false },
+                )
+
+            scope.launch { coordinator.reevaluate() }
+            scope.testScheduler.advanceUntilIdle()
+
+            verifySuspend(exactly(0)) { serverConfig.setActiveUrl(any()) }
+        }
+
+        test("a reachable remote that is the same instance is made active") {
+            val scope = TestScope(StandardTestDispatcher())
+            val serverConfig = remoteOnlyConfig()
+            val instance = mock<InstanceRepository> { everySuspend { findReachableUrl(any()) } returns null }
+            val coordinator =
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    idleDiscovery(),
+                    onlineNetwork(),
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = { _, _ -> true },
+                )
+
+            scope.launch { coordinator.reevaluate() }
+            scope.testScheduler.advanceUntilIdle()
+
+            verifySuspend { serverConfig.setActiveUrl(ServerUrl(remote)) }
+        }
+
+        test("the local address is never gated") {
+            val scope = TestScope(StandardTestDispatcher())
+            val serverConfig = remoteOnlyConfig()
+            val instance = mock<InstanceRepository> { everySuspend { findReachableUrl(any()) } returns local }
+            var gateCalls = 0
+            val coordinator =
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    idleDiscovery(),
+                    onlineNetwork(),
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = { _, _ ->
+                        gateCalls++
+                        false
+                    },
+                )
+
+            scope.launch { coordinator.reevaluate() }
+            scope.testScheduler.advanceUntilIdle()
+
+            verifySuspend { serverConfig.setActiveUrl(ServerUrl(local)) }
+            gateCalls shouldBe 0
+        }
+
         test("reevaluate switches to the reachable LAN url") {
             val scope = TestScope(StandardTestDispatcher())
             val online = MutableStateFlow(true)
@@ -78,7 +167,15 @@ class ConnectionCoordinatorTest :
                     every { isOnline() } returns online.value
                 }
             val coordinator =
-                ConnectionCoordinator(serverConfig, instance, idleDiscovery(), networkMonitor, FakeInvalidator(), scope)
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    idleDiscovery(),
+                    networkMonitor,
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = reachableViaInstance(instance),
+                )
 
             scope.launch { coordinator.reevaluate() }
             scope.testScheduler.advanceUntilIdle()
@@ -106,7 +203,15 @@ class ConnectionCoordinatorTest :
                     every { isOnline() } returns true
                 }
             val coordinator =
-                ConnectionCoordinator(serverConfig, instance, discoveryService, networkMonitor, FakeInvalidator(), scope)
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    discoveryService,
+                    networkMonitor,
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = reachableViaInstance(instance),
+                )
 
             scope.launch { coordinator.reevaluate() }
             scope.testScheduler.advanceUntilIdle()
@@ -158,7 +263,15 @@ class ConnectionCoordinatorTest :
                     every { isOnline() } returns true
                 }
             val coordinator =
-                ConnectionCoordinator(serverConfig, instance, discoveryService, networkMonitor, FakeInvalidator(), scope)
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    discoveryService,
+                    networkMonitor,
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = reachableViaInstance(instance),
+                )
 
             scope.launch { coordinator.reevaluate() }
             scope.testScheduler.advanceUntilIdle()
@@ -218,7 +331,15 @@ class ConnectionCoordinatorTest :
                     every { isOnline() } returns true
                 }
             val coordinator =
-                ConnectionCoordinator(serverConfig, instance, discoveryService, networkMonitor, FakeInvalidator(), scope)
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    discoveryService,
+                    networkMonitor,
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = reachableViaInstance(instance),
+                )
 
             scope.launch { coordinator.reevaluate() }
             scope.testScheduler.advanceUntilIdle()
@@ -234,6 +355,7 @@ class ConnectionCoordinatorTest :
             val serverConfig =
                 mock<ServerConfig> {
                     every { activeUrl } returns MutableStateFlow<ServerUrl?>(null)
+                    everySuspend { getActiveUrl() } returns ServerUrl(staleLocal)
                     everySuspend { getServerUrl() } returns ServerUrl(staleLocal)
                     everySuspend { getRemoteUrl() } returns ServerUrl(remote)
                     everySuspend { getConnectedServerId() } returns null
@@ -251,7 +373,15 @@ class ConnectionCoordinatorTest :
                     every { isOnline() } returns true
                 }
             val coordinator =
-                ConnectionCoordinator(serverConfig, instance, discoveryService, networkMonitor, FakeInvalidator(), scope)
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    discoveryService,
+                    networkMonitor,
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = reachableViaInstance(instance),
+                )
 
             scope.launch { coordinator.reevaluate() }
             scope.testScheduler.advanceUntilIdle()
@@ -281,7 +411,15 @@ class ConnectionCoordinatorTest :
                     every { isOnline() } returns online.value
                 }
             val coordinator =
-                ConnectionCoordinator(serverConfig, instance, idleDiscovery(), networkMonitor, FakeInvalidator(), scope)
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    idleDiscovery(),
+                    networkMonitor,
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = reachableViaInstance(instance),
+                )
 
             scope.launch { coordinator.reevaluate() }
             scope.testScheduler.advanceUntilIdle()
@@ -310,7 +448,15 @@ class ConnectionCoordinatorTest :
                     every { isOnline() } returns online.value
                 }
             val coordinator =
-                ConnectionCoordinator(serverConfig, instance, idleDiscovery(), networkMonitor, FakeInvalidator(), scope)
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    idleDiscovery(),
+                    networkMonitor,
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = reachableViaInstance(instance),
+                )
 
             coordinator.start()
             scope.testScheduler.advanceUntilIdle()
@@ -352,6 +498,7 @@ class ConnectionCoordinatorTest :
                 invalidator,
                 scope,
                 engineState,
+                allowsFallback = reachableViaInstance(instance),
             ).start()
             scope.testScheduler.advanceUntilIdle()
 
@@ -399,7 +546,15 @@ class ConnectionCoordinatorTest :
                     every { onlineFlow } returns online
                     every { isOnline() } returns online.value
                 }
-            ConnectionCoordinator(serverConfig, instance, idleDiscovery(), networkMonitor, invalidator, scope).start()
+            ConnectionCoordinator(
+                serverConfig,
+                instance,
+                idleDiscovery(),
+                networkMonitor,
+                invalidator,
+                scope,
+                allowsFallback = reachableViaInstance(instance),
+            ).start()
             scope.testScheduler.advanceUntilIdle()
             invalidator.allCount shouldBe 0
 
