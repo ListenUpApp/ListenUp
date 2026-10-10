@@ -5,11 +5,11 @@ import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
+import com.calypsan.listenup.client.data.remote.DEFAULT_RPC_TIMEOUT
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.core.BookId
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Routes [prepare] through the bounded, single-flight, self-healing [RpcChannel] — the one dispatch
@@ -21,11 +21,15 @@ internal class PlaybackPrepareRepositoryImpl(
     private val channel: RpcChannel<PlaybackService>,
     private val codecCapabilities: Set<CodecCapability>,
 ) : PlaybackPrepareRepository {
+    /**
+     * Takes the full channel default on purpose: it returns the signed streaming URLs, and there is
+     * no local fallback for a book that is not downloaded, so a short bound would strand it.
+     */
     override suspend fun prepare(
         bookId: BookId,
         forceTranscode: Boolean,
     ): AppResult<PreparedPlayback> =
-        channel.call(timeout = PREPARE_BOUND, idempotent = false) {
+        channel.call(timeout = DEFAULT_RPC_TIMEOUT, idempotent = false) {
             it.prepare(bookId, codecCapabilities, forceTranscode)
         }
 
@@ -46,16 +50,6 @@ internal class PlaybackPrepareRepositoryImpl(
         channel.call(timeout = RESUME_POSITION_FETCH_BOUND, idempotent = false) { it.getPosition(bookId) }
 
     private companion object {
-        /**
-         * Latency budget for [prepare]. A listener who tapped play on a book with files still to
-         * stream is waiting on this call; on expiry `PlaybackPreparer` falls back to local files
-         * where it can, otherwise it reports that playback could not start. It is the same order as
-         * `PlaybackPreparer`'s `FETCH_BOOK_TIMEOUT` — generous for a slow-but-working server, far
-         * below the 15s channel default. Download-URL resolution shares this method and so shares
-         * the bound; the download queue retries a failed resolve.
-         */
-        private val PREPARE_BOUND = 5.seconds
-
         /** Latency budget for the resume reconcile — see [getPosition]. */
         private val RESUME_POSITION_FETCH_BOUND = 800.milliseconds
     }
