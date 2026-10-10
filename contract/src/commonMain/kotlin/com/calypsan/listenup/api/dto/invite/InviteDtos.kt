@@ -1,17 +1,22 @@
 package com.calypsan.listenup.api.dto.invite
 
 import com.calypsan.listenup.api.dto.auth.UserRole
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** A full invite as returned to an admin on creation/listing. */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class InviteDto(
     @SerialName("id") val id: InviteId,
     @SerialName("code") val code: String,
     @SerialName("email") val email: String,
     @SerialName("displayName") val displayName: String,
-    @SerialName("role") val role: UserRole,
+    // An older app reads a role it has never heard of as MEMBER; display-only here. Always encoded so
+    // an app built before this default existed still finds the key.
+    @SerialName("role") @EncodeDefault(EncodeDefault.Mode.ALWAYS) val role: UserRole = UserRole.MEMBER,
     @SerialName("createdBy") val createdBy: String,
     @SerialName("expiresAt") val expiresAt: Long,
     @SerialName("createdAt") val createdAt: Long,

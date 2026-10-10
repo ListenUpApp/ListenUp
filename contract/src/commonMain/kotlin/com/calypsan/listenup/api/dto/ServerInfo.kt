@@ -2,6 +2,8 @@ package com.calypsan.listenup.api.dto
 
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -14,6 +16,7 @@ import kotlinx.serialization.Serializable
  * onboarding flow — [setupRequired] decides setup-vs-login, [registrationPolicy]
  * decides whether to offer self-registration (and on what terms).
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class ServerInfo(
     /** Human-readable server name, e.g. "ListenUp". */
@@ -28,9 +31,15 @@ data class ServerInfo(
     /** True when no users exist yet — the client routes to first-run root setup. */
     @SerialName("setupRequired")
     val setupRequired: Boolean,
-    /** Live self-registration policy; gates the "Create Account" affordance (shown when not [RegistrationPolicy.CLOSED]). */
+    /**
+     * Live self-registration policy; gates the "Create Account" affordance (shown when not
+     * [RegistrationPolicy.CLOSED]). An older app reads a policy it has never heard of as
+     * [RegistrationPolicy.CLOSED]: it hides self-registration and the server still enforces the real policy.
+     * Always encoded, so an app built before this default existed still finds the key.
+     */
     @SerialName("registrationPolicy")
-    val registrationPolicy: RegistrationPolicy,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val registrationPolicy: RegistrationPolicy = RegistrationPolicy.CLOSED,
     /** Operator-set remote (WAN) URL for off-LAN access; null when unset. Clients persist it as the reconnect fallback. */
     @SerialName("remoteUrl")
     val remoteUrl: String? = null,
