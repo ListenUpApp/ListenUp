@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.images
 
+import com.calypsan.listenup.client.core.safePathSegment
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.api.result.AppResult
@@ -379,24 +380,26 @@ internal class CommonImageStorage(
 
     // ========== Private Helpers ==========
 
-    private fun getCoverFile(bookId: BookId): Path = Path(coversDir.toString(), "${bookId.value}.$FILE_EXTENSION")
+    private fun getCoverFile(bookId: BookId): Path =
+        Path(coversDir.toString(), "${safePathSegment(bookId.value)}.$FILE_EXTENSION")
 
     private fun getCoverStagingFile(bookId: BookId): Path =
-        Path(coversDir.toString(), "${bookId.value}_staging.$FILE_EXTENSION")
+        Path(coversDir.toString(), "${safePathSegment(bookId.value)}_staging.$FILE_EXTENSION")
 
     private fun getContributorFile(contributorId: String): Path =
-        Path(contributorsDir.toString(), "$contributorId.$FILE_EXTENSION")
+        Path(contributorsDir.toString(), "${safePathSegment(contributorId)}.$FILE_EXTENSION")
 
     private fun getContributorStagingFile(contributorId: String): Path =
-        Path(contributorsDir.toString(), "${contributorId}_staging.$FILE_EXTENSION")
+        Path(contributorsDir.toString(), "${safePathSegment(contributorId)}_staging.$FILE_EXTENSION")
 
     private fun getSeriesCoverFile(seriesId: String): Path =
-        Path(seriesCoversDir.toString(), "$seriesId.$FILE_EXTENSION")
+        Path(seriesCoversDir.toString(), "${safePathSegment(seriesId)}.$FILE_EXTENSION")
 
     private fun getSeriesCoverStagingFile(seriesId: String): Path =
-        Path(seriesCoversDir.toString(), "${seriesId}_staging.$FILE_EXTENSION")
+        Path(seriesCoversDir.toString(), "${safePathSegment(seriesId)}_staging.$FILE_EXTENSION")
 
-    private fun getUserAvatarFile(userId: String): Path = Path(avatarsDir.toString(), "$userId.$FILE_EXTENSION")
+    private fun getUserAvatarFile(userId: String): Path =
+        Path(avatarsDir.toString(), "${safePathSegment(userId)}.$FILE_EXTENSION")
 
     /**
      * Write bytes to a file, creating parent directories if needed.

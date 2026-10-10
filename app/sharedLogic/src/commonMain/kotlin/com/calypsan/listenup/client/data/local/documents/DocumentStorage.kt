@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.documents
 
+import com.calypsan.listenup.client.core.safePathSegment
 import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -97,8 +98,8 @@ internal class DocumentStorageImpl(
         docId: String,
         format: String,
     ): String {
-        val bookDir = Path(documentsDir.toString(), bookId)
-        return Path(bookDir.toString(), "$docId.$format").toString()
+        val bookDir = Path(documentsDir.toString(), safePathSegment(bookId))
+        return Path(bookDir.toString(), "${safePathSegment(docId)}.${safePathSegment(format)}").toString()
     }
 
     override fun exists(path: String): Boolean = SystemFileSystem.exists(Path(path))

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.download
 
+import com.calypsan.listenup.client.core.safePathSegment
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
@@ -57,7 +58,7 @@ actual class DownloadFileManager {
         filename: String,
         isTemp: Boolean,
     ): Path {
-        val bookDirPath = Path(downloadDir, bookId)
+        val bookDirPath = Path(downloadDir, safePathSegment(bookId))
 
         // Ensure book directory exists
         if (!fileManager.fileExistsAtPath(bookDirPath.toString())) {
@@ -68,12 +69,17 @@ actual class DownloadFileManager {
                 error = null,
             )
         }
-        val finalName = if (isTemp) "${audioFileId}_$filename.tmp" else "${audioFileId}_$filename"
+        val stem = "${safePathSegment(audioFileId)}_${safePathSegment(filename)}"
+        val finalName = if (isTemp) "$stem.tmp" else stem
         return Path(bookDirPath, finalName)
     }
 
     actual fun deleteBookFiles(bookId: String): Boolean {
-        val bookDirPath = Path(downloadDir, bookId).toString()
+        val bookDir = Path(downloadDir, safePathSegment(bookId))
+        // A sanitised segment cannot climb out, so this never fires for a path built above. It is here so
+        // a future edit to the path building cannot turn into a recursive delete of the wrong directory.
+        if (bookDir.parent != downloadDir) return true
+        val bookDirPath = bookDir.toString()
         if (!fileManager.fileExistsAtPath(bookDirPath)) return true
         return memScoped {
             val errorPtr = alloc<ObjCObjectVar<NSError?>>()
@@ -156,7 +162,7 @@ actual class DownloadFileManager {
             // is a prefix of its name. Matching the FULL id ("${id}_") — not substring-before-first-
             // '_' — keeps ids that legitimately contain '_' from being mis-parsed and their ACTIVE
             // partials wrongly deleted (B10e).
-            val isActive = activeAudioFileIds.any { filename.startsWith("${it}_") }
+            val isActive = activeAudioFileIds.any { filename.startsWith("${safePathSegment(it)}_") }
             if (!isActive) {
                 val fullPath = Path(downloadDir, relativePath).toString()
                 if (fileManager.removeItemAtPath(fullPath, error = null)) deleted++
