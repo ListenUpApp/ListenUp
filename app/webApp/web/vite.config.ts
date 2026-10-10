@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 // The Kotlin compiler is the only thing KGP still owns: it emits ES modules and stops. Which
@@ -55,7 +56,23 @@ const contentSecurityPolicy = [
 // a WebSocket, so a proxy that only forwards HTTP would forward nothing that matters.
 const apiTarget = process.env.LU_SERVER_URL ?? 'http://localhost:8080'
 
+// The test-page build has no index.html of its own (the app and the test page need different Kotlin
+// variants), yet WebThemeTest runs the inline pre-paint script FROM index.html, so the production
+// build of the specs would otherwise find none. Emit the source file beside the page, as data only.
+const emitIndexHtmlForSpecs = {
+  name: 'emit-index-html-for-specs',
+  generateBundle(this: { emitFile(file: object): void }) {
+    if (process.env.LU_TEST_PAGE !== '1') return
+    this.emitFile({
+      type: 'asset',
+      fileName: 'index.html',
+      source: readFileSync(resolve(__dirname, 'index.html'), 'utf8'),
+    })
+  },
+}
+
 export default defineConfig({
+  plugins: [emitIndexHtmlForSpecs],
   resolve: {
     alias: {
       // worker/worker.js sits OUTSIDE this project root, so Node resolution walks up from
