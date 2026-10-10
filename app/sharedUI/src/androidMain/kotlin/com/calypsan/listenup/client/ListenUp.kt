@@ -64,7 +64,9 @@ import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.push.PushTokenProvider
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.warmUpApiClient
 import com.calypsan.listenup.client.domain.repository.AdminRepository
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.playback.cast.initializeCast
@@ -77,9 +79,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import com.calypsan.listenup.client.domain.model.AuthState
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.component.KoinComponent
@@ -458,14 +458,22 @@ class ListenUp :
         // from logs alone, without requiring ADB or on-device tooling.
         logHistoricalMemoryExits()
 
-        // Schedule periodic background sync only after user authenticates
+        // Everything that needs a live session follows the session: background sync, push
+        // registration and the recent-book shortcuts start at each sign-in and stop at each sign-out.
         get<CoroutineScope>().launch {
-            val authSession = get<com.calypsan.listenup.client.domain.repository.AuthSession>()
-            authSession.authState.first { it is AuthState.Authenticated }
-            com.calypsan.listenup.client.data.remote
-                .warmUpApiClient()
-            get<BackgroundSyncScheduler>().schedule()
-            get<PushRegistrar>().syncRegistration()
+            SessionWiring(
+                authStates = get<AuthSession>().authState,
+                onSignedIn = {
+                    warmUpApiClient()
+                    get<BackgroundSyncScheduler>().schedule()
+                    get<PushRegistrar>().syncRegistration()
+                    get<ListenUpShortcutManager>().updateShortcuts()
+                },
+                onSignedOut = {
+                    get<BackgroundSyncScheduler>().cancel()
+                    get<ListenUpShortcutManager>().clearShortcuts()
+                },
+            ).run()
         }
 
         // Recent-book launcher shortcuts follow what the listener last played.
