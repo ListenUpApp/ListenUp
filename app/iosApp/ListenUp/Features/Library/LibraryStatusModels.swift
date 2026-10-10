@@ -65,7 +65,8 @@ struct LibraryStatusCounts: Equatable {
 
 /// The filter rows the menu offers. A Swift array — never Kotlin's `List<BookStatusFilter>`, which traps.
 enum LibraryStatusOptions {
-    static let filters: [BookStatusFilter] = [.all, .inProgress, .notStarted, .finished]
+    /// Computed, not stored: a stored array of a bridged Kotlin enum is not `Sendable`.
+    static var filters: [BookStatusFilter] { [.all, .inProgress, .notStarted, .finished] }
 
     static func label(_ filter: BookStatusFilter) -> String {
         switch filter {
