@@ -459,7 +459,9 @@ internal interface SearchDao {
 
     /** Count of live contributors with no row in the index — drives the contributors_fts rebuild decision. */
     @SkipQueryVerification
-    @Query("SELECT COUNT(*) FROM contributors WHERE deletedAt IS NULL AND id NOT IN (SELECT contributorId FROM contributors_fts)")
+    @Query(
+        "SELECT COUNT(*) FROM contributors WHERE deletedAt IS NULL AND id NOT IN (SELECT contributorId FROM contributors_fts)",
+    )
     suspend fun countLiveContributorsMissingFromIndex(): Int
 
     /** Count of live series with no row in the index — drives the series_fts rebuild decision. */

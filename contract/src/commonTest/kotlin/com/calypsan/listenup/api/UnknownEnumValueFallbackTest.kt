@@ -191,7 +191,8 @@ class UnknownEnumValueFallbackTest :
 
                 json.encodeToString(InviteDto.serializer(), invite.copy(role = UserRole.MEMBER)) shouldContain "\"role\":\"MEMBER\""
 
-                encodeProvenance(mapOf(BookField.entries.first() to FieldProvenance(FieldSourceKind.USER))) shouldContain "\"kind\":\"USER\""
+                encodeProvenance(mapOf(BookField.entries.first() to FieldProvenance(FieldSourceKind.USER))) shouldContain
+                    "\"kind\":\"USER\""
             }
         }
     })

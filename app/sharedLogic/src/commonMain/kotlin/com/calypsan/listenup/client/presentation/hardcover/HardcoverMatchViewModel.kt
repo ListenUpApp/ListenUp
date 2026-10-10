@@ -333,7 +333,11 @@ class HardcoverMatchViewModel(
         subject.value =
             when (val read = repository.bookMatch(BookId(bookId))) {
                 is AppResult.Success -> {
-                    MatchSubject.Found(book, (read.data as? HardcoverBookMatch.Linked)?.toMatchedBook(), matchKnown = true)
+                    MatchSubject.Found(
+                        book,
+                        (read.data as? HardcoverBookMatch.Linked)?.toMatchedBook(),
+                        matchKnown = true,
+                    )
                 }
 
                 is AppResult.Failure -> {
