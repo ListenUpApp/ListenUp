@@ -80,6 +80,50 @@ class WorldEventRepositoryRevertTest :
             }
         }
 
+        test("undoing the undo of a delete deletes the event again") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                runTest {
+                    val saga = seedSeriesWithBooks("Red Rising", "b1")
+                    entityRepository().upsertEntity(entityPayload("darrow", homeSeriesId = saga.value), ACTOR)
+                    val repo = worldEventRepository()
+                    repo.record(eventUpsert("w1", text = MentionTokens.token("darrow", "Darrow"), homeSeriesId = saga.value))
+                    repo.applyBatch(listOf(WorldEventOp.Delete(W1)), ACTOR)
+                    val undoDelete =
+                        repo.revert(repo.listHistory(W1).first().id, ACTOR).shouldBeInstanceOf<AppResult.Success<WorldEventChange>>().data
+
+                    repo.revert(undoDelete.id, ACTOR).shouldBeInstanceOf<AppResult.Success<WorldEventChange>>()
+
+                    val redeleted = repo.findById(W1).shouldNotBeNull()
+                    redeleted.deletedAt.shouldNotBeNull()
+                    redeleted.mentionIds shouldBe emptyList()
+                }
+            }
+        }
+
+        test("undoing a book re-add's revival deletes the event again") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                runTest {
+                    val saga = seedSeriesWithBooks("Red Rising", "b1")
+                    val repo = worldEventRepository()
+                    repo.record(eventUpsert("w1", homeSeriesId = saga.value, bookId = "b1", positionMs = 5L))
+                    repo.softDeleteAllForBook("b1") shouldBe 1
+                    repo.reviveAllForBooks(listOf("b1")) shouldBe 1
+                    val revival = repo.listHistory(W1).first()
+                    revival.op shouldBe StoryWorldOp.REVERT
+
+                    repo.revert(revival.id, ACTOR).shouldBeInstanceOf<AppResult.Success<WorldEventChange>>()
+
+                    repo
+                        .findById(W1)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
+                }
+            }
+        }
+
         test("reverting an UPDATE restores the earlier type, text and anchor") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
