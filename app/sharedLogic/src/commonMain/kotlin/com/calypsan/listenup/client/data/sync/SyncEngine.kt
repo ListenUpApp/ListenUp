@@ -97,7 +97,8 @@ internal class SyncEngine(
 
     // The ONE shared choke point for cursor-advancing catch-up + digest reconcile — the same
     // "single dispatch seam" move the RpcChannel seam made for RPC. Every reconcile/catch-up entry
-    // point ([runStart], [lifecycleReconcile], [handleCursorStale], [forceReconcile]) drives
+    // point ([runStart], [lifecycleReconcile], [handleCursorStale], [forceReconcile],
+    // [handleAccessChanged] via [AccessReconciler]) drives
     // [CatchUp.catchUpAll] and/or [SyncReconciler.reconcileAll], both of which page the server and
     // rewrite [SyncCursorStore]. Before this guard each entry point owned a SEPARATE mutex (or none),
     // so two could page CONCURRENTLY — e.g. a scan-completion handleCursorStale racing a foreground
@@ -154,8 +155,8 @@ internal class SyncEngine(
     private val cursorStaleWaiters = mutableListOf<CompletableDeferred<Unit>>()
 
     // The access-gated re-derive/prune half of AccessChanged, extracted to its own concern.
-    // Built from the engine's existing registry + catchUp, so wiring is unchanged.
-    private val accessReconciler = AccessReconciler(registry, catchUp)
+    // Shares [catchUpMutex] so its server paging serializes with every other pull.
+    private val accessReconciler = AccessReconciler(registry, catchUp, catchUpMutex)
 
     // Serializes + coalesces AccessChanged reconciles. A single access mutation fans out one frame
     // per affected recipient, and a bulk action (release, delete) can fan out a burst — routing each

@@ -3,6 +3,9 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -20,6 +23,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 
 /**
  * B4 proof: every reconcile/catch-up entry point in [SyncEngine] shares ONE catch-up single-flight,
@@ -97,6 +101,72 @@ class CatchUpSingleFlightTest :
                 }
             }
         }
+
+        test("an access re-derive and a lifecycle catch-up never page concurrently") {
+            // Ordered with gates and yield() on runBlocking's single-threaded loop, not real time.
+            runBlocking {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val db = createInMemoryTestDatabase()
+                try {
+                    val release = CompletableDeferred<Unit>()
+                    val catchUpAllStarted = CompletableDeferred<Unit>()
+                    val inFlight = AtomicInteger(0)
+                    val maxInFlight = AtomicInteger(0)
+
+                    suspend fun paging(onEntry: () -> Unit = {}) {
+                        val now = inFlight.incrementAndGet()
+                        maxInFlight.updateAndGet { prev -> maxOf(prev, now) }
+                        onEntry()
+                        try {
+                            release.await()
+                        } finally {
+                            inFlight.decrementAndGet()
+                        }
+                    }
+
+                    val catchUp =
+                        object : CatchUp {
+                            override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>) = AppResult.Success(Unit)
+
+                            override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>) = AppResult.Success(Unit)
+
+                            override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
+                                paging { catchUpAllStarted.complete(Unit) }
+                                return AppResult.Success(Unit)
+                            }
+
+                            override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> {
+                                paging()
+                                return AppResult.Success(emptySet())
+                            }
+
+                            override suspend fun domains() = AppResult.Success(emptyList<String>())
+                        }
+
+                    val registry = ClientSyncDomainRegistry()
+                    collectionsDomain(db).toHandler(RoomTransactionRunner(db), registry)
+                    val engine = buildSingleFlightEngine(db, SyncEngineState(), catchUp, scope, registry)
+
+                    val lifecycle = launch { engine.lifecycleReconcile(force = true) }
+                    catchUpAllStarted.await() // the lifecycle pass now holds the shared paging lock
+
+                    val access = launch { engine.handleAccessChanged(null) }
+                    repeat(20) { yield() }
+
+                    // The access re-derive must be waiting for the lock, not paging beside the catch-up.
+                    maxInFlight.get() shouldBe 1
+
+                    release.complete(Unit)
+                    withTimeout(5.seconds) {
+                        lifecycle.join()
+                        access.join()
+                    }
+                } finally {
+                    scope.cancel()
+                    db.close()
+                }
+            }
+        }
     })
 
 private fun buildSingleFlightEngine(
@@ -104,8 +174,8 @@ private fun buildSingleFlightEngine(
     state: SyncEngineState,
     catchUp: CatchUp,
     scope: CoroutineScope,
+    registry: ClientSyncDomainRegistry = ClientSyncDomainRegistry(),
 ): SyncEngine {
-    val registry = ClientSyncDomainRegistry()
     val store = SyncCursorStore(db.syncCursorDao())
     val queue =
         PendingOperationQueue(
