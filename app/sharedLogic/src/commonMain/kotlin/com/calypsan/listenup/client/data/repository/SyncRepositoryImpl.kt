@@ -397,21 +397,30 @@ internal class SyncRepositoryImpl(
             }
         if (!shouldStart) return
         scope.launch {
-            var lastWatermark = ftsPopulator.snapshotWatermark()
-            ftsPopulator
-                .observeContentChanges()
-                .drop(1) // the initial replay is current state — startup rebuildIfEmpty already covered it
-                .debounce(FTS_LIVE_REFRESH_DEBOUNCE_MS)
-                .collect {
-                    try {
-                        ftsPopulator.refreshSince(lastWatermark)
-                        lastWatermark = ftsPopulator.snapshotWatermark()
-                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        logger.warn(e) { "Live FTS refresh failed; will retry on the next content change" }
+            try {
+                var lastWatermark = ftsPopulator.snapshotWatermark()
+                ftsPopulator
+                    .observeContentChanges()
+                    .drop(1) // the initial replay is current state — startup rebuildIfEmpty already covered it
+                    .debounce(FTS_LIVE_REFRESH_DEBOUNCE_MS)
+                    .collect {
+                        try {
+                            ftsPopulator.refreshSince(lastWatermark)
+                            lastWatermark = ftsPopulator.snapshotWatermark()
+                        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            logger.warn(e) { "Live FTS refresh failed; will retry on the next content change" }
+                        }
                     }
-                }
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A flag left set would keep the observer from ever starting again this process; clearing it
+                // lets the next engine start try again.
+                logger.warn(e) { "Live FTS refresh observer stopped unexpectedly" }
+                ftsObserverMutex.withLock { ftsObserverStarted = false }
+            }
         }
     }
 

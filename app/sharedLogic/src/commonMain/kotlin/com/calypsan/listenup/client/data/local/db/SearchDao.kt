@@ -452,6 +452,21 @@ internal interface SearchDao {
     @Query("SELECT COUNT(*) FROM series WHERE revision > :revision")
     suspend fun countSeriesChangedSince(revision: Long): Int
 
+    /** Live books with no row in the index — the ones a revision watermark cannot see. */
+    @SkipQueryVerification
+    @Query("SELECT id FROM books WHERE deletedAt IS NULL AND id NOT IN (SELECT bookId FROM books_fts)")
+    suspend fun liveBookIdsMissingFromIndex(): List<String>
+
+    /** Count of live contributors with no row in the index — drives the contributors_fts rebuild decision. */
+    @SkipQueryVerification
+    @Query("SELECT COUNT(*) FROM contributors WHERE deletedAt IS NULL AND id NOT IN (SELECT contributorId FROM contributors_fts)")
+    suspend fun countLiveContributorsMissingFromIndex(): Int
+
+    /** Count of live series with no row in the index — drives the series_fts rebuild decision. */
+    @SkipQueryVerification
+    @Query("SELECT COUNT(*) FROM series WHERE deletedAt IS NULL AND id NOT IN (SELECT seriesId FROM series_fts)")
+    suspend fun countLiveSeriesMissingFromIndex(): Int
+
     /** Delete the books_fts rows for exactly [bookIds] — the targeted counterpart to [clearBooksFts]. */
     @SkipQueryVerification
     @Query("DELETE FROM books_fts WHERE bookId IN (:bookIds)")

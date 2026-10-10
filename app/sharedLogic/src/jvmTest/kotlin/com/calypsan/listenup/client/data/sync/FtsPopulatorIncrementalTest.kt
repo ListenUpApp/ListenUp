@@ -43,6 +43,7 @@ class FtsPopulatorIncrementalTest :
             revision: Long = 0,
             subtitle: String? = null,
             description: String? = null,
+            deletedAt: Long? = null,
         ) {
             db.bookDao().upsert(
                 BookEntity(
@@ -56,6 +57,7 @@ class FtsPopulatorIncrementalTest :
                     totalDuration = 3_600_000L,
                     description = description,
                     revision = revision,
+                    deletedAt = deletedAt,
                     createdAt = Timestamp(1L),
                     updatedAt = Timestamp(1L),
                 ),
@@ -314,6 +316,112 @@ class FtsPopulatorIncrementalTest :
                     db.searchDao().countBooksFts() shouldBe 2
                     db.searchDao().searchBooks("Alpha*").isNotEmpty() shouldBe true
                     db.searchDao().searchBooks("Beta*").isNotEmpty() shouldBe true
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        // ========== (g) Rows that arrive at a revision below the watermark ==========
+
+        test("a book that arrives at a revision below the watermark is indexed on the next refresh") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedBook(db, id = "a", title = "Alpha Book", revision = 100)
+                    val populator = buildPopulator(db)
+                    populator.rebuildAll()
+                    val watermark = populator.snapshotWatermark()
+
+                    seedBook(db, id = "b", title = "Zephyr Book", revision = 50)
+
+                    populator.refreshSince(watermark)
+
+                    db.searchDao().searchBooks("Zephyr*").any { it.book.id == BookId("b") } shouldBe true
+                    db.searchDao().countBooksFts() shouldBe 2
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("a contributor that arrives at a revision below the watermark is indexed on the next refresh") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedContributor(db, id = "c1", name = "Mary Shelley", revision = 100)
+                    val populator = buildPopulator(db)
+                    populator.rebuildAll()
+                    val watermark = populator.snapshotWatermark()
+
+                    seedContributor(db, id = "c2", name = "Zadie Smith", revision = 50)
+
+                    populator.refreshSince(watermark)
+
+                    db.searchDao().searchContributors("Zadie*").isNotEmpty() shouldBe true
+                    db.searchDao().searchContributors("Shelley*").isNotEmpty() shouldBe true
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("a series that arrives at a revision below the watermark is indexed on the next refresh") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedSeries(db, id = "s1", name = "Stormlight", revision = 100)
+                    val populator = buildPopulator(db)
+                    populator.rebuildAll()
+                    val watermark = populator.snapshotWatermark()
+
+                    seedSeries(db, id = "s2", name = "Wheel of Time", revision = 50)
+
+                    populator.refreshSince(watermark)
+
+                    db.searchDao().searchSeries("Wheel*").isNotEmpty() shouldBe true
+                    db.searchDao().searchSeries("Stormlight*").isNotEmpty() shouldBe true
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("a tombstoned book below the watermark is not indexed") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedBook(db, id = "a", title = "Alpha Book", revision = 100)
+                    val populator = buildPopulator(db)
+                    populator.rebuildAll()
+                    val watermark = populator.snapshotWatermark()
+
+                    seedBook(db, id = "b", title = "Zephyr Book", revision = 50, deletedAt = 999L)
+
+                    populator.refreshSince(watermark)
+
+                    db.searchDao().searchBooks("Zephyr*").isEmpty() shouldBe true
+                    db.searchDao().countBooksFts() shouldBe 1
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("a tombstoned book is never reported as missing from the index") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedBook(db, id = "a", title = "Alpha Book", revision = 100)
+                    seedBook(db, id = "b", title = "Zephyr Book", revision = 50, deletedAt = 999L)
+                    val populator = buildPopulator(db)
+                    populator.rebuildAll()
+
+                    db.searchDao().liveBookIdsMissingFromIndex() shouldBe emptyList()
+
+                    seedBook(db, id = "c", title = "Gamma Book", revision = 40)
+
+                    db.searchDao().liveBookIdsMissingFromIndex() shouldBe listOf("c")
                 }
             } finally {
                 db.close()
