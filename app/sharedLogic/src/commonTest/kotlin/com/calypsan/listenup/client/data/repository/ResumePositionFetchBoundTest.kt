@@ -60,7 +60,7 @@ class ResumePositionFetchBoundTest :
             }
         }
 
-        test("prepare keeps the full default bound — its result is required, not optional") {
+        test("prepare declares its own five-second budget, below the channel default, and never retries") {
             runTest {
                 val dispatch = RecordingDispatch<PlaybackService>(NoOpPlaybackService)
                 val repo =
@@ -68,9 +68,14 @@ class ResumePositionFetchBoundTest :
 
                 repo.prepare(BookId("book-1"))
 
-                // Unlike getPosition, prepare() returns the signed streaming URLs. There is no local
-                // fallback for a book that is not downloaded, so cutting it short would strand it.
-                dispatch.lastTimeout shouldBe DEFAULT_RPC_TIMEOUT
+                // Unlike getPosition, prepare() returns the signed streaming URLs, so it gets a
+                // generous budget rather than the resume fetch's sub-second one — but a listener is
+                // waiting on it, so it must not ride the 15s channel default.
+                dispatch.lastTimeout shouldBe 5.seconds
+                withClue("prepare must stay below the channel default") {
+                    (dispatch.lastTimeout!! < DEFAULT_RPC_TIMEOUT) shouldBe true
+                }
+                dispatch.lastIdempotent shouldBe false
             }
         }
     })

@@ -35,6 +35,40 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * Sibling rule [NoThrowsInDataLayerRule] pins the result contract on the same layer; this one pins
  * the latency contract.
  */
+// `channel.call(` / `channel.call {` / `channel.callMutation(` / `channel.callMutation {` — the
+// RpcChannel await, however the receiver is named at the call site. The brace form has no
+// parenthesis and is the one that takes the default timeout.
+private val rpcCall = Regex("""\b\w*[Cc]hannel\.call(Mutation)?\s*[({]""")
+
+/**
+ * The function's CODE, with comment lines stripped.
+ *
+ * `KoFunctionDeclaration.text` includes the KDoc, and these functions' KDocs quote the very
+ * anti-patterns this rule bans while explaining the incidents that produced them —
+ * `getPosition`'s doc says *"It ran on the 15s channel default with `idempotent = true`"*.
+ * Matching raw text flagged that honest history as a live offence. Prose describing a fixed
+ * bug must not read as the bug; [NoThrowsInDataLayerRule] strips comments for exactly the
+ * same reason.
+ */
+private fun codeOf(text: String): String =
+    text
+        .lineSequence()
+        .map { it.trim() }
+        .filterNot { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") }
+        .joinToString("\n")
+
+/** True when the function source awaits an RpcChannel call without declaring `timeout =`. */
+internal fun String.hasUnbudgetedRpcAwait(): Boolean {
+    val body = codeOf(this)
+    return rpcCall.containsMatchIn(body) && !body.contains("timeout =")
+}
+
+/** True when the function source awaits an RpcChannel call and opts into `idempotent = true`. */
+internal fun String.hasIdempotentRpcAwait(): Boolean {
+    val body = codeOf(this)
+    return rpcCall.containsMatchIn(body) && body.contains("idempotent = true")
+}
+
 class PlaybackStartAwaitsAreBudgetedRule :
     FunSpec({
 
@@ -53,27 +87,6 @@ class PlaybackStartAwaitsAreBudgetedRule :
 
         fun onPlaybackStartPath(path: String) = playbackStartPaths.any { path.endsWith(it) }
 
-        // `channel.call(` / `rpcChannel.call(` / `it.call(` — the RpcChannel await, however the
-        // receiver is named at the call site.
-        val rpcCall = Regex("""\b\w*[Cc]hannel\.call\s*\(""")
-
-        /**
-         * The function's CODE, with comment lines stripped.
-         *
-         * `KoFunctionDeclaration.text` includes the KDoc, and these functions' KDocs quote the very
-         * anti-patterns this rule bans while explaining the incidents that produced them —
-         * `getPosition`'s doc says *"It ran on the 15s channel default with `idempotent = true`"*.
-         * Matching raw text flagged that honest history as a live offence. Prose describing a fixed
-         * bug must not read as the bug; [NoThrowsInDataLayerRule] strips comments for exactly the
-         * same reason.
-         */
-        fun codeOf(text: String): String =
-            text
-                .lineSequence()
-                .map { it.trim() }
-                .filterNot { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") }
-                .joinToString("\n")
-
         test("RPC awaits on the playback-start path declare an explicit timeout") {
             val playbackStartFunctions = productionScope().functions().filter { onPlaybackStartPath(it.path) }
 
@@ -86,8 +99,7 @@ class PlaybackStartAwaitsAreBudgetedRule :
             val offenders =
                 playbackStartFunctions
                     .filter { fn ->
-                        val body = codeOf(fn.text)
-                        rpcCall.containsMatchIn(body) && !body.contains("timeout =")
+                        fn.text.hasUnbudgetedRpcAwait()
                     }.map { "${it.name} in ${it.path}" }
 
             offenders.shouldBeEmpty()
@@ -108,8 +120,7 @@ class PlaybackStartAwaitsAreBudgetedRule :
             val offenders =
                 playbackStartFunctions
                     .filter { fn ->
-                        val body = codeOf(fn.text)
-                        rpcCall.containsMatchIn(body) && body.contains("idempotent = true")
+                        fn.text.hasIdempotentRpcAwait()
                     }.map { "${it.name} in ${it.path}" }
 
             offenders.shouldBeEmpty()
