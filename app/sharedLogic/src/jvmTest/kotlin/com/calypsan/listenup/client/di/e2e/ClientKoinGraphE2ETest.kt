@@ -169,8 +169,10 @@ class ClientKoinGraphE2ETest :
             // rpcChannel<MetadataLookupService>() with it — so 31 → 30. Story World
             // added rpcChannel<EntityService>() (entity edits, merge, history, revert, and the entities outbox
             // sender) — so 30 → 31. Reading orders added rpcChannel<ReadingOrderService>() (the outbox
-            // senders for the three reading-order channels, and the follower count) — so 31 → 32.
-            defaultInvalidator.caches shouldHaveSize 32
+            // senders for the three reading-order channels, and the follower count) — so 31 → 32. Story World
+            // events added rpcChannel<WorldEventService>() (the world_events outbox sender, history and revert) —
+            // so 32 → 33.
+            defaultInvalidator.caches shouldHaveSize 33
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 
