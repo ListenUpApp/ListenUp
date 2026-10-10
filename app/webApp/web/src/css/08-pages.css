@@ -570,6 +570,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    lands, which reads as the page flinching. */
 .luw .home-card-cover-skel { width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; }
 .luw .home-card:focus { outline: none; }
+.luw .home-card:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 @media (hover: hover) { .luw .home-card:hover .home-card-t { color: var(--coral-text); } }
 .luw .home-card-progress { width: 100%; }
 .luw .home-card-t {
