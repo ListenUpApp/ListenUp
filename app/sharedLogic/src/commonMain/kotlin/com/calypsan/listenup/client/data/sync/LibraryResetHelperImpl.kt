@@ -56,6 +56,10 @@ internal class LibraryResetHelperImpl(
             database.collectionShareDao().deleteAll()
             database.playbackPositionDao().deleteAll()
             database.listeningEventDao().deleteAll()
+            // Neither is a mirrored domain, but both describe the session being ended: other people's
+            // "listening now" snapshot, and the span this user had open.
+            database.cachedActiveSessionDao().deleteAll()
+            database.tentativeSpanDao().delete()
             database.activityDao().deleteAll()
             database.libraryFolderDao().deleteAll()
 

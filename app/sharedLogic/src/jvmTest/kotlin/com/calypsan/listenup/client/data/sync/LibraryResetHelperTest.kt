@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.local.db.BookExternalRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookMoodEntity
 import com.calypsan.listenup.client.data.local.db.BookRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookTagEntity
+import com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity
 import com.calypsan.listenup.client.data.local.db.CollectionBookEntity
 import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
@@ -29,6 +30,7 @@ import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.SyncCursorEntity
 import com.calypsan.listenup.client.data.local.db.TagEntity
+import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.client.data.local.db.UserStatsEntity
 import com.calypsan.listenup.client.data.local.db.entity.LibraryEntity
 import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
@@ -51,6 +53,7 @@ import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.first
 
 /**
  * `clearLibraryData` is the sign-out / server-switch reset. It wipes the library
@@ -85,6 +88,82 @@ class LibraryResetHelperTest :
                 // After a reset, no cursor may survive — otherwise catch-up never
                 // re-pulls the wiped library on the next login.
                 db.syncCursorDao().all().shouldBeEmpty()
+            } finally {
+                db.close()
+            }
+        }
+
+        test("clearLibraryData clears the presence snapshot") {
+            val db = createInMemoryTestDatabase()
+            try {
+                db.cachedActiveSessionDao().replaceAll(
+                    listOf(
+                        CachedActiveSessionEntity(
+                            userId = "someone-else",
+                            displayName = "Someone Else",
+                            avatarType = "auto",
+                            bookId = "b1",
+                            lastActiveAtMs = 1L,
+                            isLive = true,
+                            observedAt = 1L,
+                        ),
+                    ),
+                )
+                val helper =
+                    LibraryResetHelperImpl(
+                        database = db,
+                        transactionRunner = RoomTransactionRunner(db),
+                        librarySyncContract = mock<LibrarySync>(),
+                    )
+
+                helper.clearLibraryData(discardPendingOperations = true)
+
+                // The roster joins to books, so the snapshot only shows once its book exists: seed it
+                // after the reset and the row must not come back with it.
+                db.bookDao().upsert(
+                    BookEntity(
+                        id = BookId("b1"),
+                        libraryId = LibraryId("seed-lib"),
+                        folderId = FolderId("seed-folder"),
+                        title = "n",
+                        totalDuration = 0L,
+                        createdAt = Timestamp(0L),
+                        updatedAt = Timestamp(0L),
+                    ),
+                )
+                db.cachedActiveSessionDao().observeWithBooks().first().shouldBeEmpty()
+            } finally {
+                db.close()
+            }
+        }
+
+        test("clearLibraryData clears the open listening span") {
+            val db = createInMemoryTestDatabase()
+            try {
+                db.tentativeSpanDao().upsertSingleton(
+                    TentativeSpanEntity(
+                        id = "span-1",
+                        userId = "previous-user",
+                        bookId = "b1",
+                        startPositionMs = 0L,
+                        currentPositionMs = 1_000L,
+                        startedAt = 1L,
+                        lastHeartbeatAt = 2L,
+                        playbackSpeed = 1.0f,
+                        tz = "UTC",
+                        deviceLabel = null,
+                    ),
+                )
+                val helper =
+                    LibraryResetHelperImpl(
+                        database = db,
+                        transactionRunner = RoomTransactionRunner(db),
+                        librarySyncContract = mock<LibrarySync>(),
+                    )
+
+                helper.clearLibraryData(discardPendingOperations = true)
+
+                db.tentativeSpanDao().countRows() shouldBe 0
             } finally {
                 db.close()
             }
