@@ -228,6 +228,22 @@ private class FakeDownloadDao : DownloadDao {
 
     override suspend fun markPausedIfNotTerminal(audioFileId: String): Unit = TODO("not used")
 
+    override suspend fun claimForTransfer(
+        audioFileId: String,
+        startedAt: Long,
+    ): Int = 1
+
+    override suspend fun markFailedIfNotTerminal(
+        audioFileId: String,
+        error: String,
+    ): Unit = TODO("not used")
+
+    override suspend fun updateStateIfTransferring(
+        audioFileId: String,
+        state: DownloadState,
+        startedAt: Long?,
+    ): Unit = TODO("not used")
+
     override suspend fun updateStateForBookExcluding(
         bookId: String,
         newState: DownloadState,
