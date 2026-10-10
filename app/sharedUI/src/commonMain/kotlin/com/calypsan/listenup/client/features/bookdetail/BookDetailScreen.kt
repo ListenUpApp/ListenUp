@@ -328,6 +328,21 @@ private fun BookDetailLoadingFrame(
 }
 
 /**
+ * The confirmation Book Detail is asking for, if any. Only one can be open.
+ *
+ * [RemoveDownload] forgets the downloaded copy and can be undone by downloading again;
+ * [DeleteBookFromDisk] deletes the book and its folder from disk and cannot.
+ */
+private enum class BookDetailDialog {
+    RemoveDownload,
+    DeleteBookFromDisk,
+    MarkComplete,
+    MarkNotStarted,
+    Restart,
+    ReleaseFromInbox,
+}
+
+/**
  * Ready-state host for [BookDetailScreen]. Holds screen-scoped state
  * (dialogs) and delegates layout to [BookDetailContent].
  *
@@ -366,12 +381,7 @@ private fun BookDetailReadyContent(
     val preparingBookId by playbackManager.preparingBookIdUi.collectAsStateWithLifecycle(initialValue = null)
     val isPreparing = preparingBookId == BookId(bookId)
 
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var showDeleteBookDialog by remember { mutableStateOf(false) }
-    var showMarkCompleteDialog by remember { mutableStateOf(false) }
-    var showMarkNotStartedDialog by remember { mutableStateOf(false) }
-    var showRestartDialog by remember { mutableStateOf(false) }
-    var showReleaseDialog by remember { mutableStateOf(false) }
+    var dialog by remember { mutableStateOf<BookDetailDialog?>(null) }
 
     val book = state.book
 
@@ -406,9 +416,9 @@ private fun BookDetailReadyContent(
                 onEditClick = { onEditClick(bookId) },
                 onFindMetadataClick = { onMatchDetailsClick(bookId) },
                 onEditChaptersClick = { onEditChaptersClick(bookId) },
-                onMarkCompleteClick = { showMarkCompleteDialog = true },
-                onMarkNotStartedClick = { showMarkNotStartedDialog = true },
-                onRestartClick = { showRestartDialog = true },
+                onMarkCompleteClick = { dialog = BookDetailDialog.MarkComplete },
+                onMarkNotStartedClick = { dialog = BookDetailDialog.MarkNotStarted },
+                onRestartClick = { dialog = BookDetailDialog.Restart },
                 onAddToShelfClick = { viewModel.showShelfPicker() },
                 onAddToCollectionClick = { viewModel.showCollectionPicker() },
                 onShareClick = {
@@ -435,7 +445,7 @@ private fun BookDetailReadyContent(
                 },
                 onDeleteBookClick = {
                     viewModel.clearDeleteError()
-                    showDeleteBookDialog = true
+                    dialog = BookDetailDialog.DeleteBookFromDisk
                 },
                 onPlayClick = { platformActions.playBook(BookId(bookId)) },
                 onRetryConnection = { viewModel.retryConnection() },
@@ -458,7 +468,7 @@ private fun BookDetailReadyContent(
                         platformActions.cancelDownload(BookId(bookId))
                     }
                 },
-                onDeleteClick = { showDeleteDialog = true },
+                onDeleteClick = { dialog = BookDetailDialog.RemoveDownload },
                 onSeriesClick = onSeriesClick,
                 onContributorClick = onContributorClick,
                 onGenreClick = onGenreClick,
@@ -466,7 +476,7 @@ private fun BookDetailReadyContent(
                 onMoodClick = onMoodClick,
                 onSeeAllReaders = onSeeAllReaders,
                 onFindHardcoverMatch = onFindHardcoverMatch,
-                onReleaseFromInboxClick = { showReleaseDialog = true },
+                onReleaseFromInboxClick = { dialog = BookDetailDialog.ReleaseFromInbox },
                 onRestoreToAllBooksClick = { viewModel.restoreToAllBooks() },
                 onCollectionClick = onCollectionClick,
             )
@@ -481,84 +491,92 @@ private fun BookDetailReadyContent(
         lastMatchRow = { modifier -> LastMatchHost(viewModel = viewModel, modifier = modifier) },
     )
 
-    if (showDeleteDialog) {
-        DeleteDownloadDialog(
-            bookTitle = book.title,
-            downloadSize = state.downloadStatus.downloadedOrTotalBytes(),
-            onConfirm = {
-                scope.launch {
-                    platformActions.deleteDownload(BookId(bookId))
-                }
-                showDeleteDialog = false
-            },
-            onDismiss = { showDeleteDialog = false },
-        )
-    }
+    when (dialog) {
+        BookDetailDialog.RemoveDownload -> {
+            DeleteDownloadDialog(
+                bookTitle = book.title,
+                downloadSize = state.downloadStatus.downloadedOrTotalBytes(),
+                onConfirm = {
+                    scope.launch {
+                        platformActions.deleteDownload(BookId(bookId))
+                    }
+                    dialog = null
+                },
+                onDismiss = { dialog = null },
+            )
+        }
 
-    if (showDeleteBookDialog) {
-        // What ListenUp knows is in the folder: the audio files plus any synced documents. The
-        // dialog frames this as "tracked", because the folder may hold more (66 folders in a real
-        // library carry bonus PDFs) and every one of those goes too.
-        val trackedFiles = book.audioFiles.size + documents.size
-        val trackedBytes = book.audioFiles.sumOf { it.size } + documents.sumOf { it.size }
-        DeleteBookDialog(
-            bookTitle = book.title,
-            trackedFileCount = trackedFiles,
-            trackedBytes = trackedBytes,
-            error = state.deleteError,
-            isDeleting = state.isDeletingBook,
-            onConfirm = { viewModel.deleteBook() },
-            // Left open on failure so the refusal is readable; the success path never returns here,
-            // it navigates away on BookDetailNavAction.BookDeleted.
-            onDismiss = {
-                showDeleteBookDialog = false
-                viewModel.clearDeleteError()
-            },
-        )
-    }
+        BookDetailDialog.DeleteBookFromDisk -> {
+            // What ListenUp knows is in the folder: the audio files plus any synced documents. The
+            // dialog frames this as "tracked", because the folder may hold more (66 folders in a real
+            // library carry bonus PDFs) and every one of those goes too.
+            val trackedFiles = book.audioFiles.size + documents.size
+            val trackedBytes = book.audioFiles.sumOf { it.size } + documents.sumOf { it.size }
+            DeleteBookDialog(
+                bookTitle = book.title,
+                trackedFileCount = trackedFiles,
+                trackedBytes = trackedBytes,
+                error = state.deleteError,
+                isDeleting = state.isDeletingBook,
+                onConfirm = { viewModel.deleteBook() },
+                // Left open on failure so the refusal is readable; the success path never returns here,
+                // it navigates away on BookDetailNavAction.BookDeleted.
+                onDismiss = {
+                    dialog = null
+                    viewModel.clearDeleteError()
+                },
+            )
+        }
 
-    if (showMarkNotStartedDialog) {
-        MarkNotStartedDialog(
-            onConfirm = {
-                viewModel.discardProgress()
-                showMarkNotStartedDialog = false
-            },
-            onDismiss = { showMarkNotStartedDialog = false },
-        )
-    }
+        BookDetailDialog.MarkNotStarted -> {
+            MarkNotStartedDialog(
+                onConfirm = {
+                    viewModel.discardProgress()
+                    dialog = null
+                },
+                onDismiss = { dialog = null },
+            )
+        }
 
-    if (showRestartDialog) {
-        RestartBookDialog(
-            onConfirm = {
-                viewModel.restartBook()
-                showRestartDialog = false
-            },
-            onDismiss = { showRestartDialog = false },
-        )
-    }
+        BookDetailDialog.Restart -> {
+            RestartBookDialog(
+                onConfirm = {
+                    viewModel.restartBook()
+                    dialog = null
+                },
+                onDismiss = { dialog = null },
+            )
+        }
 
-    if (showMarkCompleteDialog) {
-        MarkCompleteDialog(
-            startedAtMs = state.startedAtMs,
-            onConfirm = { startedAt, finishedAt ->
-                viewModel.markComplete(startedAt = startedAt, finishedAt = finishedAt)
-                showMarkCompleteDialog = false
-            },
-            onDismiss = { showMarkCompleteDialog = false },
-        )
-    }
+        BookDetailDialog.MarkComplete -> {
+            MarkCompleteDialog(
+                startedAtMs = state.startedAtMs,
+                onConfirm = { startedAt, finishedAt ->
+                    viewModel.markComplete(startedAt = startedAt, finishedAt = finishedAt)
+                    dialog = null
+                },
+                onDismiss = { dialog = null },
+            )
+        }
 
-    // Release asks first (spec §7). Confirming closes the question at once; the held section's
-    // Release button carries the in-flight state, and success turns this into the ordinary page.
-    if (showReleaseDialog && state.isHeld) {
-        ReleaseToEveryoneDialog(
-            bookCount = 1,
-            onConfirm = {
-                showReleaseDialog = false
-                viewModel.releaseFromInbox()
-            },
-            onDismiss = { showReleaseDialog = false },
-        )
+        // Release asks first (spec §7). Confirming closes the question at once; the held section's
+        // Release button carries the in-flight state, and success turns this into the ordinary page.
+        BookDetailDialog.ReleaseFromInbox -> {
+            if (state.isHeld) {
+                ReleaseToEveryoneDialog(
+                    bookCount = 1,
+                    onConfirm = {
+                        dialog = null
+                        viewModel.releaseFromInbox()
+                    },
+                    onDismiss = { dialog = null },
+                )
+            }
+        }
+
+        null -> {
+            // No question is open.
+        }
     }
 
     if (state.showShelfPicker) {
