@@ -214,7 +214,9 @@ import com.calypsan.listenup.web.features.admin.OpenServerSettings
 import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.nav.Route
+import com.calypsan.listenup.web.nav.RouteChange
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.nav.awaitAnimationFrame
 import com.calypsan.listenup.web.shell.NotFoundPage
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
@@ -314,9 +316,10 @@ fun WebAppRoot(
 
     // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
     // flight works in both directions: out to the detail hero, and back to the same tile on return.
-    // The library's scrollport is the shell's, which does not unmount on a route change, so coming
-    // back lands at the same offset and the tile is usually still on screen. When it is not — the
-    // grid is virtualised — there is simply nothing to fly to and the pages crossfade instead.
+    // The library's scrollport is the shell's, which does not unmount on a route change; Back
+    // restores the offset the library was left at (ScrollFollowsNavigation), so the tile is usually
+    // still on screen. When it is not — the grid is virtualised — there is simply nothing to fly to
+    // and the pages crossfade instead.
     var heroBookId by remember { mutableStateOf<String?>(null) }
     // Opened once for the shell's lifetime, not per route: the badge is on the sidebar, which
     // outlives every page. Closing it with a route would blank the count the moment you navigated
@@ -335,6 +338,7 @@ fun WebAppRoot(
     val active = if (page in LIBRARY_DEEP_LINKS) LIBRARY_KEY else page
 
     FadeOnPageChange(page)
+    ScrollFollowsNavigation(router)
 
     CompositionLocalProvider(LocalRestrictedBookIds provides restrictedBookIds) {
         Shell(
@@ -1957,6 +1961,53 @@ private fun FadeOnPageChange(page: String) {
         lastPage = page
     }
 }
+
+/**
+ * Makes the shell's one scrollport follow navigation: a page the reader opens starts at the top, and
+ * Back returns to the offset the page was left at.
+ *
+ * The scrollport never unmounts on a route change, so without this the offset simply persisted into
+ * whatever page came next. A [RouteChange.Replace] (a filter, a selection) changes nothing — that is
+ * the same page, and the reader is still looking at it.
+ */
+@Composable
+private fun ScrollFollowsNavigation(router: Router) {
+    DisposableEffect(router) {
+        router.scrollOffset = { (document.querySelector(SHELL_MAIN) as? HTMLElement)?.scrollTop ?: 0.0 }
+        onDispose { router.scrollOffset = { 0.0 } }
+    }
+    val route = router.current
+    LaunchedEffect(route) {
+        val main = document.querySelector(SHELL_MAIN) as? HTMLElement ?: return@LaunchedEffect
+        when (router.lastChange) {
+            RouteChange.Push -> main.scrollTop = 0.0
+            RouteChange.Replace -> Unit
+            RouteChange.Pop -> restoreScroll(main, router.restoredScroll)
+        }
+    }
+}
+
+/**
+ * Scrolls [main] to [offset], waiting for the page to grow tall enough to honour it.
+ *
+ * A page Back returns to is rebuilt from Room a few frames after the route moves, and a browser
+ * clamps `scrollTop` to what exists, so an immediate assignment lands short. Gives up after a
+ * second and leaves the clamped position rather than fighting a page that never grows.
+ */
+private suspend fun restoreScroll(
+    main: HTMLElement,
+    offset: Double,
+) {
+    val deadline = Date.now() + SCROLL_RESTORE_WINDOW_MS
+    while (true) {
+        main.scrollTop = offset
+        if (main.scrollTop >= offset || Date.now() >= deadline) return
+        awaitAnimationFrame()
+    }
+}
+
+/** How long Back keeps waiting for a rebuilt page to be tall enough to scroll to where it was left. */
+private const val SCROLL_RESTORE_WINDOW_MS = 1_000.0
 
 /** What the readers page calls the book it belongs to, before the book itself has loaded. */
 private fun bookTitleOf(state: BookDetailUiState): String = (state as? BookDetailUiState.Ready)?.book?.title ?: "Book"
