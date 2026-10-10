@@ -35,6 +35,7 @@ import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
+import com.calypsan.listenup.api.WorldEventService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
@@ -63,6 +64,7 @@ import com.calypsan.listenup.server.api.ShelfServiceImpl
 import com.calypsan.listenup.server.api.SocialServiceImpl
 import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.api.UserPreferencesServiceImpl
+import com.calypsan.listenup.server.api.WorldEventServiceImpl
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.rpcguard.guard
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
@@ -128,6 +130,7 @@ private fun Route.authedRpc(services: RpcServices) {
         }
         registerScoped<SeriesService> { guard((services.seriesService as SeriesServiceImpl).copyWith(it)) }
         registerScoped<EntityService> { guard((services.entityService as EntityServiceImpl).copyWith(it)) }
+        registerScoped<WorldEventService> { guard((services.worldEventService as WorldEventServiceImpl).copyWith(it)) }
         registerScoped<PlaybackService> { guard((services.playbackService as PlaybackServiceImpl).copyWith(it)) }
         registerScoped<PlaybackProgressService> { provider ->
             guard((services.playbackProgressService as PlaybackProgressServiceImpl).copyWith(provider))
