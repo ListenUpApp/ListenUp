@@ -116,7 +116,7 @@ fun AdminCollectionsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var showCreateDialog by remember { mutableStateOf(false) }
+    var showCreateDialog by rememberSaveable { mutableStateOf(false) }
     var collectionToDelete by remember { mutableStateOf<Collection?>(null) }
 
     // Transient mutation-failure error in snackbar (only meaningful in Ready).

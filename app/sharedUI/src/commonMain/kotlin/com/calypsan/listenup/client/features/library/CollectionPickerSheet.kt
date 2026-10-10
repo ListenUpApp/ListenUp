@@ -90,7 +90,7 @@ fun CollectionPickerSheet(
     isLoading: Boolean = false,
     canCreate: Boolean = false,
 ) {
-    var showCreateDialog by remember { mutableStateOf(false) }
+    var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

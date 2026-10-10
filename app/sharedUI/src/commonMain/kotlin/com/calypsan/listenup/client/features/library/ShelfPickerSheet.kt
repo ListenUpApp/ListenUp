@@ -94,7 +94,7 @@ fun ShelfPickerSheet(
 ) {
     val haptics = LocalHaptics.current
     val holdingIds = remember(shelvesContainingBook) { shelvesContainingBook.mapTo(HashSet()) { it.id } }
-    var showCreateDialog by remember { mutableStateOf(false) }
+    var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
