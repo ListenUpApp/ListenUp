@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.library
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.web.design.VirtualList
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
@@ -13,8 +14,8 @@ import org.jetbrains.compose.web.dom.Text
  * The windowing, keys and list semantics are [VirtualList]'s; this is what makes it a *book* grid:
  * the `.lib-grid` columns, the `.lib-card` every row is measured from, and the letter headers.
  * Row arithmetic depends on every card being exactly the same height — see the `.lib-title` /
- * `.lib-author` clamps in the stylesheet, and why [BookCard] renders its progress rail even when
- * it is empty.
+ * `.lib-author` clamps in the stylesheet, and why [BookCard] renders its narrator line even when
+ * the book has none.
  *
  * [letterOf] null for every book means no headers: a letter rail over a date sort would label runs
  * of books with letters that mean nothing.
@@ -24,7 +25,7 @@ import org.jetbrains.compose.web.dom.Text
 internal fun VirtualBookGrid(
     books: List<BookListItem>,
     letterOf: (BookListItem) -> Char?,
-    progressOf: (BookListItem) -> Float,
+    statusOf: (BookListItem) -> BookCardStatus?,
     onOpenBook: (String) -> Unit,
     heroBookId: String? = null,
     selecting: Boolean = false,
@@ -42,7 +43,7 @@ internal fun VirtualBookGrid(
     ) { book ->
         BookCard(
             book = book,
-            progress = progressOf(book),
+            status = statusOf(book),
             onOpen = { onOpenBook(book.id.value) },
             isHero = book.id.value == heroBookId,
             selecting = selecting,

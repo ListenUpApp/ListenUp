@@ -194,7 +194,7 @@ private fun BookGrid(
     }
     // Windowed like the library: a broad genre with sub-genres included is most of a library, and
     // the unwindowed grid was the same thousand composables the library grid stopped rendering.
-    VirtualBookGrid(books = books, letterOf = { null }, progressOf = { 0f }, onOpenBook = onOpenBook)
+    VirtualBookGrid(books = books, letterOf = { null }, statusOf = { null }, onOpenBook = onOpenBook)
 }
 
 /** What a page reached by a link to something that is no longer there says. */

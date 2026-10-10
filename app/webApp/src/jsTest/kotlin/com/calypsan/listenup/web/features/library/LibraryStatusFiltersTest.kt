@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.library
 
+import com.calypsan.listenup.client.domain.model.BookContributor
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
@@ -58,5 +60,37 @@ class LibraryStatusFiltersTest :
             val sent = mutableListOf<LibraryUiEvent>()
             rememberingStatusFilter { LibrarySession(MutableStateFlow(LibraryUiState.Loading), { sent += it }, {}) }()
             sent shouldBe emptyList()
+        }
+
+        test("the card's last line says time left, Finished and length, or the length") {
+            cardLastLine(BookCardStatus.InProgress(fraction = 0.1f, timeLeftMs = 145_860_000L), durationMs = 0L) shouldBe "40h 31m left"
+            cardLastLine(BookCardStatus.Finished(durationMs = 43_440_000L), durationMs = 0L) shouldBe "Finished · 12h 4m"
+            cardLastLine(BookCardStatus.NotStarted(durationMs = 43_440_000L), durationMs = 0L) shouldBe "12h 4m"
+            cardLastLine(null, durationMs = 43_440_000L) shouldBe "12h 4m"
+        }
+
+        test("a started card shows a progress rail on the art and its time left; a finished one a badge") {
+            val book = contractBook("b1", "The Way of Kings")
+            val started = mounts.mount {
+                BookCard(book = book, status = BookCardStatus.InProgress(0.5f, 1_800_000L), onOpen = {})
+            }
+            started.querySelector(".lib-cover [role=progressbar]")!!.getAttribute("aria-valuenow") shouldBe "50"
+            started.querySelector(".lib-meta")!!.textContent shouldBe "30m left"
+            started.querySelector(".lib-meta")!!.classList.contains("is-progress") shouldBe true
+
+            val finished = mounts.mount { BookCard(book = book, status = BookCardStatus.Finished(3_600_000L), onOpen = {}) }
+            finished.querySelector(".lib-cover .lib-done")!!.getAttribute("aria-label") shouldBe "Finished"
+            finished.querySelector(".lib-cover [role=progressbar]") shouldBe null
+        }
+
+        test("the card's tooltip carries the narrator, so the dense grid can drop the line") {
+            val book = contractBook("b1", "Dune").copy(
+                authors = listOf(BookContributor("a1", "Frank Herbert")),
+                narrators = listOf(BookContributor("n1", "Scott Brick")),
+                duration = 75_720_000L,
+            )
+            val root = mounts.mount { BookCard(book = book, status = BookCardStatus.NotStarted(75_720_000L), onOpen = {}) }
+            root.querySelector(".lib-card")!!.getAttribute("title") shouldBe "Dune · Frank Herbert · read by Scott Brick · 21h 2m"
+            root.querySelector(".lib-narrator")!!.textContent shouldBe "Read by Scott Brick"
         }
     })

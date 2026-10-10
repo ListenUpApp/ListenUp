@@ -28,7 +28,7 @@ class CoverFallbackTest :
         afterTest { mounts.disposeAll() }
 
         test("Library, a contributor's tile and a series row fall back to the same cover") {
-            val library = mounts.mount { BookCard(book = bookItem("b1", TITLE), progress = 0f, onOpen = {}) }
+            val library = mounts.mount { BookCard(book = bookItem("b1", TITLE), status = null, onOpen = {}) }
             val contributor = mounts.mount { RoleTile(book = bookItem("b1", TITLE), progress = null, onOpen = {}) }
             val series =
                 mounts.mount {

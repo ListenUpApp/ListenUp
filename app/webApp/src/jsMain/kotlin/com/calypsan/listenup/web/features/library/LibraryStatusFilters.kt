@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.library
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
@@ -10,6 +13,7 @@ import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Pill
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
+import kotlin.time.Duration.Companion.milliseconds
 
 private const val MS_PER_DAY = 86_400_000L
 private const val MS_PER_HOUR = 3_600_000L
@@ -56,6 +60,27 @@ internal fun filteredEmptyCopy(filter: BookStatusFilter): String =
         // ALL never reaches here: a library with books always matches All.
         BookStatusFilter.FINISHED, BookStatusFilter.ALL -> "No finished books yet."
     }
+
+/** A Library card's last line (spec §2.6): time left, "Finished · 12h 4m", or the length. */
+internal fun cardLastLine(
+    status: BookCardStatus?,
+    durationMs: Long,
+): String =
+    when (status) {
+        is BookCardStatus.InProgress -> "${DurationFormatter.hoursMinutes(status.timeLeftMs.milliseconds)} left"
+        is BookCardStatus.Finished -> "Finished · ${DurationFormatter.hoursMinutes(status.durationMs.milliseconds)}"
+        is BookCardStatus.NotStarted -> DurationFormatter.hoursMinutes(status.durationMs.milliseconds)
+        null -> DurationFormatter.hoursMinutes(durationMs.milliseconds)
+    }
+
+/** The dense grid's hover/focus tooltip (spec §2.6 line 3): title · author · read by … · length. */
+internal fun cardTooltip(book: BookListItem): String =
+    buildList {
+        add(book.title)
+        book.authorNames.takeIf { it.isNotBlank() }?.let(::add)
+        book.narratorNames.takeIf { it.isNotBlank() }?.let { add("read by $it") }
+        add(DurationFormatter.hoursMinutes(book.duration.milliseconds))
+    }.joinToString(" · ")
 
 internal fun BookStatusFilter.webLabel(): String =
     when (this) {
