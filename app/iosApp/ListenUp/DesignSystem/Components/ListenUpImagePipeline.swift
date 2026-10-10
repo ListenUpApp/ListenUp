@@ -15,6 +15,10 @@ enum ListenUpImagePipeline {
     /// Big enough for a large library's thumbnails plus the originals behind the ones opened recently.
     static let diskCacheLimit = 300 * 1024 * 1024
 
+    /// The most one image download may be before Nuke cancels it. The server caps a cover at 10 MiB;
+    /// twice that leaves room for contributor photos and avatars and still refuses a runaway response.
+    static let maximumImageBytes = 20 * 1024 * 1024
+
     static func makeConfiguration(dataLoader: any DataLoading) -> ImagePipeline.Configuration {
         var configuration = ImagePipeline.Configuration.withDataCache(
             name: "audio.listenup.images",
@@ -22,6 +26,7 @@ enum ListenUpImagePipeline {
         )
         configuration.dataLoader = dataLoader
         configuration.dataCachePolicy = .storeAll
+        configuration.maximumResponseDataSize = maximumImageBytes
         return configuration
     }
 

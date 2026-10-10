@@ -17,4 +17,10 @@ struct ListenUpImagePipelineTests {
         let configuration = ListenUpImagePipeline.makeConfiguration(dataLoader: AuthenticatingDataLoader.shared)
         #expect(configuration.dataLoader is AuthenticatingDataLoader)
     }
+
+    @Test func capsADownloadAtTheAppsOwnCeiling() {
+        let configuration = ListenUpImagePipeline.makeConfiguration(dataLoader: AuthenticatingDataLoader.shared)
+        #expect(configuration.maximumResponseDataSize == ListenUpImagePipeline.maximumImageBytes)
+        #expect(ListenUpImagePipeline.maximumImageBytes == 20 * 1024 * 1024)
+    }
 }
