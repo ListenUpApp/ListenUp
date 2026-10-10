@@ -527,3 +527,37 @@ internal val MIGRATION_20_21 =
             connection.executeDdl("ALTER TABLE `books` ADD COLUMN `releaseDate` TEXT")
         }
     }
+
+/**
+ * v21 → v22: Story World events (PR B).
+ *
+ * - The `world_events` and `world_event_mentions` mirror tables. Their DDL is copied verbatim from the
+ *   exported `schemas/…/22.json` `createSql` entries, so `runMigrationsAndValidate` sees the same schema a
+ *   fresh v22 install has.
+ * - No cursor is rewound: the new domain has no cursor yet, so it pulls from zero on its own.
+ *
+ * Non-destructive by construction — CREATE only, per the policy in [ListenUpDatabase].
+ */
+internal val MIGRATION_21_22 =
+    object : Migration(21, 22) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `world_events` (`id` TEXT NOT NULL, `homeSeriesId` TEXT, `homeBookId` TEXT, " +
+                    "`bookId` TEXT, `positionMs` INTEGER, `type` TEXT NOT NULL, `text` TEXT NOT NULL, `detail` TEXT, " +
+                    "`subjectEntityId` TEXT, `objectEntityId` TEXT, `createdBy` TEXT, " +
+                    "`updatedBy` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            )
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_world_events_homeSeriesId` ON `world_events` (`homeSeriesId`)")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_world_events_homeBookId` ON `world_events` (`homeBookId`)")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_world_events_bookId` ON `world_events` (`bookId`)")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_world_events_deletedAt` ON `world_events` (`deletedAt`)")
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `world_event_mentions` (`eventId` TEXT NOT NULL, `entityId` TEXT NOT NULL, " +
+                    "PRIMARY KEY(`eventId`, `entityId`))",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_world_event_mentions_entityId` ON `world_event_mentions` (`entityId`)",
+            )
+        }
+    }

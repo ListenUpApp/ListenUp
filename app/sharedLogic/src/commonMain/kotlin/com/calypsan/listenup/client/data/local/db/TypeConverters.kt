@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.match.LastMatch
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import com.calypsan.listenup.api.sync.EntityKind
+import com.calypsan.listenup.api.sync.WorldEventType
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -242,4 +243,17 @@ internal class EntityKindConverter {
 
     @ColumnTypeConverter
     fun toEntityKind(value: String): EntityKind = EntityKind.fromName(value)
+}
+
+/**
+ * Stores [WorldEventType] by name and reads it back through [WorldEventType.fromName], so a type written by a
+ * newer build (or a newer server's row) reads as [WorldEventType.UNKNOWN] rather than throwing — the
+ * [EntityKindConverter] rule. An event is content, not engine state.
+ */
+internal class WorldEventTypeConverter {
+    @ColumnTypeConverter
+    fun fromWorldEventType(type: WorldEventType): String = type.name
+
+    @ColumnTypeConverter
+    fun toWorldEventType(value: String): WorldEventType = WorldEventType.fromName(value)
 }

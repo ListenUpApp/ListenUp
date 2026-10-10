@@ -106,8 +106,10 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         ReadingOrderEntity::class,
         ReadingOrderBookEntity::class,
         ReadingOrderFollowEntity::class,
+        WorldEventEntity::class,
+        WorldEventMentionEntity::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = true,
 )
 @ColumnTypeConverters(
@@ -117,6 +119,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
     FieldProvenanceConverter::class,
     LastMatchConverter::class,
     EntityKindConverter::class,
+    WorldEventTypeConverter::class,
 )
 @ConstructedBy(ListenUpDatabaseConstructor::class)
 @Suppress("TooManyFunctions")
@@ -200,6 +203,8 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun bookExternalRatingDao(): BookExternalRatingDao
 
     abstract fun entityDao(): EntityDao
+
+    abstract fun worldEventDao(): WorldEventDao
 
     abstract fun readingOrderDao(): ReadingOrderDao
 

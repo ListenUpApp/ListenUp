@@ -13,7 +13,7 @@ import java.nio.file.Paths
 import kotlinx.coroutines.runBlocking
 
 /**
- * Drift guard for the committed Room schema baseline (currently **v21** — the Room 3 baseline plus
+ * Drift guard for the committed Room schema baseline (currently **v22** — the Room 3 baseline plus
  * the v1 → v2 volume-boost migration, the v2 → v3 `books.normalizationGainDb` migration, the
  * v3 → v4 per-user permission flags, the v4 → v5 presence-cache columns, the v5 → v6 numeric
  * `book_series.sequence`, the v6 → v7 `notifications` inbox table, the v7 → v8 two-tier
@@ -24,12 +24,12 @@ import kotlinx.coroutines.runBlocking
  * `book_readership.finishesAlsoOnHardcoverJson` column, the v15 → v16 series-hierarchy columns,
  * the v16 → v17 `libraries.metadataRegion` column, the v17 → v18 `books.lastMatch` column, the
  * v18 → v19 `canCurateLibrary` columns, the v19 → v20 Story World entities table and flags, and the
- * v20 → v21 reading-order tables and columns).
+ * v20 → v21 reading-order tables and columns, and the v21 → v22 Story World event tables).
  *
- * The current authoritative baseline is `schemas/…/ListenUpDatabase/21.json`. Nothing else asserts
+ * The current authoritative baseline is `schemas/…/ListenUpDatabase/22.json`. Nothing else asserts
  * that this JSON still matches the compiled `@Entity` set: Room's Gradle plugin *re-exports* the
  * JSON on build instead of failing, so an entity edit that forgets to commit the regenerated
- * `21.json` — or a JSON edit that doesn't match the entities — is invisible to CI.
+ * `22.json` — or a JSON edit that doesn't match the entities — is invisible to CI.
  *
  * This test closes that gap. It creates a database whose schema (and stored identity hash)
  * comes from the committed baseline JSON, then reopens the same file with the real compiled
@@ -44,7 +44,7 @@ import kotlinx.coroutines.runBlocking
  */
 class SchemaBaselineDriftTest :
     FunSpec({
-        test("compiled ListenUpDatabase opens a database created from the committed 21.json baseline") {
+        test("compiled ListenUpDatabase opens a database created from the committed 22.json baseline") {
             // Resolve the exported-schema directory the same way the shared helper does:
             // Gradle runs :app:sharedLogic:jvmTest with the module root as working directory,
             // so `schemas` points at the Room-plugin export folder.
@@ -70,9 +70,9 @@ class SchemaBaselineDriftTest :
                 )
 
             try {
-                // Create the schema in `databasePath` FROM the committed 21.json (this also
+                // Create the schema in `databasePath` FROM the committed 22.json (this also
                 // writes the JSON's identity hash into room_master_table), then release it.
-                helper.createDatabase(version = 21).close()
+                helper.createDatabase(version = 22).close()
 
                 // Reopen the SAME file with the real compiled database — deliberately WITHOUT
                 // fallbackToDestructiveMigration, so Room's identity-hash validation runs
@@ -85,8 +85,8 @@ class SchemaBaselineDriftTest :
 
                 try {
                     withClue(
-                        "committed 21.json no longer matches the compiled @Entity schema — " +
-                            "regenerate app/sharedLogic/schemas/…/ListenUpDatabase/21.json " +
+                        "committed 22.json no longer matches the compiled @Entity schema — " +
+                            "regenerate app/sharedLogic/schemas/…/ListenUpDatabase/22.json " +
                             "(the build re-exports it) and commit the diff",
                     ) {
                         // First connection use forces Room to open and validate the stored
