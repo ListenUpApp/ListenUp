@@ -29,13 +29,11 @@ import kotlin.time.Clock
  * Translates read requests and user-edit mutations for series entities from
  * the wire contract to repository calls.
  *
- * [updateSeries] reads the current row, applies the patch field-by-field
- * (`null` means "don't touch"), and writes it back through the syncable substrate
- * so the revision bumps and the change-bus fires uniformly. The read-then-write
- * runs inside one [suspendTransaction] so concurrent edits can't interleave.
- * When `name` or `sortName` changes, the post-commit pass kicks the FTS reindex
- * for every linked book — reindex failure is logged and swallowed so a flaky FTS
- * write can't roll back a successful DB update.
+ * [updateSeries] applies the patch field-by-field (`null` means "don't touch") through the
+ * syncable substrate's `patchLive`, so the revision bumps and the change-bus fires uniformly.
+ * The read and the write share one transaction, so concurrent edits can't interleave, and a
+ * deleted or merged-away series answers [SeriesError.NotFound] rather than being revived by
+ * the edit.
  *
  * [deleteSeries] hard-deletes the junction rows linking the series to
  * every book (the canonical mass-removal idiom for many-to-many catalogues), then
@@ -154,17 +152,10 @@ internal class SeriesServiceImpl(
         patch: SeriesUpdate,
     ): AppResult<Unit> {
         requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        val current =
-            seriesRepo.findById(id.value)
-                ?: return seriesNotFound(id)
-        val patched = current.applyPatch(patch)
-        val nameChanged = patched.name != current.name || patched.sortName != current.sortName
-        val outcome: SeriesUpdateOutcome =
-            when (val upsertResult = seriesRepo.upsert(patched)) {
-                is AppResult.Success -> SeriesUpdateOutcome(nameChanged, AppResult.Success(Unit))
-                is AppResult.Failure -> SeriesUpdateOutcome(false, AppResult.Failure(upsertResult.error))
-            }
-        return outcome.result
+        return when (val patched = seriesRepo.patchLive(id) { it.applyPatch(patch) }) {
+            is AppResult.Failure -> AppResult.Failure(patched.error)
+            is AppResult.Success -> if (patched.data == null) seriesNotFound(id) else AppResult.Success(Unit)
+        }
     }
 
     override suspend fun mergeSeries(
@@ -364,11 +355,6 @@ fun seriesServiceScopedTo(
     service: SeriesService,
     principal: PrincipalProvider,
 ): SeriesService = (service as SeriesServiceImpl).copyWith(principal)
-
-private data class SeriesUpdateOutcome(
-    val reindexNeeded: Boolean,
-    val result: AppResult<Unit>,
-)
 
 internal fun seriesNotFound(id: SeriesId): AppResult.Failure =
     AppResult.Failure(SeriesError.NotFound(debugInfo = "seriesId=${id.value}"))

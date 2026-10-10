@@ -285,6 +285,46 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
     }
 
     /**
+     * Reads the row with [id], applies [patch] and writes the result — all in one transaction, so
+     * a concurrent writer cannot slip between the read and the write. Returns null data when no row
+     * has that id **or the row is a tombstone**: an edit must never bring back what was deleted or
+     * merged away. On success returns the row before and after. A refused patch still consumes one
+     * revision number; revisions are sparse by design.
+     */
+    suspend fun patchLive(
+        id: ID,
+        clientOpId: String? = null,
+        userId: String? = null,
+        patch: (T) -> T,
+    ): AppResult<Pair<T, T>?> {
+        requireUserForScopedWrite(userId)
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+        val capture = currentCoroutineContext()[FrameCapture.Key]
+        val written =
+            suspendTransaction(db) {
+                // Revision first: it makes this transaction a writer before it reads, so the row
+                // it patches cannot be changed underneath it.
+                val revision = nextRevision()
+                val current = readPayload(idAsString(id))
+                if (current == null || (current as? Tombstoned)?.deletedAt != null) {
+                    null
+                } else {
+                    val (saved, event) =
+                        upsertEventInOpenTransaction(
+                            value = patch(current),
+                            suppressed = suppressed,
+                            clientOpId = clientOpId,
+                            userId = userId,
+                            revision = revision,
+                        )
+                    Triple(current, saved, event)
+                }
+            }
+        if (written != null && capture != null && !suppressed) capture.add(toSyncFrame(written.third))
+        return AppResult.Success(written?.let { it.first to it.second })
+    }
+
+    /**
      * Insert-or-update [value] inside an **already-open** SQLDelight transaction — the
      * batched-write counterpart to [upsert].
      *

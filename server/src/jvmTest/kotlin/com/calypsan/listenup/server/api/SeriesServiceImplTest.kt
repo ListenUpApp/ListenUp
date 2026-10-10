@@ -143,6 +143,77 @@ class SeriesServiceImplTest :
             }
         }
 
+        test("updateSeries on a deleted series is NotFound and leaves it deleted") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(this)
+                val service = deps.service
+                val seriesRepo = deps.seriesRepo
+                runTest {
+                    val id = seriesRepo.resolveOrCreate("Mistborn")
+                    service.deleteSeries(id).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val result = service.updateSeries(id, SeriesUpdate(name = "Renamed"))
+
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<SeriesError.NotFound>()
+                    val reread = seriesRepo.findById(id.value).shouldNotBeNull()
+                    reread.deletedAt.shouldNotBeNull()
+                    reread.name shouldBe "Mistborn"
+                }
+            }
+        }
+
+        test("updateSeries on a merged-away series is NotFound and keeps its merge redirect") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(this)
+                val service = deps.service
+                val seriesRepo = deps.seriesRepo
+                runTest {
+                    val sourceId = seriesRepo.resolveOrCreate("Mistborn Era 1")
+                    val targetId = seriesRepo.resolveOrCreate("Mistborn")
+                    service.mergeSeries(sourceId, targetId).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val result = service.updateSeries(sourceId, SeriesUpdate(name = "Renamed"))
+
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<SeriesError.NotFound>()
+                    seriesRepo
+                        .findById(sourceId.value)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
+                    seriesRepo.resolveOrCreate("Mistborn Era 1") shouldBe targetId
+                }
+            }
+        }
+
+        test("patchLive hands the patch the row as it is inside the transaction") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(this)
+                val seriesRepo = deps.seriesRepo
+                runTest {
+                    val id = seriesRepo.resolveOrCreate("The Stormlight Archive")
+                    val stale = seriesRepo.findById(id.value).shouldNotBeNull()
+                    seriesRepo.upsert(stale.copy(description = "D")).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    seriesRepo
+                        .patchLive(SeriesId(id.value)) { it.copy(name = "N") }
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val saved = seriesRepo.findById(id.value).shouldNotBeNull()
+                    saved.description shouldBe "D"
+                    saved.name shouldBe "N"
+                }
+            }
+        }
+
         // ── deleteSeries ───────────────────────────────────────────────────────
 
         test("deleteSeries cascades — drops junctions, re-upserts affected books, soft-deletes the series") {

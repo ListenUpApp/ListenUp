@@ -157,27 +157,20 @@ internal class ContributorServiceImpl(
         patch: ContributorUpdate,
     ): AppResult<Unit> {
         requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        val current =
-            contributorRepo.findById(id.value)
-                ?: return contributorNotFound(id)
         val editorId = principal.current()?.run { userId.value }
-        val patched =
-            current.applyPatch(patch).let { applied ->
-                applied.copy(
-                    fieldProvenance =
-                        applied.fieldProvenance.stampUser(
-                            patch.touchedFields(),
-                            editorId,
-                        ),
-                )
-            }
-        val nameChanged = patched.name != current.name || patched.sortName != current.sortName
-        val outcome: UpdateOutcome =
-            when (val upsertResult = contributorRepo.upsert(patched)) {
-                is AppResult.Success -> UpdateOutcome(nameChanged, AppResult.Success(Unit))
-                is AppResult.Failure -> UpdateOutcome(false, AppResult.Failure(upsertResult.error))
-            }
-        return outcome.result
+        return when (
+            val patched =
+                contributorRepo.patchLive(id) { current ->
+                    current.applyPatch(patch).let { applied ->
+                        applied.copy(
+                            fieldProvenance = applied.fieldProvenance.stampUser(patch.touchedFields(), editorId),
+                        )
+                    }
+                }
+        ) {
+            is AppResult.Failure -> AppResult.Failure(patched.error)
+            is AppResult.Success -> if (patched.data == null) contributorNotFound(id) else AppResult.Success(Unit)
+        }
     }
 
     override suspend fun mergeContributors(
@@ -419,11 +412,6 @@ fun contributorServiceScopedTo(
     service: ContributorService,
     principal: PrincipalProvider,
 ): ContributorService = (service as ContributorServiceImpl).copyWith(principal)
-
-private data class UpdateOutcome(
-    val reindexNeeded: Boolean,
-    val result: AppResult<Unit>,
-)
 
 private fun contributorNotFound(id: ContributorId): AppResult.Failure =
     AppResult.Failure(ContributorError.NotFound(debugInfo = "contributorId=${id.value}"))
