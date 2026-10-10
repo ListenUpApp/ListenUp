@@ -90,6 +90,7 @@ class TranscodeSessionEngine(
 ) {
     private val mutex = Mutex()
     private val running = mutableMapOf<String, RunningSession>()
+    private val badSegmentStrikes = mutableMapOf<String, Int>()
 
     /**
      * Makes sure an encoder is working towards [fromSegment] of [session].
@@ -118,6 +119,27 @@ class TranscodeSessionEngine(
 
             running[key] = spawn(session, fromSegment) ?: return@withLock SessionAdmission.Unsupported
             SessionAdmission.Admitted
+        }
+
+    /**
+     * Records that segment [index] came out wrong and drops the run that produced it, so the next
+     * request starts an encoder at [index] rather than being admitted to one that has already
+     * passed it. Returns false once the same segment has failed [MAX_BAD_SEGMENT_RETRIES] times:
+     * a source that encodes short every time must not be re-encoded on every tap.
+     */
+    suspend fun abandonBadSegment(
+        bookId: String,
+        fileId: String,
+        index: Int,
+    ): Boolean =
+        mutex.withLock {
+            val strikeKey = "${key(bookId, fileId)}/$index"
+            val strikes = (badSegmentStrikes[strikeKey] ?: 0) + 1
+            if (strikes > MAX_BAD_SEGMENT_RETRIES) return@withLock false
+            badSegmentStrikes[strikeKey] = strikes
+            val abandoned = running.remove(key(bookId, fileId))
+            if (abandoned != null) abandoned.spawner.stop()
+            true
         }
 
     /**
@@ -250,6 +272,9 @@ class TranscodeSessionEngine(
          * — a few minutes over it is fine, a stat storm every ten seconds is not.
          */
         const val CACHE_SWEEP_MILLIS = 5 * 60_000L
+
+        /** Re-encodes a segment that failed its frame check this many times before giving up on it. */
+        const val MAX_BAD_SEGMENT_RETRIES = 2
 
         fun key(
             bookId: String,

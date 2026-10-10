@@ -151,6 +151,30 @@ class TranscodeSessionEngineTest :
             fixture.cleanUp()
         }
 
+        test("abandoning a bad segment stops the run and allows two more attempts") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+
+            fixture.engine.abandonBadSegment("b1", "f1", 4) shouldBe true
+            fake.killed shouldBe 1
+            fixture.engine.ensureRunning(SESSION, fromSegment = 4)
+            fake.commands.size shouldBe 2
+            fixture.engine.abandonBadSegment("b1", "f1", 4) shouldBe true
+            fixture.engine.abandonBadSegment("b1", "f1", 4) shouldBe false
+            fixture.cleanUp()
+        }
+
+        test("strikes are counted per segment") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+            fixture.engine.abandonBadSegment("b1", "f1", 4)
+            fixture.engine.abandonBadSegment("b1", "f1", 4)
+
+            fixture.engine.abandonBadSegment("b1", "f1", 5) shouldBe true
+            fixture.cleanUp()
+        }
+
         test("a live encoder within reach is still reused") {
             val fake = FakeSpawner()
             val fixture = engineWith(fake)

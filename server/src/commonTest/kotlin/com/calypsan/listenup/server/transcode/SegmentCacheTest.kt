@@ -41,6 +41,20 @@ class SegmentCacheTest :
             deleteRecursively(dir)
         }
 
+        test("evicting one segment removes only that segment") {
+            val dir = tempDir()
+            val cache = SegmentCache(dir)
+            cache.prepareDir("b1", "f1")
+            for (index in 0..2) cache.segmentPath("b1", "f1", index).writeBytes(ByteArray(16))
+
+            cache.evictSegment("b1", "f1", 1)
+
+            cache.has("b1", "f1", 1) shouldBe false
+            cache.has("b1", "f1", 0) shouldBe true
+            cache.has("b1", "f1", 2) shouldBe true
+            deleteRecursively(dir)
+        }
+
         test("reports a segment absent before it is written and present after") {
             val dir = tempDir()
             val cache = SegmentCache(dir)
