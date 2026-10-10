@@ -241,7 +241,7 @@ class PasswordResetService(
                     val codeOk =
                         row.code_hash?.let {
                             constantTimeEquals(hasher.hash(CODE_DOMAIN + ResetCodeGenerator.normalize(code)), it)
-                        } ?: false
+                        } == true
 
                     if (!claimOk || !codeOk) {
                         db.passwordResetRequestsQueries.incrementAttempts(rowUuid)

@@ -78,7 +78,10 @@ private fun org.koin.core.module.Module.adminUserServiceSingle(applicationScope:
             clock = get(),
             publicProfileMaintainer = getOrNull(),
             bookRatingRepository = getOrNull(),
-            forgetHardcoverConnection = getOrNull<HardcoverConnectionStore>()?.let { store -> { userId -> store.delete(userId) } },
+            forgetHardcoverConnection =
+                getOrNull<HardcoverConnectionStore>()?.let { store ->
+                    { userId -> store.delete(userId) }
+                },
             activityRecorder = getOrNull(),
             defaultGrantIssuer = getOrNull(),
             pushNotifier = getOrNull(),

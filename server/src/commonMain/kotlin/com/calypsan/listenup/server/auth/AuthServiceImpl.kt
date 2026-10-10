@@ -285,8 +285,19 @@ class AuthServiceImpl(
                     true
                 }
             }
-        if (!inserted) return AppResult.Failure(AuthError.EmailAlreadyExists())
+        return if (inserted) {
+            completeRegistration(request, user, status)
+        } else {
+            AppResult.Failure(AuthError.EmailAlreadyExists())
+        }
+    }
 
+    /** Issues the session (or queues the applicant) and runs the side-effects of a freshly inserted sign-up. */
+    private suspend fun completeRegistration(
+        request: RegisterRequest,
+        user: AuthUser,
+        status: UserStatusColumn,
+    ): AppResult<RegisterResult> {
         val outcome =
             if (status == UserStatusColumn.PENDING_APPROVAL) {
                 RegisterResult.PendingApproval(userId = UserId(user.id))
