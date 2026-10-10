@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.io.RawSink
 
 private val logger = KotlinLogging.logger {}
@@ -137,26 +139,39 @@ class AdminBackupViewModel(
      * Stream the backup identified by [id] into [sink] (a user-chosen file on the device), then close
      * [sink] so the underlying file flushes and finalizes — even if the write was cancelled. Emits
      * [downloadSaved] on success; routes failures to the global snackbar.
+     *
+     * This view model owns the destination from the moment it is handed [sink]: it closes it, and
+     * when the download did not complete (it failed, or the admin left mid-transfer) it runs
+     * [discardDestination] so a truncated file is not left looking like a backup. The platform
+     * supplies what "discard" means — a picker-created document is deleted, a memory sink needs
+     * nothing.
      */
     fun downloadBackup(
         id: BackupId,
         sink: RawSink,
+        discardDestination: suspend () -> Unit = {},
     ) {
         viewModelScope.launch {
-            val result =
-                try {
-                    backupRepository.downloadBackup(id, sink)
-                } finally {
-                    sink.close()
-                }
-            when (result) {
-                is AppResult.Success -> {
-                    _downloadSaved.trySend(Unit)
-                }
+            var saved = false
+            try {
+                val result = backupRepository.downloadBackup(id, sink)
+                saved = result is AppResult.Success
+                when (result) {
+                    is AppResult.Success -> {
+                        _downloadSaved.trySend(Unit)
+                    }
 
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to download backup: ${result.error.message}" }
+                    is AppResult.Failure -> {
+                        errorBus.emit(result.error)
+                        logger.error { "Failed to download backup: ${result.error.message}" }
+                    }
+                }
+            } finally {
+                // NonCancellable: on an abandoned download this runs while the scope is already
+                // cancelling, and a plain suspend call would abort at its first suspension point.
+                withContext(NonCancellable) {
+                    sink.close()
+                    if (!saved) discardDestination()
                 }
             }
         }

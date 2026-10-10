@@ -1,6 +1,13 @@
 package com.calypsan.listenup.client.features.admin.backup
 
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.calypsan.listenup.core.IODispatcher
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -103,6 +110,14 @@ import listenup.composeapp.generated.resources.common_administration
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
+private val logger = KotlinLogging.logger {}
+
+/** Removes a document the Save-As picker created but the download did not fill. */
+private fun ContentResolver.discardDocument(uri: Uri) {
+    runCatching { DocumentsContract.deleteDocument(this, uri) }
+        .onFailure { logger.warn { "Could not remove the unfinished backup file" } }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Suppress("LongMethod")
@@ -122,20 +137,29 @@ fun AdminBackupScreen(
     val downloadNotices = rememberBackupDownloadNotices()
 
     // The backup chosen for download — set when the user taps Download, consumed when the
-    // Save-As picker returns a destination URI.
-    var pendingDownloadBackup by remember { mutableStateOf<BackupInfo?>(null) }
+    // Save-As picker returns a destination URI. Saveable: the activity-result registration
+    // survives a recreation while the picker is open, and a forgotten choice would leave the
+    // document the picker already created empty.
+    var pendingDownloadBackupId by rememberSaveable { mutableStateOf<String?>(null) }
 
+    // The application's resolver, not the activity's: the discard below runs in the view model's
+    // scope, which can outlive this activity.
+    val resolver = context.applicationContext.contentResolver
     val saveBackupLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-            val backup = pendingDownloadBackup
-            pendingDownloadBackup = null
-            if (uri == null || backup == null) return@rememberLauncherForActivityResult
-            val outputStream = context.contentResolver.openOutputStream(uri)
-            if (outputStream == null) {
+            val backupId = pendingDownloadBackupId
+            pendingDownloadBackupId = null
+            // The admin cancelled the picker: nothing was created.
+            if (uri == null) return@rememberLauncherForActivityResult
+            val outputStream = if (backupId == null) null else resolver.openOutputStream(uri)
+            if (backupId == null || outputStream == null) {
+                resolver.discardDocument(uri)
                 downloadNotices.failed()
                 return@rememberLauncherForActivityResult
             }
-            backupViewModel.downloadBackup(BackupId(backup.id), outputStream.asSink())
+            backupViewModel.downloadBackup(BackupId(backupId), outputStream.asSink()) {
+                withContext(IODispatcher) { resolver.discardDocument(uri) }
+            }
         }
 
     // Confirm a completed download in the app's snackbar.
@@ -177,7 +201,7 @@ fun AdminBackupScreen(
                 onRestoreFromFileClick = onRestoreFromFileClick,
                 onDeleteClick = { backupViewModel.showDeleteConfirmation(it) },
                 onDownloadClick = { backup ->
-                    pendingDownloadBackup = backup
+                    pendingDownloadBackupId = backup.id
                     saveBackupLauncher.launch("${backup.id}.listenup.zip")
                 },
                 onABSImportClick = onABSImportHubClick,

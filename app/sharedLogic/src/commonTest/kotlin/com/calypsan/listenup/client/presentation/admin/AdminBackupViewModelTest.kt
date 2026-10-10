@@ -17,9 +17,13 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -295,6 +299,76 @@ class AdminBackupViewModelTest :
                 }
             }
         }
+
+        context("the destination the Save-As picker created") {
+            test("a failed download discards the destination") {
+                runTest(testDispatcher) {
+                    val repo =
+                        FakeBackupRepository(
+                            listResult = AppResult.Success(listOf(summary(id = "bk-1"))),
+                            downloadResult = AppResult.Failure(TransportError.NetworkUnavailable()),
+                        )
+                    val viewModel = AdminBackupViewModel(repo, errorBus = ErrorBus())
+                    advanceUntilIdle()
+                    var discarded = false
+
+                    viewModel.downloadSaved.test {
+                        viewModel.downloadBackup(BackupId("bk-1"), Buffer()) { discarded = true }
+                        advanceUntilIdle()
+                        expectNoEvents()
+                    }
+
+                    discarded shouldBe true
+                }
+            }
+
+            test("a cancelled download discards the destination, even though its scope is already cancelling") {
+                runTest(testDispatcher) {
+                    val repo =
+                        FakeBackupRepository(
+                            listResult = AppResult.Success(listOf(summary(id = "bk-1"))),
+                            downloadBlock = { awaitCancellation() },
+                        )
+                    val viewModel = AdminBackupViewModel(repo, errorBus = ErrorBus())
+                    advanceUntilIdle()
+                    var discarded = false
+
+                    viewModel.downloadBackup(BackupId("bk-1"), Buffer()) {
+                        // A real suspension point: without NonCancellable it throws in the cancelling scope.
+                        yield()
+                        discarded = true
+                    }
+                    advanceUntilIdle()
+                    discarded shouldBe false
+
+                    viewModel.viewModelScope.cancel()
+                    advanceUntilIdle()
+
+                    discarded shouldBe true
+                }
+            }
+
+            test("a successful download does not discard the destination") {
+                runTest(testDispatcher) {
+                    val repo =
+                        FakeBackupRepository(
+                            listResult = AppResult.Success(listOf(summary(id = "bk-1"))),
+                            downloadResult = AppResult.Success(Unit),
+                        )
+                    val viewModel = AdminBackupViewModel(repo, errorBus = ErrorBus())
+                    advanceUntilIdle()
+                    var discarded = false
+
+                    viewModel.downloadSaved.test {
+                        viewModel.downloadBackup(BackupId("bk-1"), Buffer()) { discarded = true }
+                        advanceUntilIdle()
+                        awaitItem() shouldBe Unit
+                    }
+
+                    discarded shouldBe false
+                }
+            }
+        }
     })
 
 /**
@@ -308,6 +382,7 @@ private class FakeBackupRepository(
     private val deleteResult: AppResult<Unit> = AppResult.Success(Unit),
     private val restoreResult: AppResult<RestoreResult> = AppResult.Failure(stubError),
     private val downloadResult: AppResult<Unit> = AppResult.Success(Unit),
+    private val downloadBlock: (suspend () -> AppResult<Unit>)? = null,
 ) : BackupRepository {
     private val queued = listResults.also { if (listResult != null) it.addFirst(listResult) }
 
@@ -322,7 +397,7 @@ private class FakeBackupRepository(
     override suspend fun downloadBackup(
         id: BackupId,
         sink: RawSink,
-    ): AppResult<Unit> = downloadResult
+    ): AppResult<Unit> = downloadBlock?.invoke() ?: downloadResult
 
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> {
         createImagesArg = includeImages
