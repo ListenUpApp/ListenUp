@@ -30,6 +30,7 @@ internal class AuthFailureObserver(
     errorBus: ErrorBus,
     private val authSession: AuthSession,
     scope: CoroutineScope,
+    private val fullSignOut: suspend () -> Unit,
 ) {
     init {
         scope.launch {
@@ -42,9 +43,10 @@ internal class AuthFailureObserver(
                     if (error.invalidatesSession() && authSession.authState.value is AuthState.Authenticated) {
                         if (error is AuthError.ServerInstanceChanged) {
                             // A DIFFERENT server ⇒ the cached library's provenance is broken —
-                            // full sign-out wall is correct (spec §14/Q2).
+                            // the full local sign-out (library wiped, tokens cleared) is correct
+                            // (spec §14/Q2).
                             logger.info { "Server instance changed (${error.code}); full sign-out → login" }
-                            authSession.clearAuthTokens()
+                            fullSignOut()
                         } else {
                             // Same-server expiry/refresh-death: soft-lapse. Local content stays
                             // usable; the shell banner offers sign-in (M2/M3).

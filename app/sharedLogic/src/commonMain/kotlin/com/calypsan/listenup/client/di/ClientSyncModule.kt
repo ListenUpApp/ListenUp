@@ -62,6 +62,7 @@ import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.ConnectionHealthReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -93,6 +94,8 @@ import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.TagId
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -515,11 +518,17 @@ internal val clientSyncModule =
                 // the live tail — same lazy-SyncEngine resolution as onCursorStale to break the
                 // construction cycle.
                 onAccessChanged = { scope -> get<SyncEngine>().handleAccessChanged(scope) },
-                // Account deleted by an admin: clear auth (soft logout → NeedsLogin),
-                // the same path the 401 fallback uses. Resolved lazily to avoid pulling
-                // AuthSession into the dispatcher's construction graph. The reason is logged
-                // by the dispatcher; there's no existing one-shot channel here to surface it.
-                onUserDeleted = { _ -> get<AuthSession>().clearAuthTokens() },
+                // Account deleted by an admin: the full local sign-out, the same clean slate as Sign Out.
+                // Launched on the app scope because this callback runs inside the engine's frame
+                // collector, and the sign-out's first act is to stop and join that collector. Resolved
+                // lazily to avoid pulling LogoutUseCase into the dispatcher's construction graph. The
+                // reason is logged by the dispatcher; there's no existing one-shot channel here to
+                // surface it.
+                onUserDeleted = { _ ->
+                    get<CoroutineScope>(qualifier = named(APP_SCOPE)).launch {
+                        get<LogoutUseCase>().logoutLocally()
+                    }
+                },
                 // The server's content-free bulk-write nudge (e.g. an ABS import's firehose-suppressed
                 // burst): the suppressed rows are written ABOVE the client cursor, so a digest-only
                 // reconcile (forceReconcile) can't see them — it fingerprints AT the cursor. Route

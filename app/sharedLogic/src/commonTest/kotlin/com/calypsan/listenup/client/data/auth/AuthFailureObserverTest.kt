@@ -71,7 +71,7 @@ class AuthFailureObserverTest :
                     store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "session", "user")
                     store.authState.value.shouldBeInstanceOf<AuthState.Authenticated>()
 
-                    AuthFailureObserver(errorBus, store, scope)
+                    AuthFailureObserver(errorBus, store, scope, fullSignOut = {})
                     errorBus.emit(AuthError.SessionExpired())
 
                     store.authState.value shouldBe AuthState.SessionLapsed(UserId("user"))
@@ -81,18 +81,39 @@ class AuthFailureObserverTest :
             }
         }
 
-        test("ServerInstanceChanged while Authenticated keeps the full sign-out wall (NeedsLogin)") {
+        test("ServerInstanceChanged while Authenticated runs the full local sign-out") {
             runTest {
                 val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
                 try {
                     val errorBus = ErrorBus()
                     val store = authenticatedStore()
                     store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "session", "user")
+                    var signOuts = 0
 
-                    AuthFailureObserver(errorBus, store, scope)
+                    AuthFailureObserver(errorBus, store, scope, fullSignOut = { signOuts++ })
                     errorBus.emit(AuthError.ServerInstanceChanged())
 
-                    store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                    signOuts shouldBe 1
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("SessionExpired never runs the full sign-out") {
+            runTest {
+                val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+                try {
+                    val errorBus = ErrorBus()
+                    val store = authenticatedStore()
+                    store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "session", "user")
+                    var signOuts = 0
+
+                    AuthFailureObserver(errorBus, store, scope, fullSignOut = { signOuts++ })
+                    errorBus.emit(AuthError.SessionExpired())
+
+                    signOuts shouldBe 0
+                    store.authState.value shouldBe AuthState.SessionLapsed(UserId("user"))
                 } finally {
                     scope.cancel()
                 }
@@ -111,7 +132,7 @@ class AuthFailureObserverTest :
                             onClearSessionCredentials = { softClears++ },
                         )
 
-                    AuthFailureObserver(errorBus, session, scope)
+                    AuthFailureObserver(errorBus, session, scope, fullSignOut = {})
                     errorBus.emit(AuthError.SessionExpired())
 
                     softClears shouldBe 0
@@ -129,7 +150,7 @@ class AuthFailureObserverTest :
                     val store = authenticatedStore()
                     store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "session", "user")
 
-                    AuthFailureObserver(errorBus, store, scope)
+                    AuthFailureObserver(errorBus, store, scope, fullSignOut = {})
                     errorBus.emit(TransportError.Server5xx(statusCode = 500))
 
                     store.authState.value.shouldBeInstanceOf<AuthState.Authenticated>()
@@ -148,7 +169,7 @@ class AuthFailureObserverTest :
                     // Never authenticated — store stays in its initial state.
                     val before = store.authState.value
 
-                    AuthFailureObserver(errorBus, store, scope)
+                    AuthFailureObserver(errorBus, store, scope, fullSignOut = {})
                     errorBus.emit(AuthError.SessionExpired())
 
                     store.authState.value shouldBe before
@@ -176,7 +197,7 @@ class AuthFailureObserverTest :
                             },
                         )
 
-                    AuthFailureObserver(errorBus, session, scope)
+                    AuthFailureObserver(errorBus, session, scope, fullSignOut = {})
                     errorBus.emit(AuthError.SessionExpired()) // 1st: clearSessionCredentials throws → guard must absorb
                     errorBus.emit(AuthError.SessionExpired()) // 2nd: only reached if the collector survived
 
