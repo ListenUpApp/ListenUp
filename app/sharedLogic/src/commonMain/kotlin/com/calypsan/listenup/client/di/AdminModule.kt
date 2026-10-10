@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl
 import com.calypsan.listenup.client.data.remote.UploadApi
+import com.calypsan.listenup.client.data.remote.UploadApiContract
 import com.calypsan.listenup.client.data.repository.ImportRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UploadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.OrganizeRepositoryImpl
@@ -75,9 +76,11 @@ internal val adminModule: Module =
         }
 
         // UploadRepository — admin book upload. No RPC channel: the whole surface is REST, because
-        // multi-GiB audio cannot ride a JSON-RPC frame.
+        // multi-GiB audio cannot ride a JSON-RPC frame. The API is its own binding so the browser can
+        // replace it: Ktor's JS engine buffers a request body whole (see browserUploadModule).
+        single<UploadApiContract> { UploadApi(clientFactory = get()) }
         single<UploadRepository> {
-            UploadRepositoryImpl(api = UploadApi(clientFactory = get()))
+            UploadRepositoryImpl(api = get())
         }
 
         // OrganizeService RPC channel — admin file organizer (settings, preview, run progress).

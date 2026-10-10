@@ -28,9 +28,16 @@ private const val FINALIZE_TIMEOUT_MS = 15L * 60 * 1_000
 /**
  * Raw-HTTP implementation of [UploadApiContract].
  *
- * Bytes never buffer: [ChannelProvider] opens the [FileSource] on demand as the request body
- * drains, so a 4 GiB audiobook streams through a constant-size window rather than through the
- * client's heap. Progress rides Ktor's own `onUpload` hook for the same reason — counting whole
+ * On Android/JVM (OkHttp) and Apple (Darwin) bytes never buffer: [ChannelProvider] opens the
+ * [FileSource] on demand as the request body drains, so a 4 GiB audiobook streams through a
+ * constant-size window rather than through the client's heap.
+ *
+ * ⛔ **Not in a browser.** Ktor's JS engine drains a request body into one `ByteArray` and copies it
+ * again before calling `fetch`, so a real audiobook dies inside the engine with `RangeError: Invalid
+ * array length`. The browser binds `BrowserUploadApi` instead, whose file send is the browser's own
+ * XMLHttpRequest streaming the picked file from disk; this class still serves its other three calls.
+ *
+ * Progress rides Ktor's own `onUpload` hook — counting whole
  * files would leave a single-file book sitting at 0% for its entire upload and then jumping to
  * 100%, which is exactly the kind of lie the app is supposed to not tell.
  *

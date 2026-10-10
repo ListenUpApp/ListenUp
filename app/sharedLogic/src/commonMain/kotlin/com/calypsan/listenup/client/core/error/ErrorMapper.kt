@@ -74,24 +74,7 @@ internal object ErrorMapper {
             }
 
             exception is ResponseException -> {
-                val status = exception.response.status.value
-                when {
-                    // 401 means the session is stale/invalid — type it as an auth error at the
-                    // boundary so the global auth-failure observer drives the app back to login
-                    // instead of looping a generic "server error" snackbar. 403
-                    // (authenticated-but-forbidden) stays a plain 4xx — it is not a session failure.
-                    status == HttpStatusCode.Unauthorized.value -> {
-                        AuthError.SessionExpired(debugInfo = exception.message)
-                    }
-
-                    status in 500..599 -> {
-                        TransportError.Server5xx(statusCode = status, debugInfo = exception.message)
-                    }
-
-                    else -> {
-                        TransportError.Server4xx(statusCode = status, debugInfo = exception.message)
-                    }
-                }
+                forHttpStatus(exception.response.status.value, debugInfo = exception.message)
             }
 
             exception is SerializationException -> {
@@ -159,6 +142,33 @@ internal object ErrorMapper {
                 UnexpectedClientError(
                     debugInfo = listOfNotNull(exception::class.simpleName, exception.message).joinToString(": "),
                 ).also { logUnanticipated(exception) }
+            }
+        }
+
+    /**
+     * The typed error for a non-2xx HTTP [status] — the one status mapping, shared by Ktor's
+     * [ResponseException] arm above and by a transport that reads a status without Ktor (the
+     * browser's XMLHttpRequest upload), so the two can never disagree about what a status means.
+     */
+    fun forHttpStatus(
+        status: Int,
+        debugInfo: String?,
+    ): AppError =
+        when {
+            // 401 means the session is stale/invalid — type it as an auth error at the
+            // boundary so the global auth-failure observer drives the app back to login
+            // instead of looping a generic "server error" snackbar. 403
+            // (authenticated-but-forbidden) stays a plain 4xx — it is not a session failure.
+            status == HttpStatusCode.Unauthorized.value -> {
+                AuthError.SessionExpired(debugInfo = debugInfo)
+            }
+
+            status in 500..599 -> {
+                TransportError.Server5xx(statusCode = status, debugInfo = debugInfo)
+            }
+
+            else -> {
+                TransportError.Server4xx(statusCode = status, debugInfo = debugInfo)
             }
         }
 
