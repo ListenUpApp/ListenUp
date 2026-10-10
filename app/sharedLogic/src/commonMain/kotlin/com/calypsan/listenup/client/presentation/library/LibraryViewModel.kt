@@ -65,6 +65,7 @@ private data class LibraryIntent(
     val narratorsSortState: SortState = SortState.contributorDefault,
     val ignoreTitleArticles: Boolean = true,
     val hideSingleBookSeries: Boolean = true,
+    val statusFilter: BookStatusFilter = BookStatusFilter.ALL,
 )
 
 /** Snapshot of raw repository content before sorting / filtering. */
@@ -88,6 +89,7 @@ private data class SyncSnapshot(
 private data class ProgressSnapshot(
     val progressMap: Map<BookId, Float>,
     val finishedMap: Map<BookId, Boolean>,
+    val cardStatus: Map<BookId, BookCardStatus>,
 )
 
 /**
@@ -102,6 +104,8 @@ private data class SortedContent(
     val series: List<SeriesWithBooks>,
     val authors: List<ContributorWithBookCount>,
     val narrators: List<ContributorWithBookCount>,
+    val statusCounts: BookStatusCounts,
+    val totalDurationMs: Long,
 )
 
 /**
@@ -225,33 +229,63 @@ class LibraryViewModel(
                 emptyMap()
             }
 
-    // Stage 1: sort + filter. Depends ONLY on intent, raw content and the outside combined
-    // scores — playback position ticks (every ~30s during playback) never reach this combine, so
-    // the O(n log n) sorts don't re-run when only progress changed.
+    // Playback positions feed two stages (the reading-state snapshot and the progress snapshot), so
+    // they are shared once: a second Room subscription would query positions twice per tick.
+    private val positions: SharedFlow<Map<BookId, PlaybackPosition>> =
+        playbackPositionRepository
+            .observeAll()
+            .fallbackTo { e ->
+                logger.error(e) { "observeAll(positions) failed; emitting empty map" }
+                emptyMap()
+            }.shareIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                replay = 1,
+            )
+
+    // The coarse reading state per book. distinctUntilChanged is the whole point: a position tick
+    // that moves no book across a state boundary produces an equal map and is dropped HERE, so the
+    // sort stage (and contentRevision) never sees it.
+    private val readingStateSnapshot: Flow<Map<BookId, ReadingState>> =
+        combine(rawContent, positions) { content, positionMap -> readingStates(content.books, positionMap) }
+            .distinctUntilChanged()
+
+    // Stage 1: sort + filter. Depends ONLY on intent, raw content, the outside combined scores and
+    // the coarse reading-state snapshot — a playback position tick (every ~30s during playback) that
+    // moves no book across a reading-state boundary never reaches this combine, so the O(n log n)
+    // sorts don't re-run when only progress changed.
     // distinctUntilChanged (cheap O(n) structural compare) additionally drops
     // Room re-emissions of structurally identical content, keeping downstream
     // list identity stable.
     private val sortedContent: Flow<SortedContent> =
-        combine(intent, rawContent, combinedScores) { intentValue, content, scores ->
+        combine(intent, rawContent, combinedScores, readingStateSnapshot) { intentValue, content, scores, states ->
             val visibleSeries =
                 if (intentValue.hideSingleBookSeries) {
                     content.series.filter { it.books.size > 1 }
                 } else {
                     content.series
                 }
+            val sortedBooks =
+                sortBooks(
+                    books = content.books,
+                    state = intentValue.booksSortState,
+                    ignoreArticles = intentValue.ignoreTitleArticles,
+                    listenerAverages = content.listenerAverages,
+                    combinedScores = scores,
+                )
             SortedContent(
                 intent = intentValue,
                 books =
-                    sortBooks(
-                        books = content.books,
-                        state = intentValue.booksSortState,
-                        ignoreArticles = intentValue.ignoreTitleArticles,
-                        listenerAverages = content.listenerAverages,
-                        combinedScores = scores,
-                    ),
+                    if (intentValue.statusFilter == BookStatusFilter.ALL) {
+                        sortedBooks
+                    } else {
+                        sortedBooks.filter { intentValue.statusFilter.admits(states[it.id] ?: ReadingState.NOT_STARTED) }
+                    },
                 series = sortSeries(visibleSeries, intentValue.seriesSortState, intentValue.ignoreTitleArticles),
                 authors = sortContributors(content.authors, intentValue.authorsSortState),
                 narrators = sortContributors(content.narrators, intentValue.narratorsSortState),
+                statusCounts = countsOf(states.values),
+                totalDurationMs = content.books.sumOf { it.duration },
             )
         }.distinctUntilChanged()
 
@@ -264,17 +298,8 @@ class LibraryViewModel(
         sortedContent.map { RevisedContent(revision = contentRevisions.incrementAndGet(), content = it) }
 
     private val progressSnapshot: Flow<ProgressSnapshot> =
-        combine(
-            rawContent,
-            playbackPositionRepository
-                .observeAll()
-                .fallbackTo { e ->
-                    logger.error(e) { "observeAll(positions) failed; emitting empty map" }
-                    emptyMap()
-                },
-        ) { content, positions ->
-            computeProgress(content.books, positions)
-        }.conflate()
+        combine(rawContent, positions) { content, positionMap -> computeProgress(content.books, positionMap) }
+            .conflate()
 
     private val syncSnapshot: Flow<SyncSnapshot> =
         combine(
@@ -455,6 +480,10 @@ class LibraryViewModel(
                 persistNarratorsSort()
             }
 
+            is LibraryUiEvent.StatusFilterChanged -> {
+                intent.update { it.copy(statusFilter = event.filter) }
+            }
+
             // Title sort article handling
             is LibraryUiEvent.ToggleIgnoreTitleArticles -> {
                 val newValue = !intent.value.ignoreTitleArticles
@@ -558,6 +587,10 @@ class LibraryViewModel(
             isServerScanning = sync.isServerScanning,
             scanProgress = sync.scanProgress,
             isBuildingInitialLibrary = sync.isBuildingInitialLibrary,
+            statusFilter = sorted.intent.statusFilter,
+            statusCounts = sorted.statusCounts,
+            bookStatus = progress.cardStatus,
+            totalDurationMs = sorted.totalDurationMs,
         )
     }
 
@@ -584,7 +617,8 @@ class LibraryViewModel(
             }
         }
 
-        return ProgressSnapshot(progressMap, finishedMap)
+        val cardStatus = books.associate { it.id to cardStatusOf(it, positions[it.id]) }
+        return ProgressSnapshot(progressMap, finishedMap, cardStatus)
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -848,4 +882,9 @@ sealed interface LibraryUiEvent {
     ) : LibraryUiEvent
 
     data object NarratorsDirectionToggled : LibraryUiEvent
+
+    /** The reader picked a reading-state filter for the Books view. Not persisted (session-scoped). */
+    data class StatusFilterChanged(
+        val filter: BookStatusFilter,
+    ) : LibraryUiEvent
 }

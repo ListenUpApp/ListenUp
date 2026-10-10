@@ -1337,7 +1337,23 @@ class LibraryViewModelTest :
                         createTestBook(id = "1", title = "Zebra", duration = 10_000L),
                         createTestBook(id = "2", title = "Apple", duration = 10_000L),
                     )
-                val positionsFlow = MutableStateFlow<Map<BookId, PlaybackPosition>>(emptyMap())
+                // Book 1 is already in progress, so the tick below moves its progress without moving it
+                // across a reading-state boundary (a boundary crossing legitimately re-sorts: it can move
+                // the book in or out of a status filter).
+                fun startedAt(positionMs: Long) =
+                    PlaybackPosition(
+                        bookId = "1",
+                        positionMs = positionMs,
+                        playbackSpeed = 1.0f,
+                        hasCustomSpeed = false,
+                        volumeBoostDb = 0f,
+                        hasCustomBoost = false,
+                        measuredGainDb = null,
+                        updatedAtMs = 0L,
+                        syncedAtMs = null,
+                        lastPlayedAtMs = null,
+                    )
+                val positionsFlow = MutableStateFlow(mapOf(BookId("1") to startedAt(1_000L)))
                 val fixture = createFixture()
                 every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
                 every { fixture.playbackPositionRepository.observeAll() } returns positionsFlow
@@ -1462,7 +1478,9 @@ class LibraryViewModelTest :
 
             test("a progress change keeps the content revision") {
                 runTest {
-                    val positionsFlow = MutableStateFlow<Map<BookId, PlaybackPosition>>(emptyMap())
+                    // Already in progress: a tick within a reading state is the case that must not
+                    // bump the revision. Crossing a state boundary does (see "status filters").
+                    val positionsFlow = MutableStateFlow(mapOf(BookId("1") to positionAt("1", 1_000L)))
                     val fixture = createFixture()
                     every { fixture.bookRepository.observeBookListItems() } returns
                         flowOf(listOf(createTestBook(id = "1", duration = 10_000L)))
@@ -1578,6 +1596,191 @@ class LibraryViewModelTest :
                         (after.contentRevision > before.contentRevision) shouldBe true
                         states.cancel()
                     }
+                }
+            }
+        }
+
+        context("status filters") {
+            fun at(
+                id: String,
+                positionMs: Long,
+                isFinished: Boolean = false,
+            ) = BookId(id) to
+                PlaybackPosition(
+                    bookId = id,
+                    positionMs = positionMs,
+                    playbackSpeed = 1.0f,
+                    hasCustomSpeed = false,
+                    volumeBoostDb = 0f,
+                    hasCustomBoost = false,
+                    measuredGainDb = null,
+                    updatedAtMs = 0L,
+                    syncedAtMs = null,
+                    lastPlayedAtMs = null,
+                    isFinished = isFinished,
+                )
+
+            // b1 in progress · b2 finished · b3 a zero position (not started) · b4 no position (not started)
+            val mixedBooks =
+                listOf(
+                    createTestBook(id = "b1", title = "Alpha", duration = 10_000L),
+                    createTestBook(id = "b2", title = "Bravo", duration = 20_000L),
+                    createTestBook(id = "b3", title = "Charlie", duration = 30_000L),
+                    createTestBook(id = "b4", title = "Delta", duration = 40_000L),
+                )
+            val mixedPositions = mapOf(at("b1", 4_000L), at("b2", 20_000L, isFinished = true), at("b3", 0L))
+
+            fun TestFixture.withMixedLibrary(positions: MutableStateFlow<Map<BookId, PlaybackPosition>>) {
+                every { bookRepository.observeBookListItems() } returns flowOf(mixedBooks)
+                every { playbackPositionRepository.observeAll() } returns positions
+            }
+
+            test("the counts are right for a mixed library and cover the whole library") {
+                runTest {
+                    val fixture = createFixture().apply { withMixedLibrary(MutableStateFlow(mixedPositions)) }
+                    val viewModel = fixture.build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    advanceUntilIdle()
+
+                    val loaded = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                    loaded.statusFilter shouldBe BookStatusFilter.ALL
+                    loaded.statusCounts shouldBe BookStatusCounts(all = 4, inProgress = 1, notStarted = 2, finished = 1)
+                    loaded.books.map { it.id.value } shouldBe listOf("b1", "b2", "b3", "b4")
+                }
+            }
+
+            test("a filter change emits once, with the filtered books and a new revision; counts stay whole") {
+                runTest {
+                    val fixture = createFixture().apply { withMixedLibrary(MutableStateFlow(mixedPositions)) }
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+
+                        viewModel.onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.NOT_STARTED))
+                        advanceUntilIdle()
+
+                        val after = states.awaitItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        states.expectNoEvents()
+                        after.statusFilter shouldBe BookStatusFilter.NOT_STARTED
+                        after.books.map { it.id.value } shouldBe listOf("b3", "b4")
+                        after.statusCounts shouldBe before.statusCounts
+                        (after.contentRevision > before.contentRevision) shouldBe true
+                        states.cancel()
+                    }
+                }
+            }
+
+            test("a position tick that keeps every status emits without a revision bump, and moves the card") {
+                runTest {
+                    val positions = MutableStateFlow(mixedPositions)
+                    val fixture = createFixture().apply { withMixedLibrary(positions) }
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+
+                        positions.value = mixedPositions + at("b1", 6_000L)
+                        advanceUntilIdle()
+
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.bookStatus[BookId("b1")] shouldBe BookCardStatus.InProgress(fraction = 0.6f, timeLeftMs = 4_000L)
+                        after.contentRevision shouldBe before.contentRevision
+                        after.books shouldBeSameInstanceAs before.books
+                        states.cancel()
+                    }
+                }
+            }
+
+            test("a book crossing to Finished leaves In progress and bumps the revision") {
+                runTest {
+                    val positions = MutableStateFlow(mixedPositions)
+                    val fixture = createFixture().apply { withMixedLibrary(positions) }
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        viewModel.onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        before.books.map { it.id.value } shouldBe listOf("b1")
+
+                        positions.value = mixedPositions + at("b1", 10_000L, isFinished = true)
+                        advanceUntilIdle()
+
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.books shouldBe emptyList()
+                        after.statusCounts shouldBe BookStatusCounts(all = 4, inProgress = 0, notStarted = 2, finished = 2)
+                        after.bookStatus[BookId("b1")] shouldBe BookCardStatus.Finished(durationMs = 10_000L)
+                        (after.contentRevision > before.contentRevision) shouldBe true
+                        after.isEmpty shouldBe false
+                        after.isFilteredEmpty shouldBe true
+                        states.cancel()
+                    }
+                }
+            }
+
+            test("totalDurationMs is the whole library's length, whatever the filter") {
+                runTest {
+                    val fixture = createFixture().apply { withMixedLibrary(MutableStateFlow(mixedPositions)) }
+                    val viewModel = fixture.build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    viewModel.onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.FINISHED))
+                    advanceUntilIdle()
+
+                    val loaded = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                    loaded.totalDurationMs shouldBe 100_000L
+                }
+            }
+
+            test("every book has a card status, filtered or not") {
+                runTest {
+                    val fixture = createFixture().apply { withMixedLibrary(MutableStateFlow(mixedPositions)) }
+                    val viewModel = fixture.build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    viewModel.onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.FINISHED))
+                    advanceUntilIdle()
+
+                    val loaded = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                    loaded.bookStatus shouldBe
+                        mapOf(
+                            BookId("b1") to BookCardStatus.InProgress(fraction = 0.4f, timeLeftMs = 6_000L),
+                            BookId("b2") to BookCardStatus.Finished(durationMs = 20_000L),
+                            BookId("b3") to BookCardStatus.NotStarted(durationMs = 30_000L),
+                            BookId("b4") to BookCardStatus.NotStarted(durationMs = 40_000L),
+                        )
+                }
+            }
+
+            test("an empty library is empty, not filtered-empty") {
+                runTest {
+                    val viewModel = createFixture().build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    advanceUntilIdle()
+
+                    val loaded = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                    loaded.isEmpty shouldBe true
+                    loaded.isFilteredEmpty shouldBe false
+                }
+            }
+
+            test("a new ViewModel starts on All: the filter is never persisted") {
+                runTest {
+                    val fixture = createFixture().apply { withMixedLibrary(MutableStateFlow(mixedPositions)) }
+                    val first = fixture.build()
+                    backgroundScope.launch { first.uiState.collect { } }
+                    first.onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.FINISHED))
+                    advanceUntilIdle()
+
+                    val second = fixture.build()
+                    backgroundScope.launch { second.uiState.collect { } }
+                    advanceUntilIdle()
+
+                    second.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>().statusFilter shouldBe BookStatusFilter.ALL
                 }
             }
         }

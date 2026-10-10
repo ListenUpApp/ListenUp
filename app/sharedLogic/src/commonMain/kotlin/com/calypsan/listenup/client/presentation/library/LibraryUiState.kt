@@ -41,8 +41,9 @@ sealed interface LibraryUiState {
         val ignoreTitleArticles: Boolean,
         val hideSingleBookSeries: Boolean,
         /**
-         * Advances whenever [books], [series], [authors], [narrators] or the sort and filter intent
-         * that ordered them change, and ONLY then. A progress or sync emission carries the previous
+         * Advances whenever [books], [series], [authors], [narrators], the sort/filter intent that
+         * ordered them, or a book's reading-state *transition* (which can move it in or out of
+         * [books]) changes — and ONLY then. A progress or sync emission carries the previous
          * value, so a consumer that bridges these lists (iOS maps each row across Swift Export) can
          * skip the re-map whenever the revision is unchanged. Monotonic for this ViewModel's lifetime.
          */
@@ -72,10 +73,26 @@ sealed interface LibraryUiState {
          * library is empty while it is being filled.
          */
         val isBuildingInitialLibrary: Boolean,
+        /** The active reading-state filter. [books] is already filtered by it. Session-scoped. */
+        val statusFilter: BookStatusFilter = BookStatusFilter.ALL,
+        /** Counts per reading state over the WHOLE library, whatever [statusFilter] is. */
+        val statusCounts: BookStatusCounts = BookStatusCounts(all = 0, inProgress = 0, notStarted = 0, finished = 0),
+        /**
+         * What each book's card says, for EVERY book in the library (not only the filtered [books]).
+         * Moves on a position tick without advancing [contentRevision]: a consumer that gates on the
+         * revision (iOS) must read this outside the gate.
+         */
+        val bookStatus: Map<BookId, BookCardStatus> = emptyMap(),
+        /** The whole library's length in ms ("41 days of listening"), whatever the filter. */
+        val totalDurationMs: Long = 0L,
     ) : LibraryUiState {
-        /** Whether the library is empty (loaded but contains no books). */
+        /** Whether the library itself has no books. A filter that matches nothing is [isFilteredEmpty], not this. */
         val isEmpty: Boolean
-            get() = books.isEmpty()
+            get() = statusCounts.all == 0
+
+        /** Whether the library has books but the active [statusFilter] matches none of them. */
+        val isFilteredEmpty: Boolean
+            get() = books.isEmpty() && statusCounts.all > 0
 
         /**
          * Whether a sync PASS is running.
