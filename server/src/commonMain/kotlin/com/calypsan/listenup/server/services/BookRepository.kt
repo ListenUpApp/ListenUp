@@ -1,6 +1,9 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.FileEntry
+import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.SidecarCuration
 import com.calypsan.listenup.api.dto.scanner.SidecarCurationChapter
 import com.calypsan.listenup.api.metadata.BookField
@@ -44,6 +47,7 @@ import app.cash.sqldelight.TransactionWithReturn
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
@@ -706,7 +710,7 @@ class BookRepository(
         // library re-mints its id (the new folder's inode lookup misses); an intra-folder move
         // preserves it. Accepted — cross-folder moves are rare, and folder-scoping is what keeps
         // two folders sharing a relative path (or an inode) from aliasing each other.
-        val movedBookId = analyzed.candidate.identityInode()?.let { inode -> bookFinder.findByInode(folderId, inode) }
+        val movedBookId = findTrustedMove(folderId, analyzed)
         if (movedBookId != null) {
             val previousPath = findById(movedBookId)?.rootRelPath
             log.info { "Book moved: ${previousPath ?: "(unknown)"} → $rootRelPath" }
@@ -716,6 +720,57 @@ class BookRepository(
         val newId = BookId(Uuid.random().toString())
         return write(newId).map { IngestOutcome(newId, wasNew = true) }
     }
+
+    /**
+     * The existing book a lone [analyzed] book may be the moved folder of, or null. A single ingest
+     * sees one book, so "the matched book's own path is also being ingested" cannot be read from the
+     * batch; instead a candidate whose recorded folder is still a directory on disk is occupied by
+     * that book and so cannot be what moved here.
+     */
+    private suspend fun findTrustedMove(
+        folderId: FolderId,
+        analyzed: AnalyzedBook,
+    ): BookId? {
+        val identityFile = analyzed.candidate.identityFile() ?: return null
+        val inode = identityFile.inode ?: return null
+        val candidates = bookFinder.findInodeCandidates(folderId, listOf(inode))[inode].orEmpty()
+        if (candidates.isEmpty()) return null
+        val folderRoot = folderRootPath(folderId)
+        val occupiedPaths =
+            candidates
+                .map { it.rootRelPath }
+                .filter { folderRoot != null && SystemFileSystem.metadataOrNull(Path(folderRoot, it))?.isDirectory == true }
+                .toSet()
+        return trustedMove(candidates, identityFile.size, occupiedPaths + analyzed.candidate.rootRelPath)
+    }
+
+    /** The file whose inode anchors this book's identity — the same pick as [identityInode], with its size. */
+    private fun CandidateBook.identityFile(): FileEntry? =
+        files.firstOrNull { it.fileType == FileType.AUDIO && it.inode != null }
+
+    private suspend fun folderRootPath(folderId: FolderId): String? =
+        suspendTransaction(db) {
+            db.libraryFoldersQueries
+                .selectById(folderId.value)
+                .executeAsOneOrNull()
+                ?.root_path
+        }
+
+    /**
+     * The existing book this inode match may be trusted to mean, or null. An inode number is reused
+     * after a delete and shared by hardlinks, so it is believed only when the file is the same size
+     * as one recorded for that book and the book's own path is not also being ingested.
+     * Two stored books that both corroborate are ambiguous, so neither is believed.
+     */
+    private fun trustedMove(
+        candidates: List<BookFinder.InodeCandidate>,
+        identityFileSize: Long,
+        pathsInThisIngest: Set<String>,
+    ): BookId? =
+        candidates
+            .filter { identityFileSize in it.audioFileSizes && it.rootRelPath !in pathsInThisIngest }
+            .singleOrNull()
+            ?.bookId
 
     /**
      * Batch-resolves every contributor and series across [books] to a stable id in two bulk
@@ -790,14 +845,14 @@ class BookRepository(
      * performance-critical override of [BookIngestPort.resolveOrInsertAll].
      *
      * **Why this is fast.** A per-book [resolveOrInsert] loop costs, per book: two read transactions
-     * (findByPath, sometimes findByInode), one write transaction for the aggregate, plus a separate
+     * (findByPath, sometimes the inode-candidate lookup), one write transaction for the aggregate, plus a separate
      * post-commit genre pass whose junction queries auto-commit individually (~6 commits for a genred
      * book). This collapses all of that:
      *
      *  1. **PREPARE (suspend, no write transaction).** Resolve everything that needs a suspend call
      *     ONCE: the contributor/series ids (already in [identityMaps]); the genre ids (already in
      *     [identityMaps.genres], pre-created up front); bulk book existence (one `IN (…)` read for
-     *     paths, one for inodes — replacing the per-book findByPath/findByInode); the existing
+     *     paths, one for inodes — replacing the per-book path and inode lookups); the existing
      *     aggregates for the idempotency + cover-sticky checks (one batched read); and the cover-file
      *     stores (off-transaction I/O). Each book becomes a [PreparedBook] carrying its payload,
      *     genre ids, isNew flag, stored cover, and an idempotency-skip flag.
@@ -979,14 +1034,14 @@ class BookRepository(
             log.warn { "rootRelPath must be library-relative, got absolute: ${book.candidate.rootRelPath} — skipping" }
         }
 
-        // Bulk existence: one IN-read for natural keys, one for inodes — replacing the per-book
-        // findByPath/findByInode read transactions with two reads for the whole scan.
+        // Bulk existence: one IN-read for natural keys, one for inode candidates — replacing the
+        // per-book read transactions with two reads for the whole scan.
         val byPath = bookFinder.findExistingByPaths(folderId, valid.map { it.candidate.rootRelPath })
-        val inodes = valid.mapNotNull { it.candidate.identityInode() }
-        val byInode = bookFinder.findExistingByInodes(folderId, inodes)
+        val pathsInThisIngest = valid.mapTo(mutableSetOf()) { it.candidate.rootRelPath }
+        val inodeCandidates = bookFinder.findInodeCandidates(folderId, valid.mapNotNull { it.candidate.identityInode() })
 
-        // Resolve each book's stable BookId in memory from the bulk maps (natural key, then inode,
-        // then a fresh UUID) — the same three-key model resolveOrInsert applies per book.
+        // Resolve each book's stable BookId in memory from the bulk maps (natural key, then a
+        // corroborated inode move, then a fresh UUID) — the same model resolveOrInsert applies per book.
         data class Resolved(
             val analyzed: AnalyzedBook,
             val bookId: BookId,
@@ -996,8 +1051,13 @@ class BookRepository(
         val resolved =
             valid.map { analyzed ->
                 val rootRelPath = analyzed.candidate.rootRelPath
-                val inode = analyzed.candidate.identityInode()
-                val existing = byPath[rootRelPath] ?: inode?.let { byInode[it] }
+                val movedFrom =
+                    analyzed.candidate.identityFile()?.let { file ->
+                        file.inode
+                            ?.let { inodeCandidates[it] }
+                            ?.let { trustedMove(it, file.size, pathsInThisIngest) }
+                    }
+                val existing = byPath[rootRelPath] ?: movedFrom
                 Resolved(analyzed, existing ?: BookId(Uuid.random().toString()), isNew = existing == null)
             }
 

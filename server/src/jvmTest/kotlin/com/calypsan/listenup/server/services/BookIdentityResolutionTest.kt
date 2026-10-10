@@ -19,6 +19,8 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.test.runTest
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createTempDirectory
 
 private val LIBRARY = LibraryId("test-library")
 private val FOLDER = FolderId("test-folder")
@@ -51,8 +53,7 @@ class BookIdentityResolutionTest :
                 }
             }
 
-            // Fails until the inode match needs a matching file size (Part B).
-            xtest("a stranger that reuses a deleted book's inode gets its own id") {
+            test("a stranger that reuses a deleted book's inode gets its own id") {
                 withSqlDatabase {
                     sql.seedTestLibraryAndFolder()
                     runTest {
@@ -69,8 +70,7 @@ class BookIdentityResolutionTest :
                 }
             }
 
-            // Fails until the inode match needs a vacated path (Part B).
-            xtest("a hardlinked twin is its own book") {
+            test("a hardlinked twin is its own book") {
                 withSqlDatabase {
                     sql.seedTestLibraryAndFolder()
                     runTest {
@@ -141,8 +141,7 @@ class BookIdentityResolutionTest :
                 }
             }
 
-            // Fails until the inode match needs a matching file size (Part B).
-            xtest("a stranger that reuses a deleted book's inode gets its own id") {
+            test("a stranger that reuses a deleted book's inode gets its own id") {
                 withSqlDatabase {
                     sql.seedTestLibraryAndFolder()
                     runTest {
@@ -159,22 +158,28 @@ class BookIdentityResolutionTest :
                 }
             }
 
-            // Fails until the inode match needs a vacated path (Part B).
-            xtest("a hardlinked twin is its own book") {
-                withSqlDatabase {
-                    sql.seedTestLibraryAndFolder()
-                    runTest {
-                        val fx = resolutionFixture(this@withSqlDatabase)
-                        val x = fx.ingestOne(book("X", inode = 100L, size = 5_000L))
+            test("a hardlinked twin is its own book") {
+                // A lone ingest cannot see its sibling, so it asks the disk whether X's folder is still there.
+                val libraryRoot = createTempDirectory("book-identity")
+                try {
+                    libraryRoot.resolve("X").createDirectories()
+                    withSqlDatabase {
+                        sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                        runTest {
+                            val fx = resolutionFixture(this@withSqlDatabase)
+                            val x = fx.ingestOne(book("X", inode = 100L, size = 5_000L))
 
-                        val y = fx.ingestOne(book("Y", inode = 100L, size = 5_000L))
+                            val y = fx.ingestOne(book("Y", inode = 100L, size = 5_000L))
 
-                        y.bookId shouldNotBe x.bookId
-                        y.wasNew shouldBe true
-                        fx.idAt("X") shouldBe x.bookId
-                        fx.ingestOne(book("X", inode = 100L, size = 5_000L)).bookId shouldBe x.bookId
-                        fx.ingestOne(book("Y", inode = 100L, size = 5_000L)).bookId shouldBe y.bookId
+                            y.bookId shouldNotBe x.bookId
+                            y.wasNew shouldBe true
+                            fx.idAt("X") shouldBe x.bookId
+                            fx.ingestOne(book("X", inode = 100L, size = 5_000L)).bookId shouldBe x.bookId
+                            fx.ingestOne(book("Y", inode = 100L, size = 5_000L)).bookId shouldBe y.bookId
+                        }
                     }
+                } finally {
+                    libraryRoot.toFile().deleteRecursively()
                 }
             }
         }

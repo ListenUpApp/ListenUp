@@ -28,6 +28,10 @@ CREATE TABLE book_audio_files (
 selectByBookIds:
 SELECT * FROM book_audio_files WHERE book_id IN :ids ORDER BY ordinal;
 
+-- Audio file sizes per book, for corroborating a move-detection inode match.
+selectSizesForBooks:
+SELECT book_id, size FROM book_audio_files WHERE book_id IN :book_ids;
+
 -- Single audio file by (book_id, id) → its on-disk filename, container format, and byte
 -- size. AudioFileLocator joins this with the book's folder root to resolve an absolute path.
 selectFileForBook:

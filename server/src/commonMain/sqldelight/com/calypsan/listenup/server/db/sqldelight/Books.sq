@@ -91,23 +91,16 @@ SELECT * FROM books WHERE id IN :ids;
 selectIdByNaturalKey:
 SELECT id FROM books WHERE folder_id = :folder_id AND root_rel_path = :root_rel_path;
 
--- Move-detection resolve (folder_id + inode) → ids. findByInode picks the first
--- match deterministically when hardlinks share an inode.
-selectIdsByInode:
-SELECT id FROM books WHERE folder_id = :folder_id AND inode = :inode;
-
 -- Bulk natural-key resolve (folder_id + a batch of root_rel_paths) → (id, root_rel_path).
 -- The batched counterpart to selectIdByNaturalKey: BookFinder.findExistingByPaths runs this
 -- ONCE per scan so the per-book existence lookup is in-memory, not a read txn per book.
 selectIdsByPaths:
 SELECT id, root_rel_path FROM books WHERE folder_id = :folder_id AND root_rel_path IN :paths;
 
--- Bulk move-detection resolve (folder_id + a batch of inodes) → (id, inode). The batched
--- counterpart to selectIdsByInode: BookFinder.findExistingByInodes runs this ONCE per scan to
--- pre-resolve the move-detection map. A hardlink-shared inode yields multiple rows; the caller
--- keeps the first deterministically, matching findByInode's single-row behaviour.
-selectIdsByInodes:
-SELECT id, inode FROM books WHERE folder_id = :folder_id AND inode IN :inodes;
+-- Move-detection candidates: every book in the folder holding one of these inodes, with the path
+-- it is recorded at. An inode alone is not identity — the caller corroborates each candidate.
+selectInodeCandidates:
+SELECT id, inode, root_rel_path FROM books WHERE folder_id = :folder_id AND inode IN :inodes;
 
 -- All book ids under a folder (tombstone-inclusive) — drives folder-id REUSE revival: when a
 -- soft-deleted folder is re-added at the same path, its books are revived under their original
