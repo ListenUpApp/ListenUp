@@ -49,6 +49,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.BookCard
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
@@ -206,8 +207,8 @@ private fun SectionHeader(
  * @param isServerScanning Whether the server is currently scanning the library
  * @param sortState Current sort state (category + direction)
  * @param ignoreTitleArticles Whether to ignore articles (A, An, The) when sorting by title
- * @param bookProgress Map of bookId to progress (0.0-1.0) for in-progress books
- * @param bookIsFinished Map of bookId to isFinished flag (authoritative completion status from server)
+ * @param bookStatus What each book's card says about where the reader is with it (spec §2.6)
+ * @param progressUnderTitle Compact grid: the progress mark sits under the title, not on the art
  * @param isInSelectionMode Whether multi-select mode is active
  * @param selectedBookIds Set of currently selected book IDs
  * @param onCategorySelected Called when the user selects a new sort category
@@ -233,8 +234,8 @@ fun BooksContent(
     scanProgress: ScanProgressState? = null,
     sortState: SortState,
     ignoreTitleArticles: Boolean,
-    bookProgress: Map<BookId, Float>,
-    bookIsFinished: Map<BookId, Boolean> = emptyMap(),
+    bookStatus: Map<BookId, BookCardStatus> = emptyMap(),
+    progressUnderTitle: Boolean = false,
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
     onCategorySelected: (SortCategory) -> Unit,
@@ -319,8 +320,8 @@ fun BooksContent(
                         books = books,
                         sortState = sortState,
                         ignoreTitleArticles = ignoreTitleArticles,
-                        bookProgress = bookProgress,
-                        bookIsFinished = bookIsFinished,
+                        bookStatus = bookStatus,
+                        progressUnderTitle = progressUnderTitle,
                         isInSelectionMode = isInSelectionMode,
                         selectedBookIds = selectedBookIds,
                         onBookClick = onBookClick,
@@ -343,8 +344,8 @@ private fun BookGrid(
     books: List<BookListItem>,
     sortState: SortState,
     ignoreTitleArticles: Boolean,
-    bookProgress: Map<BookId, Float>,
-    bookIsFinished: Map<BookId, Boolean>,
+    bookStatus: Map<BookId, BookCardStatus>,
+    progressUnderTitle: Boolean,
     isInSelectionMode: Boolean,
     selectedBookIds: Set<String>,
     onBookClick: (String) -> Unit,
@@ -424,9 +425,9 @@ private fun BookGrid(
                         BookCard(
                             cover = gridItem.book.toCoverModel(),
                             onClick = { onBookClick(bookId) },
-                            duration = gridItem.book.formatDuration(),
-                            progress = bookProgress[gridItem.book.id],
-                            isFinished = bookIsFinished[gridItem.book.id] == true,
+                            narrators = gridItem.book.narratorNames.ifBlank { null },
+                            libraryStatus = bookStatus[gridItem.book.id],
+                            progressUnderTitle = progressUnderTitle,
                             hasDocuments = gridItem.book.hasDocuments,
                             isInSelectionMode = isInSelectionMode,
                             isSelected = bookId in selectedBookIds,

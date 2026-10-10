@@ -32,7 +32,6 @@ class BooksContentFilteredEmptyTest {
                     isServerScanning = false,
                     sortState = SortState.booksDefault,
                     ignoreTitleArticles = true,
-                    bookProgress = emptyMap(),
                     onCategorySelected = {},
                     onDirectionToggle = {},
                     onToggleIgnoreArticles = {},

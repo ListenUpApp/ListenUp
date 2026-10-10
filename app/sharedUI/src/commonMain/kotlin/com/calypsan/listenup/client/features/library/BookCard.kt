@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.library
 
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import listenup.composeapp.generated.resources.selection_select
@@ -17,8 +18,10 @@ import com.calypsan.listenup.client.design.util.onSecondaryClick
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,7 +35,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,8 +65,16 @@ import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_time_left
+import listenup.composeapp.generated.resources.library_card_finished_length
+import listenup.composeapp.generated.resources.library_card_progress_a11y
+import listenup.composeapp.generated.resources.library_card_read_by
 import listenup.composeapp.generated.resources.common_completed
 import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.library_has_documents_badge
@@ -110,6 +123,12 @@ data class AvatarOverlayData(
  * @param isSelected Whether this book is currently selected
  * @param onLongPress Callback when card is long-pressed (for entering selection mode)
  * @param cardWidth Fixed width for horizontal rows, or null to fill parent (library grid)
+ * @param narrators "Read by …" line. Library grids pass it; their `Adaptive(160.dp)` cells always meet
+ *   spec §2.6's 160 dp floor.
+ * @param libraryStatus When non-null, this card is a Library card: the status drives the progress mark,
+ *   finished badge and last line, and overrides [duration], [progress], [timeRemaining] and [isFinished].
+ * @param progressUnderTitle Compact Library grid (Android phone, board `Main`): a wavy indicator under
+ *   the title instead of a progress mark on the art.
  * @param modifier Optional modifier for the card
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -131,6 +150,9 @@ fun BookCard(
     isSelected: Boolean = false,
     onLongPress: (() -> Unit)? = null,
     cardWidth: Dp? = null,
+    narrators: String? = null,
+    libraryStatus: BookCardStatus? = null,
+    progressUnderTitle: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -227,7 +249,19 @@ fun BookCard(
     ) {
         // Cover with optional overlays and indicators
         Box {
-            val isCompleted = isFinished
+            val isCompleted = if (libraryStatus != null) libraryStatus is BookCardStatus.Finished else isFinished
+            // A Library card's art carries the progress mark only on wide windows; compact grids draw
+            // it under the title instead (board `Main`).
+            val artProgress =
+                when {
+                    libraryStatus == null -> if (isCompleted) null else progress
+                    libraryStatus is BookCardStatus.InProgress && !progressUnderTitle -> libraryStatus.fraction
+                    else -> null
+                }
+            val artProgressLabel =
+                (libraryStatus as? BookCardStatus.InProgress)?.let {
+                    stringResource(Res.string.library_card_progress_a11y, (it.fraction * 100).roundToInt())
+                }
 
             // The now-playing book gets a coral frame; selection/focus still win when active.
             val playingBorder = MaterialTheme.colorScheme.primary
@@ -238,8 +272,9 @@ fun BookCard(
                 contentDescription = cover.title,
                 title = cover.title,
                 author = cover.author.orEmpty(),
-                progress = if (isCompleted) null else progress,
-                timeRemaining = if (isCompleted) null else timeRemaining,
+                progress = artProgress,
+                progressDescription = artProgressLabel,
+                timeRemaining = if (isCompleted || libraryStatus != null) null else timeRemaining,
                 avatarOverlay = avatarOverlay,
                 isHovered = isHovered,
                 isSelected = isSelected || isFocused || isPlaying,
@@ -318,12 +353,26 @@ fun BookCard(
                 )
             }
 
-            duration?.let { dur ->
+            narrators?.let { names ->
                 Text(
-                    text = dur,
-                    style = MaterialTheme.typography.labelSmall,
+                    text = stringResource(Res.string.library_card_read_by, names),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
+            }
+
+            if (libraryStatus != null) {
+                LibraryStatusLine(status = libraryStatus, progressUnderTitle = progressUnderTitle)
+            } else {
+                duration?.let { dur ->
+                    Text(
+                        text = dur,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             subtitle?.let { sub ->
@@ -335,6 +384,70 @@ fun BookCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+    }
+}
+
+/**
+ * A Library card's last line (spec §2.6): time left in the Library action colour, with a wavy progress
+ * mark when [progressUnderTitle]; "Finished · 12h 4m"; or the book's length.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun LibraryStatusLine(
+    status: BookCardStatus,
+    progressUnderTitle: Boolean,
+) {
+    when (status) {
+        is BookCardStatus.InProgress -> {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (progressUnderTitle) {
+                    val progressLabel =
+                        stringResource(Res.string.library_card_progress_a11y, (status.fraction * 100).roundToInt())
+                    LinearWavyProgressIndicator(
+                        progress = { status.fraction },
+                        modifier = Modifier.width(56.dp).semantics { contentDescription = progressLabel },
+                    )
+                }
+                Text(
+                    text =
+                        stringResource(
+                            Res.string.book_time_left,
+                            DurationFormatter.hoursMinutes(status.timeLeftMs.milliseconds),
+                        ),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    // The Library action colour (N6); dynamic colour keeps working.
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        is BookCardStatus.Finished -> {
+            Text(
+                text =
+                    stringResource(
+                        Res.string.library_card_finished_length,
+                        DurationFormatter.hoursMinutes(status.durationMs.milliseconds),
+                    ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+
+        is BookCardStatus.NotStarted -> {
+            Text(
+                text = DurationFormatter.hoursMinutes(status.durationMs.milliseconds),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -397,6 +510,7 @@ private fun BookCardCover(
     title: String,
     author: String,
     progress: Float? = null,
+    progressDescription: String? = null,
     timeRemaining: String? = null,
     avatarOverlay: AvatarOverlayData? = null,
     isHovered: Boolean = false,
@@ -457,7 +571,14 @@ private fun BookCardCover(
                 ProgressOverlay(
                     progress = progress,
                     timeRemaining = timeRemaining,
-                    modifier = Modifier.align(Alignment.BottomCenter),
+                    modifier =
+                        Modifier.align(Alignment.BottomCenter).then(
+                            if (progressDescription != null) {
+                                Modifier.semantics { this.contentDescription = progressDescription }
+                            } else {
+                                Modifier
+                            },
+                        ),
                 )
             }
         }
