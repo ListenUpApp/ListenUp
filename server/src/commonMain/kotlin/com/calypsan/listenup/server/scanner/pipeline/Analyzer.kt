@@ -308,7 +308,13 @@ internal class Analyzer(
             candidate.files.firstOrNull {
                 it.fileType == FileType.METADATA && it.name.equals("metadata.json", ignoreCase = true)
             } ?: return null
-        return metadataReader.read(Path(rootPath, sidecar.relPath))
+        val path = Path(rootPath, sidecar.relPath)
+        // Same refusal as runParserSafely: the open is where a link is followed, wherever it goes.
+        if (isSymlink(path)) {
+            logger.warn { "sidecar ${sidecar.relPath} is a symlink; not reading it" }
+            return null
+        }
+        return metadataReader.read(path)
     }
 
     /**

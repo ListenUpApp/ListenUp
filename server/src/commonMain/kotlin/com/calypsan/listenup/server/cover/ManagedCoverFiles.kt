@@ -5,6 +5,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.librarywrite.isRegularFileInsideAnyRoot
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
@@ -153,7 +154,7 @@ class ManagedCoverFiles(
 
         return when (source) {
             CoverSource.FILESYSTEM -> {
-                resolveFilesystemCover(bookDir)?.let { CoverInfo.Filesystem(it, resolved.hash) }
+                resolveFilesystemCover(bookDir, Path(resolved.libraryRoot))?.let { CoverInfo.Filesystem(it, resolved.hash) }
             }
 
             CoverSource.EMBEDDED -> {
@@ -161,8 +162,7 @@ class ManagedCoverFiles(
                     ?.let { Path(bookDir, it) }
                     ?.takeIf { audioPath ->
                         withContext(fileIoDispatcher) {
-                            SystemFileSystem.metadataOrNull(audioPath)?.isRegularFile ==
-                                true
+                            isRegularFileInsideAnyRoot(audioPath, listOf(Path(resolved.libraryRoot)))
                         }
                     }?.let { CoverInfo.Embedded(it, resolved.hash) }
             }
@@ -198,15 +198,19 @@ class ManagedCoverFiles(
      * Finds the filesystem cover image in [bookDir], mirroring the scanner's
      * `Analyzer.resolveCover` precedence: a file whose stem is `cover`
      * (case-insensitive) wins, else the first image file by name. Returns null
-     * when the directory holds no image — or has vanished since the scan.
+     * when the directory holds no image — or has vanished since the scan. A link is a
+     * candidate only when it resolves to a regular file inside [libraryRoot].
      */
-    private suspend fun resolveFilesystemCover(bookDir: Path): Path? =
+    private suspend fun resolveFilesystemCover(
+        bookDir: Path,
+        libraryRoot: Path,
+    ): Path? =
         withContext(fileIoDispatcher) {
             if (SystemFileSystem.metadataOrNull(bookDir)?.isDirectory != true) return@withContext null
             val images =
                 SystemFileSystem
                     .list(bookDir)
-                    .filter { SystemFileSystem.metadataOrNull(it)?.isRegularFile == true }
+                    .filter { isRegularFileInsideAnyRoot(it, listOf(libraryRoot)) }
                     .filter { image ->
                         image.name
                             .substringAfterLast('.', "")

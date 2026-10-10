@@ -2,7 +2,11 @@ package com.calypsan.listenup.server.document
 
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.librarywrite.isRegularFileInsideAnyRoot
+import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 /**
  * Where one supplementary document lives on disk, plus the metadata the document
@@ -33,13 +37,23 @@ class DocumentFileLocator(
 ) {
     /**
      * Returns the [DocumentLocation] for the given `(bookId, docId)` pair, or null
-     * when the document row or its parent book/library row is absent. Does not check
-     * whether the file exists on disk — the caller handles a missing file as 404.
+     * when the document row or its parent book/library row is absent. A file that is
+     * not on disk is still returned — the caller handles a missing file as 404 — but a
+     * path that exists and is not a regular file inside a library folder (a link out of
+     * the library, a FIFO) yields null.
      */
     suspend fun locate(
         bookId: String,
         docId: String,
-    ): DocumentLocation? =
+    ): DocumentLocation? {
+        val (location, roots) = lookup(bookId, docId) ?: return null
+        return location.ifServable(roots)
+    }
+
+    private suspend fun lookup(
+        bookId: String,
+        docId: String,
+    ): Pair<DocumentLocation, List<Path>>? =
         suspendTransaction(sql) {
             val fileRow =
                 sql.bookDocumentsQueries
@@ -58,11 +72,21 @@ class DocumentFileLocator(
                     .executeAsOneOrNull()
                     ?.root_path ?: return@suspendTransaction null
 
-            DocumentLocation(
-                path = Path(folderRoot, bookRow.root_rel_path, fileRow.filename),
-                format = fileRow.format,
-                sizeBytes = fileRow.size,
-                hash = fileRow.hash,
-            )
+            val location =
+                DocumentLocation(
+                    path = Path(folderRoot, bookRow.root_rel_path, fileRow.filename),
+                    format = fileRow.format,
+                    sizeBytes = fileRow.size,
+                    hash = fileRow.hash,
+                )
+            // Read the live roots in the same transaction so the containment check below judges
+            // the file against the folders that existed when the row was resolved.
+            location to sql.libraryFoldersQueries.selectLiveRootPaths().executeAsList().map { Path(it) }
+        }
+
+    /** Missing is the caller's 404. Present but not a contained regular file is refused here. */
+    private suspend fun DocumentLocation.ifServable(roots: List<Path>): DocumentLocation? =
+        withContext(fileIoDispatcher) {
+            this@ifServable.takeIf { !SystemFileSystem.exists(it.path) || isRegularFileInsideAnyRoot(it.path, roots) }
         }
 }
