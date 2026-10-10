@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.ActivitySyncRepository
@@ -49,8 +50,8 @@ class AuthServiceImplTest :
         fun newSvc(
             policy: RegistrationPolicy = RegistrationPolicy.OPEN,
             svcClock: Clock = clock,
+            db: ListenUpDatabase = migratedTestDatabase().db,
         ): AuthServiceImpl {
-            val db = migratedTestDatabase().db
             val hasher = PasswordHasher()
             val sessions =
                 SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = svcClock)
@@ -228,6 +229,50 @@ class AuthServiceImplTest :
                 svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice")).shouldSucceed()
                 svc
                     .register(RegisterRequest("ALICE@X", "x".repeat(8), "Alice2"))
+                    .shouldFail<AuthError.EmailAlreadyExists>()
+            }
+        }
+
+        test("a sign-up that loses the race for an email answers EmailAlreadyExists") {
+            val db = migratedTestDatabase().db
+            // register() reads the clock once after its slow password hash and before the insert,
+            // which is the window a concurrent sign-up for the same email lands in.
+            var armed = false
+            val racingClock =
+                object : Clock {
+                    override fun now(): Instant {
+                        if (armed) {
+                            armed = false
+                            db.usersQueries.insert(
+                                id = "rival",
+                                email = "alice@x",
+                                email_normalized = "alice@x",
+                                password_hash = "phc",
+                                role = "MEMBER",
+                                display_name = "Rival",
+                                status = "ACTIVE",
+                                created_at = 1L,
+                                updated_at = 1L,
+                                last_login_at = null,
+                                can_edit = 1L,
+                                approved_by = null,
+                                approved_at = null,
+                                deleted_at = null,
+                                invited_by = null,
+                                tagline = null,
+                                avatar_type = "auto",
+                                timezone = "UTC",
+                            )
+                        }
+                        return clock.now()
+                    }
+                }
+            val svc = newSvc(svcClock = racingClock, db = db)
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                armed = true
+                svc
+                    .register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
                     .shouldFail<AuthError.EmailAlreadyExists>()
             }
         }

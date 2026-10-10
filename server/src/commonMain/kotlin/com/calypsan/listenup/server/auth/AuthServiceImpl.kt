@@ -273,7 +273,19 @@ class AuthServiceImpl(
                 status = status,
                 now = now,
             )
-        suspendTransaction(db) { insert(user) }
+        // The early check above is only a fast path: the password hash widens the window in which a
+        // concurrent sign-up can take the same email, so the re-read inside the write transaction is
+        // what closes it (the unique index would otherwise surface as a server fault).
+        val inserted =
+            suspendTransaction(db) {
+                if (db.usersQueries.existsByEmailNormalized(normalized).executeAsOne()) {
+                    false
+                } else {
+                    insert(user)
+                    true
+                }
+            }
+        if (!inserted) return AppResult.Failure(AuthError.EmailAlreadyExists())
 
         val outcome =
             if (status == UserStatusColumn.PENDING_APPROVAL) {
