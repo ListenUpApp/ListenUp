@@ -137,6 +137,63 @@ class FallbackTrustTest :
             probe.calls shouldBe 2
         }
 
+        test("a no-answer verdict is reused inside the short window") {
+            val probe = FakeProbe(AppResult.Failure(TransportError.NetworkUnavailable()))
+            val time = TestTimeSource()
+            val trust = FallbackTrust(probe::probe, { "A" }, time)
+
+            trust.allows(wan, null) shouldBe false
+            time += 2.seconds
+            trust.allows(wan, null) shouldBe false
+
+            probe.calls shouldBe 1
+        }
+
+        test("a no-answer verdict is not reused after the short window") {
+            val probe = FakeProbe(AppResult.Failure(TransportError.NetworkUnavailable()))
+            val time = TestTimeSource()
+            val trust = FallbackTrust(probe::probe, { "A" }, time)
+
+            trust.allows(wan, null) shouldBe false
+            time += 4.seconds
+            trust.allows(wan, null) shouldBe false
+
+            probe.calls shouldBe 2
+        }
+
+        test("a different-server refusal is still reused near the end of the long window") {
+            val probe = FakeProbe(serverWithInstance("B"))
+            val time = TestTimeSource()
+            val trust = FallbackTrust(probe::probe, { "A" }, time)
+
+            trust.allows(wan, null) shouldBe false
+            time += 29.seconds
+            trust.allows(wan, null) shouldBe false
+
+            probe.calls shouldBe 1
+        }
+
+        test("a fresh ask re-probes immediately after a no-answer and allows the same server") {
+            val probe = FakeProbe(AppResult.Failure(TransportError.NetworkUnavailable()))
+            val trust = FallbackTrust(probe::probe, { "A" }, TestTimeSource())
+
+            trust.allows(wan, null) shouldBe false
+            probe.answer = serverWithInstance("A")
+            trust.allows(wan, null, fresh = true) shouldBe true
+
+            probe.calls shouldBe 2
+        }
+
+        test("a fresh ask does not re-probe after a different-server refusal inside the window") {
+            val probe = FakeProbe(serverWithInstance("B"))
+            val trust = FallbackTrust(probe::probe, { "A" }, TestTimeSource())
+
+            trust.allows(wan, null) shouldBe false
+            trust.allows(wan, null, fresh = true) shouldBe false
+
+            probe.calls shouldBe 1
+        }
+
         test("a refusal is reused within the window too") {
             val probe = FakeProbe(serverWithInstance("B"))
             val trust = FallbackTrust(probe::probe, { "A" })

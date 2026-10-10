@@ -80,6 +80,7 @@ internal val connectionModule: Module =
         // server URL's host:port changes, so every transport follows the new URL on
         // its next reconnect. Started at app launch.
         single(createdAtStart = true) {
+            val trust: FallbackTrust = get()
             val coordinator =
                 com.calypsan.listenup.client.data.connection.ConnectionCoordinator(
                     serverConfig = get(),
@@ -93,7 +94,9 @@ internal val connectionModule: Module =
                                 named(APP_SCOPE),
                         ),
                     engineState = get(),
-                    allowsFallback = get<FallbackTrust>()::allows,
+                    allowsFallback = { candidate, current, fresh ->
+                        trust.allows(candidate, current, fresh)
+                    },
                 )
             coordinator.start()
             coordinator

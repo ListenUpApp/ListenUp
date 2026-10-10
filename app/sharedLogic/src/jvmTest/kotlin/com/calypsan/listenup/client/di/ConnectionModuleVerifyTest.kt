@@ -53,6 +53,7 @@ class ConnectionModuleVerifyTest :
                         Function1::class,
                         Function2::class,
                         Function3::class,
+                        Function4::class,
                         TimeSource::class,
                     ),
             )

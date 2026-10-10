@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.data.connection
 
+import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.repository.VerifiedServer
 import com.calypsan.listenup.client.data.discovery.DiscoveredServer
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
@@ -58,8 +63,8 @@ class ConnectionCoordinatorTest :
             }
 
         /** A fallback gate that admits exactly the addresses the instance repository can reach. */
-        fun reachableViaInstance(instance: InstanceRepository): suspend (String, String?) -> Boolean =
-            { candidate, _ -> instance.findReachableUrl(listOf(candidate)) == candidate }
+        fun reachableViaInstance(instance: InstanceRepository): suspend (String, String?, Boolean) -> Boolean =
+            { candidate, _, _ -> instance.findReachableUrl(listOf(candidate)) == candidate }
 
         /** Local unreachable, no relocation: the remote is the only candidate left. */
         fun remoteOnlyConfig(): ServerConfig =
@@ -90,7 +95,7 @@ class ConnectionCoordinatorTest :
                     onlineNetwork(),
                     FakeInvalidator(),
                     scope,
-                    allowsFallback = { _, _ -> false },
+                    allowsFallback = { _, _, _ -> false },
                 )
 
             scope.launch { coordinator.reevaluate() }
@@ -111,8 +116,58 @@ class ConnectionCoordinatorTest :
                     onlineNetwork(),
                     FakeInvalidator(),
                     scope,
-                    allowsFallback = { _, _ -> true },
+                    allowsFallback = { _, _, _ -> true },
                 )
+
+            scope.launch { coordinator.reevaluate() }
+            scope.testScheduler.advanceUntilIdle()
+
+            verifySuspend { serverConfig.setActiveUrl(ServerUrl(remote)) }
+        }
+
+        test("after a failed fallback attempt, an immediate reevaluate activates the remote once it answers") {
+            val scope = TestScope(StandardTestDispatcher())
+            val serverConfig = remoteOnlyConfig()
+            val instance = mock<InstanceRepository> { everySuspend { findReachableUrl(any()) } returns null }
+            var remoteAnswers = false
+            val trust =
+                FallbackTrust(
+                    probe = { url ->
+                        if (remoteAnswers) {
+                            AppResult.Success(
+                                VerifiedServer(
+                                    serverInfo =
+                                        ServerInfo(
+                                            name = "ListenUp",
+                                            version = "1.0.0",
+                                            apiVersion = "v1",
+                                            setupRequired = false,
+                                            registrationPolicy = RegistrationPolicy.CLOSED,
+                                            instanceId = "A",
+                                        ),
+                                    verifiedUrl = url,
+                                ),
+                            )
+                        } else {
+                            AppResult.Failure(TransportError.NetworkUnavailable())
+                        }
+                    },
+                    connectedServerId = { "A" },
+                )
+            val coordinator =
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    idleDiscovery(),
+                    onlineNetwork(),
+                    FakeInvalidator(),
+                    scope,
+                    allowsFallback = { candidate, current, fresh -> trust.allows(candidate, current, fresh) },
+                )
+
+            // The phone is still switching networks: the request-path fallback probe finds nothing.
+            trust.allows(remote, local) shouldBe false
+            remoteAnswers = true
 
             scope.launch { coordinator.reevaluate() }
             scope.testScheduler.advanceUntilIdle()
@@ -133,7 +188,7 @@ class ConnectionCoordinatorTest :
                     onlineNetwork(),
                     FakeInvalidator(),
                     scope,
-                    allowsFallback = { _, _ ->
+                    allowsFallback = { _, _, _ ->
                         gateCalls++
                         false
                     },
