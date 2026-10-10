@@ -197,7 +197,7 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is ContributorError -> toHttpStatus()
 
-        // SeriesError + EntityError share one branch (see CorrelationStamping for the same pairing).
+        // SeriesError + EntityError share one branch: a Story World entity lives under a series.
         is SeriesError, is EntityError -> seriesOrStoryWorldHttpStatus()
 
         is GenreError -> toHttpStatus()
