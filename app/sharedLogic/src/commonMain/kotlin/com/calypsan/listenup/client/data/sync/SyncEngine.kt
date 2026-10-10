@@ -594,6 +594,9 @@ internal class SyncEngine(
             return
         }
 
+        // Set true ONLY where the loop below clears cursorStaleRunning under the lock; after that a
+        // follow-on leader may own the shared state, so the finally must not touch it.
+        var ledToCompletion = false
         try {
             var more = true
             while (more) {
@@ -620,16 +623,17 @@ internal class SyncEngine(
                             true
                         } else {
                             cursorStaleRunning = false
+                            ledToCompletion = true
                             false
                         }
                     }
             }
         } finally {
-            // Normal exit already cleared cursorStaleRunning in the loop; this only fires when a
-            // recovery threw or was cancelled, so a future CursorStale can still recover. Any waiters
+            // Cleanup belongs to the leader that did not finish its loop: it fires when a recovery
+            // threw or was cancelled, so a future CursorStale can still recover. Any waiters
             // still outstanding (their covering pass never completed) must be released so coalesced
             // callers are not stranded — cancelled, not completed, since their request was not served.
-            if (cursorStaleRunning) {
+            if (!ledToCompletion) {
                 // NonCancellable for the same reason as lifecycleReconcile's cleanup: a contended
                 // `withLock` on the cancellation path would throw and strand `cursorStaleRunning` true,
                 // wedging all future CursorStale recovery.
@@ -718,6 +722,9 @@ internal class SyncEngine(
             }
         if (!leader) return
 
+        // Set true ONLY when the drain below returned None, which cleared the running flag under the
+        // lock. From then on a follow-on leader may own that state, so the finally must not touch it.
+        var ledToCompletion = false
         try {
             // One retry budget per leader activation: a failed scope is re-folded into the
             // accumulator exactly once; if the retry fails too, the reconnect / next
@@ -728,7 +735,10 @@ internal class SyncEngine(
                 val work = accessChangedMutex.withLock { drainAccumulatedAccessChange() }
                 val outcome =
                     when (work) {
-                        PendingAccessChange.None -> break
+                        PendingAccessChange.None -> {
+                            ledToCompletion = true
+                            break
+                        }
                         PendingAccessChange.Coarse -> accessReconciler.reconcile(null)
                         is PendingAccessChange.Delta -> accessReconciler.reconcile(work.scope)
                     }
@@ -752,11 +762,12 @@ internal class SyncEngine(
             // Refetch domain would need its own single-flight). Fires once per leader activation.
             refreshedRouter.refreshAccessSensitive()
         } finally {
-            // Normal exit already cleared the flag under the lock (via drain → None). This fires only
-            // on a thrown/cancelled reconcile, and — like the CursorStale cleanup — runs
-            // NonCancellable so a contended withLock on the cancellation path can't strand
-            // accessChangedRunning = true and wedge every future AccessChanged.
-            if (accessChangedRunning) {
+            // Cleanup belongs to the leader that did not finish its loop: a leader that drained to None
+            // already released the state and may have been succeeded while it refreshed. Runs
+            // NonCancellable, like the CursorStale cleanup, so a contended withLock on the
+            // cancellation path can't strand accessChangedRunning = true and wedge every future
+            // AccessChanged.
+            if (!ledToCompletion) {
                 withContext(NonCancellable) {
                     accessChangedMutex.withLock { resetAccessChangeState() }
                 }
