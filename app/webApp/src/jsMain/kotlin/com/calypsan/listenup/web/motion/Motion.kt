@@ -24,8 +24,8 @@ import org.w3c.dom.Element
  *     naming 1,204 grid items cost 12.2 s where the ~28 on screen cost 41 ms.
  *   - ⛔ The page region (`.shell-main`) never takes a transform; see PageArrival.kt.
  *   - ⛔ Reduced motion is checked HERE, so no call site can forget it. [animateComposited] then
- *     starts nothing and its [Motion] reports itself finished at once — which is why the end state of
- *     every motion must be the element's own resting style. A fill never holds the last frame.
+ *     starts nothing and its [Motion] has nothing to run — which is why the end state of every
+ *     motion must be the element's own resting style. A fill never holds the last frame.
  */
 
 /** The three durations. Mirrored as `--motion-*` in `00-base.css`; `MotionTest` holds them equal. */
@@ -99,15 +99,6 @@ internal enum class MotionFill(
 internal class Motion(
     private val animation: dynamic,
 ) {
-    /** Runs [action] once this motion has finished; at once if it never started. */
-    fun whenFinished(action: () -> Unit) {
-        if (animation == null) {
-            action()
-            return
-        }
-        animation.addEventListener("finish", { _: dynamic -> action() })
-    }
-
     /** Stops this motion, leaving the element in its resting state. Nothing to stop if it never started. */
     fun cancel() {
         if (animation != null) animation.cancel()

@@ -99,16 +99,13 @@ class MotionTest :
             timingOf(animation, "fill").unsafeCast<String>() shouldBe "backwards"
         }
 
-        test("under reduced motion it starts nothing and reports itself finished") {
+        test("under reduced motion it starts nothing") {
             reducedMotionOverride = true
             val element = box()
-            var finished = false
 
             animateComposited(element, listOf(Keyframe.opacity(0.0), Keyframe.opacity(1.0)), MotionToken.ENTER)
-                .whenFinished { finished = true }
 
             element.motions().size shouldBe 0
-            finished shouldBe true
         }
 
         test("isOnScreen is true only for a box the reader can see") {
