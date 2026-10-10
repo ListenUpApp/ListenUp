@@ -11,7 +11,8 @@ struct LibraryStatusModelsTests {
     }
 
     @Test func finishedAndNotStartedBridgeTheLength() {
-        #expect(LibraryCardState.from(BookCardStatusFinished(durationMs: 43_440_000)) == .finished(durationMs: 43_440_000))
+        let finished = LibraryCardState.from(BookCardStatusFinished(durationMs: 43_440_000))
+        #expect(finished == .finished(durationMs: 43_440_000))
         #expect(LibraryCardState.from(BookCardStatusNotStarted(durationMs: 60_000)) == .notStarted(durationMs: 60_000))
     }
 
@@ -28,11 +29,13 @@ struct LibraryStatusModelsTests {
     }
 
     @Test func lastLineCopyFollowsTheState() {
+        let timeLeft = DurationFormatting.hoursMinutes(ms: 145_860_000)
+        let length = DurationFormatting.hoursMinutes(ms: 43_440_000)
         #expect(LibraryCardState.inProgress(fraction: 0.1, timeLeftMs: 145_860_000).lastLine
-                == String(format: String(localized: "book.time_left"), DurationFormatting.hoursMinutes(ms: 145_860_000)))
+                == String(format: String(localized: "book.time_left"), timeLeft))
         #expect(LibraryCardState.finished(durationMs: 43_440_000).lastLine
-                == String(format: String(localized: "library.card_finished_length"), DurationFormatting.hoursMinutes(ms: 43_440_000)))
-        #expect(LibraryCardState.notStarted(durationMs: 43_440_000).lastLine == DurationFormatting.hoursMinutes(ms: 43_440_000))
+                == String(format: String(localized: "library.card_finished_length"), length))
+        #expect(LibraryCardState.notStarted(durationMs: 43_440_000).lastLine == length)
     }
 
     @Test func lastLineReadsInEnglish() {
