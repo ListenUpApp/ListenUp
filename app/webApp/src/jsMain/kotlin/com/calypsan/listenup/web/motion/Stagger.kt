@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.motion
 
+import com.calypsan.listenup.web.nav.RouteChange
+import com.calypsan.listenup.web.nav.lastRouteChange
 import kotlinx.browser.window
 import org.jetbrains.compose.web.attributes.AttrsScope
 import org.w3c.dom.Element
@@ -15,7 +17,8 @@ import kotlin.js.Promise
  *
  * ⛔ Only on a forward arrival. A container staggers when it mounts within [ARRIVAL_WINDOW_MS] of a
  * link landing on its page ([markPageArrival]) — not on Back (a place already seen comes back
- * instantly), not on a sort or filter, and never as a virtual list recycles rows while scrolling. CSS
+ * instantly, even when it is Back within that window of a link), not on a sort or filter, and never
+ * as a virtual list recycles rows while scrolling. CSS
  * cannot tell arrival from recycling, which is why this is not a CSS `animation`: measured, one on the
  * grid's cards replayed 149 times across 2,400px of scroll.
  */
@@ -27,8 +30,13 @@ internal fun markPageArrival(now: Double = window.performance.now()) {
     arrivalAt = now
 }
 
-/** Whether a page arrival is recent enough that what mounts now is part of it. */
-internal fun isArriving(now: Double = window.performance.now()): Boolean = now - arrivalAt <= ARRIVAL_WINDOW_MS
+/**
+ * Whether a page arrival is recent enough that what mounts now is part of it — and the route has not
+ * since moved Back, which would otherwise sweep in the page returned to, at the top, before its
+ * place was restored.
+ */
+internal fun isArriving(now: Double = window.performance.now()): Boolean =
+    lastRouteChange() != RouteChange.POP && now - arrivalAt <= ARRIVAL_WINDOW_MS
 
 /** Specs only. */
 internal fun forgetPageArrival() {

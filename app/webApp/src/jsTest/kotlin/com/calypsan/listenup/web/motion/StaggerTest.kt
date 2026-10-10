@@ -2,6 +2,9 @@ package com.calypsan.listenup.web.motion
 
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.motions
+import com.calypsan.listenup.web.nav.RouteChange
+import com.calypsan.listenup.web.nav.captureScrollBeforeRouteChange
+import com.calypsan.listenup.web.nav.forgetScrollMemory
 import com.calypsan.listenup.web.timingOf
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.shouldBeLessThanOrEqual
@@ -23,6 +26,7 @@ class StaggerTest :
             attached.clear()
             forgetPageArrival()
             forgetHeroFlight()
+            forgetScrollMemory()
             reducedMotionOverride = null
         }
 
@@ -113,6 +117,21 @@ class StaggerTest :
                 .first()
                 .motions()
                 .size shouldBe 1
+        }
+
+        test("Back straight after a link staggers nothing") {
+            markPageArrival()
+            captureScrollBeforeRouteChange(RouteChange.POP)
+
+            val returning = column(3)
+            staggerOnArrival(returning)
+            awaitFrame()
+
+            returning
+                .rows()
+                .first()
+                .motions()
+                .size shouldBe 0
         }
 
         test("a page arrival long past staggers nothing") {
