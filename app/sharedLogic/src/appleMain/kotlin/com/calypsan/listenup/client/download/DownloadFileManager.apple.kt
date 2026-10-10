@@ -27,6 +27,9 @@ private val logger = KotlinLogging.logger {}
 actual class DownloadFileManager {
     private val fileManager = NSFileManager.defaultManager
 
+    /** Whether this instance has already marked the download directory as excluded from backup. */
+    private var backupExclusionApplied = false
+
     private val downloadDir: Path
         get() {
             val documentsUrl =
@@ -41,13 +44,19 @@ actual class DownloadFileManager {
             val path = Path(audiobooksUrl.path!!)
 
             // Ensure directory exists
-            if (!fileManager.fileExistsAtPath(audiobooksUrl.path!!)) {
+            val created = !fileManager.fileExistsAtPath(audiobooksUrl.path!!)
+            if (created) {
                 fileManager.createDirectoryAtURL(
                     audiobooksUrl,
                     withIntermediateDirectories = true,
                     attributes = null,
                     error = null,
                 )
+            }
+            // Applied once per process for a directory an earlier version created, and again whenever
+            // the directory is recreated (deleteAllFiles removes it, and the mark goes with it).
+            if (created || !backupExclusionApplied) {
+                backupExclusionApplied = excludeFromBackup(path.toString())
             }
             return path
         }
