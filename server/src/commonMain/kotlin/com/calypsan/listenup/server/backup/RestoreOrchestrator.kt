@@ -79,9 +79,7 @@ class RestoreOrchestrator(
                 }
 
                 // 3. Extract snapshot to staging (slow; the database is untouched and still serving)
-                if (SystemFileSystem.exists(paths.stagingDir)) deleteRecursively(paths.stagingDir)
-                SystemFileSystem.createDirectories(paths.stagingDir)
-                archive.extractTo(archivePath, paths.stagingDir)
+                extractToStaging(archivePath)?.let { return@withContext AppResult.Failure(it) }
 
                 // 4. Image directories aside. A stale database copy from an earlier attempt must not
                 // survive into this one, or rollback could swap it in.
@@ -164,6 +162,26 @@ class RestoreOrchestrator(
                 maintenance.exit()
             }
         }
+
+    /**
+     * Extracts [archivePath] into a fresh staging directory. A corrupt archive returns
+     * [BackupError.CorruptArchive]; any other failure (I/O, cancellation) propagates. Either way a failed
+     * extraction leaves no staging directory behind.
+     */
+    private fun extractToStaging(archivePath: Path): BackupError.CorruptArchive? {
+        if (SystemFileSystem.exists(paths.stagingDir)) deleteRecursively(paths.stagingDir)
+        SystemFileSystem.createDirectories(paths.stagingDir)
+        return try {
+            archive.extractTo(archivePath, paths.stagingDir)
+            null
+        } catch (e: BackupArchive.CorruptArchiveException) {
+            deleteRecursively(paths.stagingDir)
+            BackupError.CorruptArchive(debugInfo = e.message)
+        } catch (e: Throwable) {
+            deleteRecursively(paths.stagingDir)
+            throw e
+        }
+    }
 
     /**
      * Copies [src] directory aside to [dest]. Returns [dest] (or null if [src] doesn't exist —

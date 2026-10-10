@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.backup
 
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.server.compression.MalformedDeflateException
+import com.calypsan.listenup.server.compression.zip.MalformedZipException
 import com.calypsan.listenup.server.compression.zip.ZipEntryInfo
 import com.calypsan.listenup.server.compression.zip.ZipMethod
 import com.calypsan.listenup.server.compression.zip.ZipReader
@@ -194,13 +195,26 @@ class BackupArchive(
     /**
      * Opens the archive and verifies the `listenup.db` checksum against the manifest.
      * Image-dir checksums are verified in [extractTo] while streaming.
-     * @throws CorruptArchiveException if the manifest is missing/unparseable or the db checksum mismatches.
+     * @throws CorruptArchiveException if the file is not a readable zip, the manifest is missing/unparseable, or the
+     *   db checksum mismatches.
      */
-    fun validate(archive: Path): BackupManifest {
-        val manifest = open(archive)
-        verifyDbChecksum(archive, manifest)
-        return manifest
-    }
+    fun validate(archive: Path): BackupManifest =
+        refusingMalformedZip(archive) {
+            val manifest = open(archive)
+            verifyDbChecksum(archive, manifest)
+            manifest
+        }
+
+    /** Runs [block], re-raising a [MalformedZipException] (not a zip, or truncated) as a [CorruptArchiveException]. */
+    private inline fun <T> refusingMalformedZip(
+        archive: Path,
+        block: () -> T,
+    ): T =
+        try {
+            block()
+        } catch (e: MalformedZipException) {
+            throw CorruptArchiveException("$archive is not a readable zip archive: ${e.message.orEmpty()}", e)
+        }
 
     private fun verifyDbChecksum(
         archive: Path,
@@ -230,17 +244,18 @@ class BackupArchive(
     fun extractTo(
         archive: Path,
         targetDir: Path,
-    ): BackupManifest {
-        val manifest = open(archive)
-        val imageSums = extractEntries(archive, targetDir)
-        verifyExtractedChecksums(
-            archive = archive,
-            targetDir = targetDir,
-            manifest = manifest,
-            imageSums = imageSums,
-        )
-        return manifest
-    }
+    ): BackupManifest =
+        refusingMalformedZip(archive) {
+            val manifest = open(archive)
+            val imageSums = extractEntries(archive, targetDir)
+            verifyExtractedChecksums(
+                archive = archive,
+                targetDir = targetDir,
+                manifest = manifest,
+                imageSums = imageSums,
+            )
+            manifest
+        }
 
     private fun extractEntries(
         archive: Path,

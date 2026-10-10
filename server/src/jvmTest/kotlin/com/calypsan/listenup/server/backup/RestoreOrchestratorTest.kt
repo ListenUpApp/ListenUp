@@ -15,7 +15,6 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -319,20 +318,40 @@ class RestoreOrchestratorTest :
                     fixture.paths.ensureDirs()
                     writeBytes(fixture.paths.archiveFor("junk1"), "this is not a zip".toByteArray())
 
-                    // A file too small to be a zip escapes validate() as a MalformedZipException rather than
-                    // a Failure today; either way the restore must stop before touching anything.
-                    val outcome =
-                        try {
-                            buildOrchestrator(fixture).restore(BackupId("junk1"))
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (_: Exception) {
-                            null
-                        }
-                    outcome?.shouldBeInstanceOf<AppResult.Failure>()
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("junk1"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BackupError.CorruptArchive>()
 
                     fixture.handle.sqlDriver.isOpen shouldBe true
                     SystemFileSystem.exists(Path(fixture.paths.rollbackDir, "listenup.db")) shouldBe false
+                    SystemFileSystem.exists(fixture.paths.stagingDir) shouldBe false
+                    fixture.handle.queryScalarString("SELECT v FROM untouched_test") shouldBe "row-B"
+                }
+            }
+        }
+
+        test("a truncated archive fails as corrupt and leaves nothing behind") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS untouched_test(v TEXT)",
+                        "INSERT INTO untouched_test(v) VALUES ('row-B')",
+                    )
+                    val whole = fixture.archive.create("whole1", includeImages = false, onEvent = {})
+                    val bytes = readBytes(whole)
+                    writeBytes(fixture.paths.archiveFor("cut1"), bytes.copyOf(bytes.size / 2))
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("cut1"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BackupError.CorruptArchive>()
+
+                    fixture.handle.sqlDriver.isOpen shouldBe true
+                    SystemFileSystem.exists(Path(fixture.paths.rollbackDir, "listenup.db")) shouldBe false
+                    SystemFileSystem.exists(fixture.paths.stagingDir) shouldBe false
                     fixture.handle.queryScalarString("SELECT v FROM untouched_test") shouldBe "row-B"
                 }
             }
