@@ -433,7 +433,13 @@ class WorldEventRepository(
          * Moves [receiptId]'s events that are still live under [target] back to [source] (UPDATE, no actor), each in
          * its current state. An event created under [target] since the merge is not on the receipt, so it stays.
          * Mentions recompute against [source]'s world on the way back. Call inside [transaction], after the
-         * entities' restore. Returns how many moved back.
+         * entities' and the books' restore. Returns how many moved back.
+         *
+         * An edit made during the merge may have tied an event to the target's world, so each goes home only
+         * where it is still whole: one whose subject or object is no longer an entity of [source] stays with
+         * [target] (a participant is what the event says, so it is never dropped); and an anchor that is no longer
+         * a live book of the event's resulting world is cleared with its moment (an optional pin, dropped like an
+         * entity's cross-home parent).
          */
         fun restore(
             transaction: TransactionWithReturn<*>,
@@ -448,18 +454,47 @@ class WorldEventRepository(
                         .selectReceiptWorldEventIds(receiptId)
                         .executeAsList()
                         .mapNotNull { id -> liveOrNull(id)?.takeIf { it.homeSeriesId == target.value } }
+                var movedHome = 0
                 returning.forEach { before ->
-                    rewrite(
-                        before = before,
-                        after = before.copy(homeSeriesId = source.value),
-                        op = StoryWorldOp.UPDATE,
-                        actor = null,
-                        ctx = ctx,
-                        revision = lease.take(),
-                    )
+                    val after = settledAfterUndo(before, source = source, target = target)
+                    if (after.homeSeriesId == source.value) movedHome++
+                    if (after != before) {
+                        rewrite(
+                            before = before,
+                            after = after,
+                            op = StoryWorldOp.UPDATE,
+                            actor = null,
+                            ctx = ctx,
+                            revision = lease.take(),
+                        )
+                    }
                 }
-                returning.size
+                movedHome
             }
+
+        /** [event] as it should stand after the undo: home in [source] if its participants are, its anchor kept if valid. */
+        private fun settledAfterUndo(
+            event: WorldEventSyncPayload,
+            source: SeriesId,
+            target: SeriesId,
+        ): WorldEventSyncPayload {
+            val sourceHome = WorldHome(seriesId = source.value, bookId = null)
+            val participantsGoHome =
+                integrity.participantProblem(
+                    type = event.type,
+                    subjectId = event.subjectEntityId,
+                    objectId = event.objectEntityId,
+                    home = sourceHome,
+                    mayBeDeleted = setOfNotNull(event.subjectEntityId, event.objectEntityId),
+                ) == null
+            val home = if (participantsGoHome) sourceHome else WorldHome(seriesId = target.value, bookId = null)
+            val anchorHolds = integrity.anchorProblem(event.bookId, home) == null
+            return event.copy(
+                homeSeriesId = home.seriesId,
+                bookId = event.bookId.takeIf { anchorHolds },
+                positionMs = event.positionMs.takeIf { anchorHolds },
+            )
+        }
     }
 
     // ── Targeted pull ──

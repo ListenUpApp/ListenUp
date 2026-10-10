@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.entity.StoryWorldOp
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.api.sync.WorldEventType
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.WorldEventId
 import com.calypsan.listenup.domain.storyworld.MentionTokens
@@ -148,6 +149,49 @@ class SeriesMergeWorldEventsTest :
                     rig.event("moved").homeSeriesId shouldBe source.value
                     rig.event("moved").text shouldBe "after"
                     rig.event("born-in-target").homeSeriesId shouldBe target.value
+                }
+            }
+        }
+
+        test("undo sends an event home only where it is still whole: a foreign anchor drops, a foreign participant stays") {
+            withSqlDatabase {
+                runTest {
+                    val rig = eventMergeRig()
+                    val (source, target) = rig.seedSeries("Dark Age", "Red Rising Saga")
+                    rig.bookRepo.upsert(
+                        bookPayloadFixture(
+                            id = "t1",
+                            title = "t1",
+                            series = listOf(BookSeriesPayload(target.value, "Red Rising Saga", 1.0)),
+                        ),
+                    )
+                    rig.entities.upsertEntity(entityPayload("lysander", homeSeriesId = source.value), UserId("u1"))
+                    rig.entities.upsertEntity(entityPayload("eo", homeSeriesId = target.value), UserId("u1"))
+                    rig.events.record(eventUpsert("pinned", homeSeriesId = source.value, bookId = "b1", positionMs = 9L))
+                    rig.events.record(
+                        eventUpsert(
+                            "scene",
+                            type = WorldEventType.ENTERS_SCENE,
+                            text = "",
+                            homeSeriesId = source.value,
+                            subject = "lysander",
+                        ),
+                    )
+                    rig.service.mergeSeries(source, target) shouldBe AppResult.Success(Unit)
+                    rig.events.record(eventUpsert("pinned", homeSeriesId = target.value, bookId = "t1", positionMs = 4L))
+                    rig.events.record(
+                        eventUpsert("scene", type = WorldEventType.ENTERS_SCENE, text = "", homeSeriesId = target.value, subject = "eo"),
+                    )
+
+                    rig.undoOnlyMergeInto(target)
+
+                    val pinned = rig.event("pinned")
+                    pinned.homeSeriesId shouldBe source.value
+                    pinned.bookId.shouldBeNull()
+                    pinned.positionMs.shouldBeNull()
+                    val scene = rig.event("scene")
+                    scene.homeSeriesId shouldBe target.value
+                    scene.subjectEntityId shouldBe "eo"
                 }
             }
         }
