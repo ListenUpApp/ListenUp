@@ -28,7 +28,19 @@ final class LibraryObserver {
     /// drives the "Title sort" toggle and the article-aware section letters. Shared, persisted state.
     private(set) var ignoreTitleArticles: Bool = true
     private(set) var isLoading: Bool = true
+    /// The library itself has no books. A status filter that matches nothing is `isFilteredEmpty`.
     private(set) var isEmpty: Bool = false
+    /// The Books view's reading-state filter. Session-scoped: the shared ViewModel never persists it.
+    private(set) var statusFilter: BookStatusFilter = .all
+    /// Whole-library counts per reading state, whatever the filter.
+    private(set) var statusCounts: LibraryStatusCounts = .zero
+    /// What each book's card says. Moves on a position tick without a content revision, so it is
+    /// mapped outside the revision gate.
+    private(set) var bookStatus: [String: LibraryCardState] = [:]
+    /// The whole library's length in ms.
+    private(set) var totalDurationMs: Int64 = 0
+    /// The library has books, but the status filter matches none of them.
+    private(set) var isFilteredEmpty = false
     private(set) var isSyncing: Bool = false
     private(set) var errorMessage: String?
 
@@ -58,6 +70,10 @@ final class LibraryObserver {
 
     func setBooksSortCategory(_ category: SortCategory) {
         viewModel.onEvent(event: LibraryUiEventBooksCategoryChanged(category: category))
+    }
+
+    func setStatusFilter(_ filter: BookStatusFilter) {
+        viewModel.onEvent(event: LibraryUiEventStatusFilterChanged(filter: filter))
     }
 
     func toggleBooksSortDirection() {
@@ -115,6 +131,7 @@ final class LibraryObserver {
                 applyContent(loaded)
             }
             assignIfChanged(\.bookProgress, mapProgress(loaded.bookProgress))
+            assignIfChanged(\.bookStatus, mapStatus(loaded.bookStatus))
             assignIfChanged(\.seriesProgress, mapSeriesProgress(loaded.seriesProgress))
             assignIfChanged(\.isSyncing, loaded.isSyncing)
         case .error(let eType):
@@ -150,6 +167,12 @@ final class LibraryObserver {
         )
         ignoreTitleArticles = loaded.ignoreTitleArticles
         isEmpty = loaded.isEmpty
+        // The filter, its counts and the library's length change only with a content revision: a
+        // filter change or a reading-state transition both advance it.
+        statusFilter = loaded.statusFilter
+        statusCounts = LibraryStatusCounts(loaded.statusCounts)
+        totalDurationMs = loaded.totalDurationMs
+        isFilteredEmpty = loaded.isFilteredEmpty
     }
 
     /// Writes only a real change, so an equal value doesn't invalidate the views reading it.
@@ -181,6 +204,15 @@ final class LibraryObserver {
         var result: [String: Float] = [:]
         for (key, value) in raw {
             result[key.value] = value
+        }
+        return result
+    }
+
+    /// Bridge `Map<BookId, BookCardStatus>` → `[String: LibraryCardState]`, keyed like `mapProgress`.
+    private func mapStatus(_ raw: [BookId: BookCardStatus]) -> [String: LibraryCardState] {
+        var result: [String: LibraryCardState] = [:]
+        for (key, value) in raw {
+            result[key.value] = LibraryCardState.from(value)
         }
         return result
     }

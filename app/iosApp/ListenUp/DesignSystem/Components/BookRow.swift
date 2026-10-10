@@ -19,6 +19,8 @@ struct BookRow: Identifiable, Equatable, Hashable {
     let id: String
     let title: String
     let authorNames: String
+    /// "Kate Reading, Michael Kramer" — the Library card's "Read by …" line. Empty when unknown.
+    let narratorNames: String
     let hasDocuments: Bool
     let coverPath: String?
     /// Content hash of the cover, threaded into `BookCoverImage` so a cover change busts the stale
@@ -34,6 +36,7 @@ struct BookRow: Identifiable, Equatable, Hashable {
         id: String,
         title: String,
         authorNames: String,
+        narratorNames: String = "",
         hasDocuments: Bool,
         coverPath: String?,
         coverHash: String? = nil,
@@ -43,6 +46,7 @@ struct BookRow: Identifiable, Equatable, Hashable {
         self.id = id
         self.title = title
         self.authorNames = authorNames
+        self.narratorNames = narratorNames
         self.hasDocuments = hasDocuments
         self.coverPath = coverPath
         self.coverHash = coverHash
@@ -57,6 +61,7 @@ struct BookRow: Identifiable, Equatable, Hashable {
         self.id = item.idString
         self.title = item.title
         self.authorNames = item.authorNames
+        self.narratorNames = item.narratorNames
         self.hasDocuments = item.hasDocuments
         self.coverPath = item.coverPath
         self.coverHash = item.coverHash
