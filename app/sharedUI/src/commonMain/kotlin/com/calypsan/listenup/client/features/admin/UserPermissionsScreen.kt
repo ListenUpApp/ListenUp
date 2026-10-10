@@ -55,6 +55,7 @@ import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import com.calypsan.listenup.client.design.components.TonalLabel
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.util.HoldUnsavedWork
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.model.PermissionPreset
 import com.calypsan.listenup.client.presentation.admin.PermissionSection
@@ -114,6 +115,7 @@ fun UserPermissionsScreen(
         }
 
     PlatformBackHandler(enabled = ready?.hasChanges == true) { confirmingDiscard = true }
+    HoldUnsavedWork(active = ready?.hasChanges == true)
     LaunchedEffect(ready?.error) { ready?.error?.let { snackbarHostState.showSnackbar(it.localizedString()) } }
 
     ListenUpScaffold(

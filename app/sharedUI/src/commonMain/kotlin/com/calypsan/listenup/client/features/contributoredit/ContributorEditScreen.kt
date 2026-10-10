@@ -42,6 +42,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.util.HoldUnsavedWork
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
@@ -128,6 +129,7 @@ fun ContributorEditScreen(
     PlatformBackHandler(enabled = state.hasChanges) {
         showUnsavedChangesDialog = true
     }
+    HoldUnsavedWork(active = state.hasChanges)
 
     // Generate color palette from contributor ID
     val colorScheme = rememberContributorColorScheme(contributorId)

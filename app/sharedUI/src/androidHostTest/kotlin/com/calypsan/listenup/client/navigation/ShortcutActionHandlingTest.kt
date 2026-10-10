@@ -86,6 +86,38 @@ class ShortcutActionHandlingTest :
             }
         }
 
+        test("a navigating shortcut keeps an editor open and lands on top of it while work is held") {
+            runTest {
+                val harness = Harness(recentBooks = emptyList(), stack = listOf(Shell, BookEdit("a")), holdsUnsavedWork = true)
+
+                harness.handle(ShortcutAction.NavigateToBook(bookId = "b"))
+
+                harness.stack shouldBe listOf(Shell, BookEdit("a"), BookDetail("b"))
+            }
+        }
+
+        test("a navigating shortcut with nothing held starts from the shell") {
+            runTest {
+                val harness = Harness(recentBooks = emptyList(), stack = listOf(Shell, BookEdit("a")))
+
+                harness.handle(ShortcutAction.NavigateToBook(bookId = "b"))
+
+                harness.stack shouldBe listOf(Shell, BookDetail("b"))
+            }
+        }
+
+        test("Search while work is held does not reset the stack, switch tabs or open search") {
+            runTest {
+                val harness = Harness(recentBooks = emptyList(), stack = listOf(Shell, BookEdit("a")), holdsUnsavedWork = true)
+
+                harness.handle(ShortcutAction.Search)
+
+                harness.stack shouldBe listOf(Shell, BookEdit("a"))
+                harness.selectedDestinations shouldBe emptyList()
+                harness.searchRequests shouldBe 0
+            }
+        }
+
         test("SleepTimer with no recent book sets no timer and lands on the Library") {
             runTest {
                 val harness = Harness(recentBooks = emptyList())
@@ -101,11 +133,14 @@ class ShortcutActionHandlingTest :
 private class Harness(
     recentBooks: List<ContinueListeningBook>,
     activeBookId: String? = null,
+    stack: List<NavKey> = listOf(Shell),
+    private val holdsUnsavedWork: Boolean = false,
 ) {
     val playback = RecordingPlayback(activeBookId)
     val selectedDestinations = mutableListOf<ShellDestination>()
     var searchRequests = 0
-    private val backStack = NavBackStack<NavKey>(Shell)
+    private val backStack = NavBackStack<NavKey>(*stack.toTypedArray())
+    val stack: List<NavKey> get() = backStack.toList()
     private val home = FakeHome(recentBooks)
 
     suspend fun handle(action: ShortcutAction) {
@@ -116,6 +151,7 @@ private class Harness(
             backStack = backStack,
             onSelectShellDestination = { selectedDestinations += it },
             onOpenSearch = { searchRequests++ },
+            holdsUnsavedWork = { holdsUnsavedWork },
         )
     }
 }

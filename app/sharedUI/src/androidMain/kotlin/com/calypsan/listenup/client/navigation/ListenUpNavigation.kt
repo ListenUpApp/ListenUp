@@ -98,6 +98,8 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
 import com.calypsan.listenup.client.design.LocalDeviceContext
+import com.calypsan.listenup.client.design.util.LocalUnsavedWorkHolds
+import com.calypsan.listenup.client.design.util.UnsavedWorkHolds
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.navigation.entries.adminEntries
@@ -512,6 +514,27 @@ private fun resetToShell(backStack: NavBackStack<NavKey>) {
 }
 
 /**
+ * Shows the Library tab for a shortcut that needs the shell on top, returning whether it did.
+ *
+ * While a screen holds unsaved work (an upload in flight, an edit not yet saved) the stack is left
+ * alone: resetting it would discard that work, and the shortcut's effect can wait until the admin
+ * is done.
+ */
+private fun showLibraryUnlessWorkHeld(
+    backStack: NavBackStack<NavKey>,
+    onSelectShellDestination: (ShellDestination) -> Unit,
+    holdsUnsavedWork: Boolean,
+): Boolean {
+    if (holdsUnsavedWork) {
+        logger.info { "Shortcut left the open screen alone: it holds unsaved work" }
+        return false
+    }
+    resetToShell(backStack)
+    onSelectShellDestination(ShellDestination.Library)
+    return true
+}
+
+/**
  * Routes a launcher/shortcut [ShortcutAction] to the right playback or navigation effect.
  *
  * Extracted from [AuthenticatedNavigation] so the composable's cyclomatic complexity stays
@@ -526,7 +549,9 @@ internal suspend fun handleShortcutAction(
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
     onOpenSearch: () -> Unit,
+    holdsUnsavedWork: () -> Boolean,
 ) {
+    val showLibrary: () -> Unit = { showLibraryUnlessWorkHeld(backStack, onSelectShellDestination, holdsUnsavedWork()) }
     when (action) {
         is ShortcutAction.Resume -> {
             // Get the most recent book and play it
@@ -538,9 +563,7 @@ internal suspend fun handleShortcutAction(
                 playback.expand()
             } else {
                 logger.warn { "No recent book to resume" }
-                // Navigate to library as fallback
-                resetToShell(backStack)
-                onSelectShellDestination(ShellDestination.Library)
+                showLibrary()
             }
         }
 
@@ -551,9 +574,7 @@ internal suspend fun handleShortcutAction(
         }
 
         is ShortcutAction.Search -> {
-            resetToShell(backStack)
-            onSelectShellDestination(ShellDestination.Library)
-            onOpenSearch()
+            if (showLibraryUnlessWorkHeld(backStack, onSelectShellDestination, holdsUnsavedWork())) onOpenSearch()
         }
 
         is ShortcutAction.NavigateToBook,
@@ -562,8 +583,7 @@ internal suspend fun handleShortcutAction(
         is ShortcutAction.NavigateToUserProfile,
         -> {
             logger.info { "Navigating for shortcut: $action" }
-            resetToShell(backStack)
-            backStack.addAll(action.screensAboveShell())
+            backStack.openFromOutside(Shell, action.screensAboveShell(), holdsUnsavedWork())
         }
 
         is ShortcutAction.SleepTimer -> {
@@ -571,8 +591,7 @@ internal suspend fun handleShortcutAction(
                 action = action,
                 homeRepository = homeRepository,
                 playback = playback,
-                backStack = backStack,
-                onSelectShellDestination = onSelectShellDestination,
+                showLibrary = showLibrary,
             )
         }
     }
@@ -595,8 +614,7 @@ private suspend fun startSleepTimerFromShortcut(
     action: ShortcutAction.SleepTimer,
     homeRepository: HomeRepository,
     playback: ShortcutPlayback,
-    backStack: NavBackStack<NavKey>,
-    onSelectShellDestination: (ShellDestination) -> Unit,
+    showLibrary: () -> Unit,
 ) {
     val timer = SleepTimerMode.Duration(action.timerMinutes ?: DEFAULT_SHORTCUT_SLEEP_MINUTES)
     if (playback.activeBookId != null) {
@@ -609,8 +627,7 @@ private suspend fun startSleepTimerFromShortcut(
     val recent = if (latest is AppResult.Success) latest.data.firstOrNull() else null
     if (recent == null) {
         logger.warn { "No recent book to start a sleep timer on" }
-        resetToShell(backStack)
-        onSelectShellDestination(ShellDestination.Library)
+        showLibrary()
         return
     }
 
@@ -685,6 +702,11 @@ private fun AuthenticatedNavigation(
 
     // One search-request channel for the `/` key and the launcher's Search shortcut alike.
     val searchRequests = remember { ShellSearchRequests() }
+
+    // Screens holding an upload in flight or an unsaved edit raise a hold here; an outside
+    // navigation (push tap, shared link, shortcut) lands on top of them instead of clearing the stack.
+    val unsavedWork = remember { UnsavedWorkHolds() }
+
     // ViewModels for shortcut action handling
     val nowPlayingViewModel: NowPlayingViewModel = koinViewModel()
 
@@ -755,6 +777,7 @@ private fun AuthenticatedNavigation(
         serverConfig = serverConfig,
         backStack = backStack,
         snackbarHostState = snackbarHostState,
+        holdsUnsavedWork = { unsavedWork.isHeld },
     )
 
     ShortcutActionEffect(
@@ -764,6 +787,7 @@ private fun AuthenticatedNavigation(
         backStack = backStack,
         onSelectShellDestination = { currentShellDestination = it },
         onOpenSearch = searchRequests::request,
+        holdsUnsavedWork = { unsavedWork.isHeld },
     )
 
     // The lock on every book card: one admin-gated set for the whole app (empty for members).
@@ -775,6 +799,7 @@ private fun AuthenticatedNavigation(
         ProvideNowPlayingInsets(barVisible = barVisible, latchedFootprint = latchedFootprint) {
             CompositionLocalProvider(
                 LocalSnackbarHostState provides snackbarHostState,
+                LocalUnsavedWorkHolds provides unsavedWork,
                 LocalDeviceContext provides koinInject<DeviceContext>(),
             ) {
                 AppKeyboardShortcuts(nowPlayingViewModel, backStack, searchRequests) {
@@ -811,6 +836,7 @@ private fun AuthenticatedNavigation(
                                                 readiness = { readiness },
                                                 onSignOut = onSignOut,
                                                 onOpenSearch = searchRequests::request,
+                                                holdsUnsavedWork = { unsavedWork.isHeld },
                                             ),
                                         nowPlayingViewModel = nowPlayingViewModel,
                                         startupViewModel = startupViewModel,
@@ -855,6 +881,7 @@ private fun ShareLinkEffect(
     serverConfig: ServerConfig,
     backStack: NavBackStack<NavKey>,
     snackbarHostState: SnackbarHostState,
+    holdsUnsavedWork: () -> Boolean,
 ) {
     val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
     val wrongServerMessage = stringResource(Res.string.error_book_wrong_server)
@@ -863,8 +890,7 @@ private fun ShareLinkEffect(
         val book = pendingTarget as? ShareTarget.Book ?: return@LaunchedEffect
         when (val resolution = ShareTargetResolver.resolve(book, serverConfig.getConnectedServerId())) {
             is ShareResolution.OpenBook -> {
-                resetToShell(backStack)
-                backStack.add(BookDetail(resolution.bookId.value))
+                backStack.openFromOutside(Shell, listOf(BookDetail(resolution.bookId.value)), holdsUnsavedWork())
             }
 
             is ShareResolution.WrongServer -> {
@@ -949,6 +975,7 @@ private fun shortcutActionDispatcher(
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
     onOpenSearch: () -> Unit,
+    holdsUnsavedWork: () -> Boolean,
 ): (ShortcutAction) -> Unit =
     { action ->
         scope.launch {
@@ -959,6 +986,7 @@ private fun shortcutActionDispatcher(
                 backStack = backStack,
                 onSelectShellDestination = onSelectShellDestination,
                 onOpenSearch = onOpenSearch,
+                holdsUnsavedWork = holdsUnsavedWork,
             )
         }
     }
@@ -973,6 +1001,7 @@ private data class ShellWiring(
     val readiness: () -> LibraryReadiness,
     val onSignOut: () -> Unit,
     val onOpenSearch: () -> Unit,
+    val holdsUnsavedWork: () -> Boolean,
 )
 
 /**
@@ -1027,6 +1056,7 @@ private fun authenticatedNavEntries(
                 backStack = backStack,
                 onSelectShellDestination = shell.onDestinationChange,
                 onOpenSearch = shell.onOpenSearch,
+                holdsUnsavedWork = shell.holdsUnsavedWork,
             ),
     )
     // Re-auth entry pushed by the shell banner's "Sign in" action while SessionLapsed.
@@ -1212,6 +1242,7 @@ private fun ShortcutActionEffect(
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
     onOpenSearch: () -> Unit,
+    holdsUnsavedWork: () -> Boolean,
 ) {
     val pendingAction by shortcutActionManager.pendingAction.collectAsStateWithLifecycle()
     LaunchedEffect(pendingAction) {
@@ -1226,6 +1257,7 @@ private fun ShortcutActionEffect(
             backStack = backStack,
             onSelectShellDestination = onSelectShellDestination,
             onOpenSearch = onOpenSearch,
+            holdsUnsavedWork = holdsUnsavedWork,
         )
 
         // Consume the action after processing
