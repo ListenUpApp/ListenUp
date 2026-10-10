@@ -4,6 +4,7 @@ import com.calypsan.listenup.server.process.ProcessRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlin.concurrent.Volatile
 
 private val log = KotlinLogging.logger("com.calypsan.listenup.server.transcode.ProcessTranscodeSpawner")
 
@@ -24,12 +25,23 @@ class ProcessTranscodeSpawner(
     private val scope: CoroutineScope,
     private val runner: ProcessRunner = ProcessRunner(),
 ) : TranscodeSpawner {
+    @Volatile
+    private var exited = false
+
+    override val hasExited: Boolean get() = exited
+
     override suspend fun start(commands: List<List<String>>) {
         scope.launch {
-            // FFmpeg writes progress and warnings to stderr; only the tail matters, and only when
-            // something went wrong, so it goes to debug rather than being accumulated in memory.
-            val exit = runner.runPipeline(commands) { line -> log.debug { line } }
-            if (exit != 0) log.warn { "transcode pipeline exited $exit: ${commands.map { it.firstOrNull() }}" }
+            try {
+                // FFmpeg writes progress and warnings to stderr; only the tail matters, and only when
+                // something went wrong, so it goes to debug rather than being accumulated in memory.
+                val exit = runner.runPipeline(commands) { line -> log.debug { line } }
+                if (exit != 0) log.warn { "transcode pipeline exited $exit: ${commands.map { it.firstOrNull() }}" }
+            } finally {
+                // A failed spawn and a cancelled scope are exits too: the engine must never wait on a
+                // child that is not there.
+                exited = true
+            }
         }
         runner.awaitStarted()
     }
