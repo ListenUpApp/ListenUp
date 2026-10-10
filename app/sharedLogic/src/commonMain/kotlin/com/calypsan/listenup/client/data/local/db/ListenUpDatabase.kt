@@ -39,6 +39,8 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * [MIGRATION_20_21] adds reading orders (#962): the `reading_orders`, `reading_order_books` and
  * `reading_order_follows` tables, `canMakeReadingOrders` on `users` and `admin_user_roster`, and
  * `books.releaseDate` for Publication order.
+ * [MIGRATION_21_22] changes no schema: it rewinds the `admin_user_roster` cursor so the roster's permission
+ * columns are re-pulled from the server.
  * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
@@ -107,7 +109,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         ReadingOrderBookEntity::class,
         ReadingOrderFollowEntity::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = true,
 )
 @ColumnTypeConverters(

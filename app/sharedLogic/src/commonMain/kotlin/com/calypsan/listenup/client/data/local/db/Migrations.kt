@@ -419,8 +419,9 @@ internal val MIGRATION_17_18 =
 /**
  * v18 → v19: `users.canCurateLibrary` and `admin_user_roster.canCurateLibrary` — the Curate library
  * permission split out of Edit metadata. Each is backfilled from `canEdit`, exactly as the server's V92
- * backfills `can_curate_library` from `can_edit`, so a mirrored row already agrees with the server and
- * no cursor needs rewinding. A row synced afterwards carries the real value.
+ * backfills `can_curate_library` from `can_edit`. A roster row that was mirrored after the server gained the
+ * permission but before this build did can hold a different real value, which [MIGRATION_21_22] re-pulls.
+ * A row synced afterwards carries the real value.
  */
 internal val MIGRATION_18_19 =
     object : Migration(18, 19) {
@@ -525,5 +526,20 @@ internal val MIGRATION_20_21 =
                 "ALTER TABLE `admin_user_roster` ADD COLUMN `canMakeReadingOrders` INTEGER NOT NULL DEFAULT 1",
             )
             connection.executeDdl("ALTER TABLE `books` ADD COLUMN `releaseDate` TEXT")
+        }
+    }
+
+/**
+ * v21 → v22: no schema change; the `admin_user_roster` cursor is removed so the next catch-up re-pulls the
+ * roster. A build that predates a roster permission stores a row's revision without that field, and the
+ * migrations that added `canCurateLibrary`, the Story World flags and `canMakeReadingOrders` filled the
+ * column with a guess; the cursor was already past the row, so nothing would ever correct it. Rows keep their
+ * revisions and a payload at an equal revision is applied, so the re-pull overwrites each column with the
+ * server's value. The roster is server-written, so no unsynced local data is touched.
+ */
+internal val MIGRATION_21_22 =
+    object : Migration(21, 22) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'admin_user_roster'")
         }
     }
