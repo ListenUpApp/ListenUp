@@ -667,6 +667,9 @@ internal class PlaybackPositionRepositoryImpl(
                 startedAt = effectiveStartedAt,
                 updatedAt = now,
                 syncedAt = null,
+                // An active local write must be visible to the reads that follow; a server tombstone
+                // would otherwise hide the finished state.
+                deletedAt = null,
             ) ?: PlaybackPositionEntity(
                 bookId = bookId,
                 positionMs = 0L,
@@ -708,6 +711,9 @@ internal class PlaybackPositionRepositoryImpl(
                 updatedAt = now,
                 lastPlayedAt = now,
                 syncedAt = null,
+                // An active local write must be visible to the reads that follow; a server tombstone
+                // would otherwise hide the restarted position.
+                deletedAt = null,
             ),
         )
     }

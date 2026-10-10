@@ -265,6 +265,53 @@ class PlaybackPositionFinishTest :
                 }
             }
 
+            test("marking a tombstoned book finished heals the tombstone") {
+                val db = createInMemoryTestDatabase()
+                try {
+                    runTest {
+                        val repo = repoAgainst(db)
+                        val bookId = BookId("b1")
+                        db.playbackPositionDao().save(playedEntity(bookId))
+                        db.playbackPositionDao().softDelete(bookId, deletedAt = 2_000L, revision = 5L)
+
+                        repo
+                            .savePlaybackState(bookId, PlaybackUpdate.MarkComplete(startedAt = null, finishedAt = null))
+                            .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                        val healed = db.playbackPositionDao().get(bookId).shouldNotBeNull()
+                        healed.deletedAt shouldBe null
+                        healed.isFinished shouldBe true
+                        db.playbackPositionDao().getLive(bookId).shouldNotBeNull()
+                    }
+                } finally {
+                    db.close()
+                }
+            }
+
+            test("restarting a tombstoned book heals the tombstone") {
+                val db = createInMemoryTestDatabase()
+                try {
+                    runTest {
+                        val repo = repoAgainst(db)
+                        val bookId = BookId("b1")
+                        db.playbackPositionDao().save(playedEntity(bookId))
+                        db.playbackPositionDao().softDelete(bookId, deletedAt = 2_000L, revision = 5L)
+
+                        repo
+                            .savePlaybackState(bookId, PlaybackUpdate.Restart)
+                            .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                        val healed = db.playbackPositionDao().get(bookId).shouldNotBeNull()
+                        healed.deletedAt shouldBe null
+                        healed.positionMs shouldBe 0L
+                        healed.isFinished shouldBe false
+                        db.playbackPositionDao().getLive(bookId).shouldNotBeNull()
+                    }
+                } finally {
+                    db.close()
+                }
+            }
+
             // Repository leg directly, same rationale as the C-C06 tests above — no
             // scope.launch/advanceUntilIdle race against Room's real Dispatchers.IO.
             test("a tombstoned book-finish also heals the tombstone and preserves other fields") {
