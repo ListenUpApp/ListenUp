@@ -237,6 +237,44 @@ class BookAccessPolicy(
         }
 
     /**
+     * Visible `world_events` row ids for `(userId, role)`, or null for ROOT/ADMIN. An event is visible iff its
+     * home is (the [accessibleEntityIdsSql] rule) and, when it is anchored, its anchor book is — all three
+     * clauses built on [accessibleBookIdsSubquery], so the event rule can never drift from the book rule.
+     */
+    fun accessibleWorldEventIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? {
+        if (role.isAdmin()) return null
+        val sql =
+            """
+            SELECT w.id FROM world_events w
+            WHERE (w.home_book_id IN ($accessibleBookIdsSubquery)
+                   OR w.home_series_id IN (
+                     SELECT m.series_id FROM book_series_memberships m
+                     JOIN book_series s ON s.id = m.series_id AND s.deleted_at IS NULL
+                     WHERE m.book_id IN ($accessibleBookIdsSubquery)
+                   ))
+              AND (w.book_id IS NULL OR w.book_id IN ($accessibleBookIdsSubquery))
+            """.trimIndent()
+        return SqlFragment(sql = sql, args = List(ACCESSIBLE_BOOK_SUBQUERIES_IN_EVENT_SQL * 2) { userId })
+    }
+
+    /**
+     * True when `(userId, role)` may see a Story World event homed on [homeSeriesId] or [homeBookId] and anchored
+     * to [anchorBookId] (null: not anchored). ROOT/ADMIN see an anchored event while its anchor book is live.
+     */
+    suspend fun canSeeWorldEvent(
+        userId: String,
+        role: UserRole,
+        homeSeriesId: String?,
+        homeBookId: String?,
+        anchorBookId: String?,
+    ): Boolean =
+        canSeeEntityHome(userId, role, homeSeriesId, homeBookId) &&
+            (anchorBookId == null || canAccess(userId, role, anchorBookId))
+
+    /**
      * Shared shape for a book-keyed junction table: its row is visible iff its book is.
      *
      * [table] is a compile-time constant supplied by this class only — never caller input — so the
@@ -477,4 +515,9 @@ class BookAccessPolicy(
                     args.forEachIndexed { index, arg -> bindRaw(index, arg) }
                 },
             ).value
+
+    private companion object {
+        /** [accessibleWorldEventIdsSql] embeds the accessible-books subquery three times, each binding the user twice. */
+        const val ACCESSIBLE_BOOK_SUBQUERIES_IN_EVENT_SQL = 3
+    }
 }
