@@ -286,7 +286,7 @@ custom_rules:
       - doccomment
       - doccomment.field
       - string
-    message: Tests use Swift Testing (@Test, #expect).
+    message: 'Tests use Swift Testing (@Test, #expect).'
     severity: error
 
   legacy_swift_idiom_forced:
@@ -329,7 +329,7 @@ custom_rules:
       - doccomment
       - doccomment.field
       - string
-    message: Use Task { @MainActor in … } or a .task modifier.
+    message: 'Use Task { @MainActor in … } or a .task modifier.'
     severity: error
 
   legacy_swift_idiom_formatter:
