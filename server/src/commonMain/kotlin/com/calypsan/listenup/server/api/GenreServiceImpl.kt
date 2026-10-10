@@ -54,11 +54,12 @@ private const val MAX_BROWSE_LIMIT = 1000
  * descendant snapshot, bulk `rewritePathPrefix`, parent re-point, then a per-affected-row
  * re-upsert so the substrate publishes one `genre.Updated` per row.
  *
- * Genre reads ([listGenres], [getGenre], [getGenreChildren], [listUnmappedStrings]) are
+ * Genre reads ([listGenres], [getGenre], [getGenreChildren]) are
  * open to any authenticated user; [browseBooks] is access-filtered so a non-admin caller
  * receives only the ids of books they can reach (via [BookAccessPolicy]) — a browse can't
  * enumerate a quarantined or private-collection-only book; ROOT/ADMIN see every book.
- * Edits ([createGenre], [updateGenre], [moveGenre], [mapUnmappedToGenre]) are gated on
+ * Edits ([createGenre], [updateGenre], [moveGenre], [mapUnmappedToGenre]) and the
+ * [listUnmappedStrings] queue that feeds the mapping screen are gated on
  * [Permission.EDIT_METADATA]; merge, delete and merge-undo ([mergeGenres], [deleteGenre],
  * [undoGenreMerge], and the [listMergeReceipts] that feeds undo) on
  * [Permission.CURATE_LIBRARY] — both via [permissionPolicy]:
@@ -409,8 +410,9 @@ internal class GenreServiceImpl(
         return mergeReceipts.undo(receiptId)
     }
 
-    override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> =
-        suspendTransaction(sqlDb) {
+    override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> {
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        return suspendTransaction(sqlDb) {
             val summaries =
                 sqlDb.pendingBookGenresQueries.aggregateByString().executeAsList().map { agg ->
                     UnmappedStringSummary(
@@ -421,6 +423,7 @@ internal class GenreServiceImpl(
                 }
             AppResult.Success(summaries)
         }
+    }
 
     override suspend fun mapUnmappedToGenre(
         rawString: String,

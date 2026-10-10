@@ -50,7 +50,6 @@ class ReadRpcsNameTheirCallerRule :
                 "GenreServiceImpl.getGenreStats", // book count and total duration across all books, not the caller's
                 "MoodServiceImpl.getMoodStats", // book count and total duration across all books, not the caller's
                 "TagServiceImpl.getTagStats", // book count and total duration across all books, not the caller's
-                "GenreServiceImpl.listUnmappedStrings", // raw genre strings from scanned books, with book counts
             )
 
         private val PRINCIPAL_WORD = Regex("""principal""", RegexOption.IGNORE_CASE)
