@@ -467,6 +467,11 @@ class ListenUp :
             get<BackgroundSyncScheduler>().schedule()
             get<PushRegistrar>().syncRegistration()
         }
+
+        // Recent-book launcher shortcuts follow what the listener last played.
+        get<CoroutineScope>().launch {
+            get<PlaybackManager>().currentBookId.collect { get<ListenUpShortcutManager>().updateShortcuts() }
+        }
     }
 
     /**

@@ -48,6 +48,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.navigation.ListenUpNavigation
+import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
 import com.calypsan.listenup.client.shortcuts.ShortcutActions
 import com.calypsan.listenup.client.foldable.PostureProvider
 import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
@@ -299,6 +300,7 @@ class MainActivity : ComponentActivity() {
                 if (bookId != null) {
                     logger.debug { "Received PLAY_BOOK shortcut action - bookId=$bookId" }
                     shortcutActionManager.setPendingAction(ShortcutAction.PlayBook(bookId))
+                    get<ListenUpShortcutManager>().reportShortcutUsed("${ShortcutActions.SHORTCUT_ID_BOOK_PREFIX}$bookId")
                 } else {
                     logger.warn { "PLAY_BOOK action missing book_id extra" }
                 }
