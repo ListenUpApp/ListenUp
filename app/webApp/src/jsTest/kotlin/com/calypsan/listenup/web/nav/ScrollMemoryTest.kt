@@ -56,8 +56,7 @@ private suspend fun awaitUntil(
     }
 }
 
-private fun ViewportFrame.positions(): List<Int> =
-    findAll("[role=listitem]").mapNotNull { it.getAttribute("aria-posinset")?.toIntOrNull() }
+private fun ViewportFrame.positions(): List<Int> = findAll("[role=listitem]").mapNotNull { it.getAttribute("aria-posinset")?.toIntOrNull() }
 
 /**
  * Back returns the reader to the place they left — in memory, per URL, and through the virtualised

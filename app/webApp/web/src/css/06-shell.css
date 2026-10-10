@@ -61,6 +61,11 @@
    it, `.tport`'s `position:sticky; bottom:0` only pins once the content is tall enough to scroll —
    on a short page the bar rendered mid-screen, floating above the fold. */
 .shell-main { flex:1; min-width:0; overflow:auto; padding:var(--sp-24) 28px; display:flex; flex-direction:column; }
+/* The page's own content, one box inside the region (motion/PageArrival.kt). It exists so a page can
+   rise as it arrives while the REGION never takes a transform — the cover flight measures against it.
+   It reproduces the region's column, so every page lays out exactly as it did as the region's direct
+   children, and it grows to fill the region so the pinned player still sits at the bottom. */
+.page-body { display:flex; flex-direction:column; flex:1 0 auto; min-width:0; }
 
 /* The bottom group. Whichever of these comes first absorbs the free space; when the notice is
    present it takes the auto margin and the bar tucks directly beneath it, so the two stay a pair
