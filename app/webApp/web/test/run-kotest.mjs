@@ -28,7 +28,8 @@ import { isSettled, problemsFor } from './settle.mjs'
 // `testStarted` — so a spec that quietly becomes server-gated trips the floor the same as one
 // that stops compiling. A hand-edited constant here once sat at 211 while the suite grew to 820;
 // the committed file moves only under KOTEST_UPDATE_BASELINE=1 (see the end of this script), so
-// the diff lands in review next to the specs that caused it.
+// the diff lands in review next to the specs that caused it. A run that has outgrown the baseline
+// by more than 10% fails too, which is what forces that diff to land with the specs.
 const BASELINE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'kotest-baseline.json')
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
 const LANE = process.env.LU_SERVER_URL ? 'serverBacked' : 'serverFree'
@@ -164,6 +165,8 @@ const problems = problemsFor({
   minTests: MIN_TESTS,
   ceilingMs: CEILING_MS,
   pageErrors,
+  // An update run exists to re-record a stale baseline, so staleness must not block it.
+  maxGrowth: process.env.KOTEST_UPDATE_BASELINE === '1' ? Infinity : undefined,
 })
 
 for (const p of problems) console.log(`PROBLEM: ${p}`)

@@ -35,16 +35,27 @@ export const isSettled = (counts, { now, lastMessageAt, idleMs }) =>
  * Each clause is independent on purpose: a run can both time out and have failures, and hiding the
  * second behind the first is how a fix gets declared complete while something else is still broken.
  *
+ * [maxGrowth] is the fraction by which a run may exceed [minTests] before the baseline counts as stale.
+ *
  * [pageErrors] are the browser's uncaught errors — an exception or promise rejection that escaped
  * every spec's own handling. That is a spec leaving a broken world behind for whichever spec runs
  * next, and the harness used to print the list and then pass anyway. A block that is printed and
  * never acted on teaches everyone to scroll past it; counting it here is what makes it a signal.
  */
-export const problemsFor = ({ counts, timedOut, minTests, ceilingMs, pageErrors = [] }) => {
+export const problemsFor = ({ counts, timedOut, minTests, ceilingMs, pageErrors = [], maxGrowth = 0.1 }) => {
   const problems = []
   if (timedOut) problems.push(`the run did not settle within ${ceilingMs / 1000}s`)
   if (counts.started < minTests) {
     problems.push(`discovered ${counts.started} tests, expected at least ${minTests}`)
+  }
+  // A floor that only catches shrinkage decays: the suite grows, the number stays, and one day half
+  // the suite can vanish above it. Outgrowing the floor is therefore a problem too — it is fixed by
+  // re-recording the baseline in the same change that added the specs.
+  if (counts.started > Math.ceil(minTests * (1 + maxGrowth))) {
+    problems.push(
+      `discovered ${counts.started} tests, more than ${Math.round(maxGrowth * 100)}% above the ` +
+        `recorded baseline of ${minTests} — re-record it (KOTEST_UPDATE_BASELINE=1) and commit the diff`,
+    )
   }
   const dangling = inFlight(counts)
   if (dangling > 0) problems.push(`${dangling} test(s) started but never reported a result`)
