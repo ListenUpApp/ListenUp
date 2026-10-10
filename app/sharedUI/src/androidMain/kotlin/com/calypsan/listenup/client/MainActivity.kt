@@ -118,8 +118,13 @@ class MainActivity : ComponentActivity() {
         // cold-start library-setup check. The lambda is polled each frame.
         splash.setKeepOnScreenCondition { appStartupViewModel.state.value.isChecking }
 
-        // Handle deep link from initial launch
-        handleIntent(intent)
+        if (shouldHandleLaunchIntent(
+                isRestoredInstance = savedInstanceState != null,
+                launchedFromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0,
+            )
+        ) {
+            handleIntent(intent)
+        }
 
         // Initialize local preferences (theme, dynamic colors, etc.) from storage
         lifecycleScope.launch {
@@ -212,7 +217,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Handle deep link when app is already running (singleTask)
+        // A later recreation must see this intent, not the cold-start one.
+        setIntent(intent)
         handleIntent(intent)
     }
 
