@@ -334,6 +334,10 @@ private fun UploadError.toHttpStatus(): HttpStatusCode =
 
         is UploadError.InvalidFilePath -> HttpStatusCode.BadRequest
 
+        // Produced on the client and never sent by the server; mapped like InvalidFilePath so the
+        // table stays exhaustive.
+        is UploadError.FileUnreadable -> HttpStatusCode.BadRequest
+
         is UploadError.SessionTooLarge -> HttpStatusCode.PayloadTooLarge
 
         is UploadError.FileTransferFailed -> HttpStatusCode.UnprocessableEntity
