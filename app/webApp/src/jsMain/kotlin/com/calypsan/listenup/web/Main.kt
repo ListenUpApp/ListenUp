@@ -85,9 +85,9 @@ import com.calypsan.listenup.web.features.profile.graphEditProfile
 import com.calypsan.listenup.web.features.profile.graphProfile
 import com.calypsan.listenup.web.features.seriesdetail.graphSeriesDetail
 import com.calypsan.listenup.web.features.seriesedit.graphSeriesEdit
-import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.nav.readLeavingPage
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
@@ -196,7 +196,7 @@ fun main() {
             window.history.replaceState(null, "", withoutInvite.toUrl())
         }
 
-        val router = Router(beforeRouteChange = { captureHeroOriginBeforeRouteChange() })
+        val router = Router(beforeRouteChange = ::readLeavingPage)
         renderComposable(root = mount) {
             AuthGate(
                 authGraph = graphAuth(koin),

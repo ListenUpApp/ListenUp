@@ -214,6 +214,7 @@ import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.nav.ScrollRestoration
 import com.calypsan.listenup.web.shell.NotFoundPage
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
@@ -364,6 +365,7 @@ fun WebAppRoot(
             // at. A Room-backed flow costs almost nothing to keep subscribed, and keeping it is what
             // makes going back instant instead of merely fast.
             val librarySession = libraryState(openLibrary)
+            ScrollRestoration(route)
             RouteContent(
                 router = router,
                 route = route,
