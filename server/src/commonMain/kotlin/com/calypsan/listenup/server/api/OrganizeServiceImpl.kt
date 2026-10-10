@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.organize.OrganizeRunId
 import com.calypsan.listenup.api.dto.organize.OrganizeSettingsDto
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.LibraryWriteError
+import com.calypsan.listenup.api.error.surfacedLogLine
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.auth.PermissionPolicy
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
+import kotlin.time.TimeSource
 
 private val logger = loggerFor<OrganizeServiceImpl>()
 
@@ -129,12 +131,24 @@ class OrganizeServiceImpl(
         return AppResult.Success(runState.activeRunId())
     }
 
-    /** Runs [plan] to completion, emitting progress into [runState]. Never throws — per-book failures are reported and skipped. */
+    /**
+     * Runs [plan] to completion, emitting progress into [runState]. Never throws — per-book failures are reported and
+     * skipped.
+     *
+     * Logs the pass for the operator reading the server log: its plan and its result at INFO, every failed book at
+     * WARN with the paths involved and the error's code and detail. A successful move is DEBUG only — a first pass over
+     * a real library moves thousands of books, and those lines would bury the failures.
+     */
     private suspend fun executeRun(
         runId: OrganizeRunId,
         plan: MovePlan,
     ) {
+        val startedAt = TimeSource.Monotonic.markNow()
         val total = plan.entries.size
+        logger.info {
+            "organize pass ${runId.value} started: $total books planned " +
+                "(${plan.bookCount} relocations of ${plan.fileCount} files, ${plan.renamedInPlaceCount} in-place renames)"
+        }
         runState.emit(runId, OrganizeRunEvent.Started(runId, total))
         var moved = 0
         var failed = 0
@@ -142,6 +156,7 @@ class OrganizeServiceImpl(
             when (val result = executor.execute(entry)) {
                 is AppResult.Success -> {
                     moved++
+                    logger.debug { "organize moved book ${entry.bookId}: ${entry.fromDir} → ${entry.toDir}" }
                     runState.emit(
                         runId,
                         OrganizeRunEvent.BookMoved(
@@ -156,7 +171,8 @@ class OrganizeServiceImpl(
                 is AppResult.Failure -> {
                     failed++
                     logger.warn {
-                        "organize move failed for ${entry.bookId}: ${result.error.debugInfo ?: result.error.code}"
+                        "organize move failed for book ${entry.bookId}: ${entry.fromDir} → ${entry.toDir}: " +
+                            result.error.surfacedLogLine()
                     }
                     runState.emit(
                         runId,
@@ -169,6 +185,10 @@ class OrganizeServiceImpl(
                     )
                 }
             }
+        }
+        logger.info {
+            "organize pass ${runId.value} finished in ${startedAt.elapsedNow().inWholeMilliseconds} ms: " +
+                "$moved moved, $failed failed of $total planned"
         }
         runState.emit(runId, OrganizeRunEvent.Completed(movedBooks = moved, failedBooks = failed))
     }
