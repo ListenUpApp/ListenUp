@@ -112,7 +112,8 @@ class AudnexusPeopleBudgetTest :
                     answer
                         .shouldNotBeNull()
                         .shouldBeInstanceOf<AppResult.Success<PersonAnswer>>()
-                        .data.people.associateBy { it.key }
+                        .data.people
+                        .associateBy { it.key }
                 found.keys shouldBe setOf(RUOCCHIO, RUOCCHIO_UK, RUOCCHIO_TYPO, DAVIS)
                 found.getValue(RUOCCHIO).viaLink shouldBe true
                 found.getValue(RUOCCHIO).photoUrl shouldBe "https://a/$RUOCCHIO.jpg"
