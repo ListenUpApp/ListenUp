@@ -145,8 +145,24 @@ internal class MoodServiceImpl(
     }
 
     override suspend fun getMoodStats(moodId: MoodId): AppResult<FacetStats> {
-        val row = suspendTransaction(sql) { sql.bookMoodsQueries.moodStats(moodId.value).executeAsOne() }
-        return AppResult.Success(FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L))
+        // Count only books the caller can open, so a member is never told "12 books" and shown 9.
+        // null = ROOT/ADMIN: every book, so the SQL aggregate answers directly.
+        val accessible = accessibleBookIdFilter()
+        val stats =
+            suspendTransaction(sql) {
+                if (accessible == null) {
+                    val row = sql.bookMoodsQueries.moodStats(moodId.value).executeAsOne()
+                    FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L)
+                } else {
+                    val reachable =
+                        sql.bookMoodsQueries
+                            .moodBookDurations(moodId.value)
+                            .executeAsList()
+                            .filter { it.book_id in accessible }
+                    FacetStats(bookCount = reachable.size, totalDurationMs = reachable.sumOf { it.duration_ms })
+                }
+            }
+        return AppResult.Success(stats)
     }
 
     override suspend fun addMoodToBook(

@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.testing.bookPayloadFixture
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import com.calypsan.listenup.api.dto.FacetStats
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -116,6 +117,44 @@ class GenreServiceImplBrowseAccessTest :
 
                     val success = result.shouldBeInstanceOf<AppResult.Success<List<BookId>>>()
                     success.data.map { it.value }.sorted() shouldBe listOf("private-book", "public-book")
+                }
+            }
+        }
+
+        // Fails before the fix: the aggregate counts every live book in the genre, not the caller's.
+        test("member getGenreStats counts only the books they can reach, direct and with descendants") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                val f = fixture()
+                seedGenreRow(sql, "g-fantasy", "fantasy", "/fantasy")
+                seedGenreRow(sql, "g-epic", "epic", "/fantasy/epic")
+                runTest {
+                    f.bookRepo.upsert(bookPayloadFixture("public-book", "Public"))
+                    f.bookRepo.upsert(bookPayloadFixture("private-book", "Private"))
+                    sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "public-book")
+                    sql.booksQueries.updateTotalDuration(total_duration = 2_000L, id = "private-book")
+                    sql.transaction {
+                        sql.bookGenresQueries.insertIfAbsent(book_id = "public-book", genre_id = "g-fantasy")
+                        sql.bookGenresQueries.insertIfAbsent(book_id = "private-book", genre_id = "g-fantasy")
+                        // The public book also sits in the descendant, so the subtree rollup must still count it once.
+                        sql.bookGenresQueries.insertIfAbsent(book_id = "public-book", genre_id = "g-epic")
+                        sql.bookGenresQueries.insertIfAbsent(book_id = "private-book", genre_id = "g-epic")
+                    }
+                    f.collectionRepo.upsert(privateCollection("owned-col", owner = "member"))
+                    f.collectionBookRepo.upsert(membership("owned-col", "public-book"))
+                    f.collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
+                    f.collectionBookRepo.upsert(membership("private-col", "private-book"))
+
+                    val member = f.service.copyWith(principalFor("member", UserRole.MEMBER))
+                    val admin = f.service.copyWith(principalFor("admin", UserRole.ADMIN))
+                    val oneBook = AppResult.Success(FacetStats(bookCount = 1, totalDurationMs = 1_000L))
+                    val bothBooks = AppResult.Success(FacetStats(bookCount = 2, totalDurationMs = 3_000L))
+
+                    member.getGenreStats(GenreId("g-fantasy"), includeDescendants = false) shouldBe oneBook
+                    member.getGenreStats(GenreId("g-fantasy"), includeDescendants = true) shouldBe oneBook
+                    admin.getGenreStats(GenreId("g-fantasy"), includeDescendants = false) shouldBe bothBooks
+                    admin.getGenreStats(GenreId("g-fantasy"), includeDescendants = true) shouldBe bothBooks
                 }
             }
         }

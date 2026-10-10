@@ -189,8 +189,11 @@ internal class GenreServiceImpl(
     override suspend fun getGenreStats(
         genreId: GenreId,
         includeDescendants: Boolean,
-    ): AppResult<FacetStats> =
-        suspendTransaction(sqlDb) {
+    ): AppResult<FacetStats> {
+        // Count only books the caller can open, so a member is never told "12 books" and shown 9.
+        // null = ROOT/ADMIN: every book, so the SQL aggregates answer directly.
+        val accessible = accessibleBookIdFilter()
+        return suspendTransaction(sqlDb) {
             val genreRow = sqlDb.genresQueries.selectById(genreId.value).executeAsOneOrNull()
             if (genreRow == null || genreRow.deleted_at != null) {
                 return@suspendTransaction AppResult.Failure(genreNotFound(genreId))
@@ -202,7 +205,17 @@ internal class GenreServiceImpl(
             // with `!!`, so if that inference is ever right the answer is still the one the SQL
             // promises: zero.
             val stats =
-                if (includeDescendants) {
+                if (accessible != null) {
+                    val reachable =
+                        if (includeDescendants) {
+                            sqlDb.bookGenresQueries.genreBookDurationsSubtree(genreRow.path).executeAsList()
+                                .map { it.book_id to it.duration_ms }
+                        } else {
+                            sqlDb.bookGenresQueries.genreBookDurationsDirect(genreId.value).executeAsList()
+                                .map { it.book_id to it.duration_ms }
+                        }.filter { (bookId, _) -> bookId in accessible }
+                    FacetStats(bookCount = reachable.size, totalDurationMs = reachable.sumOf { (_, ms) -> ms })
+                } else if (includeDescendants) {
                     val row = sqlDb.bookGenresQueries.genreStatsSubtree(genreRow.path).executeAsOne()
                     FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L)
                 } else {
@@ -211,6 +224,7 @@ internal class GenreServiceImpl(
                 }
             AppResult.Success(stats)
         }
+    }
 
     @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getGenreBySlug(slug: String): AppResult<GenreSummary?> =

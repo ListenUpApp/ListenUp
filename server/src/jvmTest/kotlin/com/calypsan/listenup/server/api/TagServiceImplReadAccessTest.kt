@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.testing.bookPayloadFixture
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import com.calypsan.listenup.api.dto.FacetStats
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -187,6 +188,30 @@ class TagServiceImplReadAccessTest :
                 }
             }
         }
+
+        // Fails before the fix: the aggregate counts every live book carrying the tag, so a member is
+        // told "2 books" and shown one, and learns that a book they cannot reach exists.
+        test("member getTagStats counts only the books they can reach; admin counts them all") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                val f = fixture()
+                runTest {
+                    f.seedPublicAndPrivate()
+                    sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "public-book")
+                    sql.booksQueries.updateTotalDuration(total_duration = 2_000L, id = "private-book")
+
+                    val member = f.service.copyWith(principalFor("member", UserRole.MEMBER))
+                    val admin = f.service.copyWith(principalFor("admin", UserRole.ADMIN))
+
+                    member.getTagStats(TagId("t-noir")) shouldBe
+                        AppResult.Success(FacetStats(bookCount = 1, totalDurationMs = 1_000L))
+                    admin.getTagStats(TagId("t-noir")) shouldBe
+                        AppResult.Success(FacetStats(bookCount = 2, totalDurationMs = 3_000L))
+                }
+            }
+        }
+
     })
 
 private fun <T> List<T>.shouldBeEmptyList() {

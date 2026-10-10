@@ -47,9 +47,6 @@ class ReadRpcsNameTheirCallerRule :
          */
         val UNREVIEWED_OPEN_READS: Set<String> =
             setOf(
-                "GenreServiceImpl.getGenreStats", // book count and total duration across all books, not the caller's
-                "MoodServiceImpl.getMoodStats", // book count and total duration across all books, not the caller's
-                "TagServiceImpl.getTagStats", // book count and total duration across all books, not the caller's
             )
 
         private val PRINCIPAL_WORD = Regex("""principal""", RegexOption.IGNORE_CASE)
