@@ -52,6 +52,9 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         // row (no actor), and revived if the book is re-added — the user's curation is never stranded by a
         // rescan. Series-homed entities are untouched by a book removal.
         "entities" to RemovalDisposition.CASCADE_TOMBSTONED,
+        // Story World events homed on, or anchored to, the book: tombstoned with it (history row, no actor) and
+        // revived if the book is re-added. Events elsewhere in its series are untouched.
+        "world_events" to RemovalDisposition.CASCADE_TOMBSTONED,
         // ── Book-aggregate children, rewritten on rescan (FK ON DELETE CASCADE) ──
         "book_audio_files" to RemovalDisposition.HARD_CHILD,
         "book_chapters" to RemovalDisposition.HARD_CHILD,

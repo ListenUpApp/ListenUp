@@ -294,6 +294,48 @@ class WorldEventRepository(
         }
     }
 
+    // ── Book removal cascade (BookRepository.softDelete / reviveByIds) ──
+    // Like every write here, each takes its revision before it reads, so the transaction is the writer first.
+    // A cheap read-only check runs before that, so a book no event touches burns no revision.
+
+    /** Tombstones every live event homed on or anchored to [bookId] (DELETE, no actor). Returns how many. */
+    suspend fun softDeleteAllForBook(bookId: String): Int {
+        if (!suspendTransaction(db) { db.worldEventsQueries.hasLiveTouchingBook(bookId, bookId).executeAsOne() }) return 0
+        val ctx = writeContext()
+        return suspendTransaction(db) {
+            val lease = RevisionLease(nextRevision())
+            val live = db.worldEventsQueries.selectLiveIdsTouchingBook(bookId, bookId).executeAsList()
+            live.forEach { id ->
+                tombstone(before = checkNotNull(readPayload(id)), op = StoryWorldOp.DELETE, actor = null, ctx = ctx, revision = lease.take())
+            }
+            live.size
+        }
+    }
+
+    /**
+     * Revives the events of [bookIds] that a book removal tombstoned (REVERT, no actor): exactly those whose
+     * newest history row is the cascade's actorless DELETE, so an event someone deleted by hand stays deleted.
+     */
+    suspend fun reviveAllForBooks(bookIds: List<String>): Int {
+        if (bookIds.isEmpty()) return 0
+        if (suspendTransaction(db) { cascadeDeletedFor(bookIds) }.isEmpty()) return 0
+        val ctx = writeContext()
+        return suspendTransaction(db) {
+            val lease = RevisionLease(nextRevision())
+            val dead = cascadeDeletedFor(bookIds)
+            dead.forEach { id ->
+                val before = checkNotNull(readPayload(id))
+                rewrite(before = before, after = before.copy(deletedAt = null), op = StoryWorldOp.REVERT, actor = null, ctx = ctx, revision = lease.take())
+            }
+            dead.size
+        }
+    }
+
+    private fun cascadeDeletedFor(bookIds: List<String>): List<String> =
+        bookIds.chunked(SQLITE_IN_CHUNK / 2).flatMap { chunk ->
+            db.worldEventsQueries.selectCascadeDeletedForBooks(chunk, chunk).executeAsList()
+        }
+
     // ── Targeted pull ──
 
     /**
