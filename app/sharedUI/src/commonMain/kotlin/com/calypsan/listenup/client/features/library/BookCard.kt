@@ -35,10 +35,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +62,7 @@ import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.design.components.BookCoverModel
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.components.CoverScrimDefaults
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
@@ -80,6 +80,9 @@ import listenup.composeapp.generated.resources.common_completed
 import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.library_has_documents_badge
 import listenup.composeapp.generated.resources.player_now_playing_wide
+
+/** Test tag on a Library card's progress mark: the linear indicator (the wave is for the book playing now). */
+internal const val LIBRARY_CARD_PROGRESS_TAG = "library-card-progress"
 
 // Material 3's hover state-layer opacity.
 private const val HOVER_STATE_LAYER_ALPHA = 0.08f
@@ -393,7 +396,6 @@ fun BookCard(
  * A Library card's last line (spec §2.6): time left in the Library action colour, with a wavy progress
  * mark when [progressUnderTitle]; "Finished · 12h 4m"; or the book's length.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LibraryStatusLine(
     status: BookCardStatus,
@@ -408,9 +410,15 @@ private fun LibraryStatusLine(
                 if (progressUnderTitle) {
                     val progressLabel =
                         stringResource(Res.string.library_card_progress_a11y, (status.fraction * 100).roundToInt())
-                    LinearWavyProgressIndicator(
+                    // Linear, with M3's track gap and stop dot: the wave is reserved for the book playing
+                    // now (M3E alignment, rev 7).
+                    LinearProgressIndicator(
                         progress = { status.fraction },
-                        modifier = Modifier.width(56.dp).semantics { contentDescription = progressLabel },
+                        modifier =
+                            Modifier
+                                .width(56.dp)
+                                .testTag(LIBRARY_CARD_PROGRESS_TAG)
+                                .semantics { contentDescription = progressLabel },
                     )
                 }
                 Text(
@@ -571,19 +579,28 @@ private fun BookCardCover(
             // because its last line already says the time left (board Library-AndroidTablet); every
             // other card keeps the percentage overlay.
             if (progress != null && progress > 0f && progressDescription != null) {
-                LinearProgressIndicator(
-                    progress = { progress },
+                // Inset clear of the art's rounded corners, on a small scrim so it reads on a dark cover
+                // as well as a light one. Linear with M3's track gap and stop dot (the wave is for the
+                // book playing now).
+                Box(
                     modifier =
                         Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .height(4.dp)
-                            .semantics { this.contentDescription = progressDescription },
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primaryContainer,
-                    gapSize = 0.dp,
-                    drawStopIndicator = {},
-                )
+                            .padding(horizontal = 10.dp, vertical = 10.dp)
+                            .clip(CircleShape)
+                            .background(CoverScrimDefaults.color)
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                ) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(LIBRARY_CARD_PROGRESS_TAG)
+                                .semantics { this.contentDescription = progressDescription },
+                    )
+                }
             } else if (progress != null && progress > 0f) {
                 ProgressOverlay(
                     progress = progress,

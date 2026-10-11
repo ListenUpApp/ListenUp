@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.design.components.BookCoverModel
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
@@ -57,6 +58,22 @@ class BookCardLibraryStatusTest {
         composeRule.onNodeWithContentDescription("11 percent listened", useUnmergedTree = true).assertExists()
         // A line on the art, not the percentage overlay: the last line already says the time left.
         composeRule.onNodeWithText("11%", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    // M3E alignment (rev 7): the wave is reserved for the book playing now; a Library card's mark is
+    // the linear indicator, under the title on phones and on the art on wide windows.
+    @Test
+    fun `a started card's progress mark is the linear indicator, never the wave, on a phone`() {
+        show(BookCardStatus.InProgress(fraction = 0.11f, timeLeftMs = 145_860_000L), progressUnderTitle = true)
+
+        composeRule.onNodeWithTag(LIBRARY_CARD_PROGRESS_TAG, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `a started card's progress mark is the linear indicator on a wide grid too`() {
+        show(BookCardStatus.InProgress(fraction = 0.11f, timeLeftMs = 145_860_000L), progressUnderTitle = false)
+
+        composeRule.onNodeWithTag(LIBRARY_CARD_PROGRESS_TAG, useUnmergedTree = true).assertExists()
     }
 
     @Test
