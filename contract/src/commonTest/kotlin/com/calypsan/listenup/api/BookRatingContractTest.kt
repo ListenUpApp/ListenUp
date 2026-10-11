@@ -68,6 +68,18 @@ class BookRatingContractTest :
             ListenerRatingLimits.starsLabel(7.6) shouldBe "4"
         }
 
+        test("a rating draft is a change only when it differs from the rating the sheet opened on") {
+            // Unrated book: the sheet opens on no stars and no note.
+            ListenerRatingLimits.isDraftChanged(null, null, halfStars = 0, note = "") shouldBe false
+            ListenerRatingLimits.isDraftChanged(null, null, halfStars = 6, note = "") shouldBe true
+            ListenerRatingLimits.isDraftChanged(null, null, halfStars = 0, note = "Hm") shouldBe true
+            // Rated book: putting the same values back is no change.
+            ListenerRatingLimits.isDraftChanged(8, "Great", halfStars = 8, note = "Great") shouldBe false
+            ListenerRatingLimits.isDraftChanged(8, null, halfStars = 8, note = "") shouldBe false
+            ListenerRatingLimits.isDraftChanged(8, "Great", halfStars = 7, note = "Great") shouldBe true
+            ListenerRatingLimits.isDraftChanged(8, "Great", halfStars = 8, note = "Great!") shouldBe true
+        }
+
         test("the book_ratings domain is in the catalog") {
             SyncDomains.all shouldContain SyncDomains.BOOK_RATINGS
             SyncDomains.BOOK_RATINGS.name shouldBe "book_ratings"
