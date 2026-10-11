@@ -33,6 +33,13 @@ class AndroidBookDetailPlatformActions(
         nowPlayingViewModel.playBook(bookId)
     }
 
+    override fun playFromChapter(
+        bookId: BookId,
+        startMs: Long,
+    ) {
+        nowPlayingViewModel.playBook(bookId, startAtMs = startMs)
+    }
+
     override fun onBookScreenShown(bookId: BookId) {
         viewedBookTracker.onBookShown(bookId)
     }
