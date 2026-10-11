@@ -90,6 +90,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import com.calypsan.listenup.client.design.theme.HeroInk
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 
 /**
  * Bundles the mutable form state and callbacks passed between the screen and layout
@@ -179,6 +180,13 @@ fun CreateEditShelfScreen(
     val isLoading = state is CreateEditShelfUiState.LoadingExisting
     val isSaving = state is CreateEditShelfUiState.Saving
 
+    // Edit mode has nothing to lose until the loaded shelf has been seeded into the inputs.
+    val requestLeave =
+        rememberUnsavedWorkGuard(
+            dirty = (!isEditing || seeded) && viewModel.hasChanges(name, description, isPrivate),
+            onLeave = onBack,
+        )
+
     val formState =
         ShelfFormState(
             isEditing = isEditing,
@@ -187,7 +195,7 @@ fun CreateEditShelfScreen(
             isPrivate = isPrivate,
             isSaving = isSaving,
             canSave = name.isNotBlank() && !isSaving,
-            onBack = onBack,
+            onBack = requestLeave,
             onDeleteClick = { showDeleteDialog = true },
             onNameChange = { name = it },
             onDescriptionChange = { description = it },

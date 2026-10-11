@@ -39,6 +39,7 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.features.bookedit.components.StudioCard
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
@@ -115,6 +116,14 @@ fun BulkEditScreen(
         }
     }
 
+    // Not while applying: the books are already being written, so there is nothing left to discard.
+    val editing = state as? BulkEditUiState.Editing
+    val requestLeave =
+        rememberUnsavedWorkGuard(
+            dirty = editing?.hasChanges == true && !editing.isApplying,
+            onLeave = onBack,
+        )
+
     val genres by viewModel.genres.collectAsStateWithLifecycle()
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     val moods by viewModel.moods.collectAsStateWithLifecycle()
@@ -144,7 +153,7 @@ fun BulkEditScreen(
                 onTagsChange = viewModel::setTags,
                 onMoodsChange = viewModel::setMoods,
             ),
-        onBack = onBack,
+        onBack = requestLeave,
         onApply = viewModel::apply,
     )
 }

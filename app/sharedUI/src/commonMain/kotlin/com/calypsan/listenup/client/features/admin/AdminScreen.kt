@@ -100,6 +100,7 @@ import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.util.ratingSourceLabel
 import com.calypsan.listenup.client.design.util.isJustNow
 import com.calypsan.listenup.client.design.util.relativeTime
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -264,6 +265,8 @@ fun AdminScreen(
         }
     }
 
+    val requestLeave = rememberUnsavedWorkGuard(dirty = isDirty, onLeave = onBackClick)
+
     // At a large font the hero slides away as the settings scroll, rather than holding a third of the screen.
     val heroScroll = rememberHeroScrollBehavior()
     ListenUpScaffold(
@@ -272,7 +275,7 @@ fun AdminScreen(
             ColorBlockHero(
                 title = stringResource(Res.string.common_administration),
                 badgeIcon = Icons.Outlined.Shield,
-                onBack = onBackClick,
+                onBack = requestLeave,
                 overline = serverName,
                 scrollBehavior = heroScroll,
                 actions = { SaveAction(onClick = onSave, enabled = isDirty) },
