@@ -157,7 +157,12 @@ internal fun compareRows(
         CompareRow(
             "Narrator",
             narratorsText(copy?.narrators.orEmpty(), null) ?: NOT_LISTED,
-            candidates.map { CompareCell(narratorsText(it.narrators, it.format) ?: NOT_LISTED, narratorNote(it.reasons)) },
+            candidates.map {
+                CompareCell(
+                    narratorsText(it.narrators, it.format) ?: NOT_LISTED,
+                    narratorNote(it.reasons),
+                )
+            },
         ),
         CompareRow(
             "Chapters",
