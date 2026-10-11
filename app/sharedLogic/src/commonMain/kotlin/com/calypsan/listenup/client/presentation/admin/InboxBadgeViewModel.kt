@@ -6,12 +6,12 @@ import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * How many books are waiting in the admin inbox — the count behind the Library's inbox entry and the
@@ -37,7 +37,7 @@ class InboxBadgeViewModel(
             if (isAdmin) held.toList() else emptyList()
         }.shareIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
+            started = WhileSubscribedForUi,
             replay = 1,
         )
 
@@ -47,7 +47,7 @@ class InboxBadgeViewModel(
             .map { it.size }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = WhileSubscribedForUi,
                 initialValue = 0,
             )
 
@@ -61,7 +61,7 @@ class InboxBadgeViewModel(
             .map { held -> held.takeLast(PREVIEW_SIZE).reversed().map { it.value } }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = WhileSubscribedForUi,
                 initialValue = emptyList(),
             )
 }

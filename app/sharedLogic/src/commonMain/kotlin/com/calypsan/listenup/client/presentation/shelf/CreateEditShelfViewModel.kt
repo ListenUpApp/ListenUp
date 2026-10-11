@@ -42,8 +42,8 @@ class CreateEditShelfViewModel(
     val state: StateFlow<CreateEditShelfUiState>
         field = MutableStateFlow<CreateEditShelfUiState>(CreateEditShelfUiState.Idle)
 
-    private val _navActions = Channel<CreateEditShelfNavAction>(Channel.BUFFERED)
-    val navActions: Flow<CreateEditShelfNavAction> = _navActions.receiveAsFlow()
+    private val navActionsChannel = Channel<CreateEditShelfNavAction>(Channel.BUFFERED)
+    val navActions: Flow<CreateEditShelfNavAction> = navActionsChannel.receiveAsFlow()
 
     private var editingShelfId: ShelfId? = null
 
@@ -138,7 +138,7 @@ class CreateEditShelfViewModel(
 
             when (result) {
                 is AppResult.Success -> {
-                    _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
+                    navActionsChannel.trySend(CreateEditShelfNavAction.NavigateBack)
                 }
 
                 is AppResult.Failure -> {
@@ -158,7 +158,7 @@ class CreateEditShelfViewModel(
 
             when (val result = deleteShelfUseCase(shelfId)) {
                 is AppResult.Success -> {
-                    _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
+                    navActionsChannel.trySend(CreateEditShelfNavAction.NavigateBack)
                 }
 
                 is AppResult.Failure -> {

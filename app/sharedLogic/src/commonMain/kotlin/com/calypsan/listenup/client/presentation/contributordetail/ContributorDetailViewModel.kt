@@ -23,7 +23,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -37,6 +36,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * ViewModel for the Contributor Detail screen.
@@ -180,12 +180,12 @@ class ContributorDetailViewModel(
             }
         }.stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = WhileSubscribedForUi,
             initialValue = ContributorDetailUiState.Idle,
         )
 
-    private val _navActions = Channel<ContributorDetailNavAction>(Channel.BUFFERED)
-    val navActions: Flow<ContributorDetailNavAction> = _navActions.receiveAsFlow()
+    private val navActionsChannel = Channel<ContributorDetailNavAction>(Channel.BUFFERED)
+    val navActions: Flow<ContributorDetailNavAction> = navActionsChannel.receiveAsFlow()
 
     /** Set the contributor to observe. Safe to call repeatedly with the same id. */
     fun loadContributor(contributorId: String) {
@@ -201,7 +201,7 @@ class ContributorDetailViewModel(
             when (val result = deleteContributorUseCase(contributorId)) {
                 is AppResult.Success -> {
                     deleteOverlay.value = DeleteOverlay.None
-                    _navActions.trySend(ContributorDetailNavAction.Deleted)
+                    navActionsChannel.trySend(ContributorDetailNavAction.Deleted)
                 }
 
                 is AppResult.Failure -> {

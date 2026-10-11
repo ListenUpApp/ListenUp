@@ -49,10 +49,10 @@ class LibrarySetupViewModel internal constructor(
     val state: StateFlow<LibrarySetupUiState>
         field = MutableStateFlow(LibrarySetupUiState())
 
-    private val _navActions = Channel<LibrarySetupNavAction>(Channel.BUFFERED)
+    private val navActionsChannel = Channel<LibrarySetupNavAction>(Channel.BUFFERED)
 
     /** One-shot navigation events. Collect via [Flow.collect] in a [LaunchedEffect]. */
-    val navActions: Flow<LibrarySetupNavAction> = _navActions.receiveAsFlow()
+    val navActions: Flow<LibrarySetupNavAction> = navActionsChannel.receiveAsFlow()
 
     init {
         checkLibraryStatus()
@@ -223,7 +223,7 @@ class LibrarySetupViewModel internal constructor(
             }
             state.update { it.copy(isCreatingLibrary = false) }
             triggerInitialScan()
-            _navActions.trySend(LibrarySetupNavAction.Finished)
+            navActionsChannel.trySend(LibrarySetupNavAction.Finished)
         }
     }
 

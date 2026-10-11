@@ -14,12 +14,12 @@ import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.FlowCollector
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -47,7 +47,7 @@ class UserDetailViewModel(
                     emit(stateFor(mirrored ?: fetchUnsyncedUser() ?: return@transformLatest, advertised))
                 },
             )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserDetailUiState.Loading)
+        }.stateIn(viewModelScope, WhileSubscribedForUi, UserDetailUiState.Loading)
 
     private fun stateFor(
         user: AdminUserInfo,

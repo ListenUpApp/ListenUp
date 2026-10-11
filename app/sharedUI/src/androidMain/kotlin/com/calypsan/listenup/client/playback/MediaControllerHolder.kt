@@ -80,7 +80,7 @@ class MediaControllerHolder(
     },
 ) {
     private var controllerFuture: ListenableFuture<MediaController>? = null
-    private var _controller: MediaController? = null
+    private var connectedController: MediaController? = null
 
     /** Detects a Media3-initiated session drop and reconnects via [handleDisconnect]. */
     private val disconnectListener =
@@ -97,7 +97,7 @@ class MediaControllerHolder(
      * Get the current MediaController, or null if not connected.
      */
     val controller: MediaController?
-        get() = _controller
+        get() = connectedController
 
     internal val playerListener: Player.Listener =
         object : Player.Listener {
@@ -138,11 +138,31 @@ class MediaControllerHolder(
 
     private fun toCommonPlaybackState(media3State: Int): PlaybackState =
         when (media3State) {
-            Player.STATE_IDLE -> PlaybackState.Idle
-            Player.STATE_BUFFERING -> PlaybackState.Buffering
-            Player.STATE_READY -> if (_controller?.isPlaying == true) PlaybackState.Playing else PlaybackState.Paused
-            Player.STATE_ENDED -> PlaybackState.Ended
-            else -> PlaybackState.Idle
+            Player.STATE_IDLE -> {
+                PlaybackState.Idle
+            }
+
+            Player.STATE_BUFFERING -> {
+                PlaybackState.Buffering
+            }
+
+            Player.STATE_READY -> {
+                if (connectedController?.isPlaying ==
+                    true
+                ) {
+                    PlaybackState.Playing
+                } else {
+                    PlaybackState.Paused
+                }
+            }
+
+            Player.STATE_ENDED -> {
+                PlaybackState.Ended
+            }
+
+            else -> {
+                PlaybackState.Idle
+            }
         }
 
     /**
@@ -198,7 +218,7 @@ class MediaControllerHolder(
     }
 
     private fun connect() {
-        if (_controller != null || controllerFuture != null) {
+        if (connectedController != null || controllerFuture != null) {
             logger.debug { "MediaControllerHolder: already connecting/connected" }
             return
         }
@@ -209,9 +229,9 @@ class MediaControllerHolder(
         controllerFuture = future
         future.addListener({
             try {
-                _controller = future.get()
+                connectedController = future.get()
                 connected.value = true
-                _controller?.addListener(playerListener)
+                connectedController?.addListener(playerListener)
                 logger.info { "MediaControllerHolder: connected" }
             } catch (e: Exception) {
                 logger.error(e) { "MediaControllerHolder: connection failed" }
@@ -222,9 +242,9 @@ class MediaControllerHolder(
 
     /** Tears down the current connection state — shared by [disconnect] and [handleDisconnect]. */
     private fun teardownConnection() {
-        _controller?.removeListener(playerListener)
-        _controller?.release()
-        _controller = null
+        connectedController?.removeListener(playerListener)
+        connectedController?.release()
+        connectedController = null
 
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null

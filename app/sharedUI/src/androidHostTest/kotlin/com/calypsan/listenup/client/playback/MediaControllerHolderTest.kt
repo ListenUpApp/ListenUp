@@ -65,7 +65,7 @@ class MediaControllerHolderTest :
                         context = stubContext,
                         playbackManager = writer,
                     )
-                // _controller is null at this point — toCommonPlaybackState returns Paused
+                // connectedController is null at this point — toCommonPlaybackState returns Paused
                 holder.playerListener.onPlaybackStateChanged(Player.STATE_READY)
 
                 writer.bufferingHistory shouldBe listOf(false)

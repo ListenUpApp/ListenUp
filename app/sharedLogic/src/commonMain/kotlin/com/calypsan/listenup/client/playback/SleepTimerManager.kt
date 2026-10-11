@@ -53,8 +53,8 @@ class SleepTimerManager(
         field = MutableStateFlow<SleepTimerState>(SleepTimerState.Inactive)
 
     // Event emitted when timer fires - consumer performs fade and pause
-    private val _sleepEvent = Channel<Unit>(Channel.BUFFERED)
-    val sleepEvent: Flow<Unit> = _sleepEvent.receiveAsFlow()
+    private val sleepEventChannel = Channel<Unit>(Channel.BUFFERED)
+    val sleepEvent: Flow<Unit> = sleepEventChannel.receiveAsFlow()
 
     private var timerJob: Job? = null
     private var endOfChapterJob: Job? = null
@@ -221,6 +221,6 @@ class SleepTimerManager(
 
     private fun triggerSleep() {
         state.value = SleepTimerState.FadingOut
-        _sleepEvent.trySend(Unit)
+        sleepEventChannel.trySend(Unit)
     }
 }

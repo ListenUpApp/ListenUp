@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.handoff
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * The book currently on screen, or null when the reader is somewhere else.
@@ -19,14 +18,13 @@ import kotlinx.coroutines.flow.asStateFlow
  * navigation layer stops being the single source of truth.
  */
 class ViewedBookTracker {
-    private val viewed = MutableStateFlow<BookId?>(null)
-
     /** The book on screen, if a book screen is showing. */
-    val viewedBookId: StateFlow<BookId?> = viewed.asStateFlow()
+    val viewedBookId: StateFlow<BookId?>
+        field = MutableStateFlow<BookId?>(null)
 
     /** Called by a book screen when it appears. */
     fun onBookShown(bookId: BookId) {
-        viewed.value = bookId
+        viewedBookId.value = bookId
     }
 
     /**
@@ -37,6 +35,6 @@ class ViewedBookTracker {
      * the first one's disposal.
      */
     fun onBookHidden(bookId: BookId) {
-        viewed.compareAndSet(expect = bookId, update = null)
+        viewedBookId.compareAndSet(expect = bookId, update = null)
     }
 }

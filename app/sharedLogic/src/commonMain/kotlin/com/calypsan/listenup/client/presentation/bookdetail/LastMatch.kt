@@ -20,7 +20,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -31,6 +30,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * Book Detail's last-match row: "Details matched <relative time> · See what changed · Undo last match". Present
@@ -133,7 +133,7 @@ internal class LastMatchRow(
                 } else {
                     combine(matchedBy(match.appliedBy), overlay) { name, overlay -> match.toUi(name, overlay) }
                 }
-            }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+            }.stateIn(scope, WhileSubscribedForUi, null)
 
     fun seeWhatChanged() {
         val receiptId = state.value?.run { receipt.receiptId } ?: return

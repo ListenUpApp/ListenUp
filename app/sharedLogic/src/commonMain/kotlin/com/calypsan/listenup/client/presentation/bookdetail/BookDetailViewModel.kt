@@ -46,7 +46,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
@@ -60,6 +59,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -95,10 +95,10 @@ class BookDetailViewModel(
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
 
-    private val _navActions = Channel<BookDetailNavAction>(Channel.BUFFERED)
+    private val navActionsChannel = Channel<BookDetailNavAction>(Channel.BUFFERED)
 
     /** One-shot navigation and side-effect events — collect once at the screen entry point. */
-    val navActions: Flow<BookDetailNavAction> = _navActions.receiveAsFlow()
+    val navActions: Flow<BookDetailNavAction> = navActionsChannel.receiveAsFlow()
 
     /**
      * The currently requested book id. Writing to this flow is the single entry
@@ -234,14 +234,14 @@ class BookDetailViewModel(
                 } else {
                     flowOf(emptyList())
                 }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            }.stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /** Non-system collections an admin can file this book into (system collections are implicit). */
     val collections: StateFlow<List<Collection>> =
         collectionRepository
             .observeCollections()
             .map { all -> all.filterNot { it.isSystem } }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /**
      * The caller's own shelves that currently contain the loaded book, alphabetical.
@@ -252,7 +252,7 @@ class BookDetailViewModel(
         bookIdFlow
             .filterNotNull()
             .flatMapLatest { id -> shelfRepository.observeShelvesContainingBook(BookId(id)) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /**
      * Supplementary documents for the loaded book, ordered by index ascending.
@@ -264,7 +264,7 @@ class BookDetailViewModel(
         bookIdFlow
             .filterNotNull()
             .flatMapLatest { id -> documentRepository.observeDocuments(BookId(id)) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /**
      * Document ids whose bytes are currently being fetched by [onOpenDocument].
@@ -711,7 +711,7 @@ class BookDetailViewModel(
                 is AppResult.Success -> {
                     updateReady { it.copy(isDeletingBook = false) }
                     logger.info { "Deleted book ${bookId.value} and its folder" }
-                    _navActions.trySend(BookDetailNavAction.BookDeleted)
+                    navActionsChannel.trySend(BookDetailNavAction.BookDeleted)
                 }
 
                 is AppResult.Failure -> {
@@ -807,7 +807,7 @@ class BookDetailViewModel(
         val bookId = (state.value as? BookDetailUiState.Ready)?.run { book.id.value } ?: return
         val doc = documents.value.find { it.id == docId } ?: return
         if (doc.format != "pdf") {
-            _navActions.trySend(BookDetailNavAction.ShowViewerComingSoon)
+            navActionsChannel.trySend(BookDetailNavAction.ShowViewerComingSoon)
             return
         }
         viewModelScope.launch {
@@ -815,7 +815,7 @@ class BookDetailViewModel(
             try {
                 when (val result = documentRepository.ensureLocal(BookId(bookId), docId)) {
                     is AppResult.Success -> {
-                        _navActions.trySend(BookDetailNavAction.OpenDocumentViewer(result.data))
+                        navActionsChannel.trySend(BookDetailNavAction.OpenDocumentViewer(result.data))
                     }
 
                     is AppResult.Failure -> {

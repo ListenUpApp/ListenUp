@@ -15,7 +15,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -32,8 +31,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
-
-private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /** How long a fresh match reads "Matched just now" — the same minute "Last synced just now" uses. */
 private val JUST_MATCHED_WINDOW = 1.minutes
@@ -133,14 +131,14 @@ class BookHardcoverViewModel(
                 } else {
                     flow { emitRow(repository.bookMatch(BookId(bookId)).getOrNull().toUiState()) }
                 }
-            }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), replay = 1)
+            }.shareIn(viewModelScope, WhileSubscribedForUi, replay = 1)
 
     /** The row's state: [BookHardcoverUiState.Hidden] until it is known. */
     val uiState: StateFlow<BookHardcoverUiState> =
         combine(serverRow, pendingSynced) { row, pending -> row.showingSynced(pending) }
             .stateIn(
                 viewModelScope,
-                SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                WhileSubscribedForUi,
                 BookHardcoverUiState.Hidden,
             )
 

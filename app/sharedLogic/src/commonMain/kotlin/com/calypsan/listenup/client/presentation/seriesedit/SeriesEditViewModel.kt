@@ -26,7 +26,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -40,14 +39,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
 /** Maximum number of merge-target candidates surfaced in the picker dialog. */
 const val MAX_MERGE_CANDIDATES = 30
-
-/** Idle timeout before stopping merge-candidate collection. */
-private const val STOP_TIMEOUT_MS = 5_000L
 
 /**
  * ViewModel for the series edit screen.
@@ -106,8 +103,8 @@ class SeriesEditViewModel internal constructor(
     /** What the "Merged into this" section shows. */
     val mergeHistory: StateFlow<MergeHistoryState> = history.state
 
-    private val _navActions = Channel<SeriesEditNavAction>(Channel.BUFFERED)
-    val navActions: Flow<SeriesEditNavAction> = _navActions.receiveAsFlow()
+    private val navActionsChannel = Channel<SeriesEditNavAction>(Channel.BUFFERED)
+    val navActions: Flow<SeriesEditNavAction> = navActionsChannel.receiveAsFlow()
 
     /**
      * Candidates for the merge-target picker — all live series except the current
@@ -148,7 +145,7 @@ class SeriesEditViewModel internal constructor(
                             }.toList()
                     }
                 }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
+            }.stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /** Where the series sits in the hierarchy, the parent picker, and the writes that move it. */
     private val hierarchy =
@@ -396,7 +393,7 @@ class SeriesEditViewModel internal constructor(
                 is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
                     // The target, not back: this merge soft-deleted the series we were editing.
-                    _navActions.trySend(SeriesEditNavAction.NavigateToMerged(targetId))
+                    navActionsChannel.trySend(SeriesEditNavAction.NavigateToMerged(targetId))
                 }
 
                 is AppResult.Failure -> {
@@ -514,7 +511,7 @@ class SeriesEditViewModel internal constructor(
     private fun saveChanges() {
         val current = state.value
         if (!current.hasChanges) {
-            _navActions.trySend(SeriesEditNavAction.NavigateBack)
+            navActionsChannel.trySend(SeriesEditNavAction.NavigateBack)
             return
         }
 
@@ -550,7 +547,7 @@ class SeriesEditViewModel internal constructor(
                             stagingCoverPath = null,
                         )
                     }
-                    _navActions.trySend(SeriesEditNavAction.NavigateBack)
+                    navActionsChannel.trySend(SeriesEditNavAction.NavigateBack)
                 }
 
                 is AppResult.Failure -> {
@@ -570,7 +567,7 @@ class SeriesEditViewModel internal constructor(
         if (seriesId.isNotBlank() && state.value.stagingCoverPath != null) {
             imageStagingRepository.requestSeriesCoverStagingCleanup(seriesId)
         }
-        _navActions.trySend(SeriesEditNavAction.NavigateBack)
+        navActionsChannel.trySend(SeriesEditNavAction.NavigateBack)
     }
 
     /**

@@ -9,7 +9,6 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.util.calculateProgressMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import com.calypsan.listenup.client.domain.repository.BookWithContributorRole
 import kotlinx.coroutines.flow.combine
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * ViewModel for the Contributor Books screen (View All).
@@ -58,7 +58,7 @@ class ContributorBooksViewModel(
                 }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
+                started = WhileSubscribedForUi,
                 initialValue = ContributorBooksUiState.Idle,
             )
 

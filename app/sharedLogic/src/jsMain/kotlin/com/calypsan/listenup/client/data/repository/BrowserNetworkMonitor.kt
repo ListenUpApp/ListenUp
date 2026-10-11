@@ -4,7 +4,6 @@ import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import kotlinx.browser.window
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Browser connectivity over `navigator.onLine` and the `online`/`offline` window events.
@@ -18,16 +17,16 @@ import kotlinx.coroutines.flow.asStateFlow
  * does not exist on web (browser downloads are undesigned — see `DownloadFileManager.js`).
  */
 class BrowserNetworkMonitor : NetworkMonitor {
-    private val online = MutableStateFlow(window.navigator.onLine)
+    override val onlineFlow: StateFlow<Boolean>
+        field = MutableStateFlow(window.navigator.onLine)
 
     init {
-        window.addEventListener("online", { online.value = true })
-        window.addEventListener("offline", { online.value = false })
+        window.addEventListener("online", { onlineFlow.value = true })
+        window.addEventListener("offline", { onlineFlow.value = false })
     }
 
     override fun isOnline(): Boolean = window.navigator.onLine
 
-    override val onlineFlow: StateFlow<Boolean> = online.asStateFlow()
-
-    override val onUnmeteredNetworkFlow: StateFlow<Boolean> = online.asStateFlow()
+    override val onUnmeteredNetworkFlow: StateFlow<Boolean>
+        get() = onlineFlow
 }

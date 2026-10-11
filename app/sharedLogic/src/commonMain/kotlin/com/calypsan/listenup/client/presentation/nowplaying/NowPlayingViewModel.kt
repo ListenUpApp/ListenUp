@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -95,16 +96,12 @@ class NowPlayingViewModel internal constructor(
     private val sheetState: NowPlayingSheetState,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
-    private companion object {
-        const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
-    }
-
     private val overlayFlow = MutableStateFlow<NowPlayingOverlay>(NowPlayingOverlay.None)
 
-    private val _navActions = Channel<NowPlayingNavAction>(Channel.BUFFERED)
+    private val navActionsChannel = Channel<NowPlayingNavAction>(Channel.BUFFERED)
 
     /** One-shot navigation events — the host collects these to trigger platform navigation. */
-    val navActions: Flow<NowPlayingNavAction> = _navActions.receiveAsFlow()
+    val navActions: Flow<NowPlayingNavAction> = navActionsChannel.receiveAsFlow()
 
     /**
      * The id of the first PDF document for the currently-playing book, or null when the book has
@@ -125,7 +122,7 @@ class NowPlayingViewModel internal constructor(
                 }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = null,
             )
 
@@ -200,7 +197,7 @@ class NowPlayingViewModel internal constructor(
             )
         }.stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            started = WhileSubscribedForUi,
             initialValue =
                 NowPlayingScreenState(
                     state = NowPlayingState.Idle,
@@ -267,7 +264,7 @@ class NowPlayingViewModel internal constructor(
             mapToPlaybackProgress(position, duration, chapter)
         }.stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            started = WhileSubscribedForUi,
             initialValue = PlaybackProgress.Zero,
         )
 
@@ -451,7 +448,7 @@ class NowPlayingViewModel internal constructor(
         viewModelScope.launch {
             when (val result = documentRepository.ensureLocal(bookId, docId)) {
                 is AppResult.Success -> {
-                    _navActions.trySend(NowPlayingNavAction.OpenDocumentViewer(result.data))
+                    navActionsChannel.trySend(NowPlayingNavAction.OpenDocumentViewer(result.data))
                 }
 
                 is AppResult.Failure -> {

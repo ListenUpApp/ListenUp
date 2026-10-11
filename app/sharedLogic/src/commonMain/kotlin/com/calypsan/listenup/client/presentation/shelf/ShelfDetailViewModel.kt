@@ -34,8 +34,8 @@ class ShelfDetailViewModel(
     val state: StateFlow<ShelfDetailUiState>
         field = MutableStateFlow<ShelfDetailUiState>(ShelfDetailUiState.Idle)
 
-    private val _snackbarMessages = Channel<String>(Channel.BUFFERED)
-    val snackbarMessages: Flow<String> = _snackbarMessages.receiveAsFlow()
+    private val snackbarMessagesChannel = Channel<String>(Channel.BUFFERED)
+    val snackbarMessages: Flow<String> = snackbarMessagesChannel.receiveAsFlow()
 
     private var currentShelfId: ShelfId? = null
 
@@ -83,7 +83,7 @@ class ShelfDetailViewModel(
 
                 is AppResult.Failure -> {
                     logger.error { "Failed to reorder shelf books: ${result.message}" }
-                    _snackbarMessages.trySend(result.message)
+                    snackbarMessagesChannel.trySend(result.message)
                 }
             }
         }
@@ -103,7 +103,7 @@ class ShelfDetailViewModel(
 
                 is AppResult.Failure -> {
                     logger.error { "Failed to remove book from shelf: ${result.message}" }
-                    _snackbarMessages.trySend(result.message)
+                    snackbarMessagesChannel.trySend(result.message)
                 }
             }
         }

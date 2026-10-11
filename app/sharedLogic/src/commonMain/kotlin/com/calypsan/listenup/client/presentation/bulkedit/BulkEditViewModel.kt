@@ -28,7 +28,6 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -38,8 +37,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /** How long the typing has to stop before a relation search costs a query. */
 private const val SEARCH_DEBOUNCE_MS = 300L
@@ -123,7 +121,7 @@ class BulkEditViewModel internal constructor(
                     selectionSample = loaded.take(SELECTION_SAMPLE_SIZE).map { it.toListItem() },
                 )
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), BulkEditUiState.Loading)
+        }.stateIn(viewModelScope, WhileSubscribedForUi, BulkEditUiState.Loading)
 
     /**
      * Every genre the library holds, for the genre picker to offer.
@@ -136,19 +134,19 @@ class BulkEditViewModel internal constructor(
     val genres: StateFlow<List<Genre>> =
         genreRepository
             .observeAll()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), emptyList())
+            .stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /** Every tag the library holds, as [genres]. */
     val tags: StateFlow<List<Tag>> =
         tagRepository
             .observeAllTags()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), emptyList())
+            .stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /** Every mood the library holds, as [genres]. */
     val moods: StateFlow<List<Mood>> =
         moodRepository
             .observeAllMoods()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), emptyList())
+            .stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /**
      * Turns a picker's query into its matches: debounced, latest-only, and empty until the query is
@@ -166,7 +164,7 @@ class BulkEditViewModel internal constructor(
                 }
             }.stateIn(
                 viewModelScope,
-                SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                WhileSubscribedForUi,
                 emptyList(),
             )
 

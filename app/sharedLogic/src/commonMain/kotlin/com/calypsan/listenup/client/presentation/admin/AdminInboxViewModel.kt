@@ -20,7 +20,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -38,6 +37,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -156,7 +156,7 @@ class AdminInboxViewModel internal constructor(
             eventStreamRepository.adminEvents.filterIsInstance<AdminEvent.InboxBookAdded>().map { },
         ).mapLatest { fetchScanIssues() }
             .filterNotNull()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+            .stateIn(viewModelScope, WhileSubscribedForUi, null)
 
     val state: StateFlow<AdminInboxUiState> =
         combine(
@@ -189,7 +189,7 @@ class AdminInboxViewModel internal constructor(
                     )
                 }
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AdminInboxUiState.Loading)
+        }.stateIn(viewModelScope, WhileSubscribedForUi, AdminInboxUiState.Loading)
 
     /**
      * Retry. After a failed local read ([AdminInboxUiState.Error]) this re-reads the held set; the list

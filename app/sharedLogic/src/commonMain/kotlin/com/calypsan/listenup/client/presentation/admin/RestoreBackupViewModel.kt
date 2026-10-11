@@ -12,10 +12,10 @@ import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -73,7 +73,7 @@ class RestoreBackupViewModel(
     val progress: StateFlow<BackupEvent?> =
         backupRepository
             .observeProgress()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+            .stateIn(viewModelScope, WhileSubscribedForUi, null)
 
     /** Show the destructive-action confirmation. */
     fun requestRestore() {

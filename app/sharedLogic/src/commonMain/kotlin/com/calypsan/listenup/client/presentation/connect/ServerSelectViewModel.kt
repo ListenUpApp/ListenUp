@@ -17,7 +17,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -27,6 +26,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -122,12 +122,12 @@ class ServerSelectViewModel(
         }.distinctUntilChanged()
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
+                started = WhileSubscribedForUi,
                 initialValue = ServerSelectUiState.Discovering(emptyList()),
             )
 
-    private val _navigationEvents = Channel<NavigationEvent>(Channel.BUFFERED)
-    val navigationEvents: Flow<NavigationEvent> = _navigationEvents.receiveAsFlow()
+    private val navigationEventsChannel = Channel<NavigationEvent>(Channel.BUFFERED)
+    val navigationEvents: Flow<NavigationEvent> = navigationEventsChannel.receiveAsFlow()
 
     /** Navigation events for the UI to handle. */
     sealed interface NavigationEvent {
@@ -177,7 +177,7 @@ class ServerSelectViewModel(
             }
 
             ServerSelectUiEvent.ManualEntryClicked -> {
-                _navigationEvents.trySend(NavigationEvent.GoToManualEntry)
+                navigationEventsChannel.trySend(NavigationEvent.GoToManualEntry)
             }
 
             ServerSelectUiEvent.RefreshClicked -> {
@@ -221,7 +221,7 @@ class ServerSelectViewModel(
         logger.warn { "ACCESS_LOCAL_NETWORK permission denied — navigating to manual entry" }
         discoveryInProgress.value = false
         overlay.value = Overlay.None
-        _navigationEvents.trySend(NavigationEvent.GoToManualEntry)
+        navigationEventsChannel.trySend(NavigationEvent.GoToManualEntry)
     }
 
     private fun handleServerSelected(serverWithStatus: ServerWithStatus) {
@@ -264,7 +264,7 @@ class ServerSelectViewModel(
                     adoptServer(url = reachableUrl, instanceId = server.id)
                     logger.info { "Server activated: ${server.id} at $reachableUrl" }
                     overlay.value = Overlay.None
-                    _navigationEvents.trySend(NavigationEvent.ServerActivated)
+                    navigationEventsChannel.trySend(NavigationEvent.ServerActivated)
                 } else {
                     logger.warn { "Server discovered but not reachable at any URL: $urlsToTry" }
                     overlay.value = Overlay.Failed(server.id, unreachableError(serverWithStatus, urlsToTry))

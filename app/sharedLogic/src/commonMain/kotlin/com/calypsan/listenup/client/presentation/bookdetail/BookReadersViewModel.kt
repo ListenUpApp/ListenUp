@@ -5,10 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * UI state for the Book Detail Readers section.
@@ -69,7 +69,7 @@ class BookReadersViewModel(
                 BookReadersUiState.Error(isRetryable = true)
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = WhileSubscribedForUi,
                 initialValue = BookReadersUiState.Loading,
             )
 }

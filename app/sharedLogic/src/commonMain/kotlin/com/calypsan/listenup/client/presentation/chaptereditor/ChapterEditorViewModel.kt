@@ -17,7 +17,6 @@ import com.calypsan.listenup.core.error.ErrorBus
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -25,8 +24,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.uuid.Uuid
-
-private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * The chapter editor for one book, shared by Android, iOS and web.
@@ -135,7 +133,7 @@ class ChapterEditorViewModel(
             }
         }.stateIn(
             viewModelScope,
-            SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            WhileSubscribedForUi,
             ChapterEditorUiState.Loading,
         )
 

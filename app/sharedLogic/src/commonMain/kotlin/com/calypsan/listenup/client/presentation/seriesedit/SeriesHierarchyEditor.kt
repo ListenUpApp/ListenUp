@@ -11,7 +11,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -21,11 +20,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
-
-/** Idle timeout before stopping the picker's tree. */
-private const val STOP_TIMEOUT_MS = 5_000L
 
 /**
  * The hierarchy slice of the series editor: where the series sits (its parent and its sub-series),
@@ -75,7 +72,7 @@ internal class SeriesHierarchyEditor(
                         parentPickerRows(hierarchy = tree, currentId = currentId, query = query, expanded = open)
                     }
                 }
-            }.stateIn(scope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
+            }.stateIn(scope, WhileSubscribedForUi, emptyList())
 
     private var placementJob: Job? = null
 

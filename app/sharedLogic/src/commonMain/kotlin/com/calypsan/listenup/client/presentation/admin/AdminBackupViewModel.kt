@@ -64,10 +64,10 @@ class AdminBackupViewModel(
     val state: StateFlow<AdminBackupUiState>
         field = MutableStateFlow<AdminBackupUiState>(AdminBackupUiState.Loading)
 
-    private val _downloadSaved = Channel<Unit>(Channel.BUFFERED)
+    private val downloadSavedChannel = Channel<Unit>(Channel.BUFFERED)
 
     /** One-shot signal that a backup finished streaming to the device — drives a "saved" confirmation. */
-    val downloadSaved: Flow<Unit> = _downloadSaved.receiveAsFlow()
+    val downloadSaved: Flow<Unit> = downloadSavedChannel.receiveAsFlow()
 
     init {
         loadBackups()
@@ -158,7 +158,7 @@ class AdminBackupViewModel(
                 saved = result is AppResult.Success
                 when (result) {
                     is AppResult.Success -> {
-                        _downloadSaved.trySend(Unit)
+                        downloadSavedChannel.trySend(Unit)
                     }
 
                     is AppResult.Failure -> {

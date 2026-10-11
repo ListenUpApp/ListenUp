@@ -27,7 +27,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -41,6 +40,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -52,9 +52,6 @@ private val logger = KotlinLogging.logger {}
  * which is how "my author isn't in here" became "merging is broken".
  */
 const val MAX_MERGE_CANDIDATES = 30
-
-/** Idle timeout before stopping merge-candidate collection. */
-private const val STOP_TIMEOUT_MS = 5_000L
 
 /**
  * Lightweight projection of a contributor as a merge-target candidate.
@@ -266,8 +263,8 @@ class ContributorEditViewModel internal constructor(
     val state: StateFlow<ContributorEditUiState>
         field = MutableStateFlow(ContributorEditUiState())
 
-    private val _navActions = Channel<ContributorEditNavAction>(Channel.BUFFERED)
-    val navActions: Flow<ContributorEditNavAction> = _navActions.receiveAsFlow()
+    private val navActionsChannel = Channel<ContributorEditNavAction>(Channel.BUFFERED)
+    val navActions: Flow<ContributorEditNavAction> = navActionsChannel.receiveAsFlow()
 
     /**
      * Candidates for the merge-target picker — all live contributors except the current
@@ -308,7 +305,7 @@ class ContributorEditViewModel internal constructor(
                             }.toList()
                     }
                 }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
+            }.stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     init {
         permissionsRepository
@@ -503,7 +500,7 @@ class ContributorEditViewModel internal constructor(
                     state.update { it.copy(mergeInProgress = false) }
                     // The survivor, not back: the viewed contributor survived this merge, but the
                     // detail page behind the editor was rendered from pre-merge state.
-                    _navActions.trySend(ContributorEditNavAction.NavigateToMerged(ContributorId(viewedId)))
+                    navActionsChannel.trySend(ContributorEditNavAction.NavigateToMerged(ContributorId(viewedId)))
                 }
 
                 is AppResult.Failure -> {
@@ -661,7 +658,7 @@ class ContributorEditViewModel internal constructor(
     private fun saveChanges() {
         val current = state.value
         if (!current.hasChanges) {
-            _navActions.trySend(ContributorEditNavAction.NavigateBack)
+            navActionsChannel.trySend(ContributorEditNavAction.NavigateBack)
             return
         }
 
@@ -729,7 +726,7 @@ class ContributorEditViewModel internal constructor(
                         stagingImagePath = null,
                     )
                 }
-                _navActions.trySend(ContributorEditNavAction.SaveSuccess)
+                navActionsChannel.trySend(ContributorEditNavAction.SaveSuccess)
             }
 
             is AppResult.Failure -> {
@@ -774,7 +771,7 @@ class ContributorEditViewModel internal constructor(
                 is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
                     // The survivor, not back: this merge soft-deleted the contributor we were editing.
-                    _navActions.trySend(ContributorEditNavAction.NavigateToMerged(candidate.id))
+                    navActionsChannel.trySend(ContributorEditNavAction.NavigateToMerged(candidate.id))
                 }
 
                 is AppResult.Failure -> {
@@ -814,7 +811,7 @@ class ContributorEditViewModel internal constructor(
         if (contributorId.isNotBlank() && state.value.stagingImagePath != null) {
             imageStagingRepository.requestContributorImageStagingCleanup(contributorId)
         }
-        _navActions.trySend(ContributorEditNavAction.NavigateBack)
+        navActionsChannel.trySend(ContributorEditNavAction.NavigateBack)
     }
 
     /**

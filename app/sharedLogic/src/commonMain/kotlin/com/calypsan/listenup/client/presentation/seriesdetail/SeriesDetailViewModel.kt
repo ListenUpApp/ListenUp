@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -36,6 +35,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * ViewModel for the Series Detail screen.
@@ -104,7 +104,7 @@ class SeriesDetailViewModel(
                 }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
+                started = WhileSubscribedForUi,
                 initialValue = SeriesDetailUiState.Idle,
             )
 

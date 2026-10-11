@@ -70,8 +70,8 @@ class BookEditViewModel(
     val state: StateFlow<BookEditUiState>
         field = MutableStateFlow(BookEditUiState())
 
-    private val _navActions = Channel<BookEditNavAction>(Channel.BUFFERED)
-    val navActions: Flow<BookEditNavAction> = _navActions.receiveAsFlow()
+    private val navActionsChannel = Channel<BookEditNavAction>(Channel.BUFFERED)
+    val navActions: Flow<BookEditNavAction> = navActionsChannel.receiveAsFlow()
 
     // Original state for change detection (set when book is loaded)
     private var originalState: BookEditData? = null
@@ -433,7 +433,7 @@ class BookEditViewModel(
 
     private fun cancelAndCleanup() {
         coverDelegate.cleanupStagingOnCancel()
-        _navActions.trySend(BookEditNavAction.NavigateBack)
+        navActionsChannel.trySend(BookEditNavAction.NavigateBack)
     }
 
     /**
@@ -472,7 +472,7 @@ class BookEditViewModel(
         val current = state.value
 
         if (!current.hasChanges) {
-            _navActions.trySend(BookEditNavAction.NavigateBack)
+            navActionsChannel.trySend(BookEditNavAction.NavigateBack)
             return
         }
 
@@ -506,7 +506,7 @@ class BookEditViewModel(
                             stagingCoverPath = null,
                         )
                     }
-                    _navActions.trySend(BookEditNavAction.NavigateBack)
+                    navActionsChannel.trySend(BookEditNavAction.NavigateBack)
                 }
 
                 is AppResult.Failure -> {
