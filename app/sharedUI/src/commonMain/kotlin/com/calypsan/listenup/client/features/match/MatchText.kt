@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.presentation.match.NarratorCredit
 import com.calypsan.listenup.client.presentation.match.YourCopyUi
 import com.calypsan.listenup.client.presentation.match.narratorCredit
 import com.calypsan.listenup.client.presentation.match.showsEditionFormat
+import com.calypsan.listenup.core.htmlToPlainText
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.match_chapter_count_one
 import listenup.composeapp.generated.resources.match_chapters_count
@@ -189,27 +190,8 @@ internal fun FieldValue.displayText(): String =
         }
     }
 
-private val LINE_BREAK_TAGS = Regex("""<\s*(br|/p|/div|/li)\s*/?\s*>""", RegexOption.IGNORE_CASE)
-private val ANY_TAG = Regex("""<[^>]+>""")
-private val BLANK_LINES = Regex("""\n{3,}""")
-private val ENTITIES =
-    mapOf(
-        "&amp;" to "&",
-        "&lt;" to "<",
-        "&gt;" to ">",
-        "&quot;" to "\"",
-        "&#39;" to "'",
-        "&apos;" to "'",
-        "&nbsp;" to " ",
-    )
-
 /** Catalogue descriptions arrive as HTML; Review reads them as the words alone. */
-internal fun String.asPlainText(): String {
-    if ('<' !in this && '&' !in this) return this
-    var text = replace(LINE_BREAK_TAGS, "\n").replace(ANY_TAG, "")
-    ENTITIES.forEach { (entity, character) -> text = text.replace(entity, character) }
-    return text.replace(BLANK_LINES, "\n\n").trim()
-}
+internal fun String.asPlainText(): String = htmlToPlainText(this)
 
 /** One reason a candidate ranks where it does. */
 @Composable

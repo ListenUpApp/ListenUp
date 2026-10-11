@@ -57,6 +57,10 @@ struct MatchCopyTests {
         #expect(MatchCopy.metadataLine(cast) == "Full cast · 9h 44m · 2023")
     }
 
+    @Test func catalogueTextDecodesItsEntities() {
+        #expect(MatchCopy.plainText("Tom &amp; Jerry &lt;3") == "Tom & Jerry <3")
+    }
+
     @Test func theStoreButtonNamesItsSourceAndStore() {
         #expect(MatchCopy.storeButton(source: Fixture.storefront, store: Fixture.unitedStates).hasPrefix("Storefront store: "))
     }

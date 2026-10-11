@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.match.MetadataSource
 import com.calypsan.listenup.api.dto.match.SearchStep
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.core.htmlToPlainText
 import com.calypsan.listenup.client.presentation.match.CandidateUi
 import com.calypsan.listenup.client.presentation.match.NarratorCredit
 import com.calypsan.listenup.client.presentation.match.YourCopyUi
@@ -176,19 +177,7 @@ internal fun valueText(value: FieldValue?): String =
  * Catalogue descriptions arrive with HTML in them. They are shown as text, never as markup: paragraph
  * and line breaks become new lines, every other tag goes, and the few entities catalogues use are read.
  */
-internal fun plainText(html: String): String =
-    html
-        .replace(BREAKS, "\n")
-        .replace(TAGS, "")
-        .replace("&nbsp;", " ")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&amp;", "&")
-        .replace(BLANK_LINES, "\n\n")
-        .trim()
+internal fun plainText(html: String): String = htmlToPlainText(html)
 
 /**
  * "Edited by you, 12 Sep. Kept unless you tick it." — "you" when the viewer made the edit, their name
@@ -220,7 +209,4 @@ internal fun dayMonthText(epochMs: Long): String {
     return "${date.getDate()} ${MONTHS[date.getMonth()]}"
 }
 
-private val BREAKS = Regex("""<br\s*/?>|</p\s*>|</div\s*>|</li\s*>""", RegexOption.IGNORE_CASE)
-private val TAGS = Regex("<[^>]*>")
-private val BLANK_LINES = Regex("\\n{3,}")
 private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")

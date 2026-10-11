@@ -68,6 +68,26 @@ class BookMarkdownTest :
             host.textContent!! shouldContain "A bold claim."
         }
 
+        test("entities in a description are read as the characters they name") {
+            val host = mounts.mount { BookMarkdown("Tom &amp; Jerry") }
+
+            host.textContent!! shouldBe "Tom & Jerry"
+        }
+
+        test("a break tag with attributes still breaks the paragraph") {
+            val host = mounts.mount { BookMarkdown("""One<br class="x">Two""") }
+
+            host.querySelectorAll("p").length shouldBe 2
+        }
+
+        test("an encoded script tag is shown as text and never becomes an element") {
+            // Entities are decoded after tags are stripped, so decoding cannot manufacture markup.
+            val host = mounts.mount { BookMarkdown("&lt;script&gt;alert(1)&lt;/script&gt;") }
+
+            host.querySelectorAll("script").length shouldBe 0
+            host.textContent!! shouldBe "<script>alert(1)</script>"
+        }
+
         // ⛔ The injection cases. A description is written by whoever wrote the metadata, not by us.
         test("a script tag in a description cannot become an element") {
             val host = mounts.mount { BookMarkdown("Nice book.<script>alert('xss')</script>") }
