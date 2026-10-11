@@ -218,7 +218,7 @@ internal class PlaybackManagerImpl(
      */
     override suspend fun prepareForPlayback(bookId: BookId): AppResult<PlaybackManager.PrepareResult> {
         val prepared =
-            when (val result = preparer.prepare(bookId)) {
+            when (val result = preparer.prepare(bookId, startAtMs = null)) {
                 is AppResult.Success -> result.data
                 is AppResult.Failure -> return result
             }
