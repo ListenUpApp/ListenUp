@@ -2,7 +2,7 @@
   "libraries": [
     {
       "uniqueId": "npm:@js-joda/core",
-      "artifactVersion": "5.7.0",
+      "artifactVersion": "6.3.0",
       "name": "@js-joda/core",
       "description": "a date and time library for javascript",
       "website": "https://js-joda.github.io/js-joda",
