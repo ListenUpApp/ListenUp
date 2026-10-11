@@ -390,9 +390,12 @@ internal interface CollectionBookDao {
      *
      * The id is the opaque wire [CollectionBookEntity.syncId] (SERVER-SYNC-04) — the same value
      * the server uses on the wire.
+     *
+     * A revision-0 row is an optimistic add the server has not acknowledged; the server cannot
+     * have it, so counting it would make the domain read as drifted until the add drains.
      */
     @Query(
-        "SELECT syncId AS id, revision FROM collection_books WHERE deletedAt IS NULL AND revision <= :max",
+        "SELECT syncId AS id, revision FROM collection_books WHERE deletedAt IS NULL AND revision > 0 AND revision <= :max",
     )
     suspend fun digestRows(max: Long): List<IdRevision>
 
