@@ -1,24 +1,24 @@
 package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.DownloadDone
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -33,9 +33,9 @@ import com.calypsan.listenup.client.features.bookdetail.components.DownloadActio
 import com.calypsan.listenup.client.features.bookdetail.components.DownloadActionKind
 import com.calypsan.listenup.client.features.bookdetail.components.DownloadTap
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_delete_download
 import listenup.composeapp.generated.resources.book_detail_download
 import listenup.composeapp.generated.resources.book_detail_download_size_a11y
-import listenup.composeapp.generated.resources.book_detail_downloaded
 import listenup.composeapp.generated.resources.book_detail_downloading_percent
 import listenup.composeapp.generated.resources.book_detail_queued
 import listenup.composeapp.generated.resources.book_detail_retry_download
@@ -43,30 +43,33 @@ import listenup.composeapp.generated.resources.book_detail_waiting_for_wifi
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Icon-only Download control (phone): a tonal circle of [size] whose accessible name carries the file size (spec
- * N2), never the book's length. Drawn from a [DownloadAction], so the phone and tablet renderings share one truth.
- * A downloaded book shows a done glyph; tapping it asks to remove the download (the screen confirms).
+ * Download as the trailing half of the phone's split pair (Simon, 2026-10-11): joined to Resume by M3E's split-button
+ * shapes and seam, but its own action, so no chevron and no menu. A square of [size] whose accessible name carries
+ * the file size (spec N2), never the book's length. Drawn from a [DownloadAction], so the phone and tablet renderings
+ * share one truth. A downloaded book shows a trash bin named "Delete download"; tapping it asks to remove the
+ * download (the screen confirms first).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun DownloadIconButton(
+internal fun DownloadSplitTrailingButton(
     action: DownloadAction,
     enabled: Boolean,
     onTap: (DownloadTap) -> Unit,
     size: Dp,
     modifier: Modifier = Modifier,
-    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
     val haptics = LocalHaptics.current
     val name = downloadAccessibleName(action)
-    FilledTonalIconButton(
+    SplitButtonDefaults.TrailingButton(
         onClick = {
             if (action.tap == DownloadTap.Start) haptics.commit()
             onTap(action.tap)
         },
         enabled = enabled,
-        shapes = IconButtonDefaults.shapes(),
-        interactionSource = interactionSource,
+        shapes = SplitButtonDefaults.trailingButtonShapesFor(size),
+        colors = ButtonDefaults.filledTonalButtonColors(),
+        elevation = null,
+        contentPadding = PaddingValues(0.dp),
         modifier = modifier.size(size).semantics { contentDescription = name },
     ) { DownloadGlyph(action.kind) }
 }
@@ -116,7 +119,7 @@ private fun downloadLabel(kind: DownloadActionKind): String =
         DownloadActionKind.Queued -> stringResource(Res.string.book_detail_queued)
         DownloadActionKind.WaitingForWifi -> stringResource(Res.string.book_detail_waiting_for_wifi)
         is DownloadActionKind.Downloading -> stringResource(Res.string.book_detail_downloading_percent, kind.percent)
-        DownloadActionKind.Downloaded -> stringResource(Res.string.book_detail_downloaded)
+        DownloadActionKind.Downloaded -> stringResource(Res.string.book_delete_download)
         DownloadActionKind.Retry -> stringResource(Res.string.book_detail_retry_download)
     }
 
@@ -145,7 +148,7 @@ private fun DownloadGlyph(kind: DownloadActionKind) {
         }
 
         DownloadActionKind.Downloaded -> {
-            Icon(Icons.Outlined.DownloadDone, contentDescription = null)
+            Icon(Icons.Outlined.Delete, contentDescription = null)
         }
 
         DownloadActionKind.Retry -> {

@@ -5,12 +5,12 @@ import SwiftUI
 /// Every state has a spoken label that names the action a tap performs, and a value that says where
 /// the download stands (HIG, VoiceOver; Accessibility — state never by colour or glyph alone).
 struct DownloadControl: Equatable {
-    /// What a single tap does. A finished download has no one-tap action: removing it is
-    /// destructive, so it lives in a menu behind a confirmation (HIG, Menus; Alerts).
+    /// What a single tap does. A finished download's tap asks to delete it: removal is destructive,
+    /// so the tap only opens a confirmation whose own button removes it (HIG, Alerts).
     enum TapAction: Equatable {
         case download
         case cancel
-        case openMenu
+        case confirmDelete
     }
 
     let state: DownloadUIState
@@ -20,7 +20,7 @@ struct DownloadControl: Equatable {
         switch state {
         case .notDownloaded, .partial, .failed: .download
         case .queued, .downloading, .waitingForWifi: .cancel
-        case .completed: .openMenu
+        case .completed: .confirmDelete
         }
     }
 
@@ -28,7 +28,7 @@ struct DownloadControl: Equatable {
         switch state {
         case .notDownloaded: String(localized: "book.detail_download")
         case .queued, .downloading, .waitingForWifi: String(localized: "book.detail_cancel_download")
-        case .completed: String(localized: "book.detail_downloaded")
+        case .completed: String(localized: "book.delete_download")
         case .partial, .failed: String(localized: "book.detail_retry_download")
         }
     }
@@ -53,7 +53,7 @@ struct DownloadControl: Equatable {
 /// - Waiting for Wi-Fi: Wi-Fi-off icon — the download is parked because "Download on Wi-Fi Only"
 ///   is on and the network is metered. A spinner here would claim progress that is not happening.
 /// - Downloading: Circular progress; tap cancels
-/// - Completed: Checkmark; tap opens a menu whose Delete Download confirms first
+/// - Completed: Trash; tap asks to delete the download, behind a confirmation
 /// - Failed/Partial: Retry icon
 ///
 /// A standard `.bordered` circle, not Liquid Glass: this sits in the content layer, and glass is
@@ -76,17 +76,8 @@ struct DownloadButton: View {
                 Button(action: onDownload) { iconView }
             case .cancel:
                 Button(action: onCancel) { iconView }
-            case .openMenu:
-                Menu {
-                    Button(role: .destructive) {
-                        confirmingDelete = true
-                    } label: {
-                        Label(String(localized: "book.delete_download"), systemImage: "trash")
-                    }
-                } label: {
-                    iconView
-                }
-                .menuStyle(.button)
+            case .confirmDelete:
+                Button { confirmingDelete = true } label: { iconView }
             }
         }
         .buttonStyle(.bordered)
@@ -137,8 +128,8 @@ struct DownloadButton: View {
                 }
 
             case .completed:
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                Image(systemName: "trash")
+                    .foregroundStyle(.secondary)
 
             case .partial, .failed:
                 Image(systemName: "arrow.clockwise.circle")

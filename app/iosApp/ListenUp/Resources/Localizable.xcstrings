@@ -4771,16 +4771,6 @@
         }
       }
     },
-    "book.detail_download_caption": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Download · %1$@ · plays offline once saved"
-          }
-        }
-      }
-    },
     "book.detail_download_failed": {
       "localizations": {
         "en": {
@@ -4827,16 +4817,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Download, %1$@"
-          }
-        }
-      }
-    },
-    "book.detail_downloaded": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Downloaded"
           }
         }
       }

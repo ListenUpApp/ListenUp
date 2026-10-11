@@ -36,13 +36,13 @@ struct DownloadControlTests {
         #expect(control.tapAction == .cancel)
     }
 
-    /// The bug this pins: a completed download used to delete on a single tap. Removal now lives
-    /// in a menu, behind a confirmation — a tap only opens the menu.
-    @Test func downloadedHasNoOneTapAction() {
+    /// The bug this pins: a completed download used to delete on a single tap. Its tap now names what it does,
+    /// Delete download, and only opens the confirmation — the confirmation's own button removes it.
+    @Test func downloadedOffersDeleteBehindAConfirmation() {
         let control = DownloadControl(state: .completed, progress: 1)
-        #expect(control.accessibilityLabel == String(localized: "book.detail_downloaded"))
+        #expect(control.accessibilityLabel == String(localized: "book.delete_download"))
         #expect(control.accessibilityValue == nil)
-        #expect(control.tapAction == .openMenu)
+        #expect(control.tapAction == .confirmDelete)
     }
 
     @Test func failedOffersRetryAndSaysItFailed() {

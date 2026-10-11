@@ -33,6 +33,21 @@ struct BookListenActionsAccessibilityTests {
         #expect(download.isButton)
     }
 
+    /// Simon, 2026-10-11: once saved, the download capsule becomes Delete download with a trash bin — no
+    /// "Downloaded" checkmark — and the old label is gone.
+    @Test func aSavedDownloadIsADeleteButton() async throws {
+        let hosted = await actions(kind: .resume, download: .completed)
+        defer { hosted.close() }
+        let delete = try #require(hosted.stop(labelled: String(localized: "book.delete_download")), "\(hosted.tree)")
+        #expect(delete.isButton)
+        #expect(hosted.stops(labelContaining: "Downloaded").isEmpty)
+    }
+
+    @Test func aSavedDownloadReadsDeleteWithATrashBin() {
+        #expect(BookListenActions.downloadTitle(.completed) == String(localized: "book.delete_download"))
+        #expect(BookListenActions.downloadSymbol(.completed) == "trash")
+    }
+
     @Test func resumeIsAnEnabledButton() async throws {
         let hosted = await actions(kind: .resume)
         defer { hosted.close() }
