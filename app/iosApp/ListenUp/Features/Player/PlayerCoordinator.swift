@@ -354,18 +354,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// still preparing: the in-flight prepare is cancelled, the outgoing book's position is
     /// saved, the metadata surface is reset synchronously, and the engine is silenced before
     /// the new book loads — so a switch never leaks the old book's cover/chapters/audio (RC-1, RC-4).
-    ///
-    /// With `startAtMs` (a chapter's start, in book ms) it starts there: a seek when the book is
-    /// already loaded, otherwise a prepare at that position through the shared choke point. Without
-    /// it, it resumes.
+    /// `startAtMs` (book ms) starts there: a seek on the loaded book, else a prepare there; `nil` resumes.
     func play(bookId: String, startAtMs: Int64? = nil) {
-        if let startAtMs, let loaded = phase.playingState, loaded.bookId == bookId {
-            pausedByInterruption = false
-            seekTo(positionMs: startAtMs)
-            if !isPlaybackActive { togglePlayback() }
-            return
-        }
         pausedByInterruption = false
+        if let startAtMs, seekLoadedBook(bookId: bookId, toMs: startAtMs) { return }
 
         // Cancel any in-flight prepare and open a new epoch so its post-`await` continuations bail.
         prepareTask?.cancel()
