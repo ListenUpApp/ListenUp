@@ -109,18 +109,19 @@ internal class BookDetailFixture {
     val playbackPositionRepository: PlaybackPositionRepository =
         mock<PlaybackPositionRepository> {
             every { observe(any()) } returns position
-            everySuspend { markComplete(any(), any(), any()) } calls { (_: BookId, startedAt: Long?, finishedAt: Long?) ->
-                val answer = markCompleteGate?.await() ?: AppResult.Success(Unit)
-                if (answer is AppResult.Success) {
-                    position.value =
-                        (position.value ?: positionOf(0L)).copy(
-                            isFinished = true,
-                            startedAtMs = startedAt ?: position.value?.startedAtMs,
-                            finishedAtMs = finishedAt ?: FIXTURE_NOW_MS,
-                        )
+            everySuspend { markComplete(any(), any(), any()) } calls
+                { (_: BookId, startedAt: Long?, finishedAt: Long?) ->
+                    val answer = markCompleteGate?.await() ?: AppResult.Success(Unit)
+                    if (answer is AppResult.Success) {
+                        position.value =
+                            (position.value ?: positionOf(0L)).copy(
+                                isFinished = true,
+                                startedAtMs = startedAt ?: position.value?.startedAtMs,
+                                finishedAtMs = finishedAt ?: FIXTURE_NOW_MS,
+                            )
+                    }
+                    answer
                 }
-                answer
-            }
             everySuspend { discardProgress(any()) } calls {
                 position.value = null
                 AppResult.Success(Unit)
@@ -159,7 +160,8 @@ internal class BookDetailFixture {
     private val seriesRepository: SeriesRepository =
         mock<SeriesRepository> {
             every { observeHierarchy() } returns hierarchy
-            every { observeSeriesWithBooks(any()) } calls { (id: String) -> series.getOrPut(id) { MutableStateFlow(null) } }
+            every { observeSeriesWithBooks(any()) } calls
+                { (id: String) -> series.getOrPut(id) { MutableStateFlow(null) } }
         }
 
     fun build(): BookDetailViewModel =

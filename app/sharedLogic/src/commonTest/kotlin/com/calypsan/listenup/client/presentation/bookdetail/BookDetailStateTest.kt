@@ -103,7 +103,8 @@ class BookDetailStateTest :
             val loaded = BookLoad.Loaded("book-1", snapshot())
 
             test("Loading until a book is asked for") {
-                bookDetailUiState(null, null, BookDetailAmbient(), BookDetailOverlay(null), orderLatch = null) shouldBe BookDetailUiState.Loading
+                bookDetailUiState(null, null, BookDetailAmbient(), BookDetailOverlay(null), orderLatch = null) shouldBe
+                    BookDetailUiState.Loading
             }
 
             test("Loading while the latest load is another book's — never that book's page") {
@@ -134,15 +135,18 @@ class BookDetailStateTest :
             }
 
             test("an overlay left over from another book is ignored") {
-                bookDetailUiState("book-1", loaded, BookDetailAmbient(), BookDetailOverlay("book-0", showShelfPicker = true), orderLatch = null)
-                    .shouldBeInstanceOf<BookDetailUiState.Ready>()
+                bookDetailUiState(
+                    "book-1",
+                    loaded,
+                    BookDetailAmbient(),
+                    BookDetailOverlay("book-0", showShelfPicker = true),
+                    orderLatch = null,
+                ).shouldBeInstanceOf<BookDetailUiState.Ready>()
                     .showShelfPicker shouldBe false
             }
         }
 
         context("withOverlay") {
-            val inProgress = snapshot(position = position(900_000L)).toReady(BookDetailAmbient())
-
             test("'restoring' shows only while the book is still stranded") {
                 val restoring = BookDetailOverlay("book-1", isRestoringToAllBooks = true)
                 snapshot(visibility = BookVisibility.Stranded)
@@ -313,7 +317,7 @@ class BookDetailStateTest :
 
             test("the first load of a visit latches its order") {
                 val page = start.visiting("book-1").withLoad(inProgress)
-                page.orderLatch?.order?.first() shouldBe BookDetailSection.Chapters
+                page.orderLatch?.run { order.first() } shouldBe BookDetailSection.Chapters
             }
 
             test("finishing during the visit changes the action, not the order") {
@@ -324,7 +328,12 @@ class BookDetailStateTest :
             }
 
             test("asking for the same book again keeps the latch (an iOS observer reusing its ViewModel)") {
-                val page = start.visiting("book-1").withLoad(inProgress).withLoad(finished).visiting("book-1")
+                val page =
+                    start
+                        .visiting("book-1")
+                        .withLoad(inProgress)
+                        .withLoad(finished)
+                        .visiting("book-1")
                 page.screen("book-1").sectionOrder.first() shouldBe BookDetailSection.Chapters
             }
 
@@ -353,7 +362,12 @@ class BookDetailStateTest :
             }
 
             test("a vanished row does not disturb the latch") {
-                val page = start.visiting("book-1").withLoad(inProgress).withLoad(BookLoad.Missing("book-1")).withLoad(finished)
+                val page =
+                    start
+                        .visiting("book-1")
+                        .withLoad(inProgress)
+                        .withLoad(BookLoad.Missing("book-1"))
+                        .withLoad(finished)
                 page.screen("book-1").sectionOrder.first() shouldBe BookDetailSection.Chapters
             }
         }

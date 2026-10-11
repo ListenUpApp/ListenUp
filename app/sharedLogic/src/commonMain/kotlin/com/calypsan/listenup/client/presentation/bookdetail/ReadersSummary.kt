@@ -47,6 +47,7 @@ internal fun BookReaders.summary(): ReadersSummary {
         listening = listening,
         finished = finished,
         avatars = (listening + finished).take(SOCIAL_AVATARS),
-        othersCount = (listening.size - NAMED_PER_CLAUSE).coerceAtLeast(0) + (finished.size - NAMED_PER_CLAUSE).coerceAtLeast(0),
+        othersCount =
+            (listening.size - NAMED_PER_CLAUSE).coerceAtLeast(0) + (finished.size - NAMED_PER_CLAUSE).coerceAtLeast(0),
     )
 }

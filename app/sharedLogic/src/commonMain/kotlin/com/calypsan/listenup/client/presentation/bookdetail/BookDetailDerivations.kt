@@ -72,8 +72,15 @@ internal fun sectionOrderFor(
     return order.filter { section ->
         when (section) {
             BookDetailSection.Series -> presence.hasSeries
+
             BookDetailSection.Chapters -> presence.hasChapters
-            else -> true
+
+            BookDetailSection.About,
+            BookDetailSection.Ratings,
+            BookDetailSection.Hardcover,
+            BookDetailSection.Readers,
+            BookDetailSection.Details,
+            -> true
         }
     }
 }
@@ -158,6 +165,6 @@ internal fun seriesShelfOf(
                 )
             },
         thisIndex = thisIndex,
-        nextBookId = books.getOrNull(thisIndex + 1)?.id?.value,
+        nextBookId = books.getOrNull(thisIndex + 1)?.run { id.value },
     )
 }

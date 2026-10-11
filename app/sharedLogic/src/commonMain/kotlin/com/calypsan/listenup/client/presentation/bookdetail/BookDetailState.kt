@@ -114,13 +114,21 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
         isHeld = isHeld,
         visibility = visibility,
         readingStage = stage,
-        sectionOrder = sectionOrderFor(stage, SectionPresence(hasSeries = shelf != null, hasChapters = chapters.isNotEmpty())),
+        sectionOrder =
+            sectionOrderFor(
+                stage,
+                SectionPresence(hasSeries = shelf != null, hasChapters = chapters.isNotEmpty()),
+            ),
         primaryAction = primaryActionFor(stage, showServerWarning, canPlay),
         currentChapter = current,
         chapterPreview = chapterWindow(chapterRows, current?.index),
         timeRemainingMs = timeRemainingMs,
         finishedSpan =
-            position?.finishedAtMs?.takeIf { isComplete }?.let { FinishedSpan(startedAtMs = position.startedAtMs, finishedAtMs = it) },
+            position
+                ?.finishedAtMs
+                ?.takeIf {
+                    isComplete
+                }?.let { FinishedSpan(startedAtMs = position.startedAtMs, finishedAtMs = it) },
         downloadSizeBytes = detail.audioFiles.sumOf { it.size },
         seriesShelf = shelf,
         showScanWarning = detail.hasScanWarning && ambient.isAdmin,
@@ -275,7 +283,8 @@ internal data class BookDetailPage(
     val orderLatch: SectionOrderLatch? = null,
 ) {
     /** The page once Room has said [newLoad]. */
-    fun withLoad(newLoad: BookLoad): BookDetailPage = copy(load = newLoad, overlay = overlay.retiredBy(newLoad)).latched()
+    fun withLoad(newLoad: BookLoad): BookDetailPage =
+        copy(load = newLoad, overlay = overlay.retiredBy(newLoad)).latched()
 
     /**
      * The page once the reader asks for [bookId]: the same book keeps whatever is open; another book starts the next
@@ -312,21 +321,21 @@ internal data class SectionOrderLatch(
 /** This page with the reader's [overlay] laid on it. */
 internal fun BookDetailUiState.Ready.withOverlay(overlay: BookDetailOverlay): BookDetailUiState.Ready =
     copy(
-            isMarkingComplete = overlay.isMarkingComplete,
-            isDiscardingProgress = overlay.isDiscardingProgress,
-            isRestarting = overlay.isRestarting,
-            showShelfPicker = overlay.showShelfPicker,
-            isAddingToShelf = overlay.isAddingToShelf,
-            shelfError = overlay.shelfError,
-            showCollectionPicker = overlay.showCollectionPicker,
-            isAddingToCollection = overlay.isAddingToCollection,
-            collectionError = overlay.collectionError,
-            isDeletingBook = overlay.isDeletingBook,
-            deleteError = overlay.deleteError,
-            isReleasingFromInbox = overlay.isReleasingFromInbox,
-            // The echo that re-homes a stranded book is exactly what ends "restoring".
-            isRestoringToAllBooks = overlay.isRestoringToAllBooks && visibility is BookVisibility.Stranded,
-        )
+        isMarkingComplete = overlay.isMarkingComplete,
+        isDiscardingProgress = overlay.isDiscardingProgress,
+        isRestarting = overlay.isRestarting,
+        showShelfPicker = overlay.showShelfPicker,
+        isAddingToShelf = overlay.isAddingToShelf,
+        shelfError = overlay.shelfError,
+        showCollectionPicker = overlay.showCollectionPicker,
+        isAddingToCollection = overlay.isAddingToCollection,
+        collectionError = overlay.collectionError,
+        isDeletingBook = overlay.isDeletingBook,
+        deleteError = overlay.deleteError,
+        isReleasingFromInbox = overlay.isReleasingFromInbox,
+        // The echo that re-homes a stranded book is exactly what ends "restoring".
+        isRestoringToAllBooks = overlay.isRestoringToAllBooks && visibility is BookVisibility.Stranded,
+    )
 
 /**
  * Book Detail's whole screen state. `Loading` whenever the latest [load] is not for [requestedBookId], so a page

@@ -237,7 +237,10 @@ class BookDetailViewModel(
                 }
             }
         val listening: Flow<Pair<List<Chapter>, PlaybackPosition?>> =
-            combine(bookRepository.observeChapters(bookId), playbackPositionRepository.observe(id)) { chapters, position ->
+            combine(
+                bookRepository.observeChapters(bookId),
+                playbackPositionRepository.observe(id),
+            ) { chapters, position ->
                 chapters to position
             }
         return combine(
