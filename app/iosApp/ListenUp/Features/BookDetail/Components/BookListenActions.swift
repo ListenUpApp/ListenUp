@@ -57,8 +57,8 @@ struct BookListenActions: View {
 
     // MARK: - Download
 
-    /// A finished download has no one-tap action: removing it is destructive, so it sits in a menu behind a
-    /// confirmation (HIG, Menus; Alerts), exactly as `DownloadButton` does.
+    /// Once saved, the capsule is Delete download with a trash bin (Simon, 2026-10-11). Removal is destructive, so the
+    /// tap only asks; the confirmation's own button deletes (HIG, Alerts).
     @ViewBuilder
     private var downloadCapsule: some View {
         Group {
@@ -68,17 +68,8 @@ struct BookListenActions: View {
                     .disabled(!canDownload)
             case .cancel:
                 Button(action: onCancelDownload) { downloadLabel }
-            case .openMenu:
-                Menu {
-                    Button(role: .destructive) {
-                        confirmingDelete = true
-                    } label: {
-                        Label(String(localized: "book.delete_download"), systemImage: "trash")
-                    }
-                } label: {
-                    downloadLabel
-                }
-                .menuStyle(.button)
+            case .confirmDelete:
+                Button { confirmingDelete = true } label: { downloadLabel }
             }
         }
         .buttonStyle(.bordered)
@@ -121,7 +112,7 @@ struct BookListenActions: View {
 
     static func downloadTitle(_ state: DownloadUIState) -> String {
         switch state {
-        case .completed: String(localized: "book.detail_downloaded")
+        case .completed: String(localized: "book.delete_download")
         case .queued: String(localized: "book.detail_queued")
         case .waitingForWifi: String(localized: "book.detail_waiting_for_wifi")
         case .failed, .partial: String(localized: "book.detail_retry_download")
@@ -136,7 +127,7 @@ struct BookListenActions: View {
         case .queued: "clock"
         case .waitingForWifi: "wifi.slash"
         case .downloading: "xmark.circle"
-        case .completed: "checkmark.circle.fill"
+        case .completed: "trash"
         case .partial, .failed: "arrow.clockwise.circle"
         }
     }
