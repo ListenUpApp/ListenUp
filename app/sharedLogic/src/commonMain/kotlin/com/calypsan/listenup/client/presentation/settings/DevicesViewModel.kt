@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.device.deviceGlyphFor
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -103,6 +104,7 @@ class DevicesViewModel(
             lastUsedAt = lastUsedAt,
             isCurrent = current,
             deviceType = deviceInfo?.deviceType,
+            glyph = deviceGlyphFor(deviceInfo?.deviceType),
         )
 
     companion object {

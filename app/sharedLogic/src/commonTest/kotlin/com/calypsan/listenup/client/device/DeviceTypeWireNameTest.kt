@@ -57,7 +57,7 @@ class DeviceTypeWireNameTest :
         }
 
         test("every name is non-blank and lowercase") {
-            // deviceVisualFor lowercases before matching, but the wire value is what the server
+            // deviceGlyphFor lowercases before matching, but the wire value is what the server
             // persists — emit it already normalised rather than relying on the reader.
             DeviceType.entries.forEach { type ->
                 val name = type.wireName
@@ -74,10 +74,9 @@ class DeviceTypeWireNameTest :
             }
         }
 
-        test("the three names deviceVisualFor gives a specific glyph to are the ones we emit") {
-            // DeviceVisual.kt:41-49 branches on "phone", "tablet", "desktop"/"laptop", "cast",
-            // "speaker". These three are the form factors we can actually be; the rest fall
-            // through to its generic device icon, which is honest.
+        test("the three names older sessions and servers rely on are the ones we emit") {
+            // deviceGlyphFor reads "phone", "tablet" and "desktop" as they have always been spelled;
+            // every other name is covered by DeviceGlyphTest.
             setOf(DeviceType.Phone, DeviceType.Tablet, DeviceType.Desktop)
                 .map { it.wireName }
                 .toSet() shouldBe setOf("phone", "tablet", "desktop")
