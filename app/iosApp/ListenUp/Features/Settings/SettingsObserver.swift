@@ -69,7 +69,7 @@ final class SettingsObserver {
 
     // MARK: - State mapping
 
-    private func apply(_ state: SettingsUiState) {
+    func apply(_ state: SettingsUiState) {
         defaultPlaybackSpeed = state.defaultPlaybackSpeed
         defaultVolumeBoostDb = state.defaultVolumeBoostDb
         defaultSkipForwardSec = Int(state.defaultSkipForwardSec)
@@ -120,9 +120,7 @@ final class SettingsObserver {
 // MARK: - Pure formatting helpers
 
 /// Pure value→label mappings for the settings rows. Kept free of the observer so the
-/// branches are unit-testable rather than buried in the view (the Swift Export-bridged
-/// `SettingsUiState` itself can't be constructed from Swift, so these helpers are the
-/// meaningful pure seam).
+/// branches are unit-testable rather than buried in the view.
 enum SettingsFormat {
     /// "30s" / "1m" / "1m 30s" for a skip interval expressed in seconds.
     static func skipLabel(seconds: Int) -> String {

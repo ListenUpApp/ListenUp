@@ -117,12 +117,34 @@ struct RestoreStatusLabelTests {
         #expect(RestoreBackupObserver.statusLabel(from: nil) == String(localized: "admin.restore_status_default"))
     }
 
-    // The restore-progress data-object events — Validating/Draining/Swapping/Migrating (and the
-    // creation data objects Finalizing/DbSnapshotting) — are `@Serializable data object`s, which the
-    // current Swift Export exports as empty classes with no singleton accessor: they are unreachable
-    // from Swift, so their label mappings can't be exercised here. That mapping is pinned instead by
-    // RestoreBackupObserver's exhaustive `sealedType()` switch: the native enum has no catch-all, so a
-    // dropped subtype is a compile error. The reachable data-*class* events are asserted directly below.
+    @Test func progressEventsEachMapToTheirOwnLabel() {
+        func label(_ event: BackupEvent) -> String { RestoreBackupObserver.statusLabel(from: event) }
+        #expect(label(BackupEventValidating.shared) == String(localized: "admin.restore_status_validating"))
+        #expect(label(BackupEventDraining.shared) == String(localized: "admin.restore_status_draining"))
+        #expect(label(BackupEventSwapping.shared) == String(localized: "admin.restore_status_swapping"))
+        #expect(label(BackupEventMigrating.shared) == String(localized: "admin.restore_status_migrating"))
+    }
+
+    /// The six labels are six different strings, so the test above cannot pass on a swapped pair.
+    @Test func theRestoreLabelsAreAllDistinct() {
+        let events: [BackupEvent?] = [
+            nil,
+            BackupEventValidating.shared,
+            BackupEventDraining.shared,
+            BackupEventSwapping.shared,
+            BackupEventMigrating.shared,
+            BackupEventRestoreComplete(includedImages: true),
+            BackupEventRolledBack(reason: "boom")
+        ]
+        #expect(Set(events.map(RestoreBackupObserver.statusLabel(from:))).count == events.count)
+    }
+
+    @Test func creationProgressEventsMapToDefault() {
+        // Backup-creation data objects are not restore progress.
+        let fallback = String(localized: "admin.restore_status_default")
+        #expect(RestoreBackupObserver.statusLabel(from: BackupEventFinalizing.shared) == fallback)
+        #expect(RestoreBackupObserver.statusLabel(from: BackupEventDbSnapshotting.shared) == fallback)
+    }
 
     @Test func terminalEventsMapToTheirLabels() {
         #expect(RestoreBackupObserver.statusLabel(from: BackupEventRestoreComplete(includedImages: true)) == String(localized: "admin.restore_status_finishing"))

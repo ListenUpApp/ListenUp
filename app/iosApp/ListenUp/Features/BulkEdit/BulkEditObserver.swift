@@ -276,7 +276,7 @@ final class BulkEditObserver {
 
     // MARK: - State mapping
 
-    private func applyState(_ state: BulkEditUiState) {
+    func applyState(_ state: BulkEditUiState) {
         switch state.sealedType() {
         case .loading:
             isLoading = true

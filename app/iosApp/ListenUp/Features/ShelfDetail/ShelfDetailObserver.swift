@@ -128,7 +128,7 @@ final class ShelfDetailObserver {
         viewModel.reorderBooks(orderedBookIds: reordered)
     }
 
-    private func apply(_ state: ShelfDetailUiState) {
+    func apply(_ state: ShelfDetailUiState) {
         let snapshot = ShelfDetailSnapshot.from(state)
         phase = snapshot.phase
         shelfName = snapshot.shelfName

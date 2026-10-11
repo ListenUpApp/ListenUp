@@ -83,7 +83,7 @@ final class EditProfileObserver {
 
     // MARK: - State mapping
 
-    private func apply(_ state: EditProfileUiState) {
+    func apply(_ state: EditProfileUiState) {
         switch state.sealedType() {
         case .loading:
             isLoading = true

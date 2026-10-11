@@ -1,13 +1,12 @@
 import Foundation
+import ListenupContract
+import Shared
 import Testing
 @testable import ListenUp
 
-/// Pure-seam coverage for the bulk metadata editor.
-///
-/// The state flatten itself can't be exercised here — `BulkEditUiState.Editing` is a bridged Kotlin
-/// type produced by a `BulkEditViewModel` whose constructor is deliberately `internal`, so there is
-/// no way to build one from Swift. What *is* pure and constructible is every sentence the sheet
-/// speaks about counts, which is exactly where a bulk edit would lie about itself if it lied at all.
+/// Coverage for the bulk metadata editor: every sentence the sheet speaks about counts, which is
+/// exactly where a bulk edit would lie about itself if it lied at all, and the `BulkEditUiState` →
+/// observer flatten.
 @Suite("BulkEditFormatting")
 struct BulkEditObserverTests {
     // MARK: - Title
@@ -202,6 +201,149 @@ struct BulkEditObserverTests {
             #expect(!field.label.isEmpty)
             #expect(field.label != field.rawValue, "\(field.rawValue) fell through to its raw key")
         }
+    }
+
+    // MARK: - State mapping
+
+    @MainActor private func makeObserver() -> BulkEditObserver {
+        BulkEditObserver(viewModel: Dependencies.shared.createBulkEditViewModel(bookIds: []))
+    }
+
+    /// Every field armed, and every count different from every other count.
+    private static var armedEditing: BulkEditUiStateEditing {
+        let publisherEdit = BulkEditSetPublisher(publisher: "Tor")
+        let tagsEdit = BulkEditAddTags(names: ["Found Family"])
+        let edits: [any BulkEdit] = [
+            publisherEdit,
+            BulkEditSetPublishYear(year: 2019),
+            BulkEditSetLanguage(language: "en"),
+            BulkEditAddToSeries(series: BookSeriesInput(id: nil, name: "Earthsea", position: nil, isPrimary: true)),
+            BulkEditAddContributors(contributors: [
+                BookContributorInput(id: nil, name: "Ursula K. Le Guin", role: "author", creditedAs: nil, position: 0)
+            ]),
+            BulkEditAddGenres(genres: [BookGenreInput(genreId: GenreId(value: "g3"))]),
+            tagsEdit,
+            BulkEditAddMoods(names: ["Cozy"])
+        ]
+        return BulkEditUiStateEditing(
+            bookCount: 40,
+            requestedCount: 42,
+            edits: edits,
+            preview: [
+                BulkEditPreviewRow(edit: publisherEdit, affectedCount: 12),
+                BulkEditPreviewRow(edit: tagsEdit, affectedCount: 33)
+            ],
+            changedBookCount: 35,
+            isApplying: true,
+            sharedPublisher: "Orbit",
+            sharedPublishYear: 2001,
+            sharedLanguage: nil,
+            selectionSample: []
+        )
+    }
+
+    private static var untouchedEditing: BulkEditUiStateEditing {
+        BulkEditUiStateEditing(
+            bookCount: 3,
+            requestedCount: 5,
+            edits: [],
+            preview: [],
+            changedBookCount: 0,
+            isApplying: false,
+            sharedPublisher: nil,
+            sharedPublishYear: nil,
+            sharedLanguage: "fr",
+            selectionSample: []
+        )
+    }
+
+    @MainActor @Test func editingMapsTheCountsAndThePublishingFields() {
+        let observer = makeObserver()
+        observer.applyState(Self.armedEditing)
+
+        #expect(observer.isLoading == false)
+        #expect(observer.bookCount == 40)
+        #expect(observer.requestedCount == 42)
+        #expect(observer.changedBookCount == 35)
+        #expect(observer.canApply)
+        #expect(observer.isApplying)
+        #expect(observer.publisher == "Tor")
+        #expect(observer.year == "2019")
+        #expect(observer.language == "en")
+        #expect(observer.publisherPlaceholder == "Orbit")
+        #expect(observer.yearPlaceholder == "2001")
+        #expect(observer.languagePlaceholder == String(localized: "bulk_edit.multiple_values"))
+        #expect(observer.selectionCovers.isEmpty)
+    }
+
+    @MainActor @Test func editingMapsThePreviewAndTheConsequences() {
+        let observer = makeObserver()
+        observer.applyState(Self.armedEditing)
+
+        #expect(observer.preview == [
+            BulkEditMapping.previewLine(field: .publisher, affectedCount: 12, bookCount: 40, value: "Tor"),
+            BulkEditMapping.previewLine(field: .tags, affectedCount: 33, bookCount: 40)
+        ])
+        #expect(observer.consequences == BulkEditMapping.consequences(
+            affectedByField: [.publisher: 12, .tags: 33],
+            bookCount: 40,
+            sharedPublisher: "Orbit",
+            sharedYear: "2001",
+            sharedLanguage: nil
+        ))
+    }
+
+    @MainActor @Test func editingProjectsEveryInstructionOntoItsOwnChips() {
+        let observer = makeObserver()
+        observer.applyState(Self.armedEditing)
+
+        #expect(observer.seriesChips == [EditableRelation(id: "Earthsea", label: "Earthsea")])
+        #expect(observer.contributorChips == [
+            BulkEditMapping.contributorChip(name: "Ursula K. Le Guin", roleApiValue: "author")
+        ])
+        // The genre catalogue arrives on its own flow; with none loaded the chip falls back to the id.
+        #expect(observer.genreChips == [EditableRelation(id: "g3", label: "g3")])
+        #expect(observer.tagChips == [EditableRelation(id: "Found Family", label: "Found Family")])
+        #expect(observer.moodChips == [EditableRelation(id: "Cozy", label: "Cozy")])
+    }
+
+    @MainActor @Test func aSecondEditingStateReplacesEveryField() {
+        let observer = makeObserver()
+        observer.applyState(Self.armedEditing)
+        observer.applyState(Self.untouchedEditing)
+
+        #expect(observer.isLoading == false)
+        #expect(observer.bookCount == 3)
+        #expect(observer.requestedCount == 5)
+        #expect(observer.changedBookCount == 0)
+        #expect(observer.canApply == false)
+        #expect(observer.isApplying == false)
+        #expect(observer.publisher.isEmpty)
+        #expect(observer.year.isEmpty)
+        #expect(observer.language.isEmpty)
+        #expect(observer.publisherPlaceholder == String(localized: "bulk_edit.multiple_values"))
+        #expect(observer.yearPlaceholder == String(localized: "bulk_edit.multiple_values"))
+        #expect(observer.languagePlaceholder == "fr")
+        #expect(observer.preview.isEmpty)
+        #expect(observer.consequences == BulkEditMapping.consequences(
+            affectedByField: [:],
+            bookCount: 3,
+            sharedPublisher: nil,
+            sharedYear: nil,
+            sharedLanguage: "fr"
+        ))
+        #expect(observer.seriesChips.isEmpty)
+        #expect(observer.contributorChips.isEmpty)
+        #expect(observer.genreChips.isEmpty)
+        #expect(observer.tagChips.isEmpty)
+        #expect(observer.moodChips.isEmpty)
+    }
+
+    @MainActor @Test func loadingPutsTheObserverBackIntoLoading() {
+        let observer = makeObserver()
+        observer.applyState(Self.untouchedEditing)
+        observer.applyState(BulkEditUiStateLoading.shared)
+        #expect(observer.isLoading)
     }
 }
 
