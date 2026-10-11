@@ -188,7 +188,7 @@ class EnumWireFieldHasFallbackOrIsStrictRule :
          * Enum-typed wire fields that deliberately have NO fallback, keyed `Class.property` (nested
          * classes spelled out: `Outer.Inner.property`) with the reason. A too-old client decoding an
          * unknown literal here gets a typed `AppResult.Failure` for that one call;
-         * `RpcChannelUnknownEnumTest` pins that.
+         * `RpcChannelUnknownEnumE2ETest` pins that.
          */
         val STRICT_BY_DECISION: Map<String, String> =
             mapOf(
