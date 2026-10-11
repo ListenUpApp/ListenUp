@@ -466,6 +466,13 @@ tasks.named<Test>("jvmTest") {
     // spec today is Gradle's own `--tests` with the EXACT fully-qualified class name — a glob
     // pattern fails outright here with Gradle's own "No tests found for given includes".
     forwardKotestFilterProperties()
+    // NoRetiredLibraryNamesRule reads production source TEXT — comments and `.sq` files included —
+    // at run time. A comment-only edit compiles to identical classes, so without this the task
+    // stays UP-TO-DATE and the rule re-reports its previous verdict.
+    inputs
+        .files(listOf("commonMain", "jvmMain", "linuxMain").map { fileTree("src/$it") })
+        .withPropertyName("serverProductionSourceText")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // Pin the E2E retry ledger (written by FlakyServerSpecRetryExtension) to an absolute path under
     // this module's build/ — the redirected workingDir above would otherwise land it under
     // build/test-cwd/build/, where the CI summary + artifact steps don't look.
