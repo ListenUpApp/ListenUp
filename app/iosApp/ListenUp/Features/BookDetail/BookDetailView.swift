@@ -212,9 +212,14 @@ struct BookDetailView: View {
             .padding(.bottom, Spacing.l)
             .background(
                 BookDetailHeroTone.color(for: colorScheme),
-                in: UnevenRoundedRectangle(bottomLeadingRadius: 34, bottomTrailingRadius: 34, style: .continuous)
+                in: UnevenRoundedRectangle(bottomLeadingRadius: Radius.xxl, bottomTrailingRadius: Radius.xxl)
             )
-            .background(BookDetailHeroTone.color(for: colorScheme).ignoresSafeArea(edges: .top).padding(.bottom, 34))
+            // The band runs up under the navigation bar; held short of the rounded bottom so its corners show.
+            .background(
+                BookDetailHeroTone.color(for: colorScheme)
+                    .ignoresSafeArea(edges: .top)
+                    .padding(.bottom, Radius.xxl)
+            )
 
             VStack(spacing: 20) {
                 lastMatchSection(observer)
@@ -246,7 +251,7 @@ struct BookDetailView: View {
             .padding(Spacing.l)
             .background(
                 BookDetailHeroTone.color(for: colorScheme),
-                in: RoundedRectangle(cornerRadius: 30, style: .continuous)
+                in: RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous)
             )
             .frame(width: railWidth)
 
