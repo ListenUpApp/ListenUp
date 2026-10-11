@@ -566,7 +566,7 @@ class ListenUp :
                     get<com.calypsan.listenup.client.domain.repository.ServerConfig>()
                 },
                 "AuthSession" to {
-                    get<com.calypsan.listenup.client.domain.repository.AuthSession>()
+                    get<AuthSession>()
                 },
                 "SyncRepository" to {
                     get<com.calypsan.listenup.client.domain.repository.SyncRepository>()
