@@ -719,6 +719,8 @@ ReviewUiState_SealedType
 RoleSection
 RoleWithBookCount
 RpcCacheInvalidator
+SaveOutcome
+SaveOutcome_SealedType
 ScanBookRef
 ScanError
 ScanError_SealedType
