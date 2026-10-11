@@ -70,19 +70,21 @@ suspend fun HardcoverGraphQlClient.findBooks(
 ): HardcoverCall<HardcoverFindResult> {
     val params =
         buildList {
-            add("\$ids:[Int!]!")
-            if (asin != null) add("\$asin:String!")
-            if (isbn != null) add("\$isbn:String!")
+            add($$"$ids:[Int!]!")
+            if (asin != null) add($$"$asin:String!")
+            if (isbn != null) add($$"$isbn:String!")
         }
     val query =
         buildString {
             append("query(").append(params.joinToString(",")).append("){ ")
-            append("books(where:{id:{_in:\$ids}}){ $BOOK_FIELDS } ")
+            append($$"books(where:{id:{_in:$ids}}){ $$BOOK_FIELDS } ")
             if (asin != null) {
-                append("byAsin: editions(where:{asin:{_eq:\$asin}}, limit:1){ $EDITION_FIELDS book{ $BOOK_FIELDS } } ")
+                append(
+                    $$"byAsin: editions(where:{asin:{_eq:$asin}}, limit:1){ $$EDITION_FIELDS book{ $$BOOK_FIELDS } } ",
+                )
             }
             if (isbn != null) {
-                append("byIsbn: editions(where:{_or:[{isbn_13:{_eq:\$isbn}},{isbn_10:{_eq:\$isbn}}]}, limit:1){ ")
+                append($$"byIsbn: editions(where:{_or:[{isbn_13:{_eq:$isbn}},{isbn_10:{_eq:$isbn}}]}, limit:1){ ")
                 append("$EDITION_FIELDS book{ $BOOK_FIELDS } } ")
             }
             append("}")

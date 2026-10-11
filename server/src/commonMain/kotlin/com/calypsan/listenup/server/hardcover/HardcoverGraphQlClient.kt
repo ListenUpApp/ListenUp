@@ -412,14 +412,14 @@ class HardcoverGraphQlClient(
             "id title rating ratings_count users_read_count release_year default_audio_edition_id contributions(limit:5){ author { name } }"
         const val EDITION_FIELDS = "id reading_format_id book { $BOOK_FIELDS }"
         const val EDITION_BY_ASIN_QUERY =
-            "query(\$asin:String!){ editions(where:{asin:{_eq:\$asin}}, limit:1){ $EDITION_FIELDS } }"
+            $$"query($asin:String!){ editions(where:{asin:{_eq:$asin}}, limit:1){ $$EDITION_FIELDS } }"
         const val EDITION_BY_ISBN_QUERY =
-            "query(\$isbn:String!){ editions(where:{_or:[{isbn_13:{_eq:\$isbn}},{isbn_10:{_eq:\$isbn}}]}, limit:1){ $EDITION_FIELDS } }"
+            $$"query($isbn:String!){ editions(where:{_or:[{isbn_13:{_eq:$isbn}},{isbn_10:{_eq:$isbn}}]}, limit:1){ $$EDITION_FIELDS } }"
         const val BOOKS_BY_TITLE_QUERY =
-            "query(\$title:String!){ books(where:{title:{_eq:\$title}}, " +
+            $$"query($title:String!){ books(where:{title:{_eq:$title}}, " +
                 "order_by:{ratings_count:desc}, limit:5){ $BOOK_FIELDS } }"
         const val SEARCH_QUERY =
-            "query(\$query:String!){ search(query:\$query, query_type:\"Book\", per_page:10, page:1){ results } }"
-        const val BOOKS_BY_IDS_QUERY = "query(\$ids:[Int!]!){ books(where:{id:{_in:\$ids}}){ $BOOK_FIELDS } }"
+            $$"query($query:String!){ search(query:$query, query_type:\"Book\", per_page:10, page:1){ results } }"
+        const val BOOKS_BY_IDS_QUERY = $$"query($ids:[Int!]!){ books(where:{id:{_in:$ids}}){ $$BOOK_FIELDS } }"
     }
 }
