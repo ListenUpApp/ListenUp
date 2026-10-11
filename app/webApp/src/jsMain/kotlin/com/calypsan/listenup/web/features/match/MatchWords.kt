@@ -10,12 +10,12 @@ import com.calypsan.listenup.api.dto.match.MetadataSource
 import com.calypsan.listenup.api.dto.match.SearchStep
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.client.core.DurationFormatter
-import com.calypsan.listenup.core.htmlToPlainText
 import com.calypsan.listenup.client.presentation.match.CandidateUi
 import com.calypsan.listenup.client.presentation.match.NarratorCredit
 import com.calypsan.listenup.client.presentation.match.YourCopyUi
 import com.calypsan.listenup.client.presentation.match.narratorCredit
 import com.calypsan.listenup.client.presentation.match.showsEditionFormat
+import com.calypsan.listenup.core.htmlToPlainText
 import kotlin.js.Date
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
