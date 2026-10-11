@@ -42,7 +42,7 @@ data class Shelf(
     val updatedAtMs: Long,
     val coverPaths: List<String> = emptyList(),
 ) {
-    /** The shelf id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    /** The shelf id as a plain String for Swift, where the value class crosses as a wrapper object. */
     val idString: String get() = id.value
 
     /**

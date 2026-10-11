@@ -52,7 +52,7 @@ data class BookDetail(
      */
     val normalizationGainDb: Float? = null,
 ) : BookSummaryFields {
-    /** The book id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    /** The book id as a plain String for Swift, where the value class crosses as a wrapper object. */
     val idString: String get() = id.value
 
     fun toListItem(): BookListItem =

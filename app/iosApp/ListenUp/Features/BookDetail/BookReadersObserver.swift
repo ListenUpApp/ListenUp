@@ -8,7 +8,7 @@ import Shared
 /// The shared `Reader` model carries both states at once: `currentProgressPct` (non-null ⇒
 /// reading now) and `finishes` (dated completions, newest-first). This observer projects each
 /// Kotlin `Reader` to a native `BookReaderRow` value type **at the observer boundary** so the
-/// section's `ForEach` never re-bridges Kotlin objects across the SKIE seam (iOS rule 8).
+/// section's `ForEach` never re-bridges Kotlin objects across the Swift Export seam (iOS rule 8).
 ///
 /// Thin over `FlowBridge`; the `Data` mapping lives in a pure, testable helper.
 @Observable

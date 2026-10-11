@@ -77,10 +77,10 @@ data class ImportSummary(
     val bookCount: Int,
     val userCount: Int,
 ) {
-    /** The import id as a plain String for the Swift/SKIE boundary (the value class is unboxed there). */
+    /** The import id as a plain String for Swift, where the value class crosses as a wrapper object. */
     val idString: String get() = id.value
 
-    /** The [status] name as a plain String for the Swift/SKIE boundary, where Kotlin enums don't bridge cleanly. */
+    /** The [status] name as a plain String for Swift. */
     val statusName: String get() = status.name
 }
 

@@ -59,7 +59,7 @@ kotlin {
 
     // Native Swift Export — the shipping iOS interop surface (SKIE is gone). The Xcode build
     // phase drives `embedSwiftExportForXcode`; a post-generation patcher (further down) makes the
-    // output idiomatic. `flattenPackage` requests the short package prefix; where Kotlin 2.4.0
+    // output idiomatic. `flattenPackage` requests the short package prefix; where Kotlin 2.4.20
     // doesn't actually collapse it, the patcher's typealias layer does.
     @OptIn(org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl::class)
     swiftExport {
@@ -340,9 +340,10 @@ room3 {
 // surface and its mutable-collection bridge is never generated.
 
 // ---- Swift Export (Alpha) codegen workarounds ---------------------------------------------
-// Kotlin 2.4.0 Swift export emits some uncompilable + non-idiomatic Swift for transitively-
-// reachable dependency types. The four brace-aware, regex-based transforms that rewrite it now
-// live in `build-logic`'s `SwiftExportSourcePatcher` — pure `String -> String` cores (unit-tested
+// Kotlin 2.4.20's Swift Export emits some uncompilable + non-idiomatic Swift for transitively-
+// reachable dependency types. The four regex-based passes that rewrite it (`patchSource`,
+// `camelCase`, `flatTypealias`, `sealedAlias`) live in `build-logic`'s
+// `SwiftExportSourcePatcher` — pure `String -> String` cores (unit-tested
 // by `SwiftExportSourcePatcherTest` on the Linux `Test (JVM)` lane: `./gradlew
 // :build-logic:convention:test`) plus a thin file-walking `patchPackage` wrapper. See that
 // object's KDoc for the per-transform bug descriptions and which upstream fix retires each.
@@ -370,10 +371,11 @@ tasks.matching { it.name.endsWith("GenerateSPMPackage") }.configureEach {
     // Patch only THIS task's own per-target SPM package, not the shared `build/SPMPackage` parent.
     // That dir holds one subdir per iOS target+config (`iosArm64/Debug`, `iosSimulatorArm64/Debug`, …),
     // and `patchPackage` selects a single `Shared.swift` via `firstOrNull`. Pointing it at the parent
-    // lets an already-patched sibling target — whose sealed-enum marker makes `appendSealedEnumSupport`
-    // return 0 — trip the `count > 0` floor below. That's the intermittent "matched 0 sealed types"
-    // failure seen when a device build runs while a simulator package is already patched (or vice
-    // versa). Scoping to this task's own `<target>/<config>` dir isolates the per-target patches.
+    // lets an already-patched sibling target — whose sealed-alias marker makes
+    // `appendSealedSubtypeAliases` return 0 — trip the `count > 0` floor below. That's the
+    // intermittent "matched 0 sealed types" failure seen when a device build runs while a simulator
+    // package is already patched (or vice versa). Scoping to this task's own `<target>/<config>` dir
+    // isolates the per-target patches.
     val packageStem = name.removeSuffix("GenerateSPMPackage") // e.g. "iosArm64Debug"
     val configName =
         listOf("Debug", "Release").firstOrNull(packageStem::endsWith)

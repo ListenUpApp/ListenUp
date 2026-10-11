@@ -37,7 +37,7 @@ data class ShelfDetail(
     /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
     val descriptionText: String? get() = description
 
-    /** The shelf id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    /** The shelf id as a plain String for Swift, where the value class crosses as a wrapper object. */
     val idString: String get() = id.value
 
     /**
@@ -68,6 +68,6 @@ data class ShelfBook(
     val coverPath: String?,
     val coverHash: String? = null,
 ) {
-    /** The book id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    /** The book id as a plain String for Swift, where the value class crosses as a wrapper object. */
     val idString: String get() = id.value
 }

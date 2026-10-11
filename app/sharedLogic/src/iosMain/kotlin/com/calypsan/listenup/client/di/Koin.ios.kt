@@ -291,7 +291,7 @@ object KoinHelper {
      */
     suspend fun syncPushRegistration() = resolve(PushRegistrar::class).syncRegistration()
 
-    /** The current access token as a plain String for Swift (SKIE unboxes the value class). */
+    /** The current access token as a plain String for Swift. */
     suspend fun accessToken(): String? = getAuthSession().getAccessToken()?.value
 
     /**
@@ -314,7 +314,7 @@ object KoinHelper {
         return provider.getToken()
     }
 
-    /** The active server URL as a plain String for Swift (SKIE unboxes the value class). */
+    /** The active server URL as a plain String for Swift. */
     suspend fun activeServerUrl(): String? = getServerConfig().getActiveUrl()?.raw
 
     fun getUserRepository(): UserRepository = resolve(UserRepository::class)

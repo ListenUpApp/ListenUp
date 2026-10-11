@@ -21,10 +21,10 @@ private const val SINGLE_SEGMENT_MS = 1_000L
  * The surface that only exists once audio really runs: crossing a segment boundary, settling on a
  * state when nobody pressed play, and going properly quiet on release.
  *
- * These need a browser that will start audio without a tap, which is not the default — both lanes
- * pass `--autoplay-policy=no-user-gesture-required` (`karma.config.d/autoplay.js` and
- * `web/test/run-kotest.mjs`). Before that flag existed every `play()` here rejected and this whole
- * area was untested rather than failing, which is the harder kind of gap to notice.
+ * These need a browser that will start audio without a tap, which is not the default — the browser
+ * lane passes `--autoplay-policy=no-user-gesture-required` (`web/test/run-kotest.mjs`). Without
+ * that flag every `play()` here rejects and this whole area is untested rather than failing, which
+ * is the harder kind of gap to notice.
  */
 class HtmlAudioPlayerLifecycleTest :
     FunSpec({

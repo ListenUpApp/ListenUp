@@ -17,7 +17,7 @@ import kotlin.random.Random
 class RoomWebRuntimeTest :
     FunSpec({
         test("the schema builds, a book round-trips, and trigram FTS matches a substring") {
-            // Unique per run: OPFS outlives the test and karma reuses the browser profile.
+            // Unique per run: OPFS outlives the test, and every spec in a run shares one page.
             val dbName = "listenup-proof-${Random.nextInt(0, Int.MAX_VALUE)}.db"
 
             val probe = probeBrowserStore(createSqliteWorker(), dbName, seed = true)

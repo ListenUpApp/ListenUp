@@ -75,12 +75,10 @@ export default defineConfig({
   plugins: [emitIndexHtmlForSpecs],
   resolve: {
     alias: {
-      // worker/worker.js sits OUTSIDE this project root, so Node resolution walks up from
-      // app/webApp/worker/ and never reaches web/node_modules — its bare import of
-      // @sqlite.org/sqlite-wasm fails. Webpack papered over this by having the worker
-      // masquerade as an npm package (webApp/worker/package.json + a Gradle npm() dependency);
-      // an alias is the honest version and keeps ONE copy of the worker while both test lanes
-      // coexist. When karma goes, the worker moves into web/src and this alias goes with it.
+      // The SQLite worker's source lives in app/webApp/worker/, OUTSIDE this project root, where
+      // Node resolution walks up and never reaches web/node_modules. sync-kotlin.mjs copies it
+      // into kotlin/ before a run; this alias pins its bare import of @sqlite.org/sqlite-wasm to
+      // this project's installed copy wherever the worker is resolved from.
       '@sqlite.org/sqlite-wasm': resolve(
         __dirname,
         'node_modules/@sqlite.org/sqlite-wasm',

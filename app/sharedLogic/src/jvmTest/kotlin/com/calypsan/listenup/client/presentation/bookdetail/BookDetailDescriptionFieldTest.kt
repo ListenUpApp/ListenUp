@@ -5,10 +5,10 @@ import io.kotest.matchers.shouldBe
 import kotlin.reflect.full.memberProperties
 
 /**
- * Guards against SKIE field shadowing: the iOS Book Detail rendered the whole `Ready` toString because Swift's
- * universal `description` (CustomStringConvertible) shadows a Kotlin `description` field
- * over the SKIE bridge. The fix renamed the field to `descriptionText`. If anyone renames
- * it back to `description`, SKIE will shadow it again — so pin the names here.
+ * Guards the synopsis field's name. Every bridged object already carries `NSObject.description`
+ * on the Swift side, and Swift Export does not export a Kotlin property called `description`
+ * under that name, so a Swift `ready.description` renders the object's own description instead
+ * of the synopsis. The field is `descriptionText`; these tests pin that name.
  */
 class BookDetailDescriptionFieldTest :
     FunSpec({

@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
  * Returns a Job that can be cancelled to stop collection.
  *
  * This extension enables memory-safe observation of Kotlin StateFlows from Swift
- * without requiring SKIE or additional dependencies. The collection happens on
+ * without additional dependencies. The collection happens on
  * the Main dispatcher to ensure all Swift UI updates are thread-safe.
  *
  * Usage from Swift:

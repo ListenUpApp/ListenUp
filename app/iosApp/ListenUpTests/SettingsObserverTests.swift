@@ -4,11 +4,10 @@ import Testing
 
 /// Pure-seam coverage for the settings screen.
 ///
-/// The shared `SettingsUiState` → flat `SettingsObserver` mapping can't be exercised
-/// here: SKIE bridges `SettingsUiState` as a type whose instances aren't constructible
-/// from Swift, so behavioural verification of `apply(_:)` lands at the green-build pass
-/// (the app target proves the field mapping compiles). What *is* pure and constructible
-/// is the value→label formatting, so those seams are pinned here.
+/// The shared `SettingsUiState` → flat `SettingsObserver` mapping isn't exercised
+/// here: verification of `apply(_:)` lands at the green-build pass (the app target
+/// proves the field mapping compiles). What is pinned here is the value→label
+/// formatting, which is pure.
 @Suite("SettingsFormat")
 struct SettingsObserverTests {
     @Test func skipUnderOneMinuteIsSeconds() {

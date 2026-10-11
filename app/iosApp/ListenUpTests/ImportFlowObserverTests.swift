@@ -6,7 +6,7 @@ import Shared
 
 /// Pure-mapping coverage for the ABS-import observers' seams: the progress arithmetic the rings
 /// render, the user-review resolution classification, the hub stage classification, and the
-/// summary-row tally mapping. No SKIE objects — these exercise the flattened Swift models.
+/// summary-row tally mapping. No bridged Kotlin objects — these exercise the flattened Swift models.
 struct ImportFlowObserverTests {
     // MARK: - Progress maths
 

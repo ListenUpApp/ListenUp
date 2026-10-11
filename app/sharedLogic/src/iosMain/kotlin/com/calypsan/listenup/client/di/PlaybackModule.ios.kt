@@ -145,7 +145,7 @@ internal val iosPlaybackModule: Module =
             )
         }
 
-        // Sleep timer manager — observed via SKIE by PlayerCoordinator
+        // Sleep timer manager — observed by PlayerCoordinator
         single {
             SleepTimerManager(
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),

@@ -20,14 +20,9 @@ import kotlinx.serialization.Serializable
  *  3. No `:server` symbols (`com.calypsan.listenup.server..`) are imported
  *     outside the `:server` module.
  *
- * Each rule fails the build with a list of offenders. Two further rules —
- * "every @Rpc has a matching @Resource" and "every
- * Koin leaf module has a `module.verify()` test" — are deferred:
- * `PingService` is a smoke-test service that deliberately has no REST mirror,
- * and `module.verify()` coverage is already enforced ad-hoc by
- * `AuthModuleVerifyTest` + `AuthModuleVerifyTest` server-side. Those rules
- * become useful once there are multiple feature modules to compare; today
- * they would mostly false-positive.
+ * Each rule fails the build with a list of offenders. Koin `module.verify()`
+ * coverage lives in the per-module `*ModuleVerifyTest` specs; no rule yet
+ * asserts that every module has one.
  */
 class ArchitectureTest :
     FunSpec({

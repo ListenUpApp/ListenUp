@@ -28,6 +28,6 @@ data class Series(
     /** Order among the parent's sub-series, lowest first; null for a root. */
     val parentPosition: Int? = null,
 ) {
-    /** The series id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    /** The series id as a plain String for Swift, where the value class crosses as a wrapper object. */
     val idString: String get() = id.value
 }

@@ -12,12 +12,10 @@ import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 /**
  * Compiles [sources] in-process with the RPC-guard KSP processor attached.
  *
- * Includes `-Xskip-prerelease-check` because `:shared` (a runtime test dep)
- * is built with Kotlin 2.3 pre-release class metadata and kctfork's embedded
- * compiler rejects it without the flag.
- *
- * TODO: drop `-Xskip-prerelease-check` once `:shared` builds against a
- * stable Kotlin release.
+ * Includes `-Xskip-prerelease-check` because the test classpath (`:app:sharedLogic` and
+ * what it brings in) carries classfiles with pre-release Kotlin metadata, which kctfork's
+ * embedded compiler rejects without the flag — the same reason the server compilations
+ * pass it (`listenup.kmp.server.gradle.kts`).
  */
 internal fun compile(vararg sources: SourceFile): JvmCompilationResult =
     KotlinCompilation()

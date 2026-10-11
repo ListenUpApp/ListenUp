@@ -4,11 +4,10 @@ import Testing
 
 /// Pure-seam coverage for the Edit Profile screen.
 ///
-/// As with the other observer suites, the `apply` flatten over SKIE's sealed
-/// `EditProfileUiState` can't be exercised from Swift (the cases aren't constructible),
-/// so that mapping is proven at the green-build pass. What *is* pure and constructible
-/// is the avatar `Remove`-affordance decision and the Swift-side `StagedAvatar`
-/// projection — those seams are pinned here.
+/// As with the other observer suites, the `apply` flatten over the sealed
+/// `EditProfileUiState` isn't exercised here; that mapping is proven at the
+/// green-build pass. What is pinned here is the avatar `Remove`-affordance decision
+/// and the Swift-side `StagedAvatar` projection, which are pure.
 @MainActor
 @Suite("EditProfileAvatar")
 struct EditProfileObserverTests {

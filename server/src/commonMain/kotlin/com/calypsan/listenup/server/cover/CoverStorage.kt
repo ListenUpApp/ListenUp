@@ -11,15 +11,16 @@ import kotlin.uuid.Uuid
 private val logger = loggerFor<CoverStorage>()
 
 /**
- * Filesystem-side counterpart to the cover-state column on `books`: the only
- * place that touches an on-disk cover image during a delete.
+ * Filesystem-side counterpart to the cover-state column on `books`: the place
+ * that deletes a **filesystem-source** cover image.
  *
- * ListenUp does **not** maintain a managed cover directory. Filesystem-source
- * covers live inside the book's library folder (`<libraryRoot>/<rootRelPath>/cover.*`
- * or the first sibling image) — exactly where the scanner found them.
+ * Filesystem-source covers live inside the book's library folder
+ * (`<libraryRoot>/<rootRelPath>/cover.*` or the first sibling image) — exactly where the
+ * scanner found them.
  * [BookRepository.coverInfo][com.calypsan.listenup.server.services.BookRepository.coverInfo]
  * resolves that path on demand; this class accepts an already-resolved [Path]
- * and best-effort-removes it.
+ * and best-effort-removes it. Covers in the managed store (`covers/` under the server's home
+ * directory — see [ManagedCoverFiles]) are not deleted here: they go through [CoverImageStore].
  *
  * The split with [BookServiceImpl][com.calypsan.listenup.server.api.BookServiceImpl]
  * is deliberate. The DB nullification happens inside a transaction so the

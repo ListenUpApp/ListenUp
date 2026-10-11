@@ -2,7 +2,7 @@ import Testing
 @testable import ListenUp
 
 /// Pins the native row models the Contributor/Series detail screens map Kotlin objects into,
-/// so the detail `ForEach`s diff cheap Swift values instead of re-bridging across SKIE.
+/// so the detail `ForEach`s diff cheap Swift values instead of re-bridging across Swift Export.
 @Suite("Detail row models")
 struct DetailRowModelsTests {
     @Test func bookRowCarriesDurationAndSequence() {

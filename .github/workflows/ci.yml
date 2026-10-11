@@ -105,9 +105,8 @@ jobs:
   test-web-browser:
     name: Test (web browser)
     runs-on: ubuntu-latest
-    # The post-karma browser lane: KGP compiles Kotlin to ES modules, then Vite + Playwright
-    # own the browser. Runs ALONGSIDE the karma lane inside Test (JVM) while the migration is
-    # in flight — two lanes over the same specs means a disagreement is a signal, not a puzzle.
+    # The browser lane, first half (`webKotest`): KGP compiles Kotlin to ES modules, then Vite +
+    # Playwright own the browser. `test-web-browser-server` below runs the server-backed half.
     timeout-minutes: 30
 
     steps:
@@ -148,9 +147,9 @@ jobs:
       - name: Verify the web licence manifest is in sync
         run: ./gradlew :app:webApp:verifyWebLicences --no-daemon
 
-      # Playwright brings its own Chromium rather than reusing a system browser: karma's
-      # equivalent step was a long-running source of CHROME_BIN drift, and a pinned download
-      # removes the variable entirely.
+      # Playwright brings its own Chromium rather than reusing a system browser: a system
+      # browser's version drifts with the runner image, and a pinned download removes the
+      # variable entirely.
       # `--with-deps` shells out to apt itself, so it inherits the same black-holed mirror that
       # stalled this step for the job's full 30 minutes on 2026-08-19. The policy is all this job
       # needs — there are no packages to install here, only apt's behaviour to make sane.
@@ -214,9 +213,9 @@ jobs:
         working-directory: app/webApp/web
         run: pnpm install --frozen-lockfile
 
-      # Playwright brings its own Chromium rather than reusing a system browser: karma's
-      # equivalent step was a long-running source of CHROME_BIN drift, and a pinned download
-      # removes the variable entirely.
+      # Playwright brings its own Chromium rather than reusing a system browser: a system
+      # browser's version drifts with the runner image, and a pinned download removes the
+      # variable entirely.
       # `--with-deps` shells out to apt itself, so it inherits the same black-holed mirror that
       # stalled this step for the job's full 30 minutes on 2026-08-19. The policy is all this job
       # needs — there are no packages to install here, only apt's behaviour to make sane.

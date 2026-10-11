@@ -865,10 +865,10 @@ sealed interface BookDetailUiState {
         val seriesPaths: List<BookSeriesPath> = emptyList(),
         /**
          * Book synopsis for the Description section. Named `descriptionText` (not `description`)
-         * deliberately: a Kotlin property called `description` is shadowed on the Swift/SKIE side by
-         * the universal `CustomStringConvertible.description`, so `ready.description` there returns
-         * the object's `toString()` instead of this field. The distinct name keeps the iOS accessor
-         * unambiguous.
+         * deliberately: every bridged object already carries `NSObject.description` on the Swift
+         * side, and Swift Export does not export a Kotlin property called `description` under that
+         * name, so `ready.description` there returns the object's own description instead of this
+         * field. The distinct name keeps the iOS accessor unambiguous.
          */
         val descriptionText: String = "",
         val narrators: String = "",

@@ -9,13 +9,13 @@ data class PatchOutcome(
 )
 
 /**
- * Pure, Gradle-free post-processor for Swift Export 2.4.0 generated output. Mirrors
+ * Pure, Gradle-free post-processor for Swift Export 2.4.20 generated output. Mirrors
  * [LocalizationGenerator]: the transforms are deterministic `String -> String` functions so they
  * are unit-testable; a thin file-walking wrapper ([patchPackage]) does the I/O.
  *
  * The native iOS app consumes the shared Kotlin core through Swift Export, whose Alpha codegen
  * emits Swift that doesn't compile and isn't idiomatic. Each transform here is keyed to Swift
- * Export 2.4.0's exact emitted shape and is removable when the corresponding upstream bug is fixed
+ * Export 2.4.20's exact emitted shape and is removable when the corresponding upstream bug is fixed
  * (each `fun`'s doc explains which bug it patches). The transforms are behavior-preserving rewrites
  * — golden-fixture tests pin the output byte-for-byte — except that they return a match count so
  * the build can assert loudly when a tool bump shifts the generated shape and a regex matches zero.
@@ -29,7 +29,7 @@ object SwiftExportSourcePatcher {
      * generated `.swift` file. `count` is 1 if the file changed, else 0 (matching the per-file
      * "patched files" tally of the original transform).
      *
-     * Two bug classes are patched, both behavior-preserving and removable upstream:
+     * Five bug classes are patched, all behavior-preserving and removable upstream:
      *
      *   Class 1 — unavailable operator calling an unavailable helper. An operator that maps to a
      *   Swift `@available(*, unavailable)` declaration (e.g. `CoroutineDispatcher.+`, whose Kotlin
@@ -459,9 +459,9 @@ object SwiftExportSourcePatcher {
 
     /**
      * Flat top-level typealiases for nested `ExportedKotlinPackages` types, appended onto the
-     * generated `Shared.swift`. `flattenPackage` does NOT actually flatten in Kotlin 2.4.0 — every
+     * generated `Shared.swift`. `flattenPackage` does NOT actually flatten in Kotlin 2.4.20 — every
      * exported type is nested as `ExportedKotlinPackages.com.calypsan.listenup.<pkg>.<Type>`, so
-     * `import Shared; Book` can't resolve. SKIE gave callers flat names; to match that, append a
+     * `import Shared; Book` can't resolve. To give callers flat names, append a
      * top-level `public typealias` for every exported type. Idempotent via a marker. Name
      * collisions across packages resolve to the `client.domain.model` (then any `client.domain`)
      * variant; remaining ambiguous names are skipped and stay qualified. Underscore-prefixed names
@@ -591,16 +591,14 @@ object SwiftExportSourcePatcher {
     }
 
     /**
-     * SKIE-style flat aliases for sealed subtypes, appended onto the generated `Shared.swift`:
+     * Flat aliases for sealed subtypes, appended onto the generated `Shared.swift`:
      * `public typealias <Parent><Subtype> = _ExportedKotlinPackages_<path>_<Parent>_<Subtype>` for
      * every subtype class the harvest finds, so Swift names `AdminInboxUiStateReady` instead of the
      * mangled class. Idempotent via a marker.
      *
-     * This pass used to also regenerate SKIE's `onEnum(of:)`: a hand-rolled enum per sealed parent
-     * with a synthetic `unknown` case, policed by a source-vs-Swift drift guard. Kotlin 2.4.20's
-     * Swift Export emits `sealedType()` natively, returning an enum that is exhaustive by
-     * construction (a dropped subtype is a Swift compile error, never a runtime fallthrough), so the
-     * enum, the overload and the guard are gone. Only the aliases remain.
+     * Exhaustive switching needs nothing from this pass: Kotlin 2.4.20's Swift Export emits
+     * `sealedType()` natively, returning an enum that is exhaustive by construction (a dropped
+     * subtype is a Swift compile error, never a runtime fallthrough).
      *
      * @param sharedContent the `Shared.swift` contents the aliases are appended to.
      * @param sourceContents the `Shared.swift` + `ListenupContract.swift` contents to harvest
