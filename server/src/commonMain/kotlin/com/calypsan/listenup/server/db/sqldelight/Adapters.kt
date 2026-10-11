@@ -1,17 +1,14 @@
 package com.calypsan.listenup.server.db.sqldelight
 
 /**
- * Column adapters for SQLDelight queries. Each aggregate adds its adapters here as it migrates
- * from Exposed to SQLDelight — the [ListenUpDatabase] constructor accepts them by name.
+ * Column adapters for SQLDelight queries — the [ListenUpDatabase] constructor accepts them by
+ * name. None is registered: every column maps to its SQLite primitive and the repositories
+ * convert at the boundary.
  *
- * Adapter conventions:
+ * Adapter conventions, for any that is added:
  * - Value-class id types (e.g. `BookId`, `UserId`) get a dedicated adapter that round-trips
  *   through `String`. Tag uses a plain `TEXT` column with no adapter needed.
- * - `kotlinx.datetime.Instant` is stored as milliseconds-since-epoch (`INTEGER`) — matching
- *   Exposed's `kotlinx-datetime` extension, keeping existing data readable by both layers
- *   during the incremental cutover.
- *
- * Add adapters here as aggregates are converted.
+ * - `kotlinx.datetime.Instant` is stored as milliseconds-since-epoch (`INTEGER`).
  */
 object Adapters {
     // Aggregate-specific adapters land here as each aggregate migrates, e.g.:

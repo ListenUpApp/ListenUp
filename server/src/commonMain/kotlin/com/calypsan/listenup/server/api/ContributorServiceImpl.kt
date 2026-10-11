@@ -70,18 +70,13 @@ import com.calypsan.listenup.server.auth.requirePermission
  * `book_search.contributor_names` and the target's `contributor_search.aliases`
  * is refreshed; reindex failures are logged and swallowed.
  *
- * **Transaction model (SQLDelight cutover).** Each flow runs its read-consistency
- * checks under an outer Exposed read transaction, but every WRITE — the junction
- * relink/delete and the contributor/book upserts — goes through the single
- * SQLDelight connection (junction queries via [ContributorRepository] / the generated
- * `bookContributorsQueries`, aggregate writes via the syncable substrate). Keeping the
- * junction writes off the Exposed connection is what eliminates the cross-engine
- * `SQLITE_BUSY`: the outer Exposed transaction never takes the SQLite write lock, so
- * the SQLDelight writes on the lone SQLDelight connection serialize without contention.
- * Whole-flow atomicity is not guaranteed across the independent SQLDelight writes —
- * matching the established `BookServiceImpl` cutover shape — but each individual
- * aggregate write is atomic, and the dedup-aware unmerge creation removes the only
- * data-corrupting failure mode the prior split exhibited.
+ * **Transaction model.** [mergeContributors], [unmergeContributor] and [deleteContributor]
+ * are **not** one transaction. Each keeps its snapshot + junction relink/delete in a single
+ * [sqlTransaction] (the generated `bookContributorsQueries`); the contributor and book
+ * upserts around it are separate writes through the syncable substrate, each atomic on its
+ * own. A failure part-way returns the error with the earlier writes already committed.
+ * Unmerge's contributor creation is dedup-aware (see above), so re-running it after a partial
+ * failure reuses the existing row instead of colliding on `normalized_name`.
  *
  * [getContributor] (contributor metadata) is open to any authenticated user, but
  * [listBooksByContributor] is access-filtered: a non-admin caller receives only the books

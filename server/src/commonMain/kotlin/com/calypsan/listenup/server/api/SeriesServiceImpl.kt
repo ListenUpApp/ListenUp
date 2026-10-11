@@ -46,12 +46,13 @@ import com.calypsan.listenup.server.auth.requirePermission
  * the series itself. Post-commit, every affected book has its `book_search` FTS
  * row reindexed (best-effort; logged on failure).
  *
- * **Transaction model (SQLDelight cutover).** Like [com.calypsan.listenup.server.api.ContributorServiceImpl],
- * each flow runs its read-consistency checks under an outer Exposed read transaction, but every
- * WRITE — the `book_series_memberships` relink/delete and the series/book upserts — goes through
- * the single SQLDelight connection. The outer Exposed transaction never takes the SQLite write
- * lock, so the SQLDelight writes serialize on the lone SQLDelight connection without the
- * cross-engine `SQLITE_BUSY` the prior Exposed-junction-write split exhibited.
+ * **Transaction model.** Like [com.calypsan.listenup.server.api.ContributorServiceImpl],
+ * [mergeSeries] and [deleteSeries] are **not** one transaction. Each keeps its snapshot +
+ * `book_series_memberships` relink/delete (and, for a merge, the receipt) in a single
+ * [sqlTransaction]; every other step — re-homing Story World entities and events, the per-book
+ * re-upserts, handing sub-series and reading orders on, the series soft-delete — is a separate
+ * write, each atomic on its own. A failure part-way returns the error with the earlier writes
+ * already committed.
  *
  * [mergeSeries] moves the source's books, sub-series, Story World entities and events into the target, and
  * [undoSeriesMerge] moves back whatever of them still sits where the merge put it.

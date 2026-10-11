@@ -22,14 +22,12 @@ import kotlinx.serialization.KSerializer
 private val log = loggerFor<SqlSyncableRepository<*, *>>()
 
 /**
- * SQLDelight twin of [SyncableRepository] — the abstract base every syncable
- * SQLDelight aggregate inherits during (and after) the Exposed → SQLDelight cutover.
+ * The abstract base every syncable aggregate inherits.
  *
- * It mirrors the Exposed base's orchestration verbatim — revision bumping, the
- * existed/created/updated discrimination, timestamping, [FirehoseSuppressed]
- * suppression, the `Page`/`DomainDigest` shapes, the SHA-256 digest algorithm,
- * and the type-erasure-defeating serializer helpers — but does so over SQLDelight
- * substrate queries instead of Exposed DSL. There are **no Exposed imports here**.
+ * It owns the orchestration — revision bumping, the existed/created/updated
+ * discrimination, timestamping, [FirehoseSuppressed] suppression, the
+ * `Page`/`DomainDigest` shapes, the SHA-256 digest algorithm, and the
+ * type-erasure-defeating serializer helpers — over SQLDelight substrate queries.
  *
  * Subclasses provide:
  *  - [substrate] — the aggregate's [SyncableSubstrateQueries] (its generated
@@ -173,8 +171,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
 
     /**
      * Encodes a [SyncEvent] to a JSON string using [contractJson] and the concrete
-     * [elementSerializer]. Verbatim from [SyncableRepository] — pure serialization,
-     * no DB access.
+     * [elementSerializer]. Pure serialization, no DB access.
      */
     @Suppress("UNCHECKED_CAST")
     override fun encodeSyncEventAsJson(event: SyncEvent<*>): String =
@@ -191,9 +188,8 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * When `true`, [pullSince] and [digest] route through the user-scoped substrate
      * variants ([SyncableSubstrateQueries.selectIdsAboveRevisionForUser] /
      * [SyncableSubstrateQueries.selectIdRevAtMostForUser]) with a required non-null
-     * [userId], reproducing the `AND user_id = ?` predicate the Exposed base appends
-     * for a [UserScopedSyncableTable]. Shelf/ShelfBook are the first such aggregates;
-     * the playback/listening domains reuse this path.
+     * [userId], so a user's pull/digest covers only that user's rows. Shelf/ShelfBook and
+     * the playback/listening domains take this path.
      */
     protected open val userScoped: Boolean = false
 
@@ -208,8 +204,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * Two-statement form (`bumpRevision` then `readRevision`) because SQLDelight's
      * SQLite dialect does not support `RETURNING`. The two statements are atomic
      * because the base always calls this inside the caller's open
-     * [suspendTransaction] block — identical end-state to the Exposed base's
-     * single `UPDATE … RETURNING`.
+     * [suspendTransaction] block.
      */
     protected fun nextRevision(): Long {
         db.substrateQueries.bumpRevision()
@@ -222,7 +217,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      *
      * Created/Updated discrimination is based on whether the root row exists before
      * the write — existence is determined inside the transaction, so the decision
-     * is atomic with the write. Mirrors [SyncableRepository.upsert] exactly.
+     * is atomic with the write.
      *
      * **Retries are intentionally re-applied, not deduplicated.** [clientOpId] is stored on the
      * root row for audit/correlation only — it is never checked against a prior write to short-
@@ -511,7 +506,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * commits, in publish order. Bulk soft-deletes (e.g.
      * [BookTagRepository.softDeleteAllForTag]) call this once per tombstoned row from
      * inside the open transaction so every per-row [SyncEvent.Deleted] lands on the live
-     * tail post-commit, matching the Exposed base's per-row outbox behaviour.
+     * tail post-commit.
      */
     protected fun TransactionCallbacks.emitAfterCommit(
         event: SyncEvent<T>,
@@ -523,15 +518,16 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
     /**
      * Serializes a domain id to its raw string representation for substrate queries
      * and [SyncEvent] entity ids. Defaults to `id.toString()`, correct for `String`
-     * ids (e.g., Tags). **MUST be overridden for `@JvmInline value class` ids** —
-     * see [SyncableRepository.idAsString] for the rationale.
+     * ids (e.g., Tags). **MUST be overridden for `@JvmInline value class` ids**: their
+     * default `toString()` returns `"TypeName(value=foo)"`, which would corrupt every column
+     * the id is written to.
      */
     protected open fun idAsString(id: ID): String = id.toString()
 
     /**
      * Marks the row as deleted by setting `deleted_at`. Bumps revision and publishes
      * [SyncEvent.Deleted]. Returns [AppResult.Failure] (`SyncError.NotFound`) if no
-     * row exists with the given id. Mirrors [SyncableRepository.softDelete] exactly.
+     * row exists with the given id.
      */
     open suspend fun softDelete(
         id: ID,
@@ -567,12 +563,11 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * `nextCursor` advances using the queried revision (the last id/rev pair's
      * revision) rather than re-deriving it from the hydrated payload — a hard delete
      * between the id-query and the payload-read could null a row, and the queried
-     * revision is the canonical cursor advance regardless. Mirrors [SyncableRepository.pullSince].
+     * revision is the canonical cursor advance regardless.
      *
      * For a user-scoped domain ([userScoped] `= true`) the id query routes through
      * [SyncableSubstrateQueries.selectIdsAboveRevisionForUser] with a required non-null
-     * [userId], so the page covers only that user's rows — exactly the `AND user_id = ?`
-     * the Exposed base applies. Global domains ignore [userId].
+     * [userId], so the page covers only that user's rows. Global domains ignore [userId].
      *
      * When [extraWhere] is non-null the page is **access-filtered**: the id query splices the
      * access subquery as `id IN (…)` and runs engine-neutrally over the [driver] (see
@@ -760,14 +755,9 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
     }
 
     /**
-     * Self-register with [SyncRegistry], keyed by [domainName] — identical to the
-     * Exposed base's `init { registry.register(this) }`.
-     *
-     * Both bases now implement [SyncableRepo], and [SyncRegistry.register] / [ChangeBus]
-     * are widened to that interface, so a SQLDelight repository registers and publishes
-     * through the same plumbing as an Exposed one. Called from the `init` block; the
-     * registry reads only [domainName] (a constructor val), so registration is safe
-     * before the subclass's properties are initialized.
+     * Self-register with [SyncRegistry], keyed by [domainName]. Called from the `init`
+     * block; the registry reads only [domainName] (a constructor val), so registration is
+     * safe before the subclass's properties are initialized.
      */
     private fun register() {
         registry.register(this)

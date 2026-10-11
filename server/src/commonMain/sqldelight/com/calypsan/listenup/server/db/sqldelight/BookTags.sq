@@ -91,8 +91,7 @@ selectLiveIdsForTag:
 SELECT id FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
 
 -- Count of LIVE (non-tombstoned) junctions for a tag — drives the `bookCount`
--- column on TagSummary (listTags / getTagBySlug). Replaces the Exposed
--- `BookTagsTable.selectAll().where { tagId eq … and deletedAt.isNull() }.count()`.
+-- column on TagSummary (listTags / getTagBySlug).
 countLiveForTag:
 SELECT COUNT(*) FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
 

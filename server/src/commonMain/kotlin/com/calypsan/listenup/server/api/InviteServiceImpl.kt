@@ -46,8 +46,7 @@ import com.calypsan.listenup.server.auth.requireAdmin
  * [InviteService] implementation — the administrative lifecycle of an invite.
  *
  * Persists over SQLDelight's [ListenUpDatabase] (`invites` + `users` are plain, non-syncable
- * server-owned tables). The single-use guarantee (claimed_at stamp), the UNIQUE invite code, and
- * the email-uniqueness probe are preserved verbatim from the Exposed implementation.
+ * server-owned tables).
  *
  * Every method is admin-gated: the caller must be ROOT or ADMIN, resolved from
  * [principal] (never from request fields). Non-admins receive
@@ -454,8 +453,7 @@ class InviteServiceImpl(
 
 /**
  * Map a generated `invites` row to the wire [InviteDto]. The role string is mapped through
- * [UserRoleColumn] so an invited role round-trips identically to a persisted user role — exactly
- * what the prior Exposed `InviteEntity.toDto()` did via its `enumerationByName` column.
+ * [UserRoleColumn] so an invited role round-trips identically to a persisted user role.
  */
 private fun Invites.toDto(): InviteDto =
     InviteDto(

@@ -30,8 +30,7 @@ DELETE FROM pending_book_genres WHERE book_id = :book_id;
 -- One row per distinct raw string in the queue, with the count of distinct books
 -- contributing it and the earliest first-seen timestamp across those books. Drives
 -- the curator screen's "unmapped strings" list, ordered by book-count descending
--- (most-impactful first) then raw string ascending. GROUP BY + COUNT(DISTINCT) is
--- the JDBC-precise form the Exposed DSL couldn't express cleanly.
+-- (most-impactful first) then raw string ascending.
 aggregateByString:
 SELECT raw_string, COUNT(DISTINCT book_id) AS book_count, MIN(first_seen_at) AS first_seen
 FROM pending_book_genres

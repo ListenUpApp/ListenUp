@@ -62,8 +62,7 @@ private val logger = loggerFor<AuthServiceImpl>()
  * stays unit-testable without a live request scope.
  *
  * Persists over SQLDelight's [ListenUpDatabase] (the `users` table is a plain, non-syncable
- * server-owned aggregate). The Argon2id `password_hash`, the email-uniqueness probe, and the
- * ACTIVE/PENDING/DENIED status gate are all preserved verbatim from the Exposed implementation.
+ * server-owned aggregate).
  *
  * Failures are values: every method returns [AppResult] with a typed
  * [com.calypsan.listenup.api.error.AuthError] in the failure variant. No
@@ -801,8 +800,8 @@ class AuthServiceImpl(
     }
 
     /**
-     * Build the in-memory [AuthUser] for a brand-new account with the exact default shape the
-     * Exposed `UserEntity.new { … }` path produced: a freshly-minted id, last_login_at NULL,
+     * Build the in-memory [AuthUser] for a brand-new account with its default shape: a
+     * freshly-minted id, last_login_at NULL,
      * can_edit true, approval / invite / tagline fields NULL, avatar_type "auto",
      * timezone "UTC". The value is both inserted ([insert]) and handed to [SessionIssuer], so the
      * issued session reflects the persisted row without a re-read.
@@ -836,8 +835,8 @@ class AuthServiceImpl(
 
     /**
      * Persist [user] into the `users` table. created_at / updated_at are set to the user's
-     * createdAt (a fresh insert), and the boolean permission flags map to 0/1 — the same encoding
-     * the Exposed `bool` adapter used. Must run inside a [suspendTransaction].
+     * createdAt (a fresh insert), and the boolean permission flags map to 0/1. Must run inside a
+     * [suspendTransaction].
      */
     private fun insert(user: AuthUser) {
         db.usersQueries.insert(

@@ -23,9 +23,8 @@ SELECT genre_id FROM genre_aliases WHERE raw_string = :raw_string;
 aliasesForGenre:
 SELECT raw_string FROM genre_aliases WHERE genre_id = :genre_id;
 
--- addAlias is delete-then-insert (SQLite has no Exposed-style upsert primitive and
--- we need the destructive re-map semantics): the caller issues deleteByRawString then
--- insert inside one transaction.
+-- addAlias is delete-then-insert (it needs the destructive re-map semantics): the
+-- caller issues deleteByRawString then insert inside one transaction.
 deleteByRawString:
 DELETE FROM genre_aliases WHERE raw_string = :raw_string;
 

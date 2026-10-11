@@ -107,7 +107,6 @@ WHERE id = :id;
 
 -- True iff the public_profiles table has no rows. Drives the one-time startup
 -- backfill guard: a non-empty table means the projection was already populated
--- (subsequent boots skip the full backfill, replacing the Exposed
--- `PublicProfilesTable.selectAll().limit(1).empty()` check).
+-- (subsequent boots skip the full backfill).
 isEmpty:
 SELECT NOT EXISTS(SELECT 1 FROM public_profiles);

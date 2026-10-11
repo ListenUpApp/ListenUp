@@ -112,7 +112,7 @@ internal class BookGenreWriter(
         if (raw.isBlank()) return emptyList()
 
         // 1. Custom curator alias (genre_aliases) wins. Lookup is case-insensitive
-        //    (COLLATE NOCASE on the PK); trim to match the Exposed helper semantics.
+        //    (COLLATE NOCASE on the PK), and the raw value is trimmed first.
         val customGenreId = db.genreAliasesQueries.resolve(raw.trim()).executeAsOneOrNull()
         if (customGenreId != null) {
             return listOf(customGenreId)

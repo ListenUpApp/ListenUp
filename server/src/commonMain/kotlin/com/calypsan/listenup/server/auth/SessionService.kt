@@ -44,7 +44,7 @@ data class RotatedSession(
  * Persists over SQLDelight's [ListenUpDatabase] (the `sessions` table is a plain, non-syncable
  * server-owned aggregate). Each method runs its statements inside a single
  * [suspendTransaction] so multi-step operations (read-then-rotate, replay-then-revoke-family)
- * are atomic — exactly as they were under the Exposed `suspendTransaction(db) { … }` blocks.
+ * are atomic.
  */
 class SessionService(
     private val db: ListenUpDatabase,

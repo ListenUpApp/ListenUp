@@ -75,7 +75,7 @@ class PublicProfileMaintainer(
         tz: TimeZone?,
     ): PublicProfileSyncPayload? {
         // Identity from the `users` table (pure read; live rows only — a tombstoned/absent user
-        // yields no row and the projection refresh no-ops, matching the prior Exposed read).
+        // yields no row and the projection refresh no-ops).
         val identity =
             suspendTransaction(sql) {
                 sql.usersQueries.selectIdentityLiveById(id = userId).executeAsOneOrNull()

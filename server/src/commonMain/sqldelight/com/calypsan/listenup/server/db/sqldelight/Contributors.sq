@@ -14,8 +14,8 @@
 -- DDL adds `revision INTEGER` and `created_at/updated_at INTEGER NOT NULL DEFAULT 0`;
 -- this matches the runtime invariant the readPayload mapper relies on.
 --
--- date columns (birth_date / death_date) are stored as TEXT (ISO-8601 `YYYY-MM-DD`),
--- matching VARCHAR(10) in the Exposed table — no column adapter, mapped directly to String?.
+-- date columns (birth_date / death_date) are stored as TEXT (ISO-8601 `YYYY-MM-DD`) —
+-- no column adapter, mapped directly to String?.
 --
 -- FK declarations are omitted: contributors has no outgoing references. The
 -- contributor_aliases child table below declares its FK to contributors(id).

@@ -89,8 +89,8 @@ GROUP BY bg.genre_id;
 -- ── writes ───────────────────────────────────────────────────────────────────
 
 -- Add-if-absent insert (the junction's only insert path): silently no-ops on PK
--- conflict, mirroring the Exposed `insertIgnore`. Covers relinkBookGenres' insert
--- step and the unmapped-string mapping flow's insertIfAbsent.
+-- conflict. Covers relinkBookGenres' insert step and the unmapped-string mapping
+-- flow's insertIfAbsent.
 insertIfAbsent:
 INSERT OR IGNORE INTO book_genres (book_id, genre_id) VALUES (:book_id, :genre_id);
 
@@ -104,8 +104,7 @@ DELETE FROM book_genres WHERE genre_id = :genre_id;
 
 -- Merge primitive, additive half: copies links from :from_id onto :to_id,
 -- skipping rows that would collide on the composite PK. Paired with
--- deleteAllForGenre(:from_id) to complete the relink (relinkGenre). Exposed's DSL
--- can't express `INSERT OR IGNORE ... SELECT`, so this is its typed home.
+-- deleteAllForGenre(:from_id) to complete the relink (relinkGenre).
 relinkGenreCopy:
 INSERT OR IGNORE INTO book_genres (book_id, genre_id)
 SELECT book_id, :to_id FROM book_genres WHERE genre_id = :from_id;

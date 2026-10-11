@@ -67,11 +67,10 @@ data class ImportPositionWrite(
  * position row commits in [SqlSyncableRepository.upsert]'s own transaction first, then the hooks run
  * sequentially afterwards (the `BookServiceImpl.setBookGenres` pattern). De-nesting is required, not
  * merely convenient: the project's SQLDelight `suspendTransaction` body is a plain (non-suspend)
- * `transactionWithResult` lambda, so the suspend [statsRecorder] call — which opens its own
- * transactions — cannot nest inside it; and [activeSessionRepo] is still Exposed (`active_sessions`,
- * V17, out of this cluster's scope), so it would in any case deadlock on the SQLite write lock if run
- * while a SQLDelight write transaction were held. Running each hook after the position commits, on the
- * single serialized SQLite connection, is `SQLITE_BUSY`-free. The flip/start decision is taken with the
+ * `transactionWithResult` lambda, so the suspend [statsRecorder] and [activeSessionRepo] calls —
+ * which open their own transactions — cannot nest inside it. Running each hook after the position
+ * commits, on the single serialized SQLite connection, is `SQLITE_BUSY`-free. The flip/start
+ * decision is taken with the
  * in-transaction `existed`/`priorFinished` view captured before the write, so it is unaffected by the
  * de-nesting.
  */
@@ -673,7 +672,7 @@ class PlaybackPositionRepository(
             positionMs = position_ms,
             lastPlayedAt = last_played_at,
             // `finished` is INTEGER 0/1 in SQLite; `playback_speed` is REAL (Double). Convert at the
-            // boundary, the same place the Exposed bool/float adapters sat.
+            // boundary.
             finished = finished == 1L,
             playbackSpeed = playback_speed.toFloat(),
             currentChapterId = current_chapter_id,

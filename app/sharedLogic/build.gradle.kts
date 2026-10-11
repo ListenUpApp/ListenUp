@@ -240,7 +240,7 @@ failBelowDiscoveredTestCount("iosSimulatorArm64Test", floor = 2200)
 tasks.named<Test>("jvmTest") {
     useJUnitPlatform()
     // Gradle's default Test heap (512m) is too small for this suite and OOMs. Two things need
-    // headroom: the in-process Ktor servers (Flyway + Room + RPC e2e tests) in a single non-forked
+    // headroom: the in-process Ktor servers (Room + RPC e2e tests) in a single non-forked
     // worker, and the Konsist architectural rules, which hold a single shared PSI scope of the whole
     // production tree (~1.5k files) for the lifetime of the run (see konsist/KonsistScope.kt).
     maxHeapSize = "4g"

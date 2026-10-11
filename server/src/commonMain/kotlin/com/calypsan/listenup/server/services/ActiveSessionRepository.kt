@@ -17,18 +17,18 @@ import kotlin.uuid.Uuid
  * [deleteForUserBook] when the book is finished, and swept after a staleness threshold
  * by [com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask].
  *
- * Reimplemented as a PLAIN SQLDelight repository over [ListenUpDatabase]: although the
- * `active_sessions` row carries the sync-discipline columns (it shares the table with the
- * syncable substrate's column shape), presence is never actually synced, so there is no
- * `SqlSyncableRepository` machinery here — the inserts still stamp `revision = 0` and the
- * substrate timestamps to keep the row identical to the prior Exposed insert.
+ * A PLAIN SQLDelight repository over [ListenUpDatabase]: although the `active_sessions` row
+ * carries the sync-discipline columns (it shares the syncable substrate's column shape),
+ * presence is never actually synced, so there is no `SqlSyncableRepository` machinery here.
+ * The inserts stamp `revision = 0` and the substrate timestamps (`created_at` and `updated_at`
+ * are NOT NULL).
  *
  * Mutations publish a content-free [SyncControl.ActiveSessionsChanged] broadcast nudge
  * — a re-derive hint that carries no per-user or per-resource data, so it cannot leak.
  * Connected clients re-query presence on receipt. Standalone calls (cleanup, finish-flip)
  * publish after their own transaction commits; when [startOrRefresh] runs inside a caller's
  * outer transaction (e.g. `recordPosition`), the nudge nests within that transaction — matching
- * the [com.calypsan.listenup.server.sync.SyncableRepository] convention. This is harmless: the
+ * the [com.calypsan.listenup.server.sync.SqlSyncableRepository] convention. This is harmless: the
  * nudge is only a re-derive hint, and a client that re-queries before the outer commit simply
  * sees the prior state and re-derives again on the next nudge.
  */

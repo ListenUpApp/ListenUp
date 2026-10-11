@@ -1,12 +1,11 @@
 -- active_sessions: the server-derived presence store — one live row per (user_id, book_id)
 -- while a user is actively listening. Schema and indexes match V17__active_sessions.sql exactly.
 --
--- The Exposed table extended UserScopedSyncableTable, so the row carries the sync-discipline
--- columns (revision, created_at, updated_at, deleted_at, client_op_id). Presence is NOT actually
--- synced to clients (they query it through SocialService), so this is reimplemented as a PLAIN
--- repository: the substrate columns are still written on insert (revision 0, created_at/updated_at
--- = now, deleted_at NULL) to keep the row shape identical to the Exposed insert, but there is no
--- SqlSyncableRepository machinery — startOrRefresh / delete are direct statements.
+-- The row carries the sync-discipline columns (revision, created_at, updated_at, deleted_at,
+-- client_op_id), but presence is NOT synced to clients (they query it through SocialService), so
+-- this is a PLAIN repository: the substrate columns are written on insert (revision 0,
+-- created_at/updated_at = now, deleted_at NULL) and there is no SqlSyncableRepository machinery —
+-- startOrRefresh / delete are direct statements.
 --
 -- session_id is the sole primary key (a UUID, stable across reconnects). There is intentionally
 -- no (user_id, book_id) UNIQUE constraint; the cleanup sweep evicts stale orphans.
@@ -28,18 +27,17 @@ CREATE INDEX idx_active_sessions_user_rev ON active_sessions(user_id, revision);
 CREATE INDEX idx_active_sessions_updated  ON active_sessions(updated_at);
 
 -- The live row for (user_id, book_id), if one exists — drives startOrRefresh's insert-or-refresh
--- decision. Matches the Exposed selectAll().where { userId AND bookId AND deletedAt.isNull() }.
+-- decision.
 selectLiveForUserBook:
 SELECT * FROM active_sessions
 WHERE user_id = :user_id AND book_id = :book_id AND deleted_at IS NULL
 LIMIT 1;
 
--- Refresh an existing live row's updated_at (presence keep-alive). Keyed on session_id, matching
--- the Exposed update({ sessionId eq existing.sessionId }).
+-- Refresh an existing live row's updated_at (presence keep-alive). Keyed on session_id.
 refreshUpdatedAt:
 UPDATE active_sessions SET updated_at = :updated_at WHERE session_id = :session_id;
 
--- Insert a new presence row with the full Exposed row shape (revision 0, substrate timestamps).
+-- Insert a new presence row with the full substrate row shape (revision 0, substrate timestamps).
 insert:
 INSERT INTO active_sessions (
     session_id, user_id, book_id, started_at, revision, created_at, updated_at, deleted_at, client_op_id
@@ -61,13 +59,13 @@ selectReadersForBookExcluding:
 SELECT user_id, book_id, started_at FROM active_sessions
 WHERE book_id = :book_id AND user_id != :exclude_user_id AND deleted_at IS NULL;
 
--- Hard-delete the row(s) for (user_id, book_id) — the completion cascade. Matches the Exposed
--- deleteWhere { userId AND bookId } (NOT filtered on deleted_at, like the original).
+-- Hard-delete the row(s) for (user_id, book_id) — the completion cascade. NOT filtered on
+-- deleted_at.
 deleteForUserBook:
 DELETE FROM active_sessions WHERE user_id = :user_id AND book_id = :book_id;
 
 -- Hard-delete stale-orphan rows whose updated_at predates :cutoff — the periodic sweep
--- (ActiveSessionCleanupTask). Matches the Exposed deleteWhere { updatedAt less cutoff }.
+-- (ActiveSessionCleanupTask).
 deleteStaleBefore:
 DELETE FROM active_sessions WHERE updated_at < :cutoff;
 

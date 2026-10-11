@@ -18,12 +18,10 @@
 -- level: SQLite cannot add a NOT NULL column without a constant default in a
 -- single ALTER, so the migration uses a DEFAULT sentinel instead. Every live row
 -- carries a non-null folder_id (the insert path always sets it from the payload),
--- so the generated type is the non-null `String` the reader/writer rely on —
--- matching the Exposed `BookTable.folderId` which is also non-nullable.
+-- so the generated type is the non-null `String` the reader/writer rely on.
 --
--- has_scan_warning / abridged / explicit are INTEGER (0/1) in SQLite; the Exposed
--- table maps them to `bool`. SQLDelight maps INTEGER → Long; the repo rewrite maps
--- 0/1 ↔ Boolean at the boundary (the same place the Exposed bool adapter sat).
+-- has_scan_warning / abridged / explicit are INTEGER (0/1) in SQLite. SQLDelight maps
+-- INTEGER → Long; the repo maps 0/1 ↔ Boolean at the boundary.
 --
 -- FK declarations (library_id → libraries, folder_id → library_folders) are
 -- omitted: SQLDelight cannot resolve cross-table references for tables not defined
@@ -342,8 +340,7 @@ SELECT EXISTS(SELECT 1 FROM books WHERE id = :id);
 
 -- True iff a LIVE (non-tombstoned) book row exists for :id. The service-layer
 -- `bookExists` gate (Tag/Mood/Collection add-to flows) must reject a tombstoned
--- book, so this excludes soft-deleted rows — replacing the Exposed
--- `BookTable.selectAll().where { id eq … and deletedAt.isNull() }.count() > 0`.
+-- book, so this excludes soft-deleted rows.
 existsLiveById:
 SELECT EXISTS(SELECT 1 FROM books WHERE id = :id AND deleted_at IS NULL);
 
@@ -380,7 +377,7 @@ selectLiveIdsBySortTitle:
 SELECT id FROM books WHERE deleted_at IS NULL ORDER BY sort_title LIMIT :limit;
 
 -- Count of LIVE (non-tombstoned) books — used by BackupArchive to embed a snapshot
--- count in the backup manifest (replaces the Exposed `BookTable.selectAll().where { deletedAt.isNull() }.count()`).
+-- count in the backup manifest.
 countLive:
 SELECT COUNT(*) FROM books WHERE deleted_at IS NULL;
 

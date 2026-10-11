@@ -16,7 +16,7 @@ selectValueByKey:
 SELECT value FROM server_settings WHERE key = :key;
 
 -- Upsert a key/value pair — the write side of every setting. INSERT OR REPLACE
--- atomically replaces an existing row on PK conflict, matching the Exposed upsert
--- semantics. The table has only two columns so no partial-update concern applies.
+-- atomically replaces an existing row on PK conflict. The table has only two columns
+-- so no partial-update concern applies.
 upsert:
 INSERT OR REPLACE INTO server_settings (key, value) VALUES (:key, :value);

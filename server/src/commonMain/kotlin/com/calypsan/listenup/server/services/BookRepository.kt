@@ -145,9 +145,8 @@ internal data class MatchCoverColumns(
  * book's `collection_books` row — ALL_BOOKS for a non-held library, INBOX for a held one — is
  * written ATOMICALLY inside the SQLDelight book transaction ([writeSystemMembership]), because a
  * separate post-commit write left a narrow REST-catch-up window where a member could pull a held
- * book before its INBOX membership landed. That write uses the same SQLDelight engine as the book
- * row, so it never nests an Exposed write inside the SQLDelight transaction; the Exposed
- * [CollectionBookRepository] stays canonical for every other `collection_books` operation.
+ * book before its INBOX membership landed. [CollectionBookRepository] stays canonical for every
+ * other `collection_books` operation.
  *
  * @param contributorRepository the syncable contributors catalogue;
  *   [upsertFromAnalyzed] resolves each author/narrator name through it to a
@@ -1463,8 +1462,7 @@ class BookRepository(
      * writes the full aggregate through the substrate's `upsert`.
      *
      * Genres and scan tags are reconciled in **separate, sequential** transactions after
-     * the book write commits (genres via the Exposed [bookGenreWriter], tags via
-     * [bookTagWriter]).
+     * the book write commits (genres via [bookGenreWriter], tags via [bookTagWriter]).
      *
      * The book→system-collection membership for a genuinely-new book, by contrast, is written
      * **atomically** inside the book-insert transaction: when [systemCollectionId] is non-null and
@@ -2081,10 +2079,10 @@ class BookRepository(
      * two are mutually exclusive — a held book joins INBOX only, never ALL_BOOKS — so the quarantine
      * invariant (a member never observes a held book as accessible) holds by construction.
      *
-     * Replicates the canonical syncable-write shape the Exposed [CollectionBookRepository] uses for
-     * a new junction row: the synthetic `"$collectionId:$bookId"` id, the global revision bump via
-     * the shared counter ([nextRevision]), and a post-commit `collection_books`
-     * [SyncEvent.Created] emit so other devices learn of the membership exactly as before. The emit
+     * Follows the canonical syncable-write shape [CollectionBookRepository] uses for a new junction
+     * row: the synthetic `"$collectionId:$bookId"` id, the global revision bump via the shared
+     * counter ([nextRevision]), and a post-commit `collection_books` [SyncEvent.Created] emit so
+     * other devices learn of the membership. The emit
      * is routed through [collectionBookRepository] (the `collection_books` domain's
      * [com.calypsan.listenup.server.sync.SyncableRepo]) — not this book repo — so the firehose
      * encodes it with the collection-book serializer and delivers it under the right domain.
