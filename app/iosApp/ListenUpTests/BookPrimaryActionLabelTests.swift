@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import ListenUp
 
+@MainActor
 @Suite("Book Detail primary label")
 struct BookPrimaryActionLabelTests {
     @Test func eachStageNamesItsAction() {
