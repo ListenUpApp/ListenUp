@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.EmptyState
-import com.calypsan.listenup.web.design.Pill
+import org.jetbrains.compose.web.dom.Button as DomButton
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
@@ -31,12 +31,17 @@ internal fun StatusFilterRow(
         attr("role", "group")
         attr("aria-label", "Show")
     }) {
+        // Real buttons in the shared pill look: the browser gives them focus, Enter and Space, and
+        // aria-pressed says which filter is on.
         BookStatusFilter.entries.forEach { filter ->
-            Pill(
-                label = "${filter.webLabel()} · ${groupedCount(counts.countFor(filter))}",
-                selected = filter == selected,
-                onClick = { onSelect(filter) },
-            )
+            val isSelected = filter == selected
+            DomButton(attrs = {
+                classes("pill")
+                if (isSelected) classes("on")
+                attr("type", "button")
+                attr("aria-pressed", isSelected.toString())
+                onClick { onSelect(filter) }
+            }) { Text("${filter.webLabel()} · ${groupedCount(counts.countFor(filter))}") }
         }
     }
 }
