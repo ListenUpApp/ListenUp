@@ -47,16 +47,35 @@ class CreateEditShelfViewModel(
 
     private var editingShelfId: ShelfId? = null
 
+    /** What the form opened on: empty in create mode, the loaded shelf in edit mode, null until it loads. */
+    private var openedOn: OpenedShelf? = EMPTY_SHELF
+
     /** Prepare for creating a new shelf. */
     fun initCreate() {
         editingShelfId = null
+        openedOn = EMPTY_SHELF
         state.value = CreateEditShelfUiState.Idle
+    }
+
+    /**
+     * True when the form's current inputs differ from what it opened on, so leaving would discard
+     * work. The inputs are screen-owned; the baseline lives here so every platform asks one place.
+     * Edit mode has nothing to lose until the shelf has loaded.
+     */
+    fun hasChanges(
+        name: String,
+        description: String,
+        isPrivate: Boolean,
+    ): Boolean {
+        val opened = openedOn ?: return false
+        return OpenedShelf(name.trim(), description.trim(), isPrivate) != opened
     }
 
     /** Prepare for editing an existing shelf by id. Fetches the current data. */
     fun initEdit(shelfId: String) {
         val id = ShelfId(shelfId)
         editingShelfId = id
+        openedOn = null
         viewModelScope.launch {
             state.value = CreateEditShelfUiState.LoadingExisting
 
@@ -64,6 +83,7 @@ class CreateEditShelfViewModel(
                 try {
                     val shelf = shelfRepository.getById(id)
                     if (shelf != null) {
+                        openedOn = OpenedShelf(shelf.name.trim(), shelf.description.orEmpty().trim(), shelf.isPrivate)
                         CreateEditShelfUiState.Loaded(
                             name = shelf.name,
                             description = shelf.description.orEmpty(),
@@ -156,6 +176,14 @@ class CreateEditShelfViewModel(
         }
     }
 }
+
+private data class OpenedShelf(
+    val name: String,
+    val description: String,
+    val isPrivate: Boolean,
+)
+
+private val EMPTY_SHELF = OpenedShelf(name = "", description = "", isPrivate = false)
 
 /**
  * UI state for the Create/Edit Shelf screen.

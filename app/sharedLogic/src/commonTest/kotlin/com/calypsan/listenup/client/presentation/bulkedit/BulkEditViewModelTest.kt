@@ -213,6 +213,26 @@ class BulkEditViewModelTest :
             }
         }
 
+        test("hasChanges is true exactly when applying would change a book") {
+            val vm = rig(listOf(book("b1", publisher = PUBLISHER), book("b2")))
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    advanceUntilIdle()
+                    vm.state.value
+                        .shouldBeInstanceOf<BulkEditUiState.Editing>()
+                        .hasChanges shouldBe false
+
+                    vm.setPublisher(PUBLISHER)
+                    advanceUntilIdle()
+                    vm.state.value
+                        .shouldBeInstanceOf<BulkEditUiState.Editing>()
+                        .hasChanges shouldBe true
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         test("apply reports how many books changed") {
             val vm = rig(listOf(book("b1", publisher = PUBLISHER), book("b2")))
             runTest {
