@@ -23,8 +23,6 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,7 +34,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpDatePicker
-import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -60,10 +57,6 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorEdit
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.util.rememberImagePicker
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_edit_keep_editing
-import listenup.composeapp.generated.resources.book_edit_unsaved_changes
-import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
-import listenup.composeapp.generated.resources.common_discard
 import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.contributor_biography
 import listenup.composeapp.generated.resources.contributor_birth_date

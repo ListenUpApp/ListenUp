@@ -31,7 +31,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,7 +46,6 @@ import com.calypsan.listenup.client.design.components.ConnectedSelectButtonGroup
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.ListenUpButton
-import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.SectionColumns
@@ -75,9 +73,6 @@ import listenup.composeapp.generated.resources.admin_preset
 import listenup.composeapp.generated.resources.admin_role_owner
 import listenup.composeapp.generated.resources.admin_unsaved_change_one
 import listenup.composeapp.generated.resources.admin_unsaved_changes_many
-import listenup.composeapp.generated.resources.book_edit_keep_editing
-import listenup.composeapp.generated.resources.book_edit_unsaved_changes
-import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
 import listenup.composeapp.generated.resources.common_admin
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_discard

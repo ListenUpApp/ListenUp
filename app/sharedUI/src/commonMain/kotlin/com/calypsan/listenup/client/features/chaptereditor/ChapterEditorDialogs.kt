@@ -29,7 +29,6 @@ import listenup.composeapp.generated.resources.chapter_editor_rename_label
 import listenup.composeapp.generated.resources.chapter_editor_rename_title
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_delete
-import listenup.composeapp.generated.resources.common_discard
 import listenup.composeapp.generated.resources.common_save
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization

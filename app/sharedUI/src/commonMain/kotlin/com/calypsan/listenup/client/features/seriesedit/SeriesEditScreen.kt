@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
-import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
@@ -82,12 +81,8 @@ import com.calypsan.listenup.client.util.rememberImagePicker
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_more_options
 import listenup.composeapp.generated.resources.book_edit_change_cover
-import listenup.composeapp.generated.resources.book_edit_keep_editing
-import listenup.composeapp.generated.resources.book_edit_unsaved_changes
-import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_description
-import listenup.composeapp.generated.resources.common_discard
 import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.error_unknown
 import listenup.composeapp.generated.resources.series_edit_series
