@@ -278,7 +278,6 @@ class AdminCollectionDetailViewModel internal constructor(
                         @Suppress("TooGenericExceptionCaught") e: Exception,
                     ) {
                         logger.error { "Book search failed for '$query'" }
-                        @Suppress("DEPRECATION")
                         errorBus.emit(ErrorMapper.map(e))
                         emptyList()
                     }

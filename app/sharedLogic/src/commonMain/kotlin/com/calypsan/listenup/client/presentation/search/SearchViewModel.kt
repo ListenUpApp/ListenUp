@@ -201,7 +201,6 @@ class SearchViewModel(
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
             logger.error { "Search failed for '$query'" }
-            @Suppress("DEPRECATION")
             errorBus.emit(ErrorMapper.map(e))
             emit(Phase.Error("Search unavailable. Please try again."))
         }

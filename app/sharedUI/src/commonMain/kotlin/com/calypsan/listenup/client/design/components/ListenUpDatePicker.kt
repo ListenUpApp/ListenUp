@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 import org.jetbrains.compose.resources.stringResource
@@ -205,8 +206,7 @@ private val monthNames =
  * Format a LocalDate for user-friendly display.
  * Uses a readable format like "September 21, 1947".
  */
-@Suppress("DEPRECATION")
 private fun formatForDisplay(date: LocalDate): String {
-    val monthName = monthNames[date.monthNumber - 1]
-    return "$monthName ${date.dayOfMonth}, ${date.year}"
+    val monthName = monthNames[date.month.number - 1]
+    return "$monthName ${date.day}, ${date.year}"
 }

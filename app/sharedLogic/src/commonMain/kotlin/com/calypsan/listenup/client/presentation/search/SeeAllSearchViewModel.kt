@@ -111,7 +111,6 @@ class SeeAllSearchViewModel(
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
             logger.error { "See-all search failed for '$query' ($type)" }
-            @Suppress("DEPRECATION")
             errorBus.emit(ErrorMapper.map(e))
             emit(SeeAllSearchUiState.Error("Search unavailable. Please try again."))
         }
