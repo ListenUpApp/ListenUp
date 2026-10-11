@@ -131,7 +131,7 @@ class BookDetailViewModelHeldTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
-                val vm = f.build()
+                val vm = watch(f.build())
 
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -147,7 +147,7 @@ class BookDetailViewModelHeldTest :
         test("an ordinary book carries no held section and keeps its actions") {
             runTest(dispatcher) {
                 val f = Fixture()
-                val vm = f.build()
+                val vm = watch(f.build())
 
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -164,7 +164,7 @@ class BookDetailViewModelHeldTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -182,7 +182,7 @@ class BookDetailViewModelHeldTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -202,7 +202,7 @@ class BookDetailViewModelHeldTest :
                 f.heldIds.value = setOf(BookId("book-1"))
                 val refusal = ValidationError(message = "Only admins can release books.")
                 f.inboxRepository.releaseResult = AppResult.Failure(refusal)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -227,7 +227,7 @@ class BookDetailViewModelHeldTest :
                 f.heldIds.value = setOf(BookId("book-1"))
                 val incomplete = CollectionError.ReleaseIncomplete(failedBookIds = listOf("book-1"))
                 f.inboxRepository.releaseResult = AppResult.Failure(incomplete)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -252,7 +252,7 @@ class BookDetailViewModelHeldTest :
         test("releaseFromInbox does nothing for a book that is not held") {
             runTest(dispatcher) {
                 val f = Fixture()
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -268,7 +268,7 @@ class BookDetailViewModelHeldTest :
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
                 f.inboxRepository.releaseGate = CompletableDeferred()
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -288,7 +288,7 @@ class BookDetailViewModelHeldTest :
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
                 f.inboxRepository.releaseGate = CompletableDeferred()
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 

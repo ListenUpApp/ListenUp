@@ -137,7 +137,7 @@ class BookDetailViewModelVisibilityTest :
 
         test("visibility is null when the repository has none — a member's device") {
             runTest(dispatcher) {
-                val vm = Fixture().build()
+                val vm = watch(Fixture().build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -151,7 +151,7 @@ class BookDetailViewModelVisibilityTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.visibility.setVisibility(bookId, restricted)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
                 vm.state.value
@@ -171,7 +171,7 @@ class BookDetailViewModelVisibilityTest :
                 val f = Fixture()
                 f.visibility.setVisibility(bookId, BookVisibility.Stranded)
                 everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns AppResult.Success(Unit)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -196,7 +196,7 @@ class BookDetailViewModelVisibilityTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.visibility.setVisibility(bookId, restricted)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -215,7 +215,7 @@ class BookDetailViewModelVisibilityTest :
                 val f = Fixture()
                 f.inboxRepository.hold("book-1")
                 f.visibility.setVisibility(bookId, BookVisibility.Held)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -232,7 +232,7 @@ class BookDetailViewModelVisibilityTest :
                 f.visibility.setVisibility(bookId, BookVisibility.Stranded)
                 everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns
                     AppResult.Failure(BookError.NotFound())
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -250,7 +250,7 @@ class BookDetailViewModelVisibilityTest :
                 val f = Fixture()
                 f.visibility.setVisibility(bookId, BookVisibility.Stranded)
                 everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns AppResult.Success(Unit)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -268,7 +268,7 @@ class BookDetailViewModelVisibilityTest :
                 val f = Fixture()
                 f.visibility.setVisibility(bookId, BookVisibility.Stranded)
                 everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns AppResult.Success(Unit)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
                 vm.restoreToAllBooks()
@@ -290,7 +290,7 @@ class BookDetailViewModelVisibilityTest :
                 f.visibility.setVisibility(bookId, BookVisibility.Stranded)
                 everySuspend { f.bookEditRepository.setBookCollections(bookId, emptyList()) } returns
                     AppResult.Failure(BookError.NotFound())
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -310,7 +310,7 @@ class BookDetailViewModelVisibilityTest :
                 // disagree. The held set wins: a held book is the inbox's to release.
                 f.inboxRepository.hold("book-1")
                 f.visibility.setVisibility(bookId, BookVisibility.Stranded)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 

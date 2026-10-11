@@ -991,7 +991,7 @@ class BookDetailViewModelTest :
                 every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
                 val gate = CompletableDeferred<AppResult<String>>()
                 everySuspend { fixture.documentRepository.ensureLocal(BookId("book-1"), "doc-1") } calls { gate.await() }
-                val viewModel = fixture.build()
+                val viewModel = watch(fixture.build())
 
                 turbineScope {
                     val opening = viewModel.openingDocumentIds.testIn(backgroundScope)
@@ -1150,7 +1150,7 @@ class BookDetailViewModelTest :
                 every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
                 val gate = CompletableDeferred<AppResult<String>>()
                 everySuspend { fixture.documentRepository.ensureLocal(BookId("book-1"), "doc-1") } calls { gate.await() }
-                val viewModel = fixture.build()
+                val viewModel = watch(fixture.build())
 
                 turbineScope {
                     val opening = viewModel.openingDocumentIds.testIn(backgroundScope)
@@ -1198,11 +1198,11 @@ class BookDetailViewModelTest :
                     advanceUntilIdle()
 
                     navActions.awaitItem() shouldBe BookDetailNavAction.BookDeleted
-                    val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    val ready = viewModel.state.value as BookDetailUiState.Ready
                     ready.isDeletingBook shouldBe false
                     ready.deleteError shouldBe null
                     navActions.cancel()
-                    states.cancel()
+                    states.cancelAndIgnoreRemainingEvents()
                 }
             }
         }
