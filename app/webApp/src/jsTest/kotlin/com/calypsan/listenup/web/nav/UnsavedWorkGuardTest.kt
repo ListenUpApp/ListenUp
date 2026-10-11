@@ -130,7 +130,7 @@ class UnsavedWorkGuardTest :
         // Only the dirty half is asserted: other specs mount edit pages and never dispose them, so a
         // "clean page does not prompt" check would hear their listeners on the shared window.
         test("closing the tab raises the browser prompt while there is a draft") {
-            mountEdit(Router().also { it.dispose() }, dirty = true)
+            mountEdit(Router().apply { dispose() }, dirty = true)
             awaitFrame()
             val closing = Event("beforeunload", EventInit(cancelable = true))
 

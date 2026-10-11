@@ -63,10 +63,14 @@ fun ShelfEditPage(
     var confirmingDelete by remember { mutableStateOf(false) }
 
     val saving = state is CreateEditShelfUiState.Saving
-    // Edit mode has nothing to lose until the shelf has loaded into the fields.
     val guard =
         rememberUnsavedWorkGuard(
-            dirty = (!isEditing || loaded != null) && hasChanges(name, description, isPrivate),
+            dirty =
+                holdsDraft(
+                    isEditing,
+                    isLoaded = loaded != null,
+                    changed = hasChanges(name, description, isPrivate),
+                ),
         )
     guard.Dialog()
     val heading = if (isEditing) "Edit shelf" else "New shelf"
@@ -180,3 +184,10 @@ private fun DeleteShelfSection(
         onDismiss = onDismiss,
     )
 }
+
+/** Edit mode has nothing to lose until the shelf has loaded into the fields; create mode always does. */
+private fun holdsDraft(
+    isEditing: Boolean,
+    isLoaded: Boolean,
+    changed: Boolean,
+): Boolean = (!isEditing || isLoaded) && changed
