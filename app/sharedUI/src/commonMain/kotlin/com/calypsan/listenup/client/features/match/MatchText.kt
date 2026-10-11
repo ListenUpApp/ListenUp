@@ -9,7 +9,10 @@ import com.calypsan.listenup.api.dto.match.SearchStep
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.match.CandidateUi
+import com.calypsan.listenup.client.presentation.match.NarratorCredit
 import com.calypsan.listenup.client.presentation.match.YourCopyUi
+import com.calypsan.listenup.client.presentation.match.narratorCredit
+import com.calypsan.listenup.client.presentation.match.showsEditionFormat
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.match_chapter_count_one
 import listenup.composeapp.generated.resources.match_chapters_count
@@ -258,31 +261,39 @@ internal fun MatchReason.displayText(): String =
         }
     }
 
-/** A candidate's facts: "Ray Porter · 16h 10m · 2021 · Unabridged". A full-cast reading names no narrator. */
+/**
+ * A candidate's facts: "Ray Porter · 16h 10m · 2021 · Unabridged". The narrator slot follows the shared
+ * [narratorCredit] rule, the same on every platform.
+ */
 @Composable
-internal fun CandidateUi.factsLine(): String {
-    val who =
-        when {
-            narrators.isNotEmpty() -> narrators.joinToString(", ")
-            format == EditionFormat.DRAMATIZED -> stringResource(Res.string.match_full_cast)
-            else -> null
-        }
-    return listOfNotNull(
-        who,
+internal fun CandidateUi.factsLine(): String =
+    listOfNotNull(
+        narratorsText(narrators, format),
         durationMs?.let(::lengthText),
         year?.toString(),
-        format?.takeIf { it != EditionFormat.DRAMATIZED }?.displayName(),
+        format?.takeIf { showsEditionFormat(narrators, format) }?.displayName(),
     ).joinToString(DOT)
-}
 
 /** Your copy's facts: "16h 10m · Ray Porter · 36 chapters". */
 @Composable
 internal fun YourCopyUi.factsLine(): String =
     listOfNotNull(
         durationMs?.let(::lengthText),
-        narrators.takeIf { it.isNotEmpty() }?.joinToString(", "),
+        narratorsText(narrators, null),
         chapterCount?.let { chapterCountText(it) },
     ).joinToString(DOT)
+
+/** The narrator slot as words: the names, "Full cast", or null when none is known. */
+@Composable
+private fun narratorsText(
+    narrators: List<String>,
+    format: EditionFormat?,
+): String? =
+    when (narratorCredit(narrators, format)) {
+        NarratorCredit.Names -> narrators.joinToString(", ")
+        NarratorCredit.FullCast -> stringResource(Res.string.match_full_cast)
+        NarratorCredit.None -> null
+    }
 
 /** "Started from your <source> link, then title, author and length." — null when Find took no steps. */
 @Composable

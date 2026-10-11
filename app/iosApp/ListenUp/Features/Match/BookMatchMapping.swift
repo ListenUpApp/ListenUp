@@ -52,7 +52,7 @@ enum BookMatchMapping {
             stepsLine: MatchCopy.stepsLine(steps),
             compare: MatchCompareValues(
                 length: MatchCopy.length(ms: copy.durationMs),
-                narrator: MatchCopy.narrators(copy.narrators),
+                narrator: MatchCopy.narrators(copy.narrators, format: nil),
                 chapters: copy.chapterCount.flatMap { $0 > 0 ? String($0) : nil },
                 year: copy.year.map { String($0) },
                 format: MatchCopy.format(copy.isAbridged ? .abridged : .unabridged),
@@ -104,7 +104,7 @@ enum BookMatchMapping {
             foundInList: MatchCopy.list(sources),
             compare: MatchCompareValues(
                 length: MatchCopy.length(ms: candidate.durationMs),
-                narrator: MatchCopy.narrators(candidate.narrators),
+                narrator: MatchCopy.narrators(candidate.narrators, format: candidate.format),
                 chapters: candidate.chapterCount.flatMap { $0 > 0 ? String($0) : nil },
                 year: candidate.year.map { String($0) },
                 format: candidate.format.map(MatchCopy.format),

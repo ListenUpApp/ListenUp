@@ -557,6 +557,7 @@ MoodError_SealedType
 MoodId
 MoodRepository
 NanoId
+NarratorCredit
 NetworkMonitor
 NewSeriesDraft
 NotificationBellViewModel

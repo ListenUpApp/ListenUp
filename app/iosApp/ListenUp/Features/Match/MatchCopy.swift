@@ -2,6 +2,9 @@ import Foundation
 import ListenupContract
 import Shared
 
+/// Swift Export publishes top-level Kotlin functions under their full package path.
+private typealias SharedMatchFacts = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.match
+
 /// Every sentence Match details composes, as pure functions over the shared types — so each one is
 /// tested once, here, and the views only place text. Provider names come from `MetadataSource.label`;
 /// none is ever written in this file.
@@ -68,11 +71,13 @@ enum MatchCopy {
         }
     }
 
-    /// Narrators as a row says them: up to two names, then "Full cast".
-    static func narrators(_ names: [String]) -> String? {
-        if names.isEmpty { return nil }
-        if names.count > 2 { return String(localized: "match.full_cast") }
-        return names.joined(separator: ", ")
+    /// Narrators as a row says them; the shared rule decides between names and "Full cast".
+    static func narrators(_ names: [String], format: EditionFormat?) -> String? {
+        switch SharedMatchFacts.narratorCredit(narrators: names, format: format) {
+        case .Names: names.joined(separator: ", ")
+        case .FullCast: String(localized: "match.full_cast")
+        case .None: nil
+        }
     }
 
     /// "16h 10m", or nil when unknown.
@@ -88,13 +93,20 @@ enum MatchCopy {
         return String(format: String(localized: "match.chapters_count"), Int(count))
     }
 
+    /// The edition label, unless the narrator slot already says it ("Full cast" for a dramatized edition).
+    private static func editionFormat(of candidate: CandidateUi) -> String? {
+        guard let edition = candidate.format,
+              SharedMatchFacts.showsEditionFormat(narrators: candidate.narrators, format: edition) else { return nil }
+        return format(edition)
+    }
+
     /// "Ray Porter · 16h 10m · 2021 · Unabridged".
     static func metadataLine(_ candidate: CandidateUi) -> String {
         [
-            narrators(candidate.narrators),
+            narrators(candidate.narrators, format: candidate.format),
             length(ms: candidate.durationMs),
             candidate.year.map { String($0) },
-            candidate.format.map(format)
+            editionFormat(of: candidate)
         ]
         .compactMap { $0 }
         .joined(separator: " · ")
@@ -102,7 +114,7 @@ enum MatchCopy {
 
     /// "16h 10m · Ray Porter · 36 chapters".
     static func yourCopyLine(_ copy: YourCopyUi) -> String? {
-        let parts = [length(ms: copy.durationMs), narrators(copy.narrators), chapters(copy.chapterCount)]
+        let parts = [length(ms: copy.durationMs), narrators(copy.narrators, format: nil), chapters(copy.chapterCount)]
             .compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

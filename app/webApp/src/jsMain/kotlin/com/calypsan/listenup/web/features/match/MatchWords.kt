@@ -11,7 +11,10 @@ import com.calypsan.listenup.api.dto.match.SearchStep
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.match.CandidateUi
+import com.calypsan.listenup.client.presentation.match.NarratorCredit
 import com.calypsan.listenup.client.presentation.match.YourCopyUi
+import com.calypsan.listenup.client.presentation.match.narratorCredit
+import com.calypsan.listenup.client.presentation.match.showsEditionFormat
 import kotlin.js.Date
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
@@ -52,12 +55,15 @@ internal fun formatText(format: EditionFormat): String =
 /** "36 chapters", "1 chapter". */
 internal fun chaptersText(count: Int): String = if (count == 1) "1 chapter" else "$count chapters"
 
-/** Narrators as a row shows them: names, or "Full cast" past three. */
-internal fun narratorsText(names: List<String>): String? =
-    when {
-        names.isEmpty() -> null
-        names.size > FULL_CAST_AFTER -> "Full cast"
-        else -> names.joinToString(", ")
+/** Narrators as a row shows them, by the one shared rule: names, "Full cast", or null. */
+internal fun narratorsText(
+    names: List<String>,
+    format: EditionFormat?,
+): String? =
+    when (narratorCredit(names, format)) {
+        NarratorCredit.Names -> names.joinToString(", ")
+        NarratorCredit.FullCast -> "Full cast"
+        NarratorCredit.None -> null
     }
 
 /** One reason a candidate ranks where it does (match.reason_*). */
@@ -84,10 +90,10 @@ internal fun lengthDeltaText(deltaMinutes: Int): String {
 /** A candidate's metadata line: "Ray Porter · 16h 10m · 2021 · Unabridged". */
 internal fun candidateMetaText(candidate: CandidateUi): String =
     listOfNotNull(
-        narratorsText(candidate.narrators),
+        narratorsText(candidate.narrators, candidate.format),
         candidate.durationMs?.let(::lengthText),
         candidate.year?.toString(),
-        candidate.format?.let(::formatText),
+        candidate.format?.takeIf { showsEditionFormat(candidate.narrators, it) }?.let(::formatText),
     ).joinToString(" · ")
 
 /** "Found in Audible, Hardcover and iTunes". */
@@ -97,7 +103,7 @@ internal fun foundInText(foundIn: List<FoundIn>): String = "Found in " + sources
 internal fun yourCopyMetaText(copy: YourCopyUi): String =
     listOfNotNull(
         copy.durationMs?.let(::lengthText),
-        narratorsText(copy.narrators),
+        narratorsText(copy.narrators, null),
         copy.chapterCount?.let(::chaptersText),
     ).joinToString(" · ")
 
@@ -214,7 +220,6 @@ internal fun dayMonthText(epochMs: Long): String {
     return "${date.getDate()} ${MONTHS[date.getMonth()]}"
 }
 
-private const val FULL_CAST_AFTER = 3
 private val BREAKS = Regex("""<br\s*/?>|</p\s*>|</div\s*>|</li\s*>""", RegexOption.IGNORE_CASE)
 private val TAGS = Regex("<[^>]*>")
 private val BLANK_LINES = Regex("\\n{3,}")
