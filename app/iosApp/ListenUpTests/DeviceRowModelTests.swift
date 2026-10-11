@@ -13,8 +13,7 @@ struct DeviceRowModelTests {
             secondary: "iOS 26.5 · ListenUp 1.0.0",
             lastUsedAt: 1_700_000_000_000,
             isCurrent: true,
-            deviceType: nil,
-            glyph: .Unknown
+            deviceType: nil
         )
         let model = DeviceRowModel(row)
         #expect(model == DeviceRowModel(
@@ -44,15 +43,16 @@ struct DeviceRowModelTests {
             devices: [
                 DeviceRow(
                     sessionId: "s-1", displayName: "iPad", secondary: "", lastUsedAt: 1,
-                    isCurrent: true, deviceType: "tablet", glyph: .Tablet
+                    isCurrent: true, deviceType: "tablet"
                 ),
                 DeviceRow(
                     sessionId: "s-2", displayName: "Chrome", secondary: "", lastUsedAt: 2,
-                    isCurrent: false, deviceType: "browser", glyph: .Browser
+                    isCurrent: false, deviceType: "browser"
                 )
             ],
             signingOut: []
         )
+        #expect(ready.devices.map(\.glyph) == [.Tablet, .Browser])
         let models = ready.devices.map(DeviceRowModel.init)
         #expect(models.map(\.glyph) == [.Tablet, .Browser])
         #expect(models.map(\.symbolName) == ["ipad", "globe"])

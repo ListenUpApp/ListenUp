@@ -18,8 +18,10 @@ data class DeviceRow(
     val lastUsedAt: Long,
     val isCurrent: Boolean,
     val deviceType: String? = null,
-    val glyph: DeviceGlyph = deviceGlyphFor(deviceType),
-)
+) {
+    /** The kind of device this session came from, always derived from [deviceType] so the two cannot disagree. */
+    val glyph: DeviceGlyph get() = deviceGlyphFor(deviceType)
+}
 
 /**
  * UI state for the Devices screen.
