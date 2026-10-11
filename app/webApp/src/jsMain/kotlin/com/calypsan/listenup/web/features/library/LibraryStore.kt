@@ -32,10 +32,11 @@ typealias OpenLibrary = () -> LibrarySession
  *
  * `onScreenVisible()` is called on open because the shared ViewModel reloads sort preferences there.
  * A browser has no `onResume` to hang that on, and without it the page renders with default sort
- * until something else happens to nudge it.
+ * until something else happens to nudge it. Wrapped in [rememberingStatusFilter], so the reading-state
+ * filter survives opening a book and coming back, as it does on the natives.
  */
 fun graphLibrary(koin: Koin): OpenLibrary =
-    {
+    rememberingStatusFilter {
         val viewModel = koin.get<LibraryViewModel>()
         val store = ViewModelStore().apply { put("library", viewModel) }
         viewModel.onScreenVisible()

@@ -28,7 +28,7 @@ private fun Page(
     grown: Boolean,
 ) {
     when (route.segments.firstOrNull()) {
-        "library" -> VirtualBookGrid(books = LIBRARY, letterOf = { null }, progressOf = { 0f }, onOpenBook = {})
+        "library" -> VirtualBookGrid(books = LIBRARY, letterOf = { null }, statusOf = { null }, onOpenBook = {})
         "short" -> Spacer(200)
         else -> Spacer(if (grown) 6_000 else 200)
     }

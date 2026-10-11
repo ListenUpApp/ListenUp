@@ -134,7 +134,7 @@ class VirtualListTest :
             frames.mount(DESKTOP_WIDTH, DESKTOP_HEIGHT) {
                 CompositionLocalProvider(LocalCompositionProbe provides probe) {
                     InShell {
-                        VirtualBookGrid(books = books(count), letterOf = { null }, progressOf = { 0f }, onOpenBook = {})
+                        VirtualBookGrid(books = books(count), letterOf = { null }, statusOf = { null }, onOpenBook = {})
                     }
                 }
             }
@@ -213,7 +213,7 @@ class VirtualListTest :
             val frame =
                 frames.mount(WIDE_WIDTH, WIDE_HEIGHT) {
                     InShell {
-                        VirtualBookGrid(books = books(LARGE), letterOf = { null }, progressOf = { 0f }, onOpenBook = {})
+                        VirtualBookGrid(books = books(LARGE), letterOf = { null }, statusOf = { null }, onOpenBook = {})
                     }
                 }
             // Before the mount's microtask runs: the list mounts as part of a page arrival.

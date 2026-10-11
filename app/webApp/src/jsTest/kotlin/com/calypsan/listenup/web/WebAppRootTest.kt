@@ -1077,7 +1077,7 @@ class WebAppRootTest :
         }
 
         // Collections are admin-managed, the same rule Book Detail's own collection picker follows.
-        test("only an admin is offered a collection") {
+        test("only an admin is offered bulk edit and collections") {
             val books = listOf(contractBook("b1", "Kings"))
             val member =
                 mountAt(
@@ -1091,7 +1091,7 @@ class WebAppRootTest :
                     .querySelectorAll(".bulk-b")
                     .asList()
                     .map { it.textContent } shouldBe
-                    listOf("Edit", "Add to shelf")
+                    listOf("Add to shelf")
             } finally {
                 member.second.dispose()
             }
@@ -1267,7 +1267,9 @@ class WebAppRootTest :
                 mountAt(
                     "/library",
                     openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "Kings")))),
-                    openMultiSelect = fixedMultiSelect(selectionMode = SelectionMode.Active(setOf("b1", "b2"))),
+                    // Bulk edit is an admin's.
+                    openMultiSelect =
+                        fixedMultiSelect(selectionMode = SelectionMode.Active(setOf("b1", "b2")), isAdmin = true),
                 )
 
             try {
