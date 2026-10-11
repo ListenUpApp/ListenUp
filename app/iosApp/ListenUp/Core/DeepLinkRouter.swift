@@ -16,6 +16,8 @@ final class DeepLinkRouter {
         case none
         case claimInvite(serverURL: String, code: String, remoteURL: String?)
         case openBook(id: String)
+        /// The Search App Shortcut: show Search with the cursor in its field.
+        case openSearch
         case wrongServer
         case notConnected
     }
@@ -59,6 +61,12 @@ final class DeepLinkRouter {
         deepLinkManager.consumeTarget()
     }
 
+    /// "Search ListenUp" asked the shell to open Search. Held like a book link until the front
+    /// window's shell claims it, so it survives a cold launch from the shortcut.
+    func requestSearch() {
+        deliver(.openSearch)
+    }
+
     /// Sets the resolved outcome. The Kotlin resolution calls it; tests use it to stand in for a
     /// resolution that needs a connected server.
     func deliver(_ outcome: Outcome) {
@@ -80,7 +88,7 @@ final class DeepLinkRouter {
     /// shell observes this router). Invites are never claimed here: the root presents them.
     func claimShellOutcome(for sceneID: UUID) -> Outcome? {
         switch outcome {
-        case .openBook, .wrongServer, .notConnected: break
+        case .openBook, .openSearch, .wrongServer, .notConnected: break
         case .none, .claimInvite: return nil
         }
         guard FrontWindow.receives(sceneID, frontSceneID: frontSceneID) else { return nil }

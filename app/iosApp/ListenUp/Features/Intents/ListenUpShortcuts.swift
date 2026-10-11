@@ -48,5 +48,17 @@ struct ListenUpShortcuts: AppShortcutsProvider {
             shortTitle: "Skip Backward",
             systemImageName: "gobackward"
         )
+        AppShortcut(
+            intent: OpenSearchIntent(),
+            phrases: ["Search \(.applicationName)"],
+            shortTitle: "Search",
+            systemImageName: "magnifyingglass"
+        )
+        AppShortcut(
+            intent: SleepTimerIntent(),
+            phrases: ["Set a sleep timer in \(.applicationName)"],
+            shortTitle: "Sleep Timer",
+            systemImageName: "moon.zzz.fill"
+        )
     }
 }

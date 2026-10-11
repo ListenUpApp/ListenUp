@@ -10,11 +10,23 @@ final class FakePlaybackController: PlaybackControlling {
     var skippedForward = false
     var skippedBackward = false
     var playedBookId: String?
+    var sleepTimerMinutes: Int?
+    /// Every control call in the order it happened, so a sequence ("resume, then set the timer") is assertable.
+    private(set) var calls: [String] = []
+    var hasLoadedBook = false
 
     func togglePlayPause() { toggled = true }
     func skipForward() { skippedForward = true }
     func skipBackward() { skippedBackward = true }
-    func playBook(id: String) { playedBookId = id }
+    func playBook(id: String) {
+        playedBookId = id
+        hasLoadedBook = true
+        calls.append("playBook")
+    }
+    func setSleepTimer(minutes: Int) {
+        sleepTimerMinutes = minutes
+        calls.append("setSleepTimer")
+    }
 }
 
 /// Supplies a canned "last-played book id" for `ResumePlaybackIntent` routing tests.
@@ -154,5 +166,72 @@ struct AppIntentsTests {
         }
 
         #expect(playback.playedBookId == nil)
+    }
+
+    // MARK: - Sleep timer intent
+
+    @Test func sleepTimerWithNothingLoadedResumesTheMostRecentBookThenSetsTheTimer() async throws {
+        let playback = FakePlaybackController()
+        playback.hasLoadedBook = false
+        let intent = SleepTimerIntent()
+        intent.minutes = 45
+        intent.playback = playback
+        intent.lastPlayed = FakeLastPlayedBookProvider(bookId: "book-7")
+
+        _ = try await intent.perform()
+
+        #expect(playback.calls == ["playBook", "setSleepTimer"])
+        #expect(playback.playedBookId == "book-7")
+        #expect(playback.sleepTimerMinutes == 45)
+    }
+
+    @Test func sleepTimerWithABookLoadedOnlySetsTheTimer() async throws {
+        let playback = FakePlaybackController()
+        playback.hasLoadedBook = true
+        let intent = SleepTimerIntent()
+        intent.minutes = 15
+        intent.playback = playback
+        intent.lastPlayed = FakeLastPlayedBookProvider(bookId: "book-7")
+
+        _ = try await intent.perform()
+
+        #expect(playback.calls == ["setSleepTimer"])
+        #expect(playback.playedBookId == nil)
+        #expect(playback.sleepTimerMinutes == 15)
+    }
+
+    @Test func sleepTimerWithNothingToPlaySetsNothingAndSaysSo() async throws {
+        let playback = FakePlaybackController()
+        playback.hasLoadedBook = false
+        let intent = SleepTimerIntent()
+        intent.playback = playback
+        intent.lastPlayed = FakeLastPlayedBookProvider(bookId: nil)
+
+        await #expect(throws: ResumePlaybackError.nothingToResume) {
+            _ = try await intent.perform()
+        }
+
+        #expect(playback.calls.isEmpty)
+        #expect(playback.sleepTimerMinutes == nil)
+    }
+
+    /// Android's launcher shortcut sets thirty minutes; a bare "set a sleep timer" must too.
+    @Test func sleepTimerDefaultsToThirtyMinutes() async throws {
+        let playback = FakePlaybackController()
+        playback.hasLoadedBook = true
+        let intent = SleepTimerIntent()
+        intent.playback = playback
+        intent.lastPlayed = FakeLastPlayedBookProvider(bookId: nil)
+
+        _ = try await intent.perform()
+
+        #expect(playback.sleepTimerMinutes == 30)
+    }
+
+    // MARK: - Shortcuts surface
+
+    /// Siri, Spotlight and Shortcuts offer these seven; Search and Sleep timer are the Android launcher's other two.
+    @Test func theShortcutsProviderOffersSevenShortcuts() {
+        #expect(ListenUpShortcuts.appShortcuts.count == 7)
     }
 }
