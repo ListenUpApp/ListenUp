@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
+import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -94,22 +95,63 @@ class ListenActionGroupTest {
     }
 
     @Test
-    fun `the size caption sits under the group while not downloaded (N3)`() {
+    fun `no caption sits under the group, the size lives in the download's name`() {
         setGroup(PrimaryAction.Play)
-        composeRule.onNodeWithText("Download · 1.2 GB · plays offline once saved").assertExists()
+        composeRule.onNodeWithText("plays offline once saved", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("1.2 GB", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Download, 1.2 GB").assertExists()
     }
 
     @Test
-    fun `a downloaded book reads Downloaded, drops the caption, and a tap asks to remove it`() {
+    fun `a downloaded book shows a trash bin named Delete download, and a tap asks to remove it`() {
         var remove = false
         setGroup(
             PrimaryAction.Resume,
             status = BookDownloadStatus.Completed("b1", totalBytes = 1_288_490_189L),
             onRemoveDownload = { remove = true },
         )
-        composeRule.onNodeWithText("plays offline once saved", substring = true).assertDoesNotExist()
-        composeRule.onNodeWithContentDescription("Downloaded").performClick()
+        composeRule.onNodeWithContentDescription("Downloaded").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Delete download").performClick()
         remove shouldBe true
+    }
+
+    @Test
+    fun `on a tablet a downloaded book's segment reads Delete download`() {
+        var remove = false
+        setGroup(
+            PrimaryAction.Resume,
+            labelled = true,
+            status = BookDownloadStatus.Completed("b1", totalBytes = 1_288_490_189L),
+            onRemoveDownload = { remove = true },
+        )
+        composeRule.onNodeWithText("Delete download").performClick()
+        remove shouldBe true
+    }
+
+    @Test
+    fun `on a phone the primary and download are one joined split pair and Add to shelf stands apart`() {
+        setGroup(PrimaryAction.Resume)
+        val resume = composeRule.onNode(hasText("Resume") and hasClickAction()).fetchSemanticsNode().boundsInRoot
+        val download = composeRule.onNodeWithContentDescription("Download, 1.2 GB").fetchSemanticsNode().boundsInRoot
+        val shelf = composeRule.onNodeWithContentDescription("Add to shelf").fetchSemanticsNode().boundsInRoot
+        val dp = composeRule.density.density
+
+        // Joined: the split pair's 2 dp seam, not the 8 dp gap between separate buttons.
+        ((download.left - resume.right) / dp <= 3f) shouldBe true
+        // Apart: Add to shelf keeps a standard gap from the pair.
+        ((shelf.left - download.right) / dp >= 8f) shouldBe true
+        // The pair reads left to right: Resume, then download, then Add to shelf.
+        (resume.right <= download.left && download.right <= shelf.left) shouldBe true
+    }
+
+    @Test
+    fun `on a phone both halves of the pair are 56 dp tall`() {
+        setGroup(PrimaryAction.Resume)
+        val resume = composeRule.onNode(hasText("Resume") and hasClickAction()).fetchSemanticsNode().boundsInRoot
+        val download = composeRule.onNodeWithContentDescription("Download, 1.2 GB").fetchSemanticsNode().boundsInRoot
+        val dp = composeRule.density.density
+        resume.height / dp shouldBe (56f plusOrMinus 0.5f)
+        download.height / dp shouldBe (56f plusOrMinus 0.5f)
     }
 
     @Test

@@ -2,11 +2,11 @@ package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -24,6 +24,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -35,12 +36,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
-import com.calypsan.listenup.client.features.bookdetail.DownloadIconButton
+import com.calypsan.listenup.client.features.bookdetail.DownloadSplitTrailingButton
 import com.calypsan.listenup.client.features.bookdetail.DownloadLabelledButton
 import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_shelf
-import listenup.composeapp.generated.resources.book_detail_download_caption
 import listenup.composeapp.generated.resources.book_detail_listen_again
 import listenup.composeapp.generated.resources.book_detail_play
 import listenup.composeapp.generated.resources.book_detail_preparing
@@ -58,13 +58,14 @@ private val ActionHeight = 56.dp
 private const val RESUME_WEIGHT_LABELLED = 2.4f
 
 /**
- * Book Detail's action row (spec A15, M3E addendum): an M3E **standard** button group, not a connected one, because
- * these are actions, not a choice. Resume is filled primary and takes the remaining width. Download and Add to shelf
- * are tonal: icon-only on a phone ([labelled] false) with their names in the accessible label, labelled on a tablet.
- * The caption under it says how big the download is (N3) until it is saved.
+ * Book Detail's action row. On a tablet ([labelled]) it is an M3E **standard** button group (spec A15, M3E addendum):
+ * Resume filled and dominant, Download and Add to shelf labelled tonal buttons. On a phone, Resume and Download are
+ * one **split pair** as main had before the redesign (Simon, 2026-10-11): M3E split-button halves with small inner
+ * corners and a 2 dp seam, the download half its own action (no chevron, no menu), and Add to shelf a separate tonal
+ * icon button beside it. No caption sits under either (Simon, 2026-10-11): the download's size is in its accessible
+ * name and in Details.
  */
-@Suppress("LongParameterList", "LongMethod")
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Suppress("LongParameterList")
 @Composable
 internal fun ListenActionGroup(
     primaryAction: PrimaryAction,
@@ -83,110 +84,157 @@ internal fun ListenActionGroup(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
-    val label = primaryLabelFor(primaryAction, isPreparing)
     val download = downloadActionFor(downloadStatus, isWaitingForWifi, downloadSizeBytes)
-    val downloadEnabled = canDownload || download.tap != DownloadTap.Start
-    val onDownloadTap: (DownloadTap) -> Unit = { tap ->
-        when (tap) {
-            DownloadTap.Start -> onDownload()
-            DownloadTap.Cancel -> onCancelDownload()
-            DownloadTap.Remove -> onRemoveDownload()
-        }
+    val actions =
+        ListenActions(
+            label = primaryLabelFor(primaryAction, isPreparing),
+            primaryEnabled = isPrimaryEnabled(primaryAction),
+            download = download.takeIf { supportsDownloads },
+            downloadEnabled = canDownload || download.tap != DownloadTap.Start,
+            onPrimary = {
+                haptics.press()
+                onPrimaryClick()
+            },
+            onDownloadTap = { tap ->
+                when (tap) {
+                    DownloadTap.Start -> onDownload()
+                    DownloadTap.Cancel -> onCancelDownload()
+                    DownloadTap.Remove -> onRemoveDownload()
+                }
+            },
+            onAddToShelf = onAddToShelf,
+        )
+    if (labelled) {
+        TabletActionGroup(actions, modifier)
+    } else {
+        PhoneActionRow(actions, modifier)
     }
+}
+
+/** What both layouts draw: the primary's label and state, the download's (null where downloads are unsupported). */
+private data class ListenActions(
+    val label: PrimaryLabel,
+    val primaryEnabled: Boolean,
+    val download: DownloadAction?,
+    val downloadEnabled: Boolean,
+    val onPrimary: () -> Unit,
+    val onDownloadTap: (DownloadTap) -> Unit,
+    val onAddToShelf: () -> Unit,
+)
+
+/** Phone: Resume and Download joined as a split pair, Add to shelf apart. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun PhoneActionRow(
+    actions: ListenActions,
+    modifier: Modifier,
+) {
+    val shelfName = stringResource(Res.string.book_detail_add_to_shelf)
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val download = actions.download
+        if (download != null) {
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(SplitButtonDefaults.Spacing),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SplitButtonDefaults.LeadingButton(
+                    onClick = actions.onPrimary,
+                    enabled = actions.primaryEnabled,
+                    shapes = SplitButtonDefaults.leadingButtonShapesFor(ActionHeight),
+                    contentPadding = SplitButtonDefaults.leadingButtonContentPaddingFor(ActionHeight),
+                    modifier = Modifier.weight(1f).height(ActionHeight),
+                ) { PrimaryContent(actions.label) }
+                DownloadSplitTrailingButton(
+                    action = download,
+                    enabled = actions.downloadEnabled,
+                    onTap = actions.onDownloadTap,
+                    size = ActionHeight,
+                )
+            }
+        } else {
+            Button(
+                onClick = actions.onPrimary,
+                enabled = actions.primaryEnabled,
+                shapes = ButtonDefaults.shapes(),
+                modifier = Modifier.weight(1f).heightIn(min = ActionHeight),
+            ) { PrimaryContent(actions.label) }
+        }
+        FilledTonalIconButton(
+            onClick = actions.onAddToShelf,
+            shapes = IconButtonDefaults.shapes(),
+            modifier = Modifier.size(ActionHeight).semantics { contentDescription = shelfName },
+        ) { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null) }
+    }
+}
+
+/** Tablet: an M3E standard button group, every segment labelled, Resume holding at least half the row. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun TabletActionGroup(
+    actions: ListenActions,
+    modifier: Modifier,
+) {
     val shelfName = stringResource(Res.string.book_detail_add_to_shelf)
     val resumeSource = remember { MutableInteractionSource() }
     val downloadSource = remember { MutableInteractionSource() }
     val shelfSource = remember { MutableInteractionSource() }
-
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ButtonGroup(
-            overflowIndicator = {},
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
+    ButtonGroup(
+        overflowIndicator = {},
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        customItem(
+            buttonGroupContent = {
+                Button(
+                    onClick = actions.onPrimary,
+                    enabled = actions.primaryEnabled,
+                    shapes = ButtonDefaults.shapes(),
+                    interactionSource = resumeSource,
+                    modifier =
+                        Modifier
+                            .weight(RESUME_WEIGHT_LABELLED)
+                            .animateWidth(resumeSource)
+                            .heightIn(min = ActionHeight),
+                ) { PrimaryContent(actions.label) }
+            },
+            menuContent = {},
+        )
+        actions.download?.let { download ->
             customItem(
                 buttonGroupContent = {
-                    Button(
-                        onClick = {
-                            haptics.press()
-                            onPrimaryClick()
-                        },
-                        enabled = isPrimaryEnabled(primaryAction),
-                        shapes = ButtonDefaults.shapes(),
-                        interactionSource = resumeSource,
-                        modifier =
-                            Modifier
-                                .weight(if (labelled) RESUME_WEIGHT_LABELLED else 1f)
-                                .animateWidth(resumeSource)
-                                .heightIn(min = ActionHeight),
-                    ) { PrimaryContent(label) }
-                },
-                menuContent = {},
-            )
-            if (supportsDownloads) {
-                customItem(
-                    buttonGroupContent = {
-                        if (labelled) {
-                            DownloadLabelledButton(
-                                action = download,
-                                enabled = downloadEnabled,
-                                onTap = onDownloadTap,
-                                minHeight = ActionHeight,
-                                interactionSource = downloadSource,
-                                modifier = Modifier.weight(1f).animateWidth(downloadSource),
-                            )
-                        } else {
-                            DownloadIconButton(
-                                action = download,
-                                enabled = downloadEnabled,
-                                onTap = onDownloadTap,
-                                size = ActionHeight,
-                                interactionSource = downloadSource,
-                                modifier = Modifier.animateWidth(downloadSource),
-                            )
-                        }
-                    },
-                    menuContent = {},
-                )
-            }
-            customItem(
-                buttonGroupContent = {
-                    if (labelled) {
-                        FilledTonalButton(
-                            onClick = onAddToShelf,
-                            shapes = ButtonDefaults.shapes(),
-                            interactionSource = shelfSource,
-                            modifier = Modifier.weight(1f).animateWidth(shelfSource).heightIn(min = ActionHeight),
-                        ) {
-                            Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(shelfName, maxLines = 1)
-                        }
-                    } else {
-                        FilledTonalIconButton(
-                            onClick = onAddToShelf,
-                            shapes = IconButtonDefaults.shapes(),
-                            interactionSource = shelfSource,
-                            modifier =
-                                Modifier
-                                    .animateWidth(shelfSource)
-                                    .size(ActionHeight)
-                                    .semantics { contentDescription = shelfName },
-                        ) { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null) }
-                    }
+                    DownloadLabelledButton(
+                        action = download,
+                        enabled = actions.downloadEnabled,
+                        onTap = actions.onDownloadTap,
+                        minHeight = ActionHeight,
+                        interactionSource = downloadSource,
+                        modifier = Modifier.weight(1f).animateWidth(downloadSource),
+                    )
                 },
                 menuContent = {},
             )
         }
-        if (supportsDownloads && download.kind == DownloadActionKind.Download) {
-            Text(
-                text = stringResource(Res.string.book_detail_download_caption, download.sizeLabel),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp),
-            )
-        }
+        customItem(
+            buttonGroupContent = {
+                FilledTonalButton(
+                    onClick = actions.onAddToShelf,
+                    shapes = ButtonDefaults.shapes(),
+                    interactionSource = shelfSource,
+                    modifier = Modifier.weight(1f).animateWidth(shelfSource).heightIn(min = ActionHeight),
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(shelfName, maxLines = 1)
+                }
+            },
+            menuContent = {},
+        )
     }
 }
 
