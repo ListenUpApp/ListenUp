@@ -79,7 +79,14 @@ internal fun BookDetailHeroBand(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        HeroCover(coverPath = coverPath, coverHash = coverHash, bookId = bookId, title = title, authors = authors, size = PhoneHeroCoverSize)
+        HeroCover(
+            coverPath = coverPath,
+            coverHash = coverHash,
+            bookId = bookId,
+            title = title,
+            authors = authors,
+            size = PhoneHeroCoverSize,
+        )
         HeroIdentity(
             title = title,
             subtitle = subtitle,
@@ -127,7 +134,14 @@ internal fun WideHeroBand(
         horizontalArrangement = Arrangement.spacedBy(40.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        HeroCover(coverPath = coverPath, coverHash = coverHash, bookId = bookId, title = title, authors = authors, size = WideHeroCoverSize)
+        HeroCover(
+            coverPath = coverPath,
+            coverHash = coverHash,
+            bookId = bookId,
+            title = title,
+            authors = authors,
+            size = WideHeroCoverSize,
+        )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             HeroIdentity(
                 title = title,
@@ -209,7 +223,13 @@ private fun ColumnScope.HeroIdentity(
     }
 
     val baseTitleStyle =
-        if (titleStyleSize == TitleSize.Phone) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium
+        if (titleStyleSize ==
+            TitleSize.Phone
+        ) {
+            MaterialTheme.typography.displaySmall
+        } else {
+            MaterialTheme.typography.displayMedium
+        }
     Text(
         text = title,
         style = baseTitleStyle.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.ExtraBold),
@@ -267,7 +287,11 @@ private fun NarratorsAndCredits(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(0.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
+        horizontalArrangement =
+            Arrangement.spacedBy(
+                0.dp,
+                if (centered) Alignment.CenterHorizontally else Alignment.Start,
+            ),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         if (narrators.isNotEmpty()) {

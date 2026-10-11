@@ -69,4 +69,14 @@ class ResumeUnitTest {
         composeRule.onNodeWithText("2026", substring = true).assertExists()
         composeRule.onNodeWithContentDescription("percent listened", substring = true).assertDoesNotExist()
     }
+
+    @Test
+    fun `finished with no recorded date still says Finished`() {
+        composeRule.setContent {
+            MaterialTheme {
+                ResumeUnit(ReadingStage.Finished, currentChapter = null, timeRemainingMs = null, progress = null, finishedSpan = null)
+            }
+        }
+        composeRule.onNodeWithText("Finished").assertExists()
+    }
 }

@@ -77,6 +77,11 @@ class BookDetailHeroTest :
             root.querySelector(".bd-unit-finished")!!.textContent!! shouldContain " – "
         }
 
+        test("finished with no recorded date still says Finished") {
+            val root = rendered(inProgress.copy(readingStage = ReadingStage.Finished, primaryAction = PrimaryAction.ListenAgain))
+            root.querySelector(".bd-unit-finished")!!.textContent shouldBe "Finished"
+        }
+
         test("unavailable offline is the only disabled primary, and it says why instead of vanishing") {
             val root = rendered(inProgress.copy(primaryAction = PrimaryAction.UnavailableOffline, canPlay = false))
             primary(root).textContent!! shouldContain "Unavailable offline"

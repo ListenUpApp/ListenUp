@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.util.formatDate
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_chapter_label
+import listenup.composeapp.generated.resources.book_detail_finished
 import listenup.composeapp.generated.resources.book_detail_finished_on
 import listenup.composeapp.generated.resources.book_detail_finished_span
 import listenup.composeapp.generated.resources.book_detail_progress_a11y
@@ -44,9 +45,21 @@ internal fun ResumeUnit(
     modifier: Modifier = Modifier,
 ) {
     when (readingStage) {
-        ReadingStage.NotStarted -> Unit
-        ReadingStage.Finished -> finishedSpan?.let { FinishedLine(it, modifier) }
-        ReadingStage.InProgress -> InProgressUnit(currentChapter, timeRemainingMs, progress ?: 0f, modifier)
+        // Not started: nothing above the actions but the stats (spec §2.9).
+        ReadingStage.NotStarted -> {}
+
+        ReadingStage.Finished -> {
+            FinishedLine(span = finishedSpan, modifier = modifier)
+        }
+
+        ReadingStage.InProgress -> {
+            InProgressUnit(
+                currentChapter = currentChapter,
+                timeRemainingMs = timeRemainingMs,
+                progress = progress ?: 0f,
+                modifier = modifier,
+            )
+        }
     }
 }
 
@@ -62,15 +75,23 @@ private fun InProgressUnit(
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = currentChapter?.let { stringResource(Res.string.book_detail_chapter_label, it.number, it.title) }.orEmpty(),
+                text =
+                    currentChapter
+                        ?.let { chapter ->
+                            stringResource(Res.string.book_detail_chapter_label, chapter.number, chapter.title)
+                        }.orEmpty(),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            timeRemainingMs?.let {
+            timeRemainingMs?.let { remainingMs ->
                 Text(
-                    text = stringResource(Res.string.book_time_left, DurationFormatter.hoursMinutesAlways(it.milliseconds)),
+                    text =
+                        stringResource(
+                            Res.string.book_time_left,
+                            DurationFormatter.hoursMinutesAlways(remainingMs.milliseconds),
+                        ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -85,15 +106,31 @@ private fun InProgressUnit(
     }
 }
 
+/** "Finished · 12 Feb – 3 Mar 2026"; "Finished · 3 Mar 2026" with no recorded start; plain "Finished" with no date. */
 @Composable
 private fun FinishedLine(
-    span: FinishedSpan,
+    span: FinishedSpan?,
     modifier: Modifier,
 ) {
-    val finished = formatBookDay(span.finishedAtMs)
+    val startedAtMs = span?.startedAtMs
     val text =
-        span.startedAtMs?.let { stringResource(Res.string.book_detail_finished_span, formatBookDay(it, withYear = false), finished) }
-            ?: stringResource(Res.string.book_detail_finished_on, finished)
+        when {
+            span == null -> {
+                stringResource(Res.string.book_detail_finished)
+            }
+
+            startedAtMs == null -> {
+                stringResource(Res.string.book_detail_finished_on, formatBookDay(span.finishedAtMs))
+            }
+
+            else -> {
+                stringResource(
+                    Res.string.book_detail_finished_span,
+                    formatBookDay(startedAtMs, withYear = false),
+                    formatBookDay(span.finishedAtMs),
+                )
+            }
+        }
     Text(
         text = text,
         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),

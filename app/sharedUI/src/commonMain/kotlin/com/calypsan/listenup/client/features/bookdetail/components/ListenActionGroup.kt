@@ -192,9 +192,17 @@ internal fun ListenActionGroup(
 private fun PrimaryContent(label: PrimaryLabel) {
     when (label) {
         // M3E's contained wait indicator, the audit's replacement for an indeterminate circular spinner.
-        PrimaryLabel.Preparing -> LoadingIndicator(Modifier.size(24.dp), color = LocalContentColor.current)
-        PrimaryLabel.UnavailableOffline -> Icon(Icons.Outlined.CloudOff, contentDescription = null, modifier = Modifier.size(24.dp))
-        else -> Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
+        PrimaryLabel.Preparing -> {
+            LoadingIndicator(Modifier.size(24.dp), color = LocalContentColor.current)
+        }
+
+        PrimaryLabel.UnavailableOffline -> {
+            Icon(Icons.Outlined.CloudOff, contentDescription = null, modifier = Modifier.size(24.dp))
+        }
+
+        PrimaryLabel.Play, PrimaryLabel.Resume, PrimaryLabel.ListenAgain -> {
+            Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
+        }
     }
     Spacer(Modifier.width(8.dp))
     // The Button merges its children into one accessible node and the icon is decorative, so this Text is the

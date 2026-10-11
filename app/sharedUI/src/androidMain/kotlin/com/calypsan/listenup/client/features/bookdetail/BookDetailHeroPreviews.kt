@@ -117,7 +117,14 @@ private fun WideHeroBandPreviewBody() {
         resumeUnit = {
             ResumeUnit(
                 readingStage = ReadingStage.InProgress,
-                currentChapter = CurrentChapter(index = 5, number = 6, title = "The Well of Ascension", startMs = 0, elapsedInChapterMs = 0),
+                currentChapter =
+                    CurrentChapter(
+                        index = 5,
+                        number = 6,
+                        title = "The Well of Ascension",
+                        startMs = 0,
+                        elapsedInChapterMs = 0,
+                    ),
                 timeRemainingMs = PREVIEW_DURATION_MS * 6 / 10,
                 progress = PREVIEW_PROGRESS,
                 finishedSpan = null,

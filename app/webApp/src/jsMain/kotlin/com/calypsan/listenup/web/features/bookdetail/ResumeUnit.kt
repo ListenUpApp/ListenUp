@@ -27,9 +27,10 @@ internal fun ResumeUnit(ready: BookDetailUiState.Ready) {
         }
 
         ReadingStage.Finished -> {
-            ready.finishedSpan?.let { span ->
-                Div(attrs = { classes("bd-unit") }) {
-                    Span(attrs = { classes("bd-unit-finished") }) { Text(finishedSpanText(span)) }
+            // A finish with no recorded date still says Finished rather than leaving a gap.
+            Div(attrs = { classes("bd-unit") }) {
+                Span(attrs = { classes("bd-unit-finished") }) {
+                    Text(ready.finishedSpan?.let(::finishedSpanText) ?: "Finished")
                 }
             }
         }

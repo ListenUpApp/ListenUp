@@ -103,9 +103,10 @@ internal fun DownloadLabelledButton(
 /** "Download, 1.2 GB" while there is something to download; otherwise the state's own words. */
 @Composable
 private fun downloadAccessibleName(action: DownloadAction): String =
-    when (action.kind) {
-        DownloadActionKind.Download -> stringResource(Res.string.book_detail_download_size_a11y, action.sizeLabel)
-        else -> downloadLabel(action.kind)
+    if (action.kind == DownloadActionKind.Download) {
+        stringResource(Res.string.book_detail_download_size_a11y, action.sizeLabel)
+    } else {
+        downloadLabel(action.kind)
     }
 
 @Composable

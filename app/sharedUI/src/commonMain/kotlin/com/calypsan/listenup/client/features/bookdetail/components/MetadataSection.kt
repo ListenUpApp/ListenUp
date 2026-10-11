@@ -48,10 +48,18 @@ internal fun HeroStatChips(
 ) {
     FlowRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
+        horizontalArrangement =
+            Arrangement.spacedBy(
+                6.dp,
+                if (centered) Alignment.CenterHorizontally else Alignment.Start,
+            ),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        StatChip(icon = null, text = DurationFormatter.hoursMinutesAlways(durationMs.milliseconds), tone = StatChipTone.Accent)
+        StatChip(
+            icon = null,
+            text = DurationFormatter.hoursMinutesAlways(durationMs.milliseconds),
+            tone = StatChipTone.Accent,
+        )
         year?.takeIf { it > 0 }?.let { StatChip(icon = null, text = it.toString(), tone = StatChipTone.Accent) }
         StatChip(
             icon = null,

@@ -15,11 +15,10 @@ struct ResumeUnit: View {
         case .notStarted:
             EmptyView()
         case .finished:
-            if let finishedSpan {
-                Text(Self.finishedText(finishedSpan))
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            // A finish with no recorded date still says Finished rather than leaving a gap.
+            Text(finishedSpan.map(Self.finishedText) ?? String(localized: "book.detail_finished"))
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, alignment: .leading)
         case .inProgress:
             inProgress
         }

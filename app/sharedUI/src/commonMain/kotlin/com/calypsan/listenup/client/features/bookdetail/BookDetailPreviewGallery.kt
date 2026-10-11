@@ -380,7 +380,12 @@ private fun ActionsSection() {
             currentChapter = null,
             timeRemainingMs = null,
             progress = null,
-            finishedSpan = FinishedSpan(startedAtMs = MOCK_ADDED_AT_MS, finishedAtMs = MOCK_ADDED_AT_MS + MOCK_DURATION_MS * 3),
+            finishedSpan =
+                FinishedSpan(
+                    startedAtMs = MOCK_ADDED_AT_MS,
+                    finishedAtMs =
+                        MOCK_ADDED_AT_MS + MOCK_DURATION_MS * 3,
+                ),
         )
         PreviewActions(
             PrimaryAction.ListenAgain,
@@ -400,7 +405,14 @@ private fun ActionsSection() {
 private fun PreviewResumeUnit() {
     ResumeUnit(
         readingStage = ReadingStage.InProgress,
-        currentChapter = CurrentChapter(index = 5, number = 6, title = "Bridge Four", startMs = 0, elapsedInChapterMs = 0),
+        currentChapter =
+            CurrentChapter(
+                index = 5,
+                number = 6,
+                title = "Bridge Four",
+                startMs = 0,
+                elapsedInChapterMs = 0,
+            ),
         timeRemainingMs = MOCK_DURATION_MS * 8 / 10,
         progress = MOCK_PROGRESS,
         finishedSpan = null,

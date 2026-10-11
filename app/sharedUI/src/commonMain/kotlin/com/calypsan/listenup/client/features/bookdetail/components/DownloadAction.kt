@@ -52,7 +52,9 @@ internal fun downloadActionFor(
             when {
                 status.downloadingFiles > 0 -> {
                     DownloadAction(
-                        DownloadActionKind.Downloading(percent = (status.progress * PERCENT).toInt().coerceIn(0, PERCENT)),
+                        DownloadActionKind.Downloading(
+                            percent = (status.progress * PERCENT).toInt().coerceIn(0, PERCENT),
+                        ),
                         size,
                         DownloadTap.Cancel,
                     )
