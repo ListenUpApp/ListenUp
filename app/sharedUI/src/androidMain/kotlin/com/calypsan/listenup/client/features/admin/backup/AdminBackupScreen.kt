@@ -151,7 +151,7 @@ fun AdminBackupScreen(
             pendingDownloadBackupId = null
             // The admin cancelled the picker: nothing was created.
             if (uri == null) return@rememberLauncherForActivityResult
-            val outputStream = if (backupId == null) null else resolver.openOutputStream(uri)
+            val outputStream = backupId?.let { resolver.openOutputStream(uri) }
             if (backupId == null || outputStream == null) {
                 resolver.discardDocument(uri)
                 downloadNotices.failed()
