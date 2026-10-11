@@ -131,7 +131,7 @@ fun PopupMenu(
         }
 
         if (open) {
-            MenuItems(items = items, label = label, onChosen = { close(returnFocus = false) })
+            MenuItems(items = items, label = label, trigger = trigger, onChosen = { close(returnFocus = false) })
         }
     }
 }
@@ -155,27 +155,52 @@ private fun CloseOnOutsidePress(
 /**
  * The open menu: real menu-item buttons, focus on the first, the arrows walking the rest.
  *
- * It hangs from the trigger's left edge — right for the account menu at the content's left — and
- * measures itself as it opens: a menu that would cross the viewport's right edge (a trailing "more
- * actions" at the end of a row, on a phone) hangs from the trigger's right edge instead. Measured
- * rather than guessed from where the trigger sits, because only the rendered menu knows how wide
- * its longest label made it.
+ * ⛔ It opens in the TOP LAYER (`popover`), placed against [trigger]'s on-screen box — never as an
+ * absolutely-positioned child of the row it belongs to. The admin inbox's row menu was exactly that,
+ * and its panel clips (`overflow: clip`): below a lone book, all that showed of the menu was a
+ * sliver of its top edge. Any card, scroller or transformed box does the same, and no z-index
+ * escapes a clip, so the menu leaves them all instead. Its DOM stays inside the anchor, so the
+ * outside-press test, Escape and Tab still find it there.
+ *
+ * It hangs below the trigger from its left edge — right for the account menu at the content's left —
+ * and measures itself as it opens: a menu that would cross the viewport's right edge (a trailing
+ * "more actions" at the end of a row, on a phone) hangs from the trigger's right edge instead, and
+ * one with no room below opens above. Measured rather than guessed from where the trigger sits,
+ * because only the rendered menu knows how big its labels made it. It follows the trigger as
+ * anything scrolls, since a fixed box would otherwise stay put while the row moves away.
  */
 @Composable
 private fun MenuItems(
     items: List<MenuAction>,
     label: String,
+    trigger: NodeHolder,
     onChosen: () -> Unit,
 ) {
-    var alignEnd by remember { mutableStateOf(false) }
     Div(attrs = {
         classes("menu")
-        if (alignEnd) classes("end")
         attr("role", "menu")
         attr("aria-label", label)
-        ref { element ->
-            alignEnd = crossesViewportEnd(element)
-            onDispose { }
+        // Manual: the menu keeps its own outside-press and Escape handling (PopupMenu).
+        attr("popover", "manual")
+        ref { menu ->
+            menu.showInTopLayer()
+
+            fun placeAgainstTrigger() {
+                trigger.element?.let { placeMenu(menu, it) }
+            }
+            placeAgainstTrigger()
+            val place: (Event) -> Unit = { placeAgainstTrigger() }
+            // Placed first, focused second, and without scrolling: focus used to scroll a clipping
+            // box to reveal the menu, dragging its row out from under the reader.
+            (menu.querySelector("[role^=menuitem]") as? HTMLElement)?.focusWithoutScrolling()
+            val view = menu.ownerDocument?.defaultView
+            // Capture, so a scroll inside any box — not just the page — moves the menu with its row.
+            view?.addEventListener("scroll", place, true)
+            view?.addEventListener("resize", place)
+            onDispose {
+                view?.removeEventListener("scroll", place, true)
+                view?.removeEventListener("resize", place)
+            }
         }
     }) {
         items.forEachIndexed { index, item ->
@@ -188,12 +213,6 @@ private fun MenuItems(
                 item.checked?.let { attr("aria-checked", it.toString()) }
                 // Only the first item is a Tab stop; the arrows are how a menu is walked.
                 attr("tabindex", if (index == 0) "0" else "-1")
-                if (index == 0) {
-                    ref { element ->
-                        element.focus()
-                        onDispose { }
-                    }
-                }
                 onKeyDown { event ->
                     rovingTarget(event.key, index, items.size, RovingAxis.Vertical)?.let { next ->
                         event.preventDefault()
@@ -212,14 +231,62 @@ private fun MenuItems(
     }
 }
 
-/** Whether [element] reaches past the right edge of the viewport it is rendered in. */
-private fun crossesViewportEnd(element: HTMLElement): Boolean {
-    val viewport = element.ownerDocument?.documentElement?.clientWidth ?: return false
-    return element.getBoundingClientRect().right > viewport - VIEWPORT_GUTTER
+/**
+ * Puts [this] in the top layer, above every stacking context and outside every clip. Where the
+ * popover API is missing, the `.menu` rule's `position: fixed` is the fallback, which still escapes
+ * every clip but a transformed ancestor's.
+ */
+private fun HTMLElement.showInTopLayer() {
+    val element: dynamic = this
+    if (jsTypeOf(element.showPopover) == "function") element.showPopover()
+}
+
+private fun HTMLElement.focusWithoutScrolling() {
+    asDynamic().focus(js("({ preventScroll: true })"))
+}
+
+/**
+ * Places [menu] against [trigger]'s on-screen box: below it and from its left edge by preference,
+ * from its right edge when the left would cross the viewport's, above it when only above has room,
+ * and — when neither side has room for all of it — on the roomier side, scrolling within the space
+ * there.
+ */
+private fun placeMenu(
+    menu: HTMLElement,
+    trigger: HTMLElement,
+) {
+    val viewport = menu.ownerDocument?.documentElement ?: return
+    val viewportWidth = viewport.clientWidth.toDouble()
+    val viewportHeight = viewport.clientHeight.toDouble()
+    val anchor = trigger.getBoundingClientRect()
+
+    menu.style.removeProperty("max-height")
+    val width = menu.offsetWidth.toDouble()
+    val height = menu.offsetHeight.toDouble()
+
+    val fromLeft = anchor.left
+    val left =
+        (if (fromLeft + width > viewportWidth - VIEWPORT_GUTTER) anchor.right - width else fromLeft)
+            .coerceAtMost(viewportWidth - VIEWPORT_GUTTER - width)
+            .coerceAtLeast(VIEWPORT_GUTTER)
+
+    val below = anchor.bottom + TRIGGER_GAP
+    val roomBelow = viewportHeight - VIEWPORT_GUTTER - below
+    val roomAbove = anchor.top - TRIGGER_GAP - VIEWPORT_GUTTER
+    val opensBelow = height <= roomBelow || (height > roomAbove && roomBelow >= roomAbove)
+    val room = if (opensBelow) roomBelow else roomAbove
+    if (height > room) menu.style.setProperty("max-height", "${room.coerceAtLeast(0.0)}px")
+    val top = if (opensBelow) below else anchor.top - TRIGGER_GAP - minOf(height, room)
+
+    menu.style.setProperty("left", "${left}px")
+    menu.style.setProperty("top", "${top}px")
 }
 
 /** How close to the viewport's edge a menu may come before it flips to the other side. */
-private const val VIEWPORT_GUTTER = 8
+private const val VIEWPORT_GUTTER = 8.0
+
+/** The space between a trigger and the menu hanging from it. */
+private const val TRIGGER_GAP = 6.0
 
 /** What a key does to an open menu, beyond the arrows its items handle themselves. */
 private enum class MenuKeyAction {

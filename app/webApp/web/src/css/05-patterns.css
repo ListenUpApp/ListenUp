@@ -64,16 +64,17 @@
    was briefly anchored to .f-wrap, which is the FORM FIELD wrapper at width:100%, and an
    unpositioned .menu inside it flowed as a block child — rendering the dropdown as a full-width
    bar across the top of the content area. */
-.menu-anchor { position:relative; display:inline-flex; }
-/* Absolute by definition — this is a popover, so it must not take space in the flow. `left:0`
-   hangs it off the trigger's left edge (the account button sits at the content area's left);
-   `max-content` lets it size to its items while min-width keeps a small menu from looking mean.
-   A modal is a `<dialog>` in the top layer, so it covers this whatever its z-index. */
-.menu { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:max-content; min-width:min(216px, calc(100vw - 16px)); max-width:calc(100vw - 16px); padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--shadow-pop); }
-/* A menu that would cross the viewport's right edge hangs from its trigger's right edge instead —
-   `PopupMenu` measures and sets this as it opens. The max-width keeps even the widest menu inside a
-   320px screen, whichever side it hangs from. */
-.menu.end { left:auto; right:0; }
+.menu-anchor { display:inline-flex; }
+/* A popover in the TOP LAYER, placed by `PopupMenu` against its trigger's on-screen box. It used to
+   be `position:absolute` inside .menu-anchor, so every card, scroller or transformed box between it
+   and the page cut it off: the admin inbox's row menu showed only a sliver of its top edge below a
+   lone book, clipped by its panel's `overflow:clip`. The top layer is above every stacking context
+   and outside every clip, and the DOM stays where it was — focus, Escape and the outside-press test
+   still see the menu inside its anchor. `position:fixed` is the fallback where the popover API is
+   missing. `inset:auto; margin:0` undo the UA popover sheet, which centres a popover in the window.
+   `max-content` lets it size to its items while min-width keeps a small menu from looking mean, and
+   the max-width keeps even the widest menu inside a 320px screen. */
+.menu { position:fixed; inset:auto; margin:0; z-index:30; width:max-content; min-width:min(216px, calc(100vw - 16px)); max-width:calc(100vw - 16px); overflow-y:auto; padding:6px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--shadow-pop); }
 /* Every menu item is a real <button role="menuitem">, so the reset a button needs lives on the base
    rule. It used to sit in a later sheet as `.luw .menu-i { background: transparent }`, whose extra
    class outranked `.menu-i:hover` and `.menu-i.hi` below — so no menu item ever showed a hover. */

@@ -49,7 +49,15 @@ class TouchTargetsTest :
                     Button(kind = ButtonKind.Secondary, size = ButtonSize.Sm) { Text("Undo") }
                     Button(kind = ButtonKind.Primary) { Text("Save") }
                     Div(attrs = { classes("seg") }) { Button { Text("A") } }
-                    Div(attrs = { classes("menu") }) { Button(attrs = { classes("menu-i") }) { Text("Open") } }
+                    // A `.menu` is fixed, placed by PopupMenu against its trigger; unplaced, it would
+                    // sit over the first control and take its taps. Placed here, clear of them all.
+                    Div(attrs = {
+                        classes("menu")
+                        style {
+                            property("top", "40px")
+                            property("right", "8px")
+                        }
+                    }) { Button(attrs = { classes("menu-i") }) { Text("Open") } }
                 }
             }
 
