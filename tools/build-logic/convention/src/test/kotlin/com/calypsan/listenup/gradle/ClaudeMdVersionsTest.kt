@@ -49,8 +49,8 @@ class ClaudeMdVersionsTest {
                 if (mention.written.isVersionPrefixOf(pinned)) {
                     null
                 } else {
-                    "${mention.document}:${mention.line} says \"${mention.product} ${mention.written}\" " +
-                        "but libs.versions.toml pins $key = \"$pinned\""
+                    "${mention.document}:${mention.line} says '${mention.product} ${mention.written}' " +
+                        "but libs.versions.toml pins $key = '$pinned'"
                 }
             }
         assertEquals(
