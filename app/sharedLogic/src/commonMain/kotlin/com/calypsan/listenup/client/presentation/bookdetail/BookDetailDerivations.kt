@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.client.core.formatSeriesSequence
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 
 /** Where the reader is with a book of [durationMs], from its saved [position]. Pure. */
 internal fun readingStage(
@@ -128,4 +130,34 @@ internal fun chapterWindow(
             (currentIndex - CHAPTER_WINDOW_SIZE / 2).coerceIn(0, rows.size - CHAPTER_WINDOW_SIZE)
         }
     return rows.subList(start, start + CHAPTER_WINDOW_SIZE)
+}
+
+/**
+ * The series shelf for the book [thisBookId] from its first series membership's [series], or null when the book is
+ * in no series or the series does not list it yet (a sync in flight). Pure.
+ */
+internal fun seriesShelfOf(
+    series: SeriesWithBooks?,
+    thisBookId: String,
+): SeriesShelf? {
+    if (series == null) return null
+    val books = series.booksSortedBySequence()
+    val thisIndex = books.indexOfFirst { it.id.value == thisBookId }
+    if (thisIndex < 0) return null
+    return SeriesShelf(
+        seriesId = series.series.id.value,
+        name = series.series.name,
+        books =
+            books.map { book ->
+                SeriesShelfBook(
+                    id = book.id.value,
+                    coverPath = book.coverPath,
+                    coverHash = book.coverHash,
+                    sequenceLabel = series.sequenceFor(book.id.value)?.let(::formatSeriesSequence),
+                    isThis = book.id.value == thisBookId,
+                )
+            },
+        thisIndex = thisIndex,
+        nextBookId = books.getOrNull(thisIndex + 1)?.id?.value,
+    )
 }

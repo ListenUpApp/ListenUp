@@ -2,7 +2,11 @@ package com.calypsan.listenup.client.presentation.bookdetail
 
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.core.SeriesId
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 
 private fun at(
@@ -147,6 +151,41 @@ class BookDetailDerivationsTest :
             }
             test("fewer than five chapters shows them all") {
                 ids(chapterWindow(rows(3), currentIndex = 2)) shouldBe listOf("c0", "c1", "c2")
+            }
+        }
+
+        context("seriesShelfOf") {
+            fun series(vararg idsBySequence: Pair<String, Double?>): SeriesWithBooks =
+                SeriesWithBooks(
+                    series = Series(id = SeriesId("s1"), name = "Mistborn"),
+                    // Deliberately out of order: the shelf must sort by sequence.
+                    books = idsBySequence.reversed().map { (id, _) -> TestData.bookListItem(id = id, coverPath = "/c/$id.jpg") },
+                    bookSequences = idsBySequence.toMap(),
+                )
+
+            test("the books in sequence, this one marked, the next named") {
+                val shelf = seriesShelfOf(series("b1" to 1.0, "b2" to 2.0, "b3" to 3.0), thisBookId = "b2").shouldNotBeNull()
+                shelf.seriesId shouldBe "s1"
+                shelf.name shouldBe "Mistborn"
+                shelf.books.map { it.id } shouldBe listOf("b1", "b2", "b3")
+                shelf.books.map { it.sequenceLabel } shouldBe listOf("1", "2", "3")
+                shelf.books.map { it.isThis } shouldBe listOf(false, true, false)
+                shelf.thisIndex shouldBe 1
+                shelf.nextBookId shouldBe "b3"
+            }
+            test("the last book has no next") {
+                seriesShelfOf(series("b1" to 1.0, "b2" to 2.0), thisBookId = "b2")?.nextBookId shouldBe null
+            }
+            test("a half-numbered book keeps its half, an unnumbered one goes last with no label") {
+                val shelf = seriesShelfOf(series("x" to null, "b1" to 1.0, "b15" to 1.5), thisBookId = "b1").shouldNotBeNull()
+                shelf.books.map { it.id } shouldBe listOf("b1", "b15", "x")
+                shelf.books.map { it.sequenceLabel } shouldBe listOf("1", "1.5", null)
+            }
+            test("no series, no shelf") {
+                seriesShelfOf(null, thisBookId = "b1") shouldBe null
+            }
+            test("a series that does not (yet) list this book gives no shelf rather than a wrong one") {
+                seriesShelfOf(series("b1" to 1.0), thisBookId = "b9") shouldBe null
             }
         }
     })
