@@ -99,8 +99,8 @@ private fun dialogIsOpen(): Boolean = document.querySelector("dialog[open]") != 
 
 /**
  * `tabindex=-1` makes a heading focusable by script without adding it to the Tab order.
- * `preventScroll`, because the shell already restores the page's own scroll position and a focus
- * jump would fight it.
+ * `preventScroll`, because the shell sets the page's own scroll position (top for a new page, the
+ * remembered offset for Back) and a focus jump would fight it.
  */
 internal fun focusWithoutScroll(element: HTMLElement) {
     if (!element.hasAttribute("tabindex")) element.setAttribute("tabindex", "-1")

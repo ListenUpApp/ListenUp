@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.visibility.RestrictedBooksViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,8 +13,8 @@ import org.koin.core.Koin
  */
 class RestrictedBooksSession(
     val restrictedBookIds: StateFlow<Set<String>>,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** Opens the shell's one [RestrictedBooksSession]. Production resolves the ViewModel; specs hand over ids. */
 typealias OpenRestrictedBooks = () -> RestrictedBooksSession

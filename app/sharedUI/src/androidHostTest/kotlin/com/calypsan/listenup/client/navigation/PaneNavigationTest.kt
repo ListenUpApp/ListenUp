@@ -58,10 +58,59 @@ class PaneNavigationTest :
             stack shouldBe listOf(Shell, SeriesDetail("s1"), BookDetail("b1"))
         }
 
-        test("from a screen no longer on the stack, popFrom still pops the top") {
-            val stack = mutableListOf<NavKey>(Shell, BookDetail("b1"))
+        test("outside navigation with nothing held lands on the shell, as it always has") {
+            val stack = mutableListOf<NavKey>(Shell, BookDetail("a"), BookEdit("a"))
 
-            stack.popFrom(SeriesDetail("gone"))
+            stack.openFromOutside(Shell, listOf(BookDetail("b")), holdsUnsavedWork = false)
+
+            stack shouldBe listOf(Shell, BookDetail("b"))
+        }
+
+        test("outside navigation with unsaved work held keeps the editor and lands on top of it") {
+            val stack = mutableListOf<NavKey>(Shell, BookDetail("a"), BookEdit("a"))
+
+            stack.openFromOutside(Shell, listOf(BookDetail("b")), holdsUnsavedWork = true)
+
+            stack shouldBe listOf(Shell, BookDetail("a"), BookEdit("a"), BookDetail("b"))
+        }
+
+        test("outside navigation to nowhere changes nothing while work is held") {
+            val stack = mutableListOf<NavKey>(Shell, BookDetail("a"), BookEdit("a"))
+
+            stack.openFromOutside(Shell, emptyList(), holdsUnsavedWork = true)
+
+            stack shouldBe listOf(Shell, BookDetail("a"), BookEdit("a"))
+        }
+
+        test("outside navigation from the shell just appends its targets") {
+            val stack = mutableListOf<NavKey>(Shell)
+
+            stack.openFromOutside(Shell, listOf(BookDetail("b")), holdsUnsavedWork = false)
+
+            stack shouldBe listOf(Shell, BookDetail("b"))
+        }
+
+        test("popping a screen that has already left removes nothing") {
+            val stack = mutableListOf<NavKey>(Shell, BookDetail("a"))
+
+            stack.popFrom(BookEdit("a"))
+
+            stack shouldBe listOf(Shell, BookDetail("a"))
+        }
+
+        test("popping the same screen twice pops once") {
+            val stack = mutableListOf<NavKey>(Shell, BookDetail("a"), BookEdit("a"))
+
+            stack.popFrom(BookEdit("a"))
+            stack.popFrom(BookEdit("a"))
+
+            stack shouldBe listOf(Shell, BookDetail("a"))
+        }
+
+        test("a pop never empties the stack") {
+            val stack = mutableListOf<NavKey>(Shell)
+
+            stack.popFrom(Shell)
 
             stack shouldBe listOf(Shell)
         }

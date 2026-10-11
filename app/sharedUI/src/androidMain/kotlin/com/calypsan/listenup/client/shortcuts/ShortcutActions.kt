@@ -65,8 +65,8 @@ object ShortcutActions {
      * Quick set sleep timer.
      *
      * Behavior:
-     * - If currently playing: shows sleep timer options
-     * - If not playing: resumes last book + sets 30-min timer
+     * - If a book is loaded: sets the timer (the preset minutes, else 30) and opens the player
+     * - If not: resumes the last book, then sets the timer once that book is current
      */
     const val SLEEP_TIMER = "com.calypsan.listenup.action.SLEEP_TIMER"
 

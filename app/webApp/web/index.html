@@ -9,8 +9,9 @@
          a reader who chose dark would stare at a white page. This reads the same stored mode
          (BrowserSecureStorage's "listenup." namespace, ThemeMode's lower-case name) and resolves
          SYSTEM the way shouldUseDarkTheme does, so ThemeEffect's first write agrees with it.
-         Inline because it must run before the sheets paint; the server sends no CSP, and COEP
-         governs subresources, not inline script. WebThemeTest runs this very script. -->
+         Inline because it must run before the sheets paint. The page's Content-Security-Policy allows it
+         BY HASH: edit this script and the hash in vite.config.ts and WebAppRoutes.kt must change with
+         it (test/csp.test.mjs fails until they do). WebThemeTest runs this very script. -->
     <script>
       (function () {
         try {

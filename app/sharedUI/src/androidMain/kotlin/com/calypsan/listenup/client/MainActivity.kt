@@ -48,6 +48,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.navigation.ListenUpNavigation
+import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
 import com.calypsan.listenup.client.shortcuts.ShortcutActions
 import com.calypsan.listenup.client.foldable.PostureProvider
 import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
@@ -118,8 +119,13 @@ class MainActivity : ComponentActivity() {
         // cold-start library-setup check. The lambda is polled each frame.
         splash.setKeepOnScreenCondition { appStartupViewModel.state.value.isChecking }
 
-        // Handle deep link from initial launch
-        handleIntent(intent)
+        if (shouldHandleLaunchIntent(
+                isRestoredInstance = savedInstanceState != null,
+                launchedFromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0,
+            )
+        ) {
+            handleIntent(intent)
+        }
 
         // Initialize local preferences (theme, dynamic colors, etc.) from storage
         lifecycleScope.launch {
@@ -212,7 +218,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Handle deep link when app is already running (singleTask)
+        // A later recreation must see this intent, not the cold-start one.
+        setIntent(intent)
         handleIntent(intent)
     }
 
@@ -293,6 +300,9 @@ class MainActivity : ComponentActivity() {
                 if (bookId != null) {
                     logger.debug { "Received PLAY_BOOK shortcut action - bookId=$bookId" }
                     shortcutActionManager.setPendingAction(ShortcutAction.PlayBook(bookId))
+                    get<ListenUpShortcutManager>().reportShortcutUsed(
+                        "${ShortcutActions.SHORTCUT_ID_BOOK_PREFIX}$bookId",
+                    )
                 } else {
                     logger.warn { "PLAY_BOOK action missing book_id extra" }
                 }

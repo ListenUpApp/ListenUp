@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksViewModel
@@ -17,8 +18,8 @@ import org.koin.core.Koin
  */
 class ContributorBooksSession(
     val state: StateFlow<ContributorBooksUiState>,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its state. Production resolves the real ViewModel out of the client graph

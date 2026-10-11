@@ -79,6 +79,10 @@ class BookEditViewModel(
     // The held-for-review observation for the loaded book; replaced when another book loads.
     private var heldObservation: Job? = null
 
+    /** The id whose data the form currently holds or is fetching; a repeat load for it is a no-op. */
+    private var loadedBookId: String? = null
+    private var loadJob: Job? = null
+
     // Delegates for focused editing operations
     private val contributorDelegate =
         ContributorEditDelegate(
@@ -139,6 +143,11 @@ class BookEditViewModel(
      * - Loading all genres and tags for pickers
      */
     fun loadBook(bookId: String) {
+        // The screen asks again whenever it is recreated (rotation, theme, fold). The form already
+        // holds this book, possibly with unsaved edits, so there is nothing to fetch.
+        if (loadedBookId == bookId) return
+        loadedBookId = bookId
+
         // Start observing the book's collection memberships + the available list.
         // Reactive, so it runs alongside the one-shot use-case load below.
         collectionDelegate.loadCollections(bookId)
@@ -151,68 +160,72 @@ class BookEditViewModel(
                     .distinctUntilChanged()
                     .collect { held -> state.update { it.copy(isHeld = held) } }
             }
-        viewModelScope.launch {
-            state.update { it.copy(isLoading = true, bookId = bookId) }
+        loadJob?.cancel()
+        loadJob =
+            viewModelScope.launch {
+                state.update { it.copy(isLoading = true, bookId = bookId) }
 
-            when (val result = loadBookForEditUseCase(bookId)) {
-                is AppResult.Success -> {
-                    val editData = result.data
-                    originalState = editData
+                when (val result = loadBookForEditUseCase(bookId)) {
+                    is AppResult.Success -> {
+                        val editData = result.data
+                        originalState = editData
 
-                    // Determine visible roles from existing contributors
-                    val rolesFromContributors =
-                        editData.contributors
-                            .flatMap { it.roles }
-                            .toSet()
+                        // Determine visible roles from existing contributors
+                        val rolesFromContributors =
+                            editData.contributors
+                                .flatMap { it.roles }
+                                .toSet()
 
-                    // Always show Author section, plus any roles that have contributors
-                    val initialVisibleRoles = rolesFromContributors + ContributorRole.AUTHOR
+                        // Always show Author section, plus any roles that have contributors
+                        val initialVisibleRoles = rolesFromContributors + ContributorRole.AUTHOR
 
-                    // Set up search for each visible role
-                    initialVisibleRoles.forEach { role ->
-                        contributorDelegate.setupRoleSearch(role)
+                        // Set up search for each visible role
+                        initialVisibleRoles.forEach { role ->
+                            contributorDelegate.setupRoleSearch(role)
+                        }
+
+                        state.update { editState ->
+                            editState.copy(
+                                isLoading = false,
+                                coverPath = editData.coverPath,
+                                coverHash = editData.coverHash,
+                                title = editData.metadata.title,
+                                sortTitle = editData.metadata.sortTitle,
+                                subtitle = editData.metadata.subtitle,
+                                description = editData.metadata.description,
+                                publishYear = editData.metadata.publishYear,
+                                publisher = editData.metadata.publisher,
+                                language = editData.metadata.language,
+                                isbn = editData.metadata.isbn,
+                                asin = editData.metadata.asin,
+                                abridged = editData.metadata.abridged,
+                                addedAt = editData.metadata.addedAt,
+                                contributors = editData.contributors,
+                                series = editData.series,
+                                visibleRoles = initialVisibleRoles,
+                                genres = editData.genres,
+                                allGenres = editData.allGenres,
+                                tags = editData.tags,
+                                allTags = editData.allTags,
+                                moods = editData.moods,
+                                allMoods = editData.allMoods,
+                                hasChanges = false,
+                            )
+                        }
+
+                        logger.debug {
+                            "Loaded book for editing: ${editData.metadata.title}"
+                        }
                     }
 
-                    state.update { editState ->
-                        editState.copy(
-                            isLoading = false,
-                            coverPath = editData.coverPath,
-                            coverHash = editData.coverHash,
-                            title = editData.metadata.title,
-                            sortTitle = editData.metadata.sortTitle,
-                            subtitle = editData.metadata.subtitle,
-                            description = editData.metadata.description,
-                            publishYear = editData.metadata.publishYear,
-                            publisher = editData.metadata.publisher,
-                            language = editData.metadata.language,
-                            isbn = editData.metadata.isbn,
-                            asin = editData.metadata.asin,
-                            abridged = editData.metadata.abridged,
-                            addedAt = editData.metadata.addedAt,
-                            contributors = editData.contributors,
-                            series = editData.series,
-                            visibleRoles = initialVisibleRoles,
-                            genres = editData.genres,
-                            allGenres = editData.allGenres,
-                            tags = editData.tags,
-                            allTags = editData.allTags,
-                            moods = editData.moods,
-                            allMoods = editData.allMoods,
-                            hasChanges = false,
-                        )
+                    is AppResult.Failure -> {
+                        // Let the same id be asked for again: nothing was loaded.
+                        loadedBookId = null
+                        errorBus.emit(result.error)
+                        state.update { it.copy(isLoading = false, error = result.message) }
                     }
-
-                    logger.debug {
-                        "Loaded book for editing: ${editData.metadata.title}"
-                    }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    state.update { it.copy(isLoading = false, error = result.message) }
                 }
             }
-        }
     }
 
     /**

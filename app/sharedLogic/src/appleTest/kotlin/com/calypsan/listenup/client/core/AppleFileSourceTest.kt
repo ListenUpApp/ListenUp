@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.client.core
 
+import com.calypsan.listenup.core.FileUnreadableException
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.utils.io.ByteReadChannel
@@ -96,6 +98,14 @@ class AppleFileSourceTest :
 
                 openDescriptorCount() shouldBe before
             }
+        }
+
+        // A picked file can vanish between the picker and the upload. That is the user's file, not the
+        // network, and the upload boundary tells the two apart by this exception.
+        test("a path that does not exist fails as an unreadable file") {
+            val source = fileSourceAtPath(Path(root, "gone-${Random.nextLong()}.mp3").toString())
+
+            shouldThrow<FileUnreadableException> { source.openChannel() }
         }
     })
 

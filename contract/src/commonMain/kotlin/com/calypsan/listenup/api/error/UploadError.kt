@@ -91,6 +91,27 @@ sealed interface UploadError : AppError {
     }
 
     /**
+     * The file the user picked could not be read on their own device — it was deleted or moved, its
+     * drive was unplugged, or it was a cloud placeholder that failed to download.
+     *
+     * Produced on the client, when a [com.calypsan.listenup.core.FileSource] cannot read its file,
+     * and never by the server. Not retryable: sending the same unreadable file again fails the same
+     * way, so the user is asked to choose it again instead.
+     */
+    @Serializable
+    @SerialName("UploadError.FileUnreadable")
+    data class FileUnreadable(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : UploadError {
+        override val message: String = "That file couldn't be read. Choose it again."
+        override val code: String = "UPLOAD_FILE_UNREADABLE"
+        override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
+    }
+
+    /**
      * Finalize found no audiobook in the staged tree — the selection held documents or images but
      * no recognised audio, so there is no book to create. Not retryable.
      */

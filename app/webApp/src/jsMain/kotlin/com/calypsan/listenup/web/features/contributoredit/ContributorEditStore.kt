@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributoredit
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorCandidate
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
@@ -27,8 +28,8 @@ class ContributorEditSession(
     val navActions: Flow<ContributorEditNavAction>,
     val onEvent: (ContributorEditUiEvent) -> Unit,
     val onMergeQuery: (String) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenContributorEdit = (contributorId: String) -> ContributorEditSession

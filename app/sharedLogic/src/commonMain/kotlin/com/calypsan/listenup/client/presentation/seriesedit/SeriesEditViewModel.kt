@@ -22,6 +22,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -210,51 +211,64 @@ class SeriesEditViewModel internal constructor(
     private var originalDescription: String = ""
     private var originalCoverPath: String? = null
 
+    /** The id whose data the form currently holds or is fetching; a repeat load for it is a no-op. */
+    private var loadedSeriesId: String? = null
+    private var loadJob: Job? = null
+
     /**
      * Load series data for editing.
      */
     fun loadSeries(seriesId: String) {
-        viewModelScope.launch {
-            state.update { it.copy(isLoading = true, seriesId = seriesId) }
+        // The screen asks again whenever it is recreated (rotation, theme, fold). The form already
+        // holds this series, possibly with unsaved edits, so there is nothing to fetch.
+        if (loadedSeriesId == seriesId) return
+        loadedSeriesId = seriesId
 
-            val series = seriesRepository.getById(seriesId)
-            if (series == null) {
-                state.update { it.copy(isLoading = false, error = "Series not found") }
-                return@launch
-            }
-            history.refresh()
-            hierarchy.observePlacement(seriesId)
+        loadJob?.cancel()
+        loadJob =
+            viewModelScope.launch {
+                state.update { it.copy(isLoading = true, seriesId = seriesId) }
 
-            val bookCount = seriesRepository.getBookIdsForSeries(seriesId).size
+                val series = seriesRepository.getById(seriesId)
+                if (series == null) {
+                    // Let the same id be asked for again: nothing was loaded.
+                    loadedSeriesId = null
+                    state.update { it.copy(isLoading = false, error = "Series not found") }
+                    return@launch
+                }
+                history.refresh()
+                hierarchy.observePlacement(seriesId)
 
-            // Get cover path if it exists
-            val coverPath =
-                if (imageRepository.seriesCoverExists(seriesId)) {
-                    imageRepository.getSeriesCoverPath(seriesId)
-                } else {
-                    // Missing locally but present on the server: fetch it for the next open.
-                    if (series.coverPath != null) imageRepository.ensureSeriesCoverCached(seriesId)
-                    null
+                val bookCount = seriesRepository.getBookIdsForSeries(seriesId).size
+
+                // Get cover path if it exists
+                val coverPath =
+                    if (imageRepository.seriesCoverExists(seriesId)) {
+                        imageRepository.getSeriesCoverPath(seriesId)
+                    } else {
+                        // Missing locally but present on the server: fetch it for the next open.
+                        if (series.coverPath != null) imageRepository.ensureSeriesCoverCached(seriesId)
+                        null
+                    }
+
+                // Store original values
+                originalName = series.name
+                originalDescription = series.description.orEmpty()
+                originalCoverPath = coverPath
+
+                state.update { current ->
+                    current.copy(
+                        isLoading = false,
+                        name = series.name,
+                        description = series.description.orEmpty(),
+                        coverPath = coverPath,
+                        bookCount = bookCount,
+                        hasChanges = false,
+                    )
                 }
 
-            // Store original values
-            originalName = series.name
-            originalDescription = series.description.orEmpty()
-            originalCoverPath = coverPath
-
-            state.update { current ->
-                current.copy(
-                    isLoading = false,
-                    name = series.name,
-                    description = series.description.orEmpty(),
-                    coverPath = coverPath,
-                    bookCount = bookCount,
-                    hasChanges = false,
-                )
+                logger.debug { "Loaded series for editing: ${series.name}, bookCount=$bookCount" }
             }
-
-            logger.debug { "Loaded series for editing: ${series.name}, bookCount=$bookCount" }
-        }
     }
 
     /**

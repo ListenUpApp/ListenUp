@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.util.HoldUnsavedWork
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
@@ -109,6 +110,7 @@ fun ChapterEditorScreen(
     // The toolbar arrow is not the only way out. Without this the system back gesture pops the
     // screen straight past the confirmation, and the draft — the only copy of the work — is gone.
     PlatformBackHandler(enabled = isDirty) { pendingDiscard = true }
+    HoldUnsavedWork(active = isDirty)
 
     // Open where the listener already is. A 65-hour book opened at 0:00 is technically correct and
     // useless; when this book is the one loaded, the interesting boundary is the one being heard.

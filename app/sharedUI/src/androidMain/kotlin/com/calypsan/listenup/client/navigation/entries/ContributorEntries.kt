@@ -45,21 +45,19 @@ internal fun EntryProviderScope<NavKey>.contributorEntries(backStack: NavBackSta
         com.calypsan.listenup.client.features.contributoredit.ContributorEditScreen(
             contributorId = args.contributorId,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onSaveSuccess = {
                 // Navigate back after successful save
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onMergedInto = { survivingContributorId ->
                 // Drop BOTH the editor and the detail page beneath it: a rename-collision merge
                 // soft-deleted the contributor they describe, so popping only the editor lands on
                 // an empty shell that takes another Back to escape (an alias merge survives in
                 // place — for it this is a reload of the same page). Land on the survivor instead.
-                backStack.removeAt(backStack.lastIndex)
-                if (backStack.lastOrNull() is ContributorDetail) {
-                    backStack.removeAt(backStack.lastIndex)
-                }
+                backStack.popFrom(args)
+                (backStack.lastOrNull() as? ContributorDetail)?.let { backStack.popFrom(it) }
                 backStack.add(ContributorDetail(survivingContributorId))
             },
         )

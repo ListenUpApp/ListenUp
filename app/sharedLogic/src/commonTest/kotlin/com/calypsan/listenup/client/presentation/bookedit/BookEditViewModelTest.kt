@@ -240,6 +240,76 @@ class BookEditViewModelTest :
             }
         }
 
+        test("loading the id already loaded keeps unsaved edits") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns
+                    AppResult.Success(createBookEditData(title = "Stored title"))
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("My edit"))
+
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.title shouldBe "My edit"
+                viewModel.state.value.hasChanges shouldBe true
+            }
+        }
+
+        test("loading the id already loaded does not read the store a second time") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(createBookEditData())
+                val viewModel = fixture.build()
+
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.loadBookForEditUseCase("book-1") }
+            }
+        }
+
+        test("loading a different id replaces the form") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns
+                    AppResult.Success(createBookEditData(bookId = "book-1", title = "First"))
+                everySuspend { fixture.loadBookForEditUseCase("book-2") } returns
+                    AppResult.Success(createBookEditData(bookId = "book-2", title = "Second"))
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("My edit"))
+
+                viewModel.loadBook("book-2")
+                advanceUntilIdle()
+
+                viewModel.state.value.title shouldBe "Second"
+                viewModel.state.value.hasChanges shouldBe false
+            }
+        }
+
+        test("a failed load can be retried for the same id") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns failureOf("Book not found")
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns
+                    AppResult.Success(createBookEditData(title = "Recovered"))
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.title shouldBe "Recovered"
+            }
+        }
+
         test("a held book's edit form knows it is held") {
             runTest {
                 val fixture = createFixture()

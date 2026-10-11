@@ -69,6 +69,7 @@ import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.util.HoldUnsavedWork
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
@@ -167,6 +168,7 @@ fun SeriesEditScreen(
     PlatformBackHandler(enabled = state.hasChanges) {
         showUnsavedChangesDialog = true
     }
+    HoldUnsavedWork(active = state.hasChanges)
 
     ListenUpScaffold(
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),

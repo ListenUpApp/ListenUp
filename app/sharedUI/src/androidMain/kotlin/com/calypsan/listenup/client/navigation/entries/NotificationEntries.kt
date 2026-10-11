@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.features.notifications.NotificationsScreen
+import com.calypsan.listenup.client.navigation.popFrom
 import com.calypsan.listenup.client.navigation.Notifications
 
 /**
@@ -17,7 +18,7 @@ internal fun EntryProviderScope<NavKey>.notificationEntries(
 ) {
     entry<Notifications> {
         NotificationsScreen(
-            onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
+            onNavigateBack = { backStack.popFrom(Notifications) },
             onAction = onAction,
         )
     }

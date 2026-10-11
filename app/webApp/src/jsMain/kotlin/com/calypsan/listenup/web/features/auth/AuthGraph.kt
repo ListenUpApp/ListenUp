@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.auth
 
 import androidx.lifecycle.ViewModelStore
+import com.calypsan.listenup.web.nav.RouteSession
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
@@ -71,24 +72,24 @@ class LoginSession(
     val state: StateFlow<LoginUiState>,
     val submit: (email: String, password: String) -> Unit,
     val clearError: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** An open setup screen and the teardown for it. See [LoginSession]. */
 class SetupSession(
     val state: StateFlow<SetupUiState>,
     val submit: (firstName: String, lastName: String, email: String, password: String, passwordConfirm: String) -> Unit,
     val clearError: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** An open registration screen and the teardown for it. See [LoginSession]. */
 class RegisterSession(
     val state: StateFlow<RegisterUiState>,
     val submit: (email: String, password: String, firstName: String, lastName: String) -> Unit,
     val clearError: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * An open forgot-password screen and the teardown for it. See [LoginSession].
@@ -103,8 +104,8 @@ class ForgotPasswordSession(
     val completeReset: (code: String, newPassword: String) -> Unit,
     val checkStatus: () -> Unit,
     val retryRequest: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * An open invite-claim screen and the teardown for it. See [LoginSession].
@@ -117,8 +118,8 @@ class ClaimInviteSession(
     val state: StateFlow<ClaimInviteUiState>,
     val lookUp: (code: String) -> Unit,
     val claim: (password: String, firstName: String, lastName: String) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** An open pending-approval screen and the teardown for it. See [LoginSession]. */
 class PendingApprovalSession(
@@ -126,8 +127,8 @@ class PendingApprovalSession(
     val checkStatus: () -> Unit,
     val cancelRegistration: () -> Unit,
     val acknowledgeApproval: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * The production seam, over the started client graph.

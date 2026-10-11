@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookedit
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
@@ -24,8 +25,8 @@ class BookEditSession(
     val state: StateFlow<BookEditUiState>,
     val navActions: Flow<BookEditNavAction>,
     val onEvent: (BookEditUiEvent) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the edit page gets its state. Production resolves the shared ViewModel out of the client

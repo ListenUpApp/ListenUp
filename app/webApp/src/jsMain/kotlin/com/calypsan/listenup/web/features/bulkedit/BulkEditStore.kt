@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bulkedit
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
@@ -46,8 +47,8 @@ class BulkEditSession(
     val onTags: (List<String>) -> Unit,
     val onMoods: (List<String>) -> Unit,
     val onApply: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenBulkEdit = (bookIds: List<String>) -> BulkEditSession

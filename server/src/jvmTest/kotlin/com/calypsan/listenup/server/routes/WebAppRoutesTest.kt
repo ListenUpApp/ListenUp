@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.routes
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -76,6 +78,49 @@ class WebAppRoutesTest :
 
                 response.status shouldBe HttpStatusCode.OK
                 response.headers["Cross-Origin-Embedder-Policy"] shouldBe "require-corp"
+            }
+        }
+
+        test("the document and its assets carry the defensive headers") {
+            // The web client keeps its tokens in localStorage, so what the page is allowed to load,
+            // be framed by, or be sniffed into is the mitigation for that decision.
+            testApplication {
+                val root = webRoot()
+                application { routing { webAppRoutes(root) } }
+
+                listOf("/", "/assets/app.js").forEach { path ->
+                    val response = client.get(path)
+
+                    response.headers["X-Content-Type-Options"] shouldBe "nosniff"
+                    response.headers["Referrer-Policy"] shouldBe "same-origin"
+                    response.headers["X-Frame-Options"] shouldBe "DENY"
+                    response.headers["Cross-Origin-Opener-Policy"] shouldBe "same-origin"
+                    response.headers["Cross-Origin-Embedder-Policy"] shouldBe "require-corp"
+                }
+            }
+        }
+
+        test("the document and its assets are served under a content security policy") {
+            testApplication {
+                val root = webRoot()
+                application { routing { webAppRoutes(root) } }
+
+                listOf("/", "/assets/app.js").forEach { path ->
+                    val policy = client.get(path).headers["Content-Security-Policy"].shouldNotBeNull()
+                    val directives = policy.split("; ")
+
+                    directives shouldContain "default-src 'self'"
+                    directives shouldContain "object-src 'none'"
+                    directives shouldContain "frame-ancestors 'none'"
+                    directives shouldContain "connect-src 'self'"
+                    // Script may be the bundle, wasm, and one hashed inline script: never a blanket.
+                    val scriptSources = directives.single { it.startsWith("script-src ") }.split(' ')
+                    scriptSources shouldContain "'self'"
+                    scriptSources shouldContain "'wasm-unsafe-eval'"
+                    scriptSources.any { it.startsWith("'sha256-") } shouldBe true
+                    scriptSources shouldNotContain "'unsafe-inline'"
+                    scriptSources shouldNotContain "'unsafe-eval'"
+                }
             }
         }
 

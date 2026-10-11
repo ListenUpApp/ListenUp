@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.setup
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.result.getOrDefault
 import com.calypsan.listenup.client.core.suspendRunCatching
@@ -38,8 +39,8 @@ class LibrarySetupSession(
      * a reader with a mirror opens offline rather than being walled out by a server that is down.
      */
     val hasLocalLibrary: suspend () -> Boolean,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the gate gets the wizard. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenLibrarySetup = () -> LibrarySetupSession

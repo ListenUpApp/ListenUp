@@ -119,8 +119,8 @@ class ShortcutActionManager {
     /**
      * Clears the pending action after it has been processed.
      *
-     * Should be called after the action has been executed to prevent
-     * re-execution on configuration changes.
+     * Called once navigation has acted on the action, so the same parked action is not
+     * dispatched again.
      */
     fun consumeAction() {
         pendingAction.value = null

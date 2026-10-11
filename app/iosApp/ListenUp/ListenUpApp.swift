@@ -117,7 +117,7 @@ private struct RootView: View {
                 // auth gate (shared) owns resuming the firehose + forced reconcile.
                 if newState == .authenticated { showReauthSheet = false }
                 // Post-auth is the one moment a notification prompt makes sense (Android parity:
-                // AppShell's once-per-session request). No-op on every later transition.
+                // AppShell's once-per-session request). Later sign-ins re-sync the server only.
                 if newState == .authenticated {
                     PushCoordinator.shared.activate()
                     // The error surface belongs to the authenticated shell, so it is built here

@@ -11,6 +11,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isSettled, problemsFor } from './settle.mjs'
+import { recordCspViolations, readCspViolations } from './csp-violations.mjs'
 
 // The number of tests the suite is known to contain. A run that finds fewer has not "passed" —
 // it has failed to discover something, which is the exact way this class of lane lies: the
@@ -116,6 +117,9 @@ await page.addInitScript((dir) => {
   window.__LU_SPARE_FOLDER = dir
 }, process.env.LU_SPARE_FOLDER ?? null)
 
+// Under `preview` the suite runs beneath the production policy, so a block there is a failure.
+await recordCspViolations(page)
+
 const startedAt = Date.now()
 await page.goto(`${BASE}/test/kotest.html`, { waitUntil: 'load' })
 
@@ -137,6 +141,8 @@ for (;;) {
     break
   }
 }
+
+pageErrors.push(...(await readCspViolations(page)))
 
 await browser.close()
 await server?.close()

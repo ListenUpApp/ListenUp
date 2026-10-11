@@ -430,6 +430,7 @@ private struct InboxBookRow: View {
                             Text(author)
                                 .font(.footnote)
                                 .foregroundStyle(Color.secondary)
+                                .lineLimit(1)
                         }
                         Text(book.formattedDuration)
                             .font(.caption)

@@ -27,69 +27,22 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.web.lifecycle.Playhead
 import com.calypsan.listenup.web.lifecycle.flushPositionWhenHidden
 import com.calypsan.listenup.web.lifecycle.keepCoverCookieFreshWhileVisible
+import com.calypsan.listenup.web.lifecycle.lapseWhenAnotherTabSignsOut
 import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.auth.graphConnectionHealth
-import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
-import com.calypsan.listenup.web.features.bookedit.graphBookEdit
-import com.calypsan.listenup.web.features.chaptereditor.graphChapterEditor
-import com.calypsan.listenup.web.features.books.graphMultiSelect
-import com.calypsan.listenup.web.features.bulkedit.graphBulkEdit
-import com.calypsan.listenup.web.features.browse.graphBrowseFacet
-import com.calypsan.listenup.web.features.browse.graphGenreDestination
-import com.calypsan.listenup.web.features.admin.graphCreateInvite
-import com.calypsan.listenup.web.features.admin.graphOrganize
-import com.calypsan.listenup.web.features.admin.graphUpload
-import com.calypsan.listenup.web.features.admin.graphUserDetail
-import com.calypsan.listenup.web.features.readers.graphBookReaders
-import com.calypsan.listenup.web.features.ratings.graphBookRatings
-import com.calypsan.listenup.web.features.search.graphSeeAll
-import com.calypsan.listenup.web.features.sync.graphDeadLetters
-import com.calypsan.listenup.web.features.match.graphMatchDetails
-import com.calypsan.listenup.web.features.contributordetail.graphContributorBooks
-import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
-import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
 import com.calypsan.listenup.web.features.library.graphLibrary
-import com.calypsan.listenup.web.features.nowplaying.graphPlayback
-import com.calypsan.listenup.web.features.discover.graphDiscover
-import com.calypsan.listenup.web.features.home.graphHome
 import com.calypsan.listenup.web.features.admin.AdminSessions
-import com.calypsan.listenup.web.features.admin.graphAdmin
-import com.calypsan.listenup.web.features.admin.graphAdminInbox
-import com.calypsan.listenup.web.features.admin.graphBackups
-import com.calypsan.listenup.web.features.admin.graphImportFlow
-import com.calypsan.listenup.web.features.admin.graphImports
-import com.calypsan.listenup.web.features.admin.graphCategories
-import com.calypsan.listenup.web.features.admin.graphRestore
-import com.calypsan.listenup.web.features.admin.graphCollectionDetail
-import com.calypsan.listenup.web.features.admin.graphCollections
-import com.calypsan.listenup.web.features.admin.graphServerSettings
-import com.calypsan.listenup.web.features.admin.graphLibrarySettings
-import com.calypsan.listenup.web.features.devices.graphDevices
-import com.calypsan.listenup.web.features.hardcover.graphBookHardcover
-import com.calypsan.listenup.web.features.hardcover.graphHardcover
-import com.calypsan.listenup.web.features.hardcover.graphHardcoverMatch
-import com.calypsan.listenup.web.features.licences.graphLicences
-import com.calypsan.listenup.web.features.settings.graphSettings
-import com.calypsan.listenup.web.features.shelf.graphShelfDetail
-import com.calypsan.listenup.web.features.shelf.graphShelfEdit
-import com.calypsan.listenup.web.features.search.graphSearch
-import com.calypsan.listenup.web.features.notifications.graphNotificationBell
-import com.calypsan.listenup.web.features.notifications.graphNotificationPrefs
-import com.calypsan.listenup.web.features.notifications.graphNotifications
 import com.calypsan.listenup.web.features.setup.graphLibrarySetup
-import com.calypsan.listenup.web.features.profile.graphEditProfile
-import com.calypsan.listenup.web.features.profile.graphProfile
-import com.calypsan.listenup.web.features.seriesdetail.graphSeriesDetail
-import com.calypsan.listenup.web.features.seriesedit.graphSeriesEdit
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -106,6 +59,7 @@ import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.dsl.module
+import org.w3c.dom.Element
 import org.w3c.dom.Worker
 
 /**
@@ -120,7 +74,21 @@ import org.w3c.dom.Worker
  */
 fun main() {
     val mount = document.getElementById(MOUNT_ID) ?: return
+    bootGuarded(mount)
+}
 
+/** Boots into [mount], or says why it could not: the one guard over everything that runs before the first render. */
+private fun bootGuarded(mount: Element) {
+    try {
+        bootInto(mount)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        showBootFailure(mount, e)
+    }
+}
+
+private fun bootInto(mount: Element) {
     // Probe first, boot second. Every precondition below is checked without touching the store,
     // so a browser that can persist the database is unaffected.
     //
@@ -139,7 +107,18 @@ fun main() {
     // call can race the seed write and dial an unconfigured client. Sequencing render as this
     // coroutine's continuation (rather than firing both concurrently) makes that race structurally
     // impossible without blocking the JS thread — suspension yields, it doesn't freeze the tab.
-    CoroutineScope(Dispatchers.Default).launch {
+    // A failure before the mount has nothing else to say it, so the handler renders the reason.
+    // After the mount the app is already on screen and a stray child failure must not wipe it.
+    var mounted = false
+    val bootFailureHandler =
+        CoroutineExceptionHandler { _, failure ->
+            if (mounted) {
+                console.error("ListenUp: a background task failed", failure)
+            } else {
+                showBootFailure(mount, failure)
+            }
+        }
+    CoroutineScope(Dispatchers.Default + bootFailureHandler).launch {
         seedServerUrlIfNeeded(koin)
         // Device-local preferences sit behind a suspend read, so they arrive as a boot step or not
         // at all — the StateFlows start on hard-coded defaults and nothing else ever replaces them.
@@ -148,34 +127,7 @@ fun main() {
         // wrong theme and then correct it in front of the reader.
         koin.get<LocalPreferences>().initializeLocalPreferences()
         connectSyncWhenAuthenticated(koin, this)
-        // The disposer is deliberately discarded: this scope lives as long as the tab does.
-        flushPositionWhenHidden(
-            playhead = {
-                // Resolved per event, not at boot: `koin.get<PlaybackManager>()` would build the
-                // whole playback graph before anyone had asked to play anything.
-                val manager = koin.get<PlaybackManager>()
-                manager.currentBookId.value?.let { Playhead(it, manager.currentPositionMs.value) }
-            },
-            flush = { koin.get<ProgressTracker>().savePositionNow(it.bookId, it.positionMs) },
-            isHidden = { document.asDynamic().visibilityState == "hidden" },
-            scope = this,
-        )
-        recoverSyncOnReturn(
-            recover = { koin.get<SyncRepository>().recoverRealtime() },
-            isVisible = { document.asDynamic().visibilityState == "visible" },
-            scope = this,
-        )
-        // Covers authenticate with a cookie the DOM sends on its own; keep its token usable while
-        // the tab is on screen (and only then). See keepCoverCookieFreshWhileVisible.
-        keepCoverCookieFreshWhileVisible(
-            ensureFresh = {
-                if (koin.get<AuthSession>().authState.value is AuthState.Authenticated) {
-                    koin.get<AudioTokenProvider>().prepareForPlayback()
-                }
-            },
-            isVisible = { document.asDynamic().visibilityState == "visible" },
-            scope = this,
-        )
+        startLifecycleHooks(koin, this)
 
         // Read and strip BEFORE the router is built, so it never sees the code: the router
         // reads `window.location` in its constructor, and an entry it captured with the code in
@@ -186,69 +138,14 @@ fun main() {
         }
 
         val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
+        mounted = true
         renderComposable(root = mount) {
             AuthGate(
                 authGraph = graphAuth(koin),
                 router = router,
-                openBookDetail = graphBookDetail(koin),
-                openBookEdit = graphBookEdit(koin),
-                openChapterEditor = graphChapterEditor(koin),
-                matchDetails = graphMatchDetails(koin),
-                openContributorDetail = graphContributorDetail(koin),
-                openContributorBooks = graphContributorBooks(koin),
-                openContributorEdit = graphContributorEdit(koin),
-                openSeriesDetail = graphSeriesDetail(koin),
-                openSeriesEdit = graphSeriesEdit(koin),
-                openNotifications = graphNotifications(koin),
-                openNotificationPrefs = graphNotificationPrefs(koin),
+                graph = graphWeb(koin),
                 openLibrarySetup = graphLibrarySetup(koin),
                 openConnectionHealth = graphConnectionHealth(koin),
-                openProfile = graphProfile(koin),
-                openEditProfile = graphEditProfile(koin),
-                openNotificationBell = graphNotificationBell(koin),
-                openLibrary = graphLibrary(koin),
-                openHome = graphHome(koin),
-                openDiscover = graphDiscover(koin),
-                openSettings = graphSettings(koin),
-                openLicences = graphLicences(),
-                openDevices = graphDevices(koin),
-                openHardcover = graphHardcover(koin),
-                openAdmin = graphAdmin(koin),
-                admin =
-                    AdminSessions(
-                        librarySettings = graphLibrarySettings(koin),
-                        inbox = graphAdminInbox(koin),
-                        serverSettings = graphServerSettings(koin),
-                        categories = graphCategories(koin),
-                        collections = graphCollections(koin),
-                        collectionDetail = graphCollectionDetail(koin),
-                        backups = graphBackups(koin),
-                        restore = graphRestore(koin),
-                        imports = graphImports(koin),
-                        importFlow = graphImportFlow(koin),
-                        createInvite = graphCreateInvite(koin),
-                        userDetail = graphUserDetail(koin),
-                        upload = graphUpload(koin),
-                        organize = graphOrganize(koin),
-                        inboxBadge = graphInboxBadge(koin),
-                        restrictedBooks = graphRestrictedBooks(koin),
-                    ),
-                openShelfDetail = graphShelfDetail(koin),
-                openShelfEdit = graphShelfEdit(koin),
-                openSearch = graphSearch(koin),
-                openMultiSelect = graphMultiSelect(koin),
-                openBulkEdit = graphBulkEdit(koin),
-                openBrowseFacet = graphBrowseFacet(koin),
-                openGenreDestination = graphGenreDestination(koin),
-                openBookReaders = graphBookReaders(koin),
-                openBookRatings = graphBookRatings(koin),
-                openHardcoverMatch = graphHardcoverMatch(koin),
-                openBookHardcover = graphBookHardcover(koin),
-                openSeeAll = graphSeeAll(koin),
-                openDeadLetters = graphDeadLetters(koin),
-                openPlayback = graphPlayback(koin),
-                observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
-                observeCurrentUserId = { koin.get<UserRepository>().observeCurrentUser().map { it?.id?.value } },
                 observeThemeMode = { koin.get<LocalPreferences>().themeMode },
                 initialInviteCode = inviteCode,
                 observeErrors = { koin.get<ErrorBus>().errors },
@@ -262,6 +159,87 @@ fun main() {
                     }
                 },
             )
+        }
+    }
+}
+
+/**
+ * Starts the tab-lifetime behaviours that outlive any one screen: saving the playhead when the tab
+ * hides, recovering realtime sync on return, ending the session when another tab signs out, and
+ * keeping the cover cookie fresh.
+ */
+private fun startLifecycleHooks(
+    koin: Koin,
+    scope: CoroutineScope,
+) {
+    // The disposer is deliberately discarded: this scope lives as long as the tab does.
+    flushPositionWhenHidden(
+        playhead = {
+            // Resolved per event, not at boot: `koin.get<PlaybackManager>()` would build the
+            // whole playback graph before anyone had asked to play anything.
+            val manager = koin.get<PlaybackManager>()
+            manager.currentBookId.value?.let { Playhead(it, manager.currentPositionMs.value) }
+        },
+        flush = { koin.get<ProgressTracker>().savePositionNow(it.bookId, it.positionMs) },
+        isHidden = { document.asDynamic().visibilityState == "hidden" },
+        scope = scope,
+    )
+    recoverSyncOnReturn(
+        recover = { koin.get<SyncRepository>().recoverRealtime() },
+        isVisible = { document.asDynamic().visibilityState == "visible" },
+        scope = scope,
+    )
+    // Another tab signing out of the shared session ends this tab's view of it at once.
+    lapseWhenAnotherTabSignsOut(
+        isSignedIn = { koin.get<AuthSession>().authState.value is AuthState.Authenticated },
+        lapse = { koin.get<AuthSession>().clearSessionCredentials() },
+        scope = scope,
+    )
+    // Covers authenticate with a cookie the DOM sends on its own; keep its token usable while
+    // the tab is on screen (and only then). See keepCoverCookieFreshWhileVisible.
+    keepCoverCookieFreshWhileVisible(
+        ensureFresh = {
+            if (koin.get<AuthSession>().authState.value is AuthState.Authenticated) {
+                koin.get<AudioTokenProvider>().prepareForPlayback()
+            }
+        },
+        isVisible = { document.asDynamic().visibilityState == "visible" },
+        scope = scope,
+    )
+}
+
+/**
+ * Says why the app could not start, in place of the blank page a failure before the first render
+ * would otherwise leave.
+ *
+ * Private mode and blocked site data make browser storage throw, and Koin's eager singletons read
+ * it before anything is drawn. The reader can act on a reason and a retry; they cannot act on white.
+ * The failure is also logged, so the console keeps the stack the screen does not show.
+ */
+private fun showBootFailure(
+    mount: Element,
+    failure: Throwable,
+) {
+    console.error("ListenUp could not start", failure)
+    val reason = failure.message ?: failure::class.simpleName ?: "Unknown error"
+    renderComposable(root = mount) { BootFailure(reason) { window.location.reload() } }
+}
+
+@Composable
+private fun BootFailure(
+    reason: String,
+    onRetry: () -> Unit,
+) {
+    WebAppSurface {
+        Div(attrs = {
+            classes("lapse")
+            attr("role", "alert")
+        }) {
+            Div(attrs = { classes("lapse-text") }) {
+                Span(attrs = { classes("lapse-t") }) { Text("ListenUp could not start") }
+                Span(attrs = { classes("lapse-b") }) { Text(reason) }
+            }
+            Button(kind = ButtonKind.Primary, onClick = onRetry, label = "Try again") { Text("Try again") }
         }
     }
 }

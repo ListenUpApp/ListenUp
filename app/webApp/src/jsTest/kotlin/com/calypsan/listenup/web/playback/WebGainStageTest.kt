@@ -261,8 +261,12 @@ class WebGainStageTest :
         test("a cross-origin source is refused rather than silently muted") {
             // ⛔ A media element the page cannot read taints the graph and outputs silence — not an
             // error. Checked before routing, because there is no after.
-            val element = audioElement()
-            element.src = "https://cdn.example.invalid/book/one.m4a"
+            // A stand-in element, not a real one given a foreign `src`: the page's policy forbids
+            // loading cross-origin media at all, and that is not what is under test. What is under
+            // test is the stage's own decision about an element that reports a foreign source.
+            val element =
+                js("({ currentSrc: 'https://cdn.example.invalid/book/one.m4a', src: '', volume: 1 })")
+                    .unsafeCast<HTMLAudioElement>()
             val context = stuckContext()
             val stage = WebGainStage(element) { context }
 

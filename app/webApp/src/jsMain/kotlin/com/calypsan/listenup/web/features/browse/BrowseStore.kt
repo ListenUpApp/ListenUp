@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.browse
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
@@ -14,8 +15,8 @@ import org.koin.core.Koin
 /** An open browse-by-facet session — every book carrying one tag or one mood. */
 class BrowseFacetSession(
     val state: StateFlow<BrowseFacetUiState>,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenBrowseFacet = (kind: FacetKind, facetId: String) -> BrowseFacetSession
@@ -53,8 +54,8 @@ fun fixedBrowseFacet(
 class GenreDestinationSession(
     val state: StateFlow<GenreDestinationUiState>,
     val onToggleSubGenres: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its state. */
 typealias OpenGenreDestination = (genreId: String) -> GenreDestinationSession

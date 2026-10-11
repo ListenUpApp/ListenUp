@@ -16,6 +16,15 @@ private val log = loggerFor<CoverContentResolver>()
 /** The largest cover file read from a library folder. Matches the managed cover store's own limit. */
 internal const val LIBRARY_COVER_MAX_BYTES: Long = 10L * 1024 * 1024
 
+/** The only types an embedded cover may be served as; see [CoverContentResolver]. */
+private val ALLOWED_EMBEDDED_TYPES =
+    listOf(
+        ContentType.Image.JPEG,
+        ContentType.Image.PNG,
+        ContentType.parse("image/webp"),
+        ContentType.Image.GIF,
+    )
+
 /**
  * A cover's full-size bytes paired with the content type they should be served under.
  *
@@ -88,9 +97,20 @@ class CoverContentResolver internal constructor(
             } ?: return null
         return CoverContent(
             artwork.bytes,
-            runCatching { ContentType.parse(artwork.mime) }.getOrDefault(ContentType.Image.JPEG),
+            embeddedContentType(artwork.mime),
         )
     }
+
+    /**
+     * The embedded artwork's declared type, clamped to the image types a cover can be.
+     *
+     * The tag is whatever the file's author wrote, and it becomes the `Content-Type` of a
+     * same-origin response; anything outside the allowlist is served as the JPEG it almost
+     * certainly is rather than as, say, `text/html`.
+     */
+    private fun embeddedContentType(declared: String): ContentType =
+        ALLOWED_EMBEDDED_TYPES.firstOrNull { it.toString().equals(declared.trim(), ignoreCase = true) }
+            ?: ContentType.Image.JPEG
 
     /**
      * Maps a cover image file's extension to its [ContentType]. Unknown extensions fall back to

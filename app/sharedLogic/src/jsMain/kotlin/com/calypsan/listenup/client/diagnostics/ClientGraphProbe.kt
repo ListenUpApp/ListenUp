@@ -26,6 +26,7 @@ import com.calypsan.listenup.core.Timestamp
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import org.koin.core.module.Module
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.w3c.dom.Worker
@@ -247,6 +248,7 @@ fun probeRuntimeEntryPoints(
 internal fun browserGraph(
     worker: Worker,
     dbName: String,
+    overrides: List<Module> = emptyList(),
 ) = koinApplication {
     allowOverride(true)
     modules(
@@ -258,7 +260,7 @@ internal fun browserGraph(
                         .databaseBuilder<ListenUpDatabase>(name = dbName)
                         .buildConfigured(WebWorkerSQLiteDriver(get()))
                 }
-            },
+            } + overrides,
     )
 }
 

@@ -74,6 +74,7 @@ class CoverResponderEtagTest :
                     response.headers[HttpHeaders.ETag] shouldBe "\"abc123\""
                     response.headers[HttpHeaders.CacheControl] shouldBe
                         "private, max-age=31536000, immutable"
+                    response.headers["X-Content-Type-Options"] shouldBe "nosniff"
                     response.bodyAsBytes().toList() shouldBe jpegBytes.toList()
                 }
             } finally {

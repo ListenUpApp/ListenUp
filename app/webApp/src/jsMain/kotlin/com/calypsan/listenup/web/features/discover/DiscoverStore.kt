@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.discover
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
@@ -55,8 +56,8 @@ class DiscoverSession(
      * section.
      */
     val onRefreshActivity: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its session. Production resolves all three real ViewModels out of the client

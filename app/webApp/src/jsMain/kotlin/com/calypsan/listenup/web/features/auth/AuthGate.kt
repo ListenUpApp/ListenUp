@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.nav.rememberSession
+import com.calypsan.listenup.web.WebGraph
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.devices.OpenDevices
 import com.calypsan.listenup.web.features.hardcover.OpenBookHardcover
@@ -91,47 +93,9 @@ import com.calypsan.listenup.web.features.admin.AdminSessions
 fun AuthGate(
     authGraph: AuthGraph,
     router: Router,
-    openBookDetail: OpenBookDetail,
-    openBookEdit: OpenBookEdit,
-    openChapterEditor: OpenChapterEditor,
-    matchDetails: MatchDetailsGraph,
-    openContributorDetail: OpenContributorDetail,
-    openContributorBooks: OpenContributorBooks,
-    openContributorEdit: OpenContributorEdit,
-    openSeriesDetail: OpenSeriesDetail,
-    openSeriesEdit: OpenSeriesEdit,
-    openNotifications: OpenNotifications,
-    openNotificationPrefs: OpenNotificationPrefs,
-    openLicences: OpenLicences,
+    graph: WebGraph,
     openLibrarySetup: OpenLibrarySetup,
     openConnectionHealth: OpenConnectionHealth,
-    openProfile: OpenProfile,
-    openEditProfile: OpenEditProfile,
-    openNotificationBell: OpenNotificationBell,
-    openLibrary: OpenLibrary,
-    openHome: OpenHome,
-    openDiscover: OpenDiscover,
-    openSettings: OpenSettings,
-    openDevices: OpenDevices,
-    openHardcover: OpenHardcover,
-    openAdmin: OpenAdmin,
-    admin: AdminSessions,
-    openShelfDetail: OpenShelfDetail,
-    openShelfEdit: OpenShelfEdit,
-    openSearch: OpenSearch,
-    openMultiSelect: OpenMultiSelect,
-    openBulkEdit: OpenBulkEdit,
-    openBrowseFacet: OpenBrowseFacet,
-    openGenreDestination: OpenGenreDestination,
-    openBookReaders: OpenBookReaders,
-    openBookRatings: OpenBookRatings,
-    openHardcoverMatch: OpenHardcoverMatch,
-    openBookHardcover: OpenBookHardcover,
-    openSeeAll: OpenSeeAll,
-    openDeadLetters: OpenDeadLetters,
-    openPlayback: OpenPlayback,
-    observeIsAdmin: () -> Flow<Boolean>,
-    observeCurrentUserId: () -> Flow<String?>,
     observeThemeMode: () -> Flow<ThemeMode>,
     initialInviteCode: String? = null,
     observeErrors: () -> Flow<AppError>,
@@ -216,8 +180,7 @@ fun AuthGate(
                 // SessionExpired from this very flow, so reading both would show two banners for
                 // one expired session — and the projection additionally carries the version-
                 // mismatch hint, which nothing on web could surface before.
-                val health = remember { openConnectionHealth() }
-                DisposableEffect(health) { onDispose { health.close() } }
+                val health = rememberSession { openConnectionHealth() }
                 ConnectionHealthBanner(
                     state = health.state.collectAsState().value,
                     authGraph = authGraph,
@@ -226,51 +189,13 @@ fun AuthGate(
                 LibrarySetupGate(openLibrarySetup, sessionLapsed = state is AuthState.SessionLapsed) {
                     WebAppRoot(
                         router = router,
-                        openBookDetail = openBookDetail,
-                        openBookEdit = openBookEdit,
-                        openChapterEditor = openChapterEditor,
-                        matchDetails = matchDetails,
-                        openContributorDetail = openContributorDetail,
-                        openContributorBooks = openContributorBooks,
-                        openContributorEdit = openContributorEdit,
-                        openSeriesDetail = openSeriesDetail,
-                        openSeriesEdit = openSeriesEdit,
-                        openNotifications = openNotifications,
-                        openNotificationPrefs = openNotificationPrefs,
-                        openLicences = openLicences,
-                        openProfile = openProfile,
-                        openEditProfile = openEditProfile,
-                        openNotificationBell = openNotificationBell,
-                        openLibrary = openLibrary,
-                        openHome = openHome,
-                        openDiscover = openDiscover,
-                        openSettings = openSettings,
-                        openDevices = openDevices,
-                        openHardcover = openHardcover,
-                        openAdmin = openAdmin,
-                        admin = admin,
-                        openShelfDetail = openShelfDetail,
-                        openShelfEdit = openShelfEdit,
-                        openSearch = openSearch,
-                        openMultiSelect = openMultiSelect,
-                        openBulkEdit = openBulkEdit,
-                        openBrowseFacet = openBrowseFacet,
-                        openGenreDestination = openGenreDestination,
-                        openBookReaders = openBookReaders,
-                        openBookRatings = openBookRatings,
-                        openHardcoverMatch = openHardcoverMatch,
-                        openBookHardcover = openBookHardcover,
-                        openSeeAll = openSeeAll,
-                        openDeadLetters = openDeadLetters,
+                        graph = graph,
                         // A confirmed bulk action is exactly the kind of thing a toast is for:
                         // the change is real, it happened off-screen, and the number is the
                         // part the reader cannot check for themselves.
                         onToast = { message -> toasts.show(message, ToastTone.Notice) },
                         onActionToast = { text, tone, action -> toasts.show(text, tone, action) },
                         onSignOut = { scope.launch { authGraph.signOut() } },
-                        openPlayback = openPlayback,
-                        observeIsAdmin = observeIsAdmin,
-                        observeCurrentUserId = observeCurrentUserId,
                     )
                 }
             }
@@ -283,8 +208,7 @@ fun AuthGate(
 
 @Composable
 private fun SetupBranch(authGraph: AuthGraph) {
-    val session = remember { authGraph.openSetup() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { authGraph.openSetup() }
 
     AuthLayout(
         title = "Create admin account",
@@ -331,8 +255,7 @@ private fun LibrarySetupGate(
     sessionLapsed: Boolean,
     content: @Composable () -> Unit,
 ) {
-    val session = remember { openLibrarySetup() }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession { openLibrarySetup() }
     val state by session.state.collectAsState()
 
     var finished by remember { mutableStateOf(false) }
@@ -447,8 +370,7 @@ private fun LoginBranch(
 
     when (pane) {
         LoginPane.Register -> {
-            val session = remember { authGraph.openRegister() }
-            DisposableEffect(session) { onDispose { session.close() } }
+            val session = rememberSession { authGraph.openRegister() }
 
             AuthLayout(title = "Create account", subtitle = "Ask this server's admin for access.") {
                 RegisterForm(
@@ -460,8 +382,7 @@ private fun LoginBranch(
         }
 
         LoginPane.Forgot -> {
-            val session = remember { authGraph.openForgotPassword() }
-            DisposableEffect(session) { onDispose { session.close() } }
+            val session = rememberSession { authGraph.openForgotPassword() }
 
             AuthLayout(
                 title = "Reset your password",
@@ -479,8 +400,7 @@ private fun LoginBranch(
         }
 
         LoginPane.Invite -> {
-            val session = remember { authGraph.openClaimInvite() }
-            DisposableEffect(session) { onDispose { session.close() } }
+            val session = rememberSession { authGraph.openClaimInvite() }
 
             // A code that arrived with the link is looked up immediately, so someone who followed
             // an invite lands on "X invited you to Y" rather than on a field asking them to
@@ -507,8 +427,7 @@ private fun LoginBranch(
         }
 
         LoginPane.SignIn -> {
-            val session = remember { authGraph.openLogin() }
-            DisposableEffect(session) { onDispose { session.close() } }
+            val session = rememberSession { authGraph.openLogin() }
 
             AuthLayout(title = "Sign in", subtitle = "Pick up right where you left off in your audiobook library.") {
                 LoginForm(
@@ -530,8 +449,7 @@ private fun PendingApprovalBranch(
     userId: String,
     email: String,
 ) {
-    val session = remember(userId, email) { authGraph.openPendingApproval(userId, email) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(userId, email) { authGraph.openPendingApproval(userId, email) }
 
     AuthLayout(title = "Waiting for approval", subtitle = "Your account needs an admin to let it in.") {
         PendingApprovalPanel(

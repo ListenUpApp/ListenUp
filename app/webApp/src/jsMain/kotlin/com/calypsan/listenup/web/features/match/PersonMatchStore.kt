@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.match
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.ImageChoice
@@ -34,8 +35,8 @@ class PersonMatchSession(
     val setBiographyTicked: (Boolean) -> Unit,
     val chooseBiographySource: (FieldChoice) -> Unit,
     val apply: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its session for a contributor. */
 typealias OpenPersonMatch = (contributorId: String) -> PersonMatchSession

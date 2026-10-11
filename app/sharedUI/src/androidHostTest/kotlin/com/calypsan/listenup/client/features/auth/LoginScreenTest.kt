@@ -2,10 +2,14 @@ package com.calypsan.listenup.client.features.auth
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.calypsan.listenup.client.presentation.auth.LoginUiState
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
@@ -92,4 +96,42 @@ class LoginScreenTest {
 
         composeRule.onNodeWithText("Reset root password").assertDoesNotExist()
     }
+
+    @Test
+    fun `the email survives a save and restore round trip`() {
+        val restorationTester = StateRestorationTester(composeRule)
+        restorationTester.setContent {
+            MaterialTheme { Column { LoginFields(state = LoginUiState.Idle, onSubmit = { _, _ -> }) } }
+        }
+        composeRule.onNodeWithText("Email").performTextInput("reader@example.com")
+
+        restorationTester.emulateSavedInstanceStateRestore()
+
+        editableTextOf("Email") shouldBe "reader@example.com"
+    }
+
+    @Test
+    fun `the password is not restored from saved state`() {
+        // A password must never reach the saved-instance Bundle, which the system can persist to
+        // disk. If someone later "fixes" rotation by making it saveable, this fails.
+        val restorationTester = StateRestorationTester(composeRule)
+        restorationTester.setContent {
+            MaterialTheme { Column { LoginFields(state = LoginUiState.Idle, onSubmit = { _, _ -> }) } }
+        }
+        composeRule.onNodeWithText("Password").performTextInput("s3cret-pass")
+        editableTextOf("Password").length shouldBe "s3cret-pass".length
+
+        restorationTester.emulateSavedInstanceStateRestore()
+
+        editableTextOf("Password") shouldBe ""
+    }
+
+    private fun editableTextOf(label: String): String =
+        composeRule
+            .onNodeWithText(label)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.EditableText)
+            ?.text
+            .orEmpty()
 }

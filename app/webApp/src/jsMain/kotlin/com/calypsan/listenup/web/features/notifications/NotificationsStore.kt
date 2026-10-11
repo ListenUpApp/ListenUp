@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.notifications
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.notifications.NotificationPreference
 import com.calypsan.listenup.client.presentation.notifications.NotificationBellViewModel
@@ -20,8 +21,8 @@ import org.koin.core.Koin
 class NotificationsSession(
     val state: StateFlow<NotificationsUiState>,
     val onMarkRead: (String) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * The unread count, and the teardown for it.
@@ -33,8 +34,8 @@ class NotificationsSession(
  */
 class NotificationBellSession(
     val unreadCount: StateFlow<Int>,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * An open preferences screen, the two gestures it accepts, and the teardown for it.
@@ -47,8 +48,8 @@ class NotificationPrefsSession(
     val state: StateFlow<NotificationPrefsUiState>,
     val onSetPreference: (String, NotificationPreference) -> Unit,
     val onRetry: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the preferences page gets its state. */
 typealias OpenNotificationPrefs = () -> NotificationPrefsSession

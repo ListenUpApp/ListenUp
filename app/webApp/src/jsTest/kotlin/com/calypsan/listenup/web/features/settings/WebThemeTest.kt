@@ -96,6 +96,11 @@ private suspend fun runPrePaintSeed() {
     val source =
         Regex("""<script>([\s\S]*?)</script>""").find(page)?.groupValues?.get(1)
             ?: error("index.html carries no inline pre-paint script")
-    val seed: dynamic = js("Function")
-    seed(source)()
+    // An inline <script> element, not `Function(source)`: the page's policy allows this exact script
+    // by hash and allows no string evaluation, so running it the way the page does is also running
+    // it the only way the policy permits.
+    val script = document.createElement("script")
+    script.textContent = source
+    document.head?.appendChild(script)
+    script.remove()
 }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,8 +16,8 @@ import org.koin.core.Koin
 class InboxBadgeSession(
     val heldCount: StateFlow<Int>,
     val previewBookIds: StateFlow<List<String>>,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the shell gets the held count. Production resolves the real ViewModel; specs hand over numbers. */
 typealias OpenInboxBadge = () -> InboxBadgeSession

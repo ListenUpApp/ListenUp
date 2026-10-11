@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,7 +90,7 @@ fun CollectionPickerSheet(
     isLoading: Boolean = false,
     canCreate: Boolean = false,
 ) {
-    var showCreateDialog by remember { mutableStateOf(false) }
+    var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -379,7 +380,7 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
-    var collectionName by remember { mutableStateOf("") }
+    var collectionName by rememberSaveable { mutableStateOf("") }
     val isValid = collectionName.isNotBlank()
     val focusRequester = remember { FocusRequester() }
 

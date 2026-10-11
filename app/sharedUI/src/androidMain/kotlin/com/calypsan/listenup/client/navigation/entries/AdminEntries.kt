@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.features.admin.upload.UploadBooksScreen
 import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreFromFileScreen
+import com.calypsan.listenup.client.navigation.popFrom
 import com.calypsan.listenup.client.navigation.MatchDetails
 import com.calypsan.listenup.client.navigation.MatchSubject
 import com.calypsan.listenup.client.navigation.ImportFlow
@@ -57,7 +58,7 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             viewModel = viewModel,
             focus = route.focus,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(route)
             },
             onInviteClick = {
                 backStack.add(CreateInvite)
@@ -127,7 +128,7 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
         com.calypsan.listenup.client.features.admin.inbox.AdminInboxScreen(
             viewModel = viewModel,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(AdminInbox)
             },
             // Tapping a row opens the book's detail page: a held book's triage layout (spec §8),
             // where it is edited, matched and released.
@@ -149,7 +150,7 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
         com.calypsan.listenup.client.features.admin.categories.AdminCategoriesScreen(
             viewModel = viewModel,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(AdminCategories)
             },
         )
     }
@@ -158,10 +159,10 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
         CreateInviteScreen(
             viewModel = viewModel,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(CreateInvite)
             },
             onSuccess = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(CreateInvite)
             },
         )
     }
@@ -177,7 +178,7 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
         com.calypsan.listenup.client.features.admin.collections.AdminCollectionsScreen(
             viewModel = viewModel,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(AdminCollections)
             },
             onCollectionClick = { collectionId ->
                 backStack.add(AdminCollectionDetail(collectionId))
@@ -194,7 +195,7 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
         com.calypsan.listenup.client.features.admin.collections.AdminCollectionDetailScreen(
             viewModel = viewModel,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
         )
     }
@@ -208,7 +209,7 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
         com.calypsan.listenup.client.features.admin.UserDetailScreen(
             viewModel = viewModel,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onPermissionsClick = { backStack.add(AdminUserPermissions(args.userId)) },
         )
@@ -222,7 +223,7 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
             }
         com.calypsan.listenup.client.features.admin.UserPermissionsScreen(
             viewModel = viewModel,
-            onBackClick = { backStack.removeAt(backStack.lastIndex) },
+            onBackClick = { backStack.popFrom(args) },
         )
     }
     entry<AdminLibrarySettings> {
@@ -231,7 +232,7 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
         com.calypsan.listenup.client.features.admin.LibrarySettingsScreen(
             viewModel = viewModel,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(AdminLibrarySettings)
             },
         )
     }
@@ -241,7 +242,7 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
         com.calypsan.listenup.client.features.admin.organize.OrganizeSettingsScreen(
             viewModel = viewModel,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(AdminOrganizeSettings)
             },
         )
     }
@@ -252,7 +253,7 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
     entry<AdminBackups> {
         AdminBackupScreen(
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(AdminBackups)
             },
             onCreateClick = {
                 backStack.add(CreateBackup)
@@ -275,20 +276,20 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
     }
     entry<CreateBackup> {
         CreateBackupScreen(
-            onBackClick = { backStack.removeAt(backStack.lastIndex) },
+            onBackClick = { backStack.popFrom(CreateBackup) },
             onSuccess = {
                 // Navigate back to backup list after successful creation
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(CreateBackup)
             },
         )
     }
     entry<RestoreBackup> { args ->
         RestoreBackupScreen(
             backupId = args.backupId,
-            onBackClick = { backStack.removeAt(backStack.lastIndex) },
+            onBackClick = { backStack.popFrom(args) },
             onComplete = {
                 // Navigate back to backup list after restore
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
         )
     }
@@ -296,20 +297,20 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
     // is the single ABS import surface; the import list lives inline in AdminBackupScreen.
     entry<ImportFlow> {
         ImportFlowScreen(
-            onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
+            onNavigateBack = { backStack.popFrom(ImportFlow) },
         )
     }
     entry<UploadBooks> {
         UploadBooksScreen(
-            onBackClick = { backStack.removeAt(backStack.lastIndex) },
+            onBackClick = { backStack.popFrom(UploadBooks) },
         )
     }
     entry<RestoreFromFile> {
         RestoreFromFileScreen(
-            onBackClick = { backStack.removeAt(backStack.lastIndex) },
+            onBackClick = { backStack.popFrom(RestoreFromFile) },
             onUploaded = { backupId ->
                 // Drop the upload step, continue into the existing restore-confirmation flow.
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(RestoreFromFile)
                 backStack.add(RestoreBackup(backupId.value))
             },
         )

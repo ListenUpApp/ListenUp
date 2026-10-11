@@ -280,6 +280,80 @@ class SeriesEditViewModelTest :
             }
         }
 
+        test("loading the id already loaded keeps unsaved edits") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("My edit"))
+
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "My edit"
+                viewModel.state.value.hasChanges shouldBe true
+            }
+        }
+
+        test("loading the id already loaded does not read the store a second time") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                val viewModel = fixture.build()
+
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.seriesRepository.getById("series-1") }
+            }
+        }
+
+        test("loading a different id replaces the form") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries(id = "series-1", name = "First")
+                everySuspend { fixture.seriesRepository.getById("series-2") } returns createSeries(id = "series-2", name = "Second")
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries(any()) } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists(any()) } returns false
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("My edit"))
+
+                viewModel.loadSeries("series-2")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "Second"
+                viewModel.state.value.hasChanges shouldBe false
+            }
+        }
+
+        test("a failed load can be retried for the same id") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns null
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries(name = "Recovered")
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "Recovered"
+            }
+        }
+
         // ========== Change Tracking Tests ==========
 
         test("NameChanged updates state and tracks changes") {

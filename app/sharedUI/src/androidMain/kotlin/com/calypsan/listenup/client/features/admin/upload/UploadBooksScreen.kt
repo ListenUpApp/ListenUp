@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.util.HoldUnsavedWork
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
@@ -131,6 +132,9 @@ fun UploadBooksScreen(
     // abandoning the session would race the import it has already started; it lasts moments, so
     // Back waits it out rather than offering a stop with no clean meaning.
     PlatformBackHandler(enabled = finalizing) { /* deliberately inert while the server imports */ }
+
+    // A tap from outside the app (push, shared link, shortcut) must not clear this entry either.
+    HoldUnsavedWork(active = uploading || finalizing)
 
     ListenUpScaffold(
         topBar = {

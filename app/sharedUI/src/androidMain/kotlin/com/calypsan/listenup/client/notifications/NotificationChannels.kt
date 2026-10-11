@@ -11,8 +11,6 @@ import android.content.Context
  * into their system Settings. Picking ids deliberately at design time matters.
  *
  * - [PLAYBACK]: audiobook playback controls (IMPORTANCE_LOW, no badge).
- * - [SYNC]: background sync activity (IMPORTANCE_LOW, silent, no badge).
- * - [DOWNLOAD]: download progress (IMPORTANCE_LOW, silent, no badge).
  * - [SOCIAL]: push-delivered invites and social activity (IMPORTANCE_HIGH, badge, default sound).
  *
  * Call [registerAll] from `Application.onCreate`. It is idempotent — Android ignores
@@ -20,8 +18,6 @@ import android.content.Context
  */
 object NotificationChannels {
     const val PLAYBACK = "listenup_playback"
-    const val SYNC = "listenup_sync"
-    const val DOWNLOAD = "listenup_download"
     const val SOCIAL = "listenup_social"
 
     /**
@@ -33,32 +29,21 @@ object NotificationChannels {
      */
     const val PLAYBACK_NAME = "Playback"
 
+    // Earlier builds registered "Sync" and "Downloads" channels that nothing ever posted to; deleting
+    // them keeps existing installs from showing dead categories in system notification settings.
+    private val RETIRED_CHANNEL_IDS = listOf("listenup_sync", "listenup_download")
+
     /** Returns all channel ids in registration order. */
-    fun allIds(): List<String> = listOf(PLAYBACK, SYNC, DOWNLOAD, SOCIAL)
+    fun allIds(): List<String> = listOf(PLAYBACK, SOCIAL)
 
     /** Register every channel. Idempotent — safe to call from `Application.onCreate`. */
     fun registerAll(context: Context) {
         val notificationManager = context.getSystemService(NotificationManager::class.java) ?: return
+        RETIRED_CHANNEL_IDS.forEach(notificationManager::deleteNotificationChannel)
         notificationManager.createNotificationChannel(
             NotificationChannel(PLAYBACK, PLAYBACK_NAME, NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Audio playback controls"
                 setShowBadge(false)
-            },
-        )
-        notificationManager.createNotificationChannel(
-            NotificationChannel(SYNC, "Sync", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Background sync activity"
-                setShowBadge(false)
-                setSound(null, null)
-                enableVibration(false)
-            },
-        )
-        notificationManager.createNotificationChannel(
-            NotificationChannel(DOWNLOAD, "Downloads", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Audiobook download progress"
-                setShowBadge(false)
-                setSound(null, null)
-                enableVibration(false)
             },
         )
         notificationManager.createNotificationChannel(

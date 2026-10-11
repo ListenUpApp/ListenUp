@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.calypsan.listenup.client.navigation.popFrom
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.CreateShelf
 import com.calypsan.listenup.client.navigation.EditProfile
@@ -34,7 +35,7 @@ internal fun EntryProviderScope<NavKey>.profileEntries(
         com.calypsan.listenup.client.features.profile.UserProfileScreen(
             userId = args.userId,
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onEditClick = {
                 backStack.add(EditProfile)
@@ -74,7 +75,7 @@ internal fun EntryProviderScope<NavKey>.profileEntries(
 
         com.calypsan.listenup.client.features.profile.EditProfileScreen(
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(EditProfile)
                 onProfileRefreshed()
             },
             onPickImage = {

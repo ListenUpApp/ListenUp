@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
@@ -41,8 +42,8 @@ class ContributorDetailSession(
      * reader the remains of a person they just removed.
      */
     val navActions: Flow<ContributorDetailNavAction>,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its state. Production resolves the real ViewModel out of the client graph

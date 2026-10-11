@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.devices
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
 import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
@@ -16,8 +17,8 @@ class DevicesSession(
     val onRevoke: (String) -> Unit,
     val onSignOutOthers: () -> Unit,
     val onRetry: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its session. */
 typealias OpenDevices = () -> DevicesSession
