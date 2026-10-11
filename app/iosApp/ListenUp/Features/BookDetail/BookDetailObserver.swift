@@ -42,6 +42,8 @@ final class BookDetailObserver {
     private(set) var authors: String = ""
     private(set) var duration: String = ""
     private(set) var durationMs: Int64 = 0
+    /// Abridged or not, for the hero's stats line ("45 hr 30 min · 2010 · Unabridged").
+    private(set) var isAbridged = false
     private(set) var asin: String?
     private(set) var publisher: String?
     private(set) var language: String?
@@ -405,6 +407,7 @@ final class BookDetailObserver {
         authors = book.authorNames
         duration = book.formatDuration()
         durationMs = book.duration
+        isAbridged = book.abridged
         asin = book.asin
         publisher = book.publisher
         // Show the real language name ("English"), not the stored code ("en").

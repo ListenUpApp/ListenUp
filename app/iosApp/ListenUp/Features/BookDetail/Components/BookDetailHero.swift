@@ -3,9 +3,8 @@ import SwiftUI
 /// Centered hero for the redesigned Book Detail screen.
 ///
 /// Renders the cover, the book's series paths (one line per series, every name a link), the title, author line, a
-/// tappable "Narrated by …" line, and a secondary foot line ("{N} chapters ·
-/// {duration} · {year}", omitting any absent segment). Interactive accents use the
-/// app's coral action tint.
+/// tappable "Narrated by …" line, and the stats line ("45 hr 30 min · 2010 · Unabridged", spec D9/D10, omitting a
+/// missing year). Interactive accents use the app's coral action tint.
 ///
 /// Pure/presentational: it takes display values and navigates via value-typed routes
 /// (`SeriesDestination`, `ContributorDestination`). The assembly screen wires it to
@@ -27,17 +26,21 @@ struct BookDetailHero: View {
     let narrators: [CastMember]
     /// Plain narrators string for the VoiceOver summary and the no-contributors fallback.
     let narratorsText: String
-    let chapterCount: Int
+    /// The length in hours and minutes ("45 hr 30 min"), see `durationText(ms:)`.
     let duration: String
     let year: Int?
+    let isAbridged: Bool
     /// Opens the Cast & Credits sheet when a category collapses past the inline limit.
     let onOpenCast: () -> Void
+    /// Reports where the title's bottom edge sits in the scroll view, so the screen can show the book's title in
+    /// the navigation bar once the hero title has scrolled under it (HIG, Toolbars).
+    var onTitleMaxY: (CGFloat) -> Void = { _ in }
 
     /// Paths the reader has unfolded with "…".
     @State private var expandedPaths: Set<String> = []
 
     private let inlineContributorLimit = 2
-    private let coverSize: CGFloat = 196
+    private let coverSize: CGFloat = 220
 
     var body: some View {
         VStack(spacing: 0) {
@@ -57,9 +60,10 @@ struct BookDetailHero: View {
     private var summary: some View {
         VStack(spacing: 0) {
             Text(title)
-                .font(.title2.bold())
+                .font(.title.bold())
                 .multilineTextAlignment(.center)
                 .padding(.top, Spacing.s)
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .scrollView).maxY } action: { onTitleMaxY($0) }
 
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
@@ -75,8 +79,8 @@ struct BookDetailHero: View {
             narratorsLine
                 .padding(.top, 2)
 
-            if let foot = footLine {
-                Text(foot)
+            if !duration.isEmpty {
+                Text(Self.statsLine(duration: duration, year: year, isAbridged: isAbridged))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .padding(.top, Spacing.xs)
@@ -106,7 +110,6 @@ struct BookDetailHero: View {
             )
                 .frame(width: coverSize, height: coverSize)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
-                .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)
         }
         .accessibilityHidden(true)
     }
@@ -208,21 +211,22 @@ struct BookDetailHero: View {
         }
     }
 
-    // MARK: - Foot line
+    // MARK: - Stats line
 
-    /// "{N} chapters · {duration} · {year}", dropping any absent segment.
-    private var footLine: String? {
-        var segments: [String] = []
-        if chapterCount > 0 {
-            segments.append(String(format: String(localized: "book.detail_chapter_count"), chapterCount))
-        }
-        if !duration.isEmpty {
-            segments.append(duration)
-        }
-        if let year {
-            segments.append(String(year))
-        }
-        return segments.isEmpty ? nil : segments.joined(separator: " · ")
+    /// "45 hr 30 min · 2010 · Unabridged" (spec D9/D10). The chapter count lives with the chapters.
+    static func statsLine(duration: String, year: Int?, isAbridged: Bool) -> String {
+        var parts = [duration]
+        if let year { parts.append(String(year)) }
+        parts.append(isAbridged
+            ? String(localized: "book.detail_abridged")
+            : String(localized: "book.detail_unabridged"))
+        return parts.joined(separator: " · ")
+    }
+
+    /// "45 hr 30 min" in the reader's locale; empty for an unknown length.
+    static func durationText(ms: Int64) -> String {
+        guard ms > 0 else { return "" }
+        return Duration.milliseconds(ms).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
     }
 
     // MARK: - Accessibility
@@ -258,9 +262,9 @@ struct BookDetailHero: View {
                 author: "George R.R. Martin",
                 narrators: [],
                 narratorsText: "Roy Dotrice",
-                chapterCount: 23,
-                duration: "33h 50m",
+                duration: "33 hr 50 min",
                 year: 2003,
+                isAbridged: false,
                 onOpenCast: {}
             )
 
@@ -273,9 +277,9 @@ struct BookDetailHero: View {
                 author: "Brandon Sanderson",
                 narrators: [],
                 narratorsText: "Kate Reading, Michael Kramer",
-                chapterCount: 0,
-                duration: "45h 30m",
+                duration: "45 hr 30 min",
                 year: nil,
+                isAbridged: true,
                 onOpenCast: {}
             )
         }

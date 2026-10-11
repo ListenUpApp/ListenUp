@@ -3,17 +3,18 @@ import Shared
 
 /// Book detail screen — the native, redesigned assembly.
 ///
-/// A centered hero (with a soft `CoverGlow` halo behind the cover) leads, followed by
-/// a resume bar, two secondary action pills, and the description / chapters /
-/// details sections — with Readers and, for a book matched on Hardcover, its Hardcover section. A narrow width stacks everything; a wide one splits into a left rail
-/// (hero + resume + pills), sized from the width, beside a flexible right column (description,
+/// A centered hero (with a soft `CoverGlow` halo behind the cover) leads on a neutral band, with the Resume unit and
+/// the actions (`listenUnit`) inside it, followed by the description / chapters / details sections — with Readers
+/// and, for a book matched on Hardcover, its Hardcover section. A narrow width stacks everything; a wide one splits
+/// into a left rail (hero + the listen unit), sized from the width, beside a flexible right column (description,
 /// chapters, details) — see `DetailColumns`. All state comes from `BookDetailObserver`; the overflow menu offers
-/// the progress resets and, for an admin, Delete Book.
+/// Mark as Finished, the progress resets and, for an admin, Delete Book.
 struct BookDetailView: View {
     let bookId: String
 
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State var observer: BookDetailObserver?
     @State private var readersObserver: BookReadersObserver?
     @State private var ratingsObserver: BookRatingsObserver?
@@ -27,7 +28,11 @@ struct BookDetailView: View {
     @State private var showRatingBreakdown = false
     /// Counts completed book actions (download, delete download, mark finished) so `commit`
     /// fires once per deliberate action.
-    @State private var bookActionCount = 0
+    @State var bookActionCount = 0
+    /// Mark as Finished, from the overflow menu: asks for the started and finished days first.
+    @State var showMarkFinished = false
+    /// True once the hero title has scrolled under the navigation bar.
+    @State var showsInlineTitle = false
 
     var body: some View {
         Group {
@@ -42,9 +47,28 @@ struct BookDetailView: View {
             }
         }
         .background(Color(.systemBackground))
-        .navigationTitle(String(localized: "common.about"))
+        // The book's own title, not "About": it is the back-stack label and VoiceOver's screen name. The visible
+        // inline title stays hidden until the hero title scrolls away, so the title is never on screen twice.
+        .navigationTitle(observer?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { overflowMenu }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(observer?.title ?? "")
+                    .font(.headline)
+                    .lineLimit(1)
+                    .opacity(showsInlineTitle ? 1 : 0)
+                    .accessibilityHidden(!showsInlineTitle)
+            }
+            overflowMenu
+        }
+        .sheet(isPresented: $showMarkFinished) {
+            if let observer {
+                MarkFinishedSheet(startedAtMs: observer.startedAtMs) { started, finished in
+                    bookActionCount += 1
+                    observer.markFinished(started: started, finished: finished)
+                }
+            }
+        }
         .sheet(isPresented: shelfPickerBinding) {
             if let observer {
                 ShelfPickerSheet(observer: observer) {
@@ -161,40 +185,38 @@ struct BookDetailView: View {
                     }
                 }
                 .padding(.bottom, Spacing.xxl)
-                // One modifier for every book action, above the layout branch. `resumeBar` and
-                // `actionPills` are siblings in whichever branch renders, so a modifier on each
-                // would put two in the hierarchy at once and fire `.success` twice per tap.
+                // One modifier for every book action, above the layout branch, so one tap fires `.success`
+                // once whichever branch renders.
                 .haptic(.commit, trigger: bookActionCount)
             }
         }
     }
 
-    /// iPhone: a single vertical stack of every section.
+    /// iPhone: a single vertical stack of every section, the hero and the listen unit on one band.
     @ViewBuilder
     private func compactContent(_ observer: BookDetailObserver) -> some View {
         VStack(spacing: 24) {
-            BookDetailHero(
-                header: observer.header,
-                title: observer.title,
-                subtitle: observer.subtitle,
-                seriesPaths: observer.seriesPaths,
-                authors: observer.heroAuthors,
-                author: observer.authors,
-                narrators: observer.heroNarrators,
-                narratorsText: observer.narrators,
-                chapterCount: observer.chapters.count,
-                duration: observer.duration,
-                year: observer.year,
-                onOpenCast: { showCast = true }
+            VStack(spacing: 20) {
+                hero(observer)
+
+                VStack(spacing: 20) {
+                    heldSection(observer)
+                    if observer.layout.showsPlayback {
+                        serverBanner(observer)
+                        listenUnit(observer)
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .padding(.top, Spacing.xs)
+            .padding(.bottom, Spacing.l)
+            .background(
+                BookDetailHeroTone.color(for: colorScheme),
+                in: UnevenRoundedRectangle(bottomLeadingRadius: 34, bottomTrailingRadius: 34, style: .continuous)
             )
+            .background(BookDetailHeroTone.color(for: colorScheme).ignoresSafeArea(edges: .top).padding(.bottom, 34))
 
             VStack(spacing: 20) {
-                heldSection(observer)
-                if observer.layout.showsPlayback {
-                    serverBanner(observer)
-                    resumeBar(observer)
-                    actionPills(observer)
-                }
                 lastMatchSection(observer)
 
                 Divider()
@@ -205,7 +227,6 @@ struct BookDetailView: View {
             }
             .padding(.horizontal)
         }
-        .padding(.top, Spacing.xs)
     }
 
     /// Wide: a rail sized from the width beside a flexible right column.
@@ -213,29 +234,20 @@ struct BookDetailView: View {
     private func regularContent(_ observer: BookDetailObserver, railWidth: CGFloat) -> some View {
         HStack(alignment: .top, spacing: DetailColumns.gutter) {
             VStack(spacing: 20) {
-                BookDetailHero(
-                    header: observer.header,
-                    title: observer.title,
-                    subtitle: observer.subtitle,
-                    seriesPaths: observer.seriesPaths,
-                    authors: observer.heroAuthors,
-                    author: observer.authors,
-                    narrators: observer.heroNarrators,
-                    narratorsText: observer.narrators,
-                    chapterCount: observer.chapters.count,
-                    duration: observer.duration,
-                    year: observer.year,
-                    onOpenCast: { showCast = true }
-                )
+                hero(observer)
 
                 heldSection(observer)
                 if observer.layout.showsPlayback {
                     serverBanner(observer)
-                    resumeBar(observer)
-                    actionPills(observer)
+                    listenUnit(observer)
                 }
                 lastMatchSection(observer)
             }
+            .padding(Spacing.l)
+            .background(
+                BookDetailHeroTone.color(for: colorScheme),
+                in: RoundedRectangle(cornerRadius: 30, style: .continuous)
+            )
             .frame(width: railWidth)
 
             VStack(alignment: .leading, spacing: 28) {
@@ -249,52 +261,15 @@ struct BookDetailView: View {
         .padding(.top, Spacing.xxl)
     }
 
-    private func resumeBar(_ observer: BookDetailObserver) -> some View {
-        ResumeBar(
-            progress: observer.progress,
-            isComplete: observer.isComplete,
-            timeRemaining: observer.timeRemaining,
-            currentChapterLabel: currentChapterLabel(observer),
-            downloadState: observer.downloadState,
-            downloadProgress: observer.downloadProgress,
-            canPlay: observer.canPlay,
-            canDownload: observer.canDownload,
-            isPlayPending: observer.isPlayPending,
-            onResume: { observer.play() },
-            onDownload: {
-                bookActionCount += 1
-                observer.downloadBook()
-            },
-            onCancelDownload: { observer.cancelDownload() },
-            onDeleteDownload: {
-                bookActionCount += 1
-                observer.deleteDownload()
-            }
-        )
-    }
-
     /// The "server unreachable" banner — shown only when the server is genuinely unreachable AND
     /// the book isn't downloaded (`showServerWarning`), explaining why Play/Download are disabled
     /// and offering a Retry. The signal is evidence-based, so the banner clears itself the moment
-    /// any traffic reaches the server. Rendered above the resume bar on phone and wide layouts.
+    /// any traffic reaches the server. Rendered above the listen unit on phone and wide layouts.
     @ViewBuilder
     private func serverBanner(_ observer: BookDetailObserver) -> some View {
         if observer.showServerWarning {
             ServerUnreachableBanner(onRetry: { observer.retryConnection() })
         }
-    }
-
-    private func actionPills(_ observer: BookDetailObserver) -> some View {
-        BookActionPills(
-            isComplete: observer.isComplete,
-            isMarkingComplete: observer.isMarkingComplete,
-            startedAtMs: observer.startedAtMs,
-            onAddToShelf: { observer.openShelfPicker() },
-            onMarkFinished: { started, finished in
-                bookActionCount += 1
-                observer.markFinished(started: started, finished: finished)
-            }
-        )
     }
 
     /// The rating block, above Readers and Chapters. Renders nothing while the ratings are loading, so it
@@ -342,13 +317,6 @@ struct BookDetailView: View {
         )
     }
 
-    /// "Ch. N · {title}" for the current chapter, or nil if none is current.
-    private func currentChapterLabel(_ observer: BookDetailObserver) -> String? {
-        guard let idx = observer.chapters.firstIndex(where: { $0.isCurrent }) else { return nil }
-        let chapter = observer.chapters[idx]
-        return String(format: String(localized: "book.detail_chapter_label"), idx + 1, chapter.title)
-    }
-
     @State var showDiscardConfirmation = false
     @State var showRestartConfirmation = false
     @State var showDeleteBookConfirmation = false
@@ -357,7 +325,7 @@ struct BookDetailView: View {
     /// Match details, open for this book. `nil` when closed; Match details clears it after Apply.
     @State var matchTarget: BookMatchTarget?
     @State var showReleaseConfirmation = false
-    @State private var showCast = false
+    @State var showCast = false
 
     // MARK: - Shelf picker presentation
 
