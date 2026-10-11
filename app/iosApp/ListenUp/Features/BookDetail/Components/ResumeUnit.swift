@@ -10,6 +10,8 @@ struct ResumeUnit: View {
     let progress: Float?
     let finishedSpan: BookFinishedSpan?
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         switch stage {
         case .notStarted:
@@ -27,16 +29,17 @@ struct ResumeUnit: View {
     private var inProgress: some View {
         let fraction = Double(min(max(progress ?? 0, 0), 1))
         return VStack(spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(currentChapter.map(Self.chapterText) ?? "")
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if let timeRemainingMs {
-                    Text(Self.timeLeftText(remainingMs: timeRemainingMs))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .layoutPriority(1)
+            // Side by side at ordinary sizes; stacked at accessibility sizes, so the chapter is never squeezed to
+            // "C…" by the time left (HIG, Typography: layouts adapt to every text size).
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 2) {
+                    chapterLabel.lineLimit(3)
+                    timeLeftLabel
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    chapterLabel.lineLimit(1)
+                    timeLeftLabel.layoutPriority(1)
                 }
             }
             // HIG, Progress indicators: a determinate bar for a known amount; the system draws it.
@@ -46,6 +49,20 @@ struct ResumeUnit: View {
                                            Int((fraction * 100).rounded())))
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private var chapterLabel: some View {
+        Text(currentChapter.map(Self.chapterText) ?? "")
+            .font(.subheadline.weight(.semibold))
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private var timeLeftLabel: some View {
+        if let timeRemainingMs {
+            Text(Self.timeLeftText(remainingMs: timeRemainingMs))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
     }
 
     /// "Ch. 6 · Bridge Four".

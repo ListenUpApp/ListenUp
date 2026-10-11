@@ -54,6 +54,9 @@ import org.jetbrains.compose.resources.stringResource
  */
 private val ActionHeight = 56.dp
 
+/** Resume against the two labelled segments (1 each): enough that Resume holds at least half the row after the gaps. */
+private const val RESUME_WEIGHT_LABELLED = 2.4f
+
 /**
  * Book Detail's action row (spec A15, M3E addendum): an M3E **standard** button group, not a connected one, because
  * these are actions, not a choice. Resume is filled primary and takes the remaining width. Download and Add to shelf
@@ -114,7 +117,7 @@ internal fun ListenActionGroup(
                         interactionSource = resumeSource,
                         modifier =
                             Modifier
-                                .weight(if (labelled) 2f else 1f)
+                                .weight(if (labelled) RESUME_WEIGHT_LABELLED else 1f)
                                 .animateWidth(resumeSource)
                                 .heightIn(min = ActionHeight),
                     ) { PrimaryContent(label) }

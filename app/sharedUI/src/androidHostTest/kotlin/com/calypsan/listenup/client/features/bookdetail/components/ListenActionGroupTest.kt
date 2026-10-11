@@ -2,6 +2,9 @@ package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -114,5 +117,13 @@ class ListenActionGroupTest {
         setGroup(PrimaryAction.Resume, labelled = true)
         composeRule.onNodeWithText("Download").assertExists()
         composeRule.onNodeWithText("Add to shelf").assertExists()
+    }
+
+    @Test
+    fun `on a tablet Resume holds at least half the row (spec 3_2_1)`() {
+        setGroup(PrimaryAction.Resume, labelled = true)
+        val resume = composeRule.onNode(hasText("Resume") and hasClickAction()).fetchSemanticsNode().boundsInRoot
+        val row = composeRule.onRoot().fetchSemanticsNode().boundsInRoot
+        (resume.width / row.width >= 0.5f) shouldBe true
     }
 }

@@ -306,17 +306,20 @@ private fun NarratorsAndCredits(
                 overflowTextRes = Res.string.book_detail_other_narrators,
                 onOverflowClick = { onShowCast(CastRole.Narrators) },
             )
-            Text(text = " · ", style = style, color = muted)
         }
-        Text(
-            text = stringResource(Res.string.book_detail_all_credits),
-            style = style.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.primary,
-            modifier =
-                Modifier.minimumInteractiveComponentSize().clickable(role = Role.Button) {
-                    haptics.press()
-                    onShowCast(CastRole.All)
-                },
-        )
+        // One item: the separator travels with its link, so a wrap never leaves a dangling "·".
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (narrators.isNotEmpty()) Text(text = " · ", style = style, color = muted)
+            Text(
+                text = stringResource(Res.string.book_detail_all_credits),
+                style = style.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
+                modifier =
+                    Modifier.minimumInteractiveComponentSize().clickable(role = Role.Button) {
+                        haptics.press()
+                        onShowCast(CastRole.All)
+                    },
+            )
+        }
     }
 }
