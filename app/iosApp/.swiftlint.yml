@@ -38,8 +38,8 @@ large_tuple:
   error: 4
 
 # SwiftUI Views and cohesive coordinators legitimately run long — realistic limits that
-# still catch genuine bloat. (FullScreenPlayerView / PlayerCoordinator size is tracked
-# for refactor in docs/superpowers/followups.md, not papered over here.)
+# still catch genuine bloat. (FullScreenPlayerView / PlayerCoordinator are known to be
+# long; the limits are not raised to hide that.)
 function_body_length:
   warning: 60
   error: 120

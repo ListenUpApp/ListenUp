@@ -59,7 +59,7 @@ TDD is not optional. It is a commitment to excellence.
 - If something is hard to test, the design is probably wrong
 - Seam-level tests use fakes with in-memory state, not mocks (see Testing section of the rubric)
 - Flow assertions use Turbine (`flow.test { awaitItem() }`)
-- Every Koin leaf module is covered by `module.verify()` in `commonTest`
+- Every Koin leaf module is covered by `module.verify()` — the specs live in `jvmTest` (`*ModuleVerifyTest`)
 - **Kotest FunSpec is canonical for new tests.** `kotlin-test` is legacy — pre-existing tests on it migrate to Kotest as their files are touched for any reason; don't burn down the backlog in one sweep. The auth surface is already fully on Kotest as of Phase 1.
 
 ### Read the Codebase
@@ -156,19 +156,21 @@ Concrete example: `data/remote/` API methods route through exactly one of the tw
 
 ### Modern Everything
 
-This codebase targets the latest stable versions. Kotlin 2.4.20, Compose Multiplatform 1.12.0, Room 3.0, Ktor 3.5, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
+This codebase targets the latest stable versions. Kotlin 2.4, Compose Multiplatform 1.12, Room 3.0, Ktor 3.6, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
+
+`gradle/libs.versions.toml` is the source of truth for every version; the numbers here are major.minor and are pinned to it by `ClaudeMdVersionsTest`.
 
 ### The Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Kotlin 2.4.20 (KMP) |
+| Language | Kotlin 2.4 (KMP) |
 | UI | Compose Multiplatform |
 | Navigation | Compose Navigation 3 (multiplatform) |
 | DI | Koin 4.2 |
-| Networking | Ktor 3.5 |
+| Networking | Ktor 3.6 |
 | Persistence | Room 3.0 + SQLite (BundledSQLiteDriver) |
-| Playback | Media3 / ExoPlayer (Android), platform-specific (Desktop, iOS) |
+| Playback | Media3 / ExoPlayer (Android), platform-specific (iOS, web, Desktop) |
 | Serialization | kotlinx.serialization |
 | Image Loading | Coil 3 |
 | Testing | **Kotest** (canonical), Mokkery, kotlinx-coroutines-test, Turbine |
@@ -183,12 +185,12 @@ These are the rules most likely to affect day-to-day work.
 
 - **`AppResult<T>`** is the single result type for every fallible suspend function. See *Error Architecture* below.
 - **Always re-throw `CancellationException`** in catch blocks. `SyncEngine` and `SearchRepositoryImpl` are the compliance references.
-- **ViewModels produce state via `.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue)`**, not via `init { viewModelScope.launch { collect { state.update { } } } }`.
+- **ViewModels produce state via `.stateIn(viewModelScope, WhileSubscribedForUi, initialValue)`** (the shared `SharingStarted.WhileSubscribed(5_000)` constant in `presentation/SubscriptionSharing.kt`), not via `init { viewModelScope.launch { collect { state.update { } } } }`.
 - **UI state is a per-screen sealed hierarchy**, not a flat `data class` with `error: String?`.
 - **One-shot events use `Channel<Event>(Channel.BUFFERED).receiveAsFlow()`** — never `StateFlow<Event?>`.
 - **Multi-table writes go through `TransactionRunner.atomically { }`** (`data/local/db/DatabaseTransactions.kt`) — every call site issuing more than one DAO write for a single logical operation routes through that seam.
 - **All writes to the data layer go through a repository** — no component outside `data/repository/` writes directly to a DAO.
-- **Compose-UI specifics** (flow collection, `koinViewModel`, Navigation 3 routes/decorators, the VM failure-branch shape) live in `sharedUI/CLAUDE.md` — they load when you work on the UI.
+- **Compose-UI specifics** (flow collection, `koinViewModel`, Navigation 3 routes/decorators, the VM failure-branch shape) live in `app/sharedUI/CLAUDE.md` — they load when you work on the UI.
 
 ### Error Architecture
 
@@ -196,20 +198,20 @@ Day-to-day rules:
 
 - **Fallible suspend functions return `AppResult<T>`** (`contract/.../api/result/AppResult.kt`). Not `Result<T>`, not `throw`. A small set of un-migrated APIs still throws; those files are tracked in `NoThrowsInDataLayerRule`'s `RESIDUAL_THROWS_ALLOWLIST` and migrate opportunistically as the in-place rewrite re-touches each domain.
 - **Data-layer APIs route through one of two sanctioned boundaries.** RPC (the default transport) goes through `RpcChannel.call { ... }` (`data/remote/RpcChannel.kt`) — engine-level recovery (bounded timeout, 401-heal, single-flight reconnect) folds into a typed `AppResult` for free; a business `AppResult.Failure` returned by the service passes through untouched. The handful of non-RPC REST endpoints (e.g. `ImageApi`) call `suspendRunCatching { ... }` (`core/ResultCatching.kt`) directly, which routes any caught throwable through `ErrorMapper`. Ktor's `installListenUpErrorHandling` (`expectSuccess = true`) raises `ResponseException` on non-2xx for both paths. API method bodies are just request shape + a `.map { it.toDomain() }` transform on success.
-- **Errors are typed `AppError` subtypes** in `commonMain api.error.*` — `@Serializable`. Hierarchy: `AppError`, `AuthError`, `TransportError`, `SyncError`, `ScanError`, `DownloadError`, `ImportError`, `ServerConnectError`. Every subtype carries `correlationId`, `message`, `code`, `isRetryable`, `debugInfo`.
+- **Errors are typed `AppError` subtypes** in `commonMain api.error.*` — `@Serializable`. `AppError` is the root of about thirty sealed families under `contract/.../api/error/` (for example `AuthError`, `TransportError`, `SyncError`, `ScanError`, `DownloadError`, `ImportError`, `ServerConnectError`). Every subtype carries `correlationId`, `message`, `code`, `isRetryable`, `debugInfo`.
 - **`message` is a body-level constant per subtype** — user-facing-quality, period-terminated, no jargon. Per-instance technical detail goes in `debugInfo`. UI consumes `message` directly; logs consume `debugInfo`.
 - **`isRetryable = true` only when retry middleware can blindly re-fire the same call** (transient network, rate-limit-after-wait, idempotent 5xx). `false` for everything that needs user action (re-auth, fix input, contact admin).
 - **No closures in error types.** `@Serializable` errors cross the wire — recovery actions live at the consumer based on the typed subtype.
 - **Translate once at the boundary.** `ErrorMapper` runs at the Ktor edge; downstream consumers fold the typed value. Never substring-match on `error.message` — it's a constant, so the match is either redundant or wrong.
-- **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule`, `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` — all active in CI, and ~50 more under `sharedLogic/src/jvmTest/.../konsist/` (this list is the notable ones, not the set). Adding a public commonMain class/interface/top-level object without KDoc, or a `@Serializable data class` with no `@SerialName` anywhere, fails the build — note `StablePropertyOrderRule` is satisfied by ONE `@SerialName` per class, so it does not yet pin the order of the remaining untagged properties.
+- **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule`, `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` — all active in CI, and about 65 more under `app/sharedLogic/src/jvmTest/.../konsist/`, plus the server's own under `server/src/jvmTest/.../konsist/` (this list is the notable ones, not the set). Adding a public commonMain class/interface/top-level object without KDoc, or a `@Serializable data class` with no `@SerialName` anywhere, fails the build — note `StablePropertyOrderRule` is satisfied by ONE `@SerialName` per class, so it does not yet pin the order of the remaining untagged properties.
 
 ### Export Surface
 
-The shared modules (`:contract`, `:app:sharedLogic`) export their public API to every client platform — the iOS framework now, the planned Swift Export and JS bundles next; a leaner surface also lets R8 shrink the Android app. **Export only what client UI consumes; server-only and internal-plumbing types are dead weight on every client.** Levers, strongest first:
+The shared modules (`:contract`, `:app:sharedLogic`) export their public API to every client platform — the iOS app through Swift Export, the web client through Kotlin/JS; a leaner surface also lets R8 shrink the Android app. **Export only what client UI consumes; server-only and internal-plumbing types are dead weight on every client.** Levers, strongest first:
 
 1. **Relocate** a type to its real consumer (the REST `@Resource` surface lives in `:server`, not `:contract`) — gone from _every_ export path, no annotation. `NoResourcesInContractRule` pins the `@Resource` case.
 2. **`internal`** for single-module types — honored by ObjC, Swift Export, JS, and R8 alike (not available for genuinely cross-module types).
-3. **`@HiddenFromObjC`** (under `@OptIn(ExperimentalObjCRefinement::class)`) — last resort for cross-module-public types. It refines the **Objective-C framework ONLY — it does NOT govern the planned direct Swift Export**, and it must be applied per-declaration (sealed subtypes and `expect`/`actual` don't inherit it; a type named by an exported public signature ships regardless).
+3. **`@HiddenFromObjC`** (under `@OptIn(ExperimentalObjCRefinement::class)`) — last resort for cross-module-public types. It refines the **Objective-C framework ONLY — it does NOT govern Swift Export, the surface the iOS app imports**, and it must be applied per-declaration (sealed subtypes and `expect`/`actual` don't inherit it; a type named by an exported public signature ships regardless).
 
 JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (iOS)` job gates the **Swift Export** surface — the flat-typealias layer the patcher appends onto the generated `Shared.swift` (the caller-facing `import Shared` surface, not the ObjC `Shared.h`) — against `tools/scripts/export-surface-baseline.txt`, failing the build on a banned name (server-only / infra type) or an unreviewed addition. When the surface legitimately changes, regenerate the baseline (`tools/scripts/export-surface-inventory.sh <Shared.swift> --update-baseline`) and commit the diff.
 
@@ -227,7 +229,7 @@ JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (
 ## Commits
 
 - **Gitmoji prefix, always.** Every commit starts with a gitmoji (e.g., `✨`, `🐛`, `♻️`, `📦`, `🚨`, `👷`, `🎨`, `📝`, `✅`). See [gitmoji.dev](https://gitmoji.dev) for the full list.
-- **Conventional `type(scope):` for domain clarity.** When the change is in a clear domain, follow the gitmoji with a Conventional Commits prefix: `<gitmoji> <type>(<scope>): <subject>`. The repo has multiple domains — `server`, `shared`, `sharedUI`, `contract`, `androidApp`, `iosApp`, `desktopApp`, `ci`, `quality`, `docs` — and the scope makes it obvious at a glance which one a commit touches.
+- **Conventional `type(scope):` for domain clarity.** When the change is in a clear domain, follow the gitmoji with a Conventional Commits prefix: `<gitmoji> <type>(<scope>): <subject>`. The repo has multiple domains — `server`, `shared`, `sharedUI`, `contract`, `androidApp`, `iosApp`, `webApp`, `desktopApp`, `ci`, `quality`, `docs` — and the scope makes it obvious at a glance which one a commit touches.
   - Examples: `📦 chore(server): include :server module in settings.gradle.kts` · `✨ feat(server): GET /healthz endpoint with Kotest contract test` · `🐛 fix(shared): re-enqueue position events on WAITING_FOR_SERVER` · `🚨 chore(quality): extend Detekt source.setFrom to :server` · `👷 ci(server): build and test :server module on every PR`.
   - Common types: `feat`, `fix`, `chore`, `refactor`, `test`, `docs`, `ci`, `perf`, `style`. Pick the one that matches the dominant intent.
 - **Bare gitmoji is fine for cross-cutting trivia** that doesn't belong to a single domain — formatting sweeps, dependency bumps, gitignore tweaks. Example: `🎨 spotless apply across repo`.
@@ -238,7 +240,7 @@ JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (
 
 ## Pushing
 
-**No push occurs until the local equivalent of every act-runnable CI job passes.** The goal is functional parity with remote CI — not literal act invocation, since act currently cannot resolve `gradle/actions/setup-gradle@v4` against its monorepo subpath on this project. Direct Gradle invocation reproduces what each CI job actually does; as long as those pass, we're aligned.
+**No push occurs until the local equivalent of every act-runnable CI job passes.** The goal is functional parity with remote CI — not literal act invocation: `ci.yml` pins `gradle/actions/setup-gradle` by commit SHA, but whether act can now run the workflow has not been re-tested. Direct Gradle invocation reproduces what each CI job actually does; as long as those pass, we're aligned.
 
 CI is organized into three stages — **Lint / Test / Build** — across a Linux lane and a macOS (iOS) lane. Before `git push`, run the local equivalent of every job. From the repo root:
 
@@ -271,7 +273,7 @@ Rules:
 - Every applicable command above must pass before `git push` (iOS gates skipped only when off a Mac).
 - `spotlessApply` is the automatic fixer for Kotlin formatting failures — run it, review the diff, commit as a `🎨` cleanup. `swiftlint --fix` is the Swift equivalent.
 - If `Build (Android)` fails remotely after going green in W7 Phase A, treat it as a regression and fix it before continuing.
-- When the act action-resolution bug is fixed (pin `gradle/actions/setup-gradle` to a commit SHA, or upstream fixes the subpath issue), promote this policy back to a literal `act -W .github/workflows/ci.yml` gate.
+- `gradle/actions/setup-gradle` is pinned by commit SHA in `ci.yml`, which was the stated precondition for running the workflow under act. Nobody has re-tested act since; until someone does, the direct-Gradle equivalents in the table above remain the gate.
 
 ### Running a single test
 
@@ -279,7 +281,7 @@ Nine lanes (`:contract:jvmTest`/`linuxX64Test`, `:app:sharedLogic:jvmTest`/`test
 
 - **`:contract:jvmTest`, `:app:sharedUI:testAndroidHostTest`** — plain Gradle `--tests` with a glob works normally, e.g. `./gradlew :app:sharedUI:testAndroidHostTest --tests "*SkipGlyphs*"`.
 - **`:app:sharedLogic:jvmTest`/`testAndroidHostTest`** — glob patterns FAIL here, same as `:server:jvmTest` below. Use the exact fully-qualified class name: `./gradlew :app:sharedLogic:jvmTest --tests "com.calypsan.listenup.konsist.OneFramePerCallBlockRuleSelfTest"` (verified: 18s, exactly 9 tests). This changed when the `io.kotest` plugin was applied to the module for the Apple lane — which also **isolates the root cause the `:server:jvmTest` note below could not pin down**: the glob failure tracks the `io.kotest` Gradle plugin exactly, and every lane that has it needs an FQN.
-- **`:server:jvmTest`** — glob patterns fail outright with Gradle's own `No tests found for given includes` (unrelated to the floor — this is Gradle's own discovery-time pattern matching against JUnit Platform's discovered identifiers finding no match; the cause is the `io.kotest` plugin, see the `:app:sharedLogic` bullet above). Use the **exact fully-qualified class name** instead: `./gradlew :server:jvmTest --tests "com.calypsan.listenup.server.RateLimitTest"` (verified: 9s, exactly 1 test, floor stood down against a floor of 2,200). Kotest's own `-Dkotest.filter.specs=...` system property is a **no-op in Kotest 6.2.3** — declared in `KotestEngineProperties` and documented, but never read by any registered extension (confirmed by reading `SystemPropertyTestFilterEnabledExtension.kt` in the engine sources; verified empirically too — setting it still ran all 2,791 tests in 9m33s, the same as an unfiltered run) — don't reach for it. `-Dkotest.filter.tests=...` *is* wired up, but only disables individual leaf tests after every spec has already been instantiated, so it barely narrows the run (empirically 2,730 of 2,791 tests still executed, 1m37s) — not useful for a fast single-spec loop. Both properties are still forwarded into the forked test JVM (`forwardKotestFilterProperties()`) and count as "filtered" for the floor, in case a future Kotest version wires `kotest.filter.specs` up properly.
+- **`:server:jvmTest`** — glob patterns fail outright with Gradle's own `No tests found for given includes` (unrelated to the floor — this is Gradle's own discovery-time pattern matching against JUnit Platform's discovered identifiers finding no match; the cause is the `io.kotest` plugin, see the `:app:sharedLogic` bullet above). Use the **exact fully-qualified class name** instead: `./gradlew :server:jvmTest --tests "com.calypsan.listenup.server.RateLimitTest"` (verified: 9s, exactly 1 test, floor stood down against a floor of 2,200). Kotest's own `-Dkotest.filter.specs=...` system property is a **no-op in Kotest 6.2** — declared in `KotestEngineProperties` and documented, but never read by any registered extension (confirmed by reading `SystemPropertyTestFilterEnabledExtension.kt` in the engine sources; verified empirically too — setting it still ran all 2,791 tests in 9m33s, the same as an unfiltered run) — don't reach for it. `-Dkotest.filter.tests=...` *is* wired up, but only disables individual leaf tests after every spec has already been instantiated, so it barely narrows the run (empirically 2,730 of 2,791 tests still executed, 1m37s) — not useful for a fast single-spec loop. Both properties are still forwarded into the forked test JVM (`forwardKotestFilterProperties()`) and count as "filtered" for the floor, in case a future Kotest version wires `kotest.filter.specs` up properly.
 - **`:app:sharedLogic:iosSimulatorArm64Test`** (native, macOS-only) — the Apple lane. Runs this module's `commonTest` specs plus `appleTest` on a simulator; the only lane that compiles `appleMain` at all. Same FQN filtering as the other native lane. 2,827 tests ran green on 2026-09-04 against a floor of 2,200.
 - **`:server:linuxX64Test`** (native, a `KotlinNativeTest` task, not JVM `Test`) — `--tests` genuinely filters here too: the Kotlin/Native Gradle plugin forwards the same command-line include patterns into the compiled test binary as `--ktest_gradle_filter`. Use the exact fully-qualified class name, same as `:server:jvmTest`: `./gradlew :server:linuxX64Test --tests "com.calypsan.listenup.server.auth.PasswordHasherNativeTest"` (verified: exactly 1 spec / 2 tests ran, floor stood down against a floor of 65; most of the 1m37s wall time is the native link, not test execution). There is no Kotest system-property path on this lane (no forked JVM to hand a `-D` to).
 
@@ -294,7 +296,7 @@ Releases are explicit and manual via the **Release** workflow (`workflow_dispatc
 - **Version** lives in the `VERSION` file at the repo root (one number line). Drive Android `versionName` from it; iOS `MARKETING_VERSION` and the server image tag follow. Build numbers are auto-derived per platform (Android `versionCode` from commit count, iOS `CURRENT_PROJECT_VERSION` from the CI run number).
 - **To bump + ship:** run the Release workflow and type the new number in the `version` input (it commits `VERSION` + tags `v<x>`). Leave it blank to re-ship the current `VERSION`.
 - **Per-platform:** the `android` / `ios` / `server` checkboxes scope a run — use them for single-platform hotfixes.
-- iOS stops at **TestFlight** (no auto-submit to App Store review). Android ships to the **Play internal/draft** track. The **server** job links a Kotlin/Native `server.kexe` (`:server:linkReleaseExecutableLinuxX64`), packages it into a two-stage distroless image (`server/Dockerfile.native`) that compiles a modern SQLite (≥ 3.43) in-build, and pushes it to GHCR (`ghcr.io/listenupapp/listenup-server`, tagged with the version, commit SHA, and `latest`). It is a hard gate — a failed server build fails the release.
+- iOS stops at **TestFlight** (no auto-submit to App Store review). Android ships to the **Play internal** track (status `completed` — delivered to internal testers; promotion to production stays manual). The **server** job links a Kotlin/Native `server.kexe` (`:server:linkReleaseExecutableLinuxX64`), packages it into a two-stage distroless image (`server/Dockerfile.native`) that compiles a modern SQLite (≥ 3.43) in-build, and pushes it to GHCR (`ghcr.io/listenupapp/listenup-server`, tagged with the version, commit SHA, and `latest`). It is a hard gate — a failed server build fails the release.
 
 ---
 
@@ -314,12 +316,12 @@ app/                           # Everything that ships to a user
 │       │   ├── data/           # Repositories, sync, Room DAOs
 │       │   ├── di/             # Koin module definitions
 │       │   ├── domain/         # Domain models, repository interfaces
-│       │   └── presentation/   # ViewModels (shared across Android + iOS)
+│       │   └── presentation/   # ViewModels (shared across Android, iOS and web)
 │       ├── androidMain/        # Android-specific implementations
 │       ├── appleMain/          # Apple-shared implementations
 │       ├── iosMain/            # iOS implementations
-│       ├── jvmMain/            # JVM-shared implementations
-│       └── desktopMain/        # Desktop JVM implementations
+│       ├── jsMain/             # Browser implementations
+│       └── jvmMain/            # JVM-shared implementations
 ├── sharedUI/                   # Compose Multiplatform UI (Android + Desktop)
 │   └── src/
 │       ├── commonMain/.../
@@ -330,21 +332,25 @@ app/                           # Everything that ships to a user
 ├── androidApp/                 # Android entry point (thin wrapper)
 ├── desktopApp/                 # Desktop entry point (thin wrapper)
 ├── iosApp/                     # Xcode project — SwiftUI shell over :app:sharedLogic
+├── webApp/                     # Web client — Compose HTML (Kotlin/JS), served by the server at /
+│   ├── src/jsMain/             # Pages, design system, browser playback
+│   ├── web/                    # Vite + Playwright toolchain, CSS, test runner
+│   └── worker/                 # SQLite (OPFS) web worker
 └── baselineprofile/            # Baseline profile generator for :app:androidApp
 contract/                      # Client↔server contract: @Rpc service interfaces,
                                 #   @Serializable DTOs, the error hierarchy
-server/                        # Ktor server (KMP: JVM + linuxX64 native)
+server/                        # Ktor server (KMP: JVM + Linux native, x64 and arm64)
 gradle/                        # Wrapper + libs.versions.toml
 tools/                         # Build machinery — never ships
 ├── build-logic/                # Gradle convention plugins + detekt-rules (included build)
 ├── rpc-guard-ksp/               # KSP RPC-guard processor
-├── scripts/                     # Export-surface + AppResult-await gate scripts
+├── scripts/                     # CI gate scripts (export surface, AppResult-await, …)
 └── detekt/                      # detekt.yml + baseline.xml
 ```
 
 Module IDs follow the directories: `:app:sharedLogic`, `:app:sharedUI`,
-`:app:androidApp`, `:app:desktopApp`, `:app:baselineprofile`, `:contract`, `:server`,
-`:tools:rpc-guard-ksp`. `iosApp` is an Xcode project, not a Gradle module.
+`:app:androidApp`, `:app:desktopApp`, `:app:webApp`, `:app:baselineprofile`, `:contract`,
+`:server`, `:tools:rpc-guard-ksp`. `iosApp` is an Xcode project, not a Gradle module.
 
 Adding or moving a module is a deliberate act: `EXPECTED_MODULE_DIRS`
 (`app/sharedLogic/src/jvmTest/.../konsist/ExpectedModules.kt`) is the canonical
@@ -353,7 +359,7 @@ A module that appears, disappears, or relocates fails that test by name — beca
 architectural gate running green over less code than you think is worse than one that
 fails.
 
-**ViewModels** live in `app/sharedLogic/.../presentation/` (shared across Android + iOS). **Screens** live in `app/sharedUI/.../features/`. This split is the canonical KMP shared-presentation pattern — do not merge them.
+**ViewModels** live in `app/sharedLogic/.../presentation/` (shared across Android, iOS and web). **Screens** live in `app/sharedUI/.../features/`. This split is the canonical KMP shared-presentation pattern — do not merge them.
 
 ---
 
