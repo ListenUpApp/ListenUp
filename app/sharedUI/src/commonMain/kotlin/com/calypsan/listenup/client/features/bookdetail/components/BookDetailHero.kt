@@ -130,7 +130,7 @@ internal fun WideHeroBand(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
         horizontalArrangement = Arrangement.spacedBy(40.dp),
         verticalAlignment = Alignment.Top,
     ) {
