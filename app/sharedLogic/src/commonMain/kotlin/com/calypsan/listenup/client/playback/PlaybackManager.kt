@@ -142,8 +142,13 @@ interface PlaybackManager :
      * @return the [PrepareResult] (timeline + resume position), or a typed failure:
      *   [com.calypsan.listenup.api.error.BookError.HeldForReview] for a book held for review,
      *   [com.calypsan.listenup.api.error.PlaybackError.CouldNotStart] for anything else.
+     *
+     * [startAtMs]: start here (book ms) instead of the saved position; null resumes. See [PlaybackPreparer.prepare].
      */
-    suspend fun prepareForPlayback(bookId: BookId): AppResult<PrepareResult>
+    suspend fun prepareForPlayback(
+        bookId: BookId,
+        startAtMs: Long?,
+    ): AppResult<PrepareResult>
 
     /**
      * Start playback using a platform [AudioPlayer]. Bridges the prepared timeline

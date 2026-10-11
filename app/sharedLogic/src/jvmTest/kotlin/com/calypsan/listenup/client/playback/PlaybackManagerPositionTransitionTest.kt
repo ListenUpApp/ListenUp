@@ -178,7 +178,7 @@ class PlaybackManagerPositionTransitionTest :
                     seedBook(db, fileCount = 3, fileDurationMs = 3_600_000L)
                     val manager = createManager(db, CoroutineScope(Job()), audioFileIds = arrayOf("af-0", "af-1", "af-2"))
 
-                    val prepared = manager.prepareForPlayback(BookId("book-1")).getOrNull()
+                    val prepared = manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
                     checkNotNull(prepared) { "prepareForPlayback must succeed" }
                     manager.activateBook(BookId("book-1"))
 
@@ -295,7 +295,7 @@ class PlaybackManagerPositionTransitionTest :
                             persistTransitionsViaReporter = true,
                         )
 
-                    val prepared = manager.prepareForPlayback(BookId("book-1")).getOrNull()
+                    val prepared = manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
                     checkNotNull(prepared) { "prepareForPlayback must succeed" }
                     manager.activateBook(BookId("book-1"))
 
@@ -342,7 +342,7 @@ class PlaybackManagerPositionTransitionTest :
                             persistTransitionsViaReporter = false,
                         )
 
-                    val prepared = manager.prepareForPlayback(BookId("book-1")).getOrNull()
+                    val prepared = manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
                     checkNotNull(prepared) { "prepareForPlayback must succeed" }
                     manager.activateBook(BookId("book-1"))
 
@@ -393,7 +393,7 @@ class PlaybackManagerPositionTransitionTest :
                     progressTracker = buildProgressTracker(scope = managerScope, positionRepository = positionRepository),
                     persistTransitionsViaReporter = true,
                 )
-            val prepared = manager.prepareForPlayback(BookId("book-1")).getOrNull()
+            val prepared = manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
             checkNotNull(prepared) { "prepareForPlayback must succeed" }
             manager.activateBook(BookId("book-1"))
 

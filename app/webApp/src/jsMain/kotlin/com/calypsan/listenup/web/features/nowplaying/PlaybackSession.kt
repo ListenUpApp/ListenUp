@@ -600,7 +600,7 @@ internal class LivePlayback(
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 var reachedPlayback = false
                 try {
-                    when (val result = playbackManager.prepareForPlayback(bookId)) {
+                    when (val result = playbackManager.prepareForPlayback(bookId, startAtMs = null)) {
                         is AppResult.Failure -> {
                             // A held book's refusal names what unlocks it, and a retry cannot help.
                             val held = result.error is BookError.HeldForReview

@@ -216,9 +216,12 @@ internal class PlaybackManagerImpl(
      *
      * @return the PrepareResult, or the choke point's typed failure
      */
-    override suspend fun prepareForPlayback(bookId: BookId): AppResult<PlaybackManager.PrepareResult> {
+    override suspend fun prepareForPlayback(
+        bookId: BookId,
+        startAtMs: Long?,
+    ): AppResult<PlaybackManager.PrepareResult> {
         val prepared =
-            when (val result = preparer.prepare(bookId, startAtMs = null)) {
+            when (val result = preparer.prepare(bookId, startAtMs)) {
                 is AppResult.Success -> result.data
                 is AppResult.Failure -> return result
             }

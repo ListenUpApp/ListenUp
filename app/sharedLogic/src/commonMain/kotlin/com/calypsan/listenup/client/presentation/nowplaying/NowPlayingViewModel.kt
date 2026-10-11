@@ -508,7 +508,7 @@ class NowPlayingViewModel internal constructor(
         preparingJob =
             viewModelScope.launch {
                 try {
-                    when (val result = playbackManager.prepareForPlayback(bookId)) {
+                    when (val result = playbackManager.prepareForPlayback(bookId, startAtMs = null)) {
                         is AppResult.Failure -> {
                             reportPrepareFailure(result.error)
                             return@launch
