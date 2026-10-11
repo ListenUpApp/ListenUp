@@ -130,6 +130,8 @@ internal class Scanner(
         // live book under it into a tombstone. Track reachability and surface the failure honestly.
         var fullScanAuthoritative = true
         val rootErrors = mutableListOf<ScanError>()
+        // A link from one library folder into another is a legitimate layout; a link out of all of them is not.
+        val libraryRoots = library.folders.mapNotNull { it.rootPath }.map { Path(it) }
 
         for (folder in library.folders) {
             val rootPath = folder.rootPath ?: continue
@@ -148,7 +150,7 @@ internal class Scanner(
                 fullScanAuthoritative = false
                 continue
             }
-            val files = Walker().walk(folderRoot).toList()
+            val files = Walker().walk(folderRoot, containmentRoots = libraryRoots).toList()
             val candidates = Grouper().group(files.asFlow()).toList()
             totalFileCount += files.size
             totalCandidateCount += candidates.size
@@ -329,7 +331,8 @@ internal class Scanner(
         val folderRoot = Path(folderRootPath)
 
         val walker = Walker()
-        val rawFiles = walker.walk(bookRoot).toList()
+        val libraryRoots = library.folders.mapNotNull { it.rootPath }.map { Path(it) }
+        val rawFiles = walker.walk(bookRoot, containmentRoots = libraryRoots).toList()
         val prefix = (bookRoot.relativeTo(folderRoot) ?: bookRoot.toString()).replace('\\', '/')
         val rebasedFiles =
             rawFiles.map { entry ->

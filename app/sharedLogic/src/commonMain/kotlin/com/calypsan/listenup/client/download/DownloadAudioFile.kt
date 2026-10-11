@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.result.AppResult
@@ -200,32 +198,58 @@ internal suspend fun downloadAudioFile(
                         throw IOException("Failed to move temp file to destination")
                     }
 
-                    // Mark complete via repository. The file is already on disk; if the DB write fails
-                    // the row is still DOWNLOADING, so surface it as a FAILURE (B10c) rather than
-                    // logging "complete" over a lying state — the worker then records FAILED honestly.
-                    when (
-                        val completed =
-                            repository.markCompleted(
-                                audioFileId = audioFileId,
-                                localPath = destPath.toString(),
-                                completedAt = currentEpochMilliseconds(),
-                            )
-                    ) {
-                        is AppResult.Success -> {}
-
-                        is AppResult.Failure -> {
-                            logger.error {
-                                "Download finished on disk but markCompleted failed for $audioFileId: " +
-                                    completed.error.message
-                            }
-                            throw IOException(
-                                "markCompleted failed after file landed for $audioFileId: ${completed.error.message}",
-                            )
-                        }
-                    }
+                    recordCompletion(
+                        repository = repository,
+                        audioFileId = audioFileId,
+                        destPath = destPath,
+                        filename = filename,
+                    )
                 }
         }
     }
+
+/**
+ * Mark the row complete now that the file is on disk. If the DB write fails the row is still
+ * DOWNLOADING, so surface it as a FAILURE (B10c) rather than logging "complete" over a lying state —
+ * the worker then records FAILED honestly.
+ *
+ * If the row was cancelled or deleted while the last bytes landed, nothing points at the file, so
+ * remove it rather than orphan it and end as a cancellation does: the worker records neither FAILED
+ * nor a retry.
+ */
+private suspend fun recordCompletion(
+    repository: DownloadRepository,
+    audioFileId: String,
+    destPath: Path,
+    filename: String,
+) {
+    when (
+        val completed =
+            repository.markCompleted(
+                audioFileId = audioFileId,
+                localPath = destPath.toString(),
+                completedAt = currentEpochMilliseconds(),
+            )
+    ) {
+        is AppResult.Success -> {
+            if (!completed.data) {
+                SystemFileSystem.delete(destPath)
+                logger.info { "Discarded $filename: it finished after the download was cancelled or deleted" }
+                throw CancellationException("Download of $audioFileId was cancelled before it completed")
+            }
+        }
+
+        is AppResult.Failure -> {
+            logger.error {
+                "Download finished on disk but markCompleted failed for $audioFileId: " +
+                    completed.error.message
+            }
+            throw IOException(
+                "markCompleted failed after file landed for $audioFileId: ${completed.error.message}",
+            )
+        }
+    }
+}
 
 /**
  * Resolve the correct download URL via [PlaybackService.prepare], wrapping the shared

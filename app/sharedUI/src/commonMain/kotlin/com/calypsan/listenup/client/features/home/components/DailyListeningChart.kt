@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.features.home.components
 
 import androidx.compose.animation.core.Animatable
@@ -25,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.presentation.home.weekChartColumns
-import kotlin.time.ExperimentalTime
 
 /**
  * 7-day bar chart showing daily listening time.

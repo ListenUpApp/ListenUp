@@ -59,7 +59,6 @@ import com.calypsan.listenup.client.presentation.settings.DevicesUiState
 import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
 import com.calypsan.listenup.client.util.relativeLastActive
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_cancel
@@ -98,7 +97,6 @@ import com.calypsan.listenup.client.design.theme.HeroInk
  * @param onBack Navigate back to Settings.
  * @param viewModel The Devices ViewModel, provided via Koin.
  */
-@OptIn(ExperimentalTime::class)
 @Composable
 fun DevicesScreen(
     onBack: () -> Unit,
@@ -136,7 +134,6 @@ fun DevicesScreen(
     )
 }
 
-@OptIn(ExperimentalTime::class)
 @Composable
 private fun DevicesBody(
     state: DevicesUiState,
@@ -482,7 +479,7 @@ private fun ThisDeviceCardContent(
     inHero: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val visual = deviceVisualFor(device.deviceType)
+    val visual = deviceVisualFor(device.glyph)
     val inkColor =
         if (inHero) {
             MaterialTheme.colorScheme.onPrimaryContainer
@@ -678,7 +675,7 @@ private fun DeviceRowItem(
     nowMs: Long,
     onRevoke: () -> Unit,
 ) {
-    val visual = deviceVisualFor(device.deviceType)
+    val visual = deviceVisualFor(device.glyph)
 
     Row(
         modifier =

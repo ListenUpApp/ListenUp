@@ -19,5 +19,7 @@ sealed interface SocialError : AppError {
         override val message: String = "That isn't available."
         override val code: String = "SOCIAL_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

@@ -93,6 +93,49 @@ internal interface DownloadDao {
     )
     suspend fun markPausedIfNotTerminal(audioFileId: String)
 
+    /**
+     * Claim a row for transfer: QUEUED, FAILED or PAUSED becomes DOWNLOADING. Returns the number of
+     * rows changed — 1 means the caller owns the transfer, 0 means it must not start one.
+     *
+     * The guard is what stops a second transfer of a file that is already downloading or already
+     * complete, and what keeps a row the user cancelled or deleted from being started at all.
+     */
+    @Query(
+        "UPDATE downloads SET state = 'DOWNLOADING', startedAt = :startedAt WHERE audioFileId = :audioFileId " +
+            "AND state IN ('QUEUED', 'FAILED', 'PAUSED')",
+    )
+    suspend fun claimForTransfer(
+        audioFileId: String,
+        startedAt: Long,
+    ): Int
+
+    /**
+     * Record a failed transfer, unless the row has already reached a terminal state. A transfer the
+     * user cancelled or deleted reports an error as it dies; that error must not undo their choice.
+     */
+    @Query(
+        "UPDATE downloads SET state = 'FAILED', errorMessage = :error, retryCount = retryCount + 1 " +
+            "WHERE audioFileId = :audioFileId AND state NOT IN ('CANCELLED', 'DELETED', 'COMPLETED')",
+    )
+    suspend fun markFailedIfNotTerminal(
+        audioFileId: String,
+        error: String,
+    )
+
+    /**
+     * Move a live transfer between QUEUED (held, waiting for an allowed network) and DOWNLOADING.
+     * A no-op on any other state, so a late callback cannot resurrect a finished row.
+     */
+    @Query(
+        "UPDATE downloads SET state = :state, startedAt = :startedAt WHERE audioFileId = :audioFileId " +
+            "AND state IN ('QUEUED', 'DOWNLOADING')",
+    )
+    suspend fun updateStateIfTransferring(
+        audioFileId: String,
+        state: DownloadState,
+        startedAt: Long? = null,
+    )
+
     @Query("UPDATE downloads SET state = :newState WHERE bookId = :bookId AND state != :excludeState")
     suspend fun updateStateForBookExcluding(
         bookId: String,
@@ -113,7 +156,11 @@ internal interface DownloadDao {
         total: Long,
     )
 
-    // Mark completed
+    /**
+     * Mark a row completed, unless the user cancelled or deleted it. A transfer that finishes after
+     * that choice must not resurrect the row. Returns the number of rows changed: 0 means the file
+     * landed after the cancel or delete and the caller still holds bytes nothing points at.
+     */
     @Query(
         """
         UPDATE downloads SET
@@ -121,7 +168,7 @@ internal interface DownloadDao {
             localPath = :localPath,
             completedAt = :completedAt,
             downloadedBytes = totalBytes
-        WHERE audioFileId = :audioFileId
+        WHERE audioFileId = :audioFileId AND state NOT IN ('CANCELLED', 'DELETED')
     """,
     )
     suspend fun markCompletedWithState(
@@ -129,18 +176,19 @@ internal interface DownloadDao {
         localPath: String,
         completedAt: Long,
         state: DownloadState,
-    )
+    ): Int
 
     suspend fun markCompleted(
         audioFileId: String,
         localPath: String,
         completedAt: Long,
-    ) = markCompletedWithState(
-        audioFileId = audioFileId,
-        localPath = localPath,
-        completedAt = completedAt,
-        state = DownloadState.COMPLETED,
-    )
+    ): Int =
+        markCompletedWithState(
+            audioFileId = audioFileId,
+            localPath = localPath,
+            completedAt = completedAt,
+            state = DownloadState.COMPLETED,
+        )
 
     // Mark error
     @Query(

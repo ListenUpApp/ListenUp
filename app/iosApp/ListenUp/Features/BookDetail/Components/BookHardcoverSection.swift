@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 
 /// Book Detail's Hardcover section, under Readers: the Hardcover book this one is matched to and

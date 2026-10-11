@@ -23,7 +23,7 @@ import org.koin.dsl.module
 
 /**
  * Sync Foundation DI bindings. `createdAtStart = true` is mandatory on every
- * [com.calypsan.listenup.server.sync.SyncableRepository] so the `init` block
+ * [com.calypsan.listenup.server.sync.SqlSyncableRepository] so the `init` block
  * (which calls `registry.register(this)`) runs at application bootstrap
  * rather than lazily on first use — that makes `SyncStreamService.listDomains()` correct
  * on the first request.
@@ -60,8 +60,6 @@ fun syncModule(): Module =
                 bookAccessPolicy = { get() },
             )
         }
-        // Tag + BookTag + Mood + BookMood are SQLDelight conversions (the cutover template):
-        // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
         single(createdAtStart = true) { TagRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) {
             BookTagRepository(
@@ -109,10 +107,9 @@ fun syncModule(): Module =
                 moodRepository = getOrNull<MoodRepository>(),
             )
         }
-        // Collection aggregate — fully SQLDelight. The access-filtered catch-up/digest raw reads
-        // now run engine-neutral over the shared [SqlDriver] (the firehose's runtime-built
-        // `extraWhere` subquery carries plain raw args; see each repo's pullSince override), so
-        // these repos no longer hold an Exposed [Database].
+        // Collection aggregate. The access-filtered catch-up/digest raw reads run over the shared
+        // [SqlDriver] (the firehose's runtime-built `extraWhere` subquery carries plain raw args;
+        // see each repo's pullSince override).
         single(createdAtStart = true) {
             CollectionRepository(
                 db = get<ListenUpDatabase>(),

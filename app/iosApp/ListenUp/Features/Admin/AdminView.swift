@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 import UIKit
 import Shared
@@ -51,12 +52,13 @@ struct AdminView: View {
         .navigationTitle(String(localized: "common.administration"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar { saveToolbarItem }
+        .guardsUnsavedEdits(hasChanges: serverSettingsHaveUnsavedEdits)
         .onAppear {
             if admin == nil { admin = AdminObserver(viewModel: deps.createAdminViewModel()) }
             if settings == nil { settings = AdminSettingsObserver(viewModel: deps.createAdminSettingsViewModel()) }
         }
         .sheet(isPresented: $showingInviteSheet) {
-            CreateInviteView(viewModel: deps.createCreateInviteViewModel())
+            CreateInviteView()
         }
         .messageAlert(alertBinding) { admin?.clearError() }
         .confirmationDialog(
@@ -115,13 +117,13 @@ struct AdminView: View {
         }
     }
 
-    /// Acts on the first settled arrival only. The scroll waits a turn of the main queue so the list
+    /// Acts on the first settled arrival only. The scroll waits a turn of the main actor so the list
     /// has laid out the rows it is scrolling to.
     private func arrive(_ arrival: AdminArrival, proxy: ScrollViewProxy) {
         guard !hasArrived, arrival != .waiting else { return }
         hasArrived = true
         if case .scroll(let section) = arrival {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 withAnimation { proxy.scrollTo(section, anchor: .top) }
             }
         }
@@ -455,6 +457,12 @@ struct AdminView: View {
                 }
             }
         }
+    }
+
+    /// The name and URL fields are an edit buffer until Save; leaving with them changed asks first.
+    private var serverSettingsHaveUnsavedEdits: Bool {
+        if case .ready(let model) = settings?.phase { return model.isDirty }
+        return false
     }
 
     // MARK: - Bindings

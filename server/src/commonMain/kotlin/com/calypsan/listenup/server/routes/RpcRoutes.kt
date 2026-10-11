@@ -2,14 +2,17 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.CachedSessionLiveness
 import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.routing.Route
+import io.ktor.util.AttributeKey
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.rpc.krpc.ktor.server.KrpcRoute
@@ -35,13 +38,39 @@ private val rpcRoutesLogger = KotlinLogging.logger("com.calypsan.listenup.server
  * the client. The whole construction is additionally wrapped in [guardedConstruction] so a DI
  * mis-wire (a failing `copyWith`/cast in [scoped]) is sanitized the same way. The `guard` call
  * stays at the call site, where the concrete service type selects the right overload.
+ *
+ * [scoped] also receives the connection's session-liveness probe (see [connectionLiveness]), shared
+ * by every service on the socket; passing it to `guard` is what makes a revoked session's ordinary
+ * calls fail with `SessionExpired`.
  */
-internal inline fun <reified T : Any> KrpcRoute.registerScoped(crossinline scoped: (PrincipalProvider) -> T) {
+internal inline fun <reified T : Any> KrpcRoute.registerScoped(
+    liveness: SessionLiveness,
+    crossinline scoped: (PrincipalProvider, suspend () -> Boolean) -> T,
+) {
     registerService<T> {
         guardedConstruction {
-            scoped(PrincipalProvider { call.userPrincipalOrNull() ?: authWallRegression() })
+            val provider = PrincipalProvider { call.userPrincipalOrNull() ?: authWallRegression() }
+            scoped(provider, connectionLiveness(call, provider, liveness))
         }
     }
+}
+
+private val LIVENESS_KEY = AttributeKey<CachedSessionLiveness>("rpc.sessionLiveness")
+
+/**
+ * The session-liveness predicate every service on this connection shares. The cache lives on the
+ * WebSocket upgrade [call]'s attributes, so all services registered on one socket cost one session
+ * read per window rather than one each. A caller with no principal (an auth-wall regression) reads
+ * as dead, so a call or stream is refused rather than left open. The guard takes a plain suspend
+ * predicate, so no server type crosses onto the client export surface.
+ */
+internal fun connectionLiveness(
+    call: ApplicationCall,
+    provider: PrincipalProvider,
+    liveness: SessionLiveness,
+): suspend () -> Boolean {
+    val cached = call.attributes.computeIfAbsent(LIVENESS_KEY) { CachedSessionLiveness(provider, liveness) }
+    return cached::isLive
 }
 
 /** Loud server-side signal for an auth-wall regression; returns null so services fail closed. */
@@ -49,22 +78,6 @@ internal fun authWallRegression(): UserPrincipal? {
     rpcRoutesLogger.error { AUTH_WALL_REGRESSION_MSG }
     return null
 }
-
-/**
- * Builds the per-connection liveness predicate a streaming service's guard uses to sever a revoked
- * stream (C2). It resolves the caller's session id from [provider] (the same lazily-resolved
- * principal the service is scoped to) and re-checks it against [liveness] on each poll. A stream with
- * no principal (an auth-wall regression) reads as dead, so it is severed rather than left open. The
- * guard takes a plain suspend predicate, so no server type crosses onto the client export surface.
- */
-internal fun streamLiveness(
-    provider: PrincipalProvider,
-    liveness: SessionLiveness,
-): suspend () -> Boolean =
-    {
-        val sessionId = provider.current()?.sessionId
-        sessionId != null && liveness.isLive(sessionId, issuedAtEpochSeconds = null)
-    }
 
 /**
  * Runs a service-registration factory [block], converting any construction failure into a

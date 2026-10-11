@@ -67,27 +67,28 @@ private struct RootView: View {
     /// Resolved lazily on first authentication (see `.authenticated`) — never at launch, so the
     /// shared ConnectionHealthViewModel graph doesn't touch the keychain before the session exists.
     @State private var connectionHealth: ConnectionHealthObserver?
-    /// The app-wide error alert queue. Created eagerly — a plain value holder with no
-    /// dependencies; `GlobalErrorObserver` fills it once a session exists.
-    @State private var errorAlerts = ErrorAlertCenter()
-    /// Resolved lazily on first authentication, mirroring `connectionHealth`: the shared graph must
-    /// not be touched before a session exists.
-    @State private var globalErrors: GlobalErrorObserver?
     @State private var currentUser = CurrentUserObserver()
     @State private var readiness = LibraryReadinessObserver()
     @State private var hapticsSettings = HapticsSettings()
-    @State private var deepLinkRouter = DeepLinkRouter()
+    /// The app icon's long-press list of recent books (see `RecentBookShortcutsObserver`).
+    @State private var recentShortcuts = RecentBookShortcutsObserver()
+    /// This window's identity for "which window presents it" decisions (see `FrontRootWindow`).
+    @State private var windowID = UUID()
     @State private var showReauthSheet = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dependencies) private var dependencies
 
+    private var deepLinkRouter: DeepLinkRouter { .shared }
+    private var frontRoot: FrontRootWindow { .shared }
+    private var quickActions: QuickActionRouter { .shared }
     var body: some View {
         content
             .environment(currentUser)
             .environment(hapticsSettings)
             .environment(deepLinkRouter)
-            // One router per process, owned by the one push coordinator: every window's shell
-            // observes it and claims taps from it, so a tap lands in exactly one window.
+            // One router of each kind per process (links here, notification taps on the one push
+            // coordinator): every window's shell observes them and claims from them, so a link or
+            // a tap lands in exactly one window.
             .environment(PushCoordinator.shared.tapRouter)
             // Universal links: `.onOpenURL` is the reliable SwiftUI App-lifecycle delivery path
             // (cold launch *and* while running). `.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)`
@@ -109,6 +110,9 @@ private struct RootView: View {
                 }
             }
             .animation(.smooth(duration: 0.3), value: auth.state)
+            // A window already active when it appears gets no scene-phase change, so it reports here.
+            .onAppear { if scenePhase == .active { frontRoot.became(windowID) } }
+            .onDisappear { frontRoot.wentAway(windowID) }
             // Start realtime sync once authenticated (initial pull + SSE firehose), mirroring the
             // Compose `MainActivity`/`AppShell`. Without this the library never populates on iOS.
             .onChange(of: auth.state, initial: true) { _, newState in
@@ -116,20 +120,24 @@ private struct RootView: View {
                 // auth gate (shared) owns resuming the firehose + forced reconcile.
                 if newState == .authenticated { showReauthSheet = false }
                 // Post-auth is the one moment a notification prompt makes sense (Android parity:
-                // AppShell's once-per-session request). No-op on every later transition.
+                // AppShell's once-per-session request). Later sign-ins re-sync the server only.
                 if newState == .authenticated {
                     PushCoordinator.shared.activate()
                     // The error surface belongs to the authenticated shell, so it is built here
                     // rather than at launch — resolving the bus pre-auth would touch the shared
                     // graph before a session exists.
-                    if globalErrors == nil {
-                        globalErrors = GlobalErrorObserver(center: errorAlerts)
-                    }
+                    GlobalErrorObserver.activate()
                 }
                 activateSyncIfAuthenticated()
+                updateQuickActions(for: newState)
+            }
+            // A quick action tapped while the app is running arrives with the auth state unchanged.
+            .onChange(of: quickActions.pendingBookId) { _, _ in
+                quickActions.resolve(authState: auth.state, playback: PlaybackController())
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
+                    frontRoot.became(windowID)
                     // Reconnect realtime sync on every foreground (single-flight, so safe), and
                     // re-run the library-setup check if we were backgrounded long enough that the
                     // cached readiness could be stale (mirrors Android's MainActivity.onResume).
@@ -141,6 +149,9 @@ private struct RootView: View {
                 // from the .backgroundTask handler (BackgroundSync.run reschedules before working).
                 if newPhase == .background {
                     BackgroundSync.schedule()
+                    // The list the icon shows next is the one as of now (the book just played has its
+                    // position saved by this point).
+                    if auth.state == .authenticated { Task { await recentShortcuts.refresh() } }
                     // Record the background timestamp so onAppForegrounded can measure the gap.
                     readiness.onAppBackgrounded()
                 }
@@ -170,9 +181,26 @@ private struct RootView: View {
 
     private var invitePresented: Binding<Bool> {
         Binding(
-            get: { if case .claimInvite = deepLinkRouter.outcome { true } else { false } },
+            get: {
+                if case .claimInvite = deepLinkRouter.outcome { frontRoot.isFront(windowID) } else { false }
+            },
             set: { presented in if !presented { deepLinkRouter.consume() } }
         )
+    }
+
+    /// Resolves a quick action tapped during launch, then keeps the icon's recent-book list in step
+    /// with sign-in: filled and following the current book while signed in, emptied on sign-out.
+    /// A lapsed session keeps its list (the library is intact); a state still settling touches nothing.
+    private func updateQuickActions(for state: AuthStateKind) {
+        quickActions.resolve(authState: state, playback: PlaybackController())
+        switch state {
+        case .authenticated:
+            recentShortcuts.startObservingCurrentBook(of: dependencies.playerCoordinator)
+        case .needsServerUrl, .needsSetup, .needsLogin, .pendingApproval:
+            recentShortcuts.clear()
+        case .initializing, .checkingServer, .sessionLapsed:
+            break
+        }
     }
 
     /// Connect realtime sync + resume downloads when authenticated, through the process's one
@@ -253,7 +281,7 @@ private struct RootView: View {
     /// attached here rather than at either call site — neither can be the one that forgets.
     private var authenticatedContent: some View {
         authenticatedPhase
-            .errorAlertHost(errorAlerts)
+            .errorAlertHost(.shared, isFrontWindow: frontRoot.isFront(windowID))
     }
 
     @ViewBuilder

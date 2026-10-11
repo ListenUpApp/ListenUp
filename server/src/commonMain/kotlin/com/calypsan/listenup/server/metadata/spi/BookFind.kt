@@ -106,6 +106,12 @@ interface BookFindSource : MetadataCapability {
     /** Whether this source can take part right now — checked before every Find, never cached. */
     suspend fun findAvailability(): FindAvailability = FindAvailability.Available
 
+    /**
+     * Extra state this source's answer depends on beyond the lookup itself, or null. It joins the
+     * cache key, so an answer is never reused across a change to it.
+     */
+    suspend fun cacheDiscriminator(lookup: FindLookup): String? = null
+
     /** Finds [lookup]'s book in [locale]. */
     suspend fun findBooks(
         lookup: FindLookup,

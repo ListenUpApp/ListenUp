@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 // Native value types for Match details, mapped once at the observer boundary (iosApp rule 8): the

@@ -19,6 +19,17 @@ object ListenerRatingLimits {
     fun normalizeNote(note: String?): String? = note?.run { trim().takeIf { it.isNotEmpty() } }
 
     /**
+     * Whether a rating sheet's draft differs from the rating it opened on — what closing it would
+     * lose. An unrated book opens on no stars and no note ([openedHalfStars] and [openedNote] null).
+     */
+    fun isDraftChanged(
+        openedHalfStars: Int?,
+        openedNote: String?,
+        halfStars: Int,
+        note: String,
+    ): Boolean = halfStars != (openedHalfStars ?: 0) || note != openedNote.orEmpty()
+
+    /**
      * [halfStars] as the number of stars every platform says: "4" for 8, "3.5" for 7. Also works for
      * an average (the Book Detail summary), rounded to the nearest half.
      */

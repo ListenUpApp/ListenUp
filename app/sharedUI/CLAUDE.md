@@ -1,7 +1,7 @@
 # CLAUDE.md — Compose UI (`sharedUI`)
 
 Design & platform rules for the Compose Multiplatform UI (Android-primary; also Desktop).
-These **complement** the root `client/CLAUDE.md` and the `android-*` skills — they do **not**
+These **complement** the root `CLAUDE.md` and the `android-*` skills — they do **not**
 restate architecture. For ViewModels/MVI/state/error/Compose mechanics, see the root + the
 `android-compose-ui` / `android-presentation-mvi` / `android-navigation` skills.
 
@@ -20,13 +20,14 @@ restate architecture. For ViewModels/MVI/state/error/Compose mechanics, see the 
    (multiple text-field/avatar impls, copy-pasted material-capsule/scrim recipes), consolidate it.
 3. **Adaptive across all screen sizes — first-class, not "a phone layout stretched on a tablet."**
    Every screen earns a real layout at compact / medium / expanded widths via `WindowSizeClass`,
-   `NavigationSuiteScaffold` / `WideNavigationRail`, and list-detail. The shell already adapts
+   the shell's `AppNavigationSuite` (`features/shell/components/AppNavigationSuite.kt` — a bottom bar
+   on compact widths, a navigation rail on wider ones), and list-detail. The shell already adapts
    (compact/medium/expanded) — hold that bar on new screens. (Mirrors the iOS adaptive rule.)
 
 ## Platform & language
 4. **Android 14/15 platform modernity.** Adopt predictive back, per-app language, the Photo Picker,
    and granular media permissions where they serve the app.
-5. **Modern Kotlin** — Kotlin 2.4.0 (catalog-pinned). Idiomatic coroutines/Flow per the root rubric.
+5. **Modern Kotlin** — Kotlin 2.4 (catalog-pinned). Idiomatic coroutines/Flow per the root rubric.
 
 ## Multiplatform
 6. **`commonMain` is Android + Desktop.** The Expressive APIs are in multiplatform material3, and
@@ -47,12 +48,15 @@ restate architecture. For ViewModels/MVI/state/error/Compose mechanics, see the 
     or `AppError.localizedString()` (suspend, e.g. inside a snackbar `LaunchedEffect`), which resolve
     `error_<code>` from the string catalog and fall back to `AppError.message`:
     ```kotlin
-    // ViewModel — carry the typed AppError, no copy
+    // ViewModel — explicit backing field; carry the typed AppError, no copy
+    val state: StateFlow<State>
+        field = MutableStateFlow<State>(State.Loading)
+
     when (val result = repo.foo()) {
-        is AppResult.Success -> _state.value = State.Loaded(result.data)
+        is AppResult.Success -> state.value = State.Loaded(result.data)
         is AppResult.Failure -> {
             errorBus.emit(result.error)
-            _state.value = State.Error(result.error)
+            state.value = State.Error(result.error)
         }
     }
 

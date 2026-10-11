@@ -61,6 +61,13 @@ internal interface SyncDomainHandler<T : Any> {
     fun refetchForOutboxKey(outboxKey: String): TargetedFetch? = TargetedFetch.ByIds(listOf(outboxKey))
 
     /**
+     * Undoes the optimistic local write behind an outbox op keyed [outboxKey] that was dead-lettered
+     * or dismissed, for a domain where [refetchForOutboxKey] is null so no re-read can heal it.
+     * A no-op by default.
+     */
+    suspend fun discardUnacknowledged(outboxKey: String) {}
+
+    /**
      * Apply a firehose-driven event.
      *
      * Anti-flicker is structural, not per-call: the engine's apply choke point shields an inbound

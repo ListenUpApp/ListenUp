@@ -181,6 +181,15 @@ class SegmentCache(
         withContext(fileIoDispatcher) { deleteRecursively(Path(baseDir, "$bookId/$fileId")) }
     }
 
+    /** Removes one segment so the next request re-encodes it. Idempotent. */
+    suspend fun evictSegment(
+        bookId: String,
+        fileId: String,
+        index: Int,
+    ) {
+        withContext(fileIoDispatcher) { SystemFileSystem.delete(segmentPath(bookId, fileId, index), mustExist = false) }
+    }
+
     private companion object {
         /** Encoder profile the segments under a path were produced by. */
         const val DEFAULT_PROFILE = "aac-64k"

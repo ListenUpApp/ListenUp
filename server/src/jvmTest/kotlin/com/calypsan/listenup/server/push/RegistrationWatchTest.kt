@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.push
 
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
@@ -38,7 +36,6 @@ import kotlinx.coroutines.test.runTest
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**

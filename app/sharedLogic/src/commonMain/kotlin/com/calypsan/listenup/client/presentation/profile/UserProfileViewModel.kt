@@ -17,7 +17,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
@@ -25,6 +24,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -99,7 +99,7 @@ class UserProfileViewModel internal constructor(
                 }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = UserProfileUiState.Idle,
             )
 
@@ -262,8 +262,6 @@ class UserProfileViewModel internal constructor(
     )
 
     companion object {
-        private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
-
         /** How many books the "Recently listened" strip shows. */
         internal const val RECENT_BOOKS_LIMIT = 10
         private const val MS_PER_SECOND = 1_000L

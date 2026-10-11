@@ -118,6 +118,43 @@ test('a clean run with no page errors still reports nothing', () => {
   assert.deepEqual(problems, [])
 })
 
+const AT_BASELINE = { started: 1000, finished: 1000, ignored: 0, failed: 0 }
+const grownBy = (started) => ({ started, finished: started, ignored: 0, failed: 0 })
+const growthRun = (counts, extra = {}) =>
+  problemsFor({ counts, timedOut: false, minTests: 1000, ceilingMs: 180_000, ...extra })
+
+test('a run exactly at the baseline reports no growth problem', () => {
+  assert.deepEqual(growthRun(AT_BASELINE), [])
+})
+
+test('a run 9% above the baseline is within tolerance', () => {
+  assert.deepEqual(growthRun(grownBy(1090)), [])
+})
+
+test('a run 11% above the baseline says to re-record it', () => {
+  const problems = growthRun(grownBy(1110))
+  assert.equal(problems.length, 1)
+  assert.match(problems[0], /re-record/)
+})
+
+test('a run below the baseline fails the floor and not the growth clause', () => {
+  const problems = growthRun(grownBy(999))
+  assert.deepEqual(problems, ['discovered 999 tests, expected at least 1000'])
+})
+
+test('the growth clause is independent of failures and timeouts', () => {
+  const problems = growthRun(
+    { started: 1110, finished: 1109, ignored: 0, failed: 1 },
+    { timedOut: true },
+  )
+  assert.equal(problems.filter((p) => p.includes('re-record')).length, 1)
+  assert.equal(problems.length, 4)
+})
+
+test('a wider maxGrowth tolerates what the default would not', () => {
+  assert.deepEqual(growthRun(grownBy(1110), { maxGrowth: Infinity }), [])
+})
+
 test('the committed baseline names both lanes', () => {
   assert.equal(Number.isInteger(baseline.serverFree), true)
   assert.equal(Number.isInteger(baseline.serverBacked), true)
@@ -125,9 +162,9 @@ test('the committed baseline names both lanes', () => {
   assert.equal(baseline.serverBacked > 0, true)
 })
 
-test('the server-backed lane runs exactly eight tests the server-free lane skips', () => {
-  // The eight `.config(enabled = serverBooted)` sites are the whole documented difference between
-  // the lanes. A ninth must land with a matching change here, in the same commit:
+test('the server-backed lane runs exactly ten tests the server-free lane skips', () => {
+  // The ten `.config(enabled = serverBooted)` sites are the whole documented difference between
+  // the lanes. An eleventh must land with a matching change here, in the same commit:
   //   RpcTransportTest.kt:41
   //   AuthArcTest.kt:41
   //   LibrarySyncTest.kt:24
@@ -136,7 +173,9 @@ test('the server-backed lane runs exactly eight tests the server-free lane skips
   //   features/admin/BrowserArchiveUploadTest.kt:31
   //   playback/HlsPlaybackTest.kt:98
   //   playback/HlsPlaybackTest.kt:149
-  assert.equal(baseline.serverBacked - baseline.serverFree, 8)
+  //   TwoTabSessionTest.kt:24
+  //   UnreadableUploadTest.kt:70
+  assert.equal(baseline.serverBacked - baseline.serverFree, 10)
 })
 
 test('the baseline is not a stale fraction of the suite', () => {

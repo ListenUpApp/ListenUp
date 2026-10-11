@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
@@ -21,8 +22,8 @@ class LibrarySettingsSession(
     val onOpenBrowserPath: (String) -> Unit,
     val onBrowserUp: () -> Unit,
     val onClearError: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenLibrarySettings = () -> LibrarySettingsSession

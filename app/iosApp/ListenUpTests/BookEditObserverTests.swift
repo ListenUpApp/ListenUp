@@ -3,11 +3,11 @@ import Testing
 
 /// Pure-seam coverage for the book edit screen.
 ///
-/// The sealed-state → observer flatten can't be exercised here: SKIE bridges
-/// `BookEditUiState` as a value type whose nested `Editable*` lists aren't
-/// ergonomically constructible from Swift, so the `apply(_:)` mapping lands at the
-/// green-build pass (the app target proves it compiles). What *is* pure and
-/// constructible is the series-chip label formatting, so that seam is pinned here.
+/// The `BookEditUiState` → observer flatten is not driven from here. The state's initialiser takes
+/// a `Set<ContributorRole>` and four maps keyed by `ContributorRole`, and a collection of Kotlin
+/// enum values built in Swift does not cross the bridge the way one built in Kotlin does: a test
+/// that built one would pass or fail for reasons production never meets. What is pinned here is
+/// the series-chip label formatting, which is pure.
 @Suite("BookEditFormatting")
 struct BookEditObserverTests {
     @Test func seriesLabelWithSequenceJoinsWithMiddot() {

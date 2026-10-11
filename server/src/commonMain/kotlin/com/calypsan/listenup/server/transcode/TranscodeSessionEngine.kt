@@ -56,6 +56,13 @@ sealed interface SessionAdmission {
  * at exit would stall every listener until their whole book had been encoded.
  */
 interface TranscodeSpawner {
+    /**
+     * True once the child this spawner started has exited, for any reason — finished the file,
+     * crashed, was killed, or never started. The engine only asks for segments the cache does not
+     * yet hold, so an exited encoder is one that will never produce them.
+     */
+    val hasExited: Boolean
+
     suspend fun start(commands: List<List<String>>)
 
     fun stop()
@@ -83,6 +90,7 @@ class TranscodeSessionEngine(
 ) {
     private val mutex = Mutex()
     private val running = mutableMapOf<String, RunningSession>()
+    private val badSegmentStrikes = mutableMapOf<String, Int>()
 
     /**
      * Makes sure an encoder is working towards [fromSegment] of [session].
@@ -90,7 +98,7 @@ class TranscodeSessionEngine(
      * Reuses the process already running when [fromSegment] is ahead of where it started and within
      * [SEGMENT_LOOKAHEAD]; otherwise stops it and respawns seeked to the new point. A *backward*
      * request always respawns — the encoder only moves forward, so it can never catch up to a
-     * segment it has already passed.
+     * segment it has already passed. A session whose encoder has exited is never reused.
      */
     suspend fun ensureRunning(
         session: TranscodeSession,
@@ -100,7 +108,7 @@ class TranscodeSessionEngine(
             val key = key(session.bookId, session.fileId)
             val existing = running[key]
             if (existing != null) {
-                if (existing.canReach(fromSegment)) {
+                if (!existing.spawner.hasExited && existing.canReach(fromSegment)) {
                     existing.lastRequestedMillis = elapsedMillis()
                     return@withLock SessionAdmission.Admitted
                 }
@@ -113,11 +121,35 @@ class TranscodeSessionEngine(
             SessionAdmission.Admitted
         }
 
-    /** Stops every session whose listener has gone quiet for [IDLE_KILL_MILLIS]. */
+    /**
+     * Records that segment [index] came out wrong and drops the run that produced it, so the next
+     * request starts an encoder at [index] rather than being admitted to one that has already
+     * passed it. Returns false once the same segment has failed [MAX_BAD_SEGMENT_RETRIES] times:
+     * a source that encodes short every time must not be re-encoded on every tap.
+     */
+    suspend fun abandonBadSegment(
+        bookId: String,
+        fileId: String,
+        index: Int,
+    ): Boolean =
+        mutex.withLock {
+            val strikeKey = "${key(bookId, fileId)}/$index"
+            val strikes = (badSegmentStrikes[strikeKey] ?: 0) + 1
+            if (strikes > MAX_BAD_SEGMENT_RETRIES) return@withLock false
+            badSegmentStrikes[strikeKey] = strikes
+            val abandoned = running.remove(key(bookId, fileId))
+            if (abandoned != null) abandoned.spawner.stop()
+            true
+        }
+
+    /**
+     * Drops every session whose encoder has exited, so it frees its slot, and stops every one whose
+     * listener has gone quiet for [IDLE_KILL_MILLIS].
+     */
     internal suspend fun sweepIdle() {
         mutex.withLock {
             val now = elapsedMillis()
-            val idle = running.filterValues { now - it.lastRequestedMillis >= IDLE_KILL_MILLIS }
+            val idle = running.filterValues { it.spawner.hasExited || now - it.lastRequestedMillis >= IDLE_KILL_MILLIS }
             for ((key, session) in idle) {
                 session.spawner.stop()
                 running.remove(key)
@@ -240,6 +272,9 @@ class TranscodeSessionEngine(
          * — a few minutes over it is fine, a stat storm every ten seconds is not.
          */
         const val CACHE_SWEEP_MILLIS = 5 * 60_000L
+
+        /** Re-encodes a segment that failed its frame check this many times before giving up on it. */
+        const val MAX_BAD_SEGMENT_RETRIES = 2
 
         fun key(
             bookId: String,

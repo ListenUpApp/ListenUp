@@ -46,7 +46,7 @@
 - 🎧 **Audiobook playback** — chapter navigation, sleep timer, variable speed, resume anywhere
 - 🚗 **In the car** — Android Auto and Apple CarPlay: pick up where you left off, browse your library, and hop between chapters from the dash
 - 📥 **Offline First** — books and library content are downloaded for offline playback
-- 🔄 **Real-time sync** — progress syncs across your devices instantly via Server-Sent Events (SSE)
+- 🔄 **Real-time sync** — progress syncs across your devices instantly over a live connection to your server
 - 📚 **Rich library** — browse by collection, contributor, series, or tag
 - 📖 **Shelves** — organize your library with your own custom shelves
 - 📄 **In-app reading** — built-in reader for PDF & ebook supplements that ship with a title
@@ -118,8 +118,9 @@ For contributors who want to build the apps and server locally.
 
 - **JDK 21** (the build pins `jvmToolchain(21)`; Gradle auto-provisions a matching JDK via the Foojay toolchain resolver if you don't have one)
 - **Android SDK** with API 33+ (for Android builds) — Android Studio Otter or later recommended
-- **Xcode 26** (for iOS builds, macOS only)
+- **Xcode 27** (for iOS builds, macOS only)
 - **Native link headers** (only for the server's Linux-native lane, `./gradlew :server:linuxX64Test`): Debian/Ubuntu `libargon2-dev libsqlite3-dev libcurl4-openssl-dev`; Arch `argon2 sqlite curl`. Not needed for the JVM server or the Android app.
+- **Node 24+, pnpm and Playwright Chromium** (only for the web client's tests and production bundle — see [Web client](#web-client) below)
 
 ### Build & Run
 
@@ -137,6 +138,30 @@ cd ListenUp
 
 For iOS, open `app/iosApp/ListenUp.xcodeproj` in Xcode and run the `ListenUp` scheme against a simulator or device.
 
+### Web client
+
+The web client lives in `app/webApp`: Kotlin compiled to JavaScript, with a Vite + Playwright toolchain under `app/webApp/web`. Its tests run in a real browser, so they need:
+
+- **Node 24 or newer** (`engines.node` in `app/webApp/web/package.json`)
+- **pnpm**, at the version pinned by `packageManager` in the same file
+- **Playwright's Chromium**
+
+```bash
+# One-time toolchain setup
+cd app/webApp/web
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+cd ../../..
+
+# Browser tests
+./gradlew :app:webApp:webKotest
+
+# Production bundle (the one the server image ships)
+./gradlew :app:webApp:webBundle
+```
+
+Before pushing, run the full checklist in the ["Pushing" section of `CLAUDE.md`](CLAUDE.md#pushing).
+
 ## Architecture
 
 ```
@@ -147,8 +172,9 @@ ListenUp/
 │   ├── sharedUI/      # Compose Multiplatform UI (Android + Desktop), organized by feature
 │   ├── androidApp/    # Android application entry point
 │   ├── desktopApp/    # Desktop (JVM) application entry point (in progress)
-│   └── iosApp/        # iOS app — SwiftUI shell over the shared Kotlin core
-├── server/        # Self-hostable Ktor server — the hub Android & iOS clients connect to
+│   ├── iosApp/        # iOS app — SwiftUI shell over the shared Kotlin core
+│   └── webApp/        # Web client — Compose HTML (Kotlin/JS) over the shared Kotlin core, served by the server
+├── server/        # Self-hostable Ktor server — the hub every client (Android, iOS and web) connects to
 └── tools/
     ├── build-logic/   # Gradle convention plugins + custom Detekt rules
     └── rpc-guard-ksp/ # KSP processor guarding the RPC boundary
@@ -157,9 +183,9 @@ ListenUp/
 ListenUp follows **MVVM** with offline-first data flow and a clean separation between layers:
 
 - **`contract`** is the single source of truth for the client↔server boundary — shared by both sides so a field rename breaks at compile time, not in production.
-- **`app/sharedLogic`** holds all business logic, data access, the sync engine, and ViewModels (shared across Android & iOS). The local database is the single source of truth; the UI reads from it, never from the network directly.
+- **`app/sharedLogic`** holds all business logic, data access, the sync engine, and ViewModels (shared across Android, iOS and web). The local database is the single source of truth; the UI reads from it, never from the network directly.
 - **`app/sharedUI`** holds the Compose Multiplatform screens, organized by feature.
-- **`app/androidApp`**, **`app/iosApp`**, and **`app/desktopApp`** are thin entry points that wire up platform-specific services and launch the shared experience.
+- **`app/androidApp`** and **`app/desktopApp`** are thin entry points that wire up platform-specific services and launch the shared Compose experience; **`app/iosApp`** (SwiftUI) and **`app/webApp`** (Compose HTML) build their own UI over the same shared core.
 
 ## Tech Stack
 

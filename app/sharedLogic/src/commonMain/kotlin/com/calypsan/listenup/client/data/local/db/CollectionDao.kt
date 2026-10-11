@@ -87,6 +87,10 @@ internal interface CollectionDao {
     @Query("SELECT id FROM collections WHERE deletedAt IS NULL")
     suspend fun liveIds(): List<String>
 
+    /** Live collection ids the server has not acknowledged yet (revision 0): optimistic creates. */
+    @Query("SELECT id FROM collections WHERE deletedAt IS NULL AND revision = 0")
+    suspend fun unacknowledgedIds(): List<String>
+
     /**
      * Tombstone the given live collections by id — the chunked access-change prune.
      *
@@ -346,6 +350,10 @@ internal interface CollectionBookDao {
     @Query("SELECT syncId FROM collection_books WHERE deletedAt IS NULL")
     suspend fun liveSyncIds(): List<String>
 
+    /** Live membership sync ids the server has not acknowledged yet (revision 0): optimistic adds. */
+    @Query("SELECT syncId FROM collection_books WHERE deletedAt IS NULL AND revision = 0")
+    suspend fun unacknowledgedIds(): List<String>
+
     /**
      * Live (non-tombstoned) junction [CollectionBookEntity.syncId] values whose [collectionId] is
      * one of [collectionIds] — the scoped `AccessDeltaPolicy.Targeted` candidate set. Replaces the
@@ -378,13 +386,16 @@ internal interface CollectionBookDao {
     suspend fun deleteAll()
 
     /**
-     * All rows (including tombstones) with [revision][CollectionBookEntity.revision] <= [max], for digest computation.
+     * All live rows the server has acknowledged (revision above 0) up to [max], for digest computation.
      *
      * The id is the opaque wire [CollectionBookEntity.syncId] (SERVER-SYNC-04) — the same value
      * the server uses on the wire.
+     *
+     * A revision-0 row is an optimistic add the server has not acknowledged; the server cannot
+     * have it, so counting it would make the domain read as drifted until the add drains.
      */
     @Query(
-        "SELECT syncId AS id, revision FROM collection_books WHERE deletedAt IS NULL AND revision <= :max",
+        "SELECT syncId AS id, revision FROM collection_books WHERE deletedAt IS NULL AND revision > 0 AND revision <= :max",
     )
     suspend fun digestRows(max: Long): List<IdRevision>
 

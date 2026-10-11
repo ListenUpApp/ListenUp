@@ -487,11 +487,12 @@ class BulkEditPageTest :
             credited.map { it.name to it.role } shouldContainExactly listOf("Rosamund Pike" to "narrator")
         }
 
-        test("the picker offers every role the contract defines, not the two the lists show") {
+        test("the picker offers every role a person can hold, not the two the lists show, and never UNKNOWN") {
             val host = page(editing())
 
             val options = (host.querySelector("#bke-role") as HTMLSelectElement).querySelectorAll("option")
-            options.length shouldBe ContributorRole.entries.size
+            options.length shouldBe ContributorRole.entries.count { it.isAssignable }
+            host.querySelector("#bke-role option[value='${ContributorRole.UNKNOWN.apiValue}']") shouldBe null
         }
 
         test("with the picker untouched a person is still credited as author") {

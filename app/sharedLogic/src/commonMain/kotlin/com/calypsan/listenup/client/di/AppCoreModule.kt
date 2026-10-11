@@ -4,6 +4,7 @@ import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.data.auth.AuthFailureObserver
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
+import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import com.calypsan.listenup.client.domain.version.ClientIdentity
 import com.calypsan.listenup.client.domain.version.DefaultClientIdentity
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +64,7 @@ internal val appCoreModule: Module =
                 errorBus = get(),
                 authSession = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
+                fullSignOut = { get<LogoutUseCase>().logoutLocally() },
             )
         }
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.search
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
@@ -44,8 +45,8 @@ class SearchSession(
     val onOpenHit: (SearchHit) -> Unit,
     val retry: () -> Unit,
     val navActions: Flow<SearchNavAction>,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its session. Production resolves the real ViewModel out of the client graph

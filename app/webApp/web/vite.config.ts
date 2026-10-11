@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 // The Kotlin compiler is the only thing KGP still owns: it emits ES modules and stops. Which
@@ -8,15 +9,45 @@ import { resolve } from 'node:path'
 // load the synced modules by path.
 
 // OPFS needs SharedArrayBuffer, which the browser exposes only under cross-origin isolation,
-// which requires these two headers. This is the single place that sets them: one object feeds
-// the dev server, the preview server and the Kotest page.
+// which requires the first two headers. The rest defend the tokens the client keeps in
+// localStorage. This is the single place that sets them: one object feeds the dev server, the
+// preview server and the Kotest page.
 //
-// Production hosting must send these too. When the built assets are served by Ktor, that
-// route needs the same pair or the browser store silently loses OPFS.
-const crossOriginIsolation = {
+// Production hosting must send these too. When the built assets are served by Ktor, that route
+// (WebAppRoutes.kt) needs the same set or the browser store silently loses OPFS.
+const responseHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'same-origin',
+  'X-Frame-Options': 'DENY',
 }
+
+// The policy the production page runs under. Derived from what the bundle actually loads: its own
+// module scripts, the one inline theme script in index.html (allowed by hash, so script-src needs
+// neither 'unsafe-inline' nor 'unsafe-eval'), the SQLite wasm, same-origin workers, and blob: for
+// upload previews, downloads and hls.js's MediaSource. Images may come from other hosts because
+// catalogue cover art is loaded by URL; images cannot run script. style-src keeps 'unsafe-inline'
+// because Compose HTML writes element style attributes.
+//
+// ONE policy, THREE places that must agree: this array, the Ktor route (WebAppRoutes.kt), and the
+// hash of the inline script in index.html. test/csp.test.mjs fails if any pair drifts. It is
+// applied to preview only: the dev server injects its own inline client script, and a production
+// policy there would break development for no benefit.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval' 'sha256-t35doVXbm2Sd99v4KIDSEw65Hyhn2ufZacjI2HErZWk='",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https: http:",
+  "media-src 'self' blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ')
 
 // The Ktor server in development. Production needs no proxy at all: Ktor serves the bundle, so
 // the page and the API share an origin by construction. This makes development match that.
@@ -25,15 +56,31 @@ const crossOriginIsolation = {
 // a WebSocket, so a proxy that only forwards HTTP would forward nothing that matters.
 const apiTarget = process.env.LU_SERVER_URL ?? 'http://localhost:8080'
 
+// The test-page build has no index.html of its own (the app and the test page need different Kotlin
+// variants), yet WebThemeTest runs the inline pre-paint script FROM index.html, so the production
+// build of the specs would otherwise find none. Emit the source file beside the page, as data only.
+const emitIndexHtmlForSpecs = {
+  name: 'emit-index-html-for-specs',
+  generateBundle(this: { emitFile(file: object): void }) {
+    if (process.env.LU_TEST_PAGE !== '1') return
+    this.emitFile({
+      type: 'asset',
+      fileName: 'index.html',
+      source: readFileSync(resolve(__dirname, 'index.html'), 'utf8'),
+    })
+  },
+}
+
 export default defineConfig({
+  plugins: [emitIndexHtmlForSpecs],
   resolve: {
     alias: {
-      // worker/worker.js sits OUTSIDE this project root, so Node resolution walks up from
-      // app/webApp/worker/ and never reaches web/node_modules — its bare import of
-      // @sqlite.org/sqlite-wasm fails. Webpack papered over this by having the worker
-      // masquerade as an npm package (webApp/worker/package.json + a Gradle npm() dependency);
-      // an alias is the honest version and keeps ONE copy of the worker while both test lanes
-      // coexist. When karma goes, the worker moves into web/src and this alias goes with it.
+      // Pins the bare import of @sqlite.org/sqlite-wasm to this project's installed copy,
+      // wherever the importing file is resolved from. The SQLite worker's source lives in
+      // app/webApp/worker/, outside this project root, but sync-kotlin.mjs copies it into
+      // kotlin/ (inside the root) before a run, where ordinary Node resolution reaches
+      // web/node_modules: `webBundle` and its boot checks pass without this alias as of this
+      // commit.
       '@sqlite.org/sqlite-wasm': resolve(
         __dirname,
         'node_modules/@sqlite.org/sqlite-wasm',
@@ -41,16 +88,18 @@ export default defineConfig({
     },
   },
   server: {
-    headers: crossOriginIsolation,
-    // The Kotlin output and the SQLite worker both live outside this project root, so Vite's
-    // file-serving allowlist is widened to the whole :app:webApp directory.
+    headers: responseHeaders,
+    // Widens the dev server's file-serving allowlist to the whole :app:webApp directory.
+    // sync-kotlin.mjs copies the Kotlin output and the SQLite worker into kotlin/, inside this
+    // project root. `webBundle` (a build, which does not start the dev server) passes without
+    // this setting as of this commit.
     fs: { allow: [resolve(__dirname, '..')] },
     proxy: {
       '/api': { target: apiTarget, ws: true, changeOrigin: true },
       '/healthz': { target: apiTarget, changeOrigin: true },
     },
   },
-  preview: { headers: crossOriginIsolation },
+  preview: { headers: { ...responseHeaders, 'Content-Security-Policy': contentSecurityPolicy } },
   build: {
     rollupOptions: {
       // The Kotest page is a build input, not just a dev-server page, so `vite build` output can

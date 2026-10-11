@@ -27,6 +27,8 @@ sealed interface TranscodeError : AppError {
         override val message: String = "The server is busy converting other books. Try again in a moment."
         override val code: String = "TRANSCODE_BUSY"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -42,6 +44,8 @@ sealed interface TranscodeError : AppError {
         override val message: String = "This server cannot convert audio for your device."
         override val code: String = "TRANSCODE_UNAVAILABLE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -59,5 +63,7 @@ sealed interface TranscodeError : AppError {
         override val message: String = "This book could not be converted for playback."
         override val code: String = "TRANSCODE_FAILED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

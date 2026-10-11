@@ -123,6 +123,27 @@ internal interface PendingOperationV2Dao {
     ): Boolean
 
     /**
+     * Whether [domainName] still has any dispatchable op queued, for any entity — the domain-wide
+     * form of [hasQueuedOp]. Dead letters are excluded for the same reason. See [nextDispatchable]
+     * for the [ownerUserId] scoping contract.
+     */
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM pending_operation
+             WHERE domainName = :domainName
+               AND failureCount <= :maxAttempts
+               AND (:ownerUserId IS NULL OR ownerUserId = :ownerUserId)
+        )
+        """,
+    )
+    suspend fun hasQueuedOpInDomain(
+        domainName: String,
+        ownerUserId: String? = null,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): Boolean
+
+    /**
      * Live queue depth: ops still eligible for dispatch. Dead letters are counted separately.
      * See [nextDispatchable] for the [ownerUserId] scoping contract.
      */

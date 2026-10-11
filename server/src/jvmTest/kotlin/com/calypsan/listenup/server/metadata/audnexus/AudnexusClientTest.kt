@@ -79,6 +79,26 @@ class AudnexusClientTest :
             }
         }
 
+        test("getBook refuses a body over the ceiling as Malformed") {
+            runTest {
+                val engine =
+                    MockEngine {
+                        respond(BOOK_JSON, HttpStatusCode.OK, headersOf("Content-Type", ContentType.Application.Json.toString()))
+                    }
+                val client =
+                    AudnexusClient(
+                        httpClient = HttpClient(engine),
+                        json = json,
+                        rateLimiter = AudnexusRateLimiter(minInterval = Duration.ZERO),
+                        maxBodyBytes = 16,
+                    )
+
+                val failure = client.getBook("B01", "us").shouldBeInstanceOf<AppResult.Failure>()
+                val error = failure.error.shouldBeInstanceOf<MetadataError.Malformed>()
+                error.debugInfo shouldBe "response body over 16 bytes"
+            }
+        }
+
         test("getBook maps a 404 to Success(null) — a catalog miss, not a failure") {
             runTest {
                 client(HttpStatusCode.NotFound, "")

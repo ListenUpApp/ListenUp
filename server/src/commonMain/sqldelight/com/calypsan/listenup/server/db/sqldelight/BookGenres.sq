@@ -89,8 +89,8 @@ GROUP BY bg.genre_id;
 -- ── writes ───────────────────────────────────────────────────────────────────
 
 -- Add-if-absent insert (the junction's only insert path): silently no-ops on PK
--- conflict, mirroring the Exposed `insertIgnore`. Covers relinkBookGenres' insert
--- step and the unmapped-string mapping flow's insertIfAbsent.
+-- conflict. Covers relinkBookGenres' insert step and the unmapped-string mapping
+-- flow's insertIfAbsent.
 insertIfAbsent:
 INSERT OR IGNORE INTO book_genres (book_id, genre_id) VALUES (:book_id, :genre_id);
 
@@ -104,8 +104,7 @@ DELETE FROM book_genres WHERE genre_id = :genre_id;
 
 -- Merge primitive, additive half: copies links from :from_id onto :to_id,
 -- skipping rows that would collide on the composite PK. Paired with
--- deleteAllForGenre(:from_id) to complete the relink (relinkGenre). Exposed's DSL
--- can't express `INSERT OR IGNORE ... SELECT`, so this is its typed home.
+-- deleteAllForGenre(:from_id) to complete the relink (relinkGenre).
 relinkGenreCopy:
 INSERT OR IGNORE INTO book_genres (book_id, genre_id)
 SELECT book_id, :to_id FROM book_genres WHERE genre_id = :from_id;
@@ -132,6 +131,14 @@ FROM books b
 WHERE b.deleted_at IS NULL
   AND b.id IN (SELECT DISTINCT bg.book_id FROM book_genres bg WHERE bg.genre_id = :genre_id);
 
+-- The (book id, length ms) pair of every LIVE book linked to :genre_id. Same selection as
+-- genreStatsDirect; a member's getGenreStats filters these to the books the caller can reach.
+genreBookDurationsDirect:
+SELECT b.id AS book_id, b.total_duration AS duration_ms
+FROM books b
+WHERE b.deleted_at IS NULL
+  AND b.id IN (SELECT DISTINCT bg.book_id FROM book_genres bg WHERE bg.genre_id = :genre_id);
+
 -- Aggregate book count + total length (ms) for LIVE books linked to :path_prefix or any LIVE
 -- genre in its subtree. Same dedup guarantee as genreStatsDirect: the outer SELECT iterates
 -- `books` once per book id, so a book tagged with BOTH a genre and one of its descendants (e.g.
@@ -141,6 +148,19 @@ WHERE b.deleted_at IS NULL
 -- GenreService.getGenreStats' includeDescendants=true branch.
 genreStatsSubtree:
 SELECT COUNT(*) AS book_count, CAST(COALESCE(SUM(b.total_duration), 0) AS INTEGER) AS total_ms
+FROM books b
+WHERE b.deleted_at IS NULL
+  AND b.id IN (
+    SELECT DISTINCT bg.book_id
+    FROM book_genres bg
+    JOIN genres g ON g.id = bg.genre_id
+    WHERE g.deleted_at IS NULL AND (g.path = :path_prefix OR g.path LIKE :path_prefix || '/%')
+  );
+
+-- The (book id, length ms) pair of every LIVE book linked to :path_prefix or any LIVE genre in its
+-- subtree. Same selection and dedup as genreStatsSubtree; one row per book, however many genres match.
+genreBookDurationsSubtree:
+SELECT b.id AS book_id, b.total_duration AS duration_ms
 FROM books b
 WHERE b.deleted_at IS NULL
   AND b.id IN (

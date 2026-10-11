@@ -8,6 +8,7 @@ import { chromium } from 'playwright'
 import { preview } from 'vite'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { recordCspViolations, readCspViolations } from './csp-violations.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const server = await preview({ root, preview: { port: 0 } })
@@ -29,6 +30,7 @@ page.on('console', (m) => {
   if (m.type() === 'error') record(m.text())
 })
 
+await recordCspViolations(page)
 await page.goto(base, { waitUntil: 'load' })
 // The app renders into #app. Anything inside it means the composition ran; empty means the
 // bundle loaded and then did nothing, which is exactly how a bad DCE pass presents.
@@ -36,12 +38,14 @@ await page.waitForFunction(() => document.querySelector('#app')?.childElementCou
   timeout: 30_000,
 })
 const text = await page.textContent('#app')
+const violations = await readCspViolations(page)
 
 await browser.close()
 await server.close()
 
 for (const e of errors) console.log(`  ERROR  ${e}`)
+for (const v of violations) console.log(`  ${v}`)
 console.log(`#app text: ${JSON.stringify((text ?? '').slice(0, 120))}`)
-const ok = errors.length === 0 && (text ?? '').trim().length > 0
+const ok = errors.length === 0 && violations.length === 0 && (text ?? '').trim().length > 0
 console.log(ok ? 'RESULT: PASS' : 'RESULT: FAIL')
 process.exit(ok ? 0 : 1)

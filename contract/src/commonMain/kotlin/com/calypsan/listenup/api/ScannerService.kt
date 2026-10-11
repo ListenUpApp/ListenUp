@@ -14,7 +14,8 @@ import kotlinx.rpc.annotations.Rpc
  * requires a valid access token. `scanFull()` is additionally ROOT/ADMIN-gated inside the
  * server implementation on both transports (RPC and `POST /api/v1/scan`); a member receives
  * `AppResult.Failure(AuthError.PermissionDenied)`. `lastScanResult()` and `observeProgress()`
- * stay available to any authenticated user. First-party clients trigger scans through
+ * answer any authenticated user, but a non-admin receives counts only: no paths, no book
+ * content. First-party clients trigger scans through
  * `LibraryAdminService`.
  *
  * `observeProgress()` is a server-pushed [Flow] of [RpcEvent]-wrapped [ScanEvent]s —
@@ -26,9 +27,9 @@ import kotlinx.rpc.annotations.Rpc
  *
  *  - `scanFull()` returns immediately with `Failure(AlreadyRunning)` if a
  *    scan is in flight.
- *  - `lastScanResult()` returns the most-recent completed scan's full
- *    result — including the books list — for read-after-scan flows that
- *    don't want to subscribe.
+ *  - `lastScanResult()` returns the most-recent completed scan's result for
+ *    read-after-scan flows that don't want to subscribe. The books list is present
+ *    only for ROOT/ADMIN; a non-admin gets the same counts with the content blanked.
  *  - `observeProgress()` receives events from THE library (single-library model).
  *  - `listScanIssues()` / `dismissScanIssue()` are the durable record of what the scanner
  *    could NOT import. They are ROOT/ADMIN-gated: an issue names a filesystem path, which is

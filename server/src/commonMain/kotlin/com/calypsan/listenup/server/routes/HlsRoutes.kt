@@ -169,6 +169,7 @@ private suspend fun serveSegment(
     if (cache.isComplete(target.bookId, target.fileId, index)) {
         return respondVerifiedSegment(
             call = call,
+            engine = engine,
             cache = cache,
             target = target,
             index = index,
@@ -208,7 +209,14 @@ private suspend fun serveSegment(
 
         SessionAdmission.Admitted -> {
             if (awaitSegment(cache = cache, bookId = target.bookId, fileId = target.fileId, index = index)) {
-                respondVerifiedSegment(call = call, cache = cache, target = target, index = index, plan = plan)
+                respondVerifiedSegment(
+                    call = call,
+                    engine = engine,
+                    cache = cache,
+                    target = target,
+                    index = index,
+                    plan = plan,
+                )
             } else {
                 // The encoder was admitted but the bytes never arrived inside the window. The player
                 // retries the same URL, which is why this is not a hard failure.
@@ -229,6 +237,7 @@ private suspend fun serveSegment(
  */
 private suspend fun respondVerifiedSegment(
     call: ApplicationCall,
+    engine: TranscodeSessionEngine,
     cache: SegmentCache,
     target: HlsTarget,
     index: Int,
@@ -238,6 +247,11 @@ private suspend fun respondVerifiedSegment(
     val frames = withContext(fileIoDispatcher) { AdtsFrames.countFrames(path.readBytes()) }
     val expected = plan.expectedFrames(index)
     if (frames == null || frames !in expected) {
+        // Abandon first: it stops the encoder that produced this segment, so nothing is still
+        // writing next to the file about to be deleted.
+        if (engine.abandonBadSegment(target.bookId, target.fileId, index)) {
+            cache.evictSegment(target.bookId, target.fileId, index)
+        }
         return respondAppResult<Unit>(
             call,
             AppResult.Failure(

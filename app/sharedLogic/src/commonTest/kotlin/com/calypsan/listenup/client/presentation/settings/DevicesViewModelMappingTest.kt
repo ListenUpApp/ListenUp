@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.device.DeviceGlyph
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -18,7 +19,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Tests that [DevicesViewModel] maps [DeviceInfo.deviceType] onto [DeviceRow.deviceType].
+ * Tests that [DevicesViewModel] maps [DeviceInfo.deviceType] onto [DeviceRow.deviceType] and [DeviceRow.glyph].
  */
 class DevicesViewModelMappingTest :
     FunSpec({
@@ -44,6 +45,33 @@ class DevicesViewModelMappingTest :
                         awaitMappingUntil { it is DevicesUiState.Ready }
                             .shouldBeInstanceOf<DevicesUiState.Ready>()
                     ready.devices.single().deviceType shouldBe "phone"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a tablet session's row carries the Tablet glyph") {
+            runTest {
+                val summary =
+                    SessionSummary(
+                        id = SessionId("s2"),
+                        label = "My iPad",
+                        deviceInfo = DeviceInfo(deviceType = "tablet", platform = "iOS"),
+                        userAgent = null,
+                        createdAt = 1L,
+                        lastUsedAt = 2L,
+                        current = false,
+                    )
+                val repo =
+                    object : MappingFakeAuthRepository() {
+                        override suspend fun listSessions(): AppResult<List<SessionSummary>> = AppResult.Success(listOf(summary))
+                    }
+                val vm = DevicesViewModel(repo)
+                vm.uiState.test {
+                    val ready =
+                        awaitMappingUntil { it is DevicesUiState.Ready }
+                            .shouldBeInstanceOf<DevicesUiState.Ready>()
+                    ready.devices.single().glyph shouldBe DeviceGlyph.Tablet
                     cancelAndIgnoreRemainingEvents()
                 }
             }

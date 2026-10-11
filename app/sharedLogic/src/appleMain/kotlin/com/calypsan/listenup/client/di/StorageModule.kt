@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.client.data.repository.AppleNetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.download.excludeFromBackup
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -27,7 +28,11 @@ internal actual val platformStorageModule: Module =
         }
 
         single<ImageStorage> {
-            CommonImageStorage(get())
+            CommonImageStorage(
+                storagePaths = get(),
+                // Images are one download from the server; keep them out of the user's backups.
+                markServerRecoverable = { directory -> excludeFromBackup(directory.toString()) },
+            )
         }
 
         single<NetworkMonitor> {

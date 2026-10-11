@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.presentation.auth
 
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.cancel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
@@ -14,6 +13,7 @@ import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -29,24 +29,6 @@ private val logger = KotlinLogging.logger {}
 class LoginViewModel(
     private val loginUseCase: LoginUseCase,
 ) : ViewModel() {
-    private var closed = false
-
-    override fun onCleared() {
-        super.onCleared()
-        close()
-    }
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android reaches it via [onCleared] when the
-     * `ViewModelStore` clears the entry; iOS has no store, so the screen's wrapper calls it from its
-     * `isolated deinit` (#1192) — else viewModelScope streams/one-shots orphan when the screen goes.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        viewModelScope.cancel()
-    }
-
     val state: StateFlow<LoginUiState>
         field = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
 
@@ -59,7 +41,7 @@ class LoginViewModel(
         // was observed once on-device (2026-08-11) and points at a composition outliving its
         // ViewModel store. Surface it loudly instead of swallowing it: the error state tells the
         // user something is wrong, and the log names the mechanism if it ever recurs.
-        if (closed) {
+        if (!viewModelScope.isActive) {
             logger.error { "onLoginSubmit called on a closed LoginViewModel — the screen is driving a dead VM" }
             state.value = LoginUiState.Error(LoginErrorType.ServerError(null))
             return

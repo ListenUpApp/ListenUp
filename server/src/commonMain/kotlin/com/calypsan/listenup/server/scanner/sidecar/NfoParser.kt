@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
-import com.calypsan.listenup.server.io.readText
+import com.calypsan.listenup.server.io.SIDECAR_MAX_BYTES
+import com.calypsan.listenup.server.io.readTextCapped
 import com.calypsan.listenup.server.scanner.sidecar.xml.XmlElement
 import com.calypsan.listenup.server.scanner.sidecar.xml.allText
 import com.calypsan.listenup.server.scanner.sidecar.xml.directText
@@ -40,7 +41,7 @@ internal class NfoParser : SidecarParser {
 
     override suspend fun parse(file: Path): SidecarMetadata? =
         try {
-            val root = parseXml(file.readText())
+            val root = parseXml(file.readTextCapped(SIDECAR_MAX_BYTES) ?: return null)
             SidecarMetadata(
                 title = root.firstText("title"),
                 subtitle = root.firstText("subtitle"),

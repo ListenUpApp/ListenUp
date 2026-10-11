@@ -57,8 +57,11 @@ sealed interface BulkEditUiState {
         val sharedLanguage: String? = null,
         val selectionSample: List<BookListItem> = emptyList(),
     ) : BulkEditUiState {
+        /** True when applying would change at least one book — and so leaving would discard work. */
+        val hasChanges: Boolean get() = changedBookCount > 0
+
         /** True when applying would change at least one book. */
-        val canApply: Boolean get() = changedBookCount > 0
+        val canApply: Boolean get() = hasChanges
 
         /**
          * What the publisher field shows: the instruction's value, or empty when untouched.

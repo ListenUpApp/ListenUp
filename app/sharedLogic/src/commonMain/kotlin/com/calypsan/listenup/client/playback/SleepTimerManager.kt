@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.playback
 
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -14,7 +12,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlin.time.TimeSource
 
 private val logger = KotlinLogging.logger {}
@@ -56,8 +53,8 @@ class SleepTimerManager(
         field = MutableStateFlow<SleepTimerState>(SleepTimerState.Inactive)
 
     // Event emitted when timer fires - consumer performs fade and pause
-    private val _sleepEvent = Channel<Unit>(Channel.BUFFERED)
-    val sleepEvent: Flow<Unit> = _sleepEvent.receiveAsFlow()
+    private val sleepEventChannel = Channel<Unit>(Channel.BUFFERED)
+    val sleepEvent: Flow<Unit> = sleepEventChannel.receiveAsFlow()
 
     private var timerJob: Job? = null
     private var endOfChapterJob: Job? = null
@@ -224,6 +221,6 @@ class SleepTimerManager(
 
     private fun triggerSleep() {
         state.value = SleepTimerState.FadingOut
-        _sleepEvent.trySend(Unit)
+        sleepEventChannel.trySend(Unit)
     }
 }

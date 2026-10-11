@@ -6,12 +6,13 @@ import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.AdminError
-import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
-import com.calypsan.listenup.server.auth.PermissionPolicy
+import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.hardcover.HardcoverSourceSettings
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
@@ -25,6 +26,7 @@ import com.calypsan.listenup.server.sidecar.SIDECAR_WRITES_ENABLED_KEY
 import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import kotlin.time.Clock
+import com.calypsan.listenup.server.auth.requireAdmin
 
 /** Max length for the operator-set server name. */
 private const val MAX_SERVER_NAME = 100
@@ -74,28 +76,23 @@ internal class AdminSettingsServiceImpl(
         )
 
     override suspend fun getServerSettings(): AppResult<AdminServerSettings> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(current())
     }
 
     override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> {
-        requireAdmin()?.let { return it }
-        // Validated before any write, so a refused store leaves every other field of the patch unapplied.
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
+        // Validated before any write, so a refused field leaves every other field of the patch unapplied.
+        val serverName = patch.serverName?.trim()
+        val remoteUrl = patch.remoteUrl?.trim()
         val region = patch.metadataRegion?.run { trim().lowercase() }
-        if (region != null && MetadataLocale.SUPPORTED.none { it.region == region }) {
-            return AppResult.Failure(AdminError.InvalidInput())
-        }
+        firstRefusal(serverName, remoteUrl, region)?.let { return AppResult.Failure(it) }
         var changed = false
-        patch.serverName?.let { name ->
-            val trimmed = name.trim()
-            if (trimmed.isBlank() || trimmed.length > MAX_SERVER_NAME) {
-                return AppResult.Failure(AdminError.InvalidInput())
-            }
-            settings.setServerName(trimmed)
+        serverName?.let { name ->
+            settings.setServerName(name)
             changed = true
         }
-        patch.remoteUrl?.let { url ->
-            if (url.length > MAX_REMOTE_URL) return AppResult.Failure(AdminError.InvalidInput())
+        remoteUrl?.let { url ->
             settings.setRemoteUrl(url)
             changed = true
         }
@@ -126,7 +123,7 @@ internal class AdminSettingsServiceImpl(
     }
 
     override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(ratingSourceStatuses())
     }
 
@@ -134,7 +131,7 @@ internal class AdminSettingsServiceImpl(
         source: ExternalRatingSource,
         enabled: Boolean,
     ): AppResult<List<RatingSourceStatus>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val sources = requireNotNull(sourceSettings) { "AdminSettingsServiceImpl.sourceSettings not wired" }
         val ratings = requireNotNull(externalRatings) { "AdminSettingsServiceImpl.externalRatings not wired" }
         sources.setEnabled(source, enabled)
@@ -145,22 +142,22 @@ internal class AdminSettingsServiceImpl(
     }
 
     override suspend fun getHardcoverSource(): AppResult<HardcoverSourceStatus> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(requireHardcoverSource().status())
     }
 
     override suspend fun setHardcoverApiToken(token: String): AppResult<HardcoverSourceStatus> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return requireHardcoverSource().setApiToken(token)
     }
 
     override suspend fun clearHardcoverApiToken(): AppResult<HardcoverSourceStatus> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(requireHardcoverSource().clearApiToken())
     }
 
     override suspend fun setHardcoverMetadataEnabled(enabled: Boolean): AppResult<HardcoverSourceStatus> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(requireHardcoverSource().setMetadataEnabled(enabled))
     }
 
@@ -202,10 +199,45 @@ internal class AdminSettingsServiceImpl(
             metadataRegion =
                 libraryRepository.readMetadataRegion(libraryRegistry.currentLibrary()) ?: MetadataLocale.DEFAULT.region,
         )
-
-    /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
-    private fun requireAdmin(): AppResult.Failure? {
-        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
-    }
 }
+
+/** The first reason the trimmed patch fields cannot be saved, or null when all of them can. */
+private fun firstRefusal(
+    serverName: String?,
+    remoteUrl: String?,
+    region: String?,
+): AppError? =
+    when {
+        region != null && MetadataLocale.SUPPORTED.none { it.region == region } -> AdminError.InvalidInput()
+        serverName != null && (serverName.isBlank() || serverName.length > MAX_SERVER_NAME) -> AdminError.InvalidInput()
+        remoteUrl != null -> remoteUrlRefusal(remoteUrl)
+        else -> null
+    }
+
+/** Blank clears the remote URL; anything else must be a plain http(s) URL, the shape every app can use. */
+private fun remoteUrlRefusal(remoteUrl: String): ValidationError? =
+    when {
+        remoteUrl.length > MAX_REMOTE_URL -> {
+            ValidationError(message = "Keep the remote address to $MAX_REMOTE_URL characters.", field = "remoteUrl")
+        }
+
+        remoteUrl.isNotEmpty() && !isHttpUrl(remoteUrl) -> {
+            ValidationError(
+                message = "Enter the remote address as a full URL starting with http:// or https://.",
+                field = "remoteUrl",
+            )
+        }
+
+        else -> {
+            null
+        }
+    }
+
+/** Whether [value] is a plain absolute http(s) URL, by the same rules the apps apply to a server address. */
+private fun isHttpUrl(value: String): Boolean =
+    try {
+        ServerUrl(value)
+        true
+    } catch (_: IllegalArgumentException) {
+        false
+    }

@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.presentation.setup
 
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.cancel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.api.LibraryAdminService
@@ -47,31 +46,13 @@ class LibrarySetupViewModel internal constructor(
     private val errorBus: ErrorBus,
     private val appScope: CoroutineScope,
 ) : ViewModel() {
-    private var closed = false
-
-    override fun onCleared() {
-        super.onCleared()
-        close()
-    }
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android reaches it via [onCleared] when the
-     * `ViewModelStore` clears the entry; iOS has no store, so the screen's wrapper calls it from its
-     * `isolated deinit` (#1192) — else viewModelScope streams/one-shots orphan when the screen goes.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        viewModelScope.cancel()
-    }
-
     val state: StateFlow<LibrarySetupUiState>
         field = MutableStateFlow(LibrarySetupUiState())
 
-    private val _navActions = Channel<LibrarySetupNavAction>(Channel.BUFFERED)
+    private val navActionsChannel = Channel<LibrarySetupNavAction>(Channel.BUFFERED)
 
     /** One-shot navigation events. Collect via [Flow.collect] in a [LaunchedEffect]. */
-    val navActions: Flow<LibrarySetupNavAction> = _navActions.receiveAsFlow()
+    val navActions: Flow<LibrarySetupNavAction> = navActionsChannel.receiveAsFlow()
 
     init {
         checkLibraryStatus()
@@ -242,7 +223,7 @@ class LibrarySetupViewModel internal constructor(
             }
             state.update { it.copy(isCreatingLibrary = false) }
             triggerInitialScan()
-            _navActions.trySend(LibrarySetupNavAction.Finished)
+            navActionsChannel.trySend(LibrarySetupNavAction.Finished)
         }
     }
 

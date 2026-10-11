@@ -34,6 +34,8 @@ class BrowserImageStorage : ImageStorage {
     private val seriesStaging = mutableSetOf<String>()
     private val avatars = mutableSetOf<String>()
 
+    override val keepsImageFiles: Boolean = false
+
     override suspend fun saveCover(
         bookId: BookId,
         imageData: ByteArray,

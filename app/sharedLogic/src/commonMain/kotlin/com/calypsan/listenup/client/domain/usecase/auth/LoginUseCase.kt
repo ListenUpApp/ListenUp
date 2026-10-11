@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.EMAIL_MAX
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.api.error.ValidationError
@@ -31,6 +32,7 @@ open class LoginUseCase(
     private val authSession: AuthSessionStore,
     private val userRepository: UserRepository,
     private val deviceInfoProvider: DeviceInfoProvider,
+    private val beforeSignIn: suspend (incomingUserId: String) -> Unit,
 ) {
     open suspend operator fun invoke(
         email: String,
@@ -51,6 +53,8 @@ open class LoginUseCase(
     }
 
     private suspend fun persistSession(session: AuthSession): AppResult<User> {
+        // Whoever owned the local copy must be gone before this user is written into it.
+        beforeSignIn(session.user.id.value)
         // Persist the user locally BEFORE flipping auth state. saveAuthTokens moves
         // AuthState to Authenticated, which immediately spins up the post-login
         // startup check (AppStartupViewModel); that check reads the current user, so
@@ -91,12 +95,11 @@ open class LoginUseCase(
         }
 
     private fun isValidEmail(email: String): Boolean {
-        if (email.length > MAX_EMAIL_LENGTH) return false
+        if (email.length > EMAIL_MAX) return false
         return EMAIL_REGEX.matches(email)
     }
 
     private companion object {
-        const val MAX_EMAIL_LENGTH = 254
         val EMAIL_REGEX = Regex("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
     }
 }

@@ -308,6 +308,41 @@ class UploadRepositoryImplTest :
                 api.abandonCount shouldBe 1
             }
         }
+
+        // The picked file is gone or unreadable: sending the same file again fails the same way, so
+        // it is one attempt, not three with back-off, and the session is still cleaned up.
+        test("does not retry a file that cannot be read") {
+            runTest {
+                val api =
+                    RecordingApi(
+                        uploadResults = mapOf("01.m4b" to AppResult.Failure(UploadError.FileUnreadable())),
+                    )
+
+                val steps = UploadRepositoryImpl(api).upload(listOf(candidate("01.m4b", 10))).toList()
+
+                api.attemptsPerPath["01.m4b"] shouldBe 1
+                api.abandonCount shouldBe 1
+                steps
+                    .last()
+                    .shouldBeInstanceOf<UploadStep.Failed>()
+                    .error
+                    .shouldBeInstanceOf<UploadError.FileUnreadable>()
+            }
+        }
+
+        // The control for the above: a network failure is still retried the full number of times.
+        test("still retries a network failure") {
+            runTest {
+                val api =
+                    RecordingApi(
+                        uploadResults = mapOf("01.m4b" to AppResult.Failure(TransportError.NetworkUnavailable())),
+                    )
+
+                UploadRepositoryImpl(api).upload(listOf(candidate("01.m4b", 10))).toList()
+
+                api.attemptsPerPath["01.m4b"] shouldBe MAX_FILE_ATTEMPTS
+            }
+        }
     })
 
 /** A non-[Exception] throwable, the shape a JS engine fault takes when it crosses into Kotlin. */

@@ -15,23 +15,30 @@ import com.calypsan.listenup.client.data.repository.RegistrationPolicyStreamImpl
 import com.calypsan.listenup.client.data.repository.RegistrationStatusStreamImpl
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.usecase.auth.LibraryOwnerGuard
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.RegisterUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
+import com.calypsan.listenup.api.result.onFailure
+import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackManager
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.koin.core.module.Module
-import org.koin.core.module.dsl.factoryOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
 private const val APP_SCOPE = "appScope"
+
+private val authModuleLogger = KotlinLogging.logger {}
 
 /**
  * Auth domain wiring — every binding the auth flow owns. Pulled out of
@@ -131,6 +138,7 @@ internal val clientAuthModule: Module
                     authSession = get(),
                     userRepository = get(),
                     deviceInfoProvider = get(),
+                    beforeSignIn = get<LibraryOwnerGuard>()::beforeSignIn,
                 )
             }
 
@@ -165,9 +173,50 @@ internal val clientAuthModule: Module
             // went unnoticed only because nothing ever did (the use case was DI-bound, fully
             // tested, and called by nobody). AuthModuleVerifyTest stubs PlaybackManager via
             // `extraTypes`, so the JVM Koin verification could not see it either.
-            factoryOf(::LoginUseCase)
-            factoryOf(::RegisterUseCase)
-            factoryOf(::SetupUseCase)
+            factory {
+                LoginUseCase(
+                    authRepository = get(),
+                    authSession = get(),
+                    userRepository = get(),
+                    deviceInfoProvider = get(),
+                    beforeSignIn = get<LibraryOwnerGuard>()::beforeSignIn,
+                )
+            }
+            factory {
+                RegisterUseCase(
+                    authRepository = get(),
+                    authSession = get(),
+                    userRepository = get(),
+                    deviceInfoProvider = get(),
+                    beforeSignIn = get<LibraryOwnerGuard>()::beforeSignIn,
+                )
+            }
+            factory {
+                SetupUseCase(
+                    authRepository = get(),
+                    authSession = get(),
+                    userRepository = get(),
+                    deviceInfoProvider = get(),
+                    beforeSignIn = get<LibraryOwnerGuard>()::beforeSignIn,
+                )
+            }
+            // The local library copy belongs to one person; a different person signing in wipes it
+            // first (Room, outbox, downloads, cached covers). The same person after a lapse keeps all.
+            single {
+                val scope = this
+                LibraryOwnerGuard(
+                    secureStorage = get(),
+                    persistedUserId = { scope.get<AuthSession>().getUserId() },
+                    storedUserId = { scope.get<UserRepository>().getCurrentUser()?.idString },
+                    localSignOut = { scope.get<LogoutUseCase>().logoutLocally() },
+                    deleteDeviceFiles = {
+                        scope.get<DownloadService>().deleteAllDownloads()
+                        scope.get<ImageStorage>().clearAll().onFailure { error ->
+                            authModuleLogger.warn { "Clearing cached covers after a user change failed: $error" }
+                        }
+                    },
+                )
+            }
             // Every connect path adopts its server here; a different server signs out locally first
             // (the same clean slate as Sign Out, downloads kept). A lambda so the use case never
             // needs the whole logout chain to be tested.

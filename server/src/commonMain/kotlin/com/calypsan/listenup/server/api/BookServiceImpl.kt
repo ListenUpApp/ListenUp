@@ -44,6 +44,8 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.contributorDedupKey
 import com.calypsan.listenup.server.services.normalizeForDedup
 import kotlinx.coroutines.withContext
+import com.calypsan.listenup.server.auth.requirePermission
+import com.calypsan.listenup.server.auth.requireAdmin
 
 private const val MAX_CONTRIBUTORS_PER_BOOK = 200
 private const val MAX_SERIES_PER_BOOK = 200
@@ -128,7 +130,8 @@ internal class BookServiceImpl(
      * the multipart body — `setBookCover` also re-gates internally as defense-in-depth, and that inner
      * gate additionally requires the caller to be able to see the book.
      */
-    internal suspend fun checkCanEdit(): AppError? = requirePermission(Permission.EDIT_METADATA)
+    internal suspend fun checkCanEdit(): AppError? =
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): BookServiceImpl =
@@ -149,16 +152,6 @@ internal class BookServiceImpl(
         )
 
     /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
-
-    /**
      * The gate every content mutation runs: the caller must hold `canEdit` **and** be able to
      * see the book. `canEdit` defaults to true for every account, so it is a permission, not an
      * access decision — without the visibility half, a member could rewrite (and delete the
@@ -169,23 +162,12 @@ internal class BookServiceImpl(
      * Returns null when the edit is permitted; the denial to surface otherwise.
      */
     private suspend fun requireEditableBook(id: BookId): AppError? {
-        requirePermission(Permission.EDIT_METADATA)?.let { return it }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return it }
         val p = principal.current() ?: return AuthError.PermissionDenied()
         if (!accessPolicy.canAccess(p.userId.value, p.role, id.value)) {
             return BookError.NotFound(debugInfo = "bookId=${id.value}")
         }
         return null
-    }
-
-    /**
-     * ROOT/ADMIN only — the gate for [deleteBook], which destroys files rather than editing rows.
-     * The `canEdit` flag a trusted MEMBER may hold buys metadata edits, not the power to erase a
-     * folder off the disk. Returns null when the caller is an admin, the denial otherwise. Same
-     * shape as `OrganizeServiceImpl.requireAdmin`.
-     */
-    private fun requireAdmin(): AppResult.Failure? {
-        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
 
     /**
@@ -197,7 +179,7 @@ internal class BookServiceImpl(
      * library-write slice) reports the capability as unavailable rather than pretending to delete.
      */
     override suspend fun deleteBook(id: BookId): AppResult<Unit> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val deleter =
             bookDeleter
                 ?: return AppResult.Failure(

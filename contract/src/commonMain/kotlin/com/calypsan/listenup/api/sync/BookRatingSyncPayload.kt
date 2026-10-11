@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.sync
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -11,6 +13,7 @@ import kotlinx.serialization.Serializable
  * [id] is opaque (SERVER-SYNC-04) and encodes neither [bookId] nor [userId]: a tombstone ships with
  * both blanked, so it tells a member who never had access nothing.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("BookRatingSyncPayload")
 data class BookRatingSyncPayload(
@@ -32,6 +35,11 @@ data class BookRatingSyncPayload(
     @SerialName("revision") override val revision: Long,
     /** Tombstone instant when the rating was cleared, else null. */
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-    /** Where this rating came from: Hardcover-imported until the listener touches it. Absent on older frames = [ListenerRatingSource.LISTENUP]. */
-    @SerialName("source") val source: ListenerRatingSource = ListenerRatingSource.LISTENUP,
+    /**
+     * Where this rating came from: Hardcover-imported until the listener touches it. Absent on older frames =
+     * [ListenerRatingSource.LISTENUP]. Always encoded.
+     */
+    @SerialName("source")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val source: ListenerRatingSource = ListenerRatingSource.LISTENUP,
 ) : SyncPayload

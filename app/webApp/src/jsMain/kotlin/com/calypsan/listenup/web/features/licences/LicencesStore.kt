@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.licences
 
+import com.calypsan.listenup.web.nav.RouteSession
 import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,8 +48,8 @@ sealed interface LicencesUiState {
 /** An open Licences stream, plus the teardown for it. */
 class LicencesSession(
     val state: StateFlow<LicencesUiState>,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its manifest. Production fetches the static file ([graphLicences]); specs hand

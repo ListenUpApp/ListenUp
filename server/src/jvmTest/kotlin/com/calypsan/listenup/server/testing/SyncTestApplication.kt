@@ -143,7 +143,7 @@ internal data class SyncTestScope(
  *   Off by default so domain-list and global-domain tests see only `tags`.
  * @param playbackPositions when true, also wires a [PlaybackPositionRepository]
  *   (domain `playback_positions`) and exposes it as [SyncTestScope.playbackPositionRepo].
- *   The table is created by Flyway migrations, so no manual schema creation is needed.
+ *   The table is created by the migrations, so no manual schema creation is needed.
  * @param playbackEvents when true, also wires [ListeningEventRepository], [UserStatsRepository],
  *   [UserStatsUpdater], and exposes [SyncTestScope.listeningEventRepo] and
  *   [SyncTestScope.userStatsRepo]. Enables end-to-end tests of the
@@ -162,7 +162,7 @@ internal fun withTestApplication(
         val tmp =
             Files.createTempFile("listenup-sync-test-", ".db").toFile().apply { deleteOnExit() }
         val path = tmp.absolutePath
-        // DatabaseFactory.init runs the Flyway migrations against the file; the SQLDelight
+        // DatabaseFactory.init runs the migrations against the file; the SQLDelight
         // driver opened next reads that already-migrated schema (it never calls Schema.create).
         DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:$path"))
         val driver = newTestSqlDriver(path)

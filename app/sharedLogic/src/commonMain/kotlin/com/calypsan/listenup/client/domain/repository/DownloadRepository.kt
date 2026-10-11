@@ -61,11 +61,15 @@ interface DownloadRepository {
         totalBytes: Long,
     ): AppResult<Unit>
 
+    /**
+     * Record that the file landed on disk. Returns `true` when the row was completed, `false` when the
+     * user had already cancelled or deleted it and the row was left alone (the caller owns the orphaned file).
+     */
     suspend fun markCompleted(
         audioFileId: String,
         localPath: String,
         completedAt: Long,
-    ): AppResult<Unit>
+    ): AppResult<Boolean>
 
     suspend fun markPaused(audioFileId: String): AppResult<Unit>
 

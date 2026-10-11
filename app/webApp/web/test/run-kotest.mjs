@@ -1,5 +1,5 @@
 // Runs the compiled Kotest bundle in a real browser and translates its TeamCity service
-// messages into a pass/fail verdict — the whole of what karma was doing for this project.
+// messages into a pass/fail verdict.
 //
 // Deliberately NOT Vitest: Kotest 6's JS engine owns test registration and reporting itself,
 // so a second framework would only wrap N Kotest tests in 1 opaque Vitest test and discard the
@@ -11,6 +11,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isSettled, problemsFor } from './settle.mjs'
+import { recordCspViolations, readCspViolations } from './csp-violations.mjs'
 
 // The number of tests the suite is known to contain. A run that finds fewer has not "passed" —
 // it has failed to discover something, which is the exact way this class of lane lies: the
@@ -28,7 +29,8 @@ import { isSettled, problemsFor } from './settle.mjs'
 // `testStarted` — so a spec that quietly becomes server-gated trips the floor the same as one
 // that stops compiling. A hand-edited constant here once sat at 211 while the suite grew to 820;
 // the committed file moves only under KOTEST_UPDATE_BASELINE=1 (see the end of this script), so
-// the diff lands in review next to the specs that caused it.
+// the diff lands in review next to the specs that caused it. A run that has outgrown the baseline
+// by more than 10% fails too, which is what forces that diff to land with the specs.
 const BASELINE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'kotest-baseline.json')
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
 const LANE = process.env.LU_SERVER_URL ? 'serverBacked' : 'serverFree'
@@ -115,6 +117,9 @@ await page.addInitScript((dir) => {
   window.__LU_SPARE_FOLDER = dir
 }, process.env.LU_SPARE_FOLDER ?? null)
 
+// Under `preview` the suite runs beneath the production policy, so a block there is a failure.
+await recordCspViolations(page)
+
 const startedAt = Date.now()
 await page.goto(`${BASE}/test/kotest.html`, { waitUntil: 'load' })
 
@@ -136,6 +141,8 @@ for (;;) {
     break
   }
 }
+
+pageErrors.push(...(await readCspViolations(page)))
 
 await browser.close()
 await server?.close()
@@ -164,6 +171,8 @@ const problems = problemsFor({
   minTests: MIN_TESTS,
   ceilingMs: CEILING_MS,
   pageErrors,
+  // An update run exists to re-record a stale baseline, so staleness must not block it.
+  maxGrowth: process.env.KOTEST_UPDATE_BASELINE === '1' ? Infinity : undefined,
 })
 
 for (const p of problems) console.log(`PROBLEM: ${p}`)

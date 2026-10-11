@@ -59,9 +59,3 @@ class CoroutineScopeInstallsExceptionHandlerRule :
             offenders.shouldBeEmpty()
         }
     })
-
-/** Strips line and block comments so a *mention* of the handler can't satisfy the rule. */
-private fun stripComments(source: String): String =
-    source
-        .replace(Regex("""//[^\n]*"""), "")
-        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")

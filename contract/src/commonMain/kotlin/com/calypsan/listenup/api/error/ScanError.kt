@@ -20,6 +20,8 @@ sealed interface ScanError : AppError {
         override val message: String = "A scan is already running."
         override val code: String = "SCAN_ALREADY_RUNNING"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** No `scanner.libraryPath` is configured. */
@@ -32,6 +34,8 @@ sealed interface ScanError : AppError {
         override val message: String = "Library path is not configured."
         override val code: String = "SCAN_LIBRARY_PATH_NOT_CONFIGURED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** `scanner.libraryPath` is set but the directory doesn't exist or isn't readable. */
@@ -45,6 +49,8 @@ sealed interface ScanError : AppError {
         override val message: String = "Library path does not exist or is not readable."
         override val code: String = "SCAN_LIBRARY_PATH_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -66,6 +72,8 @@ sealed interface ScanError : AppError {
         override val message: String = "No audio files were found in this folder."
         override val code: String = "SCAN_NO_RECOGNIZED_AUDIO"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Walker / Analyzer hit an unreadable file. The scan continues; this lands in `ScanResult.errors`. */
@@ -79,6 +87,8 @@ sealed interface ScanError : AppError {
         override val message: String = "A file in the library could not be read."
         override val code: String = "SCAN_FILE_UNREADABLE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** A `metadata.json` file failed to parse. The scan continues without the overlay. */
@@ -92,6 +102,8 @@ sealed interface ScanError : AppError {
         override val message: String = "Could not read metadata for this file."
         override val code: String = "SCAN_METADATA_PARSE_ERROR"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The Analyzer couldn't infer a usable title from the path or metadata. */
@@ -105,5 +117,7 @@ sealed interface ScanError : AppError {
         override val message: String = "Could not infer a title for this audiobook."
         override val code: String = "SCAN_TITLE_INFERENCE_ERROR"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

@@ -32,13 +32,13 @@ class LibrarySettingsViewModel(
     val state: StateFlow<LibrarySettingsUiState>
         field = MutableStateFlow<LibrarySettingsUiState>(LibrarySettingsUiState.Loading)
 
-    private val _events = Channel<LibrarySettingsEvent>(Channel.BUFFERED)
+    private val eventsChannel = Channel<LibrarySettingsEvent>(Channel.BUFFERED)
 
     /**
      * One-shot events the screen consumes exactly once (e.g. a transient "scanning" confirmation).
      * Uses a [Channel] per the one-shot-events rubric rule so re-collection never replays a toast.
      */
-    val events: Flow<LibrarySettingsEvent> = _events.receiveAsFlow()
+    val events: Flow<LibrarySettingsEvent> = eventsChannel.receiveAsFlow()
 
     init {
         loadLibrary()
@@ -141,7 +141,7 @@ class LibrarySettingsViewModel(
                             library = updatedLibrary,
                         )
                     }
-                    _events.trySend(LibrarySettingsEvent.FolderSavedScanStarted)
+                    eventsChannel.trySend(LibrarySettingsEvent.FolderSavedScanStarted)
                 }
 
                 is AppResult.Failure -> {

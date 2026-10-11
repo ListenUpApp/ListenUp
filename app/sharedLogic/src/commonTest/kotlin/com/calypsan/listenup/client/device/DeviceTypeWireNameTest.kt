@@ -1,0 +1,84 @@
+package com.calypsan.listenup.client.device
+
+import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.ints.shouldBeLessThanOrEqual
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotBeBlank
+
+/**
+ * Tests for [DeviceType.wireName] — the `DeviceInfo.deviceType` string a native session reports,
+ * on Android and iOS alike.
+ *
+ * The bug that motivates this: a session was reported as `"phone"`, hard-coded in the Koin
+ * `DeviceInfoProvider`, even though `DeviceContextProvider` already classified the device as
+ * Tv / Auto / Watch / Tablet / Phone. The Devices settings screen therefore drew a phone glyph
+ * next to the user's tablet and their car (Android), or iPad (iOS).
+ *
+ * These names are persisted in the server's `sessions.device_type` column — the server stores the
+ * string opaquely and validates nothing — so renaming one silently reclassifies existing sessions.
+ * That is what these per-value assertions are for.
+ */
+class DeviceTypeWireNameTest :
+    FunSpec({
+
+        test("Phone reports as phone") {
+            DeviceType.Phone.wireName shouldBe "phone"
+        }
+
+        test("Tablet reports as tablet") {
+            DeviceType.Tablet.wireName shouldBe "tablet"
+        }
+
+        test("Desktop reports as desktop") {
+            DeviceType.Desktop.wireName shouldBe "desktop"
+        }
+
+        test("Tv reports as tv") {
+            DeviceType.Tv.wireName shouldBe "tv"
+        }
+
+        test("Auto reports as auto") {
+            DeviceType.Auto.wireName shouldBe "auto"
+        }
+
+        test("Watch reports as watch") {
+            DeviceType.Watch.wireName shouldBe "watch"
+        }
+
+        test("Xr reports as xr") {
+            DeviceType.Xr.wireName shouldBe "xr"
+        }
+
+        test("every form factor gets a distinct name") {
+            // A collision would silently merge two form factors in the Devices screen.
+            DeviceType.entries.map { it.wireName }.toSet() shouldHaveSize DeviceType.entries.size
+        }
+
+        test("every name is non-blank and lowercase") {
+            // deviceGlyphFor lowercases before matching, but the wire value is what the server
+            // persists — emit it already normalised rather than relying on the reader.
+            DeviceType.entries.forEach { type ->
+                val name = type.wireName
+                name.shouldNotBeBlank()
+                name shouldBe name.lowercase()
+            }
+        }
+
+        test("every name fits the contract's device-field cap") {
+            // DeviceInfo's init require() THROWS above DEVICE_FIELD_MAX, so an over-long name
+            // would crash login rather than degrade.
+            DeviceType.entries.forEach {
+                it.wireName.length shouldBeLessThanOrEqual DEVICE_FIELD_MAX
+            }
+        }
+
+        test("the three names older sessions and servers rely on are the ones we emit") {
+            // deviceGlyphFor reads "phone", "tablet" and "desktop" as they have always been spelled;
+            // every other name is covered by DeviceGlyphTest.
+            setOf(DeviceType.Phone, DeviceType.Tablet, DeviceType.Desktop)
+                .map { it.wireName }
+                .toSet() shouldBe setOf("phone", "tablet", "desktop")
+        }
+    })

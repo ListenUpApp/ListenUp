@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
-import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
@@ -69,7 +68,7 @@ import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
-import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.seriesedit.components.SeriesMergeDialog
@@ -82,12 +81,8 @@ import com.calypsan.listenup.client.util.rememberImagePicker
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_more_options
 import listenup.composeapp.generated.resources.book_edit_change_cover
-import listenup.composeapp.generated.resources.book_edit_keep_editing
-import listenup.composeapp.generated.resources.book_edit_unsaved_changes
-import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_description
-import listenup.composeapp.generated.resources.common_discard
 import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.error_unknown
 import listenup.composeapp.generated.resources.series_edit_series
@@ -162,11 +157,13 @@ fun SeriesEditScreen(
         }
     }
 
-    var showUnsavedChangesDialog by remember { mutableStateOf(false) }
-
-    PlatformBackHandler(enabled = state.hasChanges) {
-        showUnsavedChangesDialog = true
-    }
+    val requestLeave =
+        rememberUnsavedWorkGuard(
+            dirty = state.hasChanges,
+            onLeave = onBackClick,
+            // Discard leaves through the ViewModel so it can clean up what the draft staged.
+            onDiscard = { viewModel.onEvent(SeriesEditUiEvent.CancelClicked) },
+        )
 
     ListenUpScaffold(
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
@@ -208,13 +205,7 @@ fun SeriesEditScreen(
                         // The VM owns the dialog flag so candidate computation can start
                         // and stop with it.
                         onMergeClick = { viewModel.onEvent(SeriesEditUiEvent.MergeDialogOpened) },
-                        onBackClick = {
-                            if (state.hasChanges) {
-                                showUnsavedChangesDialog = true
-                            } else {
-                                onBackClick()
-                            }
-                        },
+                        onBackClick = requestLeave,
                         // consumeWindowInsets so the inner Column's imePadding() doesn't double-count the
                         // Scaffold's already-reserved bottom inset — otherwise a surface-colored band
                         // appears between the field and the keyboard.
@@ -226,16 +217,6 @@ fun SeriesEditScreen(
                 }
             }
         }
-    }
-
-    if (showUnsavedChangesDialog) {
-        UnsavedChangesDialog(
-            onDiscard = {
-                showUnsavedChangesDialog = false
-                viewModel.onEvent(SeriesEditUiEvent.CancelClicked)
-            },
-            onKeepEditing = { showUnsavedChangesDialog = false },
-        )
     }
 
     HierarchyOverlays(
@@ -340,22 +321,6 @@ private fun SeriesOverflowMenu(
 // =============================================================================
 // DIALOGS
 // =============================================================================
-
-@Composable
-private fun UnsavedChangesDialog(
-    onDiscard: () -> Unit,
-    onKeepEditing: () -> Unit,
-) {
-    ListenUpDestructiveDialog(
-        onDismissRequest = onKeepEditing,
-        title = stringResource(Res.string.book_edit_unsaved_changes),
-        text = stringResource(Res.string.book_edit_you_have_unsaved_changes_are),
-        confirmText = stringResource(Res.string.common_discard),
-        onConfirm = onDiscard,
-        dismissText = stringResource(Res.string.book_edit_keep_editing),
-        onDismiss = onKeepEditing,
-    )
-}
 
 @Composable
 private fun ErrorContent(

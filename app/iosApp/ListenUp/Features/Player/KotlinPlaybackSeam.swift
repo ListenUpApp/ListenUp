@@ -130,8 +130,6 @@ final class KotlinSleepTiming: SleepTiming {
         }
     }
 
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
-
     private static func map(_ state: SleepTimerState) -> SleepTimingState {
         guard let active = state as? SleepTimerStateActive else { return .inactive }
         let isEoc = active.mode is SleepTimerModeEndOfChapter
@@ -184,8 +182,6 @@ final class KotlinSkipIntervalProviding: SkipIntervalProviding {
             backwardContinuation.yield(Int(seconds))
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 }
 
 /// Adapts `DocumentRepository` to `BookDocumentProviding`. Takes the first emission from

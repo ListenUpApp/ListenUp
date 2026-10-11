@@ -197,6 +197,7 @@ class HlsRoutesTest :
 
                 client.get("/api/v1/hls/b1/af1/seg/0.aac?$query").status shouldBe
                     HttpStatusCode.InternalServerError
+                cache.has("b1", "af1", 0) shouldBe false
             }
         }
 

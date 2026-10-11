@@ -1,4 +1,6 @@
+import CoreGraphics
 import Foundation
+import ListenupContract
 import Testing
 import Shared
 @testable import ListenUp

@@ -122,6 +122,69 @@ class TranscodeSessionEngineTest :
             fake.killed shouldBe 0
             fixture.cleanUp()
         }
+
+        test("a request the exited encoder can no longer serve starts a new one at that segment") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+            fake.exited[0] = true
+
+            val result = fixture.engine.ensureRunning(SESSION, fromSegment = 3)
+
+            result.shouldBeInstanceOf<SessionAdmission.Admitted>()
+            fake.commands.size shouldBe 2
+            // 3 * (431 * 1024 / 44100) = 30.023401...
+            fake.commands.last().shouldContainFlag("-ss", "30.023401")
+            fixture.cleanUp()
+        }
+
+        test("an exited encoder does not hold a concurrency slot") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake, maxConcurrent = 1)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+            fake.exited[0] = true
+            fixture.engine.sweepIdle()
+
+            val result = fixture.engine.ensureRunning(SESSION.copy(bookId = "b2"), fromSegment = 0)
+
+            result.shouldBeInstanceOf<SessionAdmission.Admitted>()
+            fixture.cleanUp()
+        }
+
+        test("abandoning a bad segment stops the run and allows two more attempts") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+
+            fixture.engine.abandonBadSegment("b1", "f1", 4) shouldBe true
+            fake.killed shouldBe 1
+            fixture.engine.ensureRunning(SESSION, fromSegment = 4)
+            fake.commands.size shouldBe 2
+            fixture.engine.abandonBadSegment("b1", "f1", 4) shouldBe true
+            fixture.engine.abandonBadSegment("b1", "f1", 4) shouldBe false
+            fixture.cleanUp()
+        }
+
+        test("strikes are counted per segment") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+            fixture.engine.abandonBadSegment("b1", "f1", 4)
+            fixture.engine.abandonBadSegment("b1", "f1", 4)
+
+            fixture.engine.abandonBadSegment("b1", "f1", 5) shouldBe true
+            fixture.cleanUp()
+        }
+
+        test("a live encoder within reach is still reused") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+
+            fixture.engine.ensureRunning(SESSION, fromSegment = 3)
+
+            fake.commands.size shouldBe 1
+            fixture.cleanUp()
+        }
     })
 
 private val SESSION =
@@ -141,8 +204,15 @@ private class FakeSpawner {
     /** The first stage of each run — for a source FFmpeg can decode, that is the whole pipeline. */
     val commands: List<List<String>> get() = pipelines.map { it.first() }
 
-    fun spawner(): TranscodeSpawner =
-        object : TranscodeSpawner {
+    /** One entry per run started, in order; set an entry to true to say that run's process has exited. */
+    val exited = mutableListOf<Boolean>()
+
+    fun spawner(): TranscodeSpawner {
+        val run = exited.size
+        exited += false
+        return object : TranscodeSpawner {
+            override val hasExited: Boolean get() = exited[run]
+
             override suspend fun start(commands: List<List<String>>) {
                 pipelines += commands
             }
@@ -151,6 +221,7 @@ private class FakeSpawner {
                 killed++
             }
         }
+    }
 }
 
 /** An engine plus the mutable clock driving it and the temp dir it writes into. */

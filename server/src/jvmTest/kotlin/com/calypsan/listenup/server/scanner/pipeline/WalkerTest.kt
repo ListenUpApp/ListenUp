@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.io.files.Path as IoPath
 
 class WalkerTest :
@@ -95,7 +96,7 @@ class WalkerTest :
             }
         }
 
-        test("does not follow symlinks and emits the link as a single UNKNOWN leaf") {
+        test("never descends a linked directory and does not emit it") {
             audioLibrary {
                 audio("real-track.mp3")
             }.use { fixture ->
@@ -104,15 +105,59 @@ class WalkerTest :
                 runCatching { Files.createSymbolicLink(loop, fixture.root) }
                     .getOrElse { return@use }
                 runTest {
-                    val entries = walker.walk(IoPath(fixture.root.toString())).toList()
-                    val paths = entries.map { it.relPath }
+                    val paths = walker.walk(IoPath(fixture.root.toString())).toList().map { it.relPath }
                     paths shouldContain "real-track.mp3"
-                    // The symlink itself is reported once, as a leaf with no extension
-                    // (UNKNOWN), exactly as the old no-follow walkFileTree did...
-                    paths.count { it == "loop" } shouldBe 1
-                    entries.single { it.relPath == "loop" }.fileType shouldBe FileType.UNKNOWN
-                    // ...but it is never descended, so nothing appears beneath it.
-                    paths.none { it.startsWith("loop/") } shouldBe true
+                    paths.none { it == "loop" || it.startsWith("loop/") } shouldBe true
+                }
+            }
+        }
+
+        test("skips a link that points outside the library") {
+            audioLibrary {
+                audio("real-track.mp3")
+            }.use { fixture ->
+                val outside = Files.createTempDirectory("listenup-outside-")
+                try {
+                    val target = outside.resolve("secret.txt")
+                    Files.writeString(target, "secret")
+                    runCatching { Files.createSymbolicLink(fixture.root.resolve("escape.pdf"), target) }
+                        .getOrElse { return@use }
+                    runTest {
+                        val paths = walker.walk(IoPath(fixture.root.toString())).toList().map { it.relPath }
+                        paths shouldNotContain "escape.pdf"
+                        paths shouldContain "real-track.mp3"
+                    }
+                } finally {
+                    outside.toFile().deleteRecursively()
+                }
+            }
+        }
+
+        test("emits a link that points at a file inside the library") {
+            audioLibrary {
+                audio("real-track.mp3")
+            }.use { fixture ->
+                runCatching {
+                    Files.createSymbolicLink(fixture.root.resolve("alias.mp3"), fixture.root.resolve("real-track.mp3"))
+                }.getOrElse { return@use }
+                runTest {
+                    val paths = walker.walk(IoPath(fixture.root.toString())).toList().map { it.relPath }
+                    paths shouldContainExactlyInAnyOrder listOf("real-track.mp3", "alias.mp3")
+                }
+            }
+        }
+
+        test("skips a FIFO") {
+            audioLibrary {
+                audio("real-track.mp3")
+            }.use { fixture ->
+                val fifo = fixture.root.resolve("pipe.mp3")
+                val made = runCatching { ProcessBuilder("mkfifo", fifo.toString()).start().waitFor() }.getOrDefault(-1)
+                if (made != 0) return@use
+                runTest(timeout = 10.seconds) {
+                    val paths = walker.walk(IoPath(fixture.root.toString())).toList().map { it.relPath }
+                    paths shouldNotContain "pipe.mp3"
+                    paths shouldContain "real-track.mp3"
                 }
             }
         }

@@ -244,7 +244,7 @@ class ContributorEditPageTest :
         // type=button it will save the very edits it exists to discard, and this is what notices.
         test("Cancel leaves without saving") {
             val seen = mutableListOf<ContributorEditUiEvent>()
-            val host = page(editingContributor(hasChanges = true), onEvent = { seen += it })
+            val host = page(editingContributor(hasChanges = false), onEvent = { seen += it })
 
             button(host, "Cancel").shouldNotBeNull().click()
             awaitFrame()

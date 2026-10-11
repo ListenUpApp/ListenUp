@@ -17,6 +17,7 @@ import listenup.composeapp.generated.resources.book_role_illustrator
 import listenup.composeapp.generated.resources.book_role_introduction
 import listenup.composeapp.generated.resources.book_role_producer
 import listenup.composeapp.generated.resources.book_role_translator
+import listenup.composeapp.generated.resources.book_role_unknown
 import listenup.composeapp.generated.resources.match_bar_biography
 import listenup.composeapp.generated.resources.match_bar_nothing
 import listenup.composeapp.generated.resources.match_bar_photo
@@ -32,6 +33,7 @@ import listenup.composeapp.generated.resources.match_credit_narrator
 import listenup.composeapp.generated.resources.match_credit_of_your_books
 import listenup.composeapp.generated.resources.match_credit_producer
 import listenup.composeapp.generated.resources.match_credit_translator
+import listenup.composeapp.generated.resources.match_credit_unknown
 import listenup.composeapp.generated.resources.match_step_via_books
 import listenup.composeapp.generated.resources.match_step_via_books_one
 import listenup.composeapp.generated.resources.match_in_library_titles
@@ -70,6 +72,7 @@ internal fun roleName(role: ContributorRole): String =
             ContributorRole.PRODUCER -> Res.string.book_role_producer
             ContributorRole.ADAPTER -> Res.string.book_role_adapter
             ContributorRole.ILLUSTRATOR -> Res.string.book_role_illustrator
+            ContributorRole.UNKNOWN -> Res.string.book_role_unknown
         },
     )
 
@@ -88,6 +91,7 @@ private fun creditPhrase(credit: LibraryCredit): String =
             ContributorRole.PRODUCER -> Res.string.match_credit_producer
             ContributorRole.ADAPTER -> Res.string.match_credit_adapter
             ContributorRole.ILLUSTRATOR -> Res.string.match_credit_illustrator
+            ContributorRole.UNKNOWN -> Res.string.match_credit_unknown
         },
         credit.bookCount,
     )

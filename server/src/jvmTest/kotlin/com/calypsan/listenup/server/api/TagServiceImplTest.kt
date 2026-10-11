@@ -27,7 +27,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Integration tests for [TagServiceImpl].
  *
- * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks.
+ * Uses a real in-memory migrated SQLite database + real repositories; no mocks.
  * No search index is involved — the server has none.
  */
 class TagServiceImplTest :

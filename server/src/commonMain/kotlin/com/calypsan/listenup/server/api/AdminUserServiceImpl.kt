@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.AdminUserService
@@ -31,7 +29,6 @@ import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.AuthUser
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.auth.toAuthUser
 import com.calypsan.listenup.server.auth.toColumn
@@ -51,7 +48,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
+import com.calypsan.listenup.server.auth.requireAdmin
 
 private val log = loggerFor<AdminUserServiceImpl>()
 
@@ -60,7 +57,8 @@ private val log = loggerFor<AdminUserServiceImpl>()
  *
  * Every method is admin-gated: the caller must be ROOT or ADMIN, resolved from
  * [principal] (never from request fields). Non-admins receive
- * [AuthError.PermissionDenied]; an absent principal yields [AuthError.SessionExpired].
+ * [AuthError.PermissionDenied], as does an absent principal; a method that acts as the caller
+ * (rather than only gating on it) yields [AuthError.SessionExpired] when there is none.
  *
  * Soft-delete is the deletion model: [deleteUser] stamps `deletedAt` rather than
  * removing the row (so authored content isn't orphaned), and *every* read excludes
@@ -91,6 +89,13 @@ class AdminUserServiceImpl(
      * showing stars from someone who no longer exists.
      */
     private val bookRatingRepository: BookRatingRepository? = null,
+    /**
+     * Nullable so the auth module assembles without the Hardcover module. When present, a deleted
+     * account's Hardcover tokens, book links and queued pushes are removed, so a removed user
+     * leaves no third-party credential at rest. A function type keeps `api/` from depending on the
+     * `hardcover` package.
+     */
+    private val forgetHardcoverConnection: (suspend (String) -> Unit)? = null,
     private val activityRecorder: ActivityRecorder? = null,
     /**
      * Nullable so the auth module assembles independently of the collections module
@@ -149,6 +154,7 @@ class AdminUserServiceImpl(
             principal = provider,
             publicProfileMaintainer = publicProfileMaintainer,
             bookRatingRepository = bookRatingRepository,
+            forgetHardcoverConnection = forgetHardcoverConnection,
             activityRecorder = activityRecorder,
             defaultGrantIssuer = defaultGrantIssuer,
             pushNotifier = pushNotifier,
@@ -160,7 +166,7 @@ class AdminUserServiceImpl(
         )
 
     override suspend fun listUsers(): AppResult<List<User>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return suspendTransaction(sql) {
             AppResult.Success(
                 // ACTIVE only: pending/denied registrations have their own surfaces and must not
@@ -174,7 +180,7 @@ class AdminUserServiceImpl(
     }
 
     override suspend fun listPendingUsers(): AppResult<List<User>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return suspendTransaction(sql) {
             AppResult.Success(
                 sql.usersQueries
@@ -186,7 +192,7 @@ class AdminUserServiceImpl(
     }
 
     override suspend fun getUser(id: UserId): AppResult<User> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return suspendTransaction(sql) {
             val user =
                 activeUser(id)
@@ -196,7 +202,7 @@ class AdminUserServiceImpl(
     }
 
     override suspend fun searchUsers(query: String): AppResult<List<User>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val needle = query.trim()
         return suspendTransaction(sql) {
             AppResult.Success(
@@ -218,7 +224,7 @@ class AdminUserServiceImpl(
         id: UserId,
         patch: AdminUserPatch,
     ): AppResult<User> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         // Captured inside the txn, acted on after commit: a privilege demotion must sever the
         // demoted user's live sessions so a still-valid access token can't outlive its role (≤15m
@@ -319,6 +325,11 @@ class AdminUserServiceImpl(
             // path exists yet, unlike the roster/profile projections above).
             runCatchingCancellable { bookRatingRepository?.softDeleteAllForUser(id.value) }
                 .onFailure { log.warn(it) { "book ratings sweep failed for ${id.value}" } }
+
+            // Best-effort for the same reason: the account is already gone, and a Hardcover outage
+            // must not turn a completed deletion into a reported failure.
+            runCatchingCancellable { forgetHardcoverConnection?.invoke(id.value) }
+                .onFailure { log.warn(it) { "hardcover cleanup failed for ${id.value}" } }
         }
         return outcome
     }
@@ -409,12 +420,12 @@ class AdminUserServiceImpl(
     }
 
     override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(settings.registrationPolicy())
     }
 
     override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         settings.setRegistrationPolicy(policy)
         // Push the new policy to any clients sitting on the login screen so a stale Sign Up
         // button flips the moment registration is closed (or reopened). Persisted first, so a
@@ -425,7 +436,7 @@ class AdminUserServiceImpl(
 
     /** Delegates to [PasswordResetService.listPending]. */
     override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(passwordResetService.listPending())
     }
 
@@ -469,12 +480,6 @@ class AdminUserServiceImpl(
                 log.warn { "decision push failed: ${e::class.simpleName.orEmpty()}" }
             }
         }
-    }
-
-    /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
-    private fun requireAdmin(): AppResult.Failure? {
-        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
 
     /** The live (non-deleted) user with [id], or null. Must run inside a SQLDelight transaction. */

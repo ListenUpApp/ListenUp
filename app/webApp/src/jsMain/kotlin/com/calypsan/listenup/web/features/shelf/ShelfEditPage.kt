@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.shelf
 
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -30,6 +31,9 @@ import org.jetbrains.compose.web.dom.Text
  * it in `rememberSaveable`: a ViewModel that owned every keystroke would re-emit the whole state on
  * each one, and the shared VM deliberately does not.
  *
+ * Cancel asks "discard changes?" while the fields differ from what the form opened on, using the
+ * shared ViewModel's own answer ([hasChanges]).
+ *
  * Deleting asks through the shared [ConfirmDialog]. It shipped as a two-step inline confirm because
  * web had no dialog primitive and inventing one inside a feature would have committed the design
  * system to an unreviewed pattern; "sign out all other devices" was the second destructive action, which is
@@ -47,6 +51,7 @@ fun ShelfEditPage(
     onDelete: () -> Unit,
     onDismissError: () -> Unit,
     onCancel: () -> Unit,
+    hasChanges: (name: String, description: String, isPrivate: Boolean) -> Boolean = { _, _, _ -> false },
 ) {
     val loaded = state as? CreateEditShelfUiState.Loaded
     // Keyed on the loaded value, so the fields carry it from their very first composition rather
@@ -58,6 +63,16 @@ fun ShelfEditPage(
     var confirmingDelete by remember { mutableStateOf(false) }
 
     val saving = state is CreateEditShelfUiState.Saving
+    val guard =
+        rememberUnsavedWorkGuard(
+            dirty =
+                holdsDraft(
+                    isEditing,
+                    isLoaded = loaded != null,
+                    changed = hasChanges(name, description, isPrivate),
+                ),
+        )
+    guard.Dialog()
     val heading = if (isEditing) "Edit shelf" else "New shelf"
 
     Div(attrs = { classes("shelf-edit") }) {
@@ -114,7 +129,7 @@ fun ShelfEditPage(
                     },
                 ) { Text(if (saving) "Saving…" else "Save") }
 
-                Button(kind = ButtonKind.Secondary, onClick = { onCancel() }) { Text("Cancel") }
+                Button(kind = ButtonKind.Secondary, onClick = { guard.leave(onCancel) }) { Text("Cancel") }
             }
         }
 
@@ -169,3 +184,10 @@ private fun DeleteShelfSection(
         onDismiss = onDismiss,
     )
 }
+
+/** Edit mode has nothing to lose until the shelf has loaded into the fields; create mode always does. */
+private fun holdsDraft(
+    isEditing: Boolean,
+    isLoaded: Boolean,
+    changed: Boolean,
+): Boolean = (!isEditing || isLoaded) && changed

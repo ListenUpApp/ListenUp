@@ -19,14 +19,13 @@
 --   * email_normalized UNIQUE — the single structural guarantee that one email maps to one
 --     account. The drift gate compares this index; the repo's email lookups rely on it.
 --   * role / status CHECK constraints — SQLite enforces the closed enum sets at write time.
---     Stored by name (ROOT/ADMIN/MEMBER, ACTIVE/PENDING_APPROVAL/DENIED), exactly as the
---     Exposed `enumerationByName` columns did; the repo maps name ↔ enum at the boundary.
+--     Stored by name (ROOT/ADMIN/MEMBER, ACTIVE/PENDING_APPROVAL/DENIED); the repo maps
+--     name ↔ enum at the boundary.
 --   * password_hash holds the Argon2id PHC string verbatim — read and written as an opaque
 --     TEXT blob, never re-derived.
 --
--- can_edit is INTEGER 0/1 (SQLite BOOLEAN affinity); the Exposed table mapped
--- them to `bool`. The repo maps 0/1 ↔ Boolean at the boundary, the same place the Exposed
--- bool adapter sat. FK declarations are not applicable (users is the root identity table).
+-- can_edit is INTEGER 0/1 (SQLite BOOLEAN affinity). The repo maps 0/1 ↔ Boolean at the
+-- boundary. FK declarations are not applicable (users is the root identity table).
 CREATE TABLE users (
     id               TEXT    NOT NULL PRIMARY KEY,
     email            TEXT    NOT NULL,
@@ -67,8 +66,7 @@ SELECT EXISTS(SELECT 1 FROM users WHERE email_normalized = :email_normalized);
 
 -- True iff ANY user row exists for :id (live OR tombstoned). The collection-share
 -- target check (`userExists`) only needs presence — a tombstoned sharee is still a
--- real account — so it does not filter deleted_at. Replaces the Exposed
--- `UserTable.selectAll().where { id eq … }.count() > 0`.
+-- real account — so it does not filter deleted_at.
 existsById:
 SELECT EXISTS(SELECT 1 FROM users WHERE id = :id);
 
@@ -93,7 +91,7 @@ selectRoleById:
 SELECT role FROM users WHERE id = :id AND deleted_at IS NULL;
 
 -- The id of the first user with a given role — used by the invite seeder to resolve the demo
--- ROOT it acts as. Matches the Exposed `find { role eq ROOT }.firstOrNull()`.
+-- ROOT it acts as.
 selectFirstByRole:
 SELECT id FROM users WHERE role = :role LIMIT 1;
 
@@ -135,8 +133,8 @@ SELECT id, email, display_name FROM users WHERE deleted_at IS NULL;
 selectLiveIdsByIds:
 SELECT id FROM users WHERE id IN :ids AND deleted_at IS NULL;
 
--- Insert a new user row. Every column is written explicitly so the row shape is identical to
--- the Exposed `UserEntity.new { … }` path (defaults are supplied by the caller, not the DDL).
+-- Insert a new user row. Every column is written explicitly: defaults are supplied by the
+-- caller, not the DDL.
 insert:
 INSERT INTO users (
     id, email, email_normalized, password_hash, role, display_name, status,
@@ -253,7 +251,7 @@ updateAvatarType:
 UPDATE users SET avatar_type = :avatar_type, avatar_updated_at = :avatar_updated_at, updated_at = :updated_at WHERE id = :id;
 
 -- Count of LIVE (non-tombstoned) users — used by BackupArchive to embed a snapshot
--- count in the backup manifest (replaces the Exposed `UserTable.selectAll().where { deletedAt.isNull() }.count()`).
+-- count in the backup manifest.
 countLive:
 SELECT COUNT(*) FROM users WHERE deleted_at IS NULL;
 

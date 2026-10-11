@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.rpcguard
 
-import com.calypsan.listenup.api.error.withCorrelationId
 import com.calypsan.listenup.api.result.AppResult
 import io.github.oshai.kotlinlogging.KLogger
 

@@ -3,11 +3,10 @@ package com.calypsan.listenup.client.presentation.visibility
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * The lock on every book card. One shell-level feed of the books an admin should see marked as
@@ -30,15 +29,7 @@ class RestrictedBooksViewModel(
             .map { ids -> ids.mapTo(mutableSetOf()) { it.value } }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = WhileSubscribedForUi,
                 initialValue = emptySet(),
             )
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android and web clear it through their
-     * `ViewModelStore`; iOS has none, so its observer calls this from its `isolated deinit` (#1192).
-     */
-    fun close() {
-        viewModelScope.cancel()
-    }
 }

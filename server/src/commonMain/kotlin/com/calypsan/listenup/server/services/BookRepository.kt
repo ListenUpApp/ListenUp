@@ -1,6 +1,9 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.FileEntry
+import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.SidecarCuration
 import com.calypsan.listenup.api.dto.scanner.SidecarCurationChapter
 import com.calypsan.listenup.api.metadata.BookField
@@ -44,6 +47,7 @@ import app.cash.sqldelight.TransactionWithReturn
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
@@ -62,6 +66,16 @@ private const val PERSIST_CHUNK_SIZE = 250
 
 /** SQLite caps a statement at 999 bound parameters; chunk `IN (…)` lists below it with headroom. */
 private const val SQLITE_IN_CHUNK = 900
+
+/**
+ * Where a live book can be known to sit while an inode match is judged: [pathsInThisIngest] are the
+ * paths in the batch being written, and [folderRoot] (null when unknown) is the directory the disk is
+ * asked about for the paths a batch cannot speak for.
+ */
+private data class MoveOccupancy(
+    val pathsInThisIngest: Set<String>,
+    val folderRoot: String?,
+)
 
 /**
  * A book resolved + prepared by [BookRepository.resolveOrInsertAll]'s suspend prepare phase, ready for
@@ -118,7 +132,7 @@ internal data class MatchCoverColumns(
  * corrupt every column the id is written to.
  *
  * **Database handles.** [db] (the SQLDelight [ListenUpDatabase]) backs every book read/write,
- * the genre junction writes, the FTS index, and the cover collaborator [ManagedCoverFiles].
+ * the genre junction writes, and the cover collaborator [ManagedCoverFiles].
  * [driver] (the shared SQLDelight [SqlDriver] behind [db]) runs the access-filtered [pullSince]
  * / [digest] id reads engine-neutrally — the runtime-built [SqlFragment] access subquery now
  * carries plain raw args, so it splices over the driver inside the same `suspendTransaction(db)`.
@@ -131,9 +145,8 @@ internal data class MatchCoverColumns(
  * book's `collection_books` row — ALL_BOOKS for a non-held library, INBOX for a held one — is
  * written ATOMICALLY inside the SQLDelight book transaction ([writeSystemMembership]), because a
  * separate post-commit write left a narrow REST-catch-up window where a member could pull a held
- * book before its INBOX membership landed. That write uses the same SQLDelight engine as the book
- * row, so it never nests an Exposed write inside the SQLDelight transaction; the Exposed
- * [CollectionBookRepository] stays canonical for every other `collection_books` operation.
+ * book before its INBOX membership landed. [CollectionBookRepository] stays canonical for every
+ * other `collection_books` operation.
  *
  * @param contributorRepository the syncable contributors catalogue;
  *   [upsertFromAnalyzed] resolves each author/narrator name through it to a
@@ -325,7 +338,7 @@ class BookRepository(
      * Writes the full book aggregate inside the substrate's open SQLDelight transaction.
      *
      * **Atomicity is the contract.** The root row, the four child tables (contributors,
-     * series, chapters, audio files), the FTS index (`book_search` + `book_search_map`), and —
+     * series, chapters, audio files) and —
      * for a genuinely-new book the scan path assigned to a system collection — the book→collection
      * `collection_books` membership ([writeSystemMembership]) land together or not at all. The
      * substrate has already opened the transaction and resolved [existed]; this method issues
@@ -537,7 +550,7 @@ class BookRepository(
      * Replaces a book's child-collection rows after the parent upsert, honouring the per-field
      * provenance preserve flags: a contributors/series/chapters edit the stored book carries (and this
      * write isn't itself re-editing) keeps its rows — the collection analogue of the scalar preserve in
-     * [mergeByProvenance]. Audio files, documents, and the FTS row always refresh.
+     * [mergeByProvenance]. Audio files and documents always refresh.
      */
     private fun replaceBookChildren(
         value: BookSyncPayload,
@@ -709,7 +722,7 @@ class BookRepository(
         // library re-mints its id (the new folder's inode lookup misses); an intra-folder move
         // preserves it. Accepted — cross-folder moves are rare, and folder-scoping is what keeps
         // two folders sharing a relative path (or an inode) from aliasing each other.
-        val movedBookId = analyzed.candidate.identityInode()?.let { inode -> bookFinder.findByInode(folderId, inode) }
+        val movedBookId = findTrustedMove(folderId, analyzed)
         if (movedBookId != null) {
             val previousPath = findById(movedBookId)?.rootRelPath
             log.info { "Book moved: ${previousPath ?: "(unknown)"} → $rootRelPath" }
@@ -719,6 +732,80 @@ class BookRepository(
         val newId = BookId(Uuid.random().toString())
         return write(newId).map { IngestOutcome(newId, wasNew = true) }
     }
+
+    /**
+     * The existing book a lone [analyzed] book may be the moved folder of, or null. A single ingest
+     * sees one book, so "the matched book's own path is also being ingested" cannot be read from the
+     * batch; instead a candidate whose recorded folder is still a directory on disk is occupied by
+     * that book and so cannot be what moved here.
+     */
+    private suspend fun findTrustedMove(
+        folderId: FolderId,
+        analyzed: AnalyzedBook,
+    ): BookId? {
+        val identityFile = analyzed.candidate.identityFile() ?: return null
+        val inode = identityFile.inode ?: return null
+        val candidates = bookFinder.findInodeCandidates(folderId, listOf(inode))[inode].orEmpty()
+        if (candidates.isEmpty()) return null
+        val occupancy = MoveOccupancy(setOf(analyzed.candidate.rootRelPath), folderRootPath(folderId))
+        return trustedMoveOnDisk(candidates, identityFile.size, occupancy)
+    }
+
+    /**
+     * [trustedMove] with the disk consulted: a candidate that passes the size witness but whose
+     * recorded folder is still a directory under [folderRoot] is occupied by that book, so it cannot
+     * be what moved. The batch alone cannot say so — a lone or incremental ingest carries only the
+     * changed books, never the unchanged original. The disk is probed only for size-corroborated
+     * candidates, so an ingest with no inode matches does no file I/O. An unknown folder root probes
+     * nothing.
+     */
+    private fun trustedMoveOnDisk(
+        candidates: List<BookFinder.InodeCandidate>,
+        identityFileSize: Long,
+        occupancy: MoveOccupancy,
+    ): BookId? {
+        val folderRoot = occupancy.folderRoot
+        val occupiedOnDisk =
+            candidates
+                .filter { identityFileSize in it.audioFileSizes }
+                .map { it.rootRelPath }
+                .filter { relPath -> folderRoot != null && isDirectoryOnDisk(folderRoot, relPath) }
+        return trustedMove(candidates, identityFileSize, occupancy.pathsInThisIngest + occupiedOnDisk)
+    }
+
+    /** The file whose inode anchors this book's identity — the same pick as [identityInode], with its size. */
+    private fun CandidateBook.identityFile(): FileEntry? =
+        files.firstOrNull { it.fileType == FileType.AUDIO && it.inode != null }
+
+    private fun isDirectoryOnDisk(
+        folderRoot: String,
+        rootRelPath: String,
+    ): Boolean = SystemFileSystem.metadataOrNull(Path(folderRoot, rootRelPath))?.isDirectory == true
+
+    private suspend fun folderRootPath(folderId: FolderId): String? =
+        suspendTransaction(db) {
+            db.libraryFoldersQueries
+                .selectById(folderId.value)
+                .executeAsOneOrNull()
+                ?.root_path
+        }
+
+    /**
+     * The existing book this inode match may be trusted to mean, or null. An inode number is reused
+     * after a delete and shared by hardlinks, so it is believed only when the file is the same size
+     * as one recorded for that book and the book's own path is not occupied — [pathsInThisIngest]
+     * carries every path the caller already knows is held by a live book, in this batch or on disk
+     * (see [trustedMoveOnDisk]).
+     * Two stored books that both corroborate are ambiguous, so neither is believed.
+     */
+    private fun trustedMove(
+        candidates: List<BookFinder.InodeCandidate>,
+        identityFileSize: Long,
+        pathsInThisIngest: Set<String>,
+    ): BookId? =
+        candidates
+            .singleOrNull { identityFileSize in it.audioFileSizes && it.rootRelPath !in pathsInThisIngest }
+            ?.bookId
 
     /**
      * Batch-resolves every contributor and series across [books] to a stable id in two bulk
@@ -793,14 +880,14 @@ class BookRepository(
      * performance-critical override of [BookIngestPort.resolveOrInsertAll].
      *
      * **Why this is fast.** A per-book [resolveOrInsert] loop costs, per book: two read transactions
-     * (findByPath, sometimes findByInode), one write transaction for the aggregate, plus a separate
+     * (findByPath, sometimes the inode-candidate lookup), one write transaction for the aggregate, plus a separate
      * post-commit genre pass whose junction queries auto-commit individually (~6 commits for a genred
      * book). This collapses all of that:
      *
      *  1. **PREPARE (suspend, no write transaction).** Resolve everything that needs a suspend call
      *     ONCE: the contributor/series ids (already in [identityMaps]); the genre ids (already in
      *     [identityMaps.genres], pre-created up front); bulk book existence (one `IN (…)` read for
-     *     paths, one for inodes — replacing the per-book findByPath/findByInode); the existing
+     *     paths, one for inodes — replacing the per-book path and inode lookups); the existing
      *     aggregates for the idempotency + cover-sticky checks (one batched read); and the cover-file
      *     stores (off-transaction I/O). Each book becomes a [PreparedBook] carrying its payload,
      *     genre ids, isNew flag, stored cover, and an idempotency-skip flag.
@@ -982,14 +1069,21 @@ class BookRepository(
             log.warn { "rootRelPath must be library-relative, got absolute: ${book.candidate.rootRelPath} — skipping" }
         }
 
-        // Bulk existence: one IN-read for natural keys, one for inodes — replacing the per-book
-        // findByPath/findByInode read transactions with two reads for the whole scan.
+        // Bulk existence: one IN-read for natural keys, one for inode candidates — replacing the
+        // per-book read transactions with two reads for the whole scan.
         val byPath = bookFinder.findExistingByPaths(folderId, valid.map { it.candidate.rootRelPath })
-        val inodes = valid.mapNotNull { it.candidate.identityInode() }
-        val byInode = bookFinder.findExistingByInodes(folderId, inodes)
+        val pathsInThisIngest = valid.mapTo(mutableSetOf()) { it.candidate.rootRelPath }
+        val inodeCandidates =
+            bookFinder.findInodeCandidates(
+                folderId,
+                valid.mapNotNull { it.candidate.identityInode() },
+            )
+        // Read once per batch, and only when an inode matched something that needs the disk's word.
+        val folderRoot = if (inodeCandidates.isEmpty()) null else folderRootPath(folderId)
+        val occupancy = MoveOccupancy(pathsInThisIngest, folderRoot)
 
-        // Resolve each book's stable BookId in memory from the bulk maps (natural key, then inode,
-        // then a fresh UUID) — the same three-key model resolveOrInsert applies per book.
+        // Resolve each book's stable BookId in memory from the bulk maps (natural key, then a
+        // corroborated inode move, then a fresh UUID) — the same model resolveOrInsert applies per book.
         data class Resolved(
             val analyzed: AnalyzedBook,
             val bookId: BookId,
@@ -999,8 +1093,15 @@ class BookRepository(
         val resolved =
             valid.map { analyzed ->
                 val rootRelPath = analyzed.candidate.rootRelPath
-                val inode = analyzed.candidate.identityInode()
-                val existing = byPath[rootRelPath] ?: inode?.let { byInode[it] }
+                val identityFile = analyzed.candidate.identityFile()
+                val candidates = identityFile?.inode?.let { inodeCandidates[it] }
+                val movedFrom =
+                    if (identityFile != null && candidates != null) {
+                        trustedMoveOnDisk(candidates, identityFile.size, occupancy)
+                    } else {
+                        null
+                    }
+                val existing = byPath[rootRelPath] ?: movedFrom
                 Resolved(analyzed, existing ?: BookId(Uuid.random().toString()), isNew = existing == null)
             }
 
@@ -1361,8 +1462,7 @@ class BookRepository(
      * writes the full aggregate through the substrate's `upsert`.
      *
      * Genres and scan tags are reconciled in **separate, sequential** transactions after
-     * the book write commits (genres via the Exposed [bookGenreWriter], tags via
-     * [bookTagWriter]).
+     * the book write commits (genres via [bookGenreWriter], tags via [bookTagWriter]).
      *
      * The book→system-collection membership for a genuinely-new book, by contrast, is written
      * **atomically** inside the book-insert transaction: when [systemCollectionId] is non-null and
@@ -1979,10 +2079,10 @@ class BookRepository(
      * two are mutually exclusive — a held book joins INBOX only, never ALL_BOOKS — so the quarantine
      * invariant (a member never observes a held book as accessible) holds by construction.
      *
-     * Replicates the canonical syncable-write shape the Exposed [CollectionBookRepository] uses for
-     * a new junction row: the synthetic `"$collectionId:$bookId"` id, the global revision bump via
-     * the shared counter ([nextRevision]), and a post-commit `collection_books`
-     * [SyncEvent.Created] emit so other devices learn of the membership exactly as before. The emit
+     * Follows the canonical syncable-write shape [CollectionBookRepository] uses for a new junction
+     * row: the synthetic `"$collectionId:$bookId"` id, the global revision bump via the shared
+     * counter ([nextRevision]), and a post-commit `collection_books` [SyncEvent.Created] emit so
+     * other devices learn of the membership. The emit
      * is routed through [collectionBookRepository] (the `collection_books` domain's
      * [com.calypsan.listenup.server.sync.SyncableRepo]) — not this book repo — so the firehose
      * encodes it with the collection-book serializer and delivers it under the right domain.

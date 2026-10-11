@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.auth
 
+import com.calypsan.listenup.client.presentation.close
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError

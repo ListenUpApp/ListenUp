@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -30,7 +28,7 @@ import kotlin.time.Instant
 /**
  * Smoke tests for [PublicProfileDomainSeeder].
  *
- * Uses real collaborators against an in-memory SQLite DB (via Flyway) so
+ * Uses real collaborators against an in-memory SQLite DB (migrated by the server's runner) so
  * [isAlreadySeeded] and [PublicProfileDomainSeeder.seed] exercise the real schema
  * and write-path through [PublicProfileMaintainer].
  */

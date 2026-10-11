@@ -9,7 +9,6 @@ import com.calypsan.listenup.core.error.ErrorBus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -30,22 +29,21 @@ class MergeHistory internal constructor(
     private val load: suspend () -> AppResult<List<MergeReceipt>>,
     private val undo: suspend (MergeReceiptId) -> AppResult<MergeUndoResult>,
 ) {
-    private val mutableState = MutableStateFlow<MergeHistoryState>(MergeHistoryState.Loading)
-
     /** What to draw. */
-    val state: StateFlow<MergeHistoryState> = mutableState.asStateFlow()
+    val state: StateFlow<MergeHistoryState>
+        field = MutableStateFlow<MergeHistoryState>(MergeHistoryState.Loading)
 
     /** Reads the list from the server — on open, and as the retry after [MergeHistoryState.Unavailable]. */
     fun refresh() {
-        scope.launch { reload(outcome = (mutableState.value as? MergeHistoryState.Ready)?.outcome) }
+        scope.launch { reload(outcome = (state.value as? MergeHistoryState.Ready)?.outcome) }
     }
 
     /** Undoes the merge [receiptId]. Ignored while an undo is already running. */
     fun undo(receiptId: MergeReceiptId) {
-        val ready = mutableState.value as? MergeHistoryState.Ready ?: return
+        val ready = state.value as? MergeHistoryState.Ready ?: return
         if (ready.undoingId != null) return
         val receipt = ready.receipts.firstOrNull { it.id == receiptId } ?: return
-        mutableState.value = ready.copy(undoingId = receiptId, outcome = null)
+        state.value = ready.copy(undoingId = receiptId, outcome = null)
         scope.launch {
             when (val result = undo.invoke(receiptId)) {
                 is AppResult.Success -> {
@@ -61,7 +59,7 @@ class MergeHistory internal constructor(
     }
 
     private suspend fun reload(outcome: MergeUndoOutcome?) {
-        mutableState.value =
+        state.value =
             when (val result = load()) {
                 is AppResult.Success -> MergeHistoryState.Ready(receipts = result.data, outcome = outcome)
                 is AppResult.Failure -> MergeHistoryState.Unavailable(result.error)

@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 /**
  * Kotest FunSpec tests for [HomeRepositoryImpl.observeContinueListening].
@@ -37,7 +36,6 @@ import kotlin.time.ExperimentalTime
  *  F) Ordering preserved (positions determine order)
  *  G) Empty positions → empty list
  */
-@OptIn(ExperimentalTime::class)
 class HomeRepositoryObserveTest :
     FunSpec({
         // ====================================================================

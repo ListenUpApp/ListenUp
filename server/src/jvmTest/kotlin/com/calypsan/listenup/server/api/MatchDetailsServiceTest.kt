@@ -106,6 +106,37 @@ class MatchDetailsServiceTest :
             }
         }
 
+        test("Undo refreshes the book's outside ratings, as Apply does") {
+            withSqlDatabase {
+                runTest {
+                    val refreshed = mutableListOf<String>()
+                    val rig = MatchRig(this@withSqlDatabase) { id, _ -> refreshed += id.value }
+                    rig.seedBook()
+                    val admin = rig.service().copyWith(rootPrincipal())
+                    val found = admin.findBookMatches(BookId(BOOK), BookFindRequest()).shouldSucceed()
+                    val key = found.candidates.first().key
+                    val review = admin.reviewBookMatch(BookId(BOOK), key, null).shouldSucceed()
+                    val request =
+                        BookMatchApply(
+                            candidate = key,
+                            region = null,
+                            basedOnRevision = review.basedOnRevision,
+                            fields = review.fields.map { FieldDecision(it.field, it.defaultChoice) },
+                            cover = ImageChoice.KeepCurrent,
+                            genres = LabelSetChange(),
+                            moods = LabelSetChange(),
+                            chapterOrdinals = emptyList(),
+                        )
+                    val applied = admin.applyBookMatch(BookId(BOOK), request).shouldSucceed()
+                    refreshed shouldBe listOf(BOOK)
+
+                    admin.undoMatch(applied.value.receiptId).shouldSucceed()
+
+                    refreshed shouldBe listOf(BOOK, BOOK)
+                }
+            }
+        }
+
         test("Review, Apply and Undo refuse a member who can't edit") {
             withSqlDatabase {
                 runTest {

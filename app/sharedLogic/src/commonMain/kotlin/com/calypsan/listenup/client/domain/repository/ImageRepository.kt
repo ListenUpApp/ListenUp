@@ -67,6 +67,18 @@ interface ImageRepository {
     fun ensureContributorImageCached(contributorId: String)
 
     /**
+     * Best-effort: ensure a series' cover is cached on local disk for offline use.
+     *
+     * Fire-and-forget analogue of [ensureBookCoverCached] for series covers. Returns immediately;
+     * the download runs on the repository's app scope and is a no-op if the cover already exists
+     * locally. At most one fetch per series runs at a time: a call made while one is in flight is
+     * dropped. Lets a series screen re-fetch a cover that sync did not leave on disk.
+     *
+     * @param seriesId Unique identifier for the series
+     */
+    fun ensureSeriesCoverCached(seriesId: String)
+
+    /**
      * Best-effort: ensure a user's avatar is cached on local disk for offline use.
      *
      * Fire-and-forget analogue of [ensureBookCoverCached] for user avatars. Returns immediately;

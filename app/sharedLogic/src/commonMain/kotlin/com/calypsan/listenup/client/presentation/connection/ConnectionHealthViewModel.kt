@@ -6,12 +6,12 @@ import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
 import com.calypsan.listenup.client.domain.model.ConnectionHealth
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * UI projection of [ConnectionHealth] for the shell banner.
@@ -58,7 +58,7 @@ class ConnectionHealthViewModel internal constructor(
             .map { it.toUi() }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = WhileSubscribedForUi,
                 initialValue = ConnectionHealthUi.Hidden,
             )
 

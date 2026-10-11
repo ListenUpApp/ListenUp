@@ -7,9 +7,6 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import com.calypsan.listenup.server.logging.loggerFor
-
-private val log = loggerFor<BookFinder>()
 
 /** SQLite caps a statement at 999 bound parameters; chunk `IN (…)` lists below it with headroom. */
 private const val SQLITE_IN_CHUNK = 900
@@ -39,27 +36,6 @@ internal class BookFinder(
         }
 
     /**
-     * Resolves the move-detection key `(folder_id, inode)` to a [BookId], or null.
-     *
-     * When two books share an inode (hardlinks), the first match by insertion
-     * order is returned deterministically and a warning is logged — spec §5.3.
-     */
-    suspend fun findByInode(
-        folderId: FolderId,
-        inode: Long,
-    ): BookId? =
-        suspendTransaction(db) {
-            val matches =
-                db.booksQueries
-                    .selectIdsByInode(folderId.value, inode)
-                    .executeAsList()
-            if (matches.size > 1) {
-                log.warn { "Multiple books share inode $inode in folder ${folderId.value}; picking first" }
-            }
-            matches.firstOrNull()?.let { BookId(it) }
-        }
-
-    /**
      * Bulk natural-key resolve: returns a `root_rel_path → BookId` map for every existing book in
      * [folderId] whose `root_rel_path` is in [paths]. The batched counterpart to [findByPath] —
      * one [suspendTransaction] with an `IN (…)` query instead of a read txn per book. [paths] is
@@ -80,25 +56,44 @@ internal class BookFinder(
         }
     }
 
+    /** A book an inode points at, with what is needed to decide whether the match can be trusted. */
+    data class InodeCandidate(
+        val bookId: BookId,
+        val rootRelPath: String,
+        val audioFileSizes: Set<Long>,
+    )
+
     /**
-     * Bulk move-detection resolve: returns an `inode → BookId` map for every existing book in
-     * [folderId] whose `inode` is in [inodes]. The batched counterpart to [findByInode] — one
-     * [suspendTransaction] with an `IN (…)` query. When hardlinks share an inode the first row wins
-     * deterministically (matching [findByInode]'s single-row pick); a warning per collision would
-     * flood the log on a large scan, so the bulk path stays silent and relies on the rarity of the case.
+     * Every book in [folderId] recorded with one of [inodes], grouped by inode. More than one book
+     * per inode is possible (hardlinks) and is returned as such; choosing is the caller's job.
+     * Tombstoned rows are included so a removed book found again at a new path keeps its identity.
      */
-    suspend fun findExistingByInodes(
+    suspend fun findInodeCandidates(
         folderId: FolderId,
         inodes: Collection<Long>,
-    ): Map<Long, BookId> {
+    ): Map<Long, List<InodeCandidate>> {
         if (inodes.isEmpty()) return emptyMap()
         return suspendTransaction(db) {
-            inodes
-                .distinct()
-                .chunked(SQLITE_IN_CHUNK)
-                .flatMap { chunk ->
-                    db.booksQueries.selectIdsByInodes(folderId.value, chunk).executeAsList()
-                }.associate { row -> checkNotNull(row.inode) { "matched by inode, so inode is set" } to BookId(row.id) }
+            val rows =
+                inodes
+                    .distinct()
+                    .chunked(SQLITE_IN_CHUNK)
+                    .flatMap { chunk ->
+                        db.booksQueries.selectInodeCandidates(folderId.value, chunk).executeAsList()
+                    }
+            val sizesByBook =
+                rows
+                    .mapTo(mutableSetOf()) { it.id }
+                    .chunked(SQLITE_IN_CHUNK)
+                    .flatMap { chunk ->
+                        db.bookAudioFilesQueries.selectSizesForBooks(chunk).executeAsList()
+                    }.groupBy({ it.book_id }, { it.size })
+            rows.groupBy(
+                keySelector = { row -> checkNotNull(row.inode) { "matched by inode, so inode is set" } },
+                valueTransform = { row ->
+                    InodeCandidate(BookId(row.id), row.root_rel_path, sizesByBook[row.id].orEmpty().toSet())
+                },
+            )
         }
     }
 

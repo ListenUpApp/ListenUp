@@ -43,6 +43,10 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
             else -> keying.refetchFor(outboxKey)
         }
 
+    override suspend fun discardUnacknowledged(outboxKey: String) {
+        domain.outboxKeying?.discardUnacknowledged?.invoke(outboxKey)
+    }
+
     init {
         registry.register(this)
     }
@@ -171,6 +175,7 @@ internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
     transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
     inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
+    private val hasQueuedOpIn: suspend (domainName: String) -> Boolean = { false },
 ) : ComposedSyncDomainHandler<T>(domain, transactionRunner, registry, inFlightOutbox),
     AccessFilteredSyncHandler {
     override val deltaPolicy: AccessDeltaPolicy = gate.delta
@@ -185,7 +190,7 @@ internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
         // bind-variable ceiling for an append-forever domain like activities and throw, silently
         // failing the prune. Computing the doomed set in Kotlin and tombstoning it in bounded
         // chunks keeps the security-critical eviction correct at any cardinality.
-        val doomed = gate.liveIds() - accessibleIds
+        val doomed = gate.liveIds() - accessibleIds - sparedUnacknowledgedIds()
         doomed.chunked(SQLITE_IN_CHUNK).forEach { chunk -> gate.tombstoneByIds(chunk, now) }
         gate.afterPrune()
     }
@@ -199,10 +204,19 @@ internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
         // intersection with the candidate set is the substrate protection: a live row outside the
         // scope is never a candidate, so a scoped delta can never tombstone it. Same Kotlin-side
         // diff + bounded chunking as pruneTo, so the bind-variable ceiling stays closed.
-        val doomed = (candidateIds intersect gate.liveIds().toSet()) - accessibleIds
+        val doomed = (candidateIds intersect gate.liveIds().toSet()) - accessibleIds - sparedUnacknowledgedIds()
         doomed.chunked(SQLITE_IN_CHUNK).forEach { chunk -> gate.tombstoneByIds(chunk, now) }
         gate.afterPrune()
     }
+
+    /**
+     * Unacknowledged (revision-0) rows to leave alone: while this domain still has a dispatchable op
+     * queued, such a row is an optimistic add whose echo has not arrived, and tombstoning it would
+     * make it vanish and reappear. Once the queue is empty (drained or dead-lettered) nothing is
+     * spared, so a refused add's leftover stub is still cleaned up.
+     */
+    private suspend fun sparedUnacknowledgedIds(): Set<String> =
+        if (hasQueuedOpIn(domainName)) gate.unacknowledgedIds().toSet() else emptySet()
 }
 
 /**
@@ -214,6 +228,7 @@ internal fun <T : SyncPayload> MirroredDomain<T>.toHandler(
     transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
     inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
+    hasQueuedOpIn: suspend (domainName: String) -> Boolean = { false },
 ): SyncDomainHandler<T> =
     when (val gate = accessGate) {
         null -> {
@@ -232,6 +247,7 @@ internal fun <T : SyncPayload> MirroredDomain<T>.toHandler(
                 transactionRunner = transactionRunner,
                 registry = registry,
                 inFlightOutbox = inFlightOutbox,
+                hasQueuedOpIn = hasQueuedOpIn,
             )
         }
     }

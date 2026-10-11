@@ -179,26 +179,26 @@ private fun String.skipNonCodeAt(start: Int): Int {
     }
 }
 
-private fun String.skipLineComment(start: Int): Int {
+internal fun String.skipLineComment(start: Int): Int {
     var k = start
     while (k < length && this[k] != '\n') k++
     return k
 }
 
-private fun String.skipBlockComment(start: Int): Int {
+internal fun String.skipBlockComment(start: Int): Int {
     var k = start + 2
     while (k + 1 < length && !(this[k] == '*' && this[k + 1] == '/')) k++
     return k + 2
 }
 
-private fun String.skipRawString(start: Int): Int {
+internal fun String.skipRawString(start: Int): Int {
     var k = start + 3
     while (k + 2 < length && !(this[k] == '"' && this[k + 1] == '"' && this[k + 2] == '"')) k++
     return k + 3
 }
 
 /** Skip a `"..."` or `'x'` literal from its opening [quote], honouring backslash escapes. */
-private fun String.skipQuotedLiteral(
+internal fun String.skipQuotedLiteral(
     start: Int,
     quote: Char,
 ): Int {

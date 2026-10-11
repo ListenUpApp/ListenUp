@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
@@ -40,8 +41,8 @@ class ChapterEditorSession(
     val onUndo: () -> Unit,
     val onResetToSource: () -> Unit,
     val onSave: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenChapterEditor = (bookId: String) -> ChapterEditorSession

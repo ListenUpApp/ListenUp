@@ -14,10 +14,11 @@ import app.cash.sqldelight.db.SqlPreparedStatement
  * the restore orchestrator uses to free every SQLite file handle before swapping the db file in place,
  * then reopen on the swapped-in file.
  *
- * No lock: between [closeUnderlying] and
- * [installUnderlying] the delegate is a closed driver, so a concurrent query fails fast (a closed
- * driver can never serve stale data). A restore is a rare admin operation; failing a request during the
- * brief swap window is the honest, simple choice.
+ * The wrapper itself is the gate: while closed (between [closeUnderlying] and [installUnderlying]) it
+ * refuses new queries, writes and transactions on every platform, regardless of what the wrapped driver
+ * does after its own `close()` (the JVM file driver, for one, keeps opening fresh connections). A single
+ * statement already executing when the flag flips may still complete. There is no lock: a restore is a
+ * rare admin operation, and failing a request during the brief swap window is the honest, simple choice.
  */
 class SwappableSqlDriver(
     initial: SqlDriver,
@@ -25,15 +26,25 @@ class SwappableSqlDriver(
     @kotlin.concurrent.Volatile
     private var delegate: SqlDriver = initial
 
+    @kotlin.concurrent.Volatile
+    private var open: Boolean = true
+
+    /** True while a live driver is installed; false between a pre-swap [closeUnderlying] and the reinstall. */
+    val isOpen: Boolean get() = open
+
     /** Hard-closes the live driver ahead of an [installUnderlying] — the recoverable pre-swap close. */
     fun closeUnderlying() {
+        open = false
         delegate.close()
     }
 
     /** Installs a freshly-built driver as the live delegate (after a file swap). */
     fun installUnderlying(new: SqlDriver) {
         delegate = new
+        open = true
     }
+
+    private fun checkOpen() = check(open) { "database is closed for a restore" }
 
     override fun <R> executeQuery(
         identifier: Int?,
@@ -41,24 +52,31 @@ class SwappableSqlDriver(
         mapper: (SqlCursor) -> QueryResult<R>,
         parameters: Int,
         binders: (SqlPreparedStatement.() -> Unit)?,
-    ): QueryResult<R> =
-        delegate.executeQuery(
+    ): QueryResult<R> {
+        checkOpen()
+        return delegate.executeQuery(
             identifier = identifier,
             sql = sql,
             mapper = mapper,
             parameters = parameters,
             binders = binders,
         )
+    }
 
     override fun execute(
         identifier: Int?,
         sql: String,
         parameters: Int,
         binders: (SqlPreparedStatement.() -> Unit)?,
-    ): QueryResult<Long> =
-        delegate.execute(identifier = identifier, sql = sql, parameters = parameters, binders = binders)
+    ): QueryResult<Long> {
+        checkOpen()
+        return delegate.execute(identifier = identifier, sql = sql, parameters = parameters, binders = binders)
+    }
 
-    override fun newTransaction(): QueryResult<Transacter.Transaction> = delegate.newTransaction()
+    override fun newTransaction(): QueryResult<Transacter.Transaction> {
+        checkOpen()
+        return delegate.newTransaction()
+    }
 
     override fun currentTransaction(): Transacter.Transaction? = delegate.currentTransaction()
 

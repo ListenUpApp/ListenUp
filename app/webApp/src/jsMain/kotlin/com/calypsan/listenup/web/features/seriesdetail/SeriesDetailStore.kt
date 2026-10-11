@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
@@ -24,8 +25,8 @@ class SeriesDetailSession(
     val onToggleSection: (seriesId: String) -> Unit,
     /** Every event of the "Add sub-series" dialog. */
     val onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its state. Production resolves the real ViewModel out of the client graph

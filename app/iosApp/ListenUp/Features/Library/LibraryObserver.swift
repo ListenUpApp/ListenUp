@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 import Shared
 
@@ -47,6 +48,7 @@ final class LibraryObserver {
     @ObservationIgnored private var authorSectionCache = ContributorSectionCache()
     @ObservationIgnored private var narratorSectionCache = ContributorSectionCache()
 
+    // view-model-owner: nobody — Dependencies.libraryViewModel is shared for the process.
     private let viewModel: LibraryViewModel
     private let bridge = FlowBridge()
 
@@ -54,8 +56,6 @@ final class LibraryObserver {
         self.viewModel = viewModel
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Lifecycle & actions
 

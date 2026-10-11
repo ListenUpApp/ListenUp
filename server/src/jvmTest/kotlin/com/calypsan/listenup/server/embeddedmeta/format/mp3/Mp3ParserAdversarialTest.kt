@@ -339,10 +339,10 @@ class Mp3ParserAdversarialTest :
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
 
-            // No format magic for a 4-byte stub means dispatch never reaches
-            // here through EmbeddedMetadataParser, but Mp3Parser called
-            // directly must still not throw.
-            result.shouldBeInstanceOf<AppResult<EmbeddedAudioMetadata>>()
+            // A 4-byte stub has no readable ID3v2 header and no MPEG frames: the parser must not
+            // throw, and returns Success with empty tags rather than a Failure.
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.tags.title shouldBe null
         }
 
         // C-09: the ID3v2.3 extended-header skip (`offset += extSize + 4`, a plain non-sync-safe

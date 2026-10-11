@@ -237,6 +237,26 @@ class ContributorsDomainTest :
             }
         }
 
+        test("a changed contributor imagePath keeps the local photo while its upload is still pending") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteContributorImage(any()) } returns AppResult.Success(Unit) }
+                    val handler =
+                        contributorsDomain(db, imageStorage).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
+
+                    handler.onEvent(created(photo("c1", "h1")))
+                    db.pendingImageUploadDao().record("ContributorImage", "c1", "u1", 1L)
+                    handler.onEvent(updated(photo("c1", "h2", revision = 2)))
+
+                    verifySuspend(VerifyMode.not) { imageStorage.deleteContributorImage(any()) }
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
         test("an unchanged contributor imagePath leaves the local photo in place") {
             runTest {
                 val db = createInMemoryTestDatabase()

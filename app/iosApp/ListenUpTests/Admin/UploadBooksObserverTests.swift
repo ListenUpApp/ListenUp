@@ -1,3 +1,4 @@
+import ListenupContract
 import Testing
 import Foundation
 import Shared
@@ -92,11 +93,26 @@ struct UploadBooksPhaseTests {
         let state = UploadBooksUiStateFinished(
             imported: [book("A", .imported), book("B", .imported)],
             duplicates: [book("C", .duplicate)],
-            failed: []
+            failed: [],
+            unreadable: []
         )
 
         #expect(UploadBooksObserver.phase(from: state) == .finished(
             UploadOutcomeModel(imported: 2, duplicates: 1, failed: 0)
+        ))
+    }
+
+    /// An outcome a newer server reported that this build cannot read is counted on its own.
+    @Test func aBookWithAnUnreadableOutcomeIsCountedApart() {
+        let state = UploadBooksUiStateFinished(
+            imported: [],
+            duplicates: [],
+            failed: [],
+            unreadable: [UploadedBook(title: "D", status: .unknown, rootRelPath: nil, detail: nil)]
+        )
+
+        #expect(UploadBooksObserver.phase(from: state) == .finished(
+            UploadOutcomeModel(imported: 0, duplicates: 0, failed: 0, unreadable: 1)
         ))
     }
 

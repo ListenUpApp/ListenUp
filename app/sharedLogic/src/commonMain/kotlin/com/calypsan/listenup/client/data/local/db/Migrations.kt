@@ -419,8 +419,9 @@ internal val MIGRATION_17_18 =
 /**
  * v18 → v19: `users.canCurateLibrary` and `admin_user_roster.canCurateLibrary` — the Curate library
  * permission split out of Edit metadata. Each is backfilled from `canEdit`, exactly as the server's V92
- * backfills `can_curate_library` from `can_edit`, so a mirrored row already agrees with the server and
- * no cursor needs rewinding. A row synced afterwards carries the real value.
+ * backfills `can_curate_library` from `can_edit`. A roster row that was mirrored after the server gained the
+ * permission but before this build did can hold a different real value, which [MIGRATION_23_24] re-pulls.
+ * A row synced afterwards carries the real value.
  */
 internal val MIGRATION_18_19 =
     object : Migration(18, 19) {
@@ -577,5 +578,35 @@ internal val MIGRATION_22_23 =
         override suspend fun migrate(connection: SQLiteConnection) {
             connection.executeDdl("ALTER TABLE `book_ratings` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'LISTENUP'")
             connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'book_ratings'")
+        }
+    }
+
+/**
+ * v23 → v24: no schema change; the `admin_user_roster` cursor is removed so the next catch-up re-pulls the
+ * roster. A build that predates a roster permission stores a row's revision without that field, and the
+ * migrations that added `canCurateLibrary`, the Story World flags and `canMakeReadingOrders` filled the
+ * column with a guess; the cursor was already past the row, so nothing would ever correct it. Rows keep their
+ * revisions and a payload at an equal revision is applied, so the re-pull overwrites each column with the
+ * server's value. The roster is server-written, so no unsynced local data is touched.
+ */
+internal val MIGRATION_23_24 =
+    object : Migration(23, 24) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'admin_user_roster'")
+        }
+    }
+
+/**
+ * v24 → v25: adds `pending_image_upload`, the covers and photos a user saved on this device that have
+ * not reached the server. Non-destructive by construction — a CREATE only; no existing row is touched.
+ */
+internal val MIGRATION_24_25 =
+    object : Migration(24, 25) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `pending_image_upload` (`kind` TEXT NOT NULL, `entityId` TEXT NOT NULL, " +
+                    "`ownerUserId` TEXT NOT NULL, `enqueuedAt` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`kind`, `entityId`))",
+            )
         }
     }

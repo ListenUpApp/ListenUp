@@ -405,8 +405,9 @@ class BookAccessPolicy(
      * `collection_books` junction row whose collection is visible to `(userId, role)` — or `null`
      * for ROOT/ADMIN, who see every membership.
      *
-     * The selected `cb.id` matches the synthetic key the junction's [SyncableRepository] stores,
-     * so the substrate's `collection_books.id IN (<sql>)` splice lines up exactly.
+     * The selected `cb.id` matches the synthetic key the junction's
+     * [com.calypsan.listenup.server.sync.SqlSyncableRepository] stores, so the substrate's
+     * `collection_books.id IN (<sql>)` splice lines up exactly.
      *
      * **Book-liveness-aware (belt-and-suspenders).** A junction pointing at a tombstoned book is
      * excluded (`books.deleted_at IS NULL`), so even if the book-removal cascade somehow missed a

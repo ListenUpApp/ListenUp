@@ -313,23 +313,23 @@ class HardcoverUserBooks(
 
     private companion object {
         const val USER_BOOK_QUERY =
-            "query(\$bookId:Int!){ me { user_books(where:{book_id:{_eq:\$bookId}}, limit:1){ " +
+            $$"query($bookId:Int!){ me { user_books(where:{book_id:{_eq:$bookId}}, limit:1){ " +
                 "id status_id user_book_reads(order_by:{id:asc}){ id started_at finished_at progress_seconds edition_id } } } }"
         const val CHANGED_SINCE_QUERY =
-            "query(\$after:timestamptz!,\$afterId:Int!,\$limit:Int!){ me { user_books(" +
-                "where:{_or:[{updated_at:{_gt:\$after}},{updated_at:{_eq:\$after},id:{_gt:\$afterId}}]}, " +
-                "order_by:[{updated_at:asc},{id:asc}], limit:\$limit){ id book_id status_id rating privacy_setting_id updated_at " +
+            $$"query($after:timestamptz!,$afterId:Int!,$limit:Int!){ me { user_books(" +
+                $$"where:{_or:[{updated_at:{_gt:$after}},{updated_at:{_eq:$after},id:{_gt:$afterId}}]}, " +
+                $$"order_by:[{updated_at:asc},{id:asc}], limit:$limit){ id book_id status_id rating privacy_setting_id updated_at " +
                 "user_book_reads(order_by:{id:asc}){ id finished_at } edition { asin isbn_13 isbn_10 } " +
                 "book { id title default_audio_edition_id contributions { author { name } } } } } }"
         const val INSERT_USER_BOOK =
-            "mutation(\$object:UserBookCreateInput!){ insert_user_book(object:\$object){ id error } }"
+            $$"mutation($object:UserBookCreateInput!){ insert_user_book(object:$object){ id error } }"
         const val UPDATE_USER_BOOK =
-            "mutation(\$id:Int!,\$object:UserBookUpdateInput!){ update_user_book(id:\$id, object:\$object){ id error } }"
+            $$"mutation($id:Int!,$object:UserBookUpdateInput!){ update_user_book(id:$id, object:$object){ id error } }"
         const val INSERT_READ =
-            "mutation(\$userBookId:Int!,\$read:DatesReadInput!){ " +
-                "insert_user_book_read(user_book_id:\$userBookId, user_book_read:\$read){ id error } }"
-        const val DELETE_READ = "mutation(\$id:Int!){ delete_user_book_read(id:\$id){ id } }"
+            $$"mutation($userBookId:Int!,$read:DatesReadInput!){ " +
+                $$"insert_user_book_read(user_book_id:$userBookId, user_book_read:$read){ id error } }"
+        const val DELETE_READ = $$"mutation($id:Int!){ delete_user_book_read(id:$id){ id } }"
         const val UPDATE_READ =
-            "mutation(\$id:Int!,\$read:DatesReadInput!){ update_user_book_read(id:\$id, object:\$read){ id error } }"
+            $$"mutation($id:Int!,$read:DatesReadInput!){ update_user_book_read(id:$id, object:$read){ id error } }"
     }
 }

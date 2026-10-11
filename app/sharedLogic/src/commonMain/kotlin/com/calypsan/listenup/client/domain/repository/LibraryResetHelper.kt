@@ -15,6 +15,7 @@ interface LibraryResetHelper {
      * - All junction tables (book-series, book-contributor)
      * - All pending sync operations (if discarding local changes)
      * - User data
+     * - The cached "listening now" snapshot of other people, and the user's open listening span
      * - Per-domain sync cursors (so catch-up re-pulls the library on next login)
      *
      * Does NOT remove:

@@ -6,6 +6,8 @@ import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
 import com.calypsan.listenup.client.data.sync.domains.ScopeAxis
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
 
@@ -43,6 +45,10 @@ private val logger = KotlinLogging.logger {}
 internal class AccessReconciler(
     private val registry: ClientSyncDomainRegistry,
     private val catchUp: CatchUp,
+    // The engine's single paging lock. Each domain's fetch AND its prune run under one acquisition,
+    // so a concurrent catch-up can neither page beside the re-derive nor insert a row between the
+    // fetch and the prune that would then be tombstoned for being absent from the fetched set.
+    private val catchUpMutex: Mutex,
     private val now: () -> Long = { currentEpochMilliseconds() },
 ) {
     /** Re-derive access-gated domains: coarse when [scope] is null, otherwise a scoped delta. */
@@ -61,14 +67,18 @@ internal class AccessReconciler(
         for (handler in registry.accessFilteredHandlers()) {
             @Suppress("UNCHECKED_CAST")
             val typed = handler as SyncDomainHandler<Any>
-            when (val ids = catchUp.catchUpTransient(typed)) {
-                is AppResult.Success -> {
-                    (handler as AccessFilteredSyncHandler).pruneTo(ids.data, ts)
-                }
+            catchUpMutex.withLock {
+                when (val ids = catchUp.catchUpTransient(typed)) {
+                    is AppResult.Success -> {
+                        (handler as AccessFilteredSyncHandler).pruneTo(ids.data, ts)
+                    }
 
-                is AppResult.Failure -> {
-                    logger.warn { "AccessChanged coarse reconcile failed for ${handler.domainName}: ${ids.error.code}" }
-                    anyFailure = true
+                    is AppResult.Failure -> {
+                        logger.warn {
+                            "AccessChanged coarse reconcile failed for ${handler.domainName}: ${ids.error.code}"
+                        }
+                        anyFailure = true
+                    }
                 }
             }
         }
@@ -109,16 +119,20 @@ internal class AccessReconciler(
 
             @Suppress("UNCHECKED_CAST")
             val typed = handler as SyncDomainHandler<Any>
-            when (val returned = catchUp.fetchTransient(typed, policy.fetchFor(ids))) {
-                is AppResult.Success -> {
-                    (handler as AccessFilteredSyncHandler).pruneWithin(policy.candidatesFor(ids), returned.data, ts)
-                }
+            catchUpMutex.withLock {
+                when (val returned = catchUp.fetchTransient(typed, policy.fetchFor(ids))) {
+                    is AppResult.Success -> {
+                        (handler as AccessFilteredSyncHandler).pruneWithin(policy.candidatesFor(ids), returned.data, ts)
+                    }
 
-                is AppResult.Failure -> {
-                    logger.warn { "AccessChanged delta fetch failed for ${handler.domainName}: ${returned.error.code}" }
-                    when (policy.axis) {
-                        ScopeAxis.Collections -> failedCollectionIds += scope.collectionIds
-                        ScopeAxis.Books -> failedBookIds += scope.bookIds
+                    is AppResult.Failure -> {
+                        logger.warn {
+                            "AccessChanged delta fetch failed for ${handler.domainName}: ${returned.error.code}"
+                        }
+                        when (policy.axis) {
+                            ScopeAxis.Collections -> failedCollectionIds += scope.collectionIds
+                            ScopeAxis.Books -> failedBookIds += scope.bookIds
+                        }
                     }
                 }
             }

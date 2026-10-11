@@ -24,7 +24,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -33,8 +32,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private const val COUNTDOWN_TICK_MS = 1_000L
 
@@ -107,7 +106,7 @@ class PersonMatchViewModel internal constructor(
         combine(session, header, library) { s, h, lib -> s.toFindState(h, lib) }
             .stateIn(
                 viewModelScope,
-                SharingStarted.WhileSubscribed(5_000),
+                WhileSubscribedForUi,
                 PersonFindUiState.Searching(header = null, inLibrary = null, query = "", previous = null),
             )
 
@@ -115,28 +114,10 @@ class PersonMatchViewModel internal constructor(
     val reviewState: StateFlow<PersonReviewUiState> =
         session
             .map { it.toReviewState() }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PersonReviewUiState.NoneChosen)
+            .stateIn(viewModelScope, WhileSubscribedForUi, PersonReviewUiState.NoneChosen)
 
     init {
         runFind()
-    }
-
-    private var closed = false
-
-    /**
-     * Cancels this ViewModel's coroutines — an in-flight Find, Review or Apply included. Idempotent. Android reaches it via
-     * [onCleared]; iOS has no `ViewModelStore`, so its observer calls this from an `isolated deinit`; web clears
-     * the session's store, which runs [onCleared].
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        viewModelScope.cancel()
-    }
-
-    override fun onCleared() {
-        close()
-        super.onCleared()
     }
 
     /** Searches for [query]; a blank query goes back to searching by the person's name. */

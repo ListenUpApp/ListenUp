@@ -508,6 +508,57 @@ class SyncCatchUpClientTest :
                 reported.map { it.code } shouldContainExactly listOf("AUTH_SESSION_EXPIRED", "AUTH_SESSION_EXPIRED")
             }
         }
+
+        test("catchUpAll reports a failed domain that has no digest backstop, and only that kind") {
+            runTest {
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> = AppResult.Failure(SyncError.SyncFailed())
+                    }
+
+                fun handlerNamed(
+                    name: String,
+                    backstop: Boolean,
+                ): SyncDomainHandler<Tag> =
+                    object : SyncDomainHandler<Tag> {
+                        override val domainName = name
+                        override val payloadSerializer = Tag.serializer()
+                        override val hasDigestBackstop = backstop
+
+                        override fun syncId(item: Tag): String = item.id
+
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun onCatchUpItem(
+                            item: Tag,
+                            isTombstone: Boolean,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>>? =
+                            if (backstop) emptyList() else null
+                    }
+
+                val registry = ClientSyncDomainRegistry()
+                registry.register(handlerNamed("positions", backstop = false))
+                registry.register(handlerNamed("tags", backstop = true))
+                val unbacked = mutableListOf<String>()
+                val client =
+                    SyncCatchUpClient(
+                        channel = RpcChannel.forTest(service),
+                        store = SyncCursorStore(InMemorySyncCursorDao()),
+                        transactionRunner = passThroughTransactionRunner(),
+                        onUnbackedDomainFailed = { unbacked += it },
+                    )
+
+                client.catchUpAll(registry)
+
+                unbacked shouldContainExactly listOf("positions")
+            }
+        }
     })
 
 /**

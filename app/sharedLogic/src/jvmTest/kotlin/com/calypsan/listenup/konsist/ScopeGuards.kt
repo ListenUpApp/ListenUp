@@ -48,3 +48,48 @@ internal fun assertScopeNotEmpty(
  * did not. One canonical helper, so the next generic supertype cannot reopen the hole.
  */
 internal fun String.bareTypeName(): String = substringBefore('<')
+
+/**
+ * [source] with line and block comments removed and string and char literals left intact.
+ *
+ * **Why literal-aware.** A regex that deletes everything after `//` also deletes the tail of
+ * `val u = "https://x"; register()`, hiding real code from the rule reading it, and one that deletes
+ * `/* ... */` removes the inside of a string that merely contains those characters. Rules that match
+ * text must see the code a reader sees. Shares its lexing helpers with [countServiceFrames].
+ */
+internal fun stripComments(source: String): String {
+    val out = StringBuilder(source.length)
+    var k = 0
+    while (k < source.length) {
+        val c = source[k]
+        val next = if (k + 1 < source.length) source[k + 1] else ' '
+        val literalEnd =
+            when {
+                c == '"' && next == '"' && k + 2 < source.length && source[k + 2] == '"' -> source.skipRawString(k)
+                c == '"' -> source.skipQuotedLiteral(k, '"')
+                c == '\'' -> source.skipQuotedLiteral(k, '\'')
+                else -> -1
+            }
+        when {
+            c == '/' && next == '/' -> {
+                k = source.skipLineComment(k)
+            }
+
+            c == '/' && next == '*' -> {
+                k = source.skipBlockComment(k).coerceAtMost(source.length)
+            }
+
+            literalEnd >= 0 -> {
+                val end = literalEnd.coerceAtMost(source.length)
+                out.append(source, k, end)
+                k = end
+            }
+
+            else -> {
+                out.append(c)
+                k++
+            }
+        }
+    }
+    return out.toString()
+}

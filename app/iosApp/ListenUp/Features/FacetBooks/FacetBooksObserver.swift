@@ -70,12 +70,11 @@ final class FacetBooksObserver {
 
     init(viewModel: BrowseFacetViewModel, fallbackName: String) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         self.fallbackName = fallbackName
         self.facetName = fallbackName
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func load(kind: FacetKind, facetId: String) {
         viewModel.load(kind: kind, facetId: facetId)

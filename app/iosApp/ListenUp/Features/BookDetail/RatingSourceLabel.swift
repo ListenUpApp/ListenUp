@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// [ExternalRatingSource]'s display name, shared by the Book Detail rating breakdown sheet and the

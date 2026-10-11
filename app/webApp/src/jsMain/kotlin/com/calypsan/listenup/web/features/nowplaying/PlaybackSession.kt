@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.nav.RouteSession
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDetail
@@ -99,8 +100,8 @@ class PlaybackSession(
     val onDismissError: () -> Unit,
     /** Finish with the playing book: stop it and put the bar away. The session stays open. */
     val onCloseBook: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * The playing book's identity, as the expanded player needs it.

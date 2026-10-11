@@ -49,8 +49,7 @@ WHERE contributor_id = :contributor_id AND credited_as = :credited_as;
 
 -- Author-role display names for a batch of books, ordered by credit ordinal —
 -- the ShelfReadAssembler view projection. Filters to the 'author' role and orders
--- by ordinal so each book's author list preserves on-wire order. Replaces the
--- Exposed `(BookContributorTable innerJoin ContributorTable).select(...)` group-by.
+-- by ordinal so each book's author list preserves on-wire order.
 authorNamesForBooks:
 SELECT bc.book_id, c.name
 FROM book_contributors bc
@@ -111,8 +110,7 @@ WHERE contributor_id = :from_id
 -- COALESCE credit-preserving relink (mergeContributors). Re-points every junction
 -- row from :from_id to :to_id, capturing the source contributor's display name
 -- into credited_as only where it was previously NULL — books already carrying an
--- explicit credit keep it. Exposed's update DSL can't express
--- `SET col = COALESCE(col, ?)`, so this is the typed home for that raw SQL.
+-- explicit credit keep it (`SET col = COALESCE(col, ?)`).
 -- Must run AFTER deleteCollidingSourceContributorRows so no (book_id, role) pair
 -- carries both a source and a target row when this UPDATE re-points contributor_id.
 relinkContributorPreservingCredit:

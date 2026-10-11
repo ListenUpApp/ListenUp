@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.api.dto.auth.Permission
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
@@ -18,6 +17,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.Genres
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
+import com.calypsan.listenup.server.auth.requirePermission
 
 private const val MIN_BROWSE_LIMIT = 1
 private const val MAX_BROWSE_LIMIT = 1000
@@ -53,11 +54,12 @@ private const val MAX_BROWSE_LIMIT = 1000
  * descendant snapshot, bulk `rewritePathPrefix`, parent re-point, then a per-affected-row
  * re-upsert so the substrate publishes one `genre.Updated` per row.
  *
- * Genre reads ([listGenres], [getGenre], [getGenreChildren], [listUnmappedStrings]) are
+ * Genre reads ([listGenres], [getGenre], [getGenreChildren]) are
  * open to any authenticated user; [browseBooks] is access-filtered so a non-admin caller
  * receives only the ids of books they can reach (via [BookAccessPolicy]) — a browse can't
  * enumerate a quarantined or private-collection-only book; ROOT/ADMIN see every book.
- * Edits ([createGenre], [updateGenre], [moveGenre], [mapUnmappedToGenre]) are gated on
+ * Edits ([createGenre], [updateGenre], [moveGenre], [mapUnmappedToGenre]) and the
+ * [listUnmappedStrings] queue that feeds the mapping screen are gated on
  * [Permission.EDIT_METADATA]; merge, delete and merge-undo ([mergeGenres], [deleteGenre],
  * [undoGenreMerge], and the [listMergeReceipts] that feeds undo) on
  * [Permission.CURATE_LIBRARY] — both via [permissionPolicy]:
@@ -96,16 +98,7 @@ internal class GenreServiceImpl(
             clock = clock,
         )
 
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
-
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun listGenres(): AppResult<List<GenreSummary>> =
         suspendTransaction(sqlDb) {
             val rows = sqlDb.genresQueries.listLiveOrderedByPath().executeAsList()
@@ -132,11 +125,13 @@ internal class GenreServiceImpl(
             AppResult.Success(summaries)
         }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getGenre(id: GenreId): AppResult<GenreSyncPayload?> {
         val payload = genreRepository.findById(id.value)
         return AppResult.Success(payload?.takeIf { it.deletedAt == null })
     }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getGenreChildren(parentId: GenreId): AppResult<List<GenreSyncPayload>> =
         suspendTransaction(sqlDb) {
             // Parent existence + liveness check inside the same transaction as the children read.
@@ -194,8 +189,11 @@ internal class GenreServiceImpl(
     override suspend fun getGenreStats(
         genreId: GenreId,
         includeDescendants: Boolean,
-    ): AppResult<FacetStats> =
-        suspendTransaction(sqlDb) {
+    ): AppResult<FacetStats> {
+        // Count only books the caller can open, so a member is never told "12 books" and shown 9.
+        // null = ROOT/ADMIN: every book, so the SQL aggregates answer directly.
+        val accessible = accessibleBookIdFilter()
+        return suspendTransaction(sqlDb) {
             val genreRow = sqlDb.genresQueries.selectById(genreId.value).executeAsOneOrNull()
             if (genreRow == null || genreRow.deleted_at != null) {
                 return@suspendTransaction AppResult.Failure(genreNotFound(genreId))
@@ -207,7 +205,21 @@ internal class GenreServiceImpl(
             // with `!!`, so if that inference is ever right the answer is still the one the SQL
             // promises: zero.
             val stats =
-                if (includeDescendants) {
+                if (accessible != null) {
+                    val reachable =
+                        if (includeDescendants) {
+                            sqlDb.bookGenresQueries
+                                .genreBookDurationsSubtree(genreRow.path)
+                                .executeAsList()
+                                .map { it.book_id to it.duration_ms }
+                        } else {
+                            sqlDb.bookGenresQueries
+                                .genreBookDurationsDirect(genreId.value)
+                                .executeAsList()
+                                .map { it.book_id to it.duration_ms }
+                        }.filter { (bookId, _) -> bookId in accessible }
+                    FacetStats(bookCount = reachable.size, totalDurationMs = reachable.sumOf { (_, ms) -> ms })
+                } else if (includeDescendants) {
                     val row = sqlDb.bookGenresQueries.genreStatsSubtree(genreRow.path).executeAsOne()
                     FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L)
                 } else {
@@ -216,7 +228,9 @@ internal class GenreServiceImpl(
                 }
             AppResult.Success(stats)
         }
+    }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getGenreBySlug(slug: String): AppResult<GenreSummary?> =
         suspendTransaction(sqlDb) {
             val id =
@@ -245,7 +259,7 @@ internal class GenreServiceImpl(
         name: String,
         sortOrder: Int,
     ): AppResult<GenreId> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // 1. Slug normalization owns blank/empty-after-normalize validation.
         val slug = GenreSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
@@ -270,7 +284,7 @@ internal class GenreServiceImpl(
         val newPath = "$parentPath/$slug"
         val newDepth = (parent?.depth ?: -1) + 1
 
-        // 5. Persist via the substrate (revision bump + sync event are owned by SyncableRepository).
+        // 5. Persist via the substrate (revision bump + sync event are owned by SqlSyncableRepository).
         val newId = Uuid.random().toString()
         val payload =
             GenreSyncPayload(
@@ -292,7 +306,7 @@ internal class GenreServiceImpl(
         id: GenreId,
         patch: GenreUpdate,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         val current = genreRepository.findById(id.value)
         if (current == null || current.deletedAt != null) {
             return AppResult.Failure(genreNotFound(id))
@@ -307,7 +321,7 @@ internal class GenreServiceImpl(
     }
 
     override suspend fun deleteGenre(id: GenreId): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         // Sequential single-engine cutover: the synchronous junction-delete + alias-removal commit
         // first, then the genre soft-delete runs through the substrate (its own transaction, bumping
         // revision + publishing), then the affected books are re-upserted through BookRepository. All
@@ -348,7 +362,7 @@ internal class GenreServiceImpl(
         id: GenreId,
         newParentId: GenreId?,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         val plan =
             when (val planResult = planMove(id, newParentId)) {
                 is MovePlanResult.Reject -> return AppResult.Failure(planResult.error)
@@ -368,7 +382,7 @@ internal class GenreServiceImpl(
         source: GenreId,
         target: GenreId,
     ): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val mergedBy =
             principal.current()?.run { userId.value } ?: return AppResult.Failure(AuthError.PermissionDenied())
         // Sequential single-engine cutover (see deleteGenre): synchronous relink + alias-repoint
@@ -405,17 +419,18 @@ internal class GenreServiceImpl(
     }
 
     override suspend fun listMergeReceipts(target: GenreId): AppResult<List<MergeReceipt>> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return AppResult.Success(mergeReceipts.openFor(target))
     }
 
     override suspend fun undoGenreMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return mergeReceipts.undo(receiptId)
     }
 
-    override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> =
-        suspendTransaction(sqlDb) {
+    override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> {
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        return suspendTransaction(sqlDb) {
             val summaries =
                 sqlDb.pendingBookGenresQueries.aggregateByString().executeAsList().map { agg ->
                     UnmappedStringSummary(
@@ -426,12 +441,13 @@ internal class GenreServiceImpl(
                 }
             AppResult.Success(summaries)
         }
+    }
 
     override suspend fun mapUnmappedToGenre(
         rawString: String,
         genreId: GenreId,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         val trimmed = rawString.trim()
         // Sequential single-engine cutover (see deleteGenre): the alias-add, pending→junction
         // conversion, and pending-row delete commit first; the affected books are re-upserted

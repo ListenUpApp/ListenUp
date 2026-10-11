@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -141,7 +140,6 @@ private fun BoostReadout(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BoostPresetRow(
     currentBoostDb: Float,

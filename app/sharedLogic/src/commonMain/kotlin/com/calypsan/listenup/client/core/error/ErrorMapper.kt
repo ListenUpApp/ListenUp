@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.core.error
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.UnexpectedClientError
+import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
@@ -11,6 +12,7 @@ import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
 import com.calypsan.listenup.client.data.remote.ServerUrlSchemeUnsupportedException
 import com.calypsan.listenup.client.data.remote.SessionLapsedException
 import com.calypsan.listenup.client.data.remote.TransientAuthRefreshException
+import com.calypsan.listenup.core.FileUnreadableException
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -40,8 +42,12 @@ internal object ErrorMapper {
 
     private val TLS_CLASS_MARKERS = listOf("SSL", "TLS", "Certificate")
 
-    fun map(exception: Throwable): AppError =
-        when {
+    /** How far down a cause chain to look; bounds the walk, and with it any cycle. */
+    private const val MAX_CAUSE_DEPTH = 10
+
+    fun map(exception: Throwable): AppError {
+        val unreadableFile = findUnreadableFile(exception)
+        return when {
             // A transient refresh failure during a 401-heal (C5): the refresh outcome was network /
             // timeout / 5xx, NOT a server-confirmed dead token. Surface a RETRYABLE transport error and
             // keep the session — a network blip must never log the user out. Checked FIRST so the
@@ -82,6 +88,14 @@ internal object ErrorMapper {
                     detail = exception.message ?: "deserialization failed",
                     debugInfo = exception.message,
                 )
+            }
+
+            // A picked file that could not be read is the user's file, not the network. Ktor reports a
+            // failed request body as a ClosedByteChannelException — an IOException — with the real
+            // reason in its cause chain, so the chain is searched. Placed above the TLS and IOException
+            // arms, which would otherwise call it "no internet connection" and retry it.
+            unreadableFile != null -> {
+                UploadError.FileUnreadable(debugInfo = unreadableFile.message)
             }
 
             // TLS/SSL handshake or certificate failure: the socket connected but the secure channel
@@ -144,6 +158,14 @@ internal object ErrorMapper {
                 ).also { logUnanticipated(exception) }
             }
         }
+    }
+
+    /** The [FileUnreadableException] at or within [MAX_CAUSE_DEPTH] causes below [exception], if any. */
+    private fun findUnreadableFile(exception: Throwable): FileUnreadableException? =
+        generateSequence(exception) { it.cause?.takeUnless { cause -> cause === it } }
+            .take(MAX_CAUSE_DEPTH)
+            .filterIsInstance<FileUnreadableException>()
+            .firstOrNull()
 
     /**
      * The typed error for a non-2xx HTTP [status] — the one status mapping, shared by Ktor's

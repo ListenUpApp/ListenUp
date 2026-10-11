@@ -117,9 +117,9 @@ internal class DownloadRepositoryImpl(
         audioFileId: String,
         localPath: String,
         completedAt: Long,
-    ): AppResult<Unit> =
+    ): AppResult<Boolean> =
         suspendRunCatching {
-            downloadDao.markCompleted(audioFileId, localPath, completedAt)
+            downloadDao.markCompleted(audioFileId, localPath, completedAt) > 0
         }
 
     // Conditional pause (B7): a late NonCancellable cleanup from a dying worker must NOT clobber a

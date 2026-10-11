@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.audio
 
+import com.calypsan.listenup.server.auth.constantTimeEquals
 import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.algorithms.HMAC
 import dev.whyoleg.cryptography.algorithms.SHA256
@@ -87,22 +88,6 @@ class CoverUrlSigner(
 
     private fun hmacBytes(message: String): ByteArray =
         key.signatureGenerator().generateSignatureBlocking(message.encodeToByteArray())
-
-    /**
-     * Constant-time byte comparison via XOR accumulation. Returns true only
-     * when both arrays have the same length and every byte pair is equal.
-     * Does not short-circuit on the first mismatch, so timing does not leak
-     * how many bytes matched.
-     */
-    private fun constantTimeEquals(
-        a: ByteArray,
-        b: ByteArray,
-    ): Boolean {
-        if (a.size != b.size) return false
-        var diff = 0
-        for (i in a.indices) diff = diff or (a[i].toInt() xor b[i].toInt())
-        return diff == 0
-    }
 
     /**
      * Decodes a lowercase-hex string to bytes, or returns null when the string

@@ -25,6 +25,7 @@ import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
+import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.Button
@@ -194,22 +195,28 @@ private fun WaitingForReview(
             ) { Text(if (state.allSelected) "Deselect all" else "Select all") }
         },
     ) {
-        Div(attrs = { classes("inbox-books") }) {
-            // `books` is the hydrated projection and may lag `bookIds` until Room catches up, so
-            // the count comes from the ids — the authoritative set — while the rows come from
-            // whatever has hydrated. A row that has not arrived yet is simply not drawn.
-            state.books.forEach { book ->
-                key(book.id) {
-                    InboxBookRow(
-                        book = book,
-                        selected = book.id in state.selectedBookIds,
-                        onToggle = { onToggleBook(book.id) },
-                        onOpen = { onOpenBook(book.id) },
-                        onEdit = { onOpenBookEdit(book.id) },
-                        onMatch = { onOpenMatch(book.id) },
-                    )
-                }
-            }
+        // `books` is the hydrated projection and may lag `bookIds` until Room catches up, so
+        // the count comes from the ids — the authoritative set — while the rows come from
+        // whatever has hydrated. A row that has not arrived yet is simply not drawn.
+        //
+        // Windowed: a first scan can hold thousands of books, and only the rows near the viewport
+        // are composed. The row (card, not its inner button) is the item, so the border and the
+        // list's gap are part of the height the window counts by.
+        VirtualList(
+            items = state.books,
+            key = { it.id },
+            containerClass = "inbox-books",
+            itemSelector = ".inbox-book-row",
+            label = "Books waiting for review",
+        ) { book ->
+            InboxBookRow(
+                book = book,
+                selected = book.id in state.selectedBookIds,
+                onToggle = { onToggleBook(book.id) },
+                onOpen = { onOpenBook(book.id) },
+                onEdit = { onOpenBookEdit(book.id) },
+                onMatch = { onOpenMatch(book.id) },
+            )
         }
     }
 }
@@ -272,11 +279,23 @@ private fun InboxBookButton(
             decorative = true,
         )
         Div(attrs = { classes("inbox-book-t") }) {
-            Span(attrs = { classes("inbox-book-title") }) { Text(book.title) }
-            // Absent, not an empty line: a book whose author the scan could not work out is one of
-            // the reasons it is sitting in here.
-            book.author?.takeIf { it.isNotBlank() }?.let { author ->
+            Span(attrs = {
+                classes("inbox-book-title")
+                // The line is clamped; the whole title is still one hover away.
+                attr("title", book.title)
+            }) { Text(book.title) }
+            // No byline when the scan could not work out the author — that is one of the reasons the
+            // book is sitting in here — but the line it would have taken is held, hidden from
+            // assistive technology, so the row is as tall as any other (the list is windowed by
+            // counting rows).
+            val author = book.author?.takeIf { it.isNotBlank() }
+            if (author != null) {
                 Span(attrs = { classes("inbox-book-by") }) { Text(author) }
+            } else {
+                Span(attrs = {
+                    classes("inbox-book-by-gap")
+                    attr("aria-hidden", "true")
+                }) { Text(NBSP) }
             }
         }
         Span(attrs = { classes("inbox-book-dur") }) {
@@ -284,6 +303,8 @@ private fun InboxBookButton(
         }
     }
 }
+
+private const val NBSP = "\u00A0"
 
 /** The folders the scan walked but could not turn into a book. */
 @Composable

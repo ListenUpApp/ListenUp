@@ -101,10 +101,9 @@ final class LibraryReadinessObserver {
 
     init(appStartupViewModel: AppStartupViewModel = KoinHelper.shared.getAppStartupViewModel()) {
         self.appStartupViewModel = appStartupViewModel
+        bridge.own(appStartupViewModel)
         bridge.bind(appStartupViewModel.readiness) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     /// Clear the needs-setup latch once the admin finishes the create-library wizard,
     /// flipping readiness to `ready` so the root mounts the main app.

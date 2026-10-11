@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
-import com.calypsan.listenup.server.io.readText
+import com.calypsan.listenup.server.io.SIDECAR_MAX_BYTES
+import com.calypsan.listenup.server.io.readTextCapped
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 
@@ -19,9 +20,9 @@ internal class ReaderTxtParser : SidecarParser {
 
     override suspend fun parse(file: Path): SidecarMetadata? =
         try {
+            val text = file.readTextCapped(SIDECAR_MAX_BYTES) ?: return null
             val names =
-                file
-                    .readText()
+                text
                     .removePrefix("﻿") // strip UTF-8 BOM
                     .lineSequence()
                     .map { it.trim() }

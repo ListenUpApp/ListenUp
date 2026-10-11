@@ -10,15 +10,14 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
-private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 private const val SECONDS_PER_MINUTE = 60L
 private const val MINUTES_PER_HOUR = 60L
 
@@ -54,7 +53,7 @@ class HomeStatsViewModel(
             .flatMapLatest { observeStats() }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = HomeStatsUiState.Loading,
             )
 

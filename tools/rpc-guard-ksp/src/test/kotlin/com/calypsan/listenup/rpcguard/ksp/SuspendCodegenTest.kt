@@ -32,6 +32,9 @@ class SuspendCodegenTest :
             result.exitCode shouldBe KotlinCompilation.ExitCode.OK
             val generated = result.kspGeneratedFile("FakeServiceGuarded.kt")
             generated.shouldContain("class FakeServiceGuarded(")
+            generated.shouldContain("private val sessionLiveness: (suspend () -> Boolean)? = null,")
+            generated.shouldContain("if (sessionLiveness != null && !sessionLiveness()) {")
+            generated.shouldContain("com.calypsan.listenup.api.error.AuthError.SessionExpired()")
             generated.shouldContain("private val delegate: fake.FakeService")
             generated.shouldContain(
                 "override suspend fun foo(x: kotlin.String): com.calypsan.listenup.api.result.AppResult<kotlin.Int>",

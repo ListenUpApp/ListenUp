@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.connection.FallbackTrust
 import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorInstanceRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
@@ -49,6 +50,17 @@ internal val connectionModule: Module =
             )
         }
 
+        // Decides whether the advertised remote address may take over from the current one. Reads the
+        // connected server id straight from storage for the same reason InstanceRepository reads
+        // server_url there: going through ServerConfig would close the cycle.
+        single {
+            val secureStorage: com.calypsan.listenup.core.SecureStorage = get()
+            FallbackTrust(
+                probe = get<InstanceRepository>()::verifyServer,
+                connectedServerId = { secureStorage.read("connected_server_id") },
+            )
+        }
+
         // ServerRepository - maps live mDNS discovery into the server picker list.
         single<ServerRepository> {
             ServerRepositoryImpl(discoveryService = get())
@@ -68,6 +80,7 @@ internal val connectionModule: Module =
         // server URL's host:port changes, so every transport follows the new URL on
         // its next reconnect. Started at app launch.
         single(createdAtStart = true) {
+            val trust: FallbackTrust = get()
             val coordinator =
                 com.calypsan.listenup.client.data.connection.ConnectionCoordinator(
                     serverConfig = get(),
@@ -81,6 +94,9 @@ internal val connectionModule: Module =
                                 named(APP_SCOPE),
                         ),
                     engineState = get(),
+                    allowsFallback = { candidate, current, fresh ->
+                        trust.allows(candidate, current, fresh)
+                    },
                 )
             coordinator.start()
             coordinator

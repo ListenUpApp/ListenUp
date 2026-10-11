@@ -23,12 +23,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 /**
  * Tests for HomeRepository.
- *
- * @OptIn(ExperimentalTime::class) needed for kotlin.time.Instant usage.
  *
  * Tests cover:
  * - Continue listening list generation
@@ -37,7 +34,6 @@ import kotlin.time.ExperimentalTime
  *
  * Uses Mokkery for mocking BookRepositoryContract and DAOs.
  */
-@OptIn(ExperimentalTime::class)
 class HomeRepositoryTest :
     FunSpec({
         // ========== Test Fixtures ==========

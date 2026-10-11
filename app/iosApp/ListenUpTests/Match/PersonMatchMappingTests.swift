@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Testing
 import Shared
 @testable import ListenUp
@@ -34,6 +35,12 @@ struct PersonMatchMappingTests {
             Fixture.inLibrary(credits: [LibraryCredit(role: .foreword, bookCount: 1)], count: 1)
         )
         #expect(foreword?.line == "Wrote the foreword for 1 of your books")
+
+        // A role a newer server added: counted in neutral words, never under another role's verb.
+        let unreadable = PersonMatchMapping.library(
+            Fixture.inLibrary(credits: [LibraryCredit(role: .unknown, bookCount: 2)], count: 2)
+        )
+        #expect(unreadable?.line == "Credited on 2 of your books")
 
         #expect(PersonMatchMapping.library(Fixture.inLibrary(credits: [], count: 0)) == nil)
     }

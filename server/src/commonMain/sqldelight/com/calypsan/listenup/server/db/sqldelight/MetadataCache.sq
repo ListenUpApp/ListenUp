@@ -22,8 +22,8 @@ selectByKey:
 SELECT * FROM metadata_cache WHERE cache_key = :cache_key;
 
 -- Upsert. cache_key is the primary key, so INSERT OR REPLACE atomically replaces an
--- existing entry for the same key+region — matching the Exposed update-or-insert path,
--- which always rewrote payload_json/fetched_at/expires_at on the same stored key.
+-- existing entry for the same key+region, rewriting payload_json/fetched_at/expires_at
+-- on the same stored key.
 upsert:
 INSERT OR REPLACE INTO metadata_cache (cache_key, region, payload_json, fetched_at, expires_at)
 VALUES (:cache_key, :region, :payload_json, :fetched_at, :expires_at);

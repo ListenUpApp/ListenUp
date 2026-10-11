@@ -6,8 +6,8 @@ import SwiftUI
 /// Dependency container wrapping Koin for SwiftUI-native injection: a single,
 /// typed access point to shared-module dependencies, with environment injection.
 @Observable
-final class Dependencies {
-    nonisolated(unsafe) static let shared = Dependencies()
+final class Dependencies: Sendable {
+    static let shared = Dependencies()
 
     private init() {}
 
@@ -25,11 +25,13 @@ final class Dependencies {
 
     // MARK: - Screen-scoped ViewModels (fresh per screen)
 
-    // These wrap a bare Koin `factory` and are owned by a single screen's wrapper, which closes the
-    // VM in its `isolated deinit` (#1192 — there is no ViewModelStore on iOS to call `onCleared`).
-    // They must therefore be resolved FRESH each time: a `resolve {}`-memoized instance, once closed
-    // on the first dismiss, would be handed back to the next screen already torn down. `make*`
-    // signals factory semantics (mirrors `makePendingApprovalViewModel`).
+    // A `make…`/`create…` ViewModel wraps a bare Koin `factory`: fresh per call, owned by the one
+    // observer it is handed to, which passes it to `bridge.own` so it is cleared when the observer is
+    // released (there is no ViewModelStore on iOS to call `onCleared`). They must be resolved FRESH
+    // each time: a `resolve {}`-memoized instance, once cleared on the first dismiss, would be handed
+    // back to the next screen already torn down. The three properties under "singletons" below are
+    // the opposite — shared for the life of the process, and never owned. `make*` signals factory
+    // semantics (mirrors `makePendingApprovalViewModel`).
     func makeServerConnectViewModel() -> ServerConnectViewModel { KoinHelper.shared.getServerConnectViewModel() }
     func makeLoginViewModel() -> LoginViewModel { KoinHelper.shared.getLoginViewModel() }
     func makeForgotPasswordViewModel() -> ForgotPasswordViewModel { KoinHelper.shared.getForgotPasswordViewModel() }
@@ -43,6 +45,8 @@ final class Dependencies {
 
     // MARK: - ViewModels (singletons)
 
+    // view-model-owner: nobody — these three are shared for the process and never cleared, because
+    // the next screen receives the same instance.
     var libraryViewModel: LibraryViewModel { resolve { KoinHelper.shared.getLibraryViewModel() } }
     var syncRepository: any SyncRepository { resolve { KoinHelper.shared.getSyncRepository() } }
     var homeStatsViewModel: HomeStatsViewModel { resolve { KoinHelper.shared.getHomeStatsViewModel() } }
@@ -79,14 +83,14 @@ final class Dependencies {
 
     // MARK: - Player coordinator (app-wide Swift singleton)
 
-    @MainActor private var cachedPlayerCoordinator: PlayerCoordinator?
+    private let playerSlot = PlayerCoordinatorSlot()
 
     /// The single app-wide player orchestrator. Built lazily on first access,
     /// injecting the KMP seam from Koin.
     @MainActor var playerCoordinator: PlayerCoordinator {
-        if let cachedPlayerCoordinator { return cachedPlayerCoordinator }
+        if let coordinator = playerSlot.coordinator { return coordinator }
         let coordinator = PlayerCoordinator(deps: self)
-        cachedPlayerCoordinator = coordinator
+        playerSlot.coordinator = coordinator
         return coordinator
     }
 
@@ -222,30 +226,33 @@ final class Dependencies {
     }
 }
 
+/// Holds the app's one `PlayerCoordinator`, on the main actor, so that `Dependencies` itself has no
+/// mutable state and can be shared across isolation domains.
+@MainActor
+private final class PlayerCoordinatorSlot {
+    var coordinator: PlayerCoordinator?
+    nonisolated init() {}
+}
+
 // MARK: - Locked cache
 
 /// Thread-safe memo cache for Koin-resolved singletons. Replaces the previous
 /// unsynchronized `[String: Any]` that raced when resolved off the main actor.
 final class LockedCache: Sendable {
-    /// The type-erased `[String: Any]` store can't be `Sendable` (its values are
-    /// arbitrary Koin singletons). The lock is the synchronization boundary, so the
-    /// dictionary is only ever touched while held — the `@unchecked` is sound.
-    private struct Storage: @unchecked Sendable {
-        var entries: [String: Any] = [:]
-    }
-
-    private let storage = OSAllocatedUnfairLock(initialState: Storage())
+    // Values are arbitrary Koin singletons, so the dictionary is not `Sendable`. The lock is the
+    // synchronization boundary: it is only ever touched inside `withLockUnchecked`.
+    private let storage = OSAllocatedUnfairLock<[String: Any]>(uncheckedState: [:])
 
     func resolve<T>(key: String, _ factory: () -> T) -> T {
-        storage.withLockUnchecked { storage in
-            if let cached = storage.entries[key] as? T { return cached }
+        storage.withLockUnchecked { entries in
+            if let cached = entries[key] as? T { return cached }
             let instance = factory()
-            storage.entries[key] = instance
+            entries[key] = instance
             return instance
         }
     }
 
-    var count: Int { storage.withLockUnchecked { $0.entries.count } }
+    var count: Int { storage.withLockUnchecked { $0.count } }
 }
 
 // MARK: - SwiftUI environment

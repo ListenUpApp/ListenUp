@@ -39,7 +39,6 @@ import com.calypsan.listenup.api.error.UnknownError
 import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.error.WorldEventError
-import com.calypsan.listenup.api.error.withCorrelationId as stampCorrelationId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.MalformedMultipartException
 import com.calypsan.listenup.server.io.MultipartPartTooLargeException
@@ -139,14 +138,6 @@ internal suspend fun respondAppError(
 }
 
 /**
- * Server-side alias for the canonical [com.calypsan.listenup.api.error.withCorrelationId] stamp,
- * which lives in `:contract` (co-located with every [AppError] subtype) so the REST fold and the
- * RPC guard share one exhaustive implementation. Kept here under the `plugins` package so the many
- * route folds that `import ...plugins.withCorrelationId` need no churn; it forwards verbatim.
- */
-internal fun AppError.withCorrelationId(id: String?): AppError = stampCorrelationId(id)
-
-/**
  * Status mapping for typed [AppError]. Used by both REST handlers and tests.
  *
  * This `when` is exhaustive over all direct [AppError] implementors. Two grouped branches keep its
@@ -207,8 +198,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is ContributorError -> toHttpStatus()
 
-        // SeriesError + EntityError + WorldEventError share one branch (see CorrelationStamping for the
-        // same pairing).
+        // SeriesError + EntityError + WorldEventError share one branch: a Story World entity or event
+        // lives under a series.
         is SeriesError, is EntityError, is WorldEventError -> seriesOrStoryWorldHttpStatus()
 
         is GenreError -> toHttpStatus()
@@ -344,6 +335,10 @@ private fun UploadError.toHttpStatus(): HttpStatusCode =
         is UploadError.SessionNotFound -> HttpStatusCode.Gone
 
         is UploadError.InvalidFilePath -> HttpStatusCode.BadRequest
+
+        // Produced on the client and never sent by the server; mapped like InvalidFilePath so the
+        // table stays exhaustive.
+        is UploadError.FileUnreadable -> HttpStatusCode.BadRequest
 
         is UploadError.SessionTooLarge -> HttpStatusCode.PayloadTooLarge
 

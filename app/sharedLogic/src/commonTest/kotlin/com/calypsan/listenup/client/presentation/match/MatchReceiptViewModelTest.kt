@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.match
 
+import com.calypsan.listenup.client.presentation.close
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult

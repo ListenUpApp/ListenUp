@@ -116,6 +116,7 @@ internal val bookModule: Module =
                 moodRepository = get(),
                 imageRepository = get(),
                 imageStagingRepository = get(),
+                pendingImageUploads = get(),
             )
         }
     }

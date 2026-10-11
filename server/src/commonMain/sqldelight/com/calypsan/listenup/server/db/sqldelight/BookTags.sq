@@ -91,8 +91,7 @@ selectLiveIdsForTag:
 SELECT id FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
 
 -- Count of LIVE (non-tombstoned) junctions for a tag — drives the `bookCount`
--- column on TagSummary (listTags / getTagBySlug). Replaces the Exposed
--- `BookTagsTable.selectAll().where { tagId eq … and deletedAt.isNull() }.count()`.
+-- column on TagSummary (listTags / getTagBySlug).
 countLiveForTag:
 SELECT COUNT(*) FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
 
@@ -115,6 +114,15 @@ WHERE bt.tag_id = :tag_id AND bt.deleted_at IS NULL;
 -- — its primary key), so a book can never be double-counted. Drives TagService.getTagStats.
 tagStats:
 SELECT COUNT(*) AS book_count, CAST(COALESCE(SUM(b.total_duration), 0) AS INTEGER) AS total_ms
+FROM books b
+WHERE b.deleted_at IS NULL
+  AND b.id IN (SELECT DISTINCT bt.book_id FROM book_tags bt WHERE bt.tag_id = :tag_id AND bt.deleted_at IS NULL);
+
+-- The (book id, length ms) pair of every LIVE book linked to :tag_id via a LIVE junction. Same
+-- selection as tagStats; a member's TagService.getTagStats filters these to the books the caller
+-- can reach and aggregates in Kotlin, so the count never includes a book the member cannot open.
+tagBookDurations:
+SELECT b.id AS book_id, b.total_duration AS duration_ms
 FROM books b
 WHERE b.deleted_at IS NULL
   AND b.id IN (SELECT DISTINCT bt.book_id FROM book_tags bt WHERE bt.tag_id = :tag_id AND bt.deleted_at IS NULL);

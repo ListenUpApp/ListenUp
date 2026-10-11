@@ -20,7 +20,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -28,9 +27,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
-private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 
 /**
  * Reusable per-screen ViewModel for multi-select and bulk add-to-shelf / add-to-collection.
@@ -78,7 +77,7 @@ class BookMultiSelectViewModel(
             .map { user -> user?.isAdmin == true }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = false,
             )
 
@@ -92,7 +91,7 @@ class BookMultiSelectViewModel(
             .map { all -> all.filterNot { it.isSystem } }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = emptyList(),
             )
 
@@ -115,7 +114,7 @@ class BookMultiSelectViewModel(
                 }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = emptyList(),
             )
 

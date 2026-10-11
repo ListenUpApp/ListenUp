@@ -1,3 +1,4 @@
+import Foundation
 import Shared
 
 /// A Library card's reading state, bridged once per emission from Kotlin's `BookCardStatus`.

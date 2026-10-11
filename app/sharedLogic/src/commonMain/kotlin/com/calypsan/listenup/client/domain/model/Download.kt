@@ -12,7 +12,8 @@ package com.calypsan.listenup.client.domain.model
  * @property filename Original filename on disk.
  * @property fileIndex Zero-based order of this file within the book.
  * @property status Current lifecycle status of this download.
- * @property localPath Absolute local path once the download is complete; null while in-flight.
+ * @property localPath Local path once the download is complete; null while in-flight. Absolute on Android
+ *   and desktop, relative to the app's Documents directory on iOS.
  * @property totalBytes Expected total size in bytes (0 if not yet known).
  * @property downloadedBytes Bytes received so far.
  * @property queuedAt Epoch-ms timestamp when the download was enqueued.

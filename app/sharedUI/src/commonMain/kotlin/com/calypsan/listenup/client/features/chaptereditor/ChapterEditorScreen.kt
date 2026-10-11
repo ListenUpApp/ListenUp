@@ -33,7 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
-import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
 import com.calypsan.listenup.client.playback.PlaybackManager
@@ -95,20 +95,25 @@ fun ChapterEditorScreen(
     val playheadMs: () -> Long? =
         remember(isThisBookLoaded, position) { { if (isThisBookLoaded) position.value else null } }
 
-    var pendingDiscard by remember { mutableStateOf(false) }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
     var lane by remember { mutableStateOf<TimelineLane?>(null) }
 
     val editing = state as? ChapterEditorUiState.Editing
     val isDirty = editing?.isDirty == true
-    val leave = { if (isDirty) pendingDiscard = true else onBack() }
+    // Back, the toolbar arrow and an outside navigation all pass through the one guard; Discard drops
+    // the draft — the only copy of the work — back to the saved chapters before leaving.
+    val leave =
+        rememberUnsavedWorkGuard(
+            dirty = isDirty,
+            onLeave = onBack,
+            onDiscard = {
+                viewModel.resetToSource()
+                onBack()
+            },
+        )
 
     val newChapterTitle = stringResource(Res.string.chapter_editor_new_chapter_title)
     val rowMenu = rememberRowMenu(viewModel, isThisBookLoaded, newChapterTitle) { rowAction = it }
-
-    // The toolbar arrow is not the only way out. Without this the system back gesture pops the
-    // screen straight past the confirmation, and the draft — the only copy of the work — is gone.
-    PlatformBackHandler(enabled = isDirty) { pendingDiscard = true }
 
     // Open where the listener already is. A 65-hour book opened at 0:00 is technically correct and
     // useless; when this book is the one loaded, the interesting boundary is the one being heard.
@@ -191,17 +196,6 @@ fun ChapterEditorScreen(
             viewModel = viewModel,
             rowMenu = rowMenu,
             onEditTime = { rowAction = RowAction.EditingTime(it) },
-        )
-    }
-
-    if (pendingDiscard) {
-        DiscardChapterEditsDialog(
-            onDiscard = {
-                pendingDiscard = false
-                viewModel.resetToSource()
-                onBack()
-            },
-            onDismiss = { pendingDiscard = false },
         )
     }
 

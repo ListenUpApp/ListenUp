@@ -45,7 +45,7 @@ private const val HEARTBEAT_INTERVAL_MILLIS = 25_000L
  * it), a heartbeat frame every 25s (the client's liveness signal), resume via the
  * `sinceRevision` parameter, and expected terminal conditions ([SyncControl.CursorStale]) as
  * frames + completion rather than errors. The C2 session-liveness gate lives in the
- * registration's `streamLiveness` predicate, not here.
+ * registration's connection liveness probe (`connectionLiveness` in `routes/RpcRoutes.kt`), not here.
  *
  * The [bookAccessPolicy] thunk is resolved only when a book-gated content event must be probed,
  * so harnesses driving only ungated domains need no policy.
@@ -81,8 +81,8 @@ internal class SyncStreamServiceImpl(
 
     /**
      * One connection's frame stream: stale pre-check, hello, then the merged live tail
-     * (data + control + heartbeat). The attach-time [CursorStaleAtAttach] marker thrown inside
-     * [dataFrames] surfaces here as a terminal CursorStale frame — an expected condition,
+     * (data + control + heartbeat). The attach-time [CursorStaleAtAttach] and mid-stream
+     * [LiveTailGap] markers thrown inside [dataFrames] surface here as a terminal CursorStale frame — an expected condition,
      * never an error on the wire.
      */
     private fun frames(
@@ -111,10 +111,19 @@ internal class SyncStreamServiceImpl(
                 ),
             )
         }.catch { e ->
-            if (e is CursorStaleAtAttach) {
-                emit(controlFrame(SyncControl.CursorStale(lastKnownRevision = e.floor)))
-            } else {
-                throw e
+            when (e) {
+                is CursorStaleAtAttach -> {
+                    emit(controlFrame(SyncControl.CursorStale(lastKnownRevision = e.floor)))
+                }
+
+                is LiveTailGap -> {
+                    log.info { "rpc sync stream fell behind the live tail: userId=${caller.userId.value}" }
+                    emit(controlFrame(SyncControl.CursorStale(lastKnownRevision = e.floor)))
+                }
+
+                else -> {
+                    throw e
+                }
             }
         }.onCompletion { log.info { "rpc sync stream closed: userId=${caller.userId.value}" } }
 
@@ -134,8 +143,25 @@ internal class SyncStreamServiceImpl(
             .subscribe()
             .onSubscription {
                 staleCursorFloor(bus, sinceRevision)?.let { throw CursorStaleAtAttach(it) }
-            }.filter { it.event.revision > (sinceRevision ?: 0L) }
+            }.failingOnGap { LiveTailGap(bus.oldestRetainedRevision() ?: 0L) }
+            .filter { it.event.revision > (sinceRevision ?: 0L) }
             .mapNotNull { busEvent -> frameFor(busEvent, userId, role) }
+
+    /**
+     * Passes events through, failing with [onGap] the moment two consecutive ones are not adjacent
+     * in the tail. The check sees every bus event, including ones this user will not be sent: the
+     * dropped events are gone, so entitlement to them cannot be judged.
+     */
+    private fun Flow<BusEvent<*>>.failingOnGap(onGap: () -> Throwable): Flow<BusEvent<*>> =
+        flow {
+            var previous: Long? = null
+            collect { event ->
+                val last = previous
+                if (last != null && event.tailPosition != last + 1) throw onGap()
+                previous = event.tailPosition
+                emit(event)
+            }
+        }
 
     /**
      * [busEvent] as a wire frame, or null when it is scoped to another user or access-gated — save a gated event
@@ -297,6 +323,15 @@ internal class SyncStreamServiceImpl(
 private class CursorStaleAtAttach(
     val floor: Long,
 ) : Exception("RPC firehose cursor stale at ChangeBus subscription attach")
+
+/**
+ * Internal marker thrown inside the data tail when the bus dropped events this subscriber had not
+ * read yet. Like [CursorStaleAtAttach], it folds into a terminal [SyncControl.CursorStale] frame
+ * and never crosses the wire.
+ */
+private class LiveTailGap(
+    val floor: Long,
+) : Exception("RPC firehose subscriber fell behind the live tail")
 
 /**
  * Public construction seam for the RPC firehose, mirroring the `createBookService` idiom: the

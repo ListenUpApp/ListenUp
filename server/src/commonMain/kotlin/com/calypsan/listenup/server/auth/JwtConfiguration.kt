@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -12,7 +10,6 @@ import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -147,16 +144,6 @@ data class JwtConfiguration(
         } catch (e: IllegalArgumentException) {
             throw JwtVerificationException(reason, e)
         }
-
-    private fun constantTimeEquals(
-        a: ByteArray,
-        b: ByteArray,
-    ): Boolean {
-        if (a.size != b.size) return false
-        var diff = 0
-        for (i in a.indices) diff = diff or (a[i].toInt() xor b[i].toInt())
-        return diff == 0
-    }
 
     companion object {
         private const val MIN_SECRET_BYTES = 32

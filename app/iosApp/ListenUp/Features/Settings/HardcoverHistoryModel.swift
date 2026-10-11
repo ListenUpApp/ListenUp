@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// The earlier-books offer (#1540), native, mapped once at the observer boundary (iosApp rule 8): the card,

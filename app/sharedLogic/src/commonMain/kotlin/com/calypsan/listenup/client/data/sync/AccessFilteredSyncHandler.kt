@@ -12,8 +12,7 @@ import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
  * calls [pruneTo] to evict every locally-live row that is no longer accessible — closing
  * the gap where a revoked share would otherwise leave inaccessible rows in Room.
  *
- * Implemented only by the five access-gated handlers (`books`, `activities`, and the three
- * collection domains). The engine discovers them via
+ * Implemented by every domain that declares an `AccessGate`. The engine discovers them via
  * [com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry.accessFilteredHandlers].
  */
 internal interface AccessFilteredSyncHandler {
@@ -35,7 +34,9 @@ internal interface AccessFilteredSyncHandler {
     /**
      * Soft-delete (tombstone) every live local row whose id is NOT in [accessibleIds].
      * [now] is the tombstone timestamp. Rows already accessible are left untouched so the
-     * UI never flickers; rows already tombstoned stay tombstoned.
+     * UI never flickers; rows already tombstoned stay tombstoned. An unacknowledged (revision-0)
+     * optimistic row is also left alone while its domain still has an op queued — its echo has not
+     * arrived — and is pruned like any other once the queue empties, so a refused add is still cleaned up.
      *
      * Whole-domain sweep — correct for a coarse re-derive ([catchUpTransient] returned the caller's
      * entire accessible set). For a scoped delta, use [pruneWithin] instead, which never touches a
@@ -57,7 +58,7 @@ internal interface AccessFilteredSyncHandler {
      * sound when [accessibleIds] is the caller's WHOLE accessible set, not a targeted subset.
      *
      * [now] is the tombstone timestamp; already-tombstoned rows stay tombstoned, accessible rows are
-     * left untouched (no UI flicker).
+     * left untouched (no UI flicker). Unacknowledged rows are spared exactly as in [pruneTo].
      */
     suspend fun pruneWithin(
         candidateIds: Set<String>,

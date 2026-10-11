@@ -37,6 +37,7 @@ val ContributorRole.displayName: String
             ContributorRole.PRODUCER -> "Producer"
             ContributorRole.ADAPTER -> "Adapter"
             ContributorRole.ILLUSTRATOR -> "Illustrator"
+            ContributorRole.UNKNOWN -> "Other role"
         }
 
 /**
@@ -190,7 +191,7 @@ data class BookEditUiState(
      * Roles that are not yet visible (available to add).
      */
     val availableRolesToAdd: List<ContributorRole>
-        get() = ContributorRole.entries.filter { it !in visibleRoles }
+        get() = ContributorRole.entries.filter { it.isAssignable && it !in visibleRoles }
 
     // --- Bridge-safe flat accessors for iOS (Swift Export) ---
     // The [roleSearchQueries]/[roleSearchLoading]/[roleSearchResults] maps above are keyed by the

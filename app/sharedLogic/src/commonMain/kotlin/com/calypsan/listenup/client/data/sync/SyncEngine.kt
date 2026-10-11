@@ -97,7 +97,8 @@ internal class SyncEngine(
 
     // The ONE shared choke point for cursor-advancing catch-up + digest reconcile — the same
     // "single dispatch seam" move the RpcChannel seam made for RPC. Every reconcile/catch-up entry
-    // point ([runStart], [lifecycleReconcile], [handleCursorStale], [forceReconcile]) drives
+    // point ([runStart], [lifecycleReconcile], [handleCursorStale], [forceReconcile],
+    // [handleAccessChanged] via [AccessReconciler]) drives
     // [CatchUp.catchUpAll] and/or [SyncReconciler.reconcileAll], both of which page the server and
     // rewrite [SyncCursorStore]. Before this guard each entry point owned a SEPARATE mutex (or none),
     // so two could page CONCURRENTLY — e.g. a scan-completion handleCursorStale racing a foreground
@@ -154,8 +155,8 @@ internal class SyncEngine(
     private val cursorStaleWaiters = mutableListOf<CompletableDeferred<Unit>>()
 
     // The access-gated re-derive/prune half of AccessChanged, extracted to its own concern.
-    // Built from the engine's existing registry + catchUp, so wiring is unchanged.
-    private val accessReconciler = AccessReconciler(registry, catchUp)
+    // Shares [catchUpMutex] so its server paging serializes with every other pull.
+    private val accessReconciler = AccessReconciler(registry, catchUp, catchUpMutex)
 
     // Serializes + coalesces AccessChanged reconciles. A single access mutation fans out one frame
     // per affected recipient, and a bulk action (release, delete) can fan out a burst — routing each
@@ -594,8 +595,10 @@ internal class SyncEngine(
             return
         }
 
+        // `more` turns false ONLY where the loop below clears cursorStaleRunning under the lock; after
+        // that a follow-on leader may own the shared state, so the finally must not touch it.
+        var more = true
         try {
-            var more = true
             while (more) {
                 // Snapshot the waiters registered BEFORE this pass starts. They are satisfied the
                 // moment this pass ends — it began after their request, so it covers it.
@@ -625,11 +628,11 @@ internal class SyncEngine(
                     }
             }
         } finally {
-            // Normal exit already cleared cursorStaleRunning in the loop; this only fires when a
-            // recovery threw or was cancelled, so a future CursorStale can still recover. Any waiters
+            // Cleanup belongs to the leader that did not finish its loop: it fires when a recovery
+            // threw or was cancelled, so a future CursorStale can still recover. Any waiters
             // still outstanding (their covering pass never completed) must be released so coalesced
             // callers are not stranded — cancelled, not completed, since their request was not served.
-            if (cursorStaleRunning) {
+            if (more) {
                 // NonCancellable for the same reason as lifecycleReconcile's cleanup: a contended
                 // `withLock` on the cancellation path would throw and strand `cursorStaleRunning` true,
                 // wedging all future CursorStale recovery.
@@ -718,6 +721,9 @@ internal class SyncEngine(
             }
         if (!leader) return
 
+        // The last drained work: None means the drain below cleared the running flag under the lock, and
+        // from then on a follow-on leader may own that state, so the finally must not touch it.
+        var work: PendingAccessChange? = null
         try {
             // One retry budget per leader activation: a failed scope is re-folded into the
             // accumulator exactly once; if the retry fails too, the reconnect / next
@@ -725,7 +731,7 @@ internal class SyncEngine(
             // later starts a fresh leader with a fresh budget.
             var requeueGranted = true
             while (true) {
-                val work = accessChangedMutex.withLock { drainAccumulatedAccessChange() }
+                work = accessChangedMutex.withLock { drainAccumulatedAccessChange() }
                 val outcome =
                     when (work) {
                         PendingAccessChange.None -> break
@@ -752,11 +758,12 @@ internal class SyncEngine(
             // Refetch domain would need its own single-flight). Fires once per leader activation.
             refreshedRouter.refreshAccessSensitive()
         } finally {
-            // Normal exit already cleared the flag under the lock (via drain → None). This fires only
-            // on a thrown/cancelled reconcile, and — like the CursorStale cleanup — runs
-            // NonCancellable so a contended withLock on the cancellation path can't strand
-            // accessChangedRunning = true and wedge every future AccessChanged.
-            if (accessChangedRunning) {
+            // Cleanup belongs to the leader that did not finish its loop: a leader that drained to None
+            // already released the state and may have been succeeded while it refreshed. Runs
+            // NonCancellable, like the CursorStale cleanup, so a contended withLock on the
+            // cancellation path can't strand accessChangedRunning = true and wedge every future
+            // AccessChanged.
+            if (work != PendingAccessChange.None) {
                 withContext(NonCancellable) {
                     accessChangedMutex.withLock { resetAccessChangeState() }
                 }

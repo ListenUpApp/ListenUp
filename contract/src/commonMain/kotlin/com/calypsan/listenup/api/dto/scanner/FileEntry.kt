@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto.scanner
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -13,6 +15,7 @@ import kotlinx.serialization.Serializable
  * path-only matching when inode is unavailable; cross-folder move detection
  * is the feature that suffers.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class FileEntry(
     @SerialName("relPath")
@@ -25,7 +28,9 @@ data class FileEntry(
     /**
      * Extension-derived classification. Defaults to [FileType.UNKNOWN] so a type this build does not
      * know (an additive member on a newer server) is carried for diagnostics rather than throwing.
+     * Always encoded, so an app built before this default existed still finds the key.
      */
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val fileType: FileType = FileType.UNKNOWN,
 )
 

@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.dto.imports.ImportAnalysis
 import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.api.dto.imports.ImportSummary
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
@@ -19,13 +18,13 @@ import com.calypsan.listenup.server.absimport.ImportApplier
 import com.calypsan.listenup.server.absimport.ImportStore
 import com.calypsan.listenup.server.absimport.MappingValidator
 import com.calypsan.listenup.server.absimport.isSafeImportId
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.isAdmin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
+import com.calypsan.listenup.server.auth.requireAdmin
 
 /**
  * Admin-only Audiobookshelf-import surface. Every method is gated behind [requireAdmin]; the binary
@@ -59,7 +58,7 @@ class ImportServiceImpl(
         )
 
     override suspend fun analyze(importId: ImportId): AppResult<ImportAnalysis> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         rejectUnsafeId(importId)?.let { return it }
         return analyzer.analyze(importId) { eventBus.tryEmit(it) }
     }
@@ -69,7 +68,7 @@ class ImportServiceImpl(
         userMappings: Map<AbsUserId, UserId>,
         bookOverrides: Map<AbsItemId, BookId?>,
     ): AppResult<Unit> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         rejectUnsafeId(importId)?.let { return it }
         if (store.getImport(importId) == null) {
             return AppResult.Failure(ImportError.ImportNotFound())
@@ -80,25 +79,25 @@ class ImportServiceImpl(
     }
 
     override suspend fun apply(importId: ImportId): AppResult<ImportResult> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         rejectUnsafeId(importId)?.let { return it }
         return applier.apply(importId) { eventBus.tryEmit(it) }
     }
 
     override suspend fun listImports(): AppResult<List<ImportSummary>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(store.listImports())
     }
 
     override suspend fun getImport(importId: ImportId): AppResult<ImportSummary> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         rejectUnsafeId(importId)?.let { return it }
         return store.getImport(importId)?.let { AppResult.Success(it) }
             ?: AppResult.Failure(ImportError.ImportNotFound())
     }
 
     override suspend fun deleteImport(importId: ImportId): AppResult<Unit> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         rejectUnsafeId(importId)?.let { return it }
         return if (store.deleteImport(importId)) {
             AppResult.Success(Unit)
@@ -131,10 +130,4 @@ class ImportServiceImpl(
      */
     private fun rejectUnsafeId(importId: ImportId): AppResult.Failure? =
         if (isSafeImportId(importId.value)) null else AppResult.Failure(ImportError.ImportNotFound())
-
-    /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
-    private fun requireAdmin(): AppResult.Failure? {
-        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
-    }
 }

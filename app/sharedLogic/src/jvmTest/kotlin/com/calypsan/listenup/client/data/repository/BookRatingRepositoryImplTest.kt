@@ -413,6 +413,27 @@ class BookRatingRepositoryImplTest :
             }
         }
 
+        test("a check value this build cannot read still reads as checking, until the server says done") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val service = mock<BookRatingService>()
+                every {
+                    service.checkExternalRatings(
+                        com.calypsan.listenup.core
+                            .BookId("b1"),
+                    )
+                } returns
+                    kotlinx.coroutines.flow.flowOf(
+                        RpcEvent.Data(ExternalRatingsCheck.UNKNOWN),
+                        RpcEvent.Data(ExternalRatingsCheck.DONE),
+                    )
+                val repo = repo(db, ratingChannel = RpcChannel.forTest(service))
+
+                repo.observeExternalCheck("b1").toList() shouldBe listOf(true, false)
+                db.close()
+            }
+        }
+
         test("a check the stream drops reads as not checking") {
             runTest {
                 val db = createInMemoryTestDatabase()

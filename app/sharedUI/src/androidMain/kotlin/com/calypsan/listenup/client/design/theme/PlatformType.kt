@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.design.theme
 
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Typography
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -19,7 +18,6 @@ import com.calypsan.listenup.client.composeapp.R
  * single fixed-variation font renders every requested weight identically and the type scale
  * collapses to one weight (the bug this replaces).
  */
-@OptIn(ExperimentalTextApi::class)
 private fun googleSansFont(
     weight: FontWeight,
     width: Float,

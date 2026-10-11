@@ -15,7 +15,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -31,8 +30,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-
-private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /** How long a book that synced again stays out of the list waiting for the server's list to drop it. */
 private const val SYNC_AGAIN_HANDOFF_MS = 2_000L
@@ -110,7 +108,7 @@ class KeptOffBooksViewModel(
                     flow { emit(repository.keptOffBooks().getOrNull()?.map { it.value }) }
                         .flatMapLatest { ids -> if (ids == null) flowOf(null) else booksNamed(ids) }
                 }
-            }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), replay = 1)
+            }.shareIn(viewModelScope, WhileSubscribedForUi, replay = 1)
 
     /** The screen's state: [KeptOffBooksUiState.Loading] until the server first answers. */
     val uiState: StateFlow<KeptOffBooksUiState> =
@@ -120,7 +118,7 @@ class KeptOffBooksViewModel(
             } else {
                 KeptOffBooksUiState.Loaded(books.filterNot { it.bookId in gone })
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), KeptOffBooksUiState.Loading)
+        }.stateIn(viewModelScope, WhileSubscribedForUi, KeptOffBooksUiState.Loading)
 
     /** Syncs [bookId] with Hardcover again. Ignored for a book not in the list, and while its Sync again saves. */
     fun syncAgain(bookId: String) {

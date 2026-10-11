@@ -11,13 +11,13 @@ import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * Sealed UI state for the Discover leaderboard.
@@ -90,7 +90,7 @@ class LeaderboardViewModel(
             .flatMapLatest { leaderboardPipeline() }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = WhileSubscribedForUi,
                 initialValue = LeaderboardUiState.Loading,
             )
 

@@ -414,6 +414,9 @@ class FtsPopulatorTest :
                 everySuspend { fixture.searchDao.bookIdsWithGenresChangedSince(any()) } returns emptyList()
                 everySuspend { fixture.searchDao.countContributorsChangedSince(any()) } returns 0
                 everySuspend { fixture.searchDao.countSeriesChangedSince(any()) } returns 0
+                everySuspend { fixture.searchDao.liveBookIdsMissingFromIndex() } returns emptyList()
+                everySuspend { fixture.searchDao.countLiveContributorsMissingFromIndex() } returns 0
+                everySuspend { fixture.searchDao.countLiveSeriesMissingFromIndex() } returns 0
                 val ftsPopulator = fixture.build()
 
                 // When

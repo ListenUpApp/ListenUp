@@ -33,6 +33,8 @@ sealed interface PlaybackError : AppError {
         override val message: String = "Playback stalled. Tap to retry."
         override val code: String = "PLAYBACK_STALLED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -56,6 +58,8 @@ sealed interface PlaybackError : AppError {
         override val message: String = "Playback can't start in the background. Open ListenUp to resume."
         override val code: String = "PLAYBACK_BLOCKED_IN_BACKGROUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -77,5 +81,7 @@ sealed interface PlaybackError : AppError {
         override val message: String = "This book couldn't be started."
         override val code: String = "PLAYBACK_COULD_NOT_START"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

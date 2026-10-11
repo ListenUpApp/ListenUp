@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Testing
 import Shared
 @testable import ListenUp
@@ -77,7 +78,9 @@ struct HardcoverPhaseMappingTests {
         let cases: [(HardcoverBrokenReason, String)] = [
             (.revoked, String(localized: "hardcover.broken_revoked")),
             (.cannotDecrypt, String(localized: "hardcover.broken_cannot_decrypt")),
-            (.missingScope, String(localized: "hardcover.broken_missing_scope"))
+            (.missingScope, String(localized: "hardcover.broken_missing_scope")),
+            // A reason a newer server added: generic reconnect guidance, never another reason's words.
+            (.unknown, String(localized: "hardcover.broken_unknown"))
         ]
         for (reason, message) in cases {
             let state = HardcoverSettingsUiStateBroken(reason: reason, username: "simon", isStarting: false)

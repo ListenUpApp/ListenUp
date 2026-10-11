@@ -37,6 +37,50 @@ class TestDiscoveryFloorTest {
     }
 
     @Test
+    fun `reads the spec class of every testcase`() {
+        val reports =
+            listOf(
+                """<testsuite name="KonsistScopeTest[jvm]" tests="2">""" +
+                    """<testcase name="a[jvm]" classname="com.x.KonsistScopeTest" time="0"/>""" +
+                    """<testcase name="b[jvm]" classname="com.x.KonsistScopeTest" time="0"/></testsuite>""",
+                """<testsuite name="Other[jvm]" tests="1"><testcase name="c[jvm]" classname="com.y.Other" time="0"/></testsuite>""",
+            )
+        assertEquals(setOf("com.x.KonsistScopeTest", "com.y.Other"), reportedSpecClasses(reports))
+    }
+
+    @Test
+    fun `a missing anchor fails an unfiltered run and names the class`() {
+        val message =
+            missingAnchorFailure(
+                taskLabel = ":app:sharedLogic:jvmTest",
+                anchorSpecs = listOf("com.x.KonsistScopeTest", "com.y.Gone"),
+                reportedSpecClasses = setOf("com.x.KonsistScopeTest"),
+                isFiltered = false,
+            )
+
+        assertNotNull(message)
+        assertTrue(message.contains("com.y.Gone"), "names the missing anchor: $message")
+        assertTrue(!message.contains("com.x.KonsistScopeTest"), "does not name a present anchor: $message")
+    }
+
+    @Test
+    fun `a present anchor passes`() {
+        assertNull(
+            missingAnchorFailure(":m:jvmTest", listOf("com.x.A"), setOf("com.x.A", "com.x.B"), isFiltered = false),
+        )
+    }
+
+    @Test
+    fun `a filtered run never fails on anchors`() {
+        assertNull(missingAnchorFailure(":m:jvmTest", listOf("com.x.Gone"), emptySet(), isFiltered = true))
+    }
+
+    @Test
+    fun `an empty anchor list never fails`() {
+        assertNull(missingAnchorFailure(":m:jvmTest", emptyList(), emptySet(), isFiltered = false))
+    }
+
+    @Test
     fun `fires on an unfiltered lane below the floor`() {
         val message = discoveredCountFailure(taskLabel = ":app:sharedUI:desktopTest", floor = 40, testCount = 3, isFiltered = false)
 

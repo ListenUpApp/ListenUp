@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.core
 
 import com.calypsan.listenup.core.FileSource
+import com.calypsan.listenup.core.FileUnreadableException
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.io.Buffer
+import kotlinx.io.IOException
 import kotlinx.io.RawSource
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
@@ -33,9 +35,18 @@ private class AppleFileSource(
     override val filename: String,
     override val size: Long?,
 ) : FileSource {
-    // Each call opens the file afresh, so a retried upload starts from the first byte again.
-    override fun openChannel(): ByteReadChannel =
-        ByteReadChannel(ClosingAtEndSource(SystemFileSystem.source(path)).buffered())
+    // Each call opens the file afresh, so a retried upload starts from the first byte again. A file
+    // that is gone, or goes while it is read, fails as an unreadable file rather than an IOException,
+    // which the upload boundary would take for the network being down and retry.
+    override fun openChannel(): ByteReadChannel {
+        val source =
+            try {
+                SystemFileSystem.source(path)
+            } catch (e: IOException) {
+                throw FileUnreadableException("Could not open $filename", e)
+            }
+        return ByteReadChannel(ClosingAtEndSource(source, filename).buffered())
+    }
 }
 
 /**
@@ -45,9 +56,12 @@ private class AppleFileSource(
  * read to completion — every successful upload — would otherwise keep its file descriptor until the
  * process died: one per track, and a folder of a few hundred tracks exhausts iOS's default limit of
  * 256 partway through the upload. Cancellation still closes it the usual way, through [close].
+ *
+ * A read that fails closes the file too, and surfaces as a [FileUnreadableException] naming [filename].
  */
 private class ClosingAtEndSource(
     private val delegate: RawSource,
+    private val filename: String,
 ) : RawSource {
     private var closed = false
 
@@ -56,7 +70,13 @@ private class ClosingAtEndSource(
         byteCount: Long,
     ): Long {
         if (closed) return END_OF_STREAM
-        val read = delegate.readAtMostTo(sink, byteCount)
+        val read =
+            try {
+                delegate.readAtMostTo(sink, byteCount)
+            } catch (e: IOException) {
+                close()
+                throw FileUnreadableException("Could not read $filename", e)
+            }
         if (read == END_OF_STREAM) close()
         return read
     }

@@ -22,7 +22,8 @@ import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
  * id — so the in-flight shield looks a junction echo up by its pair. Unlike book_tags/book_moods,
  * add is offline-first too — the book already exists, so no server id is minted. No targeted fetch
  * can re-read a drained op: the server serves this user-scoped, ungated domain nothing by id, so its
- * echoes converge through `?since=` catch-up and the digest.
+ * echoes converge through `?since=` catch-up and the digest. An add the server refuses is undone by
+ * the heal itself ([OutboxKeying.discardUnacknowledged]), and its revision-0 row stays out of the digest.
  *
  * **A reorder is deliberately NOT shielded.** Its op is keyed by the bare shelf id, and shielding
  * under that key would hold back every frame for the shelf — including another device adding a
@@ -43,6 +44,9 @@ internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfB
             OutboxKeying(
                 keysOf = { setOf(junctionOutboxKey(it.shelfId, it.bookId)) },
                 refetchFor = { null },
+                discardUnacknowledged = { key ->
+                    database.shelfBookDao().deleteUnacknowledged(junctionOutboxParent(key), junctionOutboxChild(key))
+                },
             ),
     )
 }

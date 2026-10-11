@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
@@ -24,8 +25,8 @@ class ServerSettingsSession(
     val onSave: () -> Unit,
     val onClearError: () -> Unit,
     val onRetry: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenServerSettings = () -> ServerSettingsSession

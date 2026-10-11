@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.dto.PreparedAudioFile
@@ -10,6 +8,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -23,6 +22,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -386,6 +386,57 @@ class DownloadAudioFileTest :
                 result.shouldBeInstanceOf<AppResult.Failure>()
             } finally {
                 tmpRoot.deleteRecursively()
+            }
+        }
+
+        // ---- 089: a file that finishes after the user cancelled or deleted is removed, not orphaned ----
+        listOf(DownloadState.CANCELLED, DownloadState.DELETED).forEach { lateState ->
+            test("a file that finishes after the row is $lateState is removed and the row is left alone") {
+                val tmpRoot = tempDir()
+                try {
+                    val bookId = "book-late-$lateState"
+                    val audioFileId = "file-late-$lateState"
+                    val fileManager = fileManagerFor(tmpRoot)
+                    val fakeRepo =
+                        FakeDownloadRepository(
+                            initial =
+                                listOf(
+                                    downloadEntity(audioFileId = audioFileId, bookId = bookId, totalBytes = 1000L)
+                                        .copy(state = lateState),
+                                ),
+                        )
+                    val engine =
+                        MockEngine {
+                            respond(
+                                content = ByteArray(1000) { 0x42 },
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentLength, "1000"),
+                            )
+                        }
+
+                    // A late completion ends the way a cancellation ends: the worker records neither
+                    // FAILED nor a retry.
+                    shouldThrow<CancellationException> {
+                        downloadAudioFile(
+                            audioFileId = audioFileId,
+                            bookId = bookId,
+                            filename = "$audioFileId.mp3",
+                            expectedSize = 1000L,
+                            httpClient = minimalClient(engine),
+                            repository = fakeRepo,
+                            fileManager = fileManager,
+                            prepareRepository = readyPrepareRepo(bookId, audioFileId),
+                        )
+                    }
+
+                    val destPath = fileManager.getAudioFilePath(bookId, audioFileId, "$audioFileId.mp3", isTemp = false)
+                    val tempPath = fileManager.getAudioFilePath(bookId, audioFileId, "$audioFileId.mp3", isTemp = true)
+                    SystemFileSystem.exists(destPath) shouldBe false
+                    SystemFileSystem.exists(tempPath) shouldBe false
+                    fakeRepo.entities.single().state shouldBe lateState
+                } finally {
+                    tmpRoot.deleteRecursively()
+                }
             }
         }
     })

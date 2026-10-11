@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -36,6 +35,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * ViewModel for the Series Detail screen.
@@ -67,6 +67,15 @@ class SeriesDetailViewModel(
             networkMonitor.onlineFlow,
         ) { canEdit, online -> canEdit to online }
 
+    /**
+     * Whether this screen has already asked for a missing series cover. Read and written only from
+     * the state-building `combine` transform and [loadSeries], both on the main dispatcher
+     * (`viewModelScope`), and `combine` runs its transform serially, so a plain `var` is enough.
+     * One request per screen instance: a failed fetch is retried when the screen is next opened,
+     * not on every playback-position emission.
+     */
+    private var coverFetchRequested = false
+
     val state: StateFlow<SeriesDetailUiState> =
         seriesIdFlow
             .flatMapLatest { id ->
@@ -95,13 +104,16 @@ class SeriesDetailViewModel(
                 }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
+                started = WhileSubscribedForUi,
                 initialValue = SeriesDetailUiState.Idle,
             )
 
     /** Set the series to observe. Safe to call repeatedly with the same id. */
     fun loadSeries(seriesId: String) {
-        if (seriesIdFlow.value != seriesId) expandOverrides.value = emptyMap()
+        if (seriesIdFlow.value != seriesId) {
+            expandOverrides.value = emptyMap()
+            coverFetchRequested = false
+        }
         seriesIdFlow.value = seriesId
     }
 
@@ -192,6 +204,8 @@ class SeriesDetailViewModel(
                 expandOverrides = lineage.allSeriesIds().associateWith { true },
             )
 
+        requestMissingCoverOnce(seriesWithBooks.series, seriesId)
+
         return SeriesDetailUiState.Ready(
             seriesId = seriesId,
             seriesName = seriesWithBooks.series.name,
@@ -270,6 +284,17 @@ class SeriesDetailViewModel(
             sequence = book.series.firstOrNull { it.seriesId == section.seriesId }?.sequenceLabel,
             hasStarted = hasStarted,
         )
+    }
+
+    /** Ask for the server's cover once per screen instance when the local file is missing. */
+    private fun requestMissingCoverOnce(
+        series: Series,
+        seriesId: String,
+    ) {
+        if (coverFetchRequested || series.coverPath == null) return
+        if (imageRepository.seriesCoverExists(seriesId)) return
+        coverFetchRequested = true
+        imageRepository.ensureSeriesCoverCached(seriesId)
     }
 
     /**

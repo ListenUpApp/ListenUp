@@ -54,11 +54,11 @@ internal const val TAG_COUNT_KEY = "count"
 
 private const val AUTHOR_FIELDS = "id name bio image{ url }"
 private const val BOOK_DETAILS_QUERY =
-    "query(\$id:Int!){ books(where:{id:{_eq:\$id}}, limit:1){ id description cached_tags image{ url } " +
+    $$"query($id:Int!){ books(where:{id:{_eq:$id}}, limit:1){ id description cached_tags image{ url } " +
         "book_series{ position series{ id name } } contributions{ contribution author{ $AUTHOR_FIELDS } } } }"
 private const val AUTHORS_NAMED_QUERY =
-    "query(\$name:String!){ authors(where:{name:{_eq:\$name}}, order_by:{books_count:desc}, limit:5){ $AUTHOR_FIELDS } }"
-private const val AUTHOR_BY_ID_QUERY = "query(\$id:Int!){ authors(where:{id:{_eq:\$id}}, limit:1){ $AUTHOR_FIELDS } }"
+    $$"query($name:String!){ authors(where:{name:{_eq:$name}}, order_by:{books_count:desc}, limit:5){ $$AUTHOR_FIELDS } }"
+private const val AUTHOR_BY_ID_QUERY = $$"query($id:Int!){ authors(where:{id:{_eq:$id}}, limit:1){ $$AUTHOR_FIELDS } }"
 
 /** [hcBookId]'s description, genre and mood tags, series and authors; `Ok(null)` when Hardcover has no such book. */
 suspend fun HardcoverGraphQlClient.bookDetails(

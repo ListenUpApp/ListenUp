@@ -1,11 +1,12 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.server.api.SERVER_VERSION
+import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
+import com.calypsan.listenup.server.metadata.bodyAsTextBounded
 import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.ParametersBuilder
 import io.ktor.http.isSuccess
@@ -13,6 +14,7 @@ import io.ktor.http.parameters
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /** The scopes ListenUp asks Hardcover for — your profile id, the public catalog, your own library. */
@@ -120,6 +122,7 @@ class HardcoverOAuthClient(
     private val http: HttpClient,
     private val clientId: String,
     private val apiBaseUrl: String = HARDCOVER_API_BASE_URL,
+    private val maxBodyBytes: Long = MAX_CATALOGUE_BODY_BYTES,
 ) {
     /** Starts a device sign-in for [HARDCOVER_SCOPES]. */
     suspend fun startDeviceAuthorization(): DeviceAuthorizationResult =
@@ -129,8 +132,14 @@ class HardcoverOAuthClient(
                     append("scope", HARDCOVER_SCOPES)
                 }
             if (response.status.isSuccess()) {
-                val wire = hardcoverJson.decodeFromString<DeviceAuthorizationWire>(response.bodyAsText())
-                DeviceAuthorizationResult.Started(wire.toAuthorization())
+                val text = bodyAsTextBounded(response, maxBodyBytes)
+                if (text == null) {
+                    DeviceAuthorizationResult.Unavailable("response body over $maxBodyBytes bytes")
+                } else {
+                    DeviceAuthorizationResult.Started(
+                        hardcoverJson.decodeFromString<DeviceAuthorizationWire>(text).toAuthorization(),
+                    )
+                }
             } else {
                 DeviceAuthorizationResult.Unavailable("device ${response.status}")
             }
@@ -192,13 +201,19 @@ class HardcoverOAuthClient(
                 },
         ) { header(HttpHeaders.UserAgent, HARDCOVER_USER_AGENT) }
 
-    private suspend fun tokensFrom(response: HttpResponse): HardcoverTokens =
-        hardcoverJson.decodeFromString<TokenWire>(response.bodyAsText()).toTokens()
+    // An oversized body throws like any undecodable one, so `attempt` folds it into Unavailable.
+    private suspend fun tokensFrom(response: HttpResponse): HardcoverTokens {
+        val text =
+            bodyAsTextBounded(response, maxBodyBytes)
+                ?: throw SerializationException("response body over $maxBodyBytes bytes")
+        return hardcoverJson.decodeFromString<TokenWire>(text).toTokens()
+    }
 
     /** The RFC 6749 §5.2 `error` code of a failed response, or null when the body isn't one. */
     private suspend fun errorCode(response: HttpResponse): String? =
         try {
-            hardcoverJson.decodeFromString<OAuthErrorWire>(response.bodyAsText()).error
+            bodyAsTextBounded(response, maxBodyBytes)
+                ?.let { hardcoverJson.decodeFromString<OAuthErrorWire>(it).error }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {

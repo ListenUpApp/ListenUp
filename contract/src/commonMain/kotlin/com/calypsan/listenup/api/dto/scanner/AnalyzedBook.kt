@@ -2,6 +2,7 @@ package com.calypsan.listenup.api.dto.scanner
 
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import kotlinx.serialization.SerialName
@@ -66,8 +67,9 @@ data class AnalyzedBook(
      * winning scan-tier source (all entries are tier 0 — [com.calypsan.listenup.api.metadata.FieldSourceKind.isScan]).
      * Ties are already broken by the library's `MetadataPrecedence` order at resolution time. Rides to
      * [com.calypsan.listenup.api.sync.BookSyncPayload.fieldProvenance] so a later enrichment/edit can be
-     * tier-compared against the scan value.
+     * tier-compared against the scan value. A field this build does not know is dropped on decode.
      */
+    @Serializable(with = FieldProvenanceMapSerializer::class)
     val fieldProvenance: Map<BookField, FieldProvenance> = emptyMap(),
     /**
      * True when this book's embedded-metadata parse failed — its primary audio file is

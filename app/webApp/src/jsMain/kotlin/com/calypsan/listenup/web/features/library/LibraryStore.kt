@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.library
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
@@ -17,8 +18,8 @@ import org.koin.core.Koin
 class LibrarySession(
     val state: StateFlow<LibraryUiState>,
     val onEvent: (LibraryUiEvent) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its state. Production resolves the real ViewModel out of the client graph

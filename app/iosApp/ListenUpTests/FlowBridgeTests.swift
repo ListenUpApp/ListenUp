@@ -154,4 +154,60 @@ struct FlowBridgeTests {
         // No crash, and delivery stopped — the cancellation took effect.
         #expect(received.count < 3)
     }
+
+    @Test func releaseActionsRunWhenTheBridgeIsReleased() async {
+        var ran = 0
+        do {
+            let bridge = FlowBridge()
+            bridge.onRelease { ran += 1 }
+        }
+        // An `isolated deinit` may hop to the main actor, so poll rather than assert at once.
+        for _ in 0..<200 where ran == 0 {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(ran == 1)
+    }
+
+    @Test func releaseRunsActionsOnceAndCancelsSubscriptions() async {
+        let bridge = FlowBridge()
+        var ran = 0
+        var received: [Int] = []
+        bridge.bind(NumberSequence(values: Array(1...50))) { received.append($0) }
+        bridge.onRelease { ran += 1 }
+
+        bridge.release()
+        bridge.release()
+        let receivedAtRelease = received.count
+        try? await Task.sleep(for: .milliseconds(100))
+
+        #expect(ran == 1)
+        // Nothing more is delivered once the bridge has released its subscriptions.
+        #expect(received.count == receivedAtRelease)
+        #expect(received.count < 50)
+    }
+
+    @Test func aBridgeWithNoActionsStillCancelsOnRelease() async {
+        var received: [Int] = []
+        do {
+            let bridge = FlowBridge()
+            // Wait for the first value, so the subscription is provably live when the bridge goes.
+            await withCheckedContinuation { continuation in
+                var resumed = false
+                bridge.bind(NumberSequence(values: Array(1...50))) { value in
+                    received.append(value)
+                    if !resumed {
+                        resumed = true
+                        continuation.resume()
+                    }
+                }
+            }
+        }
+        // The bridge is gone; let any in-flight element settle, then watch for more.
+        try? await Task.sleep(for: .milliseconds(100))
+        let settled = received.count
+        try? await Task.sleep(for: .milliseconds(150))
+
+        #expect(received.count == settled)
+        #expect(received.count < 50)
+    }
 }

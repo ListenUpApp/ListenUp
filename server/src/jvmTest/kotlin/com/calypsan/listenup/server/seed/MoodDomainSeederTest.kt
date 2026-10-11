@@ -13,7 +13,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Smoke tests for [MoodDomainSeeder].
  *
- * Uses the real [MoodRepository] against an in-memory SQLite DB (via Flyway) so
+ * Uses the real [MoodRepository] against an in-memory SQLite DB (migrated by the server's runner) so
  * the [isAlreadySeeded] check and the seeded rows exercise the real schema and
  * write-path.
  */

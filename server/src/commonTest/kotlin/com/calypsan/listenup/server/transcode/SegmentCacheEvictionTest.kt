@@ -118,6 +118,8 @@ private val RUNNING_SESSION =
 
 /** A spawner that records nothing and spawns nothing — the engine only needs it to return. */
 private object NoopSpawner : TranscodeSpawner {
+    override val hasExited: Boolean = false
+
     override suspend fun start(commands: List<List<String>>) = Unit
 
     override fun stop() = Unit

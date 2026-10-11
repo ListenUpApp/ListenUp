@@ -16,7 +16,11 @@ import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.TagRepository
+import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.usecase.settle
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -33,17 +37,21 @@ private val logger = KotlinLogging.logger {}
  * Usage:
  * ```kotlin
  * when (val result = updateBookUseCase(current, original)) {
- *     is AppResult.Success -> navigateBack()
+ *     is AppResult.Success -> {
+ *         if (result.data is SaveOutcome.SavedImageNotUploaded) tellUserTheImageDidNotUpload()
+ *         navigateBack()
+ *     }
  *     is AppResult.Failure -> showError(result.message)
  * }
  * ```
  */
-open class UpdateBookUseCase(
+open class UpdateBookUseCase internal constructor(
     private val bookEditRepository: BookEditRepository,
     private val tagRepository: TagRepository,
     private val moodRepository: MoodRepository,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
+    private val pendingImageUploads: PendingImageUploads,
 ) {
     /**
      * Save book changes.
@@ -53,17 +61,19 @@ open class UpdateBookUseCase(
      *
      * @param current The current state to save
      * @param original The original state when editing began
-     * @return Result indicating success or first failure encountered
+     * @return The first failure encountered, or a [SaveOutcome] saying whether a new cover reached
+     *   the server. A cover upload that fails does not fail the save: the cover is already on this
+     *   device, so the result is [SaveOutcome.SavedImageNotUploaded] instead.
      */
     open suspend operator fun invoke(
         current: BookUpdateRequest,
         original: BookOriginalState,
-    ): AppResult<Unit> {
+    ): AppResult<SaveOutcome> {
         val changes = detectChanges(current, original)
 
         if (!changes.hasAnyChanges) {
             logger.debug { "No changes detected for book ${current.bookId}" }
-            return AppResult.Success(Unit)
+            return AppResult.Success(SaveOutcome.Saved)
         }
 
         logger.info {
@@ -113,8 +123,9 @@ open class UpdateBookUseCase(
         return suspendRunCatching {
             if (changes.tagsChanged) updateTags(current, original)
             if (changes.moodsChanged) updateMoods(current, original)
-            if (changes.coverChanged) commitAndUploadCover(current)
+            val outcome = if (changes.coverChanged) commitAndUploadCover(current) else SaveOutcome.Saved
             logger.info { "Book ${current.bookId} saved successfully" }
+            outcome
         }
     }
 
@@ -285,8 +296,8 @@ open class UpdateBookUseCase(
         logger.debug { "Moods updated: +${addedSlugs.size}, -${removedSlugs.size}" }
     }
 
-    private suspend fun commitAndUploadCover(current: BookUpdateRequest) {
-        val pendingCover = current.pendingCover ?: return
+    private suspend fun commitAndUploadCover(current: BookUpdateRequest): SaveOutcome {
+        val pendingCover = current.pendingCover ?: return SaveOutcome.Saved
         val bookId = BookId(current.bookId)
 
         logger.debug { "Committing and uploading cover for book ${current.bookId}" }
@@ -297,24 +308,20 @@ open class UpdateBookUseCase(
             is AppResult.Failure -> logger.error { "Failed to commit staging cover: ${commitResult.message}" }
         }
 
-        // Upload to server (best-effort - local cover is already saved)
-        when (
-            val uploadResult =
-                imageRepository.uploadBookCover(
-                    bookId = current.bookId,
-                    imageData = pendingCover.data,
-                    filename = pendingCover.filename,
-                )
-        ) {
-            is AppResult.Success -> {
-                logger.info { "Cover uploaded to server" }
-            }
-
-            is AppResult.Failure -> {
-                logger.warn { "Failed to upload cover to server: ${uploadResult.message}" }
-                // Don't fail the save - local cover is saved, server sync can happen later
-            }
+        // The local cover is already saved, so a failed upload does not fail the save. It is queued
+        // to retry when it can succeed later, and reported in the outcome so the screen can say the
+        // other devices will not see it yet.
+        val uploadResult =
+            imageRepository.uploadBookCover(
+                bookId = current.bookId,
+                imageData = pendingCover.data,
+                filename = pendingCover.filename,
+            )
+        when (uploadResult) {
+            is AppResult.Success -> logger.info { "Cover uploaded to server" }
+            is AppResult.Failure -> logger.warn { "Failed to upload cover to server: ${uploadResult.message}" }
         }
+        return pendingImageUploads.settle(PendingImageKind.BookCover, current.bookId, uploadResult)
     }
 
     /**

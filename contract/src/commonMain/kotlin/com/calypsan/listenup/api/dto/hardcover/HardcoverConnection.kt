@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto.hardcover
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -40,6 +42,12 @@ enum class HardcoverBrokenReason {
 
     /** The connection lacks a permission ListenUp needs. */
     MISSING_SCOPE,
+
+    /**
+     * What an older app reads a reason a newer server added as: the connection still needs a
+     * reconnect, this build just cannot say why. The server never reports it.
+     */
+    UNKNOWN,
 }
 
 /** The state of the calling user's Hardcover connection, as [com.calypsan.listenup.api.HardcoverService.observeConnection] streams it. */
@@ -77,6 +85,7 @@ sealed interface HardcoverConnection {
      * predates them reads as never synced, idle, healthy, As I listen, no history and none kept off — and a
      * mode or history state this build doesn't know reads as As I listen and no history too.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
     @SerialName("HardcoverConnection.Connected")
     data class Connected(
@@ -85,19 +94,26 @@ sealed interface HardcoverConnection {
         @SerialName("lastSyncedAt") val lastSyncedAt: Long? = null,
         @SerialName("isSyncing") val isSyncing: Boolean = false,
         @SerialName("syncProblem") val syncProblem: HardcoverSyncProblem? = null,
-        @SerialName("shareMode") val shareMode: HardcoverShareMode = HardcoverShareMode.AS_I_LISTEN,
+        /** Always encoded, so an app built before this default existed still finds the key. */
+        @SerialName("shareMode")
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+        val shareMode: HardcoverShareMode = HardcoverShareMode.AS_I_LISTEN,
         @SerialName("history") val history: HardcoverHistory = HardcoverHistory.None,
         @SerialName("keptOffBookCount") val keptOffBookCount: Int = 0,
     ) : HardcoverConnection
 
     /**
      * Was connected as [hardcoverUsername], and now needs a reconnect for [reason]. The name is null
-     * only when it is genuinely unknown, including a payload from a server that predates it.
+     * only when it is genuinely unknown, including a payload from a server that predates it. A reason
+     * this build has never heard of reads as [HardcoverBrokenReason.UNKNOWN], so the stream stays alive.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
     @SerialName("HardcoverConnection.Broken")
     data class Broken(
-        @SerialName("reason") val reason: HardcoverBrokenReason,
+        @SerialName("reason")
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+        val reason: HardcoverBrokenReason = HardcoverBrokenReason.UNKNOWN,
         @SerialName("hardcoverUsername") val hardcoverUsername: String? = null,
     ) : HardcoverConnection
 }

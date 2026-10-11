@@ -17,7 +17,7 @@ import org.koin.dsl.module
  * Koin module for the shelves slice — the userScoped shelf domain and its RPC service.
  *
  * [ShelfRepository] and [ShelfBookRepository] are bound `createdAtStart = true` (like
- * every [com.calypsan.listenup.server.sync.SyncableRepository]) so their `init` blocks
+ * every [com.calypsan.listenup.server.sync.SqlSyncableRepository]) so their `init` blocks
  * register the `"shelves"` / `"shelf_books"` sync domains with the [SyncRegistry]
  * [com.calypsan.listenup.server.sync.SyncRegistry] at bootstrap, making
  * `SyncStreamService.listDomains()` correct on the first request.
@@ -31,8 +31,6 @@ import org.koin.dsl.module
  */
 fun shelfModule(): Module =
     module {
-        // Shelf + ShelfBook are SQLDelight conversions — they resolve [ListenUpDatabase],
-        // not the Exposed [Database] the service layer still uses.
         single(createdAtStart = true) { ShelfRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { ShelfBookRepository(get<ListenUpDatabase>(), get(), get()) }
         single { ShelfReadAssembler(sql = get<ListenUpDatabase>()) }

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.navigation.entries
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.calypsan.listenup.client.navigation.popFrom
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.CreateShelf
 import com.calypsan.listenup.client.navigation.ShelfDetail
@@ -14,7 +15,7 @@ internal fun EntryProviderScope<NavKey>.shelfEntries(backStack: NavBackStack<Nav
         com.calypsan.listenup.client.features.shelf.ShelfDetailScreen(
             shelfId = args.shelfId,
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onBookClick = { bookId ->
                 backStack.add(BookDetail(bookId))
@@ -28,7 +29,7 @@ internal fun EntryProviderScope<NavKey>.shelfEntries(backStack: NavBackStack<Nav
         com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen(
             shelfId = null,
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(CreateShelf)
             },
         )
     }
@@ -36,7 +37,7 @@ internal fun EntryProviderScope<NavKey>.shelfEntries(backStack: NavBackStack<Nav
         com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen(
             shelfId = args.shelfId,
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
         )
     }

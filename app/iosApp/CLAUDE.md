@@ -162,4 +162,4 @@ inline below.
     in `gradle/gradle-daemon-jvm.properties`.) The first build is slow because it generates and
     compiles those Swift Export frameworks; subsequent incremental builds reuse them.
     **The pre-push gate must compile the test target** — `xcodebuild build` does *not*
-    (`build-for-testing` or the full `Test (iOS)` does); see `client/CLAUDE.md` "Pushing".
+    (`build-for-testing` or the full `Test (iOS)` does); see the root `CLAUDE.md` "Pushing".

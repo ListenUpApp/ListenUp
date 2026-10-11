@@ -10,11 +10,11 @@ import com.calypsan.listenup.core.error.ErrorBus
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * Pick + upload a ListenUp backup file, then hand the staged [BackupId] to the existing restore flow.
@@ -26,12 +26,12 @@ class RestoreFromFileViewModel(
 ) : ViewModel() {
     private val _state = MutableStateFlow<RestoreFromFileUiState>(RestoreFromFileUiState.Idle)
     val state: StateFlow<RestoreFromFileUiState> =
-        _state.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RestoreFromFileUiState.Idle)
+        _state.stateIn(viewModelScope, WhileSubscribedForUi, RestoreFromFileUiState.Idle)
 
-    private val _navigation = Channel<BackupId>(Channel.BUFFERED)
+    private val navigationChannel = Channel<BackupId>(Channel.BUFFERED)
 
     /** One-shot: a staged [BackupId] to navigate into the restore-confirmation flow. */
-    val navigation: Flow<BackupId> = _navigation.receiveAsFlow()
+    val navigation: Flow<BackupId> = navigationChannel.receiveAsFlow()
 
     fun onFilePicked(fileSource: FileSource) {
         _state.value = RestoreFromFileUiState.Uploading(fileSource.filename)
@@ -40,7 +40,7 @@ class RestoreFromFileViewModel(
                 is AppResult.Success -> {
                     // Reset before navigating so the spinner never lingers if navigation is delayed.
                     _state.value = RestoreFromFileUiState.Idle
-                    _navigation.trySend(result.data.id)
+                    navigationChannel.trySend(result.data.id)
                 }
 
                 is AppResult.Failure -> {

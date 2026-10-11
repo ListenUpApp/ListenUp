@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Admin → Hardcover (#1542), flattened from the shared `HardcoverSourceStatus` and `HardcoverTokenSave`

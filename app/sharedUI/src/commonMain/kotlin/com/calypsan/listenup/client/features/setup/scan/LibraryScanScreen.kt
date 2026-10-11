@@ -45,7 +45,6 @@ import com.calypsan.listenup.client.features.auth.components.BrandMark
 import com.calypsan.listenup.client.features.setup.components.SetupHeroBlob
 import kotlin.math.roundToInt
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.delay
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.library_scan_continue
@@ -309,7 +308,6 @@ private fun ScanProgressBlock(progress: ScanProgressState) {
  * count row and wavy bar above it stay still.
  */
 @Composable
-@OptIn(ExperimentalTime::class)
 private fun ScanProgressLabel(progress: ScanProgressState) {
     val nowMs by produceState(initialValue = Clock.System.now().toEpochMilliseconds()) {
         while (true) {

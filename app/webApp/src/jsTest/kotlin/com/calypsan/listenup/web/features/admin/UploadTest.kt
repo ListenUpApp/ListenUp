@@ -24,6 +24,7 @@ import org.w3c.files.File
 import com.calypsan.listenup.web.candidatesFrom
 import com.calypsan.listenup.web.relPathOf
 import com.calypsan.listenup.web.uploadRefusalSentence
+import com.calypsan.listenup.client.presentation.admin.upload.uploadSelectionRefusal
 
 internal fun uploaded(
     title: String,
@@ -187,6 +188,22 @@ class UploadTest :
                 "Nothing could be added."
         }
 
+        test("a book whose outcome this build cannot read is listed and counted, never called added or failed") {
+            val unreadable =
+                UploadBooksUiState.Finished(
+                    imported = emptyList(),
+                    duplicates = emptyList(),
+                    failed = emptyList(),
+                    unreadable = listOf(uploaded("From The Future", UploadedBookStatus.UNKNOWN)),
+                )
+
+            finishedSummary(unreadable) shouldBe "0 books added, 1 with a result this version of the app can't show."
+            val host = page(unreadable)
+            host.textContent.orEmpty() shouldContain "Result this version of the app can't show (1)"
+            host.textContent.orEmpty() shouldContain "From The Future"
+            host.textContent.orEmpty() shouldNotContain "Couldn't be added"
+        }
+
         test("a finished run offers another go") {
             var reset = 0
             val host = page(finished(imported = listOf(uploaded("Dune", UploadedBookStatus.IMPORTED))), onReset = { reset++ })
@@ -222,6 +239,15 @@ class UploadTest :
             // The browser reads nothing up front any more, so the only limits left are the shared
             // ones the server sets — not where a tab's allocations give out.
             candidatesFrom(listOf(hugeFile())).single().source.size shouldBe HUGE_BYTES
+        }
+
+        test("a selection too large for one upload is refused by the shared rule, not dropped from the pick") {
+            // ⛔ Picking reads nothing, so a file the tab could never have held is still a candidate;
+            // what one upload may carry is the shared rule's call, and it names the limit.
+            val candidates = candidatesFrom(listOf(oversizeFile()))
+
+            candidates.size shouldBe 1
+            uploadSelectionRefusal(candidates).shouldNotBeNull()
         }
 
         // The shared rule decides what is refused; the browser only has to say it. Same sentences as
@@ -290,4 +316,7 @@ private fun hugeFile() = browserFile("big.m4b", "x", relativePath = null, size =
 /** 5 GiB — more than any tab could have held, when a pick was read into memory first. */
 private const val HUGE_BYTES = 5L * 1024 * 1024 * 1024
 
+private fun oversizeFile() = browserFile("big.m4b", "x", relativePath = null, size = TIB.toDouble())
+
 private const val GIB = 1024L * 1024 * 1024
+private const val TIB = 1024L * GIB

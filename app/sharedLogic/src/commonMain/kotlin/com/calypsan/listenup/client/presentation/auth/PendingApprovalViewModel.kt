@@ -64,7 +64,6 @@ class PendingApprovalViewModel(
 
     private var streamJob: Job? = null
     private var pollJob: Job? = null
-    private var closed = false
 
     init {
         connectToStream()
@@ -84,29 +83,6 @@ class PendingApprovalViewModel(
                 notifyPromise.value = registrar.registerRegistrationWatch(userId)
             }
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        close()
-    }
-
-    /**
-     * Cancels the stream watch and the poll loop. Idempotent — safe to call more than once, or
-     * after [onCleared] already ran.
-     *
-     * Android/Desktop never call this directly: [onCleared] delegates here when the framework's
-     * `ViewModelStore` clears this entry. iOS has no `ViewModelStore` — a Koin `factory`-resolved
-     * `PendingApprovalViewModel` is never told its owning screen went away — so
-     * `PendingApprovalViewModelWrapper.deinit` calls [close] itself; without it, the stream/poll
-     * jobs would run forever, orphaned, exactly the "iOS watcher never torn down" half of the
-     * registration-status reconnect flood this migration exists to kill.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        streamJob?.cancel()
-        pollJob?.cancel()
     }
 
     /**

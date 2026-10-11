@@ -110,3 +110,12 @@ internal fun isInsideAnyRoot(
     val resolvedTarget = resolvedForContainment(target, finalLink) ?: return false
     return roots.any { root -> resolvedForContainment(root)?.let { resolvedTarget.isUnder(it) } == true }
 }
+
+/**
+ * True when [path] is a regular file that resolves inside one of [roots]. A symbolic link is judged
+ * where it points, so a link out of the library — or to a directory, a device, a FIFO — is refused.
+ */
+internal fun isRegularFileInsideAnyRoot(
+    path: Path,
+    roots: List<Path>,
+): Boolean = SystemFileSystem.metadataOrNull(path)?.isRegularFile == true && isInsideAnyRoot(path, roots)

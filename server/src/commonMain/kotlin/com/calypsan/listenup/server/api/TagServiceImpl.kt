@@ -4,8 +4,6 @@ import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.dto.auth.Permission
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
@@ -14,6 +12,7 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -22,6 +21,7 @@ import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.TagSlug
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
+import com.calypsan.listenup.server.auth.requirePermission
 
 private const val MAX_LIMIT = 1000
 private const val MIN_LIMIT = 1
@@ -86,16 +86,7 @@ internal class TagServiceImpl(
         return accessPolicy.accessibleBookIds(p.userId.value, p.role)
     }
 
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
-
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun listTags(): AppResult<List<TagSummary>> {
         val tags = tagRepository.listAll()
         // Compute book counts via raw SQL sub-select to avoid N+1.
@@ -115,6 +106,7 @@ internal class TagServiceImpl(
         )
     }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getTagBySlug(slug: String): AppResult<TagSummary?> {
         val tag = tagRepository.findBySlug(slug) ?: return AppResult.Success(null)
         val bookCount = countLiveJunctionsForTag(tag.id)
@@ -162,15 +154,31 @@ internal class TagServiceImpl(
     }
 
     override suspend fun getTagStats(tagId: TagId): AppResult<FacetStats> {
-        val row = suspendTransaction(sql) { sql.bookTagsQueries.tagStats(tagId.value).executeAsOne() }
-        return AppResult.Success(FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L))
+        // Count only books the caller can open, so a member is never told "12 books" and shown 9.
+        // null = ROOT/ADMIN: every book, so the SQL aggregate answers directly.
+        val accessible = accessibleBookIdFilter()
+        val stats =
+            suspendTransaction(sql) {
+                if (accessible == null) {
+                    val row = sql.bookTagsQueries.tagStats(tagId.value).executeAsOne()
+                    FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L)
+                } else {
+                    val reachable =
+                        sql.bookTagsQueries
+                            .tagBookDurations(tagId.value)
+                            .executeAsList()
+                            .filter { it.book_id in accessible }
+                    FacetStats(bookCount = reachable.size, totalDurationMs = reachable.sumOf { it.duration_ms })
+                }
+            }
+        return AppResult.Success(stats)
     }
 
     override suspend fun addTagToBook(
         bookId: BookId,
         name: String,
     ): AppResult<Tag> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate name.
         val slug = TagSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
@@ -217,7 +225,7 @@ internal class TagServiceImpl(
         bookId: BookId,
         tagId: TagId,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         if (!bookExists(bookId.value)) {
             return AppResult.Failure(TagError.BookNotFound())
         }
@@ -235,7 +243,7 @@ internal class TagServiceImpl(
         tagId: TagId,
         newName: String,
     ): AppResult<Tag> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate new name (we call normalize just for validation — slug is not changed).
         when (val slugResult = TagSlug.normalize(newName)) {
             is AppResult.Success -> Unit
@@ -250,7 +258,7 @@ internal class TagServiceImpl(
     }
 
     override suspend fun deleteTag(tagId: TagId): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (tagRepository.findById(tagId.value) == null) {
             return AppResult.Failure(TagError.NotFound())
         }

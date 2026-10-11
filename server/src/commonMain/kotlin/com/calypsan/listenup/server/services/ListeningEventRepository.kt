@@ -50,9 +50,9 @@ data class ImportListeningEventWrite(
  * [SqlSyncableRepository.upsert]'s own transaction first, then [StatsRecorder.record] runs afterwards
  * in its own transactions (the `BookServiceImpl.setBookGenres` pattern). De-nesting is required, not
  * merely convenient, because the project's SQLDelight `suspendTransaction` body is a plain
- * (non-suspend) `transactionWithResult` lambda — a suspend hook call (which opens its own transaction,
- * and additionally reads the Exposed `users` table for the timezone) cannot nest inside it, so it
- * would never compile, let alone run as a savepoint. Running it after the event commits in a separate
+ * (non-suspend) `transactionWithResult` lambda — a suspend hook call, which opens its own
+ * transactions, cannot nest inside it: it would never compile, let alone run as a savepoint.
+ * Running it after the event commits in a separate
  * transaction (on the single SQLite connection, one at a time) is `SQLITE_BUSY`-free. Atomicity-on-crash
  * is preserved by design: the stats hook fires only on first insert (`!alreadyExisted`), and stats
  * accrual self-heals via `UserStatsBackfillService` — so a crash between the event commit and the

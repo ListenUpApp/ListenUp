@@ -26,11 +26,10 @@ final class BookRatingsObserver {
 
     init(viewModel: BookRatingsViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.phase = BookRatingsObserver.phase(from: $0) }
         bridge.bind(viewModel.events) { VoiceOverAnnouncement.post(BookRatingsObserver.announcement(for: $0)) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

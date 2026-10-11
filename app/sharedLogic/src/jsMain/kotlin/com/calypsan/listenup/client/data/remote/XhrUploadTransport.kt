@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.UploadRoutePaths
 import com.calypsan.listenup.api.dto.uploads.UploadSessionSummary
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.client.core.Failure
@@ -18,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.io.IOException
 import org.w3c.files.Blob
+import org.w3c.files.FileReader
 import org.w3c.xhr.FormData
 import org.w3c.xhr.XMLHttpRequest
 import kotlin.coroutines.resume
@@ -45,6 +48,11 @@ private const val FILE_TRANSFER_TIMEOUT_MS = 60 * 60 * 1_000
  * Ktor path types it: a status through [ErrorMapper.forHttpStatus], a dropped connection as an
  * [IOException], a timeout as Ktor's own timeout exception — both folded by [ErrorMapper].
  *
+ * A browser reports a picked file it can no longer read (moved, deleted, its disk gone) exactly as
+ * it reports a dropped connection: the request errors. So a failed send asks whether the file can
+ * still be read, and one that cannot fails as [UploadError.FileUnreadable] — the file error the user
+ * can act on, which nothing retries — rather than as the network being down, three times over.
+ *
  * Cancelling the calling coroutine aborts the request, so the Cancel button stops the bytes.
  *
  * Public, with every collaborator a lambda, so the web module's browser specs can drive it against
@@ -65,6 +73,8 @@ class XhrUploadTransport(
     private val clientHeaders: Map<String, String> = emptyMap(),
     /** Builds the request; a spec passes a fake. */
     private val newRequest: () -> XMLHttpRequest = { XMLHttpRequest() },
+    /** Whether the browser can still read the file; a spec passes a fake. */
+    private val canRead: suspend (Blob) -> Boolean = ::canReadFirstByte,
 ) {
     /**
      * Sends [file] into [sessionId] at [relPath], named [filename], reporting `(bytesSent,
@@ -118,17 +128,22 @@ class XhrUploadTransport(
                 onProgress = onProgress,
             )
 
-        return suspendRunCatching {
-            val first = send(outgoing, accessToken())
-            if (first.status != HttpStatusCode.Unauthorized.value) {
-                first
-            } else {
-                // The one heal the bearer plugin gives a Ktor request: rotate, then send again.
-                // A dead session answers null, and the original 401 stands.
-                val rotated = refreshAccessToken()
-                if (rotated == null) first else send(outgoing, rotated)
+        val sent =
+            suspendRunCatching {
+                val first = send(outgoing, accessToken())
+                if (first.status != HttpStatusCode.Unauthorized.value) {
+                    first
+                } else {
+                    // The one heal the bearer plugin gives a Ktor request: rotate, then send again.
+                    // A dead session answers null, and the original 401 stands.
+                    val rotated = refreshAccessToken()
+                    if (rotated == null) first else send(outgoing, rotated)
+                }
             }
-        }.flatMap { reply -> reply.toResult(url) }
+        if (sent is AppResult.Failure && sent.error is TransportError.NetworkUnavailable && !canRead(file)) {
+            return AppResult.Failure(UploadError.FileUnreadable(debugInfo = "Could not read $filename"))
+        }
+        return sent.flatMap { reply -> reply.toResult(url) }
     }
 
     /** One send, with progress pumped from the browser's callback onto the caller's coroutine. */
@@ -206,3 +221,16 @@ class XhrUploadTransport(
         val SUCCESS_STATUSES = 200..299
     }
 }
+
+/**
+ * Whether the browser can read the first byte of [blob]. A file that was moved or deleted after it
+ * was picked fails this read; an empty one passes it.
+ */
+private suspend fun canReadFirstByte(blob: Blob): Boolean =
+    suspendCancellableCoroutine { continuation ->
+        val reader = FileReader()
+        reader.onload = { continuation.resume(true) }
+        reader.onerror = { continuation.resume(false) }
+        continuation.invokeOnCancellation { reader.abort() }
+        reader.readAsArrayBuffer(blob.slice(0, 1))
+    }

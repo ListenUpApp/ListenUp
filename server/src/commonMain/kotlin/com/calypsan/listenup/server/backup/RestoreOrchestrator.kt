@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.io.copyDirectoryRecursively
 import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.media.ManagedImageDirs
 import com.calypsan.listenup.server.sync.ChangeBus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -21,10 +22,13 @@ import kotlinx.io.files.SystemFileSystem
 
 private val logger = loggerFor<RestoreOrchestrator>()
 
+private const val ROLLBACK_DB_NAME = "listenup.db"
+
 /**
- * Orchestrates a live in-process restore: validate → drain → safety-copy → extract → close pool
- * → swap db file in place → reopen pool → migrate → done. On any failure in the swap/migrate
- * window, rolls back to the safety copy and reopens the pool on the original db.
+ * Orchestrates a live in-process restore: validate → drain → extract → copy image dirs aside → close
+ * pool → safety-copy the db (nothing can write now) → swap db file in place → migrate → reopen pool →
+ * done. On any failure in the swap/migrate window, rolls back to the safety copy and reopens the pool
+ * on the original db. A failure before the pool closes (e.g. extraction) touches nothing.
  *
  * The [maintenance] gate is single-flight: only one restore can run at a time.
  * The [DatabaseHandle.sqlDriver] object identity is preserved across the swap so repositories
@@ -68,20 +72,27 @@ class RestoreOrchestrator(
 
             try {
                 eventBus.tryEmit(BackupEvent.Draining)
-                maintenance.drain()
+                if (!maintenance.drain()) {
+                    logger.warn {
+                        "restore: requests still in flight after drain timeout; they fail once the database closes"
+                    }
+                }
 
-                // 3. Safety copy (pool still live)
+                // 3. Extract snapshot to staging (slow; the database is untouched and still serving)
+                extractToStaging(archivePath)?.let { return@withContext AppResult.Failure(it) }
+
+                // 4. Image directories aside. A stale database copy from an earlier attempt must not
+                // survive into this one, or rollback could swap it in.
                 SystemFileSystem.createDirectories(paths.rollbackDir)
-                val rollbackDb = Path(paths.rollbackDir, "listenup.db")
+                val rollbackDb = Path(paths.rollbackDir, ROLLBACK_DB_NAME)
+                val rollbackDbPartial = Path(paths.rollbackDir, "$ROLLBACK_DB_NAME.partial")
                 SystemFileSystem.delete(rollbackDb, mustExist = false)
-                dbHandle.vacuumInto(rollbackDb.toString())
-                val rollbackCovers = copyDirAside(paths.coversDir, Path(paths.rollbackDir, "covers"))
-                val rollbackAvatars = copyDirAside(paths.avatarsDir, Path(paths.rollbackDir, "avatars"))
-
-                // 4. Extract snapshot to staging
-                if (SystemFileSystem.exists(paths.stagingDir)) deleteRecursively(paths.stagingDir)
-                SystemFileSystem.createDirectories(paths.stagingDir)
-                archive.extractTo(archivePath, paths.stagingDir)
+                SystemFileSystem.delete(rollbackDbPartial, mustExist = false)
+                val asideDirs =
+                    ManagedImageDirs.ALL.mapNotNull { name ->
+                        copyDirAside(paths.imageDir(name), Path(paths.rollbackDir, name))
+                            ?.let { aside -> aside to paths.imageDir(name) }
+                    }
 
                 // 5. Swap — NonCancellable so a cancellation mid-swap cannot leave the
                 // pool closed forever. Once closePool() is called the swap MUST run to a
@@ -89,29 +100,37 @@ class RestoreOrchestrator(
                 // cancellation can propagate.
                 withContext(NonCancellable) {
                     eventBus.tryEmit(BackupEvent.Swapping)
+                    val revisionBeforeRestore = dbHandle.revisionCounter()
                     dbHandle.closePool()
                     // Deliberate: inside NonCancellable every throwable, an explicit cancellation included,
                     // must roll back and reopen the pool — see the catch below.
                     @Suppress("SuspendFunSwallowedCancellation")
                     try {
+                        // Safety copy of the database as it stands now that the driver refuses work. Written
+                        // to a .partial name and renamed only when complete, so rollback never sees half a copy.
+                        dbHandle.vacuumInto(rollbackDbPartial.toString())
+                        swapFile(rollbackDbPartial, rollbackDb)
+
                         swapFile(Path(paths.stagingDir, "listenup.db"), paths.dbFile)
                         deleteDbSidecars()
                         if (manifest.includesImages) {
-                            swapDir(Path(paths.stagingDir, "covers"), paths.coversDir)
-                            swapDir(Path(paths.stagingDir, "avatars"), paths.avatarsDir)
+                            ManagedImageDirs.ALL.forEach { swapDir(Path(paths.stagingDir, it), paths.imageDir(it)) }
                         }
-                        dbHandle.reopenPool()
 
-                        // 6. migrate the swapped-in db forward to the current schema
+                        // 6. migrate the swapped-in db forward to the current schema while the pool is
+                        // still closed (the migration runs on its own admin connection), so no request or
+                        // worker ever queries an old-schema file with today's SQL.
                         eventBus.tryEmit(BackupEvent.Migrating)
                         val migratedTo = dbHandle.migrate() ?: manifest.schemaVersion
+                        revisionBeforeRestore?.let { dbHandle.raiseRevisionCounterTo(it) }
+                        dbHandle.reopenPool()
 
                         eventBus.tryEmit(BackupEvent.RestoreComplete(manifest.includesImages))
 
-                        // The DB was swapped wholesale; connected devices' cursors are AHEAD of the
-                        // restored revision counter, so neither forward catch-up nor CursorStale can
-                        // see the change. Broadcast the digest-reconcile accelerator so every
-                        // connected client re-derives, exactly like ImportApplier's bulk path.
+                        // The revision counter was carried forward, so new writes reach every client
+                        // normally. The restored rows still differ from what connected clients hold, and
+                        // only a digest reconcile finds that: broadcast the accelerator so every connected
+                        // client re-derives, exactly like ImportApplier's bulk path.
                         changeBus.broadcastControl(SyncControl.LibraryDataChanged)
 
                         deleteRecursively(paths.rollbackDir)
@@ -132,11 +151,7 @@ class RestoreOrchestrator(
                         logger.error(e) { "restore swap/migrate failed — rolling back to safety copy" }
                         rollback(
                             rollbackDb = rollbackDb,
-                            asideDirs =
-                                listOfNotNull(
-                                    rollbackCovers?.let { aside -> aside to paths.coversDir },
-                                    rollbackAvatars?.let { aside -> aside to paths.avatarsDir },
-                                ),
+                            asideDirs = asideDirs,
                         )
                         deleteRecursively(paths.stagingDir)
                         eventBus.tryEmit(BackupEvent.RolledBack(e.message ?: "restore failed"))
@@ -147,6 +162,26 @@ class RestoreOrchestrator(
                 maintenance.exit()
             }
         }
+
+    /**
+     * Extracts [archivePath] into a fresh staging directory. A corrupt archive returns
+     * [BackupError.CorruptArchive]; any other failure (I/O, cancellation) propagates. Either way a failed
+     * extraction leaves no staging directory behind.
+     */
+    private fun extractToStaging(archivePath: Path): BackupError.CorruptArchive? {
+        if (SystemFileSystem.exists(paths.stagingDir)) deleteRecursively(paths.stagingDir)
+        SystemFileSystem.createDirectories(paths.stagingDir)
+        return try {
+            archive.extractTo(archivePath, paths.stagingDir)
+            null
+        } catch (e: BackupArchive.CorruptArchiveException) {
+            deleteRecursively(paths.stagingDir)
+            BackupError.CorruptArchive(debugInfo = e.message)
+        } catch (e: Throwable) {
+            deleteRecursively(paths.stagingDir)
+            throw e
+        }
+    }
 
     /**
      * Copies [src] directory aside to [dest]. Returns [dest] (or null if [src] doesn't exist —

@@ -37,6 +37,8 @@ sealed interface ContributorError : AppError {
         override val message: String = "This contributor no longer exists."
         override val code: String = "CONTRIBUTOR_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -53,6 +55,8 @@ sealed interface ContributorError : AppError {
         override val message: String = "Some of the changes couldn't be saved."
         override val code: String = "CONTRIBUTOR_INVALID_INPUT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -68,6 +72,8 @@ sealed interface ContributorError : AppError {
         override val message: String = "A contributor can't be merged with itself."
         override val code: String = "CONTRIBUTOR_MERGE_SELF_TARGET"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -84,5 +90,7 @@ sealed interface ContributorError : AppError {
         override val message: String = "That alias isn't attached to this contributor."
         override val code: String = "CONTRIBUTOR_ALIAS_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

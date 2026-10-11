@@ -85,19 +85,16 @@ final class ChapterEditorObserver {
 
     init(viewModel: ChapterEditorViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         timeline.onRetime = { [weak self] chapterId, startMs in self?.retime(chapterId, toMs: startMs) }
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
     }
 
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
-
-    /// ⛔ The ViewModel's own `close()`, not just a cancelled bridge. Its KDoc names iOS as
-    /// responsible for calling it: without it the `viewModelScope` outlives the screen and an
-    /// in-flight save orphans.
+    /// ⛔ Releases the bridge, which clears the ViewModel — not just a cancelled bridge. Without the
+    /// clear the `viewModelScope` outlives the screen and an in-flight save orphans.
     func close() {
-        bridge.cancelAll()
-        viewModel.close()
+        bridge.release()
     }
 
     func select(_ chapterId: String?) { viewModel.select(chapterId: chapterId) }

@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.auth.Permission
@@ -15,10 +13,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-@OptIn(ExperimentalTime::class)
 private class MutableClock(
     var current: Instant,
 ) : Clock {
@@ -28,7 +24,6 @@ private class MutableClock(
 private val CONFIGURED_PUSH = PushConfig(relayUrl = "https://push.example.com")
 
 /** Builds the service under test; defaults model the common disarmed-hatch case. */
-@OptIn(ExperimentalTime::class)
 private fun instanceService(
     sql: ListenUpDatabase,
     settings: ServerSettingsRepository,

@@ -16,6 +16,7 @@ struct ImageEditHeader<ImageContent: View>: View {
     @ViewBuilder var image: () -> ImageContent
 
     @State private var item: PhotosPickerItem?
+    @State private var pickTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 10) {
@@ -56,20 +57,31 @@ struct ImageEditHeader<ImageContent: View>: View {
             }
         }
         .onChange(of: item) { _, newItem in
+            // A newer pick supersedes a decode still in flight: its result is never delivered.
+            pickTask?.cancel()
             guard let newItem else { return }
-            Task {
+            pickTask = Task {
                 // Normalize to JPEG before handing bytes up. `loadTransferable(type: Data.self)`
                 // returns the photo's ORIGINAL encoding, which on iPhone is usually HEIC — a format
                 // the server's image validator rejects (it sniffs for JPEG/PNG/WebP magic bytes only)
-                // → 422 on upload. Decoding to UIImage and re-encoding as JPEG guarantees a format the
-                // server accepts, for every consumer of this shared header (avatar, contributor, cover).
-                if let data = try? await newItem.loadTransferable(type: Data.self),
-                   let jpeg = UIImage(data: data)?.jpegData(compressionQuality: 0.9) {
+                // → 422 on upload. Decoding and re-encoding as JPEG guarantees a format the server
+                // accepts, for every consumer of this shared header (avatar, contributor, cover).
+                // The size is bounded (2,048 px, parity with Android) so a huge photo is never decoded
+                // at full size.
+                if let jpeg = await Self.loadNormalizedJPEG(from: newItem), !Task.isCancelled {
                     onPicked(jpeg)
                 }
-                item = nil
+                if !Task.isCancelled { item = nil }
             }
         }
+    }
+
+    /// `@concurrent` ⇒ the photo load, decode and JPEG encode run on the cooperative pool, never the
+    /// main actor.
+    @concurrent
+    private nonisolated static func loadNormalizedJPEG(from item: PhotosPickerItem) async -> Data? {
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
+        return PickedImage.normalizedJPEG(from: data)
     }
 
     private var clip: AnyShape {

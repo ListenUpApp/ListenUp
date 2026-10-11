@@ -46,6 +46,7 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
             AccessGate(
                 liveIds = database.collectionBookDao()::liveSyncIds,
                 tombstoneByIds = database.collectionBookDao()::tombstoneByIds,
+                unacknowledgedIds = database.collectionBookDao()::unacknowledgedIds,
                 // Fetched by the scope's collection ids. The candidate set is the local live
                 // membership rows whose collection is in scope — a real column predicate now that
                 // the opaque wire id (SERVER-SYNC-04) no longer encodes collectionId.

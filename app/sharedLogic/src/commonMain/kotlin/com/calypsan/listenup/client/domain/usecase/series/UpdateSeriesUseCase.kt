@@ -6,7 +6,11 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
+import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.usecase.settle
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -17,12 +21,13 @@ private val logger = KotlinLogging.logger {}
  * This use case orchestrates:
  * 1. Updating series metadata (name, description)
  * 2. Committing staged cover to main location
- * 3. Uploading cover to server (best-effort)
+ * 3. Uploading cover to server (a failed upload is reported in the [SaveOutcome], not as a failed save)
  *
  * Cover Flow:
  * - Cover staging happens separately in the ViewModel for preview
  * - This use case commits the staged cover to the main location
- * - Then uploads to server (failures are logged but don't fail the operation)
+ * - Then uploads to server; a failure does not fail the operation but comes back as
+ *   [SaveOutcome.SavedImageNotUploaded]
  *
  * Usage:
  * ```kotlin
@@ -37,18 +42,20 @@ private val logger = KotlinLogging.logger {}
  * )
  * ```
  */
-open class UpdateSeriesUseCase(
+open class UpdateSeriesUseCase internal constructor(
     private val seriesEditRepository: SeriesEditRepository,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
+    private val pendingImageUploads: PendingImageUploads,
 ) {
     /**
      * Update series with optional cover upload.
      *
      * @param request The update request containing all changes
-     * @return Result indicating success or failure
+     * @return A failure if the metadata could not be saved, otherwise a [SaveOutcome] saying whether
+     *   the new cover reached the server
      */
-    open suspend operator fun invoke(request: SeriesUpdateRequest): AppResult<Unit> =
+    open suspend operator fun invoke(request: SeriesUpdateRequest): AppResult<SaveOutcome> =
         suspendRunCatching {
             logger.info { "Updating series ${request.seriesId}" }
 
@@ -75,20 +82,24 @@ open class UpdateSeriesUseCase(
             }
 
             // 2. Commit staging cover and upload if pending
-            if (request.pendingCoverData != null && request.pendingCoverFilename != null) {
-                commitAndUploadCover(request)
-            }
+            val outcome =
+                if (request.pendingCoverData != null && request.pendingCoverFilename != null) {
+                    commitAndUploadCover(request)
+                } else {
+                    SaveOutcome.Saved
+                }
 
             logger.info { "Series update complete for ${request.seriesId}" }
+            outcome
         }
 
     /**
      * Commit staged cover to main location and upload to server.
-     * Cover upload is best-effort - local save is prioritized.
+     * The local save is prioritized: a failed upload is returned as an outcome, not thrown.
      */
-    private suspend fun commitAndUploadCover(request: SeriesUpdateRequest) {
-        val pendingData = request.pendingCoverData ?: return
-        val pendingFilename = request.pendingCoverFilename ?: return
+    private suspend fun commitAndUploadCover(request: SeriesUpdateRequest): SaveOutcome {
+        val pendingData = request.pendingCoverData ?: return SaveOutcome.Saved
+        val pendingFilename = request.pendingCoverFilename ?: return SaveOutcome.Saved
 
         // First, commit staging to main cover location
         when (val commitResult = imageStagingRepository.commitSeriesCoverStaging(request.seriesId)) {
@@ -102,18 +113,12 @@ open class UpdateSeriesUseCase(
             }
         }
 
-        // Then upload to server (best-effort)
-        when (val result = imageRepository.uploadSeriesCover(request.seriesId, pendingData, pendingFilename)) {
-            is AppResult.Success -> {
-                logger.info { "Cover uploaded to server" }
-            }
-
-            is AppResult.Failure -> {
-                logger.error { "Failed to upload cover: ${result.message}" }
-                logger.warn { "Continuing despite cover upload failure (local cover saved)" }
-                // Don't fail - local cover is saved
-            }
+        val result = imageRepository.uploadSeriesCover(request.seriesId, pendingData, pendingFilename)
+        when (result) {
+            is AppResult.Success -> logger.info { "Cover uploaded to server" }
+            is AppResult.Failure -> logger.error { "Failed to upload cover: ${result.message}" }
         }
+        return pendingImageUploads.settle(PendingImageKind.SeriesCover, request.seriesId, result)
     }
 }
 

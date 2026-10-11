@@ -85,6 +85,12 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
         maxAttempts: Int,
     ): Int = inserted.count { it.failureCount <= maxAttempts }
 
+    override suspend fun hasQueuedOpInDomain(
+        domainName: String,
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ): Boolean = inserted.any { it.domainName == domainName && it.failureCount <= maxAttempts }
+
     override suspend fun hasQueuedOp(
         domainName: String,
         entityId: String,

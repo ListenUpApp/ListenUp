@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.matching.apply
 
+import com.calypsan.listenup.api.dto.match.LabelSetChange
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CoverSource
@@ -9,6 +10,7 @@ import com.calypsan.listenup.server.sync.withCapturedFrames
 import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -41,6 +43,37 @@ class BookMatchUndoTest :
                     rig.coverColumns() shouldBe coverBefore
                     rig.moodNames() shouldBe listOf("Hopeful")
                     rig.tagNames() shouldBe listOf("Heist")
+                }
+            }
+        }
+
+        test("a mood the user added after the match survives undo") {
+            withSqlDatabase {
+                runTest {
+                    val rig = MatchRig(this@withSqlDatabase)
+                    rig.seedBook()
+                    val receipt = rig.applier.apply(rig.book(), rig.fullRequest(), US, "u1").shouldSucceed()
+                    rig.moodWriter.writeMoods(BookId(BOOK), listOf("Wistful"))
+
+                    rig.undoer.undo(receipt.receiptId).shouldSucceed()
+
+                    rig.moodNames() shouldContainExactlyInAnyOrder listOf("Hopeful", "Wistful")
+                }
+            }
+        }
+
+        test("a mood the user removed after the match stays removed through undo") {
+            withSqlDatabase {
+                runTest {
+                    val rig = MatchRig(this@withSqlDatabase)
+                    rig.seedBook()
+                    val addTenseOnly = rig.fullRequest().copy(moods = LabelSetChange(add = listOf("Tense")))
+                    val receipt = rig.applier.apply(rig.book(), addTenseOnly, US, "u1").shouldSucceed()
+                    rig.moodWriter.setBookMoods(BookId(BOOK), listOf("Tense"))
+
+                    rig.undoer.undo(receipt.receiptId).shouldSucceed()
+
+                    rig.moodNames() shouldBe emptyList()
                 }
             }
         }

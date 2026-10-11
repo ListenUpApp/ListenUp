@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.presentation.home
 
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.cancel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.currentHourOfDay
@@ -19,7 +18,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -29,9 +27,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.concurrent.Volatile
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
-private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 private const val CONTINUE_LISTENING_LIMIT = 10
 
 /**
@@ -104,24 +102,6 @@ class HomeViewModel(
     private val syncRepository: SyncRepository,
     private val currentHour: () -> Int = { currentHourOfDay() },
 ) : ViewModel() {
-    private var closed = false
-
-    override fun onCleared() {
-        super.onCleared()
-        close()
-    }
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android reaches it via [onCleared] when the
-     * `ViewModelStore` clears the entry; iOS has no store, so the screen's wrapper calls it from its
-     * `isolated deinit` (#1192) — else viewModelScope streams/one-shots orphan when the screen goes.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        viewModelScope.cancel()
-    }
-
     private val snackbarChannel = Channel<String>(Channel.BUFFERED)
     val snackbarMessages: Flow<String> = snackbarChannel.receiveAsFlow()
 
@@ -171,7 +151,7 @@ class HomeViewModel(
             .flatMapLatest { homeStatePipeline() }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = HomeUiState.Loading,
             )
 

@@ -28,6 +28,10 @@ class ScanProgressStateTest :
             booksTotal = booksTotal,
         )
 
+        test("a phase this build cannot name reads as generic working, not as the raw literal") {
+            state().copy(phase = "unknown").phaseDisplayName shouldBe "Working"
+        }
+
         test("progressFraction is null while the book total is unknown (WALKING/GROUPING)") {
             state(books = 0, booksTotal = 0, current = 1200, filesTotal = 0).progressFraction shouldBe null
         }

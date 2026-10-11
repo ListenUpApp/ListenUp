@@ -499,6 +499,35 @@ class BooksDomainTest :
             }
         }
 
+        // The user's new cover is on this device but not yet on the server. A server event that carries
+        // the OLD cover's hash must not delete the local file: the pending upload reads it, and the
+        // screen would show the old image again.
+        test("a changed cover hash keeps the local cover while its upload is still pending") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
+                    val handler =
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = imageStorage)
+                            .toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+
+                    handler.onEvent(
+                        created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
+                    )
+                    db.pendingImageUploadDao().record("BookCover", "b1", "u1", 1L)
+                    handler.onEvent(
+                        updatedEvent(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h2"))),
+                    )
+
+                    verifySuspend(VerifyMode.not) { imageStorage.deleteCover(any()) }
+                    db.bookDao().getById(BookId("b1"))?.coverHash shouldBe "h2"
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
         test("an unchanged cover hash leaves the local cover in place") {
             runTest {
                 val db = createInMemoryTestDatabase()

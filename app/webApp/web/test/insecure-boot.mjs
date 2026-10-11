@@ -14,6 +14,7 @@ import { chromium } from 'playwright'
 import { preview } from 'vite'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { recordCspViolations, readCspViolations } from './csp-violations.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // `host: true` binds 0.0.0.0 so vite reports a non-loopback URL at all.
@@ -44,6 +45,7 @@ page.on('console', (m) => {
   if (m.type() === 'error' && !isNoise(m.text())) errors.push(m.text())
 })
 
+await recordCspViolations(page)
 await page.goto(base, { waitUntil: 'load' })
 
 // Proves the premise before asserting anything about it: if this origin were trustworthy the
@@ -76,11 +78,13 @@ const banner = await page.textContent('.lapse.is-hint').catch(() => null)
 // ⛔ `.luw` is WebAppSurface, which AuthGate applies — so its presence proves the APP rendered,
 // not merely the banner. Read before the browser closes, obviously.
 const appRendered = (await page.$('.luw')) !== null
+const violations = await readCspViolations(page)
 
 await browser.close()
 await server.close()
 
 for (const e of errors) console.log(`  ERROR  ${e}`)
+for (const v of violations) console.log(`  ${v}`)
 console.log(`origin:  ${base} (isSecureContext=false)`)
 console.log(`#app:    ${JSON.stringify(text.slice(0, 90))}`)
 console.log(`surface: ${appRendered}  usable-screen: ${reachedScreen}  stuck-on-boot: ${stuckOnBoot}`)
@@ -88,7 +92,7 @@ console.log(`banner:  ${JSON.stringify((banner ?? '').slice(0, 90))}`)
 
 // Without the surface check the banner alone would satisfy this test, and a dead app underneath
 // a tidy explanation is the exact failure shape being guarded against.
-const ok = errors.length === 0 && appRendered && reachedScreen && !stuckOnBoot && (banner ?? '').length > 0
+const ok = errors.length === 0 && violations.length === 0 && appRendered && reachedScreen && !stuckOnBoot && (banner ?? '').length > 0
 if (!appRendered) console.log('  the banner rendered but the app under it did not')
 if (stuckOnBoot || !reachedScreen) {
   console.log('  the app never got past "Checking your session…"')

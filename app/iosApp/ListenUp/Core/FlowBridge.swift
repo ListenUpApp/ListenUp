@@ -1,3 +1,4 @@
+import AndroidxLifecycleLifecycleViewmodel
 import Foundation
 import os
 import Shared
@@ -9,10 +10,11 @@ import Shared
 /// task — collecting on the main actor and cancelling them all together on teardown.
 /// Observers never hand-roll `Task { for await … }` loops.
 ///
-/// Teardown is **nonisolated-safe**: `cancelAll()` can be called from any thread,
-/// including a `@MainActor` class's `nonisolated deinit`. The task list is guarded by
-/// an `OSAllocatedUnfairLock`, and `Task.cancel()` is itself thread-safe — so an
-/// observer's deinit cancels every subscription without an `assumeIsolated` hop.
+/// An observer does not write a `deinit` for its bridge. When the bridge is released it cancels
+/// its subscriptions and clears whatever it owns (`own(_:)` adopts a fresh Kotlin ViewModel),
+/// so the screen's ViewModel ends with the screen. `cancelAll()` stays callable from any
+/// thread for the cases that re-bind: the task list is guarded by an `OSAllocatedUnfairLock`,
+/// and `Task.cancel()` is itself thread-safe.
 @MainActor
 final class FlowBridge {
     // Lock-guarded so cancellation is isolation-free and callable from a nonisolated deinit.
@@ -69,12 +71,47 @@ final class FlowBridge {
         bind(flow.asAsyncSequence(), onError: onError, to: sink)
     }
 
-    /// Cancel every subscription. Safe to call from any thread (e.g. a nonisolated deinit) —
-    /// cancelling a `Task` needs no actor isolation; the lock guards the array mutation.
+    /// Cancel every subscription. Safe to call from any thread — cancelling a `Task` needs no
+    /// actor isolation; the lock guards the array mutation. For the observers that re-bind;
+    /// ending the bridge's life is `release()`, which a deinit reaches by itself.
     nonisolated func cancelAll() {
         tasks.withLock { list in
             for task in list { task.cancel() }
             list.removeAll()
         }
+    }
+
+    /// What a bridge calls a Kotlin ViewModel: the base type every shared ViewModel extends.
+    typealias KotlinViewModel = ExportedKotlinPackages.androidx.lifecycle.ViewModel
+
+    // Run once, on the main actor, when the bridge is released or `release()` is called.
+    private var releaseActions: [@MainActor () -> Void] = []
+
+    /// Run `action` when this bridge is released, after its subscriptions are cancelled.
+    func onRelease(_ action: @escaping @MainActor () -> Void) {
+        releaseActions.append(action)
+    }
+
+    /// Adopt a screen-scoped Kotlin ViewModel: it is cleared when this bridge is released.
+    ///
+    /// iOS has no `ViewModelStore`, so without an owner a ViewModel's scope — and every flow it
+    /// collects — outlives its screen. Only for a ViewModel this observer was given fresh (a
+    /// `make…`/`create…` call); never for one of `Dependencies`' shared instances.
+    func own(_ viewModel: KotlinViewModel) {
+        onRelease { KoinHelper.shared.closeViewModel(viewModel: viewModel) }
+    }
+
+    /// Cancel every subscription and run the release actions now. Idempotent.
+    func release() {
+        cancelAll()
+        let actions = releaseActions
+        releaseActions.removeAll()
+        for action in actions { action() }
+    }
+
+    // Isolated (SE-0371) so the release actions, which touch non-Sendable Kotlin objects, run on
+    // the main actor whichever thread drops the last reference.
+    isolated deinit {
+        release()
     }
 }

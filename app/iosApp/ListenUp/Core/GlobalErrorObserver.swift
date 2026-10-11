@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import SwiftUI
 @preconcurrency import Shared
 
@@ -24,6 +25,15 @@ import SwiftUI
 @Observable
 @MainActor
 final class GlobalErrorObserver {
+    /// The process's one consumer of the error bus, or nil before the first sign-in.
+    private(set) static var shared: GlobalErrorObserver?
+
+    /// Start posting bus errors to `ErrorAlertCenter.shared`. Called on authentication — resolving
+    /// the bus earlier would touch the shared graph before a session exists. Later calls do nothing.
+    static func activate() {
+        if shared == nil { shared = GlobalErrorObserver(center: .shared) }
+    }
+
     private let bridge = FlowBridge()
 
     init(center: ErrorAlertCenter, errorBus: ErrorBus = Dependencies.shared.errorBus) {
@@ -45,6 +55,4 @@ final class GlobalErrorObserver {
         else { return message }
         return String(format: String(localized: "error.server_reference"), String(id.prefix(8)))
     }
-
-    deinit { bridge.cancelAll() }   // nonisolated-safe; see FlowBridge.
 }

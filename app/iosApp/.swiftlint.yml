@@ -38,8 +38,8 @@ large_tuple:
   error: 4
 
 # SwiftUI Views and cohesive coordinators legitimately run long — realistic limits that
-# still catch genuine bloat. (FullScreenPlayerView / PlayerCoordinator size is tracked
-# for refactor in docs/superpowers/followups.md, not papered over here.)
+# still catch genuine bloat. (FullScreenPlayerView / PlayerCoordinator are known to be
+# long; the limits are not raised to hide that.)
 function_body_length:
   warning: 60
   error: 120
@@ -110,12 +110,13 @@ custom_rules:
   # light and dark variants, and an increased contrast option for each variant". Screens name a
   # token (`Color.luTint`, `.luWarning`, `AvatarPalette`, `Color+Palette`) or a system colour; a new
   # colour is added to DesignSystem, as a Color Set or a solved token, with its contrast tested.
-  # Paths are regexes: `/ListenUp/` covers the app target only (not ListenUpTests or the widgets).
+  # Paths are regexes: `/ListenUp/` also matches any checkout that lives in a directory named
+  # ListenUp, so the other targets are excluded by name rather than left to a pattern that misses them.
   raw_color_literal_outside_design_system:
     name: "Raw colour literal outside DesignSystem"
     regex: '\b(?:UI)?Color\(\s*(?:\.sRGB\s*,\s*)?(?:hex|red)\s*:'
     included: '/ListenUp/'
-    excluded: '/ListenUp/DesignSystem/'
+    excluded: '/ListenUp/DesignSystem/|/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
     excluded_match_kinds:
       - comment
       - comment.mark
@@ -222,4 +223,166 @@ custom_rules:
     message: >-
       Use a `Spacing` token (`DesignSystem/LayoutTokens.swift`). Optical nudges (1–3pt), breathing
       room of 40pt and more, and geometry-derived insets stay literal.
+    severity: error
+
+  # A shared Kotlin ViewModel has no ViewModelStore on iOS: unless something clears it, its scope
+  # and every flow it collects outlive the screen. The observer that is handed a fresh ViewModel
+  # gives it to its FlowBridge (`bridge.own(viewModel)`), which clears it on release.
+  #
+  # File-level and deliberately cheap, like swipe_actions_outside_list: a file that stores a Kotlin
+  # ViewModel must call `.own(`. A file that holds one it must NOT clear — a view passing it to its
+  # observer, or an observer over one of Dependencies' shared instances — says why with a
+  # `// view-model-owner: <who clears it, or why nobody does>` comment.
+  kotlin_view_model_without_owner:
+    name: "Kotlin ViewModel held without an owner"
+    regex: '(?s)\A(?!.*(?:\.own\(|view-model-owner:)).*?\b(?:let|var) \w*[vV]iewModel\w*: \w+ViewModel\b'
+    included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    message: >-
+      This file stores a Kotlin ViewModel that nothing clears. Pass it to the observer's FlowBridge
+      with bridge.own(viewModel), or add `// view-model-owner: <reason>` if another type owns it.
+    severity: error
+
+  # ── Idioms the app has already left behind ──
+  # These idioms are at zero in the app. The rules exist so a contributor working from an older
+  # guide cannot bring one back unnoticed. The rules scoped to `/ListenUp/` also name the other
+  # targets in `excluded`, for the same reason as `raw_color_literal_outside_design_system`.
+  legacy_swift_idiom_observation:
+    name: "Legacy observation idiom"
+    regex: '\bObservableObject\b|@(?:Published|StateObject|ObservedObject|EnvironmentObject)\b|^import Combine\b'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      Use @Observable with @State / @Environment / @Bindable; Kotlin flows arrive through FlowBridge.
+    severity: error
+
+  legacy_swift_idiom_swiftui:
+    name: "Legacy SwiftUI idiom"
+    regex: '\bNavigationView\b|\bPreviewProvider\b|\.foregroundColor\(|\bAnyView\(|\bUIScreen\.main\b'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      Use NavigationStack, #Preview, .foregroundStyle, a concrete or @ViewBuilder view, and geometry
+      from the view tree.
+    severity: error
+
+  legacy_swift_idiom_xctest:
+    name: "XCTest import"
+    regex: '^import XCTest\b'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: 'Tests use Swift Testing (@Test, #expect).'
+    severity: error
+
+  legacy_swift_idiom_forced:
+    name: "Forced try or cast"
+    regex: '\btry!|\bas!'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: Handle the failure with try? / do-catch, or as?.
+    severity: error
+
+  legacy_swift_idiom_logging:
+    name: "NSLog or print"
+    regex: '\bNSLog\(|(?<![\w.])print\('
+    included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: Log through Log (Core/Logger.swift); a preview action can be empty.
+    severity: error
+
+  legacy_swift_idiom_dispatch:
+    name: "DispatchQueue.main.async"
+    regex: '\bDispatchQueue\.main\.async\b'
+    included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: 'Use Task { @MainActor in … } or a .task modifier.'
+    severity: error
+
+  legacy_swift_idiom_formatter:
+    name: "DateFormatter or NumberFormatter"
+    regex: '\b(?:Date|Number)Formatter\(\)'
+    included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      Use FormatStyle (.formatted(…), ISODate.parse); a shared mutable formatter is the alternative
+      this avoids.
+    severity: error
+
+  unsafe_concurrency_escape:
+    name: "Unsafe concurrency escape"
+    regex: 'nonisolated\(unsafe\)|@unchecked\s+Sendable'
+    included: '/ListenUp/'
+    excluded: '/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      iosApp rule 7: isolate the state (@MainActor) or guard it (OSAllocatedUnfairLock).
+    severity: error
+
+  # The deep-link router and the error surface are one per process. Each listens to a shared Kotlin
+  # flow, so a second instance — one per iPad window, which is what `@State` on the root view
+  # gives — resolves every link and raises every alert again. Use `.shared` (and
+  # `GlobalErrorObserver.activate()`); only the type's own file constructs it. The test and
+  # extension targets build their own or none.
+  second_process_wide_instance:
+    name: "Second instance of a process-wide object"
+    regex: '\b(?:DeepLinkRouter|ErrorAlertCenter|GlobalErrorObserver)\('
+    included: '/ListenUp/'
+    excluded: '/ListenUp/Core/(?:DeepLinkRouter|ErrorAlertCenter|GlobalErrorObserver)\.swift|/ListenUpTests/|/ListenUpWidgets/|/ListenUpActivityKit/|/ListenUpNotificationService/'
+    excluded_match_kinds:
+      - comment
+      - comment.mark
+      - comment.url
+      - doccomment
+      - doccomment.field
+      - string
+    message: >-
+      One per process: use DeepLinkRouter.shared, ErrorAlertCenter.shared or
+      GlobalErrorObserver.activate(). A second instance duplicates every link and alert.
     severity: error

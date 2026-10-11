@@ -4,7 +4,6 @@ import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -51,7 +50,6 @@ import org.jetbrains.compose.resources.stringResource
  * Merging and unmerging are Curate library's: without [canCurate] the chips are read-only and the merge
  * button is gone.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AliasesSection(
     aliases: List<String>,

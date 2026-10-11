@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.core.decodeHtmlEntities
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Em
 import org.jetbrains.compose.web.dom.P
@@ -201,16 +202,17 @@ private fun isSafeHref(href: String): Boolean {
  * stops a smuggled `<img …>` from being *shown* to the reader as text.
  */
 private fun normalizeHtml(input: String): String {
-    if (!input.contains('<')) return input.trim()
-    var result = input
-    BLOCK_BREAK_TAGS.forEach { tag -> result = result.replace(tag, "\n\n", ignoreCase = true) }
+    if (!input.contains('<')) return decodeHtmlEntities(input).trim()
+    var result = input.replace(BLOCK_BREAK_TAG, "\n\n")
     EMPHASIS_TAGS.forEach { (tag, replacement) -> result = result.replace(tag, replacement, ignoreCase = true) }
     result = result.replace(ANY_TAG, "")
+    // After the tags are gone, so an encoded `&lt;b&gt;` stays text instead of being read as a tag.
+    result = decodeHtmlEntities(result)
     result = result.replace(EXCESS_BLANK_LINES, "\n\n")
     return result.trim()
 }
 
-private val BLOCK_BREAK_TAGS = listOf("<br>", "<br/>", "<br />", "</p>", "</div>")
+private val BLOCK_BREAK_TAG = Regex("""<\s*(br|/p|/div|/li)\b[^>]*>""", RegexOption.IGNORE_CASE)
 
 private val EMPHASIS_TAGS =
     listOf(

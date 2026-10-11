@@ -47,6 +47,7 @@ import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncFrameApplier
 import com.calypsan.listenup.client.data.sync.SyncReconciler
+import com.calypsan.listenup.client.data.sync.PendingImageUploadScheduler
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncStreamClient
@@ -64,6 +65,7 @@ import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.ConnectionHealthReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -95,6 +97,8 @@ import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.TagId
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -486,6 +490,10 @@ internal val clientSyncModule =
                 store = get(),
                 transactionRunner = get(),
                 reportConnectionIssue = reporter::report,
+                // A failed catch-up on a digest-less domain (positions) must stop live frames from
+                // stepping its cursor over the gap. Resolved lazily at call time, like the
+                // dispatcher's engine callbacks, so construction order stays acyclic.
+                onUnbackedDomainFailed = { domain -> get<SyncEventDispatcher>().holdCursorUntilCatchUp(domain) },
             )
         }
 
@@ -523,18 +531,29 @@ internal val clientSyncModule =
                 // the live tail — same lazy-SyncEngine resolution as onCursorStale to break the
                 // construction cycle.
                 onAccessChanged = { scope -> get<SyncEngine>().handleAccessChanged(scope) },
-                // Account deleted by an admin: clear auth (soft logout → NeedsLogin),
-                // the same path the 401 fallback uses. Resolved lazily to avoid pulling
-                // AuthSession into the dispatcher's construction graph. The reason is logged
-                // by the dispatcher; there's no existing one-shot channel here to surface it.
-                onUserDeleted = { _ -> get<AuthSession>().clearAuthTokens() },
+                // Account deleted by an admin: the full local sign-out, the same clean slate as Sign Out.
+                // Launched on the app scope because this callback runs inside the engine's frame
+                // collector, and the sign-out's first act is to stop and join that collector. Resolved
+                // lazily to avoid pulling LogoutUseCase into the dispatcher's construction graph. The
+                // reason is logged by the dispatcher; there's no existing one-shot channel here to
+                // surface it.
+                onUserDeleted = { _ ->
+                    get<CoroutineScope>(qualifier = named(APP_SCOPE)).launch {
+                        get<LogoutUseCase>().logoutLocally()
+                    }
+                },
                 // The server's content-free bulk-write nudge (e.g. an ABS import's firehose-suppressed
                 // burst): the suppressed rows are written ABOVE the client cursor, so a digest-only
                 // reconcile (forceReconcile) can't see them — it fingerprints AT the cursor. Route
                 // through lifecycleReconcile(force = true), whose forward catch-up drains the
                 // above-cursor rows before the digest pass. Same lazy-SyncEngine resolution as
                 // onCursorStale/onAccessChanged to break the construction cycle.
-                onLibraryDataChanged = { get<SyncEngine>().lifecycleReconcile(force = true) },
+                // Positions have no digest, so their cursor may already sit past the imported rows:
+                // ask the reconcile to re-read every digest-less domain from zero as well.
+                onLibraryDataChanged = {
+                    get<SyncReconciler>().requestUnbackedRepull()
+                    get<SyncEngine>().lifecycleReconcile(force = true)
+                },
                 reportCompat = get<ConnectionHealthStore>()::reportCompat,
             )
         }
@@ -576,6 +595,8 @@ internal val clientSyncModule =
                 // The anti-flicker shield: every mirrored handler consults the outbox before applying
                 // an inbound snapshot, so an in-flight local edit is never clobbered by a stale echo.
                 inFlightOutbox = OutboxInFlightQuery(get<PendingOperationQueue>()::hasQueuedOpFor),
+                // The access prune spares optimistic revision-0 rows while their add is still queued.
+                hasQueuedOpIn = get<PendingOperationQueue>()::hasQueuedOpIn,
             ).apply { registerAll() }
         }
 
@@ -625,6 +646,20 @@ internal val clientSyncModule =
                 // The §6.5 auth gate: park the firehose + outbox on SessionLapsed, resume on re-auth.
                 authState = get<AuthSession>().authState,
             )
+        }
+
+        // Starts a pass over the pending image uploads when one can newly succeed: app start signed in,
+        // the network returning, the server connection coming up. Lives beside the outbox's own drain
+        // triggers but outside SyncEngine.
+        single(createdAtStart = true) {
+            PendingImageUploadScheduler(
+                uploads = get(),
+                authSession = get(),
+                networkMonitor = get(),
+                syncEngineState = get(),
+                errorBus = get(),
+                scope = get(qualifier = named(APP_SCOPE)),
+            ).apply { start() }
         }
 
         single(createdAtStart = true) {

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.metadata.audnexus
 
+import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
+import com.calypsan.listenup.server.metadata.bodyAsTextBounded
 import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
@@ -9,7 +11,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
@@ -44,6 +45,7 @@ internal class AudnexusClient(
     private val json: Json,
     private val rateLimiter: AudnexusRateLimiter = AudnexusRateLimiter(),
     private val baseUrl: String = DEFAULT_BASE_URL,
+    private val maxBodyBytes: Long = MAX_CATALOGUE_BODY_BYTES,
 ) : AudnexusApi {
     override suspend fun getBook(
         asin: String,
@@ -94,7 +96,12 @@ internal class AudnexusClient(
             when (response.status) {
                 HttpStatusCode.OK -> {
                     try {
-                        AppResult.Success(decode(response.bodyAsText()))
+                        val text =
+                            bodyAsTextBounded(response, maxBodyBytes)
+                                ?: return AppResult.Failure(
+                                    MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
+                                )
+                        AppResult.Success(decode(text))
                     } catch (e: SerializationException) {
                         AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
                     } catch (e: IllegalArgumentException) {

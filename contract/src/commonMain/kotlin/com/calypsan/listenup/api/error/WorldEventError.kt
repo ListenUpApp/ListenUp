@@ -23,6 +23,8 @@ sealed interface WorldEventError : AppError {
         override val message: String = "This event is no longer in the story world."
         override val code: String = "WORLD_EVENT_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** No history entry with that id exists for any event the caller can see. */
@@ -35,6 +37,8 @@ sealed interface WorldEventError : AppError {
         override val message: String = "That change can no longer be found."
         override val code: String = "WORLD_EVENT_HISTORY_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The anchor book isn't a live book of the event's world (or isn't one the caller can see). */
@@ -47,6 +51,8 @@ sealed interface WorldEventError : AppError {
         override val message: String = "That moment isn't in one of this story world's books."
         override val code: String = "WORLD_EVENT_INVALID_ANCHOR"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The subject or object isn't an entity of the event's world (or has been deleted). */
@@ -59,6 +65,8 @@ sealed interface WorldEventError : AppError {
         override val message: String = "That entry isn't part of this story world."
         override val code: String = "WORLD_EVENT_ENTITY_NOT_IN_WORLD"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The subject or object is a kind the event's type doesn't allow (a JOINS whose object isn't a group). */
@@ -71,5 +79,7 @@ sealed interface WorldEventError : AppError {
         override val message: String = "That kind of entry can't take that part in this event."
         override val code: String = "WORLD_EVENT_WRONG_ENTITY_KIND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

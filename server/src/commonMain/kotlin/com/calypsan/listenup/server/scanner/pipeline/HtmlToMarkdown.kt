@@ -4,9 +4,11 @@ package com.calypsan.listenup.server.scanner.pipeline
  * Minimal, dependency-free HTML→Markdown for scanned book descriptions. Audiobook
  * descriptions are simple prose; this handles the tag set
  * (`p br div span b i strong em a ul ol li h1-6 blockquote`) + common entities.
- * Plain-text input (no detected HTML) is returned verbatim. Emphasis tags left unclosed
- * by malformed markup still convert (their span runs to end of input). Any failure falls
- * back to entity-decoded, tag-stripped text — never throws, never returns markup.
+ * Input with none of those tags is not detected as HTML and is returned verbatim — plain
+ * text, and equally any markup outside the set. Once one is detected, every remaining tag is
+ * stripped, so converted output carries no markup. Emphasis tags left unclosed by malformed
+ * markup still convert (their span runs to end of input). Any failure falls back to
+ * entity-decoded, tag-stripped text; this never throws.
  */
 object HtmlToMarkdown {
     private val HTML_TAG =
@@ -57,8 +59,8 @@ object HtmlToMarkdown {
     private fun capped(input: String): String {
         if (input.length <= MAX_INPUT_CHARS) return input
         val head = input.substring(0, MAX_INPUT_CHARS)
-        // Cutting mid-tag would strand a `<…` fragment the tag stripper cannot match, and this
-        // class promises never to return markup. Retreat to the last complete tag instead.
+        // Cutting mid-tag would strand a `<…` fragment the tag stripper cannot match, and
+        // converted output must carry no markup. Retreat to the last complete tag instead.
         val lastOpen = head.lastIndexOf('<')
         return if (lastOpen > head.lastIndexOf('>')) head.substring(0, lastOpen) else head
     }

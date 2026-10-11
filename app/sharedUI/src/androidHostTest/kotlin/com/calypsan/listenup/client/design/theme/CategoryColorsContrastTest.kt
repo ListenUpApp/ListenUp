@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.design.theme
 
+import com.calypsan.listenup.client.device.DeviceGlyph
 import com.calypsan.listenup.client.features.settings.LICENSE_FALLBACK_COLOR
 import com.calypsan.listenup.client.features.settings.LICENSE_FAMILY_COLORS
 import com.calypsan.listenup.client.features.settings.deviceVisualFor
@@ -22,9 +23,7 @@ class CategoryColorsContrastTest :
         }
 
         test("every device type and licence family draws from the checked palette") {
-            val deviceColors =
-                listOf("phone", "tablet", "desktop", "laptop", "cast", "speaker", null)
-                    .map { deviceVisualFor(it).color }
+            val deviceColors = DeviceGlyph.entries.map { deviceVisualFor(it).color }
             val licenceColors = LICENSE_FAMILY_COLORS.values + LICENSE_FALLBACK_COLOR
 
             CategoryPalette.all shouldContainAll deviceColors + licenceColors

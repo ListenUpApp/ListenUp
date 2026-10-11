@@ -21,13 +21,36 @@ internal fun MutableList<NavKey>.navigateFrom(
 }
 
 /**
+ * Lands [targets] for a navigation that came from outside the app — a push tap, a shared link, a
+ * launcher shortcut.
+ *
+ * Normally the outside navigation starts from [root], clearing whatever was open so the target is
+ * one Back from home. But an entry removed from the stack loses its view model, and with it an
+ * upload in flight or an edit not yet saved: when [holdsUnsavedWork], nothing is removed and the
+ * targets land on top of what is open, so Back returns to the work with it intact.
+ */
+internal fun MutableList<NavKey>.openFromOutside(
+    root: NavKey,
+    targets: List<NavKey>,
+    holdsUnsavedWork: Boolean,
+) {
+    if (!holdsUnsavedWork && lastOrNull() != root) {
+        clear()
+        add(root)
+    }
+    addAll(targets)
+}
+
+/**
  * Back from the screen [screen]: removes it and anything stacked above it.
  *
  * For a list pane that is the detail beside it too — the list's own back arrow leaves the list,
  * rather than quietly closing the book next to it. When [screen] is the top of the stack this is the
- * plain pop it replaces, and so is the fallback for a screen that has already left the stack.
+ * plain pop it replaces. A screen that has already left the stack pops nothing — a second tap on
+ * its Back must not remove the screen beneath it — and the root at index 0 is never removed, so a
+ * pop cannot empty the stack.
  */
 internal fun MutableList<NavKey>.popFrom(screen: NavKey) {
     val index = lastIndexOf(screen)
-    if (index >= 0) subList(index, size).clear() else removeAt(lastIndex)
+    if (index > 0) subList(index, size).clear()
 }

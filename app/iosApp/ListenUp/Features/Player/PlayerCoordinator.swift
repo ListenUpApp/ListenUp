@@ -230,9 +230,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         observeRouteChanges()
     }
 
-    // App-lifetime singleton, so this effectively never fires — uniform teardown shape.
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
-
     /// Wires the Kotlin adapters; the now-playing bridge publishes through the engine's
     /// `MPNowPlayingSession` so the system reads state off the attached player.
     convenience init(deps: Dependencies) {

@@ -23,6 +23,10 @@ private val logger = KotlinLogging.logger {}
 /** Cadence for the automatic status re-check while awaiting approval. */
 private const val POLL_INTERVAL_MS = 5_000L
 
+/** Shown when the server reports a reset status this build has never heard of. */
+private const val UNREADABLE_STATUS_MESSAGE =
+    "This version of the app can't tell where your reset request stands. Check with your admin."
+
 /**
  * Upper bound on consecutive stream-reconnect attempts before this loop stops and leaves the
  * (never-stopping) poll as the sole driver. Mirrors [PendingApprovalViewModel]'s bound: a
@@ -53,7 +57,6 @@ class ForgotPasswordViewModel internal constructor(
 
     private var streamJob: Job? = null
     private var pollJob: Job? = null
-    private var closed = false
 
     /** The address most recently requested, so a declined request can be re-opened in one tap. */
     private var lastRequestedEmail: String? = null
@@ -66,26 +69,6 @@ class ForgotPasswordViewModel internal constructor(
                 beginWatching(ticketId)
             }
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        close()
-    }
-
-    /**
-     * Cancels the stream watch and the poll loop. Idempotent — safe to call more than once, or
-     * after [onCleared] already ran.
-     *
-     * Android/Desktop never call this directly: [onCleared] delegates here when the framework's
-     * `ViewModelStore` clears this entry. iOS has no `ViewModelStore`, so the owning screen's
-     * wrapper calls [close] itself from `isolated deinit`; without it the stream/poll jobs would
-     * run forever, orphaned.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        stopWatching()
     }
 
     /**
@@ -278,7 +261,12 @@ class ForgotPasswordViewModel internal constructor(
         state.value = next
         when (event.status) {
             PasswordResetStatus.DENIED, PasswordResetStatus.EXPIRED -> repository.abandonPendingRequest()
+
             PasswordResetStatus.PENDING, PasswordResetStatus.APPROVED, PasswordResetStatus.CONSUMED -> Unit
+
+            // A status this build cannot read: stop watching rather than wait on it forever, but keep
+            // the persisted request, which an updated app may still be able to finish.
+            PasswordResetStatus.UNKNOWN -> stopWatching()
         }
     }
 
@@ -326,6 +314,10 @@ class ForgotPasswordViewModel internal constructor(
 
             PasswordResetStatus.EXPIRED -> {
                 ForgotPasswordUiState.Error("Your reset request expired. Please start again.")
+            }
+
+            PasswordResetStatus.UNKNOWN -> {
+                ForgotPasswordUiState.Error(UNREADABLE_STATUS_MESSAGE)
             }
         }
 

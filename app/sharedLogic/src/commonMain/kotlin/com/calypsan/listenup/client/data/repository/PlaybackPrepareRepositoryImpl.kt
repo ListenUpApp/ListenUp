@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
+import com.calypsan.listenup.client.data.remote.DEFAULT_RPC_TIMEOUT
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.core.BookId
@@ -20,10 +21,17 @@ internal class PlaybackPrepareRepositoryImpl(
     private val channel: RpcChannel<PlaybackService>,
     private val codecCapabilities: Set<CodecCapability>,
 ) : PlaybackPrepareRepository {
+    /**
+     * Takes the full channel default on purpose: it returns the signed streaming URLs, and there is
+     * no local fallback for a book that is not downloaded, so a short bound would strand it.
+     */
     override suspend fun prepare(
         bookId: BookId,
         forceTranscode: Boolean,
-    ): AppResult<PreparedPlayback> = channel.call { it.prepare(bookId, codecCapabilities, forceTranscode) }
+    ): AppResult<PreparedPlayback> =
+        channel.call(timeout = DEFAULT_RPC_TIMEOUT, idempotent = false) {
+            it.prepare(bookId, codecCapabilities, forceTranscode)
+        }
 
     /**
      * Bounded SHORT and never retried, because this call sits between a listener tapping play and

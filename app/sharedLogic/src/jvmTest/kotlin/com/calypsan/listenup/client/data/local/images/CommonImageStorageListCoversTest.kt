@@ -6,14 +6,12 @@ import io.kotest.matchers.shouldBe
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.files.SystemTemporaryDirectory
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /**
  * Tests for [CommonImageStorage.listCoverBookIds] — the single directory listing the startup
  * cover-presence reconciler uses instead of a per-book filesystem stat.
  */
-@OptIn(ExperimentalUuidApi::class)
 class CommonImageStorageListCoversTest :
     FunSpec({
 

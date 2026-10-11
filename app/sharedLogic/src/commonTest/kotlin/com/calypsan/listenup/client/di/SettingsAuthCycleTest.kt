@@ -54,6 +54,7 @@ class SettingsAuthCycleTest :
                         SettingsRepositoryImpl(
                             secureStorage = get(),
                             authSession = lazy { scope.get<AuthSession>() },
+                            allowsFallback = { _, _ -> true },
                         )
                     }
                     single<ServerConfig> { get<SettingsRepositoryImpl>() }

@@ -109,5 +109,14 @@ tasks.withType<Test>().configureEach {
             repoRoot.resolve("CLAUDE.md"),
         ).withPropertyName("verifyLocalParityInputs")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // ClaudeMdVersionsTest reads these at runtime; undeclared, a catalog bump or a doc edit would
+    // leave the task UP-TO-DATE and the version pin would never be re-checked.
+    inputs
+        .files(
+            repoRoot.resolve("gradle/libs.versions.toml"),
+            repoRoot.resolve("README.md"),
+            repoRoot.resolve("app/sharedUI/CLAUDE.md"),
+        ).withPropertyName("documentedVersionInputs")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.property("sourceSetInventory", sourceSetInventory)
 }

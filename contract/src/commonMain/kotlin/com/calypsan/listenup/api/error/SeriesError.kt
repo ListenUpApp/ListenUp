@@ -40,6 +40,8 @@ sealed interface SeriesError : AppError {
         override val message: String = "This series no longer exists."
         override val code: String = "SERIES_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -56,6 +58,8 @@ sealed interface SeriesError : AppError {
         override val message: String = "Some of the changes couldn't be saved."
         override val code: String = "SERIES_INVALID_INPUT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -71,6 +75,8 @@ sealed interface SeriesError : AppError {
         override val message: String = "A series can't be merged with itself."
         override val code: String = "SERIES_MERGE_SELF_TARGET"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** No merge receipt with the given id exists. */
@@ -83,6 +89,8 @@ sealed interface SeriesError : AppError {
         override val message: String = "That merge can no longer be found."
         override val code: String = "SERIES_MERGE_RECEIPT_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The merge has already been undone. Raised to the second of two admins undoing at once. */
@@ -95,6 +103,8 @@ sealed interface SeriesError : AppError {
         override val message: String = "That merge has already been undone."
         override val code: String = "SERIES_MERGE_ALREADY_UNDONE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -110,6 +120,8 @@ sealed interface SeriesError : AppError {
         override val message: String = "This series has since been merged into another. Undo that merge first."
         override val code: String = "SERIES_MERGE_TARGET_GONE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -126,6 +138,8 @@ sealed interface SeriesError : AppError {
         override val message: String = "That parent series no longer exists."
         override val code: String = "SERIES_PARENT_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -141,6 +155,8 @@ sealed interface SeriesError : AppError {
         override val message: String = "A series can't be placed inside itself or one of its sub-series."
         override val code: String = "SERIES_HIERARCHY_CYCLE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -156,5 +172,7 @@ sealed interface SeriesError : AppError {
         override val message: String = "A series with that name already exists."
         override val code: String = "SERIES_NAME_EXISTS"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

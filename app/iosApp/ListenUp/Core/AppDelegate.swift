@@ -17,10 +17,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         configurationForConnecting connectingSceneSession: UISceneSession,
         options: UIScene.ConnectionOptions
     ) -> UISceneConfiguration {
-        UISceneConfiguration(
+        let configuration = UISceneConfiguration(
             name: SceneRoleRouting.configurationName(for: connectingSceneSession.role),
             sessionRole: connectingSceneSession.role
         )
+        if connectingSceneSession.role == .windowApplication {
+            // A cold launch from a home-screen quick action delivers the item here, once; a running
+            // app delivers it to the window scene delegate. SwiftUI still owns the window.
+            if let shortcutItem = options.shortcutItem {
+                QuickActionRouter.shared.receive(shortcutItem)
+            }
+            configuration.delegateClass = WindowSceneDelegate.self
+        }
+        return configuration
     }
 
     /// APNs issued (or rotated) this device's token. Hex-encode and hand it to the shared

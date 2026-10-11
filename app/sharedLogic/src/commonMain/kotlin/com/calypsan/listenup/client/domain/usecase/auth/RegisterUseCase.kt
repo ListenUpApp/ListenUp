@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
+import com.calypsan.listenup.api.dto.auth.EMAIL_MAX
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
@@ -38,6 +40,7 @@ open class RegisterUseCase(
     private val authSession: AuthSession,
     private val userRepository: UserRepository,
     private val deviceInfoProvider: DeviceInfoProvider,
+    private val beforeSignIn: suspend (incomingUserId: String) -> Unit,
 ) {
     open suspend operator fun invoke(
         email: String,
@@ -80,6 +83,8 @@ open class RegisterUseCase(
                 // Authenticated, which spins up the startup check that reads the current
                 // user) — mirrors LoginUseCase so we don't race an empty database.
                 val session = outcome.session
+                // Whoever owned the local copy must be gone before this user is written into it.
+                beforeSignIn(session.user.id.value)
                 userRepository.saveUser(session.user.toDomain())
                 authSession.saveAuthTokens(
                     access = session.accessToken,
@@ -127,18 +132,21 @@ open class RegisterUseCase(
                 AppResult.Failure(ValidationError("Last name is required", field = ValidationField.LAST_NAME))
             }
 
+            "$firstName $lastName".length > UpdateProfileRequest.MAX_DISPLAY_NAME -> {
+                AppResult.Failure(ValidationError("Name is too long", field = ValidationField.FIRST_NAME))
+            }
+
             else -> {
                 null
             }
         }
 
     private fun isValidEmail(email: String): Boolean {
-        if (email.length > MAX_EMAIL_LENGTH) return false
+        if (email.length > EMAIL_MAX) return false
         return EMAIL_REGEX.matches(email)
     }
 
     private companion object {
-        const val MAX_EMAIL_LENGTH = 254
         val EMAIL_REGEX = Regex("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
     }
 }

@@ -22,6 +22,8 @@ sealed interface TransportError : AppError {
         override val message: String = "No internet connection. Check your network."
         override val code: String = "TRANSPORT_NETWORK_UNAVAILABLE"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Network operation timed out (connect, read, or request). */
@@ -34,6 +36,8 @@ sealed interface TransportError : AppError {
         override val message: String = "Connection timed out. Please try again."
         override val code: String = "TRANSPORT_TIMEOUT"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -52,6 +56,8 @@ sealed interface TransportError : AppError {
         override val message: String = "The request may not have completed. Check before retrying."
         override val code: String = "TRANSPORT_OUTCOME_UNKNOWN"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -72,6 +78,8 @@ sealed interface TransportError : AppError {
         override val message: String = "Request rejected by server (HTTP $statusCode)."
         override val code: String = "TRANSPORT_SERVER_4XX"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Server returned a 5xx response. */
@@ -85,6 +93,8 @@ sealed interface TransportError : AppError {
         override val message: String = "Server error (HTTP $statusCode). Please try again."
         override val code: String = "TRANSPORT_SERVER_5XX"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -105,6 +115,8 @@ sealed interface TransportError : AppError {
         override val message: String = "Server response was malformed."
         override val code: String = "TRANSPORT_DATA_MALFORMED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -123,5 +135,45 @@ sealed interface TransportError : AppError {
         override val message: String = "The app and server versions don't match."
         override val code: String = "TRANSPORT_CONTRACT_MISMATCH"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
+    }
+
+    /**
+     * A save went through but the new cover or photo did not reach the server, and the server will not
+     * take it as it is (a refusal, not a bad connection): nothing is queued, so re-saving the image
+     * is the way to try again. Client-local, raised by an edit screen's save outcome, never by the
+     * wire. The cause's own code and detail ride in [debugInfo].
+     */
+    @Serializable
+    @SerialName("TransportError.ImageNotUploaded")
+    data class ImageNotUploaded(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : TransportError {
+        override val message: String = "Saved. The new image couldn't be uploaded."
+        override val code: String = "TRANSPORT_IMAGE_NOT_UPLOADED"
+        override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
+    }
+
+    /**
+     * A save went through and the new cover or photo is on this device, but the server could not be
+     * reached; the upload is queued and goes up by itself once the server answers. Client-local, raised
+     * by an edit screen's save outcome, never by the wire. The cause's own code and detail ride in
+     * [debugInfo].
+     */
+    @Serializable
+    @SerialName("TransportError.ImageUploadQueued")
+    data class ImageUploadQueued(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : TransportError {
+        override val message: String = "Saved. The new image will upload when the server is reachable."
+        override val code: String = "TRANSPORT_IMAGE_UPLOAD_QUEUED"
+        override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

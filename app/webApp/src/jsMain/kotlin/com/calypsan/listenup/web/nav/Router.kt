@@ -60,6 +60,21 @@ enum class RouteChange {
 }
 
 /**
+ * A page's claim that leaving it would lose work: the router asks it before any way out.
+ *
+ * @property isHeld whether there is unsaved work right now. Read live at the moment of leaving.
+ * @property isAsking whether the page is already showing its question — a second Back press while
+ *   the dialog is open must not stack a second question.
+ * @property ask raises the page's question; [ask]'s `proceed` completes the departure when the
+ *   reader chooses to discard, and is simply never called when they choose to keep editing.
+ */
+class UnsavedWorkHold(
+    val isHeld: () -> Boolean,
+    val isAsking: () -> Boolean,
+    val ask: (proceed: () -> Unit) -> Unit,
+)
+
+/**
  * The history-backed router.
  *
  * [navigate] pushes an entry — moving between pages grows history so Back walks pages.
@@ -71,13 +86,46 @@ enum class RouteChange {
  * still on screen; Compose renders on a later frame, so this is the last moment its layout is
  * measurable. The shared-element flight uses it to learn where the cover it must fly back to is.
  * It is told which of the three it is — Back restores a place, a link starts a new one.
+ *
+ * A page holding unsaved work registers an [UnsavedWorkHold] ([holdUnsavedWork]); [navigate] then
+ * asks it before moving, and so does the browser's Back and Forward. A popstate cannot be vetoed —
+ * the URL has already changed — so the held page's URL is pushed back on top and, only if the reader
+ * chooses to discard, history is walked one step back to where they were headed. A vetoed pop is not
+ * a route change: the hook does not run for it, so nothing recorded about the page that stays —
+ * where it is scrolled, how it was arrived at — is disturbed.
  */
 class Router(
     private val beforeRouteChange: (RouteChange) -> Unit = {},
 ) {
+    private var unsavedWork: UnsavedWorkHold? = null
+
+    /** Popstates the held page vetoed and corrected, so a discard can walk back over all of them. */
+    private var vetoedPops = 0
+
+    /** Set for the one popstate a discard causes on purpose, so it is not vetoed in turn. */
+    private var letNextPopThrough = false
+
     private val onPopstate: (Event) -> Unit = {
-        beforeRouteChange(RouteChange.POP)
-        current = locationRoute()
+        val hold = unsavedWork?.takeIf { it.isHeld() && !letNextPopThrough }
+        letNextPopThrough = false
+        if (hold != null) {
+            vetoPop(hold)
+        } else {
+            vetoedPops = 0
+            beforeRouteChange(RouteChange.POP)
+            current = locationRoute()
+        }
+    }
+
+    /** Puts the held page's own URL back on top of history, then asks whether to go where Back went. */
+    private fun vetoPop(hold: UnsavedWorkHold) {
+        vetoedPops = if (hold.isAsking()) vetoedPops + 1 else 1
+        window.history.pushState(null, "", current.toUrl())
+        val steps = vetoedPops
+        hold.ask {
+            letNextPopThrough = true
+            window.history.go(-steps)
+        }
     }
 
     /** The route the window currently shows; observable from composition. */
@@ -88,8 +136,31 @@ class Router(
         window.addEventListener("popstate", onPopstate)
     }
 
-    /** Pushes [route] onto history and makes it current. */
-    fun navigate(route: Route) {
+    /**
+     * Registers [hold] as the page that must be asked before the reader leaves; returns the call that
+     * releases it. One page holds at a time: a later registration replaces an earlier one, and a
+     * release only clears the hold it registered.
+     */
+    fun holdUnsavedWork(hold: UnsavedWorkHold): () -> Unit {
+        unsavedWork = hold
+        return { if (unsavedWork === hold) unsavedWork = null }
+    }
+
+    /**
+     * Pushes [route] onto history and makes it current — after the held page, if any, agrees.
+     *
+     * @param force skip the question. For the page's own departures — it saved, or the reader already
+     *   chose to discard — where asking again would be asking the same thing twice.
+     */
+    fun navigate(
+        route: Route,
+        force: Boolean = false,
+    ) {
+        val hold = unsavedWork?.takeIf { !force && it.isHeld() }
+        if (hold != null) {
+            hold.ask { navigate(route, force = true) }
+            return
+        }
         beforeRouteChange(RouteChange.PUSH)
         window.history.pushState(null, "", route.toUrl())
         current = route

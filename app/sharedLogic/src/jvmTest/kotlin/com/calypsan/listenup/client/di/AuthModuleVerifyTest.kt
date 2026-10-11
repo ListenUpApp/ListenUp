@@ -47,6 +47,9 @@ class AuthModuleVerifyTest :
                         // AdoptServerUseCase's localSignOut is a lambda built inline over LogoutUseCase,
                         // not a Koin-resolved type.
                         Function1::class,
+                        // The sign-in use cases take the owner guard's `beforeSignIn` as a suspend
+                        // function (a Function2 once the continuation is counted).
+                        Function2::class,
                         SecureStorage::class,
                         ServerConfig::class,
                         InstanceRepository::class,

@@ -36,6 +36,8 @@ sealed interface MetadataError : AppError {
             "External metadata service rate-limited the request. Try again shortly."
         override val code: String = "METADATA_RATE_LIMITED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -52,6 +54,8 @@ sealed interface MetadataError : AppError {
             "Couldn't reach the external metadata service. Try again later."
         override val code: String = "METADATA_UNAVAILABLE"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -67,6 +71,8 @@ sealed interface MetadataError : AppError {
         override val message: String = "No metadata found for that query."
         override val code: String = "METADATA_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -83,6 +89,8 @@ sealed interface MetadataError : AppError {
         override val message: String = "The external metadata response was malformed."
         override val code: String = "METADATA_MALFORMED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -101,6 +109,8 @@ sealed interface MetadataError : AppError {
             "This edition's chapter count doesn't match your audiobook, so chapter names can't be applied."
         override val code: String = "METADATA_CHAPTER_COUNT_MISMATCH"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -118,6 +128,8 @@ sealed interface MetadataError : AppError {
         override val message: String = "That image URL can't be used."
         override val code: String = "METADATA_UNSAFE_URL"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -133,6 +145,8 @@ sealed interface MetadataError : AppError {
         override val message: String = "A metadata source didn't answer in time. Try again."
         override val code: String = "METADATA_TIMEOUT"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -148,6 +162,8 @@ sealed interface MetadataError : AppError {
         override val message: String = "This book changed while you were reviewing. Nothing was changed."
         override val code: String = "METADATA_REVIEW_OUTDATED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The chosen cover couldn't be downloaded or wasn't a usable image, so Apply wrote nothing. */
@@ -160,6 +176,8 @@ sealed interface MetadataError : AppError {
         override val message: String = "The chosen cover couldn't be downloaded. Nothing was changed."
         override val code: String = "METADATA_COVER_DOWNLOAD_FAILED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The match can no longer be undone: it was already undone, or the book has changed since. */
@@ -172,5 +190,7 @@ sealed interface MetadataError : AppError {
         override val message: String = "This book has changed since, so the match can't be undone."
         override val code: String = "METADATA_UNDO_EXPIRED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

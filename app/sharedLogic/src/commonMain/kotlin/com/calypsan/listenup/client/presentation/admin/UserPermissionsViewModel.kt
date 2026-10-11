@@ -20,12 +20,12 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * One user's role and permission flags, edited as a draft and saved together.
@@ -49,7 +49,7 @@ class UserPermissionsViewModel(
     val state: StateFlow<UserPermissionsUiState> =
         session
             .map { it.toUiState() }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserPermissionsUiState.Loading)
+            .stateIn(viewModelScope, WhileSubscribedForUi, UserPermissionsUiState.Loading)
 
     init {
         viewModelScope.launch {

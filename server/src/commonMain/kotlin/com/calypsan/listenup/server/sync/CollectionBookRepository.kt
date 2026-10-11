@@ -259,7 +259,7 @@ open class CollectionBookRepository(
      *
      * Mirrors the base's per-row `softDelete`: the revision is bumped and the row stamped inside
      * the open transaction, and the emit is deferred to after-commit (FIFO publish order) via
-     * [emitAfterCommit] — the engine-native equivalent of the Exposed base's per-row outbox.
+     * [emitAfterCommit].
      */
     suspend fun softDeleteAllForCollection(collectionId: String): Int =
         suspendTransaction(db) {

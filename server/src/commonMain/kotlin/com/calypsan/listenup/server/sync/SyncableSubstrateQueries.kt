@@ -15,7 +15,7 @@ data class IdRev(
 /**
  * Substrate-level queries that every syncable SQLDelight aggregate must provide.
  *
- * The catch-up protocol and digest algorithm in [SyncableRepository] operate on
+ * The catch-up protocol and digest algorithm in [SqlSyncableRepository] operate on
  * raw `(id, revision)` pairs — they do not need the full aggregate shape.
  * Implementing this interface on the SQLDelight queries wrapper for an aggregate
  * lets the base infrastructure use those pairs without depending on the concrete
@@ -34,9 +34,8 @@ data class IdRev(
  * sets `userScoped = true`) additionally implements [selectIdsAboveRevisionForUser] /
  * [selectIdRevAtMostForUser]: the same cursor page / digest slice with an extra
  * `user_id = userId` predicate, so a user's pull/digest never observes another user's
- * rows. They mirror the `AND user_id = ?` the Exposed base appends in
- * [SyncableRepository] for a [UserScopedSyncableTable]. Global aggregates (Tag, Mood)
- * never call them — the default throws — so the global path stays unchanged.
+ * rows. Global aggregates (Tag, Mood) never call them — the default throws — so the
+ * global path stays unchanged.
  */
 interface SyncableSubstrateQueries {
     fun existsById(id: String): Boolean

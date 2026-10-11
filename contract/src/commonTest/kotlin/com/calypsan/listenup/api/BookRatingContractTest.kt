@@ -10,6 +10,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 
 class BookRatingContractTest :
     FunSpec({
@@ -27,6 +28,21 @@ class BookRatingContractTest :
                     deletedAt = null,
                 )
             contractJson.decodeFromString<BookRatingSyncPayload>(contractJson.encodeToString(payload)) shouldBe payload
+        }
+
+        test("a ListenUp rating still says its source on the wire") {
+            val payload =
+                BookRatingSyncPayload(
+                    id = "r1",
+                    bookId = "b1",
+                    userId = "u1",
+                    halfStars = 7,
+                    note = null,
+                    ratedAt = 10L,
+                    updatedAt = 20L,
+                    revision = 3L,
+                )
+            contractJson.encodeToString(payload) shouldContain """"source":"LISTENUP""""
         }
 
         test("a note is stored trimmed, and a blank note means no note") {
@@ -67,6 +83,18 @@ class BookRatingContractTest :
             ListenerRatingLimits.starsLabel(7.0) shouldBe "3.5"
             ListenerRatingLimits.starsLabel(7.4) shouldBe "3.5"
             ListenerRatingLimits.starsLabel(7.6) shouldBe "4"
+        }
+
+        test("a rating draft is a change only when it differs from the rating the sheet opened on") {
+            // Unrated book: the sheet opens on no stars and no note.
+            ListenerRatingLimits.isDraftChanged(null, null, halfStars = 0, note = "") shouldBe false
+            ListenerRatingLimits.isDraftChanged(null, null, halfStars = 6, note = "") shouldBe true
+            ListenerRatingLimits.isDraftChanged(null, null, halfStars = 0, note = "Hm") shouldBe true
+            // Rated book: putting the same values back is no change.
+            ListenerRatingLimits.isDraftChanged(8, "Great", halfStars = 8, note = "Great") shouldBe false
+            ListenerRatingLimits.isDraftChanged(8, null, halfStars = 8, note = "") shouldBe false
+            ListenerRatingLimits.isDraftChanged(8, "Great", halfStars = 7, note = "Great") shouldBe true
+            ListenerRatingLimits.isDraftChanged(8, "Great", halfStars = 8, note = "Great!") shouldBe true
         }
 
         test("the book_ratings domain is in the catalog") {

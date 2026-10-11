@@ -197,7 +197,7 @@ class GenreRepository(
      * Bulk-rewrites the `path` and `depth` columns on the subtree rooted at
      * [oldPathPrefix], replacing the prefix with [newPathPrefix] and shifting `depth`
      * by [depthDelta]. The materialized-path reparent primitive (`moveGenre` /
-     * `mergeGenres` build on top). Matches the Exposed semantics exactly:
+     * `mergeGenres` build on top):
      * `SET path = ? || SUBSTR(path, LENGTH(?) + 1), depth = depth + ?`.
      */
     suspend fun rewritePathPrefix(

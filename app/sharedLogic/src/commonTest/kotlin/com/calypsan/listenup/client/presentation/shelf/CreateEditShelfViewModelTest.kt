@@ -150,4 +150,33 @@ class CreateEditShelfViewModelTest :
                 vm.state.value.shouldBeInstanceOf<CreateEditShelfUiState.Error>()
             }
         }
+
+        test("hasChanges in create mode is true once the name or description is not blank") {
+            runTest {
+                val vm = viewModel()
+                vm.initCreate()
+
+                vm.hasChanges(name = "", description = "", isPrivate = false) shouldBe false
+                vm.hasChanges(name = "  ", description = "", isPrivate = false) shouldBe false
+                vm.hasChanges(name = "Reads", description = "", isPrivate = false) shouldBe true
+                vm.hasChanges(name = "", description = "for the train", isPrivate = false) shouldBe true
+            }
+        }
+
+        test("hasChanges in edit mode compares against the loaded shelf and has nothing to lose before it loads") {
+            runTest {
+                val repo: ShelfRepository =
+                    mock { everySuspend { getById(ShelfId("s1")) } returns shelf(isPrivate = false) }
+                val vm = viewModel(repo = repo)
+                vm.initEdit("s1")
+
+                vm.hasChanges(name = "", description = "", isPrivate = false) shouldBe false
+                advanceUntilIdle()
+
+                vm.hasChanges(name = "Reads", description = "desc", isPrivate = false) shouldBe false
+                vm.hasChanges(name = "Reads 2", description = "desc", isPrivate = false) shouldBe true
+                vm.hasChanges(name = "Reads", description = "other", isPrivate = false) shouldBe true
+                vm.hasChanges(name = "Reads", description = "desc", isPrivate = true) shouldBe true
+            }
+        }
     })

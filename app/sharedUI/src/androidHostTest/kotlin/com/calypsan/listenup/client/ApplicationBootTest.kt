@@ -4,6 +4,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.work.WorkManager
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -12,6 +17,7 @@ import org.koin.core.context.stopKoin
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Boots the real [ListenUp] `Application` and asserts `onCreate()` completes.
@@ -59,10 +65,27 @@ class ApplicationBootTest {
      * `onCreate()` called `startKoin`, which registers a process-global context.
      * A leaked global Koin poisons every test that runs after this class in the
      * same JVM, so tear it down whether the body passed or failed.
+     *
+     * The scopes go first: `onCreate()` also launches collectors on them that keep
+     * reading Room after the test ends, and the database cannot load its native
+     * library under Robolectric. That `UnsatisfiedLinkError` would surface in
+     * whichever coroutine test runs next as `UncaughtExceptionsBeforeTest`.
      */
     @After
     fun tearDown() {
+        cancelEveryScopeTheApplicationStarted()
         stopKoin()
+    }
+
+    /** Cancels every Koin-held [CoroutineScope], waits for its children, and fails if any is still running. */
+    private fun cancelEveryScopeTheApplicationStarted() {
+        val koin = GlobalContext.getOrNull() ?: return
+        val jobs = koin.getAll<CoroutineScope>().map { it.coroutineContext.job }
+        runBlocking {
+            withTimeout(5.seconds) { jobs.forEach { it.cancelAndJoin() } }
+        }
+        val stillRunning = jobs.count { job -> job.children.any { it.isActive } }
+        check(stillRunning == 0) { "$stillRunning application scope(s) still have running children after teardown" }
     }
 
     @Test

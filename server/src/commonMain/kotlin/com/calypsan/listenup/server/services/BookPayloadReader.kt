@@ -64,8 +64,8 @@ internal fun String.toFieldProvenance(): Map<BookField, FieldProvenance> =
  * SQLDelight [Books] row) and its child lists. Shared by per-id and batched book reads
  * so both produce byte-identical aggregates.
  *
- * The `0/1 ↔ Boolean` and `Long ↔ Int` conversions live here at the SQLDelight boundary
- * (the same place the Exposed `bool`/`integer` column adapters sat): SQLite stores
+ * The `0/1 ↔ Boolean` and `Long ↔ Int` conversions live here at the SQLDelight boundary: SQLite
+ * stores
  * `abridged`/`explicit`/`has_scan_warning` as INTEGER and `publish_year` as INTEGER, which
  * SQLDelight surfaces as `Long`; the wire payload carries `Boolean`/`Int`.
  */
@@ -136,8 +136,7 @@ internal fun assembleBookPayload(
  * ordinal/path order), and assembles payloads in input-id order, skipping ids with no
  * root row. Must be called inside an open SQLDelight transaction.
  *
- * One round-trip per child table per 900-id chunk — the N+1-safe path. Same shape as the
- * prior Exposed reader, over the generated queries.
+ * One round-trip per child table per 900-id chunk — the N+1-safe path.
  */
 internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookSyncPayload> {
     if (idStrs.isEmpty()) return emptyList()

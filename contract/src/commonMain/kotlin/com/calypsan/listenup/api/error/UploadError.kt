@@ -30,6 +30,8 @@ sealed interface UploadError : AppError {
         override val message: String = "That upload is no longer in progress."
         override val code: String = "UPLOAD_SESSION_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -49,6 +51,8 @@ sealed interface UploadError : AppError {
         override val message: String = "That file path isn't allowed."
         override val code: String = "UPLOAD_INVALID_FILE_PATH"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -64,6 +68,8 @@ sealed interface UploadError : AppError {
         override val message: String = "That upload is too large. Try uploading fewer books at once."
         override val code: String = "UPLOAD_SESSION_TOO_LARGE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -80,6 +86,29 @@ sealed interface UploadError : AppError {
         override val message: String = "That file didn't upload completely. Try it again."
         override val code: String = "UPLOAD_FILE_TRANSFER_FAILED"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
+    }
+
+    /**
+     * The file the user picked could not be read on their own device — it was deleted or moved, its
+     * drive was unplugged, or it was a cloud placeholder that failed to download.
+     *
+     * Produced on the client, when a [com.calypsan.listenup.core.FileSource] cannot read its file,
+     * and never by the server. Not retryable: sending the same unreadable file again fails the same
+     * way, so the user is asked to choose it again instead.
+     */
+    @Serializable
+    @SerialName("UploadError.FileUnreadable")
+    data class FileUnreadable(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : UploadError {
+        override val message: String = "That file couldn't be read. Choose it again."
+        override val code: String = "UPLOAD_FILE_UNREADABLE"
+        override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -95,6 +124,8 @@ sealed interface UploadError : AppError {
         override val message: String = "No audiobooks were found in that upload."
         override val code: String = "UPLOAD_NO_BOOKS_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -110,5 +141,7 @@ sealed interface UploadError : AppError {
         override val message: String = "Add a library folder before uploading books."
         override val code: String = "UPLOAD_NO_LIBRARY_FOLDER"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

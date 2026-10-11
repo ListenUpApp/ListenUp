@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 @preconcurrency import Shared
 
 /// Book Detail's last-match row as native values: "Details matched 2 days ago · See What Changed · Undo Last Match".

@@ -9,6 +9,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.MergeReceipt
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.SeriesDao
@@ -22,6 +23,7 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.domain.usecase.SaveOutcome
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
@@ -168,6 +170,52 @@ class SeriesEditViewModelTest :
             }
         }
 
+        test("a missing local cover with a server cover is requested once on load") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns
+                    createSeries().copy(coverPath = "/covers/series-1.jpg")
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                every { fixture.imageRepository.ensureSeriesCoverCached(any()) } returns Unit
+
+                fixture.build().loadSeries("series-1")
+                advanceUntilIdle()
+
+                verify(VerifyMode.exactly(1)) { fixture.imageRepository.ensureSeriesCoverCached("series-1") }
+            }
+        }
+
+        test("a local cover that exists is not requested on load") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns
+                    createSeries().copy(coverPath = "/covers/series-1.jpg")
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns true
+                every { fixture.imageRepository.getSeriesCoverPath("series-1") } returns "/local/series-1.jpg"
+
+                fixture.build().loadSeries("series-1")
+                advanceUntilIdle()
+
+                verify(VerifyMode.not) { fixture.imageRepository.ensureSeriesCoverCached(any()) }
+            }
+        }
+
+        test("a series with no server cover is not requested on load") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+
+                fixture.build().loadSeries("series-1")
+                advanceUntilIdle()
+
+                verify(VerifyMode.not) { fixture.imageRepository.ensureSeriesCoverCached(any()) }
+            }
+        }
+
         // #1061: the merges folded into this series, and undoing one.
         test("loading a series lists the merges folded into it") {
             runTest {
@@ -232,6 +280,80 @@ class SeriesEditViewModelTest :
             }
         }
 
+        test("loading the id already loaded keeps unsaved edits") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("My edit"))
+
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "My edit"
+                viewModel.state.value.hasChanges shouldBe true
+            }
+        }
+
+        test("loading the id already loaded does not read the store a second time") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                val viewModel = fixture.build()
+
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.seriesRepository.getById("series-1") }
+            }
+        }
+
+        test("loading a different id replaces the form") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries(id = "series-1", name = "First")
+                everySuspend { fixture.seriesRepository.getById("series-2") } returns createSeries(id = "series-2", name = "Second")
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries(any()) } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists(any()) } returns false
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("My edit"))
+
+                viewModel.loadSeries("series-2")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "Second"
+                viewModel.state.value.hasChanges shouldBe false
+            }
+        }
+
+        test("a failed load can be retried for the same id") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns null
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries(name = "Recovered")
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "Recovered"
+            }
+        }
+
         // ========== Change Tracking Tests ==========
 
         test("NameChanged updates state and tracks changes") {
@@ -292,13 +414,59 @@ class SeriesEditViewModelTest :
             }
         }
 
+        test("a save whose cover did not upload still navigates back, and tells the user") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns
+                    AppResult.Success(SaveOutcome.SavedImageNotUploaded(TransportError.NetworkUnavailable(), willRetry = true))
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("Updated Name"))
+
+                fixture.errorBus.errors.test {
+                    viewModel.navActions.test {
+                        viewModel.onEvent(SeriesEditUiEvent.SaveClicked)
+                        advanceUntilIdle()
+                        awaitItem() shouldBe SeriesEditNavAction.NavigateBack
+                    }
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageUploadQueued>()
+                }
+            }
+        }
+
+        test("a plainly saved series says nothing on the error bus") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns AppResult.Success(SaveOutcome.Saved)
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("Updated Name"))
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(SeriesEditUiEvent.SaveClicked)
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+            }
+        }
+
         test("SaveClicked with changes calls use case") {
             runTest {
                 val fixture = createFixture()
                 everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
                 everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
                 everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
-                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns AppResult.Success(SaveOutcome.Saved)
 
                 val viewModel = fixture.build()
                 viewModel.loadSeries("series-1")

@@ -40,7 +40,7 @@ import kotlinx.coroutines.withContext
  * source, and the post-commit FTS reindex for `book_search.series_names`.
  *
  * Modelled on [ContributorServiceImplMergeTest] and [SeriesServiceImplTest] —
- * real in-memory Flyway-migrated SQLite, repositories wired to the same database.
+ * real in-memory migrated SQLite, repositories wired to the same database.
  * Helpers are file-local per the established precedent.
  */
 class SeriesServiceImplMergeTest :

@@ -5,6 +5,7 @@ import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.isSymlink
 import com.calypsan.listenup.server.io.relativeTo
 import com.calypsan.listenup.server.io.statFile
+import com.calypsan.listenup.server.librarywrite.isRegularFileInsideAnyRoot
 import com.calypsan.listenup.server.scanner.inference.FileTypeRules
 import com.calypsan.listenup.server.scanner.inference.SkipRules
 import com.calypsan.listenup.server.logging.loggerFor
@@ -29,14 +30,14 @@ private val logger = loggerFor<Walker>()
  *  - Children are visited in name-sorted order, so a scan is deterministic.
  *    Consumers are order-independent, but a stable order keeps logs and tests
  *    reproducible.
- *  - Symlinks are **not** followed. A symlink is emitted as a single leaf
- *    [FileEntry] (matching the old `Files.walkFileTree` no-follow behavior) but
- *    never descended into, so cycles can't crash the walk and files outside the
- *    library root aren't enumerated. Following symlinked libraries is a deferred
- *    feature.
- *  - `size`/`mtimeMs`/`inode` come from [statFile]; on filesystems without
- *    stable file keys (Windows default, FAT, some SMB mounts) `inode` is null
- *    and the Differ degrades to name-only cross-folder move detection.
+ *  - Links are never descended, so cycles can't crash the walk. A link to a file is emitted
+ *    only when it resolves to a regular file inside one of the `containmentRoots` (the
+ *    library's folder roots); a link that leaves them, dangles, loops or points at a directory
+ *    is skipped with a warning. Devices, FIFOs and sockets are never emitted — opening a FIFO
+ *    blocks forever and would hold the library's scan lock.
+ *  - `size`/`mtimeMs` come from [statFile]. `inode` is the file's inode on the native server;
+ *    on the JVM it is null on filesystems without stable file keys (Windows default, FAT, some
+ *    SMB mounts) and the Differ degrades to name-only cross-folder move detection.
  *  - [FileEntry.relPath] uses POSIX separators on every OS (kotlinx-io paths are
  *    already `/`-separated), so the wire format stays uniform.
  *  - The walk is collected into a list before emission. Library sizes are
@@ -47,17 +48,21 @@ internal class Walker(
     private val skipByName: (Path) -> Boolean = SkipRules::shouldSkipByName,
     private val hasIgnoreSentinel: (Path) -> Boolean = SkipRules::hasIgnoreSentinel,
 ) {
-    fun walk(root: Path): Flow<FileEntry> =
+    fun walk(
+        root: Path,
+        containmentRoots: List<Path> = listOf(root),
+    ): Flow<FileEntry> =
         flow {
             if (SystemFileSystem.metadataOrNull(root)?.isDirectory != true) return@flow
             val collected = mutableListOf<FileEntry>()
-            descend(root, root, collected)
+            descend(root = root, dir = root, containmentRoots = containmentRoots, out = collected)
             collected.forEach { emit(it) }
         }.flowOn(fileIoDispatcher)
 
     private fun descend(
         root: Path,
         dir: Path,
+        containmentRoots: List<Path>,
         out: MutableList<FileEntry>,
     ) {
         // `.ignore` sentinel: one probe as we enter the directory prunes the whole subtree, instead
@@ -73,18 +78,34 @@ internal class Walker(
             }
         for (child in children) {
             if (skipByName(child)) continue
-            // Symlinks are leaves: emit but never recurse (cycle-safe). The
-            // isSymlink probe must precede the directory test because
-            // metadataOrNull follows links, so a symlinked dir would otherwise
-            // look recursable.
+            // The isSymlink probe precedes every other test: metadataOrNull follows links, so a
+            // linked directory would otherwise look recursable and a linked file would look plain.
             if (isSymlink(child)) {
-                emitFile(root, child, out)
+                if (isRegularFileInsideAnyRoot(child, containmentRoots)) {
+                    emitFile(root, child, out)
+                } else {
+                    logger.warn { "walk: $child is a link that does not lead to a file inside the library — skipping" }
+                }
                 continue
             }
-            if (SystemFileSystem.metadataOrNull(child)?.isDirectory == true) {
-                descend(root, child, out)
-            } else {
-                emitFile(root, child, out)
+            val meta = SystemFileSystem.metadataOrNull(child)
+            when {
+                meta?.isDirectory == true -> {
+                    descend(
+                        root = root,
+                        dir = child,
+                        containmentRoots = containmentRoots,
+                        out = out,
+                    )
+                }
+
+                meta?.isRegularFile == true -> {
+                    emitFile(root, child, out)
+                }
+
+                else -> {
+                    logger.warn { "walk: $child is not a regular file — skipping" }
+                }
             }
         }
     }

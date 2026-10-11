@@ -46,8 +46,8 @@ SELECT id, revision FROM shelf_books WHERE revision > :cursor ORDER BY revision 
 selectIdRevAtMost:
 SELECT id, revision FROM shelf_books WHERE deleted_at IS NULL AND revision <= :cursor;
 
--- User-scoped substrate variants — the per-user filtering the Exposed base applies
--- via `(revision <cmp> cursor) AND user_id = userId`. Used by the userScoped
+-- User-scoped substrate variants — the per-user filtering
+-- `(revision <cmp> cursor) AND user_id = userId`. Used by the userScoped
 -- pullSince/digest path so user A's pull never observes user B's junction rows.
 
 selectIdsAboveRevisionForUser:

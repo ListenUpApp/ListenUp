@@ -12,7 +12,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
+import org.w3c.dom.StorageEvent
+import org.w3c.dom.StorageEventInit
 import org.w3c.dom.events.Event
+import kotlinx.browser.localStorage
+import com.calypsan.listenup.core.BrowserSecureStorage
 
 /** How long a spec waits for a lifecycle handler that SHOULD have run. */
 private const val EVENT_TIMEOUT_MS = 2_000L
@@ -215,4 +219,80 @@ class TabLifecycleTest :
                 scope.cancel()
             }
         }
+
+        test("another tab removing the refresh token lapses a signed-in tab") {
+            val lapses = mutableListOf<Unit>()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            val dispose = lapseWhenAnotherTabSignsOut(isSignedIn = { true }, lapse = { lapses += Unit }, scope = scope)
+            try {
+                window.dispatchEvent(storageChange(key = REFRESH_TOKEN_STORAGE_KEY, newValue = null))
+
+                awaitFirstCall(lapses)
+                lapses.size shouldBe 1
+            } finally {
+                dispose()
+                scope.cancel()
+            }
+        }
+
+        test("another tab rotating the refresh token does not lapse this one") {
+            val lapses = mutableListOf<Unit>()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            val dispose = lapseWhenAnotherTabSignsOut(isSignedIn = { true }, lapse = { lapses += Unit }, scope = scope)
+            try {
+                window.dispatchEvent(storageChange(key = REFRESH_TOKEN_STORAGE_KEY, newValue = "rotated"))
+                window.dispatchEvent(storageChange(key = "listenup.theme", newValue = null))
+                window.dispatchEvent(storageChange(key = null, newValue = null))
+                // The removal that SHOULD lapse comes last: if any ignored event above had lapsed, it
+                // would have landed first, so one lapse in total proves they were ignored.
+                window.dispatchEvent(storageChange(key = REFRESH_TOKEN_STORAGE_KEY, newValue = null))
+
+                awaitFirstCall(lapses)
+                lapses.size shouldBe 1
+            } finally {
+                dispose()
+                scope.cancel()
+            }
+        }
+
+        test("a tab that is not signed in has nothing to lapse") {
+            val lapses = mutableListOf<Unit>()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            var signedIn = false
+            val dispose = lapseWhenAnotherTabSignsOut(isSignedIn = { signedIn }, lapse = { lapses += Unit }, scope = scope)
+            try {
+                window.dispatchEvent(storageChange(key = REFRESH_TOKEN_STORAGE_KEY, newValue = null))
+                signedIn = true
+                window.dispatchEvent(storageChange(key = REFRESH_TOKEN_STORAGE_KEY, newValue = null))
+
+                awaitFirstCall(lapses)
+                lapses.size shouldBe 1
+            } finally {
+                dispose()
+                scope.cancel()
+            }
+        }
+
+        test("the refresh token key is the one the credential storage writes") {
+            val before = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)
+            try {
+                BrowserSecureStorage().save("refresh_token", "pinned")
+
+                localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) shouldBe "pinned"
+            } finally {
+                if (before ==
+                    null
+                ) {
+                    localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY)
+                } else {
+                    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, before)
+                }
+            }
+        }
     })
+
+/** A `storage` event as the browser raises it in the OTHER tabs when an entry changes. */
+private fun storageChange(
+    key: String?,
+    newValue: String?,
+): Event = StorageEvent("storage", StorageEventInit(key = key, newValue = newValue))

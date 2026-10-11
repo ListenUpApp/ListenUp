@@ -27,11 +27,15 @@ sealed interface UploadBooksUiState {
     /**
      * The session finished. Split three ways because the three outcomes want different words and
      * different follow-up actions — a duplicate is not a failure, and saying so matters.
+     *
+     * [unreadable] holds the books whose outcome a newer server reported in a way this build cannot
+     * read. They are kept apart so the screen never calls them imported or failed, and never drops them.
      */
     data class Finished(
         val imported: List<UploadedBook>,
         val duplicates: List<UploadedBook>,
         val failed: List<UploadedBook>,
+        val unreadable: List<UploadedBook> = emptyList(),
     ) : UploadBooksUiState
 
     /** The session failed as a whole; [error] is the typed reason. */

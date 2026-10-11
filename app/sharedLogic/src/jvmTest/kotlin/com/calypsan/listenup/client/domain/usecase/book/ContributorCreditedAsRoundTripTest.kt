@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.domain.usecase.book
 import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
+import com.calypsan.listenup.client.test.fake.FakePendingImageUploads
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
 import com.calypsan.listenup.client.domain.model.ContributorRole
@@ -104,6 +105,7 @@ class ContributorCreditedAsRoundTripTest :
                         moodRepository = moodRepository,
                         imageRepository = imageRepository,
                         imageStagingRepository = imageStagingRepository,
+                        pendingImageUploads = FakePendingImageUploads(),
                     )
 
                 // The aliased author is left UNCHANGED; the user merely adds a narrator, which forces

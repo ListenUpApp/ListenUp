@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.scheduler
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver

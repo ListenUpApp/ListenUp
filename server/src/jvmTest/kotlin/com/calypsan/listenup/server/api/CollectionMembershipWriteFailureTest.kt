@@ -46,7 +46,7 @@ import kotlinx.coroutines.test.runTest
  * `ALL_BOOKS` substrate, silently widening a private book to every member while the call still
  * reported [AppResult.Success]. Now a book whose release fails stays held instead — still in
  * the inbox, in no other collection — and the call answers [CollectionError.ReleaseIncomplete]. These tests drive the real [CollectionServiceImpl] over a real
- * Flyway-migrated in-memory SQLite db, with [FaultInjectingCollectionBookRepository] standing in
+ * migrated in-memory SQLite db, with [FaultInjectingCollectionBookRepository] standing in
  * for the real [com.calypsan.listenup.server.sync.CollectionBookRepository] to make one chosen
  * `(collectionId, bookId)` write fail exactly like a real fault would — no row is written.
  */

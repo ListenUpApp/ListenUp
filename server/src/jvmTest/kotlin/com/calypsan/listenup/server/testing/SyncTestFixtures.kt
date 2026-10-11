@@ -75,7 +75,7 @@ fun SqlTestDatabases.activityRecorder(bus: ChangeBus = ChangeBus()): ActivityRec
 fun withSqlDatabase(block: SqlTestDatabases.() -> Unit) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     val path = tmp.absolutePath
-    // DatabaseFactory.init runs the Flyway migrations against the file (its connection pool is left
+    // DatabaseFactory.init runs the migrations against the file (its connection pool is left
     // open for the short test lifetime); the SQLDelight driver opened next reads that already-migrated
     // schema and never calls Schema.create.
     DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:$path"))

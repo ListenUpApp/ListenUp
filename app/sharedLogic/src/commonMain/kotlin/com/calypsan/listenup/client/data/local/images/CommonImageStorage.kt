@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.images
 
+import com.calypsan.listenup.client.core.safePathSegment
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.api.result.AppResult
@@ -29,12 +30,23 @@ import kotlinx.io.readByteArray
  */
 internal class CommonImageStorage(
     storagePaths: StoragePaths,
+    /**
+     * Platform hook for directories holding images the server can supply again (iOS uses it to
+     * keep them out of backups). Called with each such directory when it is created, and once for
+     * each at construction so a directory an earlier version created is covered too. `null` on
+     * platforms with nothing to mark; then no directory is created before the first write.
+     */
+    private val markServerRecoverable: ((Path) -> Unit)? = null,
 ) : ImageStorage {
     private val filesDir: Path = storagePaths.filesDir
     private val coversDir: Path = Path(filesDir.toString(), COVERS_DIR_NAME)
     private val contributorsDir: Path = Path(filesDir.toString(), CONTRIBUTORS_DIR_NAME)
     private val seriesCoversDir: Path = Path(filesDir.toString(), SERIES_COVERS_DIR_NAME)
     private val avatarsDir: Path = Path(filesDir.toString(), AVATARS_DIR_NAME)
+
+    init {
+        prepareServerRecoverableDirectories()
+    }
 
     // ========== Book Cover Methods ==========
 
@@ -379,24 +391,26 @@ internal class CommonImageStorage(
 
     // ========== Private Helpers ==========
 
-    private fun getCoverFile(bookId: BookId): Path = Path(coversDir.toString(), "${bookId.value}.$FILE_EXTENSION")
+    private fun getCoverFile(bookId: BookId): Path =
+        Path(coversDir.toString(), "${safePathSegment(bookId.value)}.$FILE_EXTENSION")
 
     private fun getCoverStagingFile(bookId: BookId): Path =
-        Path(coversDir.toString(), "${bookId.value}_staging.$FILE_EXTENSION")
+        Path(coversDir.toString(), "${safePathSegment(bookId.value)}_staging.$FILE_EXTENSION")
 
     private fun getContributorFile(contributorId: String): Path =
-        Path(contributorsDir.toString(), "$contributorId.$FILE_EXTENSION")
+        Path(contributorsDir.toString(), "${safePathSegment(contributorId)}.$FILE_EXTENSION")
 
     private fun getContributorStagingFile(contributorId: String): Path =
-        Path(contributorsDir.toString(), "${contributorId}_staging.$FILE_EXTENSION")
+        Path(contributorsDir.toString(), "${safePathSegment(contributorId)}_staging.$FILE_EXTENSION")
 
     private fun getSeriesCoverFile(seriesId: String): Path =
-        Path(seriesCoversDir.toString(), "$seriesId.$FILE_EXTENSION")
+        Path(seriesCoversDir.toString(), "${safePathSegment(seriesId)}.$FILE_EXTENSION")
 
     private fun getSeriesCoverStagingFile(seriesId: String): Path =
-        Path(seriesCoversDir.toString(), "${seriesId}_staging.$FILE_EXTENSION")
+        Path(seriesCoversDir.toString(), "${safePathSegment(seriesId)}_staging.$FILE_EXTENSION")
 
-    private fun getUserAvatarFile(userId: String): Path = Path(avatarsDir.toString(), "$userId.$FILE_EXTENSION")
+    private fun getUserAvatarFile(userId: String): Path =
+        Path(avatarsDir.toString(), "${safePathSegment(userId)}.$FILE_EXTENSION")
 
     /**
      * Write bytes to a file, creating parent directories if needed.
@@ -409,9 +423,23 @@ internal class CommonImageStorage(
         val parent = path.parent
         if (parent != null && !SystemFileSystem.exists(parent)) {
             SystemFileSystem.createDirectories(parent)
+            prepareServerRecoverableDirectories()
         }
         SystemFileSystem.sink(path).buffered().use { sink ->
             sink.write(data)
+        }
+    }
+
+    /**
+     * Create the image directories and hand each to [markServerRecoverable]. The nested series
+     * directory is listed on its own: the mark belongs to the directory entry, not its children.
+     * A no-op without a hook.
+     */
+    private fun prepareServerRecoverableDirectories() {
+        val mark = markServerRecoverable ?: return
+        listOf(coversDir, seriesCoversDir, contributorsDir, avatarsDir).forEach { directory ->
+            if (!SystemFileSystem.exists(directory)) SystemFileSystem.createDirectories(directory)
+            mark(directory)
         }
     }
 

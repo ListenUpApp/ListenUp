@@ -13,13 +13,7 @@ final class NotificationBellObserver {
 
     init(viewModel: NotificationBellViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.unreadCount) { [weak self] in self?.unreadCount = Int($0) }
-    }
-
-    // Isolated deinit (SE-0371): runs on the main actor so the non-Sendable Kotlin viewModel can be
-    // closed — a fresh factory instance per shell, whose stream jobs would otherwise outlive it (#1192).
-    isolated deinit {
-        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
-        viewModel.close()
     }
 }

@@ -60,7 +60,7 @@ struct CoverImageRequestTests {
             bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: nil, targetPixels: 100,
             serverBase: "https://x"
         )
-        #expect(request?.userInfo[.imageIdKey] as? String == "/covers/a.jpg")
+        #expect(request?.imageID == "/covers/a.jpg")
         #expect(request?.url?.isFileURL == true)
     }
 
@@ -69,7 +69,7 @@ struct CoverImageRequestTests {
             bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: "abc123", targetPixels: 100,
             serverBase: nil
         )
-        #expect(request?.userInfo[.imageIdKey] as? String == "book-B:abc123")
+        #expect(request?.imageID == "book-B:abc123")
     }
 
     // MARK: - Synchronous server request (no placeholder flash)
@@ -82,7 +82,7 @@ struct CoverImageRequestTests {
             serverBase: "https://x"
         )
         #expect(request?.url?.absoluteString.hasPrefix("https://x/api/v1/covers/book-B?v=abc123") == true)
-        #expect(request?.userInfo[.imageIdKey] as? String == "book-B:abc123")
+        #expect(request?.imageID == "book-B:abc123")
     }
 
     /// The token is attached at load time by `AuthenticatingDataLoader`, never baked into the request.
@@ -107,7 +107,7 @@ struct CoverImageRequestTests {
             serverBase: "https://x", serverFailed: true
         )
         #expect(request?.url?.isFileURL == true)
-        #expect(request?.userInfo[.imageIdKey] as? String == "book-B:abc123")
+        #expect(request?.imageID == "book-B:abc123")
     }
 
     @Test @MainActor func unhashedCoverWithoutFileUsesBareServerURL() {
@@ -115,7 +115,7 @@ struct CoverImageRequestTests {
             bookId: "book-B", coverPath: nil, coverHash: nil, targetPixels: 100, serverBase: "https://x"
         )
         #expect(request?.url?.absoluteString == "https://x/api/v1/covers/book-B")
-        #expect(request?.userInfo[.imageIdKey] == nil)
+        #expect(request?.imageID == request?.url?.absoluteString)
     }
 
     @Test @MainActor func noSourceYieldsNoRequest() {
@@ -131,6 +131,11 @@ struct CoverImageRequestTests {
 
     @Test func requestMissingIsNotALoadFailure() {
         let result: Result<ImageResponse, Error> = .failure(ImagePipeline.Error.imageRequestMissing)
+        #expect(!CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: "/covers/a.jpg"))
+    }
+
+    @Test func cancelledLoadIsNotALoadFailure() {
+        let result: Result<ImageResponse, Error> = .failure(ImagePipeline.Error.cancelled)
         #expect(!CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: "/covers/a.jpg"))
     }
 

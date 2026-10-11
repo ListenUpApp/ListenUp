@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto.scan
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -49,6 +51,7 @@ enum class ScanIssueReason {
  * [firstSeenAt] and [lastSeenAt] differ when a scan keeps re-encountering the same broken folder —
  * useful for telling "this has been wrong for a month" from "this appeared in today's scan".
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class ScanIssue(
     @SerialName("id")
@@ -58,8 +61,10 @@ data class ScanIssue(
     /**
      * Why the import failed. Defaults to [ScanIssueReason.UNKNOWN] so a reason this build does not
      * know (an additive member on a newer server) degrades to "unclassified" rather than throwing.
+     * Always encoded, so an app built before this default existed still finds the key.
      */
     @SerialName("reason")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val reason: ScanIssueReason = ScanIssueReason.UNKNOWN,
     @SerialName("detail")
     val detail: String? = null,

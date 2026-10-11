@@ -100,10 +100,9 @@ final class ShelfDetailObserver {
 
     init(viewModel: ShelfDetailViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func loadShelf(_ id: String) { viewModel.loadShelf(shelfId: id) }
 
@@ -129,7 +128,7 @@ final class ShelfDetailObserver {
         viewModel.reorderBooks(orderedBookIds: reordered)
     }
 
-    private func apply(_ state: ShelfDetailUiState) {
+    func apply(_ state: ShelfDetailUiState) {
         let snapshot = ShelfDetailSnapshot.from(state)
         phase = snapshot.phase
         shelfName = snapshot.shelfName

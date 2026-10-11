@@ -154,4 +154,17 @@ class AbsMetadataReaderTest :
                 )
             contractJson.decodeFromString<AbsMetadata>(contractJson.encodeToString(md)) shouldBe md
         }
+
+        test("a valid metadata.json larger than the sidecar cap is skipped, not read into memory") {
+            runTest {
+                val dir = Files.createTempDirectory("listenup-oversize-")
+                try {
+                    val file = dir.resolve("metadata.json")
+                    file.writeText("""{"title":"Valid","description":"${"x".repeat(1_100_000)}"}""")
+                    reader.read(IoPath(file.toString())).shouldBeNull()
+                } finally {
+                    dir.toFile().deleteRecursively()
+                }
+            }
+        }
     })

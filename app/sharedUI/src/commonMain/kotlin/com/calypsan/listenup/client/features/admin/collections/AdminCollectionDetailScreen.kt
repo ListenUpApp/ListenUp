@@ -129,6 +129,7 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import androidx.compose.foundation.shape.CircleShape
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 
@@ -174,6 +175,7 @@ fun AdminCollectionDetailScreen(
     var shareToRemove by remember { mutableStateOf<CollectionShareItem?>(null) }
 
     val ready = state as? AdminCollectionDetailUiState.Ready
+    val requestLeave = rememberUnsavedWorkGuard(dirty = ready?.isDirty == true, onLeave = onBackClick)
 
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = ready?.error
@@ -203,7 +205,7 @@ fun AdminCollectionDetailScreen(
             state = state,
             isWide = isWide,
             innerPadding = innerPadding,
-            onBackClick = onBackClick,
+            onBackClick = requestLeave,
             onNameChange = viewModel::updateName,
             onSaveClick = viewModel::saveName,
             onRemoveBookClick = { bookToRemove = it },

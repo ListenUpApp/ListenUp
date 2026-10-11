@@ -35,7 +35,7 @@ internal class MatchCoverFiles(
             }
         return try {
             val key = "$bookId-${hashBytesSha256(bytes).take(COVER_KEY_HASH_LENGTH)}"
-            val stored = coverImageStore.store.store(key, bytes, "image/jpeg")
+            val stored = coverImageStore.store.storeContentAddressed(key, bytes, "image/jpeg")
             managedMatchCover("covers/${stored.path.name}", stored.sha256)
         } catch (e: CancellationException) {
             throw e

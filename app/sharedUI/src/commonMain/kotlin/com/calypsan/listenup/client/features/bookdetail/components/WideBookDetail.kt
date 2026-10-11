@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.features.bookdetail.BookDetailActions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDocument
-import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.mostSpecificGenre
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
 import com.calypsan.listenup.client.features.bookdetail.SupplementaryMaterialsSection
@@ -61,52 +61,13 @@ private val RIGHT_COLUMN_MAX_WIDTH = 420.dp
  * The left column flexes with `weight(1f)`; the right column caps at [RIGHT_COLUMN_MAX_WIDTH] so it
  * stays readable on very wide displays while still flexing on smaller medium-width screens.
  */
-@Suppress("LongParameterList")
 @Composable
 fun WideBookDetail(
     bookId: String,
     state: BookDetailUiState.Ready,
-    downloadStatus: BookDownloadStatus,
-    isComplete: Boolean,
-    hasProgress: Boolean,
-    isAdmin: Boolean,
-    canEditMetadata: Boolean,
-    isWaitingForWifi: Boolean,
+    actions: BookDetailActions,
     documents: List<BookDocument> = emptyList(),
-    onOpenDocument: (docId: String) -> Unit = {},
-    showPlaybackActions: Boolean = true,
-    onBackClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onFindMetadataClick: () -> Unit,
-    onEditChaptersClick: () -> Unit,
-    onMarkCompleteClick: () -> Unit,
-    onMarkNotStartedClick: () -> Unit,
-    onRestartClick: () -> Unit = {},
-    onAddToShelfClick: () -> Unit,
-    onAddToCollectionClick: () -> Unit,
-    onShareClick: () -> Unit = {},
-    onDeleteBookClick: () -> Unit,
-    onPlayClick: () -> Unit,
-    onDownloadClick: () -> Unit,
-    onCancelClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    playEnabled: Boolean = true,
-    downloadEnabled: Boolean = true,
-    showServerWarning: Boolean = false,
     isPreparing: Boolean = false,
-    onRetryConnection: () -> Unit,
-    onPlayDisabledClick: () -> Unit = {},
-    onSeriesClick: (seriesId: String) -> Unit,
-    onContributorClick: (contributorId: String) -> Unit,
-    onGenreClick: (genreId: String) -> Unit,
-    onTagClick: (tagId: String, tagName: String) -> Unit,
-    onMoodClick: (moodId: String, moodName: String) -> Unit,
-    onUserProfileClick: (userId: String) -> Unit,
-    onSeeAllReaders: (bookId: String) -> Unit = {},
-    onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
-    onReleaseFromInboxClick: () -> Unit = {},
-    onRestoreToAllBooksClick: () -> Unit = {},
-    onCollectionClick: ((collectionId: String) -> Unit)? = null,
     /** Book Detail's last-match row, under the actions in the left column. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
 ) {
@@ -124,21 +85,21 @@ fun WideBookDetail(
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
             title = book.title,
-            isComplete = isComplete,
-            hasProgress = hasProgress,
-            isAdmin = isAdmin,
-            canEditMetadata = canEditMetadata,
-            onBackClick = onBackClick,
-            onEditClick = onEditClick,
-            onFindMetadataClick = onFindMetadataClick,
-            onEditChaptersClick = onEditChaptersClick,
-            onMarkCompleteClick = onMarkCompleteClick,
-            onMarkNotStartedClick = onMarkNotStartedClick,
-            onRestartClick = onRestartClick,
-            onAddToShelfClick = onAddToShelfClick,
-            onAddToCollectionClick = onAddToCollectionClick,
-            onShareClick = onShareClick,
-            onDeleteClick = onDeleteBookClick,
+            isComplete = state.isComplete,
+            hasProgress = state.progress != null,
+            isAdmin = state.isAdmin,
+            canEditMetadata = state.canEditMetadata,
+            onBackClick = actions.onBackClick,
+            onEditClick = actions.onEditClick,
+            onFindMetadataClick = actions.onFindMetadataClick,
+            onEditChaptersClick = actions.onEditChaptersClick,
+            onMarkCompleteClick = actions.onMarkCompleteClick,
+            onMarkNotStartedClick = actions.onMarkNotStartedClick,
+            onRestartClick = actions.onRestartClick,
+            onAddToShelfClick = actions.onAddToShelfClick,
+            onAddToCollectionClick = actions.onAddToCollectionClick,
+            onShareClick = actions.onShareClick,
+            onDeleteClick = actions.onDeleteBookClick,
             showActions = !state.isHeld,
         )
 
@@ -155,9 +116,9 @@ fun WideBookDetail(
                         .padding(bottom = 32.dp),
             ) {
                 // Offline advisory — streaming unavailable, downloads still play.
-                if (showServerWarning) {
+                if (state.showServerWarning) {
                     OfflineBanner(
-                        onRetryClick = onRetryConnection,
+                        onRetryClick = actions.onRetryConnection,
                         compact = false,
                         modifier = screenPadding.padding(top = 8.dp),
                     )
@@ -182,8 +143,8 @@ fun WideBookDetail(
                     seriesPaths = state.seriesPaths,
                     authors = book.authors,
                     narrators = book.narrators,
-                    onContributorClick = onContributorClick,
-                    onSeriesClick = onSeriesClick,
+                    onContributorClick = actions.onContributorClick,
+                    onSeriesClick = actions.onSeriesClick,
                     onShowCast = { castRole = it },
                     progress = state.progress,
                     timeRemaining = state.timeRemainingFormatted,
@@ -197,38 +158,13 @@ fun WideBookDetail(
                 WideBodyColumns(
                     bookId = bookId,
                     state = state,
-                    downloadStatus = downloadStatus,
-                    isWaitingForWifi = isWaitingForWifi,
-                    showPlaybackActions = showPlaybackActions,
-                    playEnabled = playEnabled,
-                    downloadEnabled = downloadEnabled,
-                    showServerWarning = showServerWarning,
+                    actions = actions,
                     isPreparing = isPreparing,
                     isDescriptionExpanded = isDescriptionExpanded,
                     onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
                     documents = documents,
-                    onOpenDocument = onOpenDocument,
                     isChaptersExpanded = isChaptersExpanded,
                     onExpandChapters = { isChaptersExpanded = true },
-                    onContributorClick = onContributorClick,
-                    onGenreClick = onGenreClick,
-                    onTagClick = onTagClick,
-                    onMoodClick = onMoodClick,
-                    onPlayClick = onPlayClick,
-                    onDownloadClick = onDownloadClick,
-                    onCancelClick = onCancelClick,
-                    onDeleteClick = onDeleteClick,
-                    onPlayDisabledClick = onPlayDisabledClick,
-                    onUserProfileClick = onUserProfileClick,
-                    onSeeAllReaders = onSeeAllReaders,
-                    onFindHardcoverMatch = onFindHardcoverMatch,
-                    onEditClick = onEditClick,
-                    onFindMetadataClick = onFindMetadataClick,
-                    onEditChaptersClick = onEditChaptersClick,
-                    onReleaseFromInboxClick = onReleaseFromInboxClick,
-                    onRestoreToAllBooksClick = onRestoreToAllBooksClick,
-                    onCollectionClick = onCollectionClick,
-                    onAddToCollectionClick = onAddToCollectionClick,
                     lastMatchRow = lastMatchRow,
                     chapterPaneMaxHeight = viewportHeight,
                     modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
@@ -241,7 +177,7 @@ fun WideBookDetail(
                 role = role,
                 authors = book.authors,
                 narrators = book.narrators,
-                onContributorClick = onContributorClick,
+                onContributorClick = actions.onContributorClick,
                 onDismiss = { castRole = null },
             )
         }
@@ -253,43 +189,17 @@ fun WideBookDetail(
  * width-capped right column (Readers + Chapters + Supplementary materials). Extracted from
  * [WideBookDetail] to keep that composable within the method-length budget.
  */
-@Suppress("LongParameterList")
 @Composable
 private fun WideBodyColumns(
     bookId: String,
     state: BookDetailUiState.Ready,
-    downloadStatus: BookDownloadStatus,
-    isWaitingForWifi: Boolean,
-    showPlaybackActions: Boolean,
-    playEnabled: Boolean,
-    downloadEnabled: Boolean,
-    showServerWarning: Boolean,
+    actions: BookDetailActions,
     isPreparing: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
     documents: List<BookDocument>,
-    onOpenDocument: (docId: String) -> Unit,
     isChaptersExpanded: Boolean,
     onExpandChapters: () -> Unit,
-    onContributorClick: (contributorId: String) -> Unit,
-    onGenreClick: (genreId: String) -> Unit,
-    onTagClick: (tagId: String, tagName: String) -> Unit,
-    onMoodClick: (moodId: String, moodName: String) -> Unit,
-    onPlayClick: () -> Unit,
-    onDownloadClick: () -> Unit,
-    onCancelClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onPlayDisabledClick: () -> Unit,
-    onUserProfileClick: (userId: String) -> Unit,
-    onSeeAllReaders: (bookId: String) -> Unit,
-    onFindHardcoverMatch: ((bookId: String) -> Unit)?,
-    onEditClick: () -> Unit,
-    onFindMetadataClick: () -> Unit,
-    onEditChaptersClick: () -> Unit,
-    onReleaseFromInboxClick: () -> Unit,
-    onRestoreToAllBooksClick: () -> Unit,
-    onCollectionClick: ((collectionId: String) -> Unit)?,
-    onAddToCollectionClick: () -> Unit,
     lastMatchRow: @Composable (Modifier) -> Unit,
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
@@ -300,31 +210,10 @@ private fun WideBodyColumns(
     ) {
         WideLeftColumn(
             state = state,
-            downloadStatus = downloadStatus,
-            isWaitingForWifi = isWaitingForWifi,
-            showPlaybackActions = showPlaybackActions,
-            playEnabled = playEnabled,
-            downloadEnabled = downloadEnabled,
-            showServerWarning = showServerWarning,
+            actions = actions,
             isPreparing = isPreparing,
             isDescriptionExpanded = isDescriptionExpanded,
             onToggleDescription = onToggleDescription,
-            onContributorClick = onContributorClick,
-            onGenreClick = onGenreClick,
-            onTagClick = onTagClick,
-            onMoodClick = onMoodClick,
-            onPlayClick = onPlayClick,
-            onDownloadClick = onDownloadClick,
-            onCancelClick = onCancelClick,
-            onDeleteClick = onDeleteClick,
-            onPlayDisabledClick = onPlayDisabledClick,
-            onEditClick = onEditClick,
-            onFindMetadataClick = onFindMetadataClick,
-            onEditChaptersClick = onEditChaptersClick,
-            onReleaseFromInboxClick = onReleaseFromInboxClick,
-            onRestoreToAllBooksClick = onRestoreToAllBooksClick,
-            onCollectionClick = onCollectionClick,
-            onAddToCollectionClick = onAddToCollectionClick,
             lastMatchRow = lastMatchRow,
             modifier = Modifier.weight(1f),
         )
@@ -334,12 +223,12 @@ private fun WideBodyColumns(
             isHeld = state.isHeld,
             chapters = state.chapters,
             documents = documents,
-            onOpenDocument = onOpenDocument,
+            onOpenDocument = actions.onOpenDocument,
             isChaptersExpanded = isChaptersExpanded,
             onExpandChapters = onExpandChapters,
-            onUserProfileClick = onUserProfileClick,
-            onSeeAllReaders = onSeeAllReaders,
-            onFindHardcoverMatch = onFindHardcoverMatch,
+            onUserProfileClick = actions.onUserProfileClick,
+            onSeeAllReaders = actions.onSeeAllReaders,
+            onFindHardcoverMatch = actions.onFindHardcoverMatch,
             chapterPaneMaxHeight = chapterPaneMaxHeight,
             modifier = Modifier.widthIn(max = RIGHT_COLUMN_MAX_WIDTH),
         )
@@ -351,35 +240,13 @@ private fun WideBodyColumns(
  * admins-only [BookVisibilitySection], a [DetailsSection] (publisher / published / language / format + credits), and the connected
  * Play + Download action group.
  */
-@Suppress("LongParameterList")
 @Composable
 private fun WideLeftColumn(
     state: BookDetailUiState.Ready,
-    downloadStatus: BookDownloadStatus,
-    isWaitingForWifi: Boolean,
-    showPlaybackActions: Boolean,
-    playEnabled: Boolean,
-    downloadEnabled: Boolean,
-    showServerWarning: Boolean,
+    actions: BookDetailActions,
     isPreparing: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
-    onContributorClick: (contributorId: String) -> Unit,
-    onGenreClick: (genreId: String) -> Unit,
-    onTagClick: (tagId: String, tagName: String) -> Unit,
-    onMoodClick: (moodId: String, moodName: String) -> Unit,
-    onPlayClick: () -> Unit,
-    onDownloadClick: () -> Unit,
-    onCancelClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onPlayDisabledClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onFindMetadataClick: () -> Unit,
-    onEditChaptersClick: () -> Unit,
-    onReleaseFromInboxClick: () -> Unit,
-    onRestoreToAllBooksClick: () -> Unit,
-    onCollectionClick: ((collectionId: String) -> Unit)?,
-    onAddToCollectionClick: () -> Unit,
     lastMatchRow: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -392,25 +259,25 @@ private fun WideLeftColumn(
         if (state.isHeld) {
             HeldForReviewSection(
                 isReleasing = state.isReleasingFromInbox,
-                onReleaseClick = onReleaseFromInboxClick,
-                onEditClick = onEditClick,
-                onMatchClick = onFindMetadataClick,
-                onEditChaptersClick = onEditChaptersClick,
+                onReleaseClick = actions.onReleaseFromInboxClick,
+                onEditClick = actions.onEditClick,
+                onMatchClick = actions.onFindMetadataClick,
+                onEditChaptersClick = actions.onEditChaptersClick,
                 modifier = Modifier.padding(bottom = 16.dp),
             )
-        } else if (showPlaybackActions) {
+        } else if (state.isPlaybackAvailable) {
             PrimaryActionsSection(
-                downloadStatus = downloadStatus,
-                onPlayClick = onPlayClick,
-                onDownloadClick = onDownloadClick,
-                onCancelClick = onCancelClick,
-                onDeleteClick = onDeleteClick,
+                downloadStatus = state.downloadStatus,
+                onPlayClick = actions.onPlayClick,
+                onDownloadClick = actions.onDownloadClick,
+                onCancelClick = actions.onCancelClick,
+                onDeleteClick = actions.onDeleteClick,
                 modifier = Modifier.padding(bottom = 16.dp),
-                isWaitingForWifi = isWaitingForWifi,
-                playEnabled = playEnabled,
-                downloadEnabled = downloadEnabled,
-                onPlayDisabledClick = onPlayDisabledClick,
-                showServerWarning = showServerWarning,
+                isWaitingForWifi = state.isWaitingForWifi,
+                playEnabled = state.canPlay,
+                downloadEnabled = state.canDownload,
+                onPlayDisabledClick = actions.onPlayDisabledClick,
+                showServerWarning = state.showServerWarning,
                 isPreparing = isPreparing,
             )
         }
@@ -428,9 +295,9 @@ private fun WideLeftColumn(
             isCard = true,
             isDescriptionExpanded = isDescriptionExpanded,
             onToggleDescriptionExpanded = onToggleDescription,
-            onGenreClick = { genre -> onGenreClick(genre.id) },
-            onTagClick = { tag -> onTagClick(tag.id, tag.displayName()) },
-            onMoodClick = { mood -> onMoodClick(mood.id, mood.displayName()) },
+            onGenreClick = { genre -> actions.onGenreClick(genre.id) },
+            onTagClick = { tag -> actions.onTagClick(tag.id, tag.displayName()) },
+            onMoodClick = { mood -> actions.onMoodClick(mood.id, mood.displayName()) },
             modifier = Modifier.fillMaxWidth(),
             creditsSlot = null,
         )
@@ -442,9 +309,9 @@ private fun WideLeftColumn(
                 BookVisibilitySection(
                     visibility = visibility,
                     isRestoring = state.isRestoringToAllBooks,
-                    onCollectionClick = onCollectionClick,
-                    onShowToAllMembers = onRestoreToAllBooksClick,
-                    onAddToCollection = onAddToCollectionClick,
+                    onCollectionClick = actions.onCollectionClick,
+                    onShowToAllMembers = actions.onRestoreToAllBooksClick,
+                    onAddToCollection = actions.onAddToCollectionClick,
                     modifier = Modifier.padding(top = 16.dp),
                 )
             }
@@ -457,7 +324,7 @@ private fun WideLeftColumn(
             language = book.language,
             audioFiles = book.audioFiles,
             credits = book.allContributors,
-            onContributorClick = onContributorClick,
+            onContributorClick = actions.onContributorClick,
             modifier = Modifier.padding(top = 16.dp),
         )
     }

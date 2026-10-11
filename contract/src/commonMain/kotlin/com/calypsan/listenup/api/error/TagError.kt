@@ -36,6 +36,8 @@ sealed interface TagError : AppError {
         override val message: String = "Tag not found."
         override val code: String = "TAG_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -53,6 +55,8 @@ sealed interface TagError : AppError {
         override val message: String = "Tag name is empty or contains only special characters."
         override val code: String = "TAG_INVALID_NAME"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -69,6 +73,8 @@ sealed interface TagError : AppError {
         override val message: String = "Tag name exceeds the 64-character limit."
         override val code: String = "TAG_NAME_TOO_LONG"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -85,5 +91,7 @@ sealed interface TagError : AppError {
         override val message: String = "Book not found."
         override val code: String = "TAG_BOOK_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

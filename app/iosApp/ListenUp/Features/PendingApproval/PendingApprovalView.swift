@@ -35,8 +35,8 @@ struct PendingApprovalView: View {
             phaseFooter
         }
         // Pre-auth is the other legitimate moment for the notification prompt (#1068): a
-        // pending registrant wants to hear the decision. activate() is once-per-process, so a
-        // later post-auth call from RootView is a no-op. The APNs token this produces flows to
+        // pending registrant wants to hear the decision. The prompt and APNs registration
+        // happen once per process, so the post-auth call from RootView only re-syncs the server. The APNs token this produces flows to
         // the shared PendingApprovalViewModel's watch registration, retried on Check Status.
         .onAppear { PushCoordinator.shared.activate() }
     }

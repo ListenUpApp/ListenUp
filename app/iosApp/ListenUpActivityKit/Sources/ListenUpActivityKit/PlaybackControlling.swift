@@ -10,6 +10,15 @@ public protocol PlaybackControlling: Sendable {
     /// Start playback of a specific book by id — the "Play <book> in ListenUp"
     /// App Intent / Siri path. Forwards to the app's `PlayerCoordinator`.
     func playBook(id: String)
+
+    /// Whether a book is loaded or loading in the player (playing, paused, buffering or preparing).
+    /// `false` when the player is idle or its last load failed — the sleep-timer intent then starts
+    /// the most recent book first, because a timer has nothing to count down against otherwise.
+    var hasLoadedBook: Bool { get }
+
+    /// Start a sleep timer of `minutes`. Takes effect for the book `playBook(id:)` just retargeted:
+    /// a change of book cancels a running timer, so the timer is always set *after* any resume.
+    func setSleepTimer(minutes: Int)
 }
 
 /// Resolves "the book to resume" — the most-recently-played in-progress audiobook —

@@ -112,9 +112,16 @@ internal class FtsPopulator(
                     addAll(searchDao.bookIdsWithContributorsChangedSince(watermark.contributorsRevision))
                     addAll(searchDao.bookIdsWithSeriesChangedSince(watermark.seriesRevision))
                     addAll(searchDao.bookIdsWithGenresChangedSince(watermark.genresRevision))
+                    // A row can land at a revision below the watermark (a newly shared collection of
+                    // older books, a digest repair), where no revision comparison can see it.
+                    addAll(searchDao.liveBookIdsMissingFromIndex())
                 }
-            val contributorsChanged = searchDao.countContributorsChangedSince(watermark.contributorsRevision) > 0
-            val seriesChanged = searchDao.countSeriesChangedSince(watermark.seriesRevision) > 0
+            val contributorsChanged =
+                searchDao.countContributorsChangedSince(watermark.contributorsRevision) > 0 ||
+                    searchDao.countLiveContributorsMissingFromIndex() > 0
+            val seriesChanged =
+                searchDao.countSeriesChangedSince(watermark.seriesRevision) > 0 ||
+                    searchDao.countLiveSeriesMissingFromIndex() > 0
 
             if (changedBookIds.size > FTS_FULL_REBUILD_THRESHOLD) {
                 logger.info { "FTS delta of ${changedBookIds.size} books exceeds threshold — full rebuild" }

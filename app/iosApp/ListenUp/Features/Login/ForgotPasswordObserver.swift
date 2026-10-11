@@ -29,15 +29,8 @@ final class ForgotPasswordObserver {
 
     init(viewModel: ForgotPasswordViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
-    }
-
-    // Isolated deinit (SE-0371): no ViewModelStore on iOS calls onCleared, so this wrapper must
-    // close() the VM itself (#1192) — else its stream/poll watch jobs orphan and run forever
-    // (the ForgotPasswordViewModel KDoc calls this contract out explicitly).
-    isolated deinit {
-        bridge.cancelAll()
-        viewModel.close()
     }
 
     // MARK: - Actions

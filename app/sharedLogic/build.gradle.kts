@@ -59,7 +59,7 @@ kotlin {
 
     // Native Swift Export — the shipping iOS interop surface (SKIE is gone). The Xcode build
     // phase drives `embedSwiftExportForXcode`; a post-generation patcher (further down) makes the
-    // output idiomatic. `flattenPackage` requests the short package prefix; where Kotlin 2.4.0
+    // output idiomatic. `flattenPackage` requests the short package prefix; where Kotlin 2.4.20
     // doesn't actually collapse it, the patcher's typealias layer does.
     @OptIn(org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl::class)
     swiftExport {
@@ -216,9 +216,20 @@ kotlin {
 // Each catches COLLAPSE, not attrition: the counts that ran green are noted beside each floor, and every
 // bar sits well below, so an honest deletion never trips it. A floor hugging the current count is a
 // ratchet, and a ratchet just teaches people to edit the number without reading it.
-// 3,423 ran green on 2026-07-25.
-failBelowDiscoveredTestCount("jvmTest", floor = 2700)
-// 2,471 ran green on 2026-07-25.
+// A lane with a lane-only source set must sit above the common set's count, and anchors vouch for that
+// source set by name: jvmTest is the common tests plus the JVM-only Konsist rules and Koin verify specs,
+// so a floor under the common count would pass with all of them gone.
+// 4,735 ran green on 2026-10-09.
+failBelowDiscoveredTestCount(
+    "jvmTest",
+    floor = 3700,
+    anchorSpecs =
+        listOf(
+            "com.calypsan.listenup.konsist.KonsistScopeTest",
+            "com.calypsan.listenup.client.di.AppCoreModuleVerifyTest",
+        ),
+)
+// 3,174 ran green on 2026-10-09.
 failBelowDiscoveredTestCount("testAndroidHostTest", floor = 1950)
 // The Apple lane needs one more than most: a native lane missing its Kotest entry point reports green
 // over zero discovered specs, which is indistinguishable from a healthy run. 2,827 ran green on
@@ -229,7 +240,7 @@ failBelowDiscoveredTestCount("iosSimulatorArm64Test", floor = 2200)
 tasks.named<Test>("jvmTest") {
     useJUnitPlatform()
     // Gradle's default Test heap (512m) is too small for this suite and OOMs. Two things need
-    // headroom: the in-process Ktor servers (Flyway + Room + RPC e2e tests) in a single non-forked
+    // headroom: the in-process Ktor servers (Room + RPC e2e tests) in a single non-forked
     // worker, and the Konsist architectural rules, which hold a single shared PSI scope of the whole
     // production tree (~1.5k files) for the lifetime of the run (see konsist/KonsistScope.kt).
     maxHeapSize = "4g"
@@ -329,9 +340,10 @@ room3 {
 // surface and its mutable-collection bridge is never generated.
 
 // ---- Swift Export (Alpha) codegen workarounds ---------------------------------------------
-// Kotlin 2.4.0 Swift export emits some uncompilable + non-idiomatic Swift for transitively-
-// reachable dependency types. The four brace-aware, regex-based transforms that rewrite it now
-// live in `build-logic`'s `SwiftExportSourcePatcher` — pure `String -> String` cores (unit-tested
+// Kotlin 2.4.20's Swift Export emits some uncompilable + non-idiomatic Swift for transitively-
+// reachable dependency types. The four regex-based passes that rewrite it (`patchSource`,
+// `camelCase`, `flatTypealias`, `sealedAlias`) live in `build-logic`'s
+// `SwiftExportSourcePatcher` — pure `String -> String` cores (unit-tested
 // by `SwiftExportSourcePatcherTest` on the Linux `Test (JVM)` lane: `./gradlew
 // :build-logic:convention:test`) plus a thin file-walking `patchPackage` wrapper. See that
 // object's KDoc for the per-transform bug descriptions and which upstream fix retires each.
@@ -359,10 +371,11 @@ tasks.matching { it.name.endsWith("GenerateSPMPackage") }.configureEach {
     // Patch only THIS task's own per-target SPM package, not the shared `build/SPMPackage` parent.
     // That dir holds one subdir per iOS target+config (`iosArm64/Debug`, `iosSimulatorArm64/Debug`, …),
     // and `patchPackage` selects a single `Shared.swift` via `firstOrNull`. Pointing it at the parent
-    // lets an already-patched sibling target — whose sealed-enum marker makes `appendSealedEnumSupport`
-    // return 0 — trip the `count > 0` floor below. That's the intermittent "matched 0 sealed types"
-    // failure seen when a device build runs while a simulator package is already patched (or vice
-    // versa). Scoping to this task's own `<target>/<config>` dir isolates the per-target patches.
+    // lets an already-patched sibling target — whose sealed-alias marker makes
+    // `appendSealedSubtypeAliases` return 0 — trip the `count > 0` floor below. That's the
+    // intermittent "matched 0 sealed types" failure seen when a device build runs while a simulator
+    // package is already patched (or vice versa). Scoping to this task's own `<target>/<config>` dir
+    // isolates the per-target patches.
     val packageStem = name.removeSuffix("GenerateSPMPackage") // e.g. "iosArm64Debug"
     val configName =
         listOf("Debug", "Release").firstOrNull(packageStem::endsWith)

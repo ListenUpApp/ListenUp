@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.matching.review
 import com.calypsan.listenup.api.dto.match.FieldValue
 import com.calypsan.listenup.api.sync.parseSeriesSequence
 import com.calypsan.listenup.server.io.hashBytesSha256
+import com.calypsan.listenup.server.matching.foldForMatching
 
 private const val OPTION_HASH_LENGTH = 12
 private const val YEAR_DIGITS = 4
@@ -60,7 +61,7 @@ internal object ReviewKeys {
     ): String = provider + ":" + hashBytesSha256(key.encodeToByteArray()).take(OPTION_HASH_LENGTH)
 
     /** Folds whitespace and case: what "the same text" means everywhere in Review. */
-    fun text(raw: String): String = raw.trim().replace(WHITESPACE, " ").lowercase()
+    fun text(raw: String): String = raw.trim().replace(WHITESPACE, " ").foldForMatching()
 
     /** The year a provider's release date names (`"2021-03-04"` → 2021), or null. */
     fun yearOf(releaseDate: String?): Int? =

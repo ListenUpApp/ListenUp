@@ -14,11 +14,9 @@ import com.calypsan.listenup.client.domain.repository.ServerRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -28,6 +26,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -77,7 +76,7 @@ class ServerSelectViewModel(
 
     /** The server whose activation the local-network gate last blocked, so a grant can re-run it. */
     private var blockedSelection: ServerWithStatus? = null
-    private var closed = false
+    private var discoveryStopped = false
 
     private sealed interface Overlay {
         data object None : Overlay
@@ -123,12 +122,12 @@ class ServerSelectViewModel(
         }.distinctUntilChanged()
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
+                started = WhileSubscribedForUi,
                 initialValue = ServerSelectUiState.Discovering(emptyList()),
             )
 
-    private val _navigationEvents = Channel<NavigationEvent>(Channel.BUFFERED)
-    val navigationEvents: Flow<NavigationEvent> = _navigationEvents.receiveAsFlow()
+    private val navigationEventsChannel = Channel<NavigationEvent>(Channel.BUFFERED)
+    val navigationEvents: Flow<NavigationEvent> = navigationEventsChannel.receiveAsFlow()
 
     /** Navigation events for the UI to handle. */
     sealed interface NavigationEvent {
@@ -178,7 +177,7 @@ class ServerSelectViewModel(
             }
 
             ServerSelectUiEvent.ManualEntryClicked -> {
-                _navigationEvents.trySend(NavigationEvent.GoToManualEntry)
+                navigationEventsChannel.trySend(NavigationEvent.GoToManualEntry)
             }
 
             ServerSelectUiEvent.RefreshClicked -> {
@@ -222,7 +221,7 @@ class ServerSelectViewModel(
         logger.warn { "ACCESS_LOCAL_NETWORK permission denied — navigating to manual entry" }
         discoveryInProgress.value = false
         overlay.value = Overlay.None
-        _navigationEvents.trySend(NavigationEvent.GoToManualEntry)
+        navigationEventsChannel.trySend(NavigationEvent.GoToManualEntry)
     }
 
     private fun handleServerSelected(serverWithStatus: ServerWithStatus) {
@@ -265,7 +264,7 @@ class ServerSelectViewModel(
                     adoptServer(url = reachableUrl, instanceId = server.id)
                     logger.info { "Server activated: ${server.id} at $reachableUrl" }
                     overlay.value = Overlay.None
-                    _navigationEvents.trySend(NavigationEvent.ServerActivated)
+                    navigationEventsChannel.trySend(NavigationEvent.ServerActivated)
                 } else {
                     logger.warn { "Server discovered but not reachable at any URL: $urlsToTry" }
                     overlay.value = Overlay.Failed(server.id, unreachableError(serverWithStatus, urlsToTry))
@@ -308,23 +307,15 @@ class ServerSelectViewModel(
         beginDiscovery()
     }
 
+    /**
+     * Stops mDNS discovery, which is not a coroutine and so outlives a cancelled scope. Guarded
+     * because a ViewModel can be cleared more than once and the repository should hear it once.
+     */
     override fun onCleared() {
         super.onCleared()
-        close()
-    }
-
-    /**
-     * Stops mDNS discovery and cancels the discovery job. Idempotent — safe to call more than once.
-     *
-     * Android/Desktop reach this via [onCleared] when the `ViewModelStore` clears the entry. iOS has
-     * no `ViewModelStore`, so [ServerSelectViewModelWrapper] calls this from its `isolated deinit`
-     * (#1192); without it the mDNS discovery keeps announcing/scanning forever after the screen goes.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
+        if (discoveryStopped) return
+        discoveryStopped = true
         logger.info { "Stopping server discovery" }
         serverRepository.stopDiscovery()
-        viewModelScope.cancel()
     }
 }

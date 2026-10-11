@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.imePadding
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -137,13 +138,14 @@ fun EditProfileScreen(
         )
 
     val ready = state as? EditProfileUiState.Ready
+    val requestLeave = rememberUnsavedWorkGuard(dirty = ready?.isDirty == true, onLeave = onBack)
 
     ListenUpScaffold(
         modifier = modifier,
         topBar = {
             ListenUpTopAppBar(
                 title = stringResource(Res.string.profile_edit_profile_title),
-                onBack = onBack,
+                onBack = requestLeave,
                 actions = {
                     if (ready != null) {
                         SaveAction(

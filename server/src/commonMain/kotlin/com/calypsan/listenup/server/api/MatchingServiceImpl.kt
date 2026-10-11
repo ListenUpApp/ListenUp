@@ -48,16 +48,25 @@ import com.calypsan.listenup.server.matching.PeopleFinder
 import com.calypsan.listenup.server.matching.PeopleSubject
 import com.calypsan.listenup.server.matching.resolveFindRegion
 import com.calypsan.listenup.server.matching.toFindSubject
+import com.calypsan.listenup.server.logging.loggerFor
+import kotlinx.coroutines.CancellationException
+
+private val log = loggerFor<MatchingServiceImpl>()
 
 private const val MAX_FIND_QUERY_LENGTH = 200
 
-/** Match details' Review, Apply and Undo, bundled for [MatchingServiceImpl]. */
+/**
+ * Match details' Review, Apply and Undo, bundled for [MatchingServiceImpl]. [ratingsRefresh] re-fetches a book's
+ * outside ratings after an Undo, as Apply does after a match: the restored identifiers name an edition whose
+ * ratings the book no longer carries. Null where the feature is unwired.
+ */
 internal data class MatchDetails(
     val reviewer: BookReviewer,
     val applier: BookMatchApplier,
     val undoer: MatchUndoer,
     val receipts: MatchReceiptStore,
     val people: PersonMatchDetails,
+    val ratingsRefresh: (suspend (BookId, MetadataLocale) -> Unit)? = null,
 )
 
 /** Match details' person Review, Apply and Undo. [loadPerson] reads a live contributor, or null. */
@@ -175,7 +184,8 @@ internal class MatchingServiceImpl(
         val person = details.people.loadPerson(contributorId) ?: return AppResult.Failure(notFound(contributorId))
         return details.people.reviewer
             .review(person, candidate, personLocale(candidate))
-            .map { it.review.copy(role = role) }
+            // UNKNOWN is what a role this server cannot read decodes as; only a real role is echoed.
+            .map { it.review.copy(role = role?.takeIf(ContributorRole::isAssignable)) }
     }
 
     override suspend fun applyPersonMatch(
@@ -203,7 +213,10 @@ internal class MatchingServiceImpl(
         return when (receipt.entity) {
             ReceiptEntity.BOOK.value -> {
                 requireEditableBook(BookId(receipt.entityId))?.let { return AppResult.Failure(it) }
-                withCapturedFrames { details.undoer.undo(receiptId) }
+                val bookId = BookId(receipt.entityId)
+                withCapturedFrames { details.undoer.undo(receiptId) }.also { undone ->
+                    if (undone is AppResult.Success) refreshRatingsAfterUndo(bookId)
+                }
             }
 
             ReceiptEntity.CONTRIBUTOR.value -> {
@@ -214,6 +227,22 @@ internal class MatchingServiceImpl(
             else -> {
                 AppResult.Failure(MetadataError.UndoExpired(debugInfo = "receipt $receiptId is for ${receipt.entity}"))
             }
+        }
+    }
+
+    /**
+     * Best effort, after the undo has committed: a ratings fetch must never turn a successful undo into an error.
+     * A receipt keeps no candidate, so the store is the library's, else the server's default.
+     */
+    private suspend fun refreshRatingsAfterUndo(bookId: BookId) {
+        val refresh = details.ratingsRefresh ?: return
+        try {
+            val book = loadBook(bookId) ?: return
+            refresh(bookId, resolveFindRegion(null, libraryRegion(book.libraryId)).locale)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn(e) { "External rating fetch failed for ${bookId.value} after an undo — skipping" }
         }
     }
 

@@ -19,5 +19,7 @@ sealed interface RatingError : AppError {
         override val message: String = "The rating sources couldn't be reached. Try again later."
         override val code: String = "RATING_SOURCE_UNAVAILABLE"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

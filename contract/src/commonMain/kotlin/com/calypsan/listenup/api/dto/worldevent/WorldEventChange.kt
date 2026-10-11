@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.dto.entity.StoryWorldOp
 import com.calypsan.listenup.api.sync.WorldEventSyncPayload
 import com.calypsan.listenup.core.StoryWorldHistoryId
 import com.calypsan.listenup.core.WorldEventId
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -17,19 +19,20 @@ import kotlinx.serialization.Serializable
  *
  * @property id the handle [com.calypsan.listenup.api.WorldEventService.revert] takes.
  * @property eventId the event changed.
- * @property op what happened.
+ * @property op what happened; [StoryWorldOp.UNKNOWN] when this build cannot read it. Always encoded.
  * @property actorId who did it; null for a change the server made itself (a book removal, a series merge).
  * @property occurredAt epoch ms.
  * @property before the event before the change; null for a CREATE, or when the viewer can't see this snapshot's
  *   home or anchor (an edit can move the anchor, so an earlier state may be out of the viewer's sight).
  * @property after the event after the change; a tombstone for a DELETE; null when the viewer can't see it.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("WorldEventChange")
 data class WorldEventChange(
     @SerialName("id") val id: StoryWorldHistoryId,
     @SerialName("eventId") val eventId: WorldEventId,
-    @SerialName("op") val op: StoryWorldOp,
+    @SerialName("op") @EncodeDefault(EncodeDefault.Mode.ALWAYS) val op: StoryWorldOp = StoryWorldOp.UNKNOWN,
     @SerialName("actorId") val actorId: String? = null,
     @SerialName("occurredAt") val occurredAt: Long,
     @SerialName("before") val before: WorldEventSyncPayload? = null,

@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -23,6 +24,7 @@ import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import kotlin.time.Clock
+import com.calypsan.listenup.server.auth.requirePermission
 
 /**
  * Thin [SeriesService] implementation.
@@ -30,28 +32,27 @@ import kotlin.time.Clock
  * Translates read requests and user-edit mutations for series entities from
  * the wire contract to repository calls.
  *
- * [updateSeries] reads the current row, applies the patch field-by-field
- * (`null` means "don't touch"), and writes it back through the syncable substrate
- * so the revision bumps and the change-bus fires uniformly. The read-then-write
- * runs inside one [suspendTransaction] so concurrent edits can't interleave.
- * When `name` or `sortName` changes, the post-commit pass kicks the FTS reindex
- * for every linked book — reindex failure is logged and swallowed so a flaky FTS
- * write can't roll back a successful DB update.
+ * [updateSeries] applies the patch field-by-field (`null` means "don't touch") through the
+ * syncable substrate's `patchLive`, so the revision bumps and the change-bus fires uniformly.
+ * The read and the write share one transaction, so concurrent edits can't interleave, and a
+ * deleted or merged-away series answers [SeriesError.NotFound] rather than being revived by
+ * the edit.
  *
  * [deleteSeries] hard-deletes the junction rows linking the series to
  * every book (the canonical mass-removal idiom for many-to-many catalogues), then
  * re-upserts each affected book with the series stripped — which bumps each
  * book's revision and publishes the resulting `Updated` events so clients see
  * the series disappear from book detail views — and finally soft-deletes
- * the series itself. Post-commit, every affected book has its `book_search` FTS
- * row reindexed (best-effort; logged on failure).
+ * the series itself. The server keeps no search index (migration V55 dropped them all), so
+ * no write here reindexes anything.
  *
- * **Transaction model (SQLDelight cutover).** Like [com.calypsan.listenup.server.api.ContributorServiceImpl],
- * each flow runs its read-consistency checks under an outer Exposed read transaction, but every
- * WRITE — the `book_series_memberships` relink/delete and the series/book upserts — goes through
- * the single SQLDelight connection. The outer Exposed transaction never takes the SQLite write
- * lock, so the SQLDelight writes serialize on the lone SQLDelight connection without the
- * cross-engine `SQLITE_BUSY` the prior Exposed-junction-write split exhibited.
+ * **Transaction model.** Like [com.calypsan.listenup.server.api.ContributorServiceImpl],
+ * [mergeSeries] and [deleteSeries] are **not** one transaction. Each keeps its snapshot +
+ * `book_series_memberships` relink/delete (and, for a merge, the receipt) in a single
+ * [sqlTransaction]; every other step — re-homing Story World entities and events, the per-book
+ * re-upserts, handing sub-series and reading orders on, the series soft-delete — is a separate
+ * write, each atomic on its own. A failure part-way returns the error with the earlier writes
+ * already committed.
  *
  * [mergeSeries] moves the source's books, sub-series, Story World entities and events into the target, and
  * [undoSeriesMerge] moves back whatever of them still sits where the merge put it.
@@ -104,7 +105,8 @@ internal class SeriesServiceImpl(
      * the edit is allowed. Exposed as `internal` so the image-upload route can gate before reading the
      * multipart body; the update the route then makes re-gates internally as defense-in-depth.
      */
-    internal suspend fun checkCanEdit(): AppError? = requirePermission(Permission.EDIT_METADATA)
+    internal suspend fun checkCanEdit(): AppError? =
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
@@ -121,16 +123,7 @@ internal class SeriesServiceImpl(
             worldEventRepo = worldEventRepo,
         )
 
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
-
+    @OpenRead(reason = "every member already receives every series row through sync")
     override suspend fun getSeries(id: SeriesId): AppResult<SeriesSyncPayload?> =
         AppResult.Success(seriesRepo.findById(id.value))
 
@@ -157,25 +150,18 @@ internal class SeriesServiceImpl(
         id: SeriesId,
         patch: SeriesUpdate,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        val current =
-            seriesRepo.findById(id.value)
-                ?: return seriesNotFound(id)
-        val patched = current.applyPatch(patch)
-        val nameChanged = patched.name != current.name || patched.sortName != current.sortName
-        val outcome: SeriesUpdateOutcome =
-            when (val upsertResult = seriesRepo.upsert(patched)) {
-                is AppResult.Success -> SeriesUpdateOutcome(nameChanged, AppResult.Success(Unit))
-                is AppResult.Failure -> SeriesUpdateOutcome(false, AppResult.Failure(upsertResult.error))
-            }
-        return outcome.result
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        return when (val patched = seriesRepo.patchLive(id) { it.applyPatch(patch) }) {
+            is AppResult.Failure -> AppResult.Failure(patched.error)
+            is AppResult.Success -> if (patched.data == null) seriesNotFound(id) else AppResult.Success(Unit)
+        }
     }
 
     override suspend fun mergeSeries(
         source: SeriesId,
         target: SeriesId,
     ): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val mergedBy =
             principal.current()?.run { userId.value } ?: return AppResult.Failure(AuthError.PermissionDenied())
         if (source.value == target.value) {
@@ -186,7 +172,7 @@ internal class SeriesServiceImpl(
     }
 
     /**
-     * The merge write sequence (no FTS reindex). The receipt + snapshot + membership relink are
+     * The merge write sequence. The receipt + snapshot + membership relink are
      * kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the source
      * soft-delete are sequential aggregate writes over the single SQLDelight connection —
      * matching the established cutover shape.
@@ -260,12 +246,12 @@ internal class SeriesServiceImpl(
     }
 
     override suspend fun listMergeReceipts(target: SeriesId): AppResult<List<MergeReceipt>> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return AppResult.Success(mergeReceipts.openFor(target))
     }
 
     override suspend fun undoSeriesMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         return mergeReceipts.undo(receiptId)
     }
 
@@ -273,7 +259,7 @@ internal class SeriesServiceImpl(
         name: String,
         parentId: SeriesId?,
     ): AppResult<SeriesSyncPayload> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return hierarchy.create(name, parentId)
     }
 
@@ -281,7 +267,7 @@ internal class SeriesServiceImpl(
         id: SeriesId,
         parentId: SeriesId?,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return hierarchy.setParent(id, parentId)
     }
 
@@ -289,18 +275,18 @@ internal class SeriesServiceImpl(
         parentId: SeriesId,
         orderedChildIds: List<SeriesId>,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         return hierarchy.reorderChildren(parentId, orderedChildIds)
     }
 
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
         return result
     }
 
     /**
-     * The delete write sequence (no FTS reindex). The snapshot + membership hard-delete are the
+     * The delete write sequence. The snapshot + membership hard-delete are the
      * one pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the
      * series soft-delete are sequential aggregate writes over the single SQLDelight connection —
      * matching the established cutover shape.
@@ -370,11 +356,6 @@ fun seriesServiceScopedTo(
     service: SeriesService,
     principal: PrincipalProvider,
 ): SeriesService = (service as SeriesServiceImpl).copyWith(principal)
-
-private data class SeriesUpdateOutcome(
-    val reindexNeeded: Boolean,
-    val result: AppResult<Unit>,
-)
 
 internal fun seriesNotFound(id: SeriesId): AppResult.Failure =
     AppResult.Failure(SeriesError.NotFound(debugInfo = "seriesId=${id.value}"))

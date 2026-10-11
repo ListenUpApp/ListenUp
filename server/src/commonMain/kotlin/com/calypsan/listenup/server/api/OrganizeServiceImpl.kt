@@ -6,12 +6,10 @@ import com.calypsan.listenup.api.dto.organize.OrganizePreviewEntryDto
 import com.calypsan.listenup.api.dto.organize.OrganizeRunEvent
 import com.calypsan.listenup.api.dto.organize.OrganizeRunId
 import com.calypsan.listenup.api.dto.organize.OrganizeSettingsDto
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.error.surfacedLogLine
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -32,6 +30,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
+import com.calypsan.listenup.server.auth.requireAdmin
 import kotlin.time.TimeSource
 
 private val logger = loggerFor<OrganizeServiceImpl>()
@@ -78,12 +77,12 @@ class OrganizeServiceImpl(
         )
 
     override suspend fun getSettings(): AppResult<OrganizeSettingsDto> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(settingsStore.get())
     }
 
     override suspend fun saveSettings(settings: OrganizeSettingsDto): AppResult<Unit> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         // No root probe: persisting rules writes to `server_settings`, never to a library folder.
         // An unavailable disk must not stop an admin from saying how they want things filed.
         settingsStore.set(settings)
@@ -91,13 +90,13 @@ class OrganizeServiceImpl(
     }
 
     override suspend fun preview(settings: OrganizeSettingsDto): AppResult<OrganizePreviewDto> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         val plan = planBuilder.build(libraryRegistry.currentLibrary(), settings.toPlannerSettings())
         return AppResult.Success(plan.toPreviewDto())
     }
 
     override suspend fun saveAndExecute(settings: OrganizeSettingsDto): AppResult<OrganizeRunId> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
 
         probeAllRoots()?.let { unavailable -> return AppResult.Failure(unavailable) }
 
@@ -127,7 +126,7 @@ class OrganizeServiceImpl(
         }
 
     override suspend fun resumeRun(): AppResult<OrganizeRunId?> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return AppResult.Success(runState.activeRunId())
     }
 
@@ -210,12 +209,6 @@ class OrganizeServiceImpl(
             }
         }
         return null
-    }
-
-    /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
-    private fun requireAdmin(): AppResult.Failure? {
-        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
     }
 
     private fun MovePlan.toPreviewDto(): OrganizePreviewDto =

@@ -16,5 +16,7 @@ sealed interface PushError : AppError {
         override val message: String = "Push notifications are not enabled on this server."
         override val code: String = "PUSH_DISABLED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

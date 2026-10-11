@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.playback.loudness
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.doubles.shouldBeGreaterThan
@@ -91,13 +92,14 @@ class NormalizationClippingTest :
     FunSpec({
         val fs = 48_000
 
-        test("DIAGNOSTIC: the clipping threshold, measured against the real meter") {
+        test("user boost can only add clipped samples, and unboosted normalization clips none") {
             val cases =
                 listOf(
                     "compressed commercial" to narration(fs, 12.0, bed = 0.30, transient = 0.35),
                     "ordinary narration" to narration(fs, 12.0, bed = 0.10, transient = 0.50),
                     "wide-dynamics / self-produced" to narration(fs, 12.0, bed = 0.02, transient = 0.70),
                 )
+            val boosts = listOf(0f, 3f, 6f, 12f)
             for ((label, signal) in cases) {
                 val meter = LoudnessMeter(sampleRate = fs, channelCount = 1)
                 meter.addFrames(signal, signal.size)
@@ -105,13 +107,13 @@ class NormalizationClippingTest :
                 val gainDb = meter.normalizationGainDb() ?: error("unmeasurable")
                 val peakDbfs = linearToDbfs(signal.peakLinear())
                 val plr = peakDbfs - integrated
-                val row =
-                    listOf(0f, 3f, 6f, 12f).joinToString("  ") { boost ->
+                val clippedByBoost =
+                    boosts.map { boost ->
                         val effective = VolumeGain.effectiveGainDb(gainDb, null, boost)
                         val linear = VolumeGain.dbToLinear(effective)
-                        val clipped = signal.count { abs(VolumeGain.applySample(it, linear)) >= 1f }
-                        "+${boost.toInt()}dB:$clipped"
+                        signal.count { abs(VolumeGain.applySample(it, linear)) >= 1f }
                     }
+                val row = boosts.zip(clippedByBoost).joinToString("  ") { (boost, clipped) -> "+${boost.toInt()}dB:$clipped" }
                 logger.info {
                     """
                     |
@@ -121,8 +123,15 @@ class NormalizationClippingTest :
                     |  clipped samples by user boost : $row   (of ${signal.size})
                     """.trimMargin()
                 }
+                withClue("$label: more boost can only clip the same samples or more") {
+                    clippedByBoost shouldBe clippedByBoost.sorted()
+                }
+                // Normalization is capped by the material's headroom, so with no user boost none of
+                // the three signals reaches full scale. A regression that drops the cap shows here.
+                withClue("$label: unboosted clipped-sample count") {
+                    clippedByBoost.first() shouldBe 0
+                }
             }
-            true shouldBe true
         }
 
         test("normalization never asks for more gain than the material has headroom for") {

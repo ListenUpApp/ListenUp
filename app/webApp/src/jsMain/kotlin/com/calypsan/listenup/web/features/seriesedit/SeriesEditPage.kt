@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesedit
 
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
@@ -64,6 +65,8 @@ fun SeriesEditPage(
     addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
     onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
 ) {
+    val guard = rememberUnsavedWorkGuard(dirty = state.hasChanges)
+    guard.Dialog()
     Div(attrs = { classes("sed") }) {
         PageHeader(
             title = state.name.ifBlank { "Series" },
@@ -114,7 +117,7 @@ fun SeriesEditPage(
                     )
                 }
             }
-            EditActions(state, onEvent)
+            EditActions(state, onCancel = { guard.leave { onEvent(SeriesEditUiEvent.CancelClicked) } })
         }
 
         if (state.parentPickerVisible) ParentPickerDialog(state, parentPickerRows, onEvent)
@@ -287,19 +290,20 @@ private fun MergeDialog(
  * Save and Cancel.
  *
  * Save is disabled until something changes, for the reason it is everywhere else: an enabled Save
- * on an untouched form invites a press that reports success for a change nobody made.
+ * on an untouched form invites a press that reports success for a change nobody made. [onCancel] is
+ * the guarded leave: it asks before discarding a draft.
  */
 @Composable
 private fun EditActions(
     state: SeriesEditUiState,
-    onEvent: (SeriesEditUiEvent) -> Unit,
+    onCancel: () -> Unit,
 ) {
     Div(attrs = { classes("edit-actions") }) {
         // ⛔ type=button: a <button> with no type inside a form defaults to SUBMIT, so this would
         // save the very edits Cancel exists to discard.
         Button(
             kind = ButtonKind.Secondary,
-            onClick = { onEvent(SeriesEditUiEvent.CancelClicked) },
+            onClick = { onCancel() },
             enabled = !state.isSaving,
         ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.

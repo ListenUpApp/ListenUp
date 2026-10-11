@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.profile
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileViewModel
@@ -11,8 +12,8 @@ import org.koin.core.Koin
 class ProfileSession(
     val state: StateFlow<UserProfileUiState>,
     val onRetry: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its profile. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenProfile = (userId: String) -> ProfileSession

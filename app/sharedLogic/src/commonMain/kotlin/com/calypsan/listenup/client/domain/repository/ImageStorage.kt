@@ -16,6 +16,13 @@ import com.calypsan.listenup.api.result.AppResult
  */
 @Suppress("TooManyFunctions")
 interface ImageStorage {
+    /**
+     * Whether saved images stay on this device as files that can be read back later. True where there
+     * is a file store; false in a browser, which holds no image bytes after a save. A retry of a failed
+     * upload needs the file, so only platforms where this is true can queue one.
+     */
+    val keepsImageFiles: Boolean get() = true
+
     // ========== Book Cover Methods ==========
 
     /**

@@ -23,12 +23,14 @@ private fun device(
     name: String,
     isCurrent: Boolean = false,
     lastUsedAt: Long = NOW_MS - TWO_DAYS_MS,
+    deviceType: String? = null,
 ) = DeviceRow(
     sessionId = id,
     displayName = name,
     secondary = "iOS 17.2 · ListenUp 1.0.0",
     lastUsedAt = lastUsedAt,
     isCurrent = isCurrent,
+    deviceType = deviceType,
 )
 
 private fun ready(
@@ -43,6 +45,41 @@ class DevicesPageTest :
     FunSpec({
         val mounts = MountRegistry()
         afterTest { mounts.disposeAll() }
+
+        test("each device draws the icon of its kind, so a tablet and a browser do not look alike") {
+            val host =
+                mounts.mount {
+                    DevicesPage(
+                        ready(
+                            device("s1", "This iPad", isCurrent = true, deviceType = "tablet"),
+                            device("s2", "Chrome", deviceType = "browser"),
+                            device("s3", "Mystery", deviceType = "toaster"),
+                        ),
+                        NOW_MS,
+                        {},
+                        {},
+                        {},
+                    )
+                }
+
+            fun iconOf(glyph: String): String =
+                host
+                    .querySelectorAll(".dev-card-icon[data-glyph=\"$glyph\"] path")
+                    .let { paths ->
+                        (0 until paths.length).joinToString(" ") {
+                            paths
+                                .item(it)!!
+                                .unsafeCast<HTMLElement>()
+                                .getAttribute("d")
+                                .orEmpty()
+                        }
+                    }
+
+            iconOf("tablet").isNotEmpty() shouldBe true
+            iconOf("browser").isNotEmpty() shouldBe true
+            iconOf("unknown").isNotEmpty() shouldBe true
+            setOf(iconOf("tablet"), iconOf("browser"), iconOf("unknown")).size shouldBe 3
+        }
 
         test("this device is shown apart, and carries no sign-out button of its own") {
             // Revoking your own session is signing yourself out — a different intention from ending

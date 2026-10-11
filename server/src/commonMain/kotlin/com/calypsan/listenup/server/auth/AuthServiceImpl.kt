@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.AuthServiceAuthed
@@ -55,7 +53,6 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onSubscription
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
-import kotlin.time.ExperimentalTime
 
 private val logger = loggerFor<AuthServiceImpl>()
 
@@ -65,8 +62,7 @@ private val logger = loggerFor<AuthServiceImpl>()
  * stays unit-testable without a live request scope.
  *
  * Persists over SQLDelight's [ListenUpDatabase] (the `users` table is a plain, non-syncable
- * server-owned aggregate). The Argon2id `password_hash`, the email-uniqueness probe, and the
- * ACTIVE/PENDING/DENIED status gate are all preserved verbatim from the Exposed implementation.
+ * server-owned aggregate).
  *
  * Failures are values: every method returns [AppResult] with a typed
  * [com.calypsan.listenup.api.error.AuthError] in the failure variant. No
@@ -273,8 +269,31 @@ class AuthServiceImpl(
                 status = status,
                 now = now,
             )
-        suspendTransaction(db) { insert(user) }
+        // The early check above is only a fast path: the password hash widens the window in which a
+        // concurrent sign-up can take the same email, so the re-read inside the write transaction is
+        // what closes it (the unique index would otherwise surface as a server fault).
+        val inserted =
+            suspendTransaction(db) {
+                if (db.usersQueries.existsByEmailNormalized(normalized).executeAsOne()) {
+                    false
+                } else {
+                    insert(user)
+                    true
+                }
+            }
+        return if (inserted) {
+            completeRegistration(request, user, status)
+        } else {
+            AppResult.Failure(AuthError.EmailAlreadyExists())
+        }
+    }
 
+    /** Issues the session (or queues the applicant) and runs the side-effects of a freshly inserted sign-up. */
+    private suspend fun completeRegistration(
+        request: RegisterRequest,
+        user: AuthUser,
+        status: UserStatusColumn,
+    ): AppResult<RegisterResult> {
         val outcome =
             if (status == UserStatusColumn.PENDING_APPROVAL) {
                 RegisterResult.PendingApproval(userId = UserId(user.id))
@@ -451,6 +470,7 @@ class AuthServiceImpl(
      * KDoc for the completion contract. An unknown [userId] emits a single
      * [AuthError.RegistrationNotFound] and completes, rather than waiting forever.
      */
+    @OpenRead(reason = "public pre-auth surface")
     override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> =
         flow {
             // C3-style per-IP throttle (mirrors login/register/refresh): each open subscription
@@ -484,6 +504,7 @@ class AuthServiceImpl(
      * backstops a missed push. Never completes on its own; see the
      * [AuthServicePublic.observeRegistrationPolicy] KDoc for the consumer contract.
      */
+    @OpenRead(reason = "public pre-auth surface")
     override fun observeRegistrationPolicy(): Flow<RpcEvent<RegistrationPolicy>> =
         flow {
             // Same C3-style per-IP throttle as observeRegistrationStatus: each open subscription
@@ -560,6 +581,7 @@ class AuthServiceImpl(
     }
 
     /** Delegates to [PasswordResetService.observeStatus], behind the same per-IP subscription throttle. */
+    @OpenRead(reason = "public pre-auth surface")
     override fun observePasswordResetStatus(ticketId: String): Flow<RpcEvent<PasswordResetStatusEvent>> =
         flow {
             // Same C3-style per-IP throttle as observeRegistrationStatus/Policy: each open
@@ -778,8 +800,8 @@ class AuthServiceImpl(
     }
 
     /**
-     * Build the in-memory [AuthUser] for a brand-new account with the exact default shape the
-     * Exposed `UserEntity.new { … }` path produced: a freshly-minted id, last_login_at NULL,
+     * Build the in-memory [AuthUser] for a brand-new account with its default shape: a
+     * freshly-minted id, last_login_at NULL,
      * can_edit true, approval / invite / tagline fields NULL, avatar_type "auto",
      * timezone "UTC". The value is both inserted ([insert]) and handed to [SessionIssuer], so the
      * issued session reflects the persisted row without a re-read.
@@ -813,8 +835,8 @@ class AuthServiceImpl(
 
     /**
      * Persist [user] into the `users` table. created_at / updated_at are set to the user's
-     * createdAt (a fresh insert), and the boolean permission flags map to 0/1 — the same encoding
-     * the Exposed `bool` adapter used. Must run inside a [suspendTransaction].
+     * createdAt (a fresh insert), and the boolean permission flags map to 0/1. Must run inside a
+     * [suspendTransaction].
      */
     private fun insert(user: AuthUser) {
         db.usersQueries.insert(

@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 @preconcurrency import Shared
 
@@ -15,6 +16,8 @@ final class DeepLinkRouter {
         case none
         case claimInvite(serverURL: String, code: String, remoteURL: String?)
         case openBook(id: String)
+        /// The Search App Shortcut: show Search with the cursor in its field.
+        case openSearch
         case wrongServer
         case notConnected
     }
@@ -27,14 +30,16 @@ final class DeepLinkRouter {
     private let deepLinkManager: DeepLinkManager
     private let bridge = FlowBridge()
 
+    /// The process's one router. Every window's root and tab shell use this instance, which is
+    /// what lets `claimShellOutcome(for:)` hand a link to exactly one of them.
+    static let shared = DeepLinkRouter()
+
     init(deepLinkManager: DeepLinkManager = Dependencies.shared.deepLinkManager) {
         self.deepLinkManager = deepLinkManager
         bridge.bind(deepLinkManager.pendingTarget) { [weak self] target in
             self?.resolve(target)
         }
     }
-
-    deinit { bridge.cancelAll() }
 
     /// Decode an incoming universal-link URL and stash it on the shared
     /// seam; the `pendingTarget` binding above drives `resolve`.
@@ -54,6 +59,12 @@ final class DeepLinkRouter {
     func consume() {
         outcome = .none
         deepLinkManager.consumeTarget()
+    }
+
+    /// "Search ListenUp" asked the shell to open Search. Held like a book link until the front
+    /// window's shell claims it, so it survives a cold launch from the shortcut.
+    func requestSearch() {
+        deliver(.openSearch)
     }
 
     /// Sets the resolved outcome. The Kotlin resolution calls it; tests use it to stand in for a
@@ -77,7 +88,7 @@ final class DeepLinkRouter {
     /// shell observes this router). Invites are never claimed here: the root presents them.
     func claimShellOutcome(for sceneID: UUID) -> Outcome? {
         switch outcome {
-        case .openBook, .wrongServer, .notConnected: break
+        case .openBook, .openSearch, .wrongServer, .notConnected: break
         case .none, .claimInvite: return nil
         }
         guard FrontWindow.receives(sceneID, frontSceneID: frontSceneID) else { return nil }

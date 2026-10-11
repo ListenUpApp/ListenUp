@@ -2,7 +2,11 @@ package com.calypsan.listenup.client.presentation.contributoredit
 
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
+import com.calypsan.listenup.client.test.fake.FakePendingImageUploads
 import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
@@ -28,8 +32,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -42,12 +48,13 @@ import kotlinx.coroutines.test.setMain
  * Tests for ContributorEditViewModel.
  *
  * Tests cover:
- * - Loading contributor for editing
+ * - Loading contributor for editing, including that a repeat load keeps unsaved edits
  * - Saving metadata via UpdateContributorUseCase
  * - Failure-branch error surfacing
+ * - The alias collector attaching once per contributor, however often the screen reloads
  *
- * Alias-related tests were removed with Books-C1's deletion of client-side
- * merge/unmerge — server-canonical alias management lands in Books-C2.
+ * Client-side merge/unmerge alias tests were removed with Books-C1's deletion of that
+ * path — server-canonical alias management lands in Books-C2.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ContributorEditViewModelTest :
@@ -62,6 +69,7 @@ class ContributorEditViewModelTest :
             val updateContributorUseCase: UpdateContributorUseCase = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
+            val pendingImageUploads = FakePendingImageUploads()
             val contributorEditRepository: ContributorEditRepository = mock()
             val contributorAliasDao: ContributorAliasDao =
                 mock {
@@ -80,6 +88,7 @@ class ContributorEditViewModelTest :
                     updateContributorUseCase = updateContributorUseCase,
                     imageRepository = imageRepository,
                     imageStagingRepository = imageStagingRepository,
+                    pendingImageUploads = pendingImageUploads,
                     contributorEditRepository = contributorEditRepository,
                     contributorAliasDao = contributorAliasDao,
                     contributorDao = contributorDao,
@@ -172,6 +181,92 @@ class ContributorEditViewModelTest :
                 val state = viewModel.state.value
                 state.isLoading shouldBe false
                 state.error shouldBe "Contributor not found"
+            }
+        }
+
+        test("loading the id already loaded keeps unsaved edits") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("My edit"))
+
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "My edit"
+                viewModel.state.value.hasChanges shouldBe true
+            }
+        }
+
+        test("loading the id already loaded does not read the store a second time") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                val viewModel = fixture.build()
+
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.contributorRepository.getById("contributor-1") }
+            }
+        }
+
+        test("loading a different id replaces the form") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns
+                    createContributor(id = "contributor-1", name = "First")
+                everySuspend { fixture.contributorRepository.getById("contributor-2") } returns
+                    createContributor(id = "contributor-2", name = "Second")
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("My edit"))
+
+                viewModel.loadContributor("contributor-2")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "Second"
+                viewModel.state.value.hasChanges shouldBe false
+            }
+        }
+
+        test("a failed load can be retried for the same id") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns null
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns
+                    createContributor(name = "Recovered")
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.name shouldBe "Recovered"
+            }
+        }
+
+        test("reloading does not stack alias collectors") {
+            runTest {
+                val fixture = createFixture()
+                val aliases = MutableStateFlow<List<String>>(emptyList())
+                every { fixture.contributorAliasDao.observeForContributor(any()) } returns aliases
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                val viewModel = fixture.build()
+
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                aliases.subscriptionCount.value shouldBe 1
             }
         }
 
@@ -316,6 +411,109 @@ class ContributorEditViewModelTest :
 
                 viewModel.state.value.stagingImagePath shouldBe null
                 viewModel.state.value.pendingImageData shouldBe null
+            }
+        }
+
+        test("a photo that could not be sent still saves, is queued, and the user is told it will upload later") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                everySuspend {
+                    fixture.imageStagingRepository.saveContributorImageStaging(any(), any())
+                } returns AppResult.Success(Unit)
+                every {
+                    fixture.imageStagingRepository.getContributorImageStagingPath("contributor-1")
+                } returns "/staging/contributor-1_staging.jpg"
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
+                } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                } returns AppResult.Failure(TransportError.NetworkUnavailable())
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.navActions.test {
+                        viewModel.onEvent(ContributorEditUiEvent.Save)
+                        advanceUntilIdle()
+
+                        awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
+                    }
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageUploadQueued>()
+                }
+                verifySuspend { fixture.imageStagingRepository.commitContributorImageStaging("contributor-1") }
+                fixture.pendingImageUploads.pending shouldBe setOf(PendingImageKind.ContributorImage to "contributor-1")
+            }
+        }
+
+        test("a photo the server refused is not queued, and the user is told it could not be uploaded") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                everySuspend {
+                    fixture.imageStagingRepository.saveContributorImageStaging(any(), any())
+                } returns AppResult.Success(Unit)
+                every {
+                    fixture.imageStagingRepository.getContributorImageStagingPath("contributor-1")
+                } returns "/staging/contributor-1_staging.jpg"
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
+                } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                } returns AppResult.Failure(AuthError.PermissionDenied())
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(ContributorEditUiEvent.Save)
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageNotUploaded>()
+                }
+                fixture.pendingImageUploads.pending shouldBe emptySet()
+            }
+        }
+
+        test("a photo that uploaded says nothing") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                everySuspend {
+                    fixture.imageStagingRepository.saveContributorImageStaging(any(), any())
+                } returns AppResult.Success(Unit)
+                every {
+                    fixture.imageStagingRepository.getContributorImageStagingPath("contributor-1")
+                } returns "/staging/contributor-1_staging.jpg"
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
+                } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                } returns AppResult.Success("https://example/photo.jpg")
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(ContributorEditUiEvent.Save)
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
             }
         }
 

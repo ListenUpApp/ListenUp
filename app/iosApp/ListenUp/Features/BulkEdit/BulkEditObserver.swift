@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 import Shared
 
@@ -109,6 +110,7 @@ final class BulkEditObserver {
 
     init(viewModel: BulkEditViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.applyState($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
         // Series and contributors are *searched*: the ViewModel debounces at 300ms with a
@@ -132,14 +134,6 @@ final class BulkEditObserver {
         bridge.bind(viewModel.moods) { [weak self] moods in
             self?.moodCatalogue = moods.map { RelationSearchResult(id: $0.name, name: $0.name, subtitle: nil) }
         }
-    }
-
-    // Isolated deinit (SE-0371): there is no ViewModelStore on iOS to call `onCleared`, so this
-    // observer closes the VM itself — otherwise the selection load keeps its coroutine scope alive
-    // after the sheet is gone.
-    isolated deinit {
-        bridge.cancelAll()
-        viewModel.close()
     }
 
     // MARK: - Field intents
@@ -282,7 +276,7 @@ final class BulkEditObserver {
 
     // MARK: - State mapping
 
-    private func applyState(_ state: BulkEditUiState) {
+    func applyState(_ state: BulkEditUiState) {
         switch state.sealedType() {
         case .loading:
             isLoading = true

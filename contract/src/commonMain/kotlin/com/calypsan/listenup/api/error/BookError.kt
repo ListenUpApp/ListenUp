@@ -37,6 +37,8 @@ sealed interface BookError : AppError {
         override val message: String = "This book no longer exists."
         override val code: String = "BOOK_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -53,6 +55,8 @@ sealed interface BookError : AppError {
         override val message: String = "Some of the changes couldn't be saved."
         override val code: String = "BOOK_INVALID_INPUT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -86,6 +90,8 @@ sealed interface BookError : AppError {
         override val message: String = "Another book shares this book's folder, so it can't be deleted."
         override val code: String = "BOOK_FOLDER_NOT_EXCLUSIVE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -104,5 +110,7 @@ sealed interface BookError : AppError {
         override val message: String = "This book is waiting in the inbox. Release it first."
         override val code: String = "BOOK_HELD_FOR_REVIEW"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

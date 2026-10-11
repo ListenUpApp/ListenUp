@@ -19,15 +19,15 @@ import kotlinx.serialization.Serializable
  *     transport types — Ktor or kotlinx.rpc — keeping the boundary clean.
  *  3. No `:server` symbols (`com.calypsan.listenup.server..`) are imported
  *     outside the `:server` module.
+ *  4. Classes in `com.calypsan.listenup.api.event..` (the `ScanEvent` variants)
+ *     live in `:contract`'s commonMain.
+ *  5. Files in every production source set of `:server` (`commonMain`, `jvmMain`,
+ *     `linuxMain`, `linuxX64Main`) in the `com.calypsan.listenup.server.scanner`
+ *     package import nothing from `io.ktor`.
  *
- * Each rule fails the build with a list of offenders. Two further rules —
- * "every @Rpc has a matching @Resource" and "every
- * Koin leaf module has a `module.verify()` test" — are deferred:
- * `PingService` is a smoke-test service that deliberately has no REST mirror,
- * and `module.verify()` coverage is already enforced ad-hoc by
- * `AuthModuleVerifyTest` + `AuthModuleVerifyTest` server-side. Those rules
- * become useful once there are multiple feature modules to compare; today
- * they would mostly false-positive.
+ * Each rule fails the build with a list of offenders. Koin `module.verify()`
+ * coverage lives in the per-module `*ModuleVerifyTest` specs; no rule yet
+ * asserts that every module has one.
  */
 class ArchitectureTest :
     FunSpec({
@@ -170,12 +170,22 @@ class ArchitectureTest :
             // The scanner core stays transport-agnostic. Ktor only enters via
             // `routes/ScannerRoutes.kt` (REST + SSE) and `di/ScannerModule.kt`
             // (Koin's ApplicationConfig binding) — both outside `scanner/`.
-            projectScope
-                .files
-                .filter { "/server/src/jvmMain/" in it.path }
-                .filter { it.packagee?.run { name.startsWith("com.calypsan.listenup.server.scanner") } == true }
-                .assertFalse { file ->
-                    file.imports.any { it.name.startsWith("io.ktor.") }
-                }
+            val productionSourceSets =
+                listOf("commonMain", "jvmMain", "linuxMain", "linuxX64Main").map { "/server/src/$it/" }
+            val scannerFiles =
+                projectScope
+                    .files
+                    .filter { file -> productionSourceSets.any { it in file.path } }
+                    .filter { it.packagee?.run { name.startsWith("com.calypsan.listenup.server.scanner") } == true }
+
+            // The scanner moved from jvmMain to commonMain with the native target; a floor keeps the
+            // rule from silently inspecting nothing if it moves again.
+            require(scannerFiles.size >= 10) {
+                "Scanner scope holds ${scannerFiles.size} files — expected at least 10; check the source-set filter"
+            }
+
+            scannerFiles.assertFalse { file ->
+                file.imports.any { it.name.startsWith("io.ktor.") }
+            }
         }
     })

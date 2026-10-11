@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.download
 
+import com.calypsan.listenup.client.core.safePathSegment
 import android.content.Context
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -33,18 +34,22 @@ actual class DownloadFileManager(
         filename: String,
         isTemp: Boolean,
     ): Path {
-        val bookDir = Path(downloadDir.toString(), bookId)
+        val bookDir = Path(downloadDir.toString(), safePathSegment(bookId))
         // Ensure book directory exists using kotlinx-io
         if (!SystemFileSystem.exists(bookDir)) {
             SystemFileSystem.createDirectories(bookDir)
         }
-        val finalName = if (isTemp) "${audioFileId}_$filename.tmp" else "${audioFileId}_$filename"
+        val stem = "${safePathSegment(audioFileId)}_${safePathSegment(filename)}"
+        val finalName = if (isTemp) "$stem.tmp" else stem
         return Path(bookDir.toString(), finalName)
     }
 
     actual fun deleteBookFiles(bookId: String): Boolean {
         // java.io.File needed for recursive deletion
-        val bookDir = File(downloadDir.toString(), bookId)
+        val bookDir = File(downloadDir.toString(), safePathSegment(bookId))
+        // A sanitised segment cannot climb out, so this never fires for a path built above. It is here so
+        // a future edit to the path building cannot turn into a recursive delete of the wrong directory.
+        if (bookDir.parentFile != File(downloadDir.toString())) return true
         return if (bookDir.exists()) bookDir.deleteRecursively() else true
     }
 
@@ -104,7 +109,7 @@ actual class DownloadFileManager(
                 // id is a prefix of its name. Matching the FULL id ("${id}_") — not substring-before-
                 // first-'_' — keeps ids that legitimately contain '_' from being mis-parsed and their
                 // ACTIVE partials wrongly deleted (B10e).
-                val isActive = activeAudioFileIds.any { file.name.startsWith("${it}_") }
+                val isActive = activeAudioFileIds.any { file.name.startsWith("${safePathSegment(it)}_") }
                 if (!isActive && file.delete()) deleted++
             }
         return deleted

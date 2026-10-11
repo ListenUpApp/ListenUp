@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.visibility
 
+import com.calypsan.listenup.client.presentation.close
 import app.cash.turbine.test
 import com.calypsan.listenup.client.test.fake.FakeBookVisibilityRepository
 import com.calypsan.listenup.core.BookId

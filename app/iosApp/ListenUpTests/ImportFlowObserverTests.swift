@@ -1,10 +1,12 @@
+import Foundation
+import ListenupContract
 import Testing
 import Shared
 @testable import ListenUp
 
 /// Pure-mapping coverage for the ABS-import observers' seams: the progress arithmetic the rings
 /// render, the user-review resolution classification, the hub stage classification, and the
-/// summary-row tally mapping. No SKIE objects — these exercise the flattened Swift models.
+/// summary-row tally mapping. No bridged Kotlin objects — these exercise the flattened Swift models.
 struct ImportFlowObserverTests {
     // MARK: - Progress maths
 
@@ -142,6 +144,11 @@ struct ImportFlowObserverTests {
     @Test func stageMapsPendingStatuses() {
         #expect(ImportStage.from(status: .uploaded) == .pending)
         #expect(ImportStage.from(status: .analyzed) == .pending)
+    }
+
+    /// A status a newer server added reads as a neutral "Unknown" badge, never as a real stage.
+    @Test func stageMapsAnUnreadableStatusToANeutralLabel() {
+        #expect(ImportStage.from(status: .unknown) == .other(String(localized: "import.unknown")))
     }
 
     @Test func stageMapsReadyAndImported() {

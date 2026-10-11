@@ -64,7 +64,16 @@ data class BusEvent<T : Any>(
     val repo: SyncableRepo<T>,
     val event: SyncEvent<T>,
     val userId: String? = null,
+    /**
+     * This event's position in the live tail, stamped when it is emitted. Consecutive events a
+     * subscriber receives differ by exactly one; anything else means the buffer dropped events
+     * that subscriber had not read yet. Process-local: never sent on the wire.
+     */
+    val tailPosition: Long = UNPOSITIONED,
 )
+
+/** [BusEvent.tailPosition] of an event that has not been emitted into the live tail yet. */
+internal const val UNPOSITIONED = -1L
 
 /**
  * A per-user out-of-band [SyncControl] frame travelling on the bus's control
@@ -121,8 +130,9 @@ class PublishSlot internal constructor(
  * `replay = 256` retains the last 256 events for late subscribers and for
  * [oldestRetainedRevision] reads. `extraBufferCapacity = 0` means the replay
  * cache is the sole buffer; `BufferOverflow.DROP_OLDEST` evicts the head of
- * the replay cache when it is full, so a slow client gets
- * `SyncControl.CursorStale` and falls back to REST catch-up.
+ * the replay cache when it is full. A subscriber the eviction outran is told by the
+ * stream, which sees a jump in [BusEvent.tailPosition] and ends with
+ * `SyncControl.CursorStale`, so the client falls back to REST catch-up.
  *
  * [oldestRetainedRevision] reads directly from [MutableSharedFlow.replayCache]
  * so it always reflects the actual buffer floor, including after DROP_OLDEST
@@ -138,6 +148,11 @@ class ChangeBus(
             extraBufferCapacity = 0,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
+
+    // Innermost lock: resolveLocked already holds orderLock when it emits, so emitPositioned must
+    // never take orderLock.
+    private val emitLock = SynchronizedObject()
+    private var nextTailPosition = 0L
 
     // Control frames ride a separate, non-replayed channel: a re-derive nudge is
     // transient and cursor-free, so it must not enter the revision-cursored replay
@@ -184,7 +199,7 @@ class ChangeBus(
         log.debug {
             "change published: domain=${repo.domainName} event=${event::class.simpleName.orEmpty()} id=${event.id}"
         }
-        emitOrDefer { flow.tryEmit(BusEvent(repo, event, userId)) }
+        emitOrDefer { emitPositioned(BusEvent(repo, event, userId)) }
     }
 
     /**
@@ -293,6 +308,11 @@ class ChangeBus(
         resolveLocked(slot, entry)
     }
 
+    /** Stamps [entry] with the next tail position and emits it, as one step, so position order is buffer order. */
+    private fun emitPositioned(entry: BusEvent<*>) {
+        synchronized(emitLock) { flow.tryEmit(entry.copy(tailPosition = nextTailPosition++)) }
+    }
+
     /** [resolveOnce]'s body, for callers that already hold [orderLock] and have checked the flag. */
     private fun resolveLocked(
         slot: PublishSlot,
@@ -304,7 +324,7 @@ class ChangeBus(
         reservedAt.remove(slot.sequence)
         abandonStalledHeadIfNeeded()
         while (resolvedSlots.containsKey(nextSequenceToPublish)) {
-            resolvedSlots.remove(nextSequenceToPublish)?.let { flow.tryEmit(it) }
+            resolvedSlots.remove(nextSequenceToPublish)?.let { emitPositioned(it) }
             reservedAt.remove(nextSequenceToPublish)
             nextSequenceToPublish++
         }

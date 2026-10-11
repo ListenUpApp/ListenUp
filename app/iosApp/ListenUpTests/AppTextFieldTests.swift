@@ -1,5 +1,7 @@
+import SwiftUI
 import Testing
 @testable import ListenUp
+import UIKit
 
 struct AppTextFieldTests {
     @Test func leadingIconFallsBackByKind() {

@@ -77,7 +77,7 @@ private val PERSON_FIELDS =
     """.trimIndent().replace('\n', ' ')
 private val CREDITS = "contributions{ contribution author{ $PERSON_FIELDS } }"
 private const val PEOPLE_SEARCH_QUERY =
-    "query(\$query:String!){ search(query:\$query, query_type:\"Author\", per_page:10, page:1){ results } }"
+    $$"query($query:String!){ search(query:$query, query_type:\"Author\", per_page:10, page:1){ results } }"
 
 /**
  * Up to five people Hardcover's author index finds for [name], best first. Index entries credited on no book
@@ -121,18 +121,18 @@ suspend fun HardcoverGraphQlClient.peopleDetails(
     val byIdentifier = asins.isNotEmpty() || isbns.isNotEmpty()
     val query =
         buildString {
-            append("query(\$narrator:[String!]!")
-            if (ids.isNotEmpty()) append(",\$ids:[Int!]!")
-            if (byIdentifier) append(",\$asins:[String!]!,\$isbns:[String!]!")
-            if (bookIds.isNotEmpty()) append(",\$books:[Int!]!")
+            append($$"query($narrator:[String!]!")
+            if (ids.isNotEmpty()) append($$",$ids:[Int!]!")
+            if (byIdentifier) append($$",$asins:[String!]!,$isbns:[String!]!")
+            if (bookIds.isNotEmpty()) append($$",$books:[Int!]!")
             append("){ ")
-            if (ids.isNotEmpty()) append("people: authors(where:{id:{_in:\$ids}}){ $PERSON_FIELDS } ")
+            if (ids.isNotEmpty()) append($$"people: authors(where:{id:{_in:$ids}}){ $$PERSON_FIELDS } ")
             if (byIdentifier) {
-                append("byIdentifier: editions(where:{_or:[{asin:{_in:\$asins}},{isbn_13:{_in:\$isbns}},")
-                append("{isbn_10:{_in:\$isbns}}]}){ asin isbn_13 isbn_10 $CREDITS book{ id $CREDITS } } ")
+                append($$"byIdentifier: editions(where:{_or:[{asin:{_in:$asins}},{isbn_13:{_in:$isbns}},")
+                append($$"{isbn_10:{_in:$isbns}}]}){ asin isbn_13 isbn_10 $$CREDITS book{ id $$CREDITS } } ")
             }
             if (bookIds.isNotEmpty()) {
-                append("byBook: books(where:{id:{_in:\$books}}){ id $CREDITS ")
+                append($$"byBook: books(where:{id:{_in:$books}}){ id $$CREDITS ")
                 append(
                     "editions(where:{reading_format_id:{_eq:$AUDIO_FORMAT}}, limit:$MAX_AUDIO_EDITIONS_PER_BOOK){ $CREDITS } } ",
                 )

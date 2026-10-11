@@ -86,9 +86,7 @@ extension ButtonStyle where Self == PressScaleButtonStyle {
 
 #Preview("Press Scale Styles") {
     VStack(spacing: 20) {
-        Button {
-            print("Card tapped")
-        } label: {
+        Button {} label: {
             RoundedRectangle(cornerRadius: Radius.m)
                 .fill(Color.blue)
                 .frame(height: 100)
@@ -99,9 +97,7 @@ extension ButtonStyle where Self == PressScaleButtonStyle {
         }
         .buttonStyle(.pressScaleCard)
 
-        Button {
-            print("Row tapped")
-        } label: {
+        Button {} label: {
             RoundedRectangle(cornerRadius: Radius.s)
                 .fill(Color.green)
                 .frame(height: 60)
@@ -112,9 +108,7 @@ extension ButtonStyle where Self == PressScaleButtonStyle {
         }
         .buttonStyle(.pressScaleRow)
 
-        Button {
-            print("Chip tapped")
-        } label: {
+        Button {} label: {
             Text("Chip Scale (0.95)")
                 .padding(.horizontal, Spacing.m)
                 .padding(.vertical, Spacing.xs)

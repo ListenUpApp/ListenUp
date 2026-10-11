@@ -1,6 +1,8 @@
 package com.calypsan.listenup.api.sync
 
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderChoiceKind
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -9,6 +11,7 @@ import kotlinx.serialization.Serializable
  * is the deterministic "<userId>:<seriesId>". A tombstone means "no choice here — inherit from the
  * nearest ancestor". [choice] defaults to SERIES so a kind a newer server adds coerces safely.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("ReadingOrderFollowSyncPayload")
 data class ReadingOrderFollowSyncPayload(
@@ -16,8 +19,13 @@ data class ReadingOrderFollowSyncPayload(
     @SerialName("id") override val id: String,
     /** The series the choice is made on. */
     @SerialName("seriesId") val seriesId: String,
-    /** Which kind of order is followed. */
-    @SerialName("choice") val choice: ReadingOrderChoiceKind = ReadingOrderChoiceKind.SERIES,
+    /**
+     * Which kind of order is followed.
+     * Always encoded, so an app built before this default existed still finds the key.
+     */
+    @SerialName("choice")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val choice: ReadingOrderChoiceKind = ReadingOrderChoiceKind.SERIES,
     /** The followed user-made order; set iff [choice] is ORDER. */
     @SerialName("readingOrderId") val readingOrderId: String? = null,
     /** Sync revision counter — bumped on every write. */

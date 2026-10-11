@@ -3,8 +3,7 @@
 -- Column set matches V23__genres.sql exactly. `id` is declared NOT NULL (every
 -- persisted row carries an id; the migration writes `id TEXT PRIMARY KEY`, the
 -- substrate never inserts a null id) so the generated `g.id` / `g.path` JOIN
--- columns in BookGenres.sq stay non-null — mirroring the Exposed
--- `GenreTable.id = varchar("id", 36)` non-nullable shape.
+-- columns in BookGenres.sq stay non-null.
 --
 -- SyncableTable substrate columns (revision / created_at / updated_at / deleted_at /
 -- client_op_id) mirror tags/contributors/series. Hierarchy via materialized path:
@@ -117,8 +116,7 @@ SELECT id FROM genres WHERE parent_id = :parent_id AND deleted_at IS NULL;
 -- strips the old prefix (`:substr_from` = oldPrefix.length + 1, computed in Kotlin so no
 -- `LENGTH(:param)`/arithmetic-on-param mis-inference) and re-prepends the new one; the
 -- `path = ? OR path LIKE ? || '/%'` predicate selects the subtree collision-safely. The
--- `CAST(... AS INTEGER)` pins `:substr_from` to a numeric bind. Matches the Exposed
--- GenreTable.rewritePathPrefix semantics exactly.
+-- `CAST(... AS INTEGER)` pins `:substr_from` to a numeric bind.
 rewritePathPrefix:
 UPDATE genres
 SET path = :new_prefix || SUBSTR(path, CAST(:substr_from AS INTEGER)),

@@ -1,6 +1,13 @@
 package com.calypsan.listenup.web.nav
 
+import com.calypsan.listenup.web.InShell
+import com.calypsan.listenup.web.ViewportFrames
+import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
+import org.jetbrains.compose.web.css.height
+import org.jetbrains.compose.web.css.px
+import org.jetbrains.compose.web.dom.Div
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -158,6 +165,142 @@ class RouterTest :
             }
         }
 
+        // Unsaved work: a page that holds a draft registers a hold, and every way out asks it first.
+        test("navigating while unsaved work is held asks first and goes only once the answer is yes") {
+            val router = Router()
+            val start = router.current
+            var proceed: (() -> Unit)? = null
+            val release = router.holdUnsavedWork(heldHold(onAsk = { proceed = it }))
+
+            try {
+                router.navigate(Route(listOf("library")))
+
+                router.current.segments shouldBe start.segments
+                window.location.pathname shouldBe start.toUrl().substringBefore('?')
+
+                proceed!!.invoke()
+
+                router.current.segments shouldBe listOf("library")
+                window.location.pathname shouldBe "/library"
+            } finally {
+                release()
+                router.dispose()
+            }
+        }
+
+        test("a forced navigation does not ask, and neither does one once the hold is released") {
+            val router = Router()
+            var asked = 0
+            val release = router.holdUnsavedWork(heldHold(onAsk = { asked++ }))
+
+            try {
+                router.navigate(Route(listOf("library")), force = true)
+                router.current.segments shouldBe listOf("library")
+
+                release()
+                router.navigate(Route(listOf("book", "42")))
+
+                router.current.segments shouldBe listOf("book", "42")
+                asked shouldBe 0
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a hold that is not held lets navigation through") {
+            val router = Router()
+            val release = router.holdUnsavedWork(UnsavedWorkHold(isHeld = { false }, isAsking = { false }, ask = { error("asked") }))
+
+            try {
+                router.navigate(Route(listOf("library")))
+
+                router.current.segments shouldBe listOf("library")
+            } finally {
+                release()
+                router.dispose()
+            }
+        }
+
+        test("the browser Back button while unsaved work is held stays on the page and asks") {
+            val router = Router()
+            router.navigate(Route(listOf("library")))
+            router.navigate(Route(listOf("book", "42", "edit")))
+            var proceed: (() -> Unit)? = null
+            val release = router.holdUnsavedWork(heldHold(onAsk = { proceed = it }))
+
+            try {
+                window.history.back()
+                nextPopstate()
+                awaitTurn()
+
+                router.current.segments shouldBe listOf("book", "42", "edit")
+                window.location.pathname shouldBe "/book/42/edit"
+                proceed.shouldNotBeNull()
+
+                proceed!!.invoke()
+                nextPopstate()
+
+                router.current.segments shouldBe listOf("library")
+                window.location.pathname shouldBe "/library"
+            } finally {
+                release()
+                router.dispose()
+            }
+        }
+
+        test("Back on a held page, answered Keep, leaves the page's scroll and how it was arrived at alone") {
+            // ⛔ A vetoed pop is not a route change. Were the hook to run for it, the page that stays
+            // would be recorded as left (its offset saved as though it had been departed), the last
+            // change would read POP, and every shared-element flight would wait on an arrival that
+            // never comes.
+            val frames = ViewportFrames()
+            val router = Router(beforeRouteChange = ::captureScrollBeforeRouteChange)
+            router.navigate(Route(listOf("library")))
+            val editing = Route(listOf("book", "42", "edit"))
+            router.navigate(editing)
+            var asked = 0
+            val release = router.holdUnsavedWork(heldHold(onAsk = { asked++ }))
+
+            try {
+                val main =
+                    frames
+                        .mount(1280, 800) {
+                            InShell {
+                                ScrollRestoration(router.current)
+                                Div(attrs = {
+                                    style {
+                                        height(6_000.px)
+                                        property("flex-shrink", "0")
+                                    }
+                                })
+                            }
+                        }.find(".shell-main")
+                awaitFrame()
+                main.scrollTop = 1_500.0
+                val changeBefore = lastRouteChange()
+                val savedBefore = savedScrollFor(editing)
+
+                window.history.back()
+                nextPopstate()
+                awaitTurn()
+                awaitFrame()
+
+                // Keep: the question was asked and is never answered with a discard.
+                asked shouldBe 1
+                router.current.segments shouldBe editing.segments
+                window.location.pathname shouldBe "/book/42/edit"
+                main.scrollTop shouldBe 1_500.0
+                lastRouteChange() shouldBe changeBefore
+                changeBefore shouldBe RouteChange.PUSH
+                savedScrollFor(editing) shouldBe savedBefore
+            } finally {
+                release()
+                router.dispose()
+                frames.disposeAll()
+                forgetScrollMemory()
+            }
+        }
+
         test("the hook is told how the route is changing") {
             // Back restores a place; a link starts a new one; a filter keeps the one it is in. The
             // hook is where that difference is first known, so it is told — not left to guess.
@@ -200,6 +343,13 @@ class RouterTest :
             router.current.segments shouldBe listOf("library")
         }
     })
+
+private fun heldHold(onAsk: (() -> Unit) -> Unit) = UnsavedWorkHold(isHeld = { true }, isAsking = { false }, ask = onAsk)
+
+/** Lets the router's own reaction to a popstate (a corrective push) settle. */
+private suspend fun awaitTurn() {
+    suspendCoroutine { continuation -> window.setTimeout({ continuation.resume(Unit) }, 0) }
+}
 
 /** Resolves after the next popstate event — registered listeners (the router's) run first. */
 private suspend fun nextPopstate() {

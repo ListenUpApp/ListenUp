@@ -388,9 +388,7 @@ class AdminViewModel(
  *   transient `error` surfaced as a snackbar. Initial-load failures also
  *   surface via the transient `error` field on [Ready].
  *
- * Deliberately just **two** subtypes — `SwiftExportSourcePatcher.expectedSealedSubtypeCounts`
- * pins that count for the Swift Export surface, so new admin data is added as fields on
- * [Ready] rather than a new sealed arm.
+ * The hierarchy has just **two** subtypes; admin data lives in fields on [Ready].
  */
 sealed interface AdminUiState {
     data object Loading : AdminUiState

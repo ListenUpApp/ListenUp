@@ -147,6 +147,55 @@ class ContributorServiceImplTest :
             }
         }
 
+        test("updateContributor on a deleted contributor is NotFound and leaves it deleted") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    val id = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    service.deleteContributor(id).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val result = service.updateContributor(id, ContributorUpdate(name = "Renamed"))
+
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ContributorError.NotFound>()
+                    val reread = contributorRepo.findById(id.value).shouldNotBeNull()
+                    reread.deletedAt.shouldNotBeNull()
+                    reread.name shouldBe "Brandon Sanderson"
+                }
+            }
+        }
+
+        test("updateContributor on a merged-away contributor is NotFound and leaves it merged") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    val sourceId = contributorRepo.resolveOrCreate("B. Sanderson", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    service.mergeContributors(sourceId, targetId).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val result = service.updateContributor(sourceId, ContributorUpdate(name = "Renamed"))
+
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ContributorError.NotFound>()
+                    val reread = contributorRepo.findById(sourceId.value).shouldNotBeNull()
+                    reread.deletedAt.shouldNotBeNull()
+                    reread.name shouldBe "B. Sanderson"
+                }
+            }
+        }
+
         // ── deleteContributor ──────────────────────────────────────────────────
 
         test("deleteContributor cascades — drops junctions, re-upserts affected books, soft-deletes the contributor") {

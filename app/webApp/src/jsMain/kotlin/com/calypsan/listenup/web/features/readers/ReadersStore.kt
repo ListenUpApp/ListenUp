@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.readers
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
@@ -11,8 +12,8 @@ import org.koin.core.parameter.parametersOf
 /** An open readers session — everyone reading, or who has finished, one book. */
 class BookReadersSession(
     val state: StateFlow<BookReadersUiState>,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the readers surfaces get their state. Production resolves the shared ViewModel. */
 typealias OpenBookReaders = (bookId: String) -> BookReadersSession

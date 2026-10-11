@@ -1,3 +1,4 @@
+import Shared
 import SwiftUI
 
 /// What the chapter scrubber tells VoiceOver, split out of the view so it is testable.

@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
+import com.calypsan.listenup.server.metadata.spi.FindAnswer
 import com.calypsan.listenup.server.metadata.spi.FindAvailability
 import com.calypsan.listenup.server.metadata.spi.FindKey
 import com.calypsan.listenup.server.metadata.spi.FindRole
@@ -235,6 +236,22 @@ class BookFinderTest :
 
                 rig.hardcover.asked shouldBe emptyList()
                 rig.itunes.asked.size shouldBe 1
+            }
+        }
+
+        test("a change to the state a source's answer depends on is not answered from the cache") {
+            runTest {
+                val rig = Rig()
+                var linked: Long? = null
+                rig.hardcover.answer = { AppResult.Success(FindAnswer(listOf(phm("link-${linked ?: "none"}")), setOf(FindStep.TEXT))) }
+                rig.find().sources[1] shouldBe SourceStatus.Answered(HARDCOVER, 1)
+
+                linked = 77L
+                rig.hardcover.discriminator = "77"
+
+                rig.find()
+
+                rig.hardcover.asked.size shouldBe 2
             }
         }
     })

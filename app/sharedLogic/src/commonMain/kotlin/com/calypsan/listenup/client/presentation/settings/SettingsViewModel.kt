@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -117,7 +118,7 @@ class SettingsViewModel(
     val canCurateLibrary: StateFlow<Boolean> =
         permissionsRepository
             .observeCan(Permission.CURATE_LIBRARY)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+            .stateIn(viewModelScope, WhileSubscribedForUi, false)
 
     private val internalState = MutableStateFlow(SettingsUiState(appVersion = appVersion))
 

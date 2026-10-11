@@ -432,4 +432,6 @@ private fun StoryWorldOp.toEventChangeOp(): WorldEventChangeOp =
 
         // Never recorded for an event: events are not merged. Read as an update rather than fail a history page.
         StoryWorldOp.MERGE -> WorldEventChangeOp.UPDATE
+
+        StoryWorldOp.UNKNOWN -> WorldEventChangeOp.UNKNOWN
     }

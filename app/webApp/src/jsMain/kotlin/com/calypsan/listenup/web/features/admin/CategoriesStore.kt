@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.client.presentation.admin.GenreMergeHistory
 import androidx.lifecycle.ViewModelStore
@@ -24,8 +25,8 @@ class CategoriesSession(
     /** The merge history open for one genre (#1061), or null. */
     val mergeHistory: StateFlow<GenreMergeHistory?>,
     val mergeHistoryActions: MergeHistoryActions,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** Everything the genre merge-history dialog asks of the ViewModel, carried as one value. */
 class MergeHistoryActions(

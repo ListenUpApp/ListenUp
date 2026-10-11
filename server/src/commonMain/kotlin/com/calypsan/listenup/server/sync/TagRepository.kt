@@ -10,7 +10,7 @@ import kotlin.time.Clock
 
 /**
  * SQLDelight syncable repository for tags — the **template** every other aggregate
- * copies during the Exposed → SQLDelight cutover.
+ * follows.
  *
  * Handles the full tag aggregate: read/write of [Tag] via the generated
  * [ListenUpDatabase.tagsQueries], including [Tag.slug] which is the canonical

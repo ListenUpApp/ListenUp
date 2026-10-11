@@ -36,6 +36,28 @@ struct MainShellModelTests {
         #expect(shell.path(for: .home).isEmpty)
     }
 
+    /// An edit sheet keeps its draft while a push tap or deep link arrives, because outside navigation
+    /// touches nothing a sheet hangs from: it appends one destination to one tab's stack and never
+    /// changes the selected tab, other tabs' stacks, or any presentation but the full player. The
+    /// pushed screen waits under the sheet. If this ever starts selecting a tab or resetting a stack,
+    /// an open edit sheet can be torn down with its draft and the shell needs a "work is held" flag.
+    @Test func anOutsideNavigationOnlyAppendsToOneStackAndLeavesTheRestOfTheShellAlone() {
+        let shell = MainShellModel()
+        shell.selectedTab = .library
+        shell.librarySection = .series
+        shell.open(SeriesDestination(id: "s1"), on: .library)
+        let before = shell.path(for: .library).count
+
+        shell.route(.book(id: "b1"))
+
+        #expect(shell.selectedTab == .library)
+        #expect(shell.librarySection == .series)
+        #expect(shell.path(for: .library).count == before + 1)
+        for other in [ShellTab.home, .discover, .search, .downloads, .settings] {
+            #expect(shell.path(for: other).isEmpty)
+        }
+    }
+
     @Test func aNotificationTapClosesThePlayerAndLandsOnTheGivenTab() {
         let shell = MainShellModel()
         shell.isPlayerPresented = true

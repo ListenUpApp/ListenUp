@@ -28,29 +28,53 @@ final class PushCoordinator: NSObject {
     /// assign the delegate, so `didReceive` never meets a missing router.
     let tapRouter = PushTapRouter()
 
-    private var activated = false
+    private var delegateInstalled = false
+    private var activation = PushActivation()
 
-    /// Requests notification authorization (first call shows the system prompt; later calls are
-    /// no-ops reflecting the recorded choice) and registers with APNs when permitted. Safe to
-    /// call on every auth transition — real work runs once per process.
+    /// Brings push up for the current session. Call on every transition to `.authenticated`.
+    ///
+    /// Per process (once): the notification delegate, the permission prompt, APNs registration.
+    /// Per session (every call): the idempotent server-side registration sync, so a second sign-in
+    /// in the same process does not leave the new session without a push token. `PushActivation`
+    /// decides which; this method performs the steps.
     func activate() {
-        guard !activated else { return }
-        activated = true
-        UNUserNotificationCenter.current().delegate = self
+        if !delegateInstalled {
+            delegateInstalled = true
+            UNUserNotificationCenter.current().delegate = self
+        }
         Task {
-            let center = UNUserNotificationCenter.current()
-            let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
-            guard granted else {
-                Log.info("Notification authorization denied — staying SSE-only")
-                return
-            }
-            UIApplication.shared.registerForRemoteNotifications()
-            // Idempotent server-side sync: covers the token that arrived on an earlier run
-            // (this call) and the fresh one (the AppDelegate callback's own registration).
-            do {
-                try await KoinHelper.shared.syncPushRegistration()
-            } catch {
-                Log.error("Push registration sync failed", error: error)
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            let authorization: PushAuthorization =
+                switch settings.authorizationStatus {
+                case .notDetermined: .notDetermined
+                case .denied: .denied
+                default: .granted
+                }
+            await perform(activation.steps(for: authorization))
+        }
+    }
+
+    private func perform(_ steps: [PushActivationStep]) async {
+        for step in steps {
+            switch step {
+            case .requestAuthorization:
+                let center = UNUserNotificationCenter.current()
+                let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+                guard granted else {
+                    Log.info("Notification authorization denied — staying SSE-only")
+                    return
+                }
+                await perform(activation.steps(for: .granted))
+            case .registerWithAPNs:
+                UIApplication.shared.registerForRemoteNotifications()
+            case .syncRegistration:
+                // Idempotent server-side sync: covers the token that arrived on an earlier run
+                // and the fresh one (the AppDelegate callback's own registration).
+                do {
+                    try await KoinHelper.shared.syncPushRegistration()
+                } catch {
+                    Log.error("Push registration sync failed", error: error)
+                }
             }
         }
     }

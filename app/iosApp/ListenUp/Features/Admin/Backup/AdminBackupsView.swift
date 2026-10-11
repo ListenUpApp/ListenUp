@@ -9,8 +9,8 @@ import UniformTypeIdentifiers
 ///
 /// Bound to `AdminBackupsObserver` (list + create + delete) and `RestoreFromFileObserver` (the
 /// pick + upload step). A system inset-grouped `List`, which keeps readable margins on iPad by itself
-/// (rule 12). Download-to-device
-/// is intentionally omitted — its `RawSink` sink isn't Swift-exported (see plan 106).
+/// (rule 12). A row's Download streams the archive to a staging file (never into memory), then the
+/// system file mover offers "Save to Files" under the archive's own name.
 struct AdminBackupsView: View {
     @Environment(\.dependencies) private var deps
 
@@ -82,6 +82,12 @@ struct AdminBackupsView: View {
             }
         }
         .messageAlert(errorAlertBinding) { observer?.clearError() }
+        .messageAlert(downloadErrorBinding) { observer?.clearDownloadError() }
+        // "Save to Files": moves the staged archive (no copy, no memory) to the chosen folder.
+        // Completion and cancellation both end the export, which drops whatever is left staged.
+        .fileMover(isPresented: exportPresented, file: observer?.downloadTracker.ready?.url) { _ in
+            observer?.finishExport()
+        }
         .alert(
             String(localized: "admin.restore_from_file_upload_failed"),
             isPresented: uploadErrorPresented,
@@ -142,7 +148,14 @@ struct AdminBackupsView: View {
             } else {
                 Section(String(localized: "admin.backups")) {
                     ForEach(ready.backups) { backup in
-                        BackupRow(backup: backup, onDelete: { pendingDelete = backup })
+                        BackupRow(
+                            backup: backup,
+                            isDownloading: observer.downloadTracker.downloadingId == backup.id,
+                            canDownload: observer.downloadTracker.downloadingId == nil
+                                && observer.downloadTracker.ready == nil,
+                            onDownload: { startDownload(of: backup, using: observer) },
+                            onDelete: { pendingDelete = backup }
+                        )
                     }
                 }
             }
@@ -258,6 +271,20 @@ struct AdminBackupsView: View {
         )
     }
 
+    private var downloadErrorBinding: Binding<MessageAlert?> {
+        Binding(
+            get: { observer?.downloadError.map { MessageAlert(message: $0) } },
+            set: { if $0 == nil { observer?.clearDownloadError() } }
+        )
+    }
+
+    private var exportPresented: Binding<Bool> {
+        Binding(
+            get: { observer?.downloadTracker.ready != nil },
+            set: { if !$0 { observer?.finishExport() } }
+        )
+    }
+
     private var uploadErrorMessage: String? {
         if case .error(let message)? = restoreFromFile?.phase { return message }
         return nil
@@ -272,6 +299,17 @@ struct AdminBackupsView: View {
 
     private var pickErrorPresented: Binding<Bool> {
         Binding(get: { pickError != nil }, set: { if !$0 { pickError = nil } })
+    }
+
+    // MARK: - Download
+
+    private func startDownload(of backup: BackupRowModel, using observer: AdminBackupsObserver) {
+        let url = BackupDownloadStaging.stagingURL(
+            forBackupId: backup.id,
+            in: FileManager.default.temporaryDirectory,
+            token: UUID()
+        )
+        observer.download(id: backup.id, to: url)
     }
 
     // MARK: - File pick handling
@@ -316,6 +354,9 @@ struct AdminBackupsView: View {
 /// trailing swipe / context menu deletes.
 private struct BackupRow: View {
     let backup: BackupRowModel
+    let isDownloading: Bool
+    let canDownload: Bool
+    let onDownload: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -338,9 +379,18 @@ private struct BackupRow: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
+                if isDownloading { ProgressView() }
             }
             .padding(.vertical, 3)
             .contentShape(Rectangle())
+        }
+        // Download on the leading edge so Delete stays alone on the trailing one.
+        .swipeActions(edge: .leading) {
+            Button(action: onDownload) {
+                Label(String(localized: "admin.download_backup"), systemImage: "arrow.down.circle")
+            }
+            .tint(Color.luTint)
+            .disabled(!canDownload)
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive, action: onDelete) {
@@ -348,6 +398,10 @@ private struct BackupRow: View {
             }
         }
         .contextMenu {
+            Button(action: onDownload) {
+                Label(String(localized: "admin.download_backup"), systemImage: "arrow.down.circle")
+            }
+            .disabled(!canDownload)
             Button(role: .destructive, action: onDelete) {
                 Label(String(localized: "common.delete"), systemImage: "trash")
             }

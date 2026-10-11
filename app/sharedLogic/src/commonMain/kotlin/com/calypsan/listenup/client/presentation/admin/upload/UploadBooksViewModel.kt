@@ -78,6 +78,7 @@ class UploadBooksViewModel(
                         imported = step.result.books.filter { it.status == UploadedBookStatus.IMPORTED },
                         duplicates = step.result.books.filter { it.status == UploadedBookStatus.DUPLICATE },
                         failed = step.result.books.filter { it.status == UploadedBookStatus.FAILED },
+                        unreadable = step.result.books.filter { it.status == UploadedBookStatus.UNKNOWN },
                     )
                 }
 

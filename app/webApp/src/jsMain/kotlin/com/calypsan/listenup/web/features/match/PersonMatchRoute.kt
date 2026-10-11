@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.match
 
+import com.calypsan.listenup.web.nav.rememberSession
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -20,8 +21,7 @@ fun PersonMatchRoute(
     onEditByHand: () -> Unit,
     onApplied: () -> Unit,
 ) {
-    val session = remember(contributorId) { graph.openPersonMatch(contributorId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(contributorId) { graph.openPersonMatch(contributorId) }
     PersonMatchPage(
         session = session,
         contributorId = contributorId,

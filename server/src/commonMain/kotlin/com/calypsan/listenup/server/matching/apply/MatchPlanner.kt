@@ -49,7 +49,10 @@ internal object MatchPlanner {
                 model.fields
                     .firstOrNull { it.review.field == decision.field }
                     ?.run { options.firstOrNull { it.option.optionId == choice.optionId } }
-                    ?: return outdated("option ${choice.optionId} for ${decision.field} is no longer offered")
+                    ?: return outdatedUnless(
+                        model.sourceFailure,
+                        "option ${choice.optionId} for ${decision.field} is no longer offered",
+                    )
             draft.field(decision.field, option.write, option.providers.first())
         }
         planCover(model, request.cover)?.let { return AppResult.Failure(it) }
@@ -58,8 +61,12 @@ internal object MatchPlanner {
             draft.cover = DraftCover(tile.candidate.url, tile.provider, required = true)
             draft.changes += AppliedChange.Cover(tile.provider.toMetadataSource())
         }
-        val genresAdded = offered(request.genres.add, model.genres) ?: return outdated("a genre suggestion vanished")
-        val moodsAdded = offered(request.moods.add, model.moods) ?: return outdated("a mood suggestion vanished")
+        val genresAdded =
+            offered(request.genres.add, model.genres)
+                ?: return outdatedUnless(model.sourceFailure, "a genre suggestion vanished")
+        val moodsAdded =
+            offered(request.moods.add, model.moods)
+                ?: return outdatedUnless(model.sourceFailure, "a mood suggestion vanished")
         val genresRemoved = yours(request.genres.remove, model.book.genres.map { it.name })
         val moodsRemoved = yours(request.moods.remove, model.currentMoods.map { it.name })
         if (genresAdded.isNotEmpty() || genresRemoved.isNotEmpty()) {
@@ -100,7 +107,8 @@ internal object MatchPlanner {
 
             is ImageChoice.Candidate -> {
                 if (model.covers.none { it.candidate.optionId == choice.optionId }) {
-                    MetadataError.ReviewOutdated(debugInfo = "cover ${choice.optionId} is no longer offered")
+                    model.sourceFailure
+                        ?: MetadataError.ReviewOutdated(debugInfo = "cover ${choice.optionId} is no longer offered")
                 } else {
                     null
                 }
@@ -148,6 +156,12 @@ internal object MatchPlanner {
     ): List<String> = current.filter { mine -> labels.any { ReviewKeys.text(it) == ReviewKeys.text(mine) } }
 
     private fun outdated(detail: String) = AppResult.Failure(MetadataError.ReviewOutdated(debugInfo = detail))
+
+    /** A chosen thing is missing: [cause] when a source didn't answer (try again), else the book moved on. */
+    private fun outdatedUnless(
+        cause: AppError?,
+        detail: String,
+    ) = if (cause != null) AppResult.Failure(cause) else outdated(detail)
 }
 
 /** Accumulates a [MatchDraft] field by field. */

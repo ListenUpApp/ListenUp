@@ -1,11 +1,10 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.RootResetToken
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -36,6 +35,7 @@ class InstanceServiceImpl(
     private val rootResetToken: RootResetToken,
     private val clock: Clock,
 ) : InstanceService {
+    @OpenRead(reason = "public pre-auth surface")
     override suspend fun getServerInfo(): AppResult<ServerInfo> {
         // setupRequired is derived: a fresh instance with no users needs root setup.
         val setupRequired = suspendTransaction(sql) { !sql.usersQueries.hasAnyUser().executeAsOne() }

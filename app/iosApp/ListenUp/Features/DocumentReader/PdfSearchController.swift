@@ -26,12 +26,6 @@ struct PdfSearchHit: Identifiable {
 /// crossing any thread boundary — the wrapped value is extracted immediately on the same
 /// main-queue invocation it arrived on.
 ///
-/// **Observer token storage:** The tokens are held in a `nonisolated(unsafe)` array because
-/// `deinit` on a `@MainActor` class is nonisolated in Swift 6 and cannot read main-actor
-/// properties. The access pattern is safe: `setup()` writes the array once on the main actor
-/// before any notification can fire; `deinit` reads it once after all callers have released
-/// their last reference. No concurrent access is possible.
-///
 /// **Hit cap:** results are capped at `maxHits` to bound memory and snippet-computation
 /// cost for common queries in large documents.
 @MainActor
@@ -43,12 +37,7 @@ final class PdfSearchController {
 
     private let document: PDFDocument
     private var debounceTask: Task<Void, Never>?
-    // nonisolated(unsafe) is intentional: written once in setup() on the main actor before
-    // any notification fires; read once in deinit after all strong references are gone.
-    // No concurrent access is possible, so this is safe despite the annotation.
-    // (Plain `nonisolated` can't apply to this @Observable mutable stored property; the
-    //  "has no effect" warning is a known false-positive here.)
-    nonisolated(unsafe) private var observerTokens: [NSObjectProtocol] = []
+    @ObservationIgnored private var observerTokens: [NSObjectProtocol] = []
 
     /// Maximum number of search hits retained. Once reached, further matches are dropped
     /// and the find is cancelled to avoid unbounded growth on common queries.
@@ -57,8 +46,9 @@ final class PdfSearchController {
     /// One-shot transfer of a `PDFSelection` from a `queue: .main` notification closure
     /// into the `@MainActor`-isolated append method. The selection is always created and
     /// read on the main thread; this wrapper satisfies `@Sendable` for the notification
-    /// block while keeping the value main-confined.
-    private struct SelectionTransfer: @unchecked Sendable {
+    /// block while keeping the value main-confined. The one tolerated `@unchecked Sendable`:
+    /// `PDFSelection` predates Sendable, and the compiler rejects sending it directly.
+    private struct SelectionTransfer: @unchecked Sendable { // swiftlint:disable:this unsafe_concurrency_escape
         let selection: PDFSelection
     }
 
@@ -98,7 +88,8 @@ final class PdfSearchController {
         observerTokens = [matchObserver, endObserver]
     }
 
-    deinit {
+    // Isolated (SE-0371): the tokens are main-actor state, so the deinit runs there to read them.
+    isolated deinit {
         for token in observerTokens {
             NotificationCenter.default.removeObserver(token)
         }

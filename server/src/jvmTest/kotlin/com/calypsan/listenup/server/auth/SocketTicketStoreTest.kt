@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import io.kotest.matchers.nulls.shouldBeNull
@@ -9,7 +7,6 @@ import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /** Advanceable clock so expiry is driven deterministically, not by wall time. */

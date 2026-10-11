@@ -47,6 +47,23 @@ class DownloadFileManagerDeleteBookFilesTest :
             }
         }
 
+        test("deleting a book whose id is a parent reference leaves the downloads directory and its siblings alone") {
+            val tmpRoot = tempDir()
+            try {
+                val fileManager = fileManagerFor(tmpRoot)
+                val keptPath = fileManager.getAudioFilePath("keep", "af-1", "x.mp3", isTemp = false)
+                SystemFileSystem.sink(keptPath).use { it }
+                val downloadsDir = File(keptPath.toString()).parentFile!!.parentFile!!
+
+                fileManager.deleteBookFiles("..")
+
+                SystemFileSystem.exists(keptPath) shouldBe true
+                downloadsDir.exists() shouldBe true
+            } finally {
+                tmpRoot.deleteRecursively()
+            }
+        }
+
         test("deleteBookFiles returns true when the book directory never existed (nothing to delete)") {
             val tmpRoot = tempDir()
             try {

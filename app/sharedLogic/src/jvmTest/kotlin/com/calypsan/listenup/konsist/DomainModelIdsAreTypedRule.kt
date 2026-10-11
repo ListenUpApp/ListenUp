@@ -15,7 +15,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * [ALLOWED_STRING_ID_NAMES] lists id-suffixed properties that legitimately stay
  * `String` until THEIR owning domain migrates (e.g. `ownerId` is a user id and
  * migrates with the User domain). The `id`/`idString` split is deliberate: the
- * typed identity is `id`; `idString` is the plain-`String` Swift/SKIE bridge and
+ * typed identity is `id`; `idString` is the plain-`String` Swift bridge and
  * is intentionally excluded (`name == "id"` only, never `idString`).
  */
 class DomainModelIdsAreTypedRule :

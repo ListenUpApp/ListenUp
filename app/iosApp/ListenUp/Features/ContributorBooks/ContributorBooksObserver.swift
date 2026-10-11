@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 import Shared
 
@@ -111,14 +112,13 @@ final class ContributorBooksObserver {
 
     init(viewModel: ContributorBooksViewModel, fallbackName: String, fallbackRole: String) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         self.fallbackName = fallbackName
         self.fallbackRole = fallbackRole
         self.contributorName = fallbackName
         self.roleDisplayName = fallbackRole
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func loadBooks(contributorId: String, role: String) {
         viewModel.loadBooks(contributorId: contributorId, role: role)

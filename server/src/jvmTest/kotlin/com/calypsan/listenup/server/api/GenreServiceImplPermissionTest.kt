@@ -118,6 +118,20 @@ class GenreServiceImplPermissionTest :
                 }
             }
         }
+
+        test("listUnmappedStrings is for metadata editors: a MEMBER without canEdit is refused, an editor and an admin are not") {
+            withSqlDatabase {
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
+                sql.seedTestUser("reader", UserRoleColumn.MEMBER, canEdit = false)
+                runTest {
+                    val service = makeGenrePermService(sql, driver)
+
+                    service.copyWith(memberPrincipal("reader")).listUnmappedStrings().shouldBeDeniedPermission()
+                    service.copyWith(memberPrincipal("editor")).listUnmappedStrings().shouldBeInstanceOf<AppResult.Success<*>>()
+                    service.copyWith(rootPrincipal()).listUnmappedStrings().shouldBeInstanceOf<AppResult.Success<*>>()
+                }
+            }
+        }
     })
 
 private fun makeGenrePermService(

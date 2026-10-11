@@ -49,7 +49,8 @@ internal class DrainReconciler(
 
         val fetch =
             handler.refetchForOutboxKey(ref.entityId) ?: run {
-                logger.debug { "heal: '${ref.domainName}' has no targeted fetch for ${ref.entityId}; skipping" }
+                logger.debug { "heal: '${ref.domainName}' has no targeted fetch for ${ref.entityId}; discarding" }
+                handler.discardUnacknowledged(ref.entityId)
                 return
             }
 

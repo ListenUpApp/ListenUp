@@ -111,7 +111,7 @@ internal class PlaybackManagerImpl(
     override val currentBookId: StateFlow<BookId?>
         field = MutableStateFlow<BookId?>(null)
 
-    /** String version of currentBookId for Swift/SKIE (value classes dont bridge to flows) */
+    /** String version of [currentBookId] for Swift, where the value class crosses as a wrapper object. */
     val currentBookIdString: StateFlow<String?>
         field = MutableStateFlow<String?>(null)
 

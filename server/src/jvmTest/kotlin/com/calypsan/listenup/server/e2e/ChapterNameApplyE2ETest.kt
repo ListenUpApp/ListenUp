@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.e2e
 
 import com.calypsan.listenup.api.dto.auth.SessionId

@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// One merge folded into a series or genre, as the "Merged into this" list draws it (#1061).

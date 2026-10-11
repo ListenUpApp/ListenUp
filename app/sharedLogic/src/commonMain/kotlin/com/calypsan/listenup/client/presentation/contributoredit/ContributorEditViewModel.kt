@@ -11,17 +11,22 @@ import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
+import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.usecase.settle
+import com.calypsan.listenup.client.domain.usecase.toNotice
 import com.calypsan.listenup.client.domain.usecase.contributor.ContributorUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -35,6 +40,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -46,9 +52,6 @@ private val logger = KotlinLogging.logger {}
  * which is how "my author isn't in here" became "merging is broken".
  */
 const val MAX_MERGE_CANDIDATES = 30
-
-/** Idle timeout before stopping merge-candidate collection. */
-private const val STOP_TIMEOUT_MS = 5_000L
 
 /**
  * Lightweight projection of a contributor as a merge-target candidate.
@@ -250,6 +253,7 @@ class ContributorEditViewModel internal constructor(
     private val updateContributorUseCase: UpdateContributorUseCase,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
+    private val pendingImageUploads: PendingImageUploads,
     private val contributorEditRepository: ContributorEditRepository,
     private val contributorAliasDao: ContributorAliasDao,
     private val contributorDao: ContributorDao,
@@ -259,8 +263,8 @@ class ContributorEditViewModel internal constructor(
     val state: StateFlow<ContributorEditUiState>
         field = MutableStateFlow(ContributorEditUiState())
 
-    private val _navActions = Channel<ContributorEditNavAction>(Channel.BUFFERED)
-    val navActions: Flow<ContributorEditNavAction> = _navActions.receiveAsFlow()
+    private val navActionsChannel = Channel<ContributorEditNavAction>(Channel.BUFFERED)
+    val navActions: Flow<ContributorEditNavAction> = navActionsChannel.receiveAsFlow()
 
     /**
      * Candidates for the merge-target picker — all live contributors except the current
@@ -301,7 +305,7 @@ class ContributorEditViewModel internal constructor(
                             }.toList()
                     }
                 }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
+            }.stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     init {
         permissionsRepository
@@ -317,47 +321,63 @@ class ContributorEditViewModel internal constructor(
     private var originalBirthDate: String = ""
     private var originalDeathDate: String = ""
 
+    /** The id whose data the form currently holds or is fetching; a repeat load for it is a no-op. */
+    private var loadedContributorId: String? = null
+    private var loadJob: Job? = null
+    private var aliasJob: Job? = null
+
     /**
      * Load contributor data for editing.
      */
     fun loadContributor(contributorId: String) {
-        viewModelScope.launch {
-            state.update { it.copy(isLoading = true, contributorId = contributorId) }
+        // The screen asks again whenever it is recreated (rotation, theme, fold). The form already
+        // holds this contributor, possibly with unsaved edits, so there is nothing to fetch.
+        if (loadedContributorId == contributorId) return
+        loadedContributorId = contributorId
 
-            val contributor = contributorRepository.getById(contributorId)
-            if (contributor == null) {
-                state.update { it.copy(isLoading = false, error = "Contributor not found") }
-                return@launch
+        loadJob?.cancel()
+        loadJob =
+            viewModelScope.launch {
+                state.update { it.copy(isLoading = true, contributorId = contributorId) }
+
+                val contributor = contributorRepository.getById(contributorId)
+                if (contributor == null) {
+                    // Let the same id be asked for again: nothing was loaded.
+                    loadedContributorId = null
+                    state.update { it.copy(isLoading = false, error = "Contributor not found") }
+                    return@launch
+                }
+
+                // Store original values
+                originalName = contributor.name
+                originalDescription = contributor.description.orEmpty()
+                originalWebsite = contributor.website.orEmpty()
+                originalBirthDate = contributor.birthDate.orEmpty()
+                originalDeathDate = contributor.deathDate.orEmpty()
+
+                state.update { editState ->
+                    editState.copy(
+                        isLoading = false,
+                        imagePath = contributor.imagePath,
+                        name = contributor.name,
+                        description = contributor.description.orEmpty(),
+                        website = contributor.website.orEmpty(),
+                        birthDate = contributor.birthDate.orEmpty(),
+                        deathDate = contributor.deathDate.orEmpty(),
+                        hasChanges = false,
+                    )
+                }
+
+                // Subscribe to Room aliases (single source of truth; updated by the firehose).
+                aliasJob?.cancel()
+                aliasJob =
+                    contributorAliasDao
+                        .observeForContributor(contributorId)
+                        .onEach { aliases -> state.update { it.copy(aliases = aliases) } }
+                        .launchIn(viewModelScope)
+
+                logger.debug { "Loaded contributor for editing: ${contributor.name}" }
             }
-
-            // Store original values
-            originalName = contributor.name
-            originalDescription = contributor.description.orEmpty()
-            originalWebsite = contributor.website.orEmpty()
-            originalBirthDate = contributor.birthDate.orEmpty()
-            originalDeathDate = contributor.deathDate.orEmpty()
-
-            state.update { editState ->
-                editState.copy(
-                    isLoading = false,
-                    imagePath = contributor.imagePath,
-                    name = contributor.name,
-                    description = contributor.description.orEmpty(),
-                    website = contributor.website.orEmpty(),
-                    birthDate = contributor.birthDate.orEmpty(),
-                    deathDate = contributor.deathDate.orEmpty(),
-                    hasChanges = false,
-                )
-            }
-
-            // Subscribe to Room aliases (single source of truth; updated by the firehose).
-            contributorAliasDao
-                .observeForContributor(contributorId)
-                .onEach { aliases -> state.update { it.copy(aliases = aliases) } }
-                .launchIn(viewModelScope)
-
-            logger.debug { "Loaded contributor for editing: ${contributor.name}" }
-        }
     }
 
     /**
@@ -480,7 +500,7 @@ class ContributorEditViewModel internal constructor(
                     state.update { it.copy(mergeInProgress = false) }
                     // The survivor, not back: the viewed contributor survived this merge, but the
                     // detail page behind the editor was rendered from pre-merge state.
-                    _navActions.trySend(ContributorEditNavAction.NavigateToMerged(ContributorId(viewedId)))
+                    navActionsChannel.trySend(ContributorEditNavAction.NavigateToMerged(ContributorId(viewedId)))
                 }
 
                 is AppResult.Failure -> {
@@ -592,12 +612,14 @@ class ContributorEditViewModel internal constructor(
 
     /**
      * Commit the staged image to the durable local location and upload it to the server.
-     * Image upload is best-effort — the local save is prioritized so the picked photo
-     * survives offline. Called from [saveChanges] once metadata persists.
+     * The local save is prioritized so the picked photo survives offline; a failed upload does not
+     * fail the save but is queued to retry when it can succeed later, and reported as
+     * [SaveOutcome.SavedImageNotUploaded]. Called from
+     * [persistChanges] once metadata persists.
      */
-    private suspend fun commitAndUploadImageIfPending(current: ContributorEditUiState) {
-        val pendingData = current.pendingImageData ?: return
-        val pendingFilename = current.pendingImageFilename ?: return
+    private suspend fun commitAndUploadImageIfPending(current: ContributorEditUiState): SaveOutcome {
+        val pendingData = current.pendingImageData ?: return SaveOutcome.Saved
+        val pendingFilename = current.pendingImageFilename ?: return SaveOutcome.Saved
         val contributorId = current.contributorId
 
         // First, commit staging to the main image location (offline-first).
@@ -606,17 +628,13 @@ class ContributorEditViewModel internal constructor(
             is AppResult.Failure -> logger.error { "Failed to commit staging image: ${commitResult.message}" }
         }
 
-        // Then upload to the server (best-effort — local image is already saved).
-        when (val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename)) {
-            is AppResult.Success -> {
-                logger.info { "Contributor image uploaded to server" }
-            }
-
-            is AppResult.Failure -> {
-                logger.error { "Failed to upload contributor image: ${result.message}" }
-                logger.warn { "Continuing despite image upload failure (local image saved)" }
-            }
+        // Then upload to the server; the local image is already saved either way.
+        val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename)
+        when (result) {
+            is AppResult.Success -> logger.info { "Contributor image uploaded to server" }
+            is AppResult.Failure -> logger.error { "Failed to upload contributor image: ${result.message}" }
         }
+        return pendingImageUploads.settle(PendingImageKind.ContributorImage, contributorId, result)
     }
 
     private fun updateHasChanges() {
@@ -640,7 +658,7 @@ class ContributorEditViewModel internal constructor(
     private fun saveChanges() {
         val current = state.value
         if (!current.hasChanges) {
-            _navActions.trySend(ContributorEditNavAction.NavigateBack)
+            navActionsChannel.trySend(ContributorEditNavAction.NavigateBack)
             return
         }
 
@@ -697,7 +715,8 @@ class ContributorEditViewModel internal constructor(
         when (result) {
             is AppResult.Success -> {
                 // Metadata persisted — commit + upload the staged image if the user picked one.
-                commitAndUploadImageIfPending(current)
+                (commitAndUploadImageIfPending(current) as? SaveOutcome.SavedImageNotUploaded)
+                    ?.let { errorBus.emit(it.toNotice()) }
                 state.update { editState ->
                     editState.copy(
                         isSaving = false,
@@ -707,7 +726,7 @@ class ContributorEditViewModel internal constructor(
                         stagingImagePath = null,
                     )
                 }
-                _navActions.trySend(ContributorEditNavAction.SaveSuccess)
+                navActionsChannel.trySend(ContributorEditNavAction.SaveSuccess)
             }
 
             is AppResult.Failure -> {
@@ -752,7 +771,7 @@ class ContributorEditViewModel internal constructor(
                 is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
                     // The survivor, not back: this merge soft-deleted the contributor we were editing.
-                    _navActions.trySend(ContributorEditNavAction.NavigateToMerged(candidate.id))
+                    navActionsChannel.trySend(ContributorEditNavAction.NavigateToMerged(candidate.id))
                 }
 
                 is AppResult.Failure -> {
@@ -792,7 +811,7 @@ class ContributorEditViewModel internal constructor(
         if (contributorId.isNotBlank() && state.value.stagingImagePath != null) {
             imageStagingRepository.requestContributorImageStagingCleanup(contributorId)
         }
-        _navActions.trySend(ContributorEditNavAction.NavigateBack)
+        navActionsChannel.trySend(ContributorEditNavAction.NavigateBack)
     }
 
     /**

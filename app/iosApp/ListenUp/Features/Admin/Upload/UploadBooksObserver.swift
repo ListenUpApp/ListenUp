@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 import UIKit
 
@@ -36,10 +37,9 @@ final class UploadBooksObserver {
 
     init(viewModel: UploadBooksViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply(Self.phase(from: $0)) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 
@@ -135,7 +135,8 @@ final class UploadBooksObserver {
             return .finished(UploadOutcomeModel(
                 imported: finished.imported.count,
                 duplicates: finished.duplicates.count,
-                failed: finished.failed.count
+                failed: finished.failed.count,
+                unreadable: finished.unreadable.count
             ))
         case .error(let errorType):
             return .error(message: errorType.value.error.message)
@@ -214,6 +215,8 @@ struct UploadOutcomeModel: Equatable {
     let imported: Int
     let duplicates: Int
     let failed: Int
+    /// Books whose outcome a newer server reported in a way this build cannot read.
+    var unreadable: Int = 0
 }
 
 /// Why a selection was not sent.

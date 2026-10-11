@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.repository.AvatarDownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.DocumentRepositoryImpl
 import com.calypsan.listenup.client.data.repository.DownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ImageRepositoryImpl
+import com.calypsan.listenup.client.data.repository.PendingImageUploadsImpl
 import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
 import com.calypsan.listenup.client.data.sync.ImageDownloader
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
@@ -16,6 +17,7 @@ import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
@@ -37,6 +39,8 @@ private const val APP_SCOPE = "appScope"
  *  - [com.calypsan.listenup.client.domain.repository.BookRepository] — `bookModule`
  *  - [com.calypsan.listenup.client.download.DownloadEnqueuer] — platform download module
  *  - [com.calypsan.listenup.client.data.local.db.BookDocumentDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.db.PendingImageUploadDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `settingsModule`
  *  - [com.calypsan.listenup.client.data.local.images.StoragePaths] — platform storage module
  */
 internal val mediaModule: Module =
@@ -70,6 +74,19 @@ internal val mediaModule: Module =
         }
         single<ImageRepository> { get<ImageRepositoryImpl>() }
         single<ImageStagingRepository> { get<ImageRepositoryImpl>() }
+
+        // Covers and photos saved on this device that have not reached the server, retried until it
+        // answers. One instance bound to the save paths' interface; the drain scheduler (clientSyncModule)
+        // and the sync-apply guards use the concrete class.
+        single {
+            PendingImageUploadsImpl(
+                dao = get(),
+                imageStorage = get(),
+                imageApi = get(),
+                authSession = get(),
+            )
+        }
+        single<PendingImageUploads> { get<PendingImageUploadsImpl>() }
 
         // DownloadRepository — read-side of download state. Per-book commands still live
         // on DownloadService.

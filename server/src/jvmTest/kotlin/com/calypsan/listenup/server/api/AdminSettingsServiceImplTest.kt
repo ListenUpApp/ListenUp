@@ -23,6 +23,7 @@ import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ExternalRatingSource
@@ -71,7 +72,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Integration tests for [AdminSettingsServiceImpl].
  *
- * Real in-memory Flyway-migrated SQLite + real [ServerSettingsRepository]; no mocks.
+ * Real in-memory migrated SQLite + real [ServerSettingsRepository]; no mocks.
  * The acting caller is supplied via a [PrincipalProvider] stub; [principalFor] binds
  * the service to a chosen `(userId, role)`.
  */
@@ -180,6 +181,116 @@ class AdminSettingsServiceImplTest :
                     svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "")).shouldSucceed()
                     val cleared = svc.getServerSettings().shouldSucceed()
                     cleared.remoteUrl.shouldBeNull()
+                }
+            }
+        }
+
+        // (e2) a remote URL that is not a plain http(s) URL is refused and the stored value is untouched
+        listOf("example.com", "https://exa mple.com", "https://user:pw@example.com").forEach { bad ->
+            test("updateServerSettings refuses remoteUrl '$bad' and keeps the previous value") {
+                withSqlDatabase {
+                    runTest {
+                        val (svc) =
+                            makeAdminSettingsService(
+                                db = this@withSqlDatabase,
+                                principal = principalFor("root1", UserRole.ROOT),
+                            )
+                        seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+                        svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "https://example.com")).shouldSucceed()
+
+                        val error =
+                            svc
+                                .updateServerSettings(AdminServerSettingsPatch(remoteUrl = bad))
+                                .shouldFailWith<ValidationError>()
+                        error.field shouldBe "remoteUrl"
+                        error.message shouldNotContain bad
+
+                        svc.getServerSettings().shouldSucceed().remoteUrl shouldBe "https://example.com"
+                    }
+                }
+            }
+        }
+
+        test("updateServerSettings refuses an over-long remoteUrl with a message that names the field") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+                    val tooLong = "https://example.com/" + "a".repeat(2048)
+
+                    val error =
+                        svc
+                            .updateServerSettings(AdminServerSettingsPatch(remoteUrl = tooLong))
+                            .shouldFailWith<ValidationError>()
+
+                    error.field shouldBe "remoteUrl"
+                    error.message shouldBe "Keep the remote address to 2048 characters."
+                }
+            }
+        }
+
+        test("updateServerSettings with a good name and a bad remoteUrl saves neither") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+                    svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "https://example.com")).shouldSucceed()
+                    val before = svc.getServerSettings().shouldSucceed()
+
+                    svc
+                        .updateServerSettings(AdminServerSettingsPatch(serverName = "New Name", remoteUrl = "example.com"))
+                        .shouldFailWith<ValidationError>()
+
+                    val after = svc.getServerSettings().shouldSucceed()
+                    after.serverName shouldBe before.serverName
+                    after.remoteUrl shouldBe "https://example.com"
+                }
+            }
+        }
+
+        test("updateServerSettings trims whitespace around a valid remoteUrl before storing it") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "  https://example.com  ")).shouldSucceed()
+
+                    svc.getServerSettings().shouldSucceed().remoteUrl shouldBe "https://example.com"
+                }
+            }
+        }
+
+        test("updateServerSettings with a blank remoteUrl clears the stored remote URL") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+                    svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "https://example.com")).shouldSucceed()
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "   ")).shouldSucceed()
+
+                    svc
+                        .getServerSettings()
+                        .shouldSucceed()
+                        .remoteUrl
+                        .shouldBeNull()
                 }
             }
         }

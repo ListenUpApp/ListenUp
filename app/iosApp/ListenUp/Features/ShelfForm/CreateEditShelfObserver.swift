@@ -23,17 +23,21 @@ final class CreateEditShelfObserver {
 
     init(viewModel: CreateEditShelfViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func prepareCreate() { viewModel.initCreate() }
     func prepareEdit(shelfId: String) { viewModel.initEdit(shelfId: shelfId) }
 
     func save(name: String, description: String, isPrivate: Bool) {
         viewModel.save(name: name, description: description, isPrivate: isPrivate)
+    }
+
+    /// Whether the form's current inputs differ from what it opened on (the ViewModel owns the baseline).
+    func hasChanges(name: String, description: String, isPrivate: Bool) -> Bool {
+        viewModel.hasChanges(name: name, description: description, isPrivate: isPrivate)
     }
 
     func delete() { viewModel.delete() }

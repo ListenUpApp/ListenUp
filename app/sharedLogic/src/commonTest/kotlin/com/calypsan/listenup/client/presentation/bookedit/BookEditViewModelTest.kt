@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookedit
 
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.api.result.failureOf
@@ -18,6 +19,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.usecase.SaveOutcome
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
@@ -34,6 +36,7 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -237,6 +240,76 @@ class BookEditViewModelTest :
             }
         }
 
+        test("loading the id already loaded keeps unsaved edits") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns
+                    AppResult.Success(createBookEditData(title = "Stored title"))
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("My edit"))
+
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.title shouldBe "My edit"
+                viewModel.state.value.hasChanges shouldBe true
+            }
+        }
+
+        test("loading the id already loaded does not read the store a second time") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(createBookEditData())
+                val viewModel = fixture.build()
+
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.loadBookForEditUseCase("book-1") }
+            }
+        }
+
+        test("loading a different id replaces the form") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns
+                    AppResult.Success(createBookEditData(bookId = "book-1", title = "First"))
+                everySuspend { fixture.loadBookForEditUseCase("book-2") } returns
+                    AppResult.Success(createBookEditData(bookId = "book-2", title = "Second"))
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("My edit"))
+
+                viewModel.loadBook("book-2")
+                advanceUntilIdle()
+
+                viewModel.state.value.title shouldBe "Second"
+                viewModel.state.value.hasChanges shouldBe false
+            }
+        }
+
+        test("a failed load can be retried for the same id") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns failureOf("Book not found")
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns
+                    AppResult.Success(createBookEditData(title = "Recovered"))
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.title shouldBe "Recovered"
+            }
+        }
+
         test("a held book's edit form knows it is held") {
             runTest {
                 val fixture = createFixture()
@@ -388,7 +461,7 @@ class BookEditViewModelTest :
                 var savedRequest: BookUpdateRequest? = null
                 everySuspend { fixture.updateBookUseCase(any(), any()) } calls { args ->
                     savedRequest = args.arg(0)
-                    AppResult.Success(Unit)
+                    AppResult.Success(SaveOutcome.Saved)
                 }
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
@@ -743,7 +816,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
                 everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
-                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(SaveOutcome.Saved)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -755,6 +828,68 @@ class BookEditViewModelTest :
                     advanceUntilIdle()
                     verifySuspend { fixture.updateBookUseCase(any(), any()) }
                     awaitItem() shouldBe BookEditNavAction.NavigateBack
+                }
+            }
+        }
+
+        test("a save whose cover did not upload still navigates back, and tells the user") {
+            runTest {
+                val fixture = createFixture()
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns
+                    AppResult.Success(SaveOutcome.SavedImageNotUploaded(TransportError.NetworkUnavailable(), willRetry = true))
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.navActions.test {
+                        viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                        viewModel.onEvent(BookEditUiEvent.Save)
+                        advanceUntilIdle()
+                        awaitItem() shouldBe BookEditNavAction.NavigateBack
+                    }
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageUploadQueued>()
+                }
+            }
+        }
+
+        test("a save whose cover was not queued says it could not be uploaded") {
+            runTest {
+                val fixture = createFixture()
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns
+                    AppResult.Success(SaveOutcome.SavedImageNotUploaded(TransportError.NetworkUnavailable(), willRetry = false))
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                    viewModel.onEvent(BookEditUiEvent.Save)
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<TransportError.ImageNotUploaded>()
+                }
+            }
+        }
+
+        test("a plainly saved book says nothing on the error bus") {
+            runTest {
+                val fixture = createFixture()
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(SaveOutcome.Saved)
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                    viewModel.onEvent(BookEditUiEvent.Save)
+                    advanceUntilIdle()
+                    expectNoEvents()
                 }
             }
         }
@@ -888,7 +1023,7 @@ class BookEditViewModelTest :
                     flowOf(emptyList())
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
                 everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
-                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(SaveOutcome.Saved)
                 everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
@@ -917,7 +1052,7 @@ class BookEditViewModelTest :
                     flowOf(listOf("coll-1"))
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
                 everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
-                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(SaveOutcome.Saved)
                 everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
@@ -958,7 +1093,7 @@ class BookEditViewModelTest :
                     flowOf(listOf("all-books", "coll-1"))
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
                 everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
-                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(SaveOutcome.Saved)
                 everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
@@ -1006,7 +1141,7 @@ class BookEditViewModelTest :
                     flowOf(listOf("inbox"))
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
                 everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
-                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(SaveOutcome.Saved)
                 everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")

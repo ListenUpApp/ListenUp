@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bulkedit
 
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
@@ -88,6 +89,10 @@ fun BulkEditPage(
     actions: BulkEditActions,
     notice: String? = null,
 ) {
+    // Not while applying: the books are already being written, so there is nothing left to discard.
+    val editing = state as? BulkEditUiState.Editing
+    val guard = rememberUnsavedWorkGuard(dirty = editing?.hasChanges == true && !editing.isApplying)
+    guard.Dialog()
     Div(attrs = { classes("bke") }) {
         when (state) {
             BulkEditUiState.Loading -> {
@@ -96,7 +101,7 @@ fun BulkEditPage(
             }
 
             is BulkEditUiState.Editing -> {
-                EditingContent(state, catalog, actions, notice)
+                EditingContent(state, catalog, actions, notice, onCancel = { guard.leave(actions.onLeave) })
             }
         }
     }
@@ -108,13 +113,14 @@ private fun EditingContent(
     catalog: BulkEditCatalog,
     actions: BulkEditActions,
     notice: String?,
+    onCancel: () -> Unit,
 ) {
     PageHeader(
         title = if (state.bookCount == 1) "Edit 1 book" else "Edit ${state.bookCount} books",
         eyebrow = "Library · ${state.bookCount} selected",
         documentTitle = "Edit books",
         actions = {
-            Button(kind = ButtonKind.Secondary, onClick = { actions.onLeave() }) { Text("Cancel") }
+            Button(kind = ButtonKind.Secondary, onClick = { onCancel() }) { Text("Cancel") }
         },
     )
 
@@ -282,7 +288,7 @@ private fun CreditFields(
     SelectField(
         label = "Credit as",
         value = pendingRole.apiValue,
-        options = ContributorRole.entries.map { SelectOption(it.apiValue, it.displayName) },
+        options = ContributorRole.entries.filter { it.isAssignable }.map { SelectOption(it.apiValue, it.displayName) },
         onSelect = { value -> pendingRole = value?.let { ContributorRole.fromApiValue(it) } ?: ContributorRole.AUTHOR },
         id = "bke-role",
     )

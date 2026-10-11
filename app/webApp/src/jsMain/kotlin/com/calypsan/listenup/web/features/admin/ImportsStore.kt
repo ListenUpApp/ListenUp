@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.ImportId
@@ -21,8 +22,8 @@ class ImportsSession(
     val onDelete: (ImportId) -> Unit,
     val onClearError: () -> Unit,
     val onRetry: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the list gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenImports = () -> ImportsSession
@@ -78,8 +79,8 @@ class ImportFlowSession(
     val onSkipBook: (AbsItemId) -> Unit,
     val onApply: () -> Unit,
     val onReset: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the flow page gets its state. */
 typealias OpenImportFlow = () -> ImportFlowSession

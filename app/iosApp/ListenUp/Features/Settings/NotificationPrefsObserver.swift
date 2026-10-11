@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 import Shared
 
@@ -59,10 +60,9 @@ final class NotificationPrefsObserver {
 
     init(viewModel: NotificationPrefsViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

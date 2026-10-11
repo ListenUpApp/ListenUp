@@ -43,6 +43,35 @@ private val HttpRequestData.form: Parameters get() = (body as FormDataContent).f
 class HardcoverOAuthClientTest :
     FunSpec({
 
+        test("a device answer over the ceiling is Unavailable") {
+            runTest {
+                val client =
+                    HardcoverOAuthClient(
+                        http = HttpClient(MockEngine { respond(DEVICE_JSON, HttpStatusCode.OK, JSON_HEADERS) }),
+                        clientId = "listenup-test",
+                        apiBaseUrl = "https://hc.test",
+                        maxBodyBytes = 16,
+                    )
+
+                client.startDeviceAuthorization() shouldBe
+                    DeviceAuthorizationResult.Unavailable("response body over 16 bytes")
+            }
+        }
+
+        test("a token answer over the ceiling is Unavailable") {
+            runTest {
+                val client =
+                    HardcoverOAuthClient(
+                        http = HttpClient(MockEngine { respond(TOKEN_JSON, HttpStatusCode.OK, JSON_HEADERS) }),
+                        clientId = "listenup-test",
+                        apiBaseUrl = "https://hc.test",
+                        maxBodyBytes = 16,
+                    )
+
+                client.pollToken("dev-1") shouldBe TokenPoll.Unavailable("response body over 16 bytes")
+            }
+        }
+
         test("startDeviceAuthorization posts client_id and the four scopes and returns the prompt") {
             runTest {
                 var sent: HttpRequestData? = null

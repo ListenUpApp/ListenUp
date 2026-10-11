@@ -23,8 +23,6 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,13 +34,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpDatePicker
-import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
-import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.contributoredit.components.AliasesSection
@@ -60,10 +57,6 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorEdit
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.util.rememberImagePicker
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_edit_keep_editing
-import listenup.composeapp.generated.resources.book_edit_unsaved_changes
-import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
-import listenup.composeapp.generated.resources.common_discard
 import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.contributor_biography
 import listenup.composeapp.generated.resources.contributor_birth_date
@@ -123,11 +116,13 @@ fun ContributorEditScreen(
         }
     }
 
-    var showUnsavedChangesDialog by remember { mutableStateOf(false) }
-
-    PlatformBackHandler(enabled = state.hasChanges) {
-        showUnsavedChangesDialog = true
-    }
+    val requestLeave =
+        rememberUnsavedWorkGuard(
+            dirty = state.hasChanges,
+            onLeave = onBackClick,
+            // Discard leaves through the ViewModel so it can clean up what the draft staged.
+            onDiscard = { viewModel.onEvent(ContributorEditUiEvent.Cancel) },
+        )
 
     // Generate color palette from contributor ID
     val colorScheme = rememberContributorColorScheme(contributorId)
@@ -185,13 +180,7 @@ fun ContributorEditScreen(
                                 viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
                             }
                         },
-                        onBackClick = {
-                            if (state.hasChanges) {
-                                showUnsavedChangesDialog = true
-                            } else {
-                                onBackClick()
-                            }
-                        },
+                        onBackClick = requestLeave,
                         // consumeWindowInsets so the inner Column's imePadding() doesn't double-count the
                         // Scaffold's already-reserved bottom inset — otherwise a surface-colored band
                         // appears between the field and the keyboard.
@@ -207,16 +196,6 @@ fun ContributorEditScreen(
                 MergeProgressOverlay()
             }
         }
-    }
-
-    if (showUnsavedChangesDialog) {
-        UnsavedChangesDialog(
-            onDiscard = {
-                showUnsavedChangesDialog = false
-                onBackClick()
-            },
-            onKeepEditing = { showUnsavedChangesDialog = false },
-        )
     }
 
     if (state.mergeDialogVisible) {
@@ -284,22 +263,6 @@ private fun MergeProgressOverlay() {
 // =============================================================================
 // DIALOGS
 // =============================================================================
-
-@Composable
-private fun UnsavedChangesDialog(
-    onDiscard: () -> Unit,
-    onKeepEditing: () -> Unit,
-) {
-    ListenUpDestructiveDialog(
-        onDismissRequest = onKeepEditing,
-        title = stringResource(Res.string.book_edit_unsaved_changes),
-        text = stringResource(Res.string.book_edit_you_have_unsaved_changes_are),
-        confirmText = stringResource(Res.string.common_discard),
-        onConfirm = onDiscard,
-        dismissText = stringResource(Res.string.book_edit_keep_editing),
-        onDismiss = onKeepEditing,
-    )
-}
 
 @Composable
 private fun ErrorContent(

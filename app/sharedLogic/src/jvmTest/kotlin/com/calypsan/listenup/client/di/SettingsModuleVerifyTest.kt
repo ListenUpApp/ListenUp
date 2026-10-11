@@ -32,6 +32,8 @@ class SettingsModuleVerifyTest :
                         SecureStorage::class,
                         AuthSession::class,
                         UserPreferencesRepository::class,
+                        // SettingsRepositoryImpl's allowsFallback seam: a suspend (String, String?) -> Boolean.
+                        Function3::class,
                     ),
             )
         }

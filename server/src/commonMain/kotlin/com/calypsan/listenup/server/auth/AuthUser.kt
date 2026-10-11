@@ -9,15 +9,14 @@ import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.Users
 
 /**
- * A server-side projection of a `users` row — the SQLDelight equivalent of the (still-present, soon-
- * to-be-deleted) Exposed `UserEntity`. The auth repos read rows into this immutable value so the
- * service layer never touches a transport- or ORM-shaped type: [SessionIssuer], [AuthServiceImpl],
- * and the invite path all speak [AuthUser].
+ * A server-side projection of a `users` row. The auth repos read rows into this immutable value so
+ * the service layer never touches a transport- or ORM-shaped type: [SessionIssuer],
+ * [AuthServiceImpl], and the invite path all speak [AuthUser].
  *
- * Enum columns are stored by name in SQLite (the same form the Exposed `enumerationByName` columns
- * used), and mapped name → enum here. The role / status `CHECK` constraints guarantee the stored
- * strings are always valid members, so [UserRoleColumn.valueOf] / [UserStatusColumn.valueOf] cannot
- * throw on a well-formed row. The Argon2id `password_hash` is carried verbatim — never re-derived.
+ * Enum columns are stored by name in SQLite and mapped name → enum here. The role / status `CHECK`
+ * constraints guarantee the stored strings are always valid members, so [UserRoleColumn.valueOf] /
+ * [UserStatusColumn.valueOf] cannot throw on a well-formed row. The Argon2id `password_hash` is
+ * carried verbatim — never re-derived.
  */
 internal data class AuthUser(
     val id: String,
@@ -60,8 +59,7 @@ internal fun Users.toAuthUser(): AuthUser =
         displayName = display_name,
         status = UserStatusColumn.valueOf(status),
         createdAt = created_at,
-        // can_edit is INTEGER 0/1 in SQLite; 0 ↔ false, anything else ↔ true,
-        // matching the Exposed `bool` adapter that read non-zero as true.
+        // can_edit is INTEGER 0/1 in SQLite; 0 ↔ false, anything else ↔ true.
         canEdit = can_edit != 0L,
         canCurateLibrary = can_curate_library != 0L,
         canContributeStoryWorld = can_contribute_story_world != 0L,

@@ -7,19 +7,20 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.auth.requirePermission
 
 /**
  * Thin [ContributorService] implementation.
@@ -31,17 +32,13 @@ import com.calypsan.listenup.server.services.ContributorRepository
  * (`null` means "don't touch"), and writes it back through the syncable substrate
  * so the revision bumps and the change-bus fires uniformly. The read-then-write
  * runs inside one [suspendTransaction] so concurrent edits can't interleave.
- * When `name` or `sortName` changes, the post-commit pass kicks the FTS reindex
- * for every linked book — reindex failure is logged and swallowed so a flaky FTS
- * write can't roll back a successful DB update.
  *
  * [deleteContributor] hard-deletes the junction rows linking the contributor to
  * every book (the canonical mass-removal idiom for many-to-many catalogues), then
  * re-upserts each affected book with the contributor stripped — which bumps each
  * book's revision and publishes the resulting `Updated` events so clients see
  * the contributor disappear from book detail views — and finally soft-deletes
- * the contributor itself. Post-commit, every affected book has its `book_search`
- * FTS row reindexed (best-effort; logged on failure).
+ * the contributor itself.
  *
  * [mergeContributors] folds the [source] contributor into [target]: re-links
  * every `book_contributors` row from source to target while capturing the
@@ -52,9 +49,6 @@ import com.calypsan.listenup.server.services.ContributorRepository
  * own name excluded — source's NAME is never manufactured into an alias, since
  * aliases are user-curated facts only), and finally soft-deletes the source
  * while recording the server-only `merged_into` redirect on its row.
- * Post-commit, the target's
- * affected books reindex `book_search.contributor_names` and the target's
- * `contributor_search.aliases` is refreshed; reindex failures are logged and swallowed.
  *
  * [unmergeContributor] is the inverse of [mergeContributors]: splits a single
  * alias back into its own fresh contributor row. Resolves-or-creates a contributor
@@ -65,22 +59,18 @@ import com.calypsan.listenup.server.services.ContributorRepository
  * that column (the new contributor's canonical name covers it now), re-upserts
  * each affected book to bump revision and publish `book.Updated`, then removes
  * the alias from the target. Returns the new contributor's id so callers can
- * navigate to it. Post-commit, both contributors' books reindex
- * `book_search.contributor_names` and the target's `contributor_search.aliases`
- * is refreshed; reindex failures are logged and swallowed.
+ * navigate to it.
  *
- * **Transaction model (SQLDelight cutover).** Each flow runs its read-consistency
- * checks under an outer Exposed read transaction, but every WRITE — the junction
- * relink/delete and the contributor/book upserts — goes through the single
- * SQLDelight connection (junction queries via [ContributorRepository] / the generated
- * `bookContributorsQueries`, aggregate writes via the syncable substrate). Keeping the
- * junction writes off the Exposed connection is what eliminates the cross-engine
- * `SQLITE_BUSY`: the outer Exposed transaction never takes the SQLite write lock, so
- * the SQLDelight writes on the lone SQLDelight connection serialize without contention.
- * Whole-flow atomicity is not guaranteed across the independent SQLDelight writes —
- * matching the established `BookServiceImpl` cutover shape — but each individual
- * aggregate write is atomic, and the dedup-aware unmerge creation removes the only
- * data-corrupting failure mode the prior split exhibited.
+ * The server keeps no search index (migration V55 dropped them all), so no write here
+ * reindexes anything.
+ *
+ * **Transaction model.** [mergeContributors], [unmergeContributor] and [deleteContributor]
+ * are **not** one transaction. Each keeps its snapshot + junction relink/delete in a single
+ * [sqlTransaction] (the generated `bookContributorsQueries`); the contributor and book
+ * upserts around it are separate writes through the syncable substrate, each atomic on its
+ * own. A failure part-way returns the error with the earlier writes already committed.
+ * Unmerge's contributor creation is dedup-aware (see above), so re-running it after a partial
+ * failure reuses the existing row instead of colliding on `normalized_name`.
  *
  * [getContributor] (contributor metadata) is open to any authenticated user, but
  * [listBooksByContributor] is access-filtered: a non-admin caller receives only the books
@@ -107,7 +97,8 @@ internal class ContributorServiceImpl(
      * the edit is allowed. Exposed as `internal` so the image-upload route can gate before reading the
      * multipart body; the update the route then makes re-gates internally as defense-in-depth.
      */
-    internal suspend fun checkCanEdit(): AppError? = requirePermission(Permission.EDIT_METADATA)
+    internal suspend fun checkCanEdit(): AppError? =
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ContributorServiceImpl =
@@ -120,16 +111,7 @@ internal class ContributorServiceImpl(
             principal = principal,
         )
 
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
-
+    @OpenRead(reason = "every member already receives every contributor row through sync")
     override suspend fun getContributor(id: ContributorId): AppResult<ContributorSyncPayload?> =
         AppResult.Success(contributorRepo.findById(id.value))
 
@@ -156,35 +138,28 @@ internal class ContributorServiceImpl(
         id: ContributorId,
         patch: ContributorUpdate,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        val current =
-            contributorRepo.findById(id.value)
-                ?: return contributorNotFound(id)
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         val editorId = principal.current()?.run { userId.value }
-        val patched =
-            current.applyPatch(patch).let { applied ->
-                applied.copy(
-                    fieldProvenance =
-                        applied.fieldProvenance.stampUser(
-                            patch.touchedFields(),
-                            editorId,
-                        ),
-                )
-            }
-        val nameChanged = patched.name != current.name || patched.sortName != current.sortName
-        val outcome: UpdateOutcome =
-            when (val upsertResult = contributorRepo.upsert(patched)) {
-                is AppResult.Success -> UpdateOutcome(nameChanged, AppResult.Success(Unit))
-                is AppResult.Failure -> UpdateOutcome(false, AppResult.Failure(upsertResult.error))
-            }
-        return outcome.result
+        return when (
+            val patched =
+                contributorRepo.patchLive(id) { current ->
+                    current.applyPatch(patch).let { applied ->
+                        applied.copy(
+                            fieldProvenance = applied.fieldProvenance.stampUser(patch.touchedFields(), editorId),
+                        )
+                    }
+                }
+        ) {
+            is AppResult.Failure -> AppResult.Failure(patched.error)
+            is AppResult.Success -> if (patched.data == null) contributorNotFound(id) else AppResult.Success(Unit)
+        }
     }
 
     override suspend fun mergeContributors(
         source: ContributorId,
         target: ContributorId,
     ): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (source.value == target.value) {
             return AppResult.Failure(ContributorError.MergeSelfTarget())
         }
@@ -193,7 +168,7 @@ internal class ContributorServiceImpl(
     }
 
     /**
-     * The merge write sequence (no FTS reindex). Read-consistency checks and the aggregate
+     * The merge write sequence. Read-consistency checks and the aggregate
      * writes run sequentially over the single SQLDelight connection; the snapshot + junction
      * relink are the one pair that must commit together, kept in a single SQLDelight
      * [sqlTransaction]. Whole-flow atomicity is not guaranteed across the independent
@@ -277,13 +252,13 @@ internal class ContributorServiceImpl(
         contributorId: ContributorId,
         aliasName: String,
     ): AppResult<ContributorId> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = unmergeCore(contributorId, aliasName)
         return result
     }
 
     /**
-     * The unmerge write sequence (no FTS reindex). The snapshot + junction relink are the one
+     * The unmerge write sequence. The snapshot + junction relink are the one
      * pair kept in a single SQLDelight [sqlTransaction]; the rest are sequential aggregate
      * writes over the single SQLDelight connection — matching the established cutover shape.
      */
@@ -352,13 +327,13 @@ internal class ContributorServiceImpl(
     }
 
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
         return result
     }
 
     /**
-     * The delete write sequence (no FTS reindex). The snapshot + junction hard-delete are the
+     * The delete write sequence. The snapshot + junction hard-delete are the
      * one pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the
      * contributor soft-delete are sequential aggregate writes over the single SQLDelight
      * connection — matching the established cutover shape.
@@ -419,11 +394,6 @@ fun contributorServiceScopedTo(
     service: ContributorService,
     principal: PrincipalProvider,
 ): ContributorService = (service as ContributorServiceImpl).copyWith(principal)
-
-private data class UpdateOutcome(
-    val reindexNeeded: Boolean,
-    val result: AppResult<Unit>,
-)
 
 private fun contributorNotFound(id: ContributorId): AppResult.Failure =
     AppResult.Failure(ContributorError.NotFound(debugInfo = "contributorId=${id.value}"))

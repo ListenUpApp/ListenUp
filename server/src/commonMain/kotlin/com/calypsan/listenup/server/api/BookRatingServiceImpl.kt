@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.dto.ExternalRatingsCheck
 import com.calypsan.listenup.api.dto.RateBookRequest
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.RatingError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
@@ -13,7 +12,6 @@ import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import com.calypsan.listenup.server.auth.OpenToAllMembers
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.HardcoverRatingOnOpen
@@ -22,6 +20,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.seconds
+import com.calypsan.listenup.server.auth.requireAdmin
 
 /**
  * [BookRatingService] on the authed mount. The listener is always the principal, and a book the
@@ -72,7 +71,7 @@ class BookRatingServiceImpl(
     }
 
     override suspend fun refreshExternalRatings(bookId: BookId): AppResult<Unit> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         callerWithAccessTo(bookId) ?: return notFound(bookId)
         val fetch = fetcher ?: return AppResult.Failure(RatingError.SourceUnavailable(debugInfo = "not wired"))
 
@@ -118,12 +117,6 @@ class BookRatingServiceImpl(
 
     private fun notFound(bookId: BookId): AppResult.Failure =
         AppResult.Failure(SyncError.NotFound(domain = "book", entityId = bookId.value))
-
-    /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
-    private fun requireAdmin(): AppResult.Failure? {
-        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
-    }
 }
 
 /**

@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.features.bulkedit.bulkEditAppliedMessage
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
+import com.calypsan.listenup.client.navigation.popFrom
 import com.calypsan.listenup.client.navigation.AdminCollectionDetail
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
@@ -53,7 +54,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
             com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
                 bookId = args.bookId,
                 onBackClick = {
-                    backStack.removeAt(backStack.lastIndex)
+                    backStack.popFrom(args)
                 },
                 onEditClick = { bookId ->
                     backStack.add(BookEdit(bookId))
@@ -95,7 +96,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
         DocumentViewerScreen(
             path = args.localPath,
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
         )
     }
@@ -106,7 +107,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
             facetId = args.facetId,
             facetName = args.facetName,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onBookClick = { bookId ->
                 backStack.add(BookDetail(bookId))
@@ -119,7 +120,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
         com.calypsan.listenup.client.features.bookreaders.BookReadersScreen(
             bookId = args.bookId,
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onUserClick = { userId ->
                 backStack.add(UserProfile(userId))
@@ -130,11 +131,11 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
         com.calypsan.listenup.client.features.bookedit.BookEditScreen(
             bookId = args.bookId,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onSaveSuccess = {
                 // Navigate back after successful save
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
         )
     }
@@ -153,7 +154,7 @@ private fun EntryProviderScope<NavKey>.chapterEditorEntry(backStack: NavBackStac
         com.calypsan.listenup.client.features.chaptereditor.ChapterEditorScreen(
             bookId = args.bookId,
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
         )
     }
@@ -183,11 +184,11 @@ private fun EntryProviderScope<NavKey>.bulkEditEntry(
         com.calypsan.listenup.client.features.bulkedit.BulkEditScreen(
             bookIds = args.bookIds,
             onBack = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onApplied = { changedCount ->
                 pendingSelectionExit.fireAndDisarm()
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
                 if (changedCount > 0) {
                     scope.launch {
                         snackbarHostState.showSnackbar(bulkEditAppliedMessage(changedCount))
@@ -205,7 +206,7 @@ private fun EntryProviderScope<NavKey>.genreDestinationEntry(backStack: NavBackS
         GenreDestinationScreen(
             genreId = args.genreId,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onBookClick = { bookId ->
                 backStack.add(BookDetail(bookId))

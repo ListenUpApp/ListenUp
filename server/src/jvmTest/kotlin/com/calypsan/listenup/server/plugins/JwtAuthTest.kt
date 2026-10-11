@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.plugins
 
 import com.calypsan.listenup.server.auth.SocketTicketStore
@@ -15,7 +13,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import org.slf4j.event.Level
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 /**
  * What [JWT_PROVIDER] accepts: the `Authorization` header first, and a single-use `ticket` query

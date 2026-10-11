@@ -16,6 +16,7 @@ import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -53,6 +54,70 @@ class RestoreOrchestratorTest :
                 eventBus = eventBus,
                 changeBus = changeBus,
             )
+
+        test("nothing can query the restored database until it has been migrated") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.archive.create("order1", includeImages = false, onEvent = {})
+                    val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
+                    val poolOpenWhileMigrating = mutableListOf<Boolean>()
+                    // Unconfined + UNDISPATCHED: the collector resumes inline inside tryEmit, so the
+                    // probe reads the pool at the instant Migrating is announced.
+                    val probe =
+                        launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+                            eventBus.collect { event ->
+                                if (event is BackupEvent.Migrating) {
+                                    poolOpenWhileMigrating += fixture.handle.sqlDriver.isOpen
+                                }
+                            }
+                        }
+
+                    buildOrchestrator(fixture, eventBus = eventBus)
+                        .restore(BackupId("order1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    poolOpenWhileMigrating shouldBe listOf(false)
+                    fixture.handle.sqlDriver.isOpen shouldBe true
+                    probe.cancel()
+                }
+            }
+        }
+
+        test("a restore leaves the revision counter at or above where it was") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fun counter() = fixture.handle.queryScalarInt("SELECT value FROM sync_meta WHERE key = 'revision_counter'")
+                    fixture.handle.execSql("UPDATE sync_meta SET value = 10 WHERE key = 'revision_counter'")
+                    fixture.archive.create("rev1", includeImages = false, onEvent = {})
+                    // Writes after the backup: clients have now seen revisions up to 500.
+                    fixture.handle.execSql("UPDATE sync_meta SET value = 500 WHERE key = 'revision_counter'")
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("rev1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    counter() shouldBe 500
+                }
+            }
+        }
+
+        test("restoring a backup that is ahead of the live counter keeps the backup's value") {
+            // The other half of max(): a counter that was reset must not drag the restored one down.
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fun counter() = fixture.handle.queryScalarInt("SELECT value FROM sync_meta WHERE key = 'revision_counter'")
+                    fixture.handle.execSql("UPDATE sync_meta SET value = 500 WHERE key = 'revision_counter'")
+                    fixture.archive.create("rev2", includeImages = false, onEvent = {})
+                    fixture.handle.execSql("UPDATE sync_meta SET value = 10 WHERE key = 'revision_counter'")
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("rev2"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    counter() shouldBe 500
+                }
+            }
+        }
 
         test("round-trip restore: db returns to pre-backup state after restore") {
             runTest {
@@ -182,6 +247,156 @@ class RestoreOrchestratorTest :
             }
         }
 
+        test("a write made just before the pool closes survives a rolled-back restore") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS late_test(v TEXT)",
+                        "INSERT INTO late_test(v) VALUES ('row-B')",
+                    )
+
+                    val garbageBytes = "not-a-sqlite-database-at-all".toByteArray()
+                    val manifest =
+                        BackupManifest(
+                            formatVersion = BackupManifest.FORMAT_VERSION,
+                            serverId = "srv-test",
+                            createdAt = System.currentTimeMillis(),
+                            appVersion = "0.0.0-test",
+                            schemaVersion = "0",
+                            includesImages = false,
+                            checksums = mapOf("db" to sha256OfBytes(garbageBytes)),
+                            bookCount = 0,
+                            userCount = 0,
+                        )
+                    fixture.paths.ensureDirs()
+                    ZipOutputStream(
+                        Files.newOutputStream(
+                            java.nio.file.Path
+                                .of(fixture.paths.archiveFor("late1").toString()),
+                        ),
+                    ).use { zip ->
+                        zip.putNextEntry(ZipEntry("listenup.db"))
+                        zip.write(garbageBytes)
+                        zip.closeEntry()
+                        zip.putNextEntry(ZipEntry("manifest.json"))
+                        zip.write(manifest.toJson().toByteArray())
+                        zip.closeEntry()
+                    }
+
+                    // Swapping is emitted just before the pool closes, so a row inserted here is a
+                    // write that landed during the restore; the safety copy is taken after the close.
+                    val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
+                    val probe =
+                        launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+                            eventBus.collect { event ->
+                                if (event is BackupEvent.Swapping) {
+                                    fixture.handle.execSql("INSERT INTO late_test(v) VALUES ('late')")
+                                }
+                            }
+                        }
+
+                    val result = buildOrchestrator(fixture, eventBus = eventBus).restore(BackupId("late1"))
+
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BackupError.RestoreFailed>()
+                        .rolledBack shouldBe true
+                    fixture.handle.queryScalarInt("SELECT COUNT(*) FROM late_test WHERE v IN ('row-B', 'late')") shouldBe 2
+                    probe.cancel()
+                }
+            }
+        }
+
+        test("a corrupt archive fails before anything is copied or closed") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS untouched_test(v TEXT)",
+                        "INSERT INTO untouched_test(v) VALUES ('row-B')",
+                    )
+                    fixture.paths.ensureDirs()
+                    writeBytes(fixture.paths.archiveFor("junk1"), "this is not a zip".toByteArray())
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("junk1"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BackupError.CorruptArchive>()
+
+                    fixture.handle.sqlDriver.isOpen shouldBe true
+                    SystemFileSystem.exists(Path(fixture.paths.rollbackDir, "listenup.db")) shouldBe false
+                    SystemFileSystem.exists(fixture.paths.stagingDir) shouldBe false
+                    fixture.handle.queryScalarString("SELECT v FROM untouched_test") shouldBe "row-B"
+                }
+            }
+        }
+
+        test("a truncated archive fails as corrupt and leaves nothing behind") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS untouched_test(v TEXT)",
+                        "INSERT INTO untouched_test(v) VALUES ('row-B')",
+                    )
+                    val whole = fixture.archive.create("whole1", includeImages = false, onEvent = {})
+                    val bytes = readBytes(whole)
+                    writeBytes(fixture.paths.archiveFor("cut1"), bytes.copyOf(bytes.size / 2))
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("cut1"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BackupError.CorruptArchive>()
+
+                    fixture.handle.sqlDriver.isOpen shouldBe true
+                    SystemFileSystem.exists(Path(fixture.paths.rollbackDir, "listenup.db")) shouldBe false
+                    SystemFileSystem.exists(fixture.paths.stagingDir) shouldBe false
+                    fixture.handle.queryScalarString("SELECT v FROM untouched_test") shouldBe "row-B"
+                }
+            }
+        }
+
+        test("the swap window is closed to writers: a write through the driver while migrating is refused") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS window_test(v TEXT)",
+                        "INSERT INTO window_test(v) VALUES ('row-A')",
+                    )
+                    fixture.archive.create("window1", includeImages = false, onEvent = {})
+                    fixture.handle.execSql("INSERT INTO window_test(v) VALUES ('row-B')")
+
+                    val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
+                    val refused = mutableListOf<Boolean>()
+                    val probe =
+                        launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+                            eventBus.collect { event ->
+                                if (event is BackupEvent.Migrating) {
+                                    refused +=
+                                        runCatching {
+                                            fixture.handle.sqlDriver.execute(
+                                                identifier = null,
+                                                sql = "INSERT INTO window_test(v) VALUES ('sneaky')",
+                                                parameters = 0,
+                                            )
+                                        }.isFailure
+                                }
+                            }
+                        }
+
+                    buildOrchestrator(fixture, eventBus = eventBus)
+                        .restore(BackupId("window1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    refused shouldBe listOf(true)
+                    fixture.handle.queryScalarString("SELECT v FROM window_test") shouldBe "row-A"
+                    fixture.handle.queryScalarInt("SELECT COUNT(*) FROM window_test") shouldBe 1
+                    probe.cancel()
+                }
+            }
+        }
+
         test("rolled-back restore does not broadcast: the DB is back to its pre-restore state") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
@@ -272,13 +487,18 @@ class RestoreOrchestratorTest :
             }
         }
 
-        test("metadata-only restore: sentinel file in coversDir survives because includeImages=false") {
+        test("metadata-only restore: sentinel files in the managed image dirs survive because includeImages=false") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
                     // Write a sentinel file into coversDir before creating the backup
                     SystemFileSystem.createDirectories(fixture.paths.coversDir)
                     val sentinel = Path(fixture.paths.coversDir, "sentinel.jpg")
                     SystemFileSystem.sink(sentinel).buffered().use { it.write(byteArrayOf(0x01, 0x02, 0x03)) }
+
+                    val otherSentinels =
+                        listOf("contributors", "series").map { dir ->
+                            Path(fixture.paths.imageDir(dir), "sentinel.jpg").also { writeBytes(it, byteArrayOf(0x04)) }
+                        }
 
                     // Create a metadata-only backup (no images)
                     fixture.archive.create("meta1", includeImages = false, onEvent = {})
@@ -291,6 +511,101 @@ class RestoreOrchestratorTest :
 
                     // Sentinel file must still exist — images were not swapped
                     SystemFileSystem.exists(sentinel) shouldBe true
+                    otherSentinels.forEach { SystemFileSystem.exists(it) shouldBe true }
+                }
+            }
+        }
+
+        test("restore with images brings back contributor photos and series covers") {
+            runTest {
+                backupTestFixture(withImages = true).use { fixture ->
+                    fixture.archive.create("img1", includeImages = true, onEvent = {})
+
+                    val photo = Path(fixture.paths.imageDir("contributors"), "author1.jpg")
+                    val seriesCover = Path(fixture.paths.imageDir("series"), "series1.jpg")
+                    deleteTree(fixture.paths.imageDir("contributors"))
+                    writeBytes(seriesCover, byteArrayOf(99, 99, 99))
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("img1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    readBytes(photo).toList() shouldBe SEEDED_IMAGES.getValue("contributors/author1.jpg").toList()
+                    readBytes(seriesCover).toList() shouldBe SEEDED_IMAGES.getValue("series/series1.jpg").toList()
+                }
+            }
+        }
+
+        test("rollback leaves every managed image directory as it was") {
+            runTest {
+                backupTestFixture(withImages = true).use { fixture ->
+                    // A forged archive that includes images: garbage db (checksum-valid, so validate passes)
+                    // plus replacement bytes for every managed directory. The swap replaces the live
+                    // directories first and the migrate then fails, so only a full rollback brings them back.
+                    val garbageBytes = "not-a-sqlite-database-at-all".toByteArray()
+                    val manifest =
+                        BackupManifest(
+                            formatVersion = BackupManifest.FORMAT_VERSION,
+                            serverId = "srv-test",
+                            createdAt = System.currentTimeMillis(),
+                            appVersion = "0.0.0-test",
+                            schemaVersion = "0",
+                            includesImages = true,
+                            checksums = mapOf("db" to sha256OfBytes(garbageBytes)),
+                            bookCount = 0,
+                            userCount = 0,
+                        )
+                    fixture.paths.ensureDirs()
+                    ZipOutputStream(Files.newOutputStream(fixture.paths.archiveFor("mal-img").nio())).use { zip ->
+                        zip.putNextEntry(ZipEntry("listenup.db"))
+                        zip.write(garbageBytes)
+                        zip.closeEntry()
+                        SEEDED_IMAGES.keys.forEach { rel ->
+                            zip.putNextEntry(ZipEntry(rel))
+                            zip.write(byteArrayOf(-1, -1, -1))
+                            zip.closeEntry()
+                        }
+                        zip.putNextEntry(ZipEntry("manifest.json"))
+                        zip.write(manifest.toJson().toByteArray())
+                        zip.closeEntry()
+                    }
+
+                    val result = buildOrchestrator(fixture).restore(BackupId("mal-img"))
+
+                    val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                    failure.error.shouldBeInstanceOf<BackupError.RestoreFailed>().rolledBack shouldBe true
+                    SEEDED_IMAGES.forEach { (rel, bytes) ->
+                        readBytes(Path(fixture.homeDir.toString(), rel)).toList() shouldBe bytes.toList()
+                    }
+                }
+            }
+        }
+
+        test("an archive written without contributor and series directories leaves the live ones alone") {
+            runTest {
+                backupTestFixture(withImages = true).use { fixture ->
+                    val full = fixture.archive.create("full", includeImages = true, onEvent = {})
+                    val fullManifest = fixture.archive.open(full)
+                    val oldShape =
+                        fullManifest.copy(checksums = fullManifest.checksums.filterKeys { it in setOf("db", "covers", "avatars") })
+                    rebuildArchiveWithout(
+                        source = full,
+                        dest = fixture.paths.archiveFor("old-shape"),
+                        newManifest = oldShape,
+                        dropPrefixes = listOf("contributors/", "series/"),
+                    )
+
+                    val photo = Path(fixture.paths.imageDir("contributors"), "sentinel.jpg")
+                    val seriesCover = Path(fixture.paths.imageDir("series"), "sentinel.jpg")
+                    writeBytes(photo, byteArrayOf(7))
+                    writeBytes(seriesCover, byteArrayOf(8))
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("old-shape"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    SystemFileSystem.exists(photo) shouldBe true
+                    SystemFileSystem.exists(seriesCover) shouldBe true
                 }
             }
         }
@@ -425,4 +740,55 @@ private fun copyEntriesReplacingManifest(
         }
         out.closeEntry()
     }
+}
+
+private fun Path.nio(): java.nio.file.Path =
+    java.nio.file.Path
+        .of(toString())
+
+private fun readBytes(path: Path): ByteArray = Files.readAllBytes(path.nio())
+
+private fun writeBytes(
+    path: Path,
+    bytes: ByteArray,
+) {
+    Files.createDirectories(path.nio().parent)
+    Files.write(path.nio(), bytes)
+}
+
+private fun deleteTree(dir: Path) {
+    dir.nio().toFile().deleteRecursively()
+}
+
+/**
+ * Copies [source] into [dest] minus every entry under one of [dropPrefixes], replacing the manifest
+ * with [newManifest] — the shape of an archive written before those directories were archived.
+ */
+private fun rebuildArchiveWithout(
+    source: Path,
+    dest: Path,
+    newManifest: BackupManifest,
+    dropPrefixes: List<String>,
+) {
+    ZipOutputStream(Files.newOutputStream(dest.nio())).use { out ->
+        java.util.zip.ZipFile(source.nio().toFile()).use { zf ->
+            val kept = zf.entries().asSequence().filter { e -> dropPrefixes.none { e.name.startsWith(it) } }
+            for (entry in kept) copyEntry(out, zf, entry, newManifest)
+        }
+    }
+}
+
+private fun copyEntry(
+    out: ZipOutputStream,
+    zf: java.util.zip.ZipFile,
+    entry: ZipEntry,
+    newManifest: BackupManifest,
+) {
+    out.putNextEntry(ZipEntry(entry.name))
+    if (entry.name == "manifest.json") {
+        out.write(newManifest.toJson().toByteArray())
+    } else {
+        zf.getInputStream(entry).use { it.copyTo(out) }
+    }
+    out.closeEntry()
 }

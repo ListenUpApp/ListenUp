@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -20,6 +21,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
@@ -229,6 +231,80 @@ class SyncStreamServiceTest :
                     decodeControl(frames[0].json) shouldBe SyncControl.Heartbeat
                     val stale = decodeControl(frames[1].json).shouldBeInstanceOf<SyncControl.CursorStale>()
                     stale.lastKnownRevision shouldBe bus.oldestRetainedRevision()!!
+                }
+            }
+        }
+
+        test("a subscriber that falls behind a burst is told its cursor is stale") {
+            withSqlDatabase {
+                runTest {
+                    val bus = ChangeBus()
+                    val tags = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                    val frames = mutableListOf<SyncFrame>()
+                    val gate = CompletableDeferred<Unit>()
+                    var dataFramesSeen = 0
+                    val collector =
+                        launch {
+                            streamService(bus).observeEvents(sinceRevision = null).collect { event ->
+                                val frame = event.shouldBeInstanceOf<RpcEvent.Data<SyncFrame>>().value
+                                frames += frame
+                                if (frame.domain != SyncFrame.CONTROL) {
+                                    dataFramesSeen++
+                                    if (dataFramesSeen == 1) gate.await()
+                                }
+                            }
+                        }
+                    runCurrent()
+                    tags.upsert(Tag("first", "first", "first", 0, 0))
+                    runCurrent()
+                    dataFramesSeen shouldBe 1 // the collector now holds one data frame and is parked
+
+                    repeat(1_000) { i -> tags.upsert(Tag("burst-$i", "b$i", "b$i", 0, 0)) }
+                    gate.complete(Unit)
+                    runCurrent()
+                    val completedByItself = collector.isCompleted
+                    collector.cancel()
+
+                    val last = frames.last()
+                    last.domain shouldBe SyncFrame.CONTROL
+                    decodeControl(last.json).shouldBeInstanceOf<SyncControl.CursorStale>()
+                    completedByItself shouldBe true
+                    val received = frames.filter { it.domain != SyncFrame.CONTROL }.map { it.revision!! }
+                    received shouldBe (received.first()..received.last()).toList()
+                }
+            }
+        }
+
+        test("a subscriber that keeps up is never told its cursor is stale") {
+            withSqlDatabase {
+                runTest {
+                    val bus = ChangeBus()
+                    val tags = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                    val frames = mutableListOf<SyncFrame>()
+                    val collector =
+                        launch {
+                            streamService(bus).observeEvents(sinceRevision = null).collect { event ->
+                                frames += event.shouldBeInstanceOf<RpcEvent.Data<SyncFrame>>().value
+                            }
+                        }
+                    runCurrent()
+                    // Revisions step by 3: a global counter leaves holes in what any one stream sees,
+                    // so the gap check must read the tail position, never the revision.
+                    repeat(10) { batch ->
+                        repeat(100) { i ->
+                            val n = batch * 100 + i
+                            val tag = Tag("t-$n", "n$n", "n$n", (n + 1) * 3L, 0)
+                            bus.publish(tags, SyncEvent.Created(id = tag.id, revision = tag.revision, occurredAt = 0L, payload = tag))
+                        }
+                        runCurrent()
+                    }
+                    collector.cancel()
+
+                    frames.count { it.domain != SyncFrame.CONTROL } shouldBe 1_000
+                    frames
+                        .filter { it.domain == SyncFrame.CONTROL }
+                        .map { decodeControl(it.json) }
+                        .filterIsInstance<SyncControl.CursorStale>() shouldBe emptyList()
                 }
             }
         }

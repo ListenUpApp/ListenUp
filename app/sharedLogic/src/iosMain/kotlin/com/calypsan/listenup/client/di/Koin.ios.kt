@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import androidx.lifecycle.ViewModel
+import com.calypsan.listenup.client.presentation.close
 import com.calypsan.listenup.client.domain.repository.LocalNetworkAccess
 import com.calypsan.listenup.client.data.repository.AppleLocalNetworkAccess
 import com.calypsan.listenup.core.configureLogging
@@ -210,6 +212,12 @@ private fun <T : Any> resolveWithParams(
 object KoinHelper {
     fun getInstanceRepository(): InstanceRepository = resolve(InstanceRepository::class)
 
+    /**
+     * Clears a screen-scoped ViewModel. iOS has no `ViewModelStore`, so the Swift observer that owns
+     * the ViewModel calls this when it is released.
+     */
+    fun closeViewModel(viewModel: ViewModel) = viewModel.close()
+
     fun getServerConnectViewModel(): ServerConnectViewModel = resolve(ServerConnectViewModel::class)
 
     fun getLoginViewModel(): LoginViewModel = resolve(LoginViewModel::class)
@@ -283,7 +291,7 @@ object KoinHelper {
      */
     suspend fun syncPushRegistration() = resolve(PushRegistrar::class).syncRegistration()
 
-    /** The current access token as a plain String for Swift (SKIE unboxes the value class). */
+    /** The current access token as a plain String for Swift. */
     suspend fun accessToken(): String? = getAuthSession().getAccessToken()?.value
 
     /**
@@ -306,7 +314,7 @@ object KoinHelper {
         return provider.getToken()
     }
 
-    /** The active server URL as a plain String for Swift (SKIE unboxes the value class). */
+    /** The active server URL as a plain String for Swift. */
     suspend fun activeServerUrl(): String? = getServerConfig().getActiveUrl()?.raw
 
     fun getUserRepository(): UserRepository = resolve(UserRepository::class)

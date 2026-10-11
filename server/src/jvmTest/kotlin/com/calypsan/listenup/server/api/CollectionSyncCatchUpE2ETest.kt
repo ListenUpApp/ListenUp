@@ -39,7 +39,7 @@ private const val SYNC_PULL_LIMIT = 100
  * Collections-2 — so this test cannot route through a real client engine the way
  * `ClientSyncEngineE2ETest` does for tags/books. Instead it drives the real
  * [CollectionServiceImpl] (the RPC service implementation, through real repositories
- * against a Flyway-migrated SQLite database, no mocks) and then asserts at the two
+ * against a migrated SQLite database, no mocks) and then asserts at the two
  * seams Collections-2 will consume:
  *
  *  1. **Service read seam** — `listCollections` reflects owner (u1, an admin — only admins

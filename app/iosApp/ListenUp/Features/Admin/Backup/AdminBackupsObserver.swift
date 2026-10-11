@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `AdminBackupViewModel` — flattens the sealed `AdminBackupUiState`
@@ -15,6 +16,10 @@ final class AdminBackupsObserver {
     // MARK: - State
 
     private(set) var phase: BackupsPhase = .loading
+    /// The download in flight / awaiting its destination (see `BackupDownloadTracker`).
+    private(set) var downloadTracker = BackupDownloadTracker()
+    /// Set when the destination file could not even be created; cleared by `clearDownloadError()`.
+    private(set) var downloadError: String?
 
     // MARK: - Dependencies
 
@@ -30,10 +35,11 @@ final class AdminBackupsObserver {
 
     init(viewModel: AdminBackupViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+        // One-shot "the archive is fully on disk" event.
+        bridge.bind(viewModel.downloadSaved) { [weak self] _ in self?.downloadTracker.saved() }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 
@@ -55,6 +61,35 @@ final class AdminBackupsObserver {
     }
 
     func clearError() { viewModel.clearError() }
+
+    /// Streams backup `id` to a file at `url` (a staging path, see `BackupDownloadStaging`). The
+    /// shared view model owns the sink from here: it closes it, and when the download did not
+    /// complete runs the discard below so a truncated file is never left looking like a backup.
+    /// Success arrives on `downloadSaved`; failures reach the global error surface through the bus.
+    func download(id: String, to url: URL) {
+        guard downloadTracker.begin(id: id, url: url) else { return }
+        do {
+            try BackupDownloadStaging.prepare(url)
+            let sink = try ExportedKotlinPackages.com.calypsan.listenup.client.core.fileSinkAtPath(path: url.path)
+            viewModel.downloadBackup(id: BackupId(value: id), sink: sink) { @MainActor [weak self] in
+                // Runs only when the download did not complete (failed, or the admin left).
+                BackupDownloadStaging.discard(url)
+                self?.downloadTracker.endedWithoutSaving()
+            }
+        } catch {
+            Log.error("Backup download could not create its destination file", error: error)
+            BackupDownloadStaging.discard(url)
+            downloadTracker.endedWithoutSaving()
+            downloadError = String(localized: "admin.backup_download_failed")
+        }
+    }
+
+    /// The admin chose a destination (the file was moved) or cancelled: drop whatever is left staged.
+    func finishExport() {
+        if let leftover = downloadTracker.finishExport() { BackupDownloadStaging.discard(leftover) }
+    }
+
+    func clearDownloadError() { downloadError = nil }
 
     // MARK: - State mapping
 

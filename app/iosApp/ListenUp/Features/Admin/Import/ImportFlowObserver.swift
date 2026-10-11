@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `ImportFlowViewModel` — the linear ABS-import wizard — and flattens its sealed
@@ -33,10 +34,9 @@ final class ImportFlowObserver {
 
     init(viewModel: ImportFlowViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 
@@ -502,19 +502,9 @@ enum ImportProgressMath {
         return min(max(Double(done) / Double(total), 0), 1)
     }
 
-    /// Thousands-grouping formatter for `counterLabel`. Immutable once configured, so it's shared as
-    /// a `static let` rather than rebuilt on every progress tick.
-    private static let decimalFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter
-    }()
-
     /// `"343 / 2,751"`, or nil when no total is known. Thousands-grouped for legibility.
     static func counterLabel(done: Int, total: Int) -> String? {
         guard total > 0 else { return nil }
-        let doneText = decimalFormatter.string(from: NSNumber(value: done)) ?? "\(done)"
-        let totalText = decimalFormatter.string(from: NSNumber(value: total)) ?? "\(total)"
-        return "\(doneText) / \(totalText)"
+        return "\(done.formatted()) / \(total.formatted())"
     }
 }

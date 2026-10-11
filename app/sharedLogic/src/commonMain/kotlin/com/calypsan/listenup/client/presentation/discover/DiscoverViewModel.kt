@@ -18,7 +18,6 @@ import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
@@ -29,10 +28,9 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
-
-private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 
 /**
  * ViewModel for the Discover screen.
@@ -110,7 +108,7 @@ class DiscoverViewModel(
                     }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = CurrentlyListeningUiState.Loading,
             )
 
@@ -160,7 +158,7 @@ class DiscoverViewModel(
                 }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = DiscoverBooksUiState.Loading,
             )
 
@@ -201,7 +199,7 @@ class DiscoverViewModel(
                     }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = RecentlyAddedUiState.Loading,
             )
 

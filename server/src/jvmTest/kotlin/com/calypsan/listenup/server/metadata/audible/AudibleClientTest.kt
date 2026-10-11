@@ -354,6 +354,56 @@ class AudibleClientTest :
             }
         }
 
+        // ─── response-size ceiling ──────────────────────────────────────────────
+
+        fun makeBoundedClient(engine: MockEngine): AudibleClient =
+            AudibleClient(
+                HttpClient(engine),
+                AudibleRateLimiter(perRegionInterval = 0.seconds),
+                json,
+                maxBodyBytes = 16,
+            )
+
+        test("an API body over the ceiling is Malformed") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = SEARCH_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+
+                val failure =
+                    makeBoundedClient(engine)
+                        .search(AudibleRegion.US, SearchParams(keywords = "dune"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                val error = failure.error.shouldBeInstanceOf<MetadataError.Malformed>()
+                error.debugInfo shouldBe "response body over 16 bytes"
+            }
+        }
+
+        test("a product-page body over the ceiling is Malformed") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = PRODUCT_TAGS_PAGE,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+
+                val failure =
+                    makeBoundedClient(engine)
+                        .getProductTags(AudibleRegion.US, "B0CBP6NQVR")
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                val error = failure.error.shouldBeInstanceOf<MetadataError.Malformed>()
+                error.debugInfo shouldBe "response body over 16 bytes"
+            }
+        }
+
         // ─── getProductTags ─────────────────────────────────────────────────────
 
         test("getProductTags returns Success with parsed typed tags on 200") {

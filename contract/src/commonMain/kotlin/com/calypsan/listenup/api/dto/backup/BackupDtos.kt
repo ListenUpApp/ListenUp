@@ -66,12 +66,12 @@ sealed interface BackupEvent {
     @SerialName("BackupEvent.Draining")
     data object Draining : BackupEvent
 
-    /** The Hikari pool is suspended and the database file is being swapped in place. */
+    /** The connection pool is closed and the database file is being swapped in place. */
     @Serializable
     @SerialName("BackupEvent.Swapping")
     data object Swapping : BackupEvent
 
-    /** Flyway is migrating the restored database to the current schema version. */
+    /** The restored database is being migrated to the current schema version. */
     @Serializable
     @SerialName("BackupEvent.Migrating")
     data object Migrating : BackupEvent

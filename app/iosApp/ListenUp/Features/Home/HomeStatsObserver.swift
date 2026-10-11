@@ -13,6 +13,7 @@ final class HomeStatsObserver {
 
     // MARK: - Dependencies
 
+    // view-model-owner: nobody — Dependencies.homeStatsViewModel is shared for the process.
     private let viewModel: HomeStatsViewModel
     private let bridge = FlowBridge()
 
@@ -22,8 +23,6 @@ final class HomeStatsObserver {
         self.viewModel = viewModel
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

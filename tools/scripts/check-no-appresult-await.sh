@@ -18,7 +18,7 @@
 #   returns AppResult.
 # bash 3.2-safe (no mapfile).
 #
-# Usage: check-no-appresult-await.sh [path-to-Shared.swift]   (auto-discovers if omitted)
+# Usage: check-no-appresult-await.sh [path-to-Shared.swift]   (auto-discovers if omitted; refuses when several variants exist)
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # This script lives at tools/scripts/, so the repo root is two levels up. Getting this
@@ -27,13 +27,29 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 SHARED="${1:-}"
-if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
-  SHARED="$(find "$REPO_ROOT/app/sharedLogic/build" -name 'Shared.swift' -path '*SPMPackage*' 2>/dev/null | head -1)"
-  [[ -z "$SHARED" ]] && SHARED="$(find "$REPO_ROOT/app/sharedLogic/build" -name 'Shared.swift' 2>/dev/null | head -1)"
-fi
-if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
-  echo "check-no-appresult-await: Shared.swift not found (run after a Swift Export build on macOS)." >&2
+if [[ -n "$SHARED" && ! -f "$SHARED" ]]; then
+  echo "check-no-appresult-await: '${SHARED}' does not exist." >&2
   exit 2
+fi
+if [[ -z "$SHARED" ]]; then
+  # Never pick between variants (device/simulator, Debug/Release): a stale build would silently
+  # decide which AppResult-returning names the gate watches.
+  CANDIDATES=()
+  while IFS= read -r candidate; do
+    CANDIDATES+=("$candidate")
+  done < <(find "$REPO_ROOT/app/sharedLogic/build" -name 'Shared.swift' -path '*SPMPackage*' 2>/dev/null | LC_ALL=C sort)
+  if [[ "${#CANDIDATES[@]}" -eq 0 ]]; then
+    echo "check-no-appresult-await: Shared.swift not found under app/sharedLogic/build (run after a Swift Export build on macOS)." >&2
+    exit 2
+  fi
+  if [[ "${#CANDIDATES[@]}" -gt 1 ]]; then
+    echo "check-no-appresult-await: several Shared.swift variants exist; pass the one to check as the first argument:" >&2
+    for candidate in "${CANDIDATES[@]}"; do
+      ls -l "$candidate" >&2
+    done
+    exit 2
+  fi
+  SHARED="${CANDIDATES[0]}"
 fi
 
 # Names of exported funcs that are UNIQUELY AppResult-returning (every `public func NAME(...)`

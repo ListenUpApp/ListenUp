@@ -35,6 +35,7 @@ private class LoginFixture {
     val authSession: AuthSession = mock()
     val userRepository: UserRepository = mock()
     var deviceInfo: DeviceInfo = DeviceInfo()
+    var beforeSignIn: suspend (String) -> Unit = {}
 
     fun build(): LoginUseCase =
         LoginUseCase(
@@ -42,6 +43,7 @@ private class LoginFixture {
             authSession = authSession,
             userRepository = userRepository,
             deviceInfoProvider = { deviceInfo },
+            beforeSignIn = { beforeSignIn(it) },
         )
 }
 
@@ -227,6 +229,26 @@ class LoginUseCaseTest :
                 useCase(email = "user@example.com", password = "password123")
 
                 events shouldContainInOrder listOf("saveUser", "saveAuthTokens")
+            }
+        }
+
+        // Whoever owned the local copy must be wiped before this user is written into it, so the
+        // guard has to run ahead of both the user row and the tokens.
+        test("the owner guard runs before the user is saved or the session is persisted") {
+            runTest {
+                val events = mutableListOf<String>()
+                val fixture = LoginFixture()
+                fixture.beforeSignIn = { events.add("guard") }
+                everySuspend { fixture.userRepository.saveUser(any()) } calls { events.add("saveUser") }
+                everySuspend {
+                    fixture.authSession.saveAuthTokens(any(), any(), any(), any())
+                } calls { events.add("saveTokens") }
+                everySuspend { fixture.authRepository.login(any()) } returns AppResult.Success(createAuthSession())
+                val useCase = fixture.build()
+
+                useCase(email = "user@example.com", password = "password123")
+
+                events shouldBe listOf("guard", "saveUser", "saveTokens")
             }
         }
 

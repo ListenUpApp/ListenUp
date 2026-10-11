@@ -79,7 +79,7 @@ import org.koin.dsl.module
  *    `SyncRegistry` at bootstrap, listing `"contributors"` / `"series"` on
  *    `SyncStreamService.listDomains()`. [BookRepository] depends on both to resolve the
  *    aggregate's contributor/series ids before its junction-row writes.
- *  - [BookRepository] — the books aggregate's [SyncableRepository][com.calypsan.listenup.server.sync.SyncableRepository].
+ *  - [BookRepository] — the books aggregate's [SqlSyncableRepository][com.calypsan.listenup.server.sync.SqlSyncableRepository].
  *    `createdAtStart = true` so its `init` block registers with `SyncRegistry`
  *    at bootstrap, making `SyncStreamService.listDomains()` list `"books"` on the first request.
  *  - [BookIngestPort] — bound to the same [BookRepository] instance.
@@ -128,11 +128,6 @@ fun booksModule(
             )
         }
 
-        // Contributor + Series are SQLDelight conversions (the cutover template):
-        // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
-        // Transitional: the merge/unmerge/delete service flows still wrap an Exposed
-        // suspendTransaction around these SQLDelight writes, so those flows can hit
-        // SQLITE_BUSY against these two domains until the merge-txn unit converts them.
         single(createdAtStart = true) { ContributorRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { SeriesRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { GenreRepository(get<ListenUpDatabase>(), get(), get()) }

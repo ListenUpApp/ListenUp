@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.shelf
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfNavAction
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
@@ -23,8 +24,8 @@ class ShelfDetailSession(
     val messages: Flow<String>,
     val onRemoveBook: (String) -> Unit,
     val onReorder: (List<String>) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its session, given the shelf it is showing. */
 typealias OpenShelfDetail = (shelfId: String) -> ShelfDetailSession
@@ -81,8 +82,9 @@ class ShelfEditSession(
     val onSave: (name: String, description: String, isPrivate: Boolean) -> Unit,
     val onDelete: () -> Unit,
     val onDismissError: () -> Unit,
-    val close: () -> Unit,
-)
+    val hasChanges: (name: String, description: String, isPrivate: Boolean) -> Boolean,
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its session. A null `shelfId` means create; an id means edit.
@@ -104,6 +106,7 @@ fun graphShelfEdit(koin: Koin): OpenShelfEdit =
             onSave = viewModel::save,
             onDelete = viewModel::delete,
             onDismissError = viewModel::dismissError,
+            hasChanges = viewModel::hasChanges,
             close = store::clear,
         )
     }
@@ -115,6 +118,7 @@ fun fixedShelfEdit(
     onSave: (name: String, description: String, isPrivate: Boolean) -> Unit = { _, _, _ -> },
     onDelete: () -> Unit = {},
     onDismissError: () -> Unit = {},
+    hasChanges: (name: String, description: String, isPrivate: Boolean) -> Boolean = { _, _, _ -> false },
 ): OpenShelfEdit =
     {
         ShelfEditSession(
@@ -123,6 +127,7 @@ fun fixedShelfEdit(
             onSave = onSave,
             onDelete = onDelete,
             onDismissError = onDismissError,
+            hasChanges = hasChanges,
             close = {},
         )
     }

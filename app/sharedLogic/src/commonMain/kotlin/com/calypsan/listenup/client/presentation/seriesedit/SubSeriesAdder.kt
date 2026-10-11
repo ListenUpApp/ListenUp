@@ -10,7 +10,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -19,9 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-/** Idle timeout before the sheet stops reading the hierarchy. */
-private const val STOP_TIMEOUT_MS = 5_000L
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /** Where a series the "Add sub-series" sheet lists sits today. */
 enum class SubSeriesPlacement {
@@ -216,7 +213,7 @@ internal class SubSeriesAdder(
                     }
                 }
             }.distinctUntilChanged()
-            .stateIn(scope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), AddSubSeriesUiState.Closed())
+            .stateIn(scope, WhileSubscribedForUi, AddSubSeriesUiState.Closed())
 
     fun onEvent(event: AddSubSeriesEvent) {
         when (event) {

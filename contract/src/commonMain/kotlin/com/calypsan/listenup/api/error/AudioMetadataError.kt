@@ -35,6 +35,8 @@ sealed interface AudioMetadataError : AppError {
         override val message: String = "Unsupported audio format."
         override val code: String = "AUDIO_META_UNSUPPORTED_FORMAT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Format detected but its header is malformed (bad size, bad version, bad magic in nested structure). */
@@ -51,6 +53,8 @@ sealed interface AudioMetadataError : AppError {
         override val message: String = "Corrupt audio metadata header."
         override val code: String = "AUDIO_META_CORRUPT_HEADER"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** File ended before the metadata structure declared it would. */
@@ -67,6 +71,8 @@ sealed interface AudioMetadataError : AppError {
         override val message: String = "Audio file truncated before metadata complete."
         override val code: String = "AUDIO_META_TRUNCATED_STREAM"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** Filesystem-level read failure (permission denied, transient IO). */
@@ -81,5 +87,7 @@ sealed interface AudioMetadataError : AppError {
         override val message: String = "Could not read audio file."
         override val code: String = "AUDIO_META_IO_ERROR"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

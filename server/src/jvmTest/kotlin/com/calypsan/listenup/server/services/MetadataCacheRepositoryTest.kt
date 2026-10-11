@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlin.time.ExperimentalTime::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
 package com.calypsan.listenup.server.services
 
@@ -132,7 +132,6 @@ class MetadataCacheRepositoryTest :
 // ─── Test clock helpers ───────────────────────────────────────────────────────
 
 /** A mutable [Clock] for tests that need to advance time deterministically. */
-@kotlin.time.ExperimentalTime
 private class MutableClock(
     private var time: Instant,
 ) : Clock {

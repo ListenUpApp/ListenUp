@@ -94,9 +94,17 @@ internal class ComposedHandlerRegistrar(
     private val transactionRunner: TransactionRunner,
     private val registry: ClientSyncDomainRegistry,
     private val inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
+    private val hasQueuedOpIn: suspend (domainName: String) -> Boolean = { false },
 ) {
     /** Construct (and thereby self-register) a handler for every declared domain. */
     fun registerAll() {
-        catalog.mirrored.forEach { it.toHandler(transactionRunner, registry, inFlightOutbox) }
+        catalog.mirrored.forEach { domain ->
+            domain.toHandler(
+                transactionRunner = transactionRunner,
+                registry = registry,
+                inFlightOutbox = inFlightOutbox,
+                hasQueuedOpIn = hasQueuedOpIn,
+            )
+        }
     }
 }

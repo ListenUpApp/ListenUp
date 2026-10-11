@@ -5,6 +5,7 @@ import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
@@ -33,6 +34,15 @@ import org.gradle.api.tasks.testing.Test
  * attrition — pick a number well below the current honest discovered count so a legitimate test
  * deletion never trips it.
  *
+ * ### Anchor specs
+ *
+ * A count floor cannot tell "a lane-only source set stopped compiling in" from "someone deleted that many
+ * tests" — and a lane that is the common tests plus a smaller lane-only set (`jvmTest`) can lose the
+ * lane-only set while staying above a floor set under the common count. So a floor for such a lane must sit
+ * above the common set's count, and [anchorSpecs] vouches for the lane-only source set by name: each is the
+ * fully-qualified class of a spec that lives only there, and its absence from an unfiltered run fails the
+ * build. Any new lane-only source set needs an anchor, not just a number.
+ *
  * ### Filtered runs
  *
  * The floor stands down automatically when the lane has an explicit test filter active —
@@ -44,6 +54,7 @@ import org.gradle.api.tasks.testing.Test
 fun Project.failBelowDiscoveredTestCount(
     laneName: String,
     floor: Int,
+    anchorSpecs: List<String> = emptyList(),
 ) {
     val lanes = tasks.withType(AbstractTestTask::class.java).matching { it.name == laneName }
     val check =
@@ -52,6 +63,7 @@ fun Project.failBelowDiscoveredTestCount(
             description = "Fails when $laneName ran fewer than $floor tests."
             lane.set("${project.path.removeSuffix(":")}:$laneName")
             this.floor.set(floor)
+            this.anchorSpecs.set(anchorSpecs)
             // Read when the task graph is fixed (the configuration cache stores the answer), after
             // `--tests` has reached the lane's filter.
             filtered.set(project.provider { lanes.any { it.isExplicitTestFilterActive() } })
@@ -69,6 +81,10 @@ abstract class TestDiscoveryFloorCheck : DefaultTask() {
     /** The fewest tests an unfiltered run of the lane may count. */
     @get:Input
     abstract val floor: Property<Int>
+
+    /** Fully-qualified spec classes that must appear in an unfiltered run — see [failBelowDiscoveredTestCount]. */
+    @get:Input
+    abstract val anchorSpecs: ListProperty<String>
 
     /** Whether the run was deliberately narrowed, in which case a low count is expected. */
     @get:Input
@@ -94,6 +110,12 @@ abstract class TestDiscoveryFloorCheck : DefaultTask() {
             testCount = countReportedTests(xml),
             isFiltered = filtered.get(),
         )?.let { throw GradleException(it) }
+        missingAnchorFailure(
+            taskLabel = lane.get(),
+            anchorSpecs = anchorSpecs.get(),
+            reportedSpecClasses = reportedSpecClasses(xml),
+            isFiltered = filtered.get(),
+        )?.let { throw GradleException(it) }
     }
 }
 
@@ -108,6 +130,39 @@ internal fun countReportedTests(reports: List<String>): Int =
             ?.get(1)
             ?.toInt() ?: 0
     }
+
+private val TESTCASE_CLASSNAME = Regex("""<testcase\b[^>]*\bclassname="([^"]+)"""")
+
+/**
+ * The fully-qualified spec classes across [reports]. Kotest writes `<testsuite name="Spec[jvm]">` — a
+ * simple name with a platform suffix — but every `<testcase classname="…">` carries the fully-qualified
+ * class, so that is what is read.
+ */
+internal fun reportedSpecClasses(reports: List<String>): Set<String> =
+    reports.flatMapTo(mutableSetOf()) { report ->
+        TESTCASE_CLASSNAME.findAll(report).map { it.groupValues[1] }.toList()
+    }
+
+/**
+ * The failure message when an anchor spec is absent from an unfiltered run, or null.
+ * An anchor is a fully-qualified spec class that lives in a source set the count floor alone cannot
+ * vouch for; its absence means that source set did not run.
+ */
+internal fun missingAnchorFailure(
+    taskLabel: String,
+    anchorSpecs: List<String>,
+    reportedSpecClasses: Set<String>,
+    isFiltered: Boolean,
+): String? {
+    val missing = anchorSpecs.filterNot { it in reportedSpecClasses }
+    return if (missing.isNotEmpty() && !isFiltered) {
+        "$taskLabel did not run its anchor spec(s) ${missing.joinToString()}. No test filter was detected, " +
+            "so the lane-only source set that holds them most likely stopped compiling into the lane — " +
+            "investigate before touching the anchor list."
+    } else {
+        null
+    }
+}
 
 /**
  * The failure message for a collapsed run, or null when the run is acceptable.

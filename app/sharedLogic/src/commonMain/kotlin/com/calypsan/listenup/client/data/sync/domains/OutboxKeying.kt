@@ -22,6 +22,11 @@ internal data class OutboxKeying<in T>(
     val keysOf: suspend (payload: T) -> Set<String>,
     /** The targeted fetch that re-reads the entity behind an op keyed `outboxKey`; null when none can. */
     val refetchFor: (outboxKey: String) -> TargetedFetch?,
+    /**
+     * Undoes the optimistic local write for `outboxKey` when its op is dead-lettered or dismissed and
+     * no targeted fetch can re-read the entity. Null for a domain whose heal is a re-fetch.
+     */
+    val discardUnacknowledged: (suspend (outboxKey: String) -> Unit)? = null,
 )
 
 /** The outbox key of a junction row: its `"parent:child"` pair, e.g. `"$bookId:$moodId"`. */
@@ -32,3 +37,6 @@ internal fun junctionOutboxKey(
 
 /** The parent half of a [junctionOutboxKey]. */
 internal fun junctionOutboxParent(outboxKey: String): String = outboxKey.substringBefore(':')
+
+/** The child half of a [junctionOutboxKey]. */
+internal fun junctionOutboxChild(outboxKey: String): String = outboxKey.substringAfter(':')

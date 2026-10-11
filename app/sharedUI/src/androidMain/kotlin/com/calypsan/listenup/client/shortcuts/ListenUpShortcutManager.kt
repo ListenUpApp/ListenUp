@@ -251,6 +251,16 @@ class ListenUpShortcutManager(
     }
 
     /**
+     * Removes the recent-book shortcuts — on sign-out the launcher must stop offering books the
+     * signed-out listener can no longer open. Safe to call from any thread; does not block.
+     */
+    fun clearShortcuts() {
+        scope.launch {
+            withContext(IODispatcher) { clearDynamicShortcuts() }
+        }
+    }
+
+    /**
      * Clears all dynamic shortcuts.
      */
     private fun clearDynamicShortcuts() {

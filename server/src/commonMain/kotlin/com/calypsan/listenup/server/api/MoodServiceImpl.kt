@@ -4,8 +4,6 @@ import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.MoodSummary
 import com.calypsan.listenup.api.dto.auth.Permission
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
@@ -14,6 +12,7 @@ import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -22,6 +21,7 @@ import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.MoodSlug
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
+import com.calypsan.listenup.server.auth.requirePermission
 
 private const val MAX_LIMIT = 1000
 private const val MIN_LIMIT = 1
@@ -29,9 +29,9 @@ private const val MIN_LIMIT = 1
 /**
  * [MoodService] implementation.
  *
- * Moods are server-wide (curator model, not user-scoped). Unlike tags, moods are not
- * part of the `book_search` FTS index, so there is no reindex step on mutation — the
- * sync firehose alone propagates changes to clients.
+ * Moods are server-wide (curator model, not user-scoped). The server keeps no search index,
+ * so there is no reindex step on mutation — the sync firehose alone propagates changes
+ * to clients.
  *
  * Slug conflict on rename: only the [Mood.name] is updated — [Mood.slug] is
  * intentionally preserved per the contract spec so existing URLs remain valid.
@@ -81,16 +81,7 @@ internal class MoodServiceImpl(
         return accessPolicy.accessibleBookIds(p.userId.value, p.role)
     }
 
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since route handlers always [copyWith] the authenticated caller — is
-     * denied. Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val p = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(p, permission)
-    }
-
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun listMoods(): AppResult<List<MoodSummary>> {
         val moods = moodRepository.listAll()
         val summaries =
@@ -109,6 +100,7 @@ internal class MoodServiceImpl(
         )
     }
 
+    @OpenRead(reason = "shared vocabulary; names no book")
     override suspend fun getMoodBySlug(slug: String): AppResult<MoodSummary?> {
         val mood = moodRepository.findBySlug(slug) ?: return AppResult.Success(null)
         val bookCount = countLiveJunctionsForMood(mood.id)
@@ -153,15 +145,31 @@ internal class MoodServiceImpl(
     }
 
     override suspend fun getMoodStats(moodId: MoodId): AppResult<FacetStats> {
-        val row = suspendTransaction(sql) { sql.bookMoodsQueries.moodStats(moodId.value).executeAsOne() }
-        return AppResult.Success(FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L))
+        // Count only books the caller can open, so a member is never told "12 books" and shown 9.
+        // null = ROOT/ADMIN: every book, so the SQL aggregate answers directly.
+        val accessible = accessibleBookIdFilter()
+        val stats =
+            suspendTransaction(sql) {
+                if (accessible == null) {
+                    val row = sql.bookMoodsQueries.moodStats(moodId.value).executeAsOne()
+                    FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L)
+                } else {
+                    val reachable =
+                        sql.bookMoodsQueries
+                            .moodBookDurations(moodId.value)
+                            .executeAsList()
+                            .filter { it.book_id in accessible }
+                    FacetStats(bookCount = reachable.size, totalDurationMs = reachable.sumOf { it.duration_ms })
+                }
+            }
+        return AppResult.Success(stats)
     }
 
     override suspend fun addMoodToBook(
         bookId: BookId,
         name: String,
     ): AppResult<Mood> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate name.
         val slug = MoodSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
@@ -208,7 +216,7 @@ internal class MoodServiceImpl(
         bookId: BookId,
         moodId: MoodId,
     ): AppResult<Unit> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         if (!bookExists(bookId.value)) {
             return AppResult.Failure(MoodError.BookNotFound())
         }
@@ -226,7 +234,7 @@ internal class MoodServiceImpl(
         moodId: MoodId,
         newName: String,
     ): AppResult<Mood> {
-        requirePermission(Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         // Validate new name (we call normalize just for validation — slug is not changed).
         when (val slugResult = MoodSlug.normalize(newName)) {
             is AppResult.Success -> Unit
@@ -241,7 +249,7 @@ internal class MoodServiceImpl(
     }
 
     override suspend fun deleteMood(moodId: MoodId): AppResult<Unit> {
-        requirePermission(Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
+        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
         if (moodRepository.findById(moodId.value) == null) {
             return AppResult.Failure(MoodError.NotFound())
         }

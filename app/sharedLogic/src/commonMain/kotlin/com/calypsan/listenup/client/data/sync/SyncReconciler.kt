@@ -7,6 +7,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 
 private val logger = KotlinLogging.logger {}
 
@@ -17,9 +18,11 @@ private val logger = KotlinLogging.logger {}
  * delivered by neither catch-up nor the firehose.
  *
  * The cursor is captured once at the top of [reconcileAll] so every domain gets a stable,
- * identical comparison point regardless of live firehose events arriving concurrently. Domains
- * are reconciled in parallel. Per-domain failures are logged and skipped; reconciliation
- * never throws into the engine or blocks the live stream.
+ * identical comparison point regardless of live firehose events arriving concurrently. Digests
+ * are compared in parallel (one small call per domain), but drifted domains are repaired one at a
+ * time: each repair pages a whole domain, and decoding several domains' pages at once is the
+ * peak-heap spike [SyncCatchUpClient]'s page size exists to avoid. Per-domain failures are logged
+ * and skipped; reconciliation never throws into the engine or blocks the live stream.
  */
 internal class SyncReconciler(
     private val registry: ClientSyncDomainRegistry,
@@ -30,39 +33,95 @@ internal class SyncReconciler(
     // fixtures that don't observe reporting need no change; production wires ConnectionHealthStore.
     private val reportConnectionIssue: (AppError) -> Unit = {},
 ) {
+    // Set from the frame collector, read under the engine's paging lock: a thread-safe flag, not a plain var.
+    private val unbackedRepullRequested = MutableStateFlow(false)
+
+    /**
+     * Asks the next [reconcileAll] to re-read every domain that has no digest from zero. Called when
+     * the server reports data written without live events (an import): such a domain's cursor may
+     * already be past those rows and nothing else would fetch them.
+     */
+    fun requestUnbackedRepull() {
+        unbackedRepullRequested.value = true
+    }
+
     /**
      * Reconcile all registered domains at the current [SyncCursorStore.highestCursor].
      * Returns immediately if no cursor has been stored yet (i.e. the client has never
-     * completed any catch-up pass).
+     * completed any catch-up pass); a pending [requestUnbackedRepull] is kept for the next pass.
      */
     suspend fun reconcileAll() {
         val max = store.highestCursor() ?: return
         val handlers = registry.registeredDomains().mapNotNull { registry.lookup(it) }
-        coroutineScope {
-            handlers
-                .map { handler ->
-                    @Suppress("UNCHECKED_CAST")
-                    val typed = handler as SyncDomainHandler<Any>
-                    async { reconcileOne(typed, max) }
-                }.awaitAll()
+        // Comparing is one small digest call per domain, so it runs in parallel; repairing pages a
+        // whole domain, so it runs one at a time (see the class KDoc).
+        val drifted =
+            coroutineScope {
+                handlers
+                    .map { handler ->
+                        @Suppress("UNCHECKED_CAST")
+                        val typed = handler as SyncDomainHandler<Any>
+                        async { typed.takeIf { hasDrifted(it, max) } }
+                    }.awaitAll()
+                    .filterNotNull()
+            }
+        for (handler in drifted) {
+            try {
+                repairDrift(handler)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                logger.warn(e) { "Repair failed for ${handler.domainName}; skipping" }
+            }
+        }
+        if (unbackedRepullRequested.compareAndSet(expect = true, update = false)) repullUnbacked(handlers)
+    }
+
+    /**
+     * Re-reads every digest-less domain from zero. The request was taken before the re-read so one
+     * arriving meanwhile is not lost; it is put back unless every domain succeeded (including when
+     * this is cancelled part-way), so the next pass retries.
+     */
+    private suspend fun repullUnbacked(handlers: List<SyncDomainHandler<*>>) {
+        var allSucceeded = false
+        try {
+            allSucceeded =
+                handlers.filter { !it.hasDigestBackstop }.fold(true) { ok, handler -> repullFromZero(handler) && ok }
+        } finally {
+            if (!allSucceeded) unbackedRepullRequested.value = true
+        }
+    }
+
+    private suspend fun repullFromZero(handler: SyncDomainHandler<*>): Boolean {
+        @Suppress("UNCHECKED_CAST")
+        val typed = handler as SyncDomainHandler<Any>
+        return try {
+            logger.info { "Re-reading ${typed.domainName} from 0 (data written without live events)" }
+            catchUp.catchUpFromZero(typed) is AppResult.Success
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.warn(e) { "Unbacked re-read failed for ${typed.domainName}; will retry" }
+            false
         }
     }
 
     /**
-     * Reconcile a single domain: compute the local digest at [max], fetch the server digest,
-     * and trigger a full re-pull if they differ.
+     * Whether [handler]'s local digest at [max] differs from the server's. False for an opted-out
+     * domain and for any comparison that could not be made — a failure is logged and skipped, never
+     * thrown.
      *
      * Callers cast [SyncDomainHandler]<*> to [SyncDomainHandler]<Any> before calling here,
      * mirroring the [SyncCatchUpClient.catchUpAll] pattern. The generic type parameter is not
      * observed inside this method — only [SyncDomainHandler.domainName] and
      * [SyncDomainHandler.localDigestRows] are called, both of which are type-parameter-agnostic.
      */
-    private suspend fun <T : Any> reconcileOne(
+    private suspend fun <T : Any> hasDrifted(
         handler: SyncDomainHandler<T>,
         max: Long,
-    ) {
+    ): Boolean {
         try {
-            val rows = handler.localDigestRows(max) ?: return // null = opted out
+            val rows = handler.localDigestRows(max) ?: return false // null = opted out
             val local = DigestComputer.compute(max, rows)
             val remote =
                 when (val r = digestClient.fetch(handler.domainName, max)) {
@@ -73,16 +132,15 @@ internal class SyncReconciler(
                     is AppResult.Failure -> {
                         logger.warn { "Digest fetch failed for ${handler.domainName}: ${r.error.code}" }
                         reportConnectionIssue(r.error)
-                        return
+                        return false
                     }
                 }
-            if (local.count != remote.count || local.hash != remote.hash) {
-                repairDrift(handler)
-            }
+            return local.count != remote.count || local.hash != remote.hash
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Throwable) {
             logger.warn(e) { "Reconcile failed for ${handler.domainName}; skipping" }
+            return false
         }
     }
 

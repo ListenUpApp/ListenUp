@@ -1,6 +1,8 @@
 package com.calypsan.listenup.api.dto
 
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderChoiceKind
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -115,11 +117,15 @@ sealed interface ReadingOrderFollowMutation {
      * @property kind which kind of order; defaults to SERIES so an unknown kind coerces safely.
      * @property readingOrderId the followed user-made order; set iff [kind] is ORDER.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
     @SerialName("ReadingOrderFollowMutation.Choose")
     data class Choose(
         @SerialName("seriesId") override val seriesId: String,
-        @SerialName("kind") val kind: ReadingOrderChoiceKind = ReadingOrderChoiceKind.SERIES,
+        /** Always encoded, so an app built before this default existed still finds the key. */
+        @SerialName("kind")
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+        val kind: ReadingOrderChoiceKind = ReadingOrderChoiceKind.SERIES,
         @SerialName("readingOrderId") val readingOrderId: String? = null,
     ) : ReadingOrderFollowMutation
 

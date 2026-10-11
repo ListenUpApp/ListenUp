@@ -3,11 +3,9 @@ import Testing
 
 /// Pure-seam coverage for the user profile screen.
 ///
-/// The sealed-state → `@Observable` flatten in `UserProfileObserver.apply` can't be
-/// exercised here: SKIE bridges `UserProfileUiState` as a sealed *protocol* whose
-/// cases aren't constructible from Swift, so the `sealedType()` mapping is proven at the
-/// green-build pass. What *is* pure and constructible is the stat-strip listen-time
-/// formatter, so that seam is pinned here.
+/// The sealed-state → `@Observable` flatten in `UserProfileObserver.apply` isn't
+/// exercised here: the `sealedType()` mapping is proven at the green-build pass.
+/// What is pinned here is the stat-strip listen-time formatter, which is pure.
 @Suite("ProfileStatFormat")
 struct UserProfileObserverTests {
     @Test func zeroListenTimeShowsZeroHours() {

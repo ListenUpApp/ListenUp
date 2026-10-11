@@ -14,11 +14,9 @@ import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -26,8 +24,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.uuid.Uuid
-
-private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * The chapter editor for one book, shared by Android, iOS and web.
@@ -43,8 +40,8 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  * one book and never switches.
  *
  * Every client drives it the same way — read [state], call the edit methods, collect [events] —
- * and each is responsible for calling [close] when the screen goes: Android through `onCleared`,
- * iOS from its wrapper's `isolated deinit`, web when its session closes. Without that the
+ * and each is responsible for clearing the ViewModel when the screen goes: Android through its
+ * `ViewModelStore`, iOS through its bridge, web when its session closes. Without that the
  * `viewModelScope` outlives the screen and the save coroutine orphans.
  */
 class ChapterEditorViewModel(
@@ -55,8 +52,6 @@ class ChapterEditorViewModel(
     private val playbackManager: PlaybackManager,
     private val playbackController: PlaybackController,
 ) : ViewModel() {
-    private var closed = false
-
     /** The user's unsaved work, or null while the editor is simply following the mirror. */
     private val draft = MutableStateFlow<ChapterDraft?>(null)
     private val selectedChapterId = MutableStateFlow<String?>(null)
@@ -138,7 +133,7 @@ class ChapterEditorViewModel(
             }
         }.stateIn(
             viewModelScope,
-            SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            WhileSubscribedForUi,
             ChapterEditorUiState.Loading,
         )
 
@@ -349,21 +344,6 @@ class ChapterEditorViewModel(
                 }
             }
         }
-    }
-
-    /**
-     * Cancels this ViewModel's coroutines. Idempotent. Android reaches it via [onCleared]; iOS from
-     * the screen wrapper's `isolated deinit`; web when the editor session closes.
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        viewModelScope.cancel()
-    }
-
-    override fun onCleared() {
-        close()
-        super.onCleared()
     }
 
     /**

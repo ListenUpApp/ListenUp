@@ -67,6 +67,83 @@ class DocumentFileLocatorTest :
             }
         }
 
+        fun seedAndLocate(
+            makeFile: (libraryRoot: java.nio.file.Path, bookDir: java.nio.file.Path, outside: java.nio.file.Path) -> Unit,
+        ): Any? {
+            val libraryRoot =
+                java.nio.file.Files
+                    .createTempDirectory("locator-lib")
+            val outside =
+                java.nio.file.Files
+                    .createTempDirectory("locator-outside")
+            try {
+                val bookDir =
+                    java.nio.file.Files
+                        .createDirectories(libraryRoot.resolve("Author/Book"))
+                makeFile(libraryRoot, bookDir, outside)
+                var located: Any? = null
+                withSqlDatabase {
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toRealPath().toString())
+                    val repo =
+                        BookRepository(
+                            db = sql,
+                            driver = driver,
+                            bus = bus,
+                            registry = registry,
+                            contributorRepository = ContributorRepository(sql, bus, registry),
+                            seriesRepository = SeriesRepository(sql, bus, registry),
+                            genreRepository = GenreRepository(sql, bus, registry),
+                        )
+                    runTest {
+                        repo.upsert(
+                            locatorFixture(
+                                bookId = "b1",
+                                docId = "doc1",
+                                rootRelPath = "Author/Book",
+                                filename = "map.pdf",
+                                format = "pdf",
+                                size = 1L,
+                                hash = "h",
+                            ),
+                        )
+                        located = DocumentFileLocator(sql).locate("b1", "doc1")
+                    }
+                }
+                return located
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                outside.toFile().deleteRecursively()
+            }
+        }
+
+        test("locate returns null when the file is a link to a file outside the library") {
+            val result =
+                seedAndLocate { _, bookDir, outside ->
+                    val target =
+                        java.nio.file.Files
+                            .writeString(outside.resolve("secret"), "x")
+                    java.nio.file.Files
+                        .createSymbolicLink(bookDir.resolve("map.pdf"), target)
+                }
+            result.shouldBeNull()
+        }
+
+        test("locate returns the location for a plain file inside the library") {
+            val result =
+                seedAndLocate { _, bookDir, _ ->
+                    java.nio.file.Files
+                        .writeString(bookDir.resolve("map.pdf"), "x")
+                }
+            result.shouldNotBeNull()
+        }
+
+        test("locate still returns the location for a file that is not on disk") {
+            val result = seedAndLocate { _, _, _ -> }
+            result.shouldNotBeNull()
+        }
+
         test("locate returns null for an unknown bookId") {
             withSqlDatabase {
                 runTest {

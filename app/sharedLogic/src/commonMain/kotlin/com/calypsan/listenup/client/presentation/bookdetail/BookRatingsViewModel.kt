@@ -13,7 +13,6 @@ import com.calypsan.listenup.domain.ListenerRatingLimits
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -23,6 +22,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.seconds
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * State and actions for rating one book. Everything is read from Room through [repository], so the
@@ -87,7 +87,7 @@ class BookRatingsViewModel(
                 isRefreshingExternal = refreshing,
                 isCheckingExternal = checking,
             )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookRatingsUiState.Loading)
+        }.stateIn(viewModelScope, WhileSubscribedForUi, BookRatingsUiState.Loading)
 
     init {
         // Ratings on open (#1542): ask the server to fetch this book's Hardcover rating if it is missing or

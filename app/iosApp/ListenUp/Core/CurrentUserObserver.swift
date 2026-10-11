@@ -21,6 +21,4 @@ final class CurrentUserObserver {
             self?.user = user
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 }

@@ -1,3 +1,4 @@
+import ListenupContract
 import Shared
 
 /// A metadata-lookup region choice, mapped to a native Swift value at the observer boundary so the

@@ -3,8 +3,6 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.ReadingOrderService
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderChoice
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ReadingOrderError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -28,6 +26,7 @@ import com.calypsan.listenup.server.sync.ReadingOrderFollowRepository
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
+import com.calypsan.listenup.server.auth.requirePermission
 
 /**
  * [ReadingOrderService] (#962). Every mutation is idempotent on replay, because clients write through the
@@ -80,7 +79,11 @@ internal class ReadingOrderServiceImpl(
         seriesId: SeriesId,
         name: String,
     ): AppResult<Unit> {
-        requirePermission(Permission.MAKE_READING_ORDERS)?.let { return AppResult.Failure(it) }
+        principal
+            .requirePermission(
+                permissionPolicy,
+                Permission.MAKE_READING_ORDERS,
+            )?.let { return AppResult.Failure(it) }
         val caller = principal.current() ?: return notFound(NO_PRINCIPAL)
         orders.findAny(id.value)?.let { existing -> return replayOfCreate(existing, caller) }
         if (!seriesIsLive(seriesId.value)) return notFound("series=${seriesId.value}")
@@ -250,19 +253,10 @@ internal class ReadingOrderServiceImpl(
                 ?: return EditGate.Denied(notFound("order=${id.value}"))
         if (caller.role.isAdmin()) return EditGate.Allowed(order, caller)
         val isMakerWithPermission =
-            order.createdBy == caller.userId.value && requirePermission(Permission.MAKE_READING_ORDERS) == null
+            order.createdBy == caller.userId.value &&
+                principal.requirePermission(permissionPolicy, Permission.MAKE_READING_ORDERS) == null
         if (!isMakerWithPermission) return EditGate.Denied(AppResult.Failure(ReadingOrderError.Forbidden()))
         return EditGate.Allowed(order, caller)
-    }
-
-    /**
-     * The per-request permission gate: [PermissionPolicy.require] for the bound caller. An absent
-     * principal — a wiring bug, since the route always [copyWith]s the authenticated caller — is denied.
-     * Returns null when permitted; the denial otherwise.
-     */
-    private suspend fun requirePermission(permission: Permission): AppError? {
-        val caller = principal.current() ?: return AuthError.PermissionDenied()
-        return permissionPolicy.require(caller, permission)
     }
 
     private suspend fun seriesIsLive(seriesId: String): Boolean =

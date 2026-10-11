@@ -73,6 +73,7 @@ internal val JPEG = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()) + B
  */
 internal class MatchRig(
     val db: SqlTestDatabases,
+    private val ratingsRefresh: (suspend (BookId, MetadataLocale) -> Unit)? = null,
 ) {
     val bus = ChangeBus()
     private val sync = SyncRegistry()
@@ -151,7 +152,7 @@ internal class MatchRig(
             now = { 1_000L },
         )
     val writer = BookMatchWriter(db.sql, books, bookMoods, receipts, { 1_000L }, beforeCommit = { fault() })
-    val applier = BookMatchApplier(reviewer, coordinator, preparer, writer)
+    val applier = BookMatchApplier(reviewer, coordinator, preparer, writer, ratingsRefresh)
     val undoer = MatchUndoer(db.sql, books, bookMoods, receipts) { 2_000L }
 
     /** Project Hail Mary as you have it: an old description, two authors, Fantasy, Hopeful, a Heist tag. */
@@ -218,6 +219,7 @@ internal class MatchRig(
             com.calypsan.listenup.server.matching.person
                 .PersonRig(db)
                 .people(),
+            ratingsRefresh,
         )
 
     fun coverColumns() = db.sql.booksQueries.selectCoverColumnsById(BOOK).executeAsOne()

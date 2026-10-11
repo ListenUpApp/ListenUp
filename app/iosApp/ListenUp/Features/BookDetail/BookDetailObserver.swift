@@ -45,8 +45,7 @@ final class BookDetailObserver {
     private(set) var asin: String?
     private(set) var publisher: String?
     private(set) var language: String?
-    /// The hero's book-derived cover fields, projected so the hero
-    /// never re-bridges the raw `BookDetail`.
+    /// The hero's book-derived cover fields, projected so the hero never re-bridges the raw `BookDetail`.
     private(set) var header: BookDetailHeaderModel?
 
     /// Pre-formatted audio-format display strings (Format / Bitrate / Sample rate / Channels),
@@ -141,13 +140,12 @@ final class BookDetailObserver {
         BookDeletion.Tracked(audioFileSizes: audioFileSizes, documentSizes: documents.map(\.size))
     }
 
-    /// True while a play request for THIS book is in flight — drives the Resume/Play button's
-    /// busy variant (spinner + "Preparing…" label, including to VoiceOver). Sourced directly from
-    /// `PlayerCoordinator`'s native `PlayerPhase.preparing`, not a bridged Kotlin flow: iOS never
-    /// binds the shared `PlaybackManager` (see `PlaybackModule.ios.kt`), so this is the
-    /// platform-native equivalent of `PlaybackManager.preparingBookIdUi`. `@Observable` composes
-    /// across the two objects, so this recomputes and republishes whenever `playerCoordinator.phase`
-    /// changes — no separate subscription needed.
+    /// True while a play request for THIS book is in flight — drives the Resume/Play button's busy variant
+    /// (spinner + "Preparing…" label, including to VoiceOver). Sourced directly from `PlayerCoordinator`'s
+    /// native `PlayerPhase.preparing`, not a bridged Kotlin flow: iOS never binds the shared `PlaybackManager`
+    /// (see `PlaybackModule.ios.kt`), so this is the platform-native equivalent of
+    /// `PlaybackManager.preparingBookIdUi`. `@Observable` composes across the two objects, so this recomputes
+    /// and republishes whenever `playerCoordinator.phase` changes — no separate subscription needed.
     var isPlayPending: Bool {
         Self.isPlayPending(phase: playerCoordinator.phase, bookId: book?.idString)
     }
@@ -176,6 +174,7 @@ final class BookDetailObserver {
         downloadService: DownloadService
     ) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         self.playerCoordinator = playerCoordinator
         self.downloadService = downloadService
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
@@ -209,8 +208,6 @@ final class BookDetailObserver {
             ShelfRow(id: $0.id, name: $0.name, containsBook: shelfIdsContainingBook.contains($0.id))
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 
@@ -342,59 +339,6 @@ final class BookDetailObserver {
     }
 
     static func nowMs() -> Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
-
-    /// Pure: the days the sheet opens on — the recorded start day (today if unknown), and today —
-    /// as start-of-day `Date`s in [calendar]. Mirrors `FinishDates.initial` in sharedLogic.
-    nonisolated static func finishDaysOpened(
-        startedAtMs: Int64?,
-        now: Int64,
-        calendar: Calendar
-    ) -> (started: Date, finished: Date) {
-        (
-            started: calendar.startOfDay(for: date(ms: startedAtMs ?? now)),
-            finished: calendar.startOfDay(for: date(ms: now))
-        )
-    }
-
-    /// Pure: why these days can't be saved, or nil — the shared `FinishDatesProblem`, by the rule of
-    /// `FinishDates.problem` (whose `LocalDate`s don't cross Swift Export usefully).
-    nonisolated static func finishDatesProblem(
-        started: Date,
-        finished: Date,
-        now: Int64,
-        calendar: Calendar
-    ) -> FinishDatesProblem? {
-        let today = calendar.startOfDay(for: date(ms: now))
-        let startDay = calendar.startOfDay(for: started)
-        let finishDay = calendar.startOfDay(for: finished)
-        if startDay > today || finishDay > today { return .InTheFuture }
-        if finishDay < startDay { return .FinishedBeforeStarted }
-        return nil
-    }
-
-    /// Pure: the epoch milliseconds for the chosen days. An unchanged start day is nil — only a
-    /// picked one is sent; a changed day is the start of that day in [calendar]; an unchanged finish
-    /// is now; the finish never precedes the start (picked, or the instant the sheet opened with).
-    /// Mirrors `FinishDates.toTimestamps`.
-    nonisolated static func markCompleteTimestamps(
-        started: Date,
-        finished: Date,
-        startedAtMs: Int64?,
-        now: Int64,
-        calendar: Calendar
-    ) -> (start: Int64?, finish: Int64) {
-        let openedStart = startedAtMs ?? now
-        let pickedStart = calendar.isDate(started, inSameDayAs: date(ms: openedStart))
-            ? nil
-            : ms(calendar.startOfDay(for: started))
-        let finish = calendar.isDate(finished, inSameDayAs: date(ms: now))
-            ? now
-            : ms(calendar.startOfDay(for: finished))
-        return (start: pickedStart, finish: max(finish, pickedStart ?? openedStart))
-    }
-
-    private nonisolated static func date(ms: Int64) -> Date { Date(timeIntervalSince1970: Double(ms) / 1000) }
-    private nonisolated static func ms(_ date: Date) -> Int64 { Int64((date.timeIntervalSince1970 * 1000).rounded()) }
 
     // MARK: - State mapping
 

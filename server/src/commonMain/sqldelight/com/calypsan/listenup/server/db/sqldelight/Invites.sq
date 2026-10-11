@@ -4,9 +4,8 @@
 -- SECURITY-RELEVANT properties preserved verbatim:
 --   * code UNIQUE — a single structural guarantee that one code maps to one invite; the public
 --     claim / lookup path probes by code, and single-use is enforced by stamping claimed_at.
---   * role is stored by name (ROOT/ADMIN/MEMBER), exactly as the Exposed enumerationByName column;
---     the repo maps name ↔ enum at the boundary. V27 declares no CHECK on it (matching the Exposed
---     table, which relied on the enum mapping alone), so none is added here.
+--   * role is stored by name (ROOT/ADMIN/MEMBER); the repo maps name ↔ enum at the boundary.
+--     V27 declares no CHECK on it, so none is added here.
 --   * claimed_at / claimed_by stay NULL until redemption; the claim path refuses an already-stamped
 --     invite, making the code genuinely single-use.
 --

@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Testing
 import Shared
 @testable import ListenUp
@@ -44,6 +45,20 @@ struct MatchCopyTests {
         #expect(MatchCopy.metadataLine(Fixture.candidate()) == "Ray Porter · 16h 10m · 2021 · Unabridged")
         let cast = Fixture.candidate(narrators: ["A", "B", "C"], durationMs: 35_040_000, year: 2023, format: nil)
         #expect(MatchCopy.metadataLine(cast) == "Full cast · 9h 44m · 2023")
+    }
+
+    @Test func twoNarratorsAreBothNamed() {
+        let pair = Fixture.candidate(narrators: ["A", "B"], durationMs: 35_040_000, year: 2023, format: nil)
+        #expect(MatchCopy.metadataLine(pair) == "A, B · 9h 44m · 2023")
+    }
+
+    @Test func aDramatizedEditionNamingNobodyIsAFullCastWithoutSayingDramatizedToo() {
+        let cast = Fixture.candidate(narrators: [], durationMs: 35_040_000, year: 2023, format: .dramatized)
+        #expect(MatchCopy.metadataLine(cast) == "Full cast · 9h 44m · 2023")
+    }
+
+    @Test func catalogueTextDecodesItsEntities() {
+        #expect(MatchCopy.plainText("Tom &amp; Jerry &lt;3") == "Tom & Jerry <3")
     }
 
     @Test func theStoreButtonNamesItsSourceAndStore() {

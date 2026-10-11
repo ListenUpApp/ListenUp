@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTime::class, FlowPreview::class)
+@file:OptIn(FlowPreview::class)
 
 package com.calypsan.listenup.client.data.sync
 
@@ -14,7 +14,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.math.pow
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job

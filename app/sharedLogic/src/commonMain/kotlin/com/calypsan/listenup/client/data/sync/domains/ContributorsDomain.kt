@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.local.db.ContributorAliasCrossRef
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.Timestamp
 
@@ -51,8 +52,11 @@ internal class ContributorMirrorApply(
         val newImagePath = payload.imagePath ?: existing?.imagePath
         // The server stores contributor photos content-addressed, so a re-scrape changes imagePath.
         // The local copy is otherwise never re-downloaded (the downloader skips when a file exists),
-        // so drop it on change: the render then re-fetches the new photo. Best-effort.
-        if (existing != null && existing.imagePath != newImagePath) {
+        // so drop it on change: the render then re-fetches the new photo. Best-effort. Kept while the
+        // user's own new photo is still waiting to upload: the file is that photo.
+        val photoUploadPending =
+            database.pendingImageUploadDao().exists(PendingImageKind.ContributorImage.name, payload.id)
+        if (existing != null && existing.imagePath != newImagePath && !photoUploadPending) {
             val _ = imageStorage.deleteContributorImage(payload.id)
         }
         database.contributorDao().upsert(

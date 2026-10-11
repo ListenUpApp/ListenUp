@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -65,7 +64,6 @@ import org.jetbrains.compose.resources.stringResource
  * @param onCancel abandon the proposal.
  * @param modifier Modifier for the panel.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DriftSheet(
     drift: ChapterEditorUiState.DriftState,

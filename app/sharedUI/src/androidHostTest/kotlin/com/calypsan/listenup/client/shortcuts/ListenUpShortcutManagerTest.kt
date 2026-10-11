@@ -1,7 +1,10 @@
 package com.calypsan.listenup.client.shortcuts
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
@@ -12,6 +15,7 @@ import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -202,7 +206,40 @@ class ListenUpShortcutManagerTest {
         result.height shouldBe 128
     }
 
+    // ───────────────────────────── clearing on sign-out ───────────────────────────
+
+    @Test
+    fun `clearShortcuts removes the published recent-book shortcuts`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val published =
+                ShortcutInfoCompat
+                    .Builder(context, "${ShortcutActions.SHORTCUT_ID_BOOK_PREFIX}b1")
+                    .setShortLabel("A Book")
+                    .setIntent(Intent(Intent.ACTION_VIEW))
+                    .build()
+            ShortcutManagerCompat.setDynamicShortcuts(context, listOf(published))
+            ShortcutManagerCompat.getDynamicShortcuts(context).size shouldBe 1
+
+            val job = Job()
+            ListenUpShortcutManager(
+                context = context,
+                homeRepository = emptyHomeRepository(),
+                scope = CoroutineScope(job),
+            ).clearShortcuts()
+            job.children.forEach { it.join() }
+
+            ShortcutManagerCompat.getDynamicShortcuts(context).size shouldBe 0
+        }
+
     // ──────────────────────────────── helpers ─────────────────────────────────────
+
+    private fun emptyHomeRepository(): HomeRepository =
+        object : HomeRepository {
+            override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = AppResult.Success(emptyList())
+
+            override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
+        }
 
     private fun options(
         width: Int,

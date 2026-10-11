@@ -10,14 +10,12 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.MatchingRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /**
  * Hands a fresh receipt from Match details to the page it returns to — Book Detail for a book, the contributor
@@ -26,17 +24,16 @@ import kotlinx.coroutines.launch
  * UUIDs) until the page's receipt is dismissed, undone or expires.
  */
 internal class MatchReceiptStore {
-    private val receipts = MutableStateFlow<Map<String, MatchReceipt>>(emptyMap())
-
     /** The receipt waiting for each subject's page, by subject id. */
-    val all: StateFlow<Map<String, MatchReceipt>> = receipts.asStateFlow()
+    val all: StateFlow<Map<String, MatchReceipt>>
+        field = MutableStateFlow(emptyMap())
 
     fun put(
         subjectId: String,
         receipt: MatchReceipt,
-    ) = receipts.update { it + (subjectId to receipt) }
+    ) = all.update { it + (subjectId to receipt) }
 
-    fun clear(subjectId: String) = receipts.update { it - subjectId }
+    fun clear(subjectId: String) = all.update { it - subjectId }
 }
 
 /**
@@ -112,7 +109,7 @@ class MatchReceiptViewModel internal constructor(
                     } ?: MatchReceiptUiState.None
                 }
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MatchReceiptUiState.None)
+        }.stateIn(viewModelScope, WhileSubscribedForUi, MatchReceiptUiState.None)
 
     /** Undoes the receipt's match; the restored book or person reaches Room before the state moves to Undone. */
     fun undo() {
@@ -144,24 +141,6 @@ class MatchReceiptViewModel internal constructor(
         if (outcome.value is Outcome.Undoing) return
         receiptStore.clear(subjectId)
         outcome.value = Outcome.Idle
-    }
-
-    private var closed = false
-
-    /**
-     * Cancels this ViewModel's coroutines — an in-flight Undo included. Idempotent. Android reaches it via
-     * [onCleared]; iOS has no `ViewModelStore`, so its observer calls this from an `isolated deinit`; web clears
-     * the session's store, which runs [onCleared].
-     */
-    fun close() {
-        if (closed) return
-        closed = true
-        viewModelScope.cancel()
-    }
-
-    override fun onCleared() {
-        close()
-        super.onCleared()
     }
 
     private sealed interface Outcome {

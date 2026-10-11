@@ -132,9 +132,7 @@ struct SectionIndexBar: View {
 
                 SectionIndexBar(
                     letters: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"],
-                    onLetterSelected: { letter in
-                        print("Selected: \(letter)")
-                    },
+                    onLetterSelected: { _ in },
                     isVisible: isVisible
                 )
                 .frame(height: 400)

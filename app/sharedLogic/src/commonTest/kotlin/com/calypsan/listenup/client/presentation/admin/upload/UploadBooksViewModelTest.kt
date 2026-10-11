@@ -82,6 +82,34 @@ class UploadBooksViewModelTest :
             }
         }
 
+        test("a book whose outcome this build cannot read is kept apart, never called imported or failed") {
+            runTest {
+                val vm =
+                    vmOver(
+                        listOf(
+                            UploadStep.Done(
+                                UploadFinalizeResult(
+                                    books =
+                                        listOf(
+                                            UploadedBook("Landed", UploadedBookStatus.IMPORTED, "A/Landed"),
+                                            UploadedBook("From The Future", UploadedBookStatus.UNKNOWN),
+                                        ),
+                                ),
+                            ),
+                        ),
+                    )
+
+                vm.onFilesPicked(candidates())
+                runCurrent()
+
+                val finished = vm.state.value.shouldBeInstanceOf<UploadBooksUiState.Finished>()
+                finished.unreadable.single().title shouldBe "From The Future"
+                finished.imported.single().title shouldBe "Landed"
+                finished.duplicates shouldBe emptyList()
+                finished.failed shouldBe emptyList()
+            }
+        }
+
         test("reports an indeterminate fraction when the selection could not report its size") {
             runTest {
                 val vm =

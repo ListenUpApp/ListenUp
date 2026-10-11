@@ -57,4 +57,10 @@ class DownloadNetworkPolicyTest :
             // instead, which is a different — and worse — promise.
             downloadSessionConfiguration().waitsForConnectivity shouldBe true
         }
+
+        test("a single download may run for as long as the platform allows") {
+            // No resume data exists, so a resource timeout restarts the file from byte zero. The
+            // wait for an allowed network and the playback yield both spend this same budget.
+            downloadSessionConfiguration().timeoutIntervalForResource shouldBe 604_800.0
+        }
     })

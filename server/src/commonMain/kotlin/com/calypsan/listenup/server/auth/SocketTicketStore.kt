@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import dev.whyoleg.cryptography.random.CryptographyRandom
@@ -9,7 +7,6 @@ import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.ExperimentalTime
 
 /**
  * Single-use, seconds-lived handles that stand in for an access token on a WebSocket upgrade.

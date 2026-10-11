@@ -15,15 +15,17 @@ import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.SeriesUpdateRequest
+import com.calypsan.listenup.client.domain.usecase.SaveOutcome
+import com.calypsan.listenup.client.domain.usecase.toNotice
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -37,14 +39,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
 /** Maximum number of merge-target candidates surfaced in the picker dialog. */
 const val MAX_MERGE_CANDIDATES = 30
-
-/** Idle timeout before stopping merge-candidate collection. */
-private const val STOP_TIMEOUT_MS = 5_000L
 
 /**
  * ViewModel for the series edit screen.
@@ -103,8 +103,8 @@ class SeriesEditViewModel internal constructor(
     /** What the "Merged into this" section shows. */
     val mergeHistory: StateFlow<MergeHistoryState> = history.state
 
-    private val _navActions = Channel<SeriesEditNavAction>(Channel.BUFFERED)
-    val navActions: Flow<SeriesEditNavAction> = _navActions.receiveAsFlow()
+    private val navActionsChannel = Channel<SeriesEditNavAction>(Channel.BUFFERED)
+    val navActions: Flow<SeriesEditNavAction> = navActionsChannel.receiveAsFlow()
 
     /**
      * Candidates for the merge-target picker — all live series except the current
@@ -145,7 +145,7 @@ class SeriesEditViewModel internal constructor(
                             }.toList()
                     }
                 }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
+            }.stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /** Where the series sits in the hierarchy, the parent picker, and the writes that move it. */
     private val hierarchy =
@@ -208,49 +208,64 @@ class SeriesEditViewModel internal constructor(
     private var originalDescription: String = ""
     private var originalCoverPath: String? = null
 
+    /** The id whose data the form currently holds or is fetching; a repeat load for it is a no-op. */
+    private var loadedSeriesId: String? = null
+    private var loadJob: Job? = null
+
     /**
      * Load series data for editing.
      */
     fun loadSeries(seriesId: String) {
-        viewModelScope.launch {
-            state.update { it.copy(isLoading = true, seriesId = seriesId) }
+        // The screen asks again whenever it is recreated (rotation, theme, fold). The form already
+        // holds this series, possibly with unsaved edits, so there is nothing to fetch.
+        if (loadedSeriesId == seriesId) return
+        loadedSeriesId = seriesId
 
-            val series = seriesRepository.getById(seriesId)
-            if (series == null) {
-                state.update { it.copy(isLoading = false, error = "Series not found") }
-                return@launch
-            }
-            history.refresh()
-            hierarchy.observePlacement(seriesId)
+        loadJob?.cancel()
+        loadJob =
+            viewModelScope.launch {
+                state.update { it.copy(isLoading = true, seriesId = seriesId) }
 
-            val bookCount = seriesRepository.getBookIdsForSeries(seriesId).size
+                val series = seriesRepository.getById(seriesId)
+                if (series == null) {
+                    // Let the same id be asked for again: nothing was loaded.
+                    loadedSeriesId = null
+                    state.update { it.copy(isLoading = false, error = "Series not found") }
+                    return@launch
+                }
+                history.refresh()
+                hierarchy.observePlacement(seriesId)
 
-            // Get cover path if it exists
-            val coverPath =
-                if (imageRepository.seriesCoverExists(seriesId)) {
-                    imageRepository.getSeriesCoverPath(seriesId)
-                } else {
-                    null
+                val bookCount = seriesRepository.getBookIdsForSeries(seriesId).size
+
+                // Get cover path if it exists
+                val coverPath =
+                    if (imageRepository.seriesCoverExists(seriesId)) {
+                        imageRepository.getSeriesCoverPath(seriesId)
+                    } else {
+                        // Missing locally but present on the server: fetch it for the next open.
+                        if (series.coverPath != null) imageRepository.ensureSeriesCoverCached(seriesId)
+                        null
+                    }
+
+                // Store original values
+                originalName = series.name
+                originalDescription = series.description.orEmpty()
+                originalCoverPath = coverPath
+
+                state.update { current ->
+                    current.copy(
+                        isLoading = false,
+                        name = series.name,
+                        description = series.description.orEmpty(),
+                        coverPath = coverPath,
+                        bookCount = bookCount,
+                        hasChanges = false,
+                    )
                 }
 
-            // Store original values
-            originalName = series.name
-            originalDescription = series.description.orEmpty()
-            originalCoverPath = coverPath
-
-            state.update { current ->
-                current.copy(
-                    isLoading = false,
-                    name = series.name,
-                    description = series.description.orEmpty(),
-                    coverPath = coverPath,
-                    bookCount = bookCount,
-                    hasChanges = false,
-                )
+                logger.debug { "Loaded series for editing: ${series.name}, bookCount=$bookCount" }
             }
-
-            logger.debug { "Loaded series for editing: ${series.name}, bookCount=$bookCount" }
-        }
     }
 
     /**
@@ -378,7 +393,7 @@ class SeriesEditViewModel internal constructor(
                 is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
                     // The target, not back: this merge soft-deleted the series we were editing.
-                    _navActions.trySend(SeriesEditNavAction.NavigateToMerged(targetId))
+                    navActionsChannel.trySend(SeriesEditNavAction.NavigateToMerged(targetId))
                 }
 
                 is AppResult.Failure -> {
@@ -496,7 +511,7 @@ class SeriesEditViewModel internal constructor(
     private fun saveChanges() {
         val current = state.value
         if (!current.hasChanges) {
-            _navActions.trySend(SeriesEditNavAction.NavigateBack)
+            navActionsChannel.trySend(SeriesEditNavAction.NavigateBack)
             return
         }
 
@@ -521,6 +536,8 @@ class SeriesEditViewModel internal constructor(
 
             when (result) {
                 is AppResult.Success -> {
+                    // The save went through; a cover that did not reach the server is said out loud.
+                    (result.data as? SaveOutcome.SavedImageNotUploaded)?.let { errorBus.emit(it.toNotice()) }
                     state.update { saving ->
                         saving.copy(
                             isSaving = false,
@@ -530,7 +547,7 @@ class SeriesEditViewModel internal constructor(
                             stagingCoverPath = null,
                         )
                     }
-                    _navActions.trySend(SeriesEditNavAction.NavigateBack)
+                    navActionsChannel.trySend(SeriesEditNavAction.NavigateBack)
                 }
 
                 is AppResult.Failure -> {
@@ -550,7 +567,7 @@ class SeriesEditViewModel internal constructor(
         if (seriesId.isNotBlank() && state.value.stagingCoverPath != null) {
             imageStagingRepository.requestSeriesCoverStagingCleanup(seriesId)
         }
-        _navActions.trySend(SeriesEditNavAction.NavigateBack)
+        navActionsChannel.trySend(SeriesEditNavAction.NavigateBack)
     }
 
     /**

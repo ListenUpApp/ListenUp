@@ -97,7 +97,13 @@ internal class BookFinder(
         lookup: FindLookup,
         locale: MetadataLocale,
     ): Outcome {
-        val key = FindCache.Key(source.id, lookup, locale.region.takeIf { source is RegionalSource })
+        val key =
+            FindCache.Key(
+                source = source.id,
+                lookup = lookup,
+                region = locale.region.takeIf { source is RegionalSource },
+                discriminator = source.cacheDiscriminator(lookup),
+            )
         return askSource(
             source = source.id,
             label = "books",

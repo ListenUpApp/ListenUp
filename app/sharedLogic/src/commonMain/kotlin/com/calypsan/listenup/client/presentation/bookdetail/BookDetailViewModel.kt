@@ -29,6 +29,7 @@ import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 import com.calypsan.listenup.client.presentation.match.UndoMatch
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
@@ -59,7 +60,7 @@ private val logger = KotlinLogging.logger {}
  *
  * [state] is derived, never written: the requested book id, the [BookDetailPage] (Room's latest [BookLoad] and the
  * reader's [BookDetailOverlay], held as one value), and the account-wide [BookDetailAmbient] facts combine through
- * the pure [bookDetailUiState] into `stateIn(WhileSubscribed(5_000))`. Actions only write the overlay or call
+ * the pure [bookDetailUiState] into `stateIn(WhileSubscribedForUi)`. Actions only write the overlay or call
  * repositories, and read the page through the same pure function over the same sources. Room is observed
  * only while a screen watches, and switching books cancels the previous book's observers through `flatMapLatest`.
  * The shape is [com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel]'s.
@@ -100,10 +101,10 @@ class BookDetailViewModel(
      */
     private val page = MutableStateFlow(BookDetailPage(load = null, overlay = BookDetailOverlay(bookId = null)))
 
-    private val _navActions = Channel<BookDetailNavAction>(Channel.BUFFERED)
+    private val navActionsChannel = Channel<BookDetailNavAction>(Channel.BUFFERED)
 
     /** One-shot navigation and side-effect events — collect once at the screen entry point. */
-    val navActions: Flow<BookDetailNavAction> = _navActions.receiveAsFlow()
+    val navActions: Flow<BookDetailNavAction> = navActionsChannel.receiveAsFlow()
 
     private val lastMatchRow =
         LastMatchRow(
@@ -164,7 +165,7 @@ class BookDetailViewModel(
                 )
             },
             roomWrites,
-        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookDetailUiState.Loading)
+        ).stateIn(viewModelScope, WhileSubscribedForUi, BookDetailUiState.Loading)
 
     /**
      * User's shelves for the shelf picker sheet.
@@ -178,14 +179,14 @@ class BookDetailViewModel(
                 } else {
                     flowOf(emptyList())
                 }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            }.stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /** Non-system collections an admin can file this book into (system collections are implicit). */
     val collections: StateFlow<List<Collection>> =
         collectionRepository
             .observeCollections()
             .map { all -> all.filterNot { it.isSystem } }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /**
      * The caller's own shelves that currently contain the loaded book, alphabetical.
@@ -196,7 +197,7 @@ class BookDetailViewModel(
         bookIdFlow
             .filterNotNull()
             .flatMapLatest { id -> shelfRepository.observeShelvesContainingBook(BookId(id)) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /**
      * Supplementary documents for the loaded book, ordered by index ascending.
@@ -208,7 +209,7 @@ class BookDetailViewModel(
         bookIdFlow
             .filterNotNull()
             .flatMapLatest { id -> documentRepository.observeDocuments(BookId(id)) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     /**
      * Document ids whose bytes are currently being fetched by [onOpenDocument].
@@ -585,7 +586,7 @@ class BookDetailViewModel(
                 is AppResult.Success -> {
                     updateOverlay(visit) { it.copy(isDeletingBook = false) }
                     logger.info { "Deleted book ${bookId.value} and its folder" }
-                    _navActions.trySend(BookDetailNavAction.BookDeleted)
+                    navActionsChannel.trySend(BookDetailNavAction.BookDeleted)
                 }
 
                 is AppResult.Failure -> {
@@ -682,7 +683,7 @@ class BookDetailViewModel(
         val bookId = currentReady()?.run { book.id.value } ?: return
         val doc = documents.value.find { it.id == docId } ?: return
         if (doc.format != "pdf") {
-            _navActions.trySend(BookDetailNavAction.ShowViewerComingSoon)
+            navActionsChannel.trySend(BookDetailNavAction.ShowViewerComingSoon)
             return
         }
         viewModelScope.launch {
@@ -690,7 +691,7 @@ class BookDetailViewModel(
             try {
                 when (val result = documentRepository.ensureLocal(BookId(bookId), docId)) {
                     is AppResult.Success -> {
-                        _navActions.trySend(BookDetailNavAction.OpenDocumentViewer(result.data))
+                        navActionsChannel.trySend(BookDetailNavAction.OpenDocumentViewer(result.data))
                     }
 
                     is AppResult.Failure -> {

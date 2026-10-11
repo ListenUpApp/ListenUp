@@ -44,9 +44,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.io.files.Path
+import kotlin.time.Duration.Companion.minutes
 import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry as EmbeddedSeriesEntry
 
 private val logger = loggerFor<Analyzer>()
+
+/** How long one book may analyse before the log names it as the one the scan is stuck on. */
+private val SLOW_BOOK_WARNING = 2.minutes
 
 /**
  * Stage 3 of the scanner pipeline: turns each [CandidateBook] into an
@@ -97,7 +101,19 @@ internal class Analyzer(
 ) {
     fun analyze(candidates: Flow<CandidateBook>): Flow<Result<AnalyzedBook>> =
         flow {
-            candidates.collect { c -> emit(analyzeOne(c)) }
+            candidates.collect { c ->
+                emit(
+                    warningIfSlow(
+                        after = SLOW_BOOK_WARNING,
+                        warn = {
+                            logger.warn {
+                                "analyse: still working on ${c.rootRelPath} after $SLOW_BOOK_WARNING — " +
+                                    "a file in it may be unreadable or blocking"
+                            }
+                        },
+                    ) { analyzeOne(c) },
+                )
+            }
         }
 
     private suspend fun analyzeOne(candidate: CandidateBook): Result<AnalyzedBook> =
@@ -308,7 +324,13 @@ internal class Analyzer(
             candidate.files.firstOrNull {
                 it.fileType == FileType.METADATA && it.name.equals("metadata.json", ignoreCase = true)
             } ?: return null
-        return metadataReader.read(Path(rootPath, sidecar.relPath))
+        val path = Path(rootPath, sidecar.relPath)
+        // Same refusal as runParserSafely: the open is where a link is followed, wherever it goes.
+        if (isSymlink(path)) {
+            logger.warn { "sidecar ${sidecar.relPath} is a symlink; not reading it" }
+            return null
+        }
+        return metadataReader.read(path)
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.presentation.settings
 
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.device.DeviceGlyph
+import com.calypsan.listenup.client.device.deviceGlyphFor
 
 /**
  * A device row in the Devices screen — display-resolved from a server `SessionSummary`.
@@ -16,7 +18,10 @@ data class DeviceRow(
     val lastUsedAt: Long,
     val isCurrent: Boolean,
     val deviceType: String? = null,
-)
+) {
+    /** The kind of device this session came from, always derived from [deviceType] so the two cannot disagree. */
+    val glyph: DeviceGlyph get() = deviceGlyphFor(deviceType)
+}
 
 /**
  * UI state for the Devices screen.

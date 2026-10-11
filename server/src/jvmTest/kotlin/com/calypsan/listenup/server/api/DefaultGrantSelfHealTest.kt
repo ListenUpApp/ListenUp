@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -40,7 +38,7 @@ import kotlin.time.Instant
  * 2. Self-heal on login — a MEMBER whose ALL_BOOKS grant was somehow deleted (simulating a
  *    first-time failure) has it restored the next time they log in.
  *
- * Uses real in-memory Flyway-migrated SQLite with a bootstrapped library, exactly as
+ * Uses real in-memory migrated SQLite with a bootstrapped library, exactly as
  * [DefaultGrantTest] does.
  */
 class DefaultGrantSelfHealTest :

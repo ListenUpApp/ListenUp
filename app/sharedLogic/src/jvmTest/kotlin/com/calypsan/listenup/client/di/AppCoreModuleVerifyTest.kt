@@ -12,7 +12,8 @@ import org.koin.test.verify.verify
  * [ErrorBus], [DeepLinkManager], [ShortcutActionManager], and the app-scoped
  * [kotlinx.coroutines.CoroutineScope] are self-contained. [AuthSession] is the one
  * external dependency — the [com.calypsan.listenup.client.data.auth.AuthFailureObserver]
- * consumes it — so it is whitelisted as externally provided.
+ * consumes it — so it is whitelisted as externally provided. The observer's `fullSignOut` is a
+ * lambda built inline over `LogoutUseCase`, not a Koin-resolved type, hence [Function1].
  */
 @OptIn(KoinExperimentalAPI::class)
 class AppCoreModuleVerifyTest :
@@ -20,7 +21,7 @@ class AppCoreModuleVerifyTest :
 
         test("appCoreModule wires up against its declared external dependencies") {
             appCoreModule.verify(
-                extraTypes = listOf(AuthSession::class),
+                extraTypes = listOf(AuthSession::class, Function1::class),
             )
         }
     })

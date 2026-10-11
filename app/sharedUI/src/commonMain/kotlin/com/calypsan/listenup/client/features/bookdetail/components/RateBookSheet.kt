@@ -30,6 +30,7 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.RatingStars
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import listenup.composeapp.generated.resources.Res
@@ -63,8 +64,21 @@ fun RateBookSheet(
     var halfStars by rememberSaveable { mutableIntStateOf(current?.halfStars ?: 0) }
     var note by rememberSaveable { mutableStateOf(current?.note.orEmpty()) }
 
+    // Swiping the sheet away or pressing Back asks first when the draft differs from your rating.
+    val requestDismiss =
+        rememberUnsavedWorkGuard(
+            dirty =
+                ListenerRatingLimits.isDraftChanged(
+                    openedHalfStars = current?.halfStars,
+                    openedNote = current?.note,
+                    halfStars = halfStars,
+                    note = note,
+                ),
+            onLeave = onDismiss,
+        )
+
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = requestDismiss,
         sheetState =
             rememberBottomSheetState(
                 initialValue = SheetValue.Hidden,

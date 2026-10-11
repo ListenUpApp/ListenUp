@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.nav.RouteSession
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.share.ShareTarget
 import com.calypsan.listenup.client.share.ShareLinkCodec
@@ -132,8 +133,8 @@ class BookDetailSession(
     val onSeeWhatChanged: () -> Unit,
     val onCloseWhatChanged: () -> Unit,
     val onUndoLastMatch: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /**
  * How the page gets its state. Production resolves the real ViewModel out of the client graph

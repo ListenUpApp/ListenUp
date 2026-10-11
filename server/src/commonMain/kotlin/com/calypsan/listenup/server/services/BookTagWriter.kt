@@ -18,7 +18,7 @@ import kotlin.time.Clock
  * onto the book, auto-creating [Tag] catalog rows for names that don't yet exist.
  * Mirrors the find-or-create-then-link path that
  * [com.calypsan.listenup.server.api.TagServiceImpl.addTagToBook] uses — minus the
- * per-user permission gate and FTS reindex, which are interactive-edit concerns:
+ * per-user permission gate, which is an interactive-edit concern:
  * the scan's book `upsert` (plus the sync firehose) propagates the change.
  *
  * **Add-only on rescan.** Unlike [BookGenreWriter], this writer never wipes the

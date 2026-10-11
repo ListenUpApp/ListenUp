@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// A server-side directory, flattened for SwiftUI display.
@@ -66,6 +67,7 @@ final class LibrarySetupViewModelWrapper {
 
     init(viewModel: LibrarySetupViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
     }
@@ -74,14 +76,6 @@ final class LibrarySetupViewModelWrapper {
     /// stateful mapping (`apply`) can be driven directly without a live KMP ViewModel.
     init() {
         self.viewModel = nil
-    }
-
-    // Isolated deinit (SE-0371): runs hopped onto the main actor, so the non-Sendable Kotlin
-    // viewModel can be closed here. No ViewModelStore on iOS calls onCleared, so this wrapper must
-    // (#1192). Optional because the bridge-free test initializer leaves it nil.
-    isolated deinit {
-        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
-        viewModel?.close()
     }
 
     // MARK: - Actions

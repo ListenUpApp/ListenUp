@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.metadata.audible
 
+import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
+import com.calypsan.listenup.server.metadata.bodyAsTextBounded
 import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.server.scanner.pipeline.HtmlToMarkdown
 import com.calypsan.listenup.api.error.MetadataError
@@ -11,7 +13,6 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
@@ -44,6 +45,7 @@ class AudibleClient(
     private val httpClient: HttpClient,
     private val rateLimiter: AudibleRateLimiter,
     private val json: Json,
+    private val maxBodyBytes: Long = MAX_CATALOGUE_BODY_BYTES,
 ) : AudibleApi {
     /**
      * Searches the Audible catalog.
@@ -179,7 +181,12 @@ class AudibleClient(
             when (response.status) {
                 HttpStatusCode.OK -> {
                     try {
-                        AppResult.Success(decode(response.bodyAsText()))
+                        val text =
+                            bodyAsTextBounded(response, maxBodyBytes)
+                                ?: return AppResult.Failure(
+                                    MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
+                                )
+                        AppResult.Success(decode(text))
                     } catch (e: SerializationException) {
                         AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
                     } catch (e: IllegalArgumentException) {
@@ -267,7 +274,12 @@ class AudibleClient(
                 }
 
                 response.status == HttpStatusCode.OK -> {
-                    AppResult.Success(decode(response.bodyAsText()))
+                    val text = bodyAsTextBounded(response, maxBodyBytes)
+                    if (text == null) {
+                        AppResult.Failure(MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"))
+                    } else {
+                        AppResult.Success(decode(text))
+                    }
                 }
 
                 response.status == HttpStatusCode.NotFound -> {

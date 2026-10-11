@@ -16,6 +16,8 @@ sealed interface BackupError : AppError {
         override val message: String = "Failed to create the backup. Check server disk space and try again."
         override val code: String = "BACKUP_SNAPSHOT_FAILED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The archive file is missing required entries or its checksums don't match. */
@@ -28,6 +30,8 @@ sealed interface BackupError : AppError {
         override val message: String = "This backup file is incomplete or corrupted and can't be restored."
         override val code: String = "BACKUP_CORRUPT_ARCHIVE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** The archive's schema version is newer than the running server supports. */
@@ -40,6 +44,8 @@ sealed interface BackupError : AppError {
         override val message: String = "This backup is from a newer version of ListenUp. Update the server first."
         override val code: String = "BACKUP_INCOMPATIBLE_SCHEMA"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** No archive exists with the requested backup id. */
@@ -52,6 +58,8 @@ sealed interface BackupError : AppError {
         override val message: String = "That backup no longer exists."
         override val code: String = "BACKUP_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /** A restore operation is already in progress; only one can run at a time. */
@@ -64,6 +72,8 @@ sealed interface BackupError : AppError {
         override val message: String = "A restore is already running. Try again in a moment."
         override val code: String = "BACKUP_RESTORE_IN_PROGRESS"
         override val isRetryable: Boolean = true
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -80,5 +90,7 @@ sealed interface BackupError : AppError {
         override val message: String = "The restore failed. Your previous data has been kept."
         override val code: String = "BACKUP_RESTORE_FAILED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

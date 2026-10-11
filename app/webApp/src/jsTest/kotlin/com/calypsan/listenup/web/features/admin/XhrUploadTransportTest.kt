@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.admin
 import com.calypsan.listenup.api.dto.uploads.UploadSessionSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.XhrUploadTransport
 import io.kotest.core.spec.style.FunSpec
@@ -33,6 +34,7 @@ class XhrUploadTransportTest :
             requests: MutableList<FakeRequest>,
             onSend: (FakeRequest) -> Unit,
             refreshed: String? = "fresh-token",
+            fileReadable: Boolean = true,
         ) = XhrUploadTransport(
             serverUrl = { "http://listenup.local:8080/" },
             accessToken = { "stale-token" },
@@ -43,6 +45,7 @@ class XhrUploadTransportTest :
                 requests += request
                 request.asXhr()
             },
+            canRead = { fileReadable },
         )
 
         val picked = File(arrayOf("twelve bytes").unsafeCast<Array<Any>>(), "01 - Prologue.m4b")
@@ -127,6 +130,21 @@ class XhrUploadTransportTest :
             val error = dropped.shouldBeInstanceOf<AppResult.Failure>().error
             error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
             error.isRetryable shouldBe true
+        }
+
+        test("a send that fails because the file can no longer be read is a file error, not a network one") {
+            // ⛔ The browser reports a file that was moved or deleted mid-upload exactly as it reports a
+            // dropped connection. Read as the network, it is retried three times with back-off and the
+            // user is told to check a connection that is fine.
+            val requests = mutableListOf<FakeRequest>()
+            val result =
+                transport(requests, onSend = { it.fail() }, fileReadable = false)
+                    .upload("s1", "Dune/01.m4b", picked, picked.name) { _, _ -> }
+
+            val error = result.shouldBeInstanceOf<AppResult.Failure>().error
+            error.shouldBeInstanceOf<UploadError.FileUnreadable>()
+            error.isRetryable shouldBe false
+            requests.size shouldBe 1
         }
 
         test("a 401 rotates the credential once and sends again, as the Ktor bearer plugin does") {

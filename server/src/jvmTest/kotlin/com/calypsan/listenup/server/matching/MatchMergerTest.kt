@@ -39,6 +39,13 @@ private fun merged(vararg hits: SourcedHit) = MatchMerger.merge(hits.toList())
 /** Conservative merging (spec, Find step 4): two editions shown apart cost a glance; merged, the wrong one applies. */
 class MatchMergerTest :
     FunSpec({
+        test("the same edition whose narrator differs only by an accent is one candidate") {
+            merged(
+                SourcedHit(AUDIBLE, phm("B1", narrators = listOf("Stanisław Lem"))),
+                SourcedHit(HARDCOVER, phm("427578", narrators = listOf("Stanislaw Lem"))),
+            ) shouldHaveSize 1
+        }
+
         test("hits sharing an ASIN are one candidate, whatever else differs") {
             merged(
                 SourcedHit(AUDIBLE, phm("B1", asin = "B1")),

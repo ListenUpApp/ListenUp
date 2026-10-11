@@ -38,6 +38,7 @@ private class RegisterFixture {
             authSession = authSession,
             userRepository = userRepository,
             deviceInfoProvider = { DeviceInfo() },
+            beforeSignIn = {},
         )
 }
 
@@ -147,6 +148,29 @@ class RegisterUseCaseTest :
                         .error
                         .shouldBeInstanceOf<ValidationError>()
                 ve.message shouldBe "First name is required"
+            }
+        }
+
+        test("register rejects a name too long to store") {
+            runTest {
+                // The authRepository mock is unstubbed: reaching it would fail the test.
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                val result =
+                    useCase(
+                        email = "user@example.com",
+                        password = "password123",
+                        firstName = "F".repeat(100),
+                        lastName = "L".repeat(100),
+                    )
+
+                val ve =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                ve.message shouldBe "Name is too long"
             }
         }
 

@@ -7,6 +7,8 @@ import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -22,6 +24,7 @@ import kotlinx.serialization.Serializable
  * used by firehose events and catch-up pages. Field renames break wire compatibility;
  * additions are forward-compatible thanks to `contractJson { ignoreUnknownKeys = true }`.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("BookSyncPayload")
 data class BookSyncPayload(
@@ -53,7 +56,11 @@ data class BookSyncPayload(
     val audioFiles: List<BookAudioFilePayload>,
     val documents: List<BookDocumentPayload> = emptyList(),
     val chapters: List<BookChapterPayload>,
-    /** Provenance of [chapters]; [ChapterSource.USER] is rescan-protected. Defaults to EMBEDDED for forward-compat. */
+    /**
+     * Provenance of [chapters]; [ChapterSource.USER] is rescan-protected. Defaults to EMBEDDED for forward-compat.
+     * Always encoded, so an app built before this default existed still finds the key.
+     */
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val chapterSource: ChapterSource = ChapterSource.EMBEDDED,
     /**
      * The book's own name for its OUTER chapter-grouping tier — "Book", "Volume", whatever this

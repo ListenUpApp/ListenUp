@@ -16,7 +16,6 @@ import com.calypsan.listenup.client.download.BrowserDownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.core.BrowserSecureStorage
-import com.calypsan.listenup.core.CachingSecureStorage
 import com.calypsan.listenup.core.SecureStorage
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
@@ -56,20 +55,18 @@ internal actual val platformDiscoveryModule: Module =
 
 /**
  * Browser storage module. Each binding is a browser decision, documented on its class:
- * [BrowserSecureStorage] (origin-scoped localStorage, wrapped in the same read cache as the
- * JVM binding, plus [CookieMirroringSecureStorage] so the DOM can authenticate cover requests), [BrowserImageStorage] (no local byte cache — the server's blob endpoints plus
+ * [BrowserSecureStorage] (origin-scoped localStorage, read fresh every time because every tab on
+ * the origin shares it, plus [CookieMirroringSecureStorage] so the DOM can authenticate cover
+ * requests), [BrowserImageStorage] (no local byte cache — the server's blob endpoints plus
  * the browser's HTTP cache are the web cover story), [BrowserNetworkMonitor]
  * (`navigator.onLine`), and the deliberately-throwing [DownloadFileManager] (offline audio in
  * a browser is undesigned; the binding exists so the graph resolves, and any call is loud).
  */
 internal actual val platformStorageModule: Module =
     module {
-        // The cookie mirror sits INSIDE the read cache: the cache answers reads, so every write
-        // that reaches storage must also reach the cookie. See CookieMirroringSecureStorage for
-        // why the DOM needs a credential of its own at all.
-        single<SecureStorage> {
-            CachingSecureStorage(CookieMirroringSecureStorage(BrowserSecureStorage()))
-        }
+        // The cookie mirror lets the DOM authenticate cover requests. See CookieMirroringSecureStorage
+        // for why the DOM needs a credential of its own at all.
+        single<SecureStorage> { browserSecureStorage() }
 
         // Overrides mediaModule's filesystem DocumentStorage — platform modules load last for
         // exactly this. See BrowserDocumentStorage for why the common one cannot run here.
@@ -86,6 +83,16 @@ internal actual val platformStorageModule: Module =
         // module, so its refusal is bound here beside the file manager it belongs with.
         single<DownloadEnqueuer> { BrowserDownloadEnqueuer() }
     }
+
+/**
+ * The credential storage a browser tab holds, built in one place so a probe that simulates a second
+ * tab gets exactly what production binds.
+ *
+ * Deliberately not wrapped in a read cache. `localStorage` is synchronous and shared by every tab on
+ * the origin, and refresh tokens rotate on every use: a per-tab copy is a token another tab may
+ * already have replaced, which the server answers by signing one of the two tabs out.
+ */
+internal fun browserSecureStorage(): SecureStorage = CookieMirroringSecureStorage(BrowserSecureStorage())
 
 /**
  * Browser device module: pointer-capability + viewport classification, detected once at startup

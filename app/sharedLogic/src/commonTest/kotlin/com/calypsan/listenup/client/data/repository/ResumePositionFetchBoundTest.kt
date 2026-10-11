@@ -71,6 +71,7 @@ class ResumePositionFetchBoundTest :
                 // Unlike getPosition, prepare() returns the signed streaming URLs. There is no local
                 // fallback for a book that is not downloaded, so cutting it short would strand it.
                 dispatch.lastTimeout shouldBe DEFAULT_RPC_TIMEOUT
+                dispatch.lastIdempotent shouldBe false
             }
         }
     })

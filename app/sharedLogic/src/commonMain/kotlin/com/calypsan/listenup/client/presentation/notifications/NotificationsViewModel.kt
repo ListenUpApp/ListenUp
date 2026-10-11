@@ -6,11 +6,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AppNotification
 import com.calypsan.listenup.client.domain.repository.NotificationRepository
 import com.calypsan.listenup.core.error.ErrorBus
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 /** Screen state for the notification inbox list. */
 sealed interface NotificationsUiState {
@@ -42,7 +42,7 @@ class NotificationsViewModel(
                 if (items.isEmpty()) NotificationsUiState.Empty else NotificationsUiState.Data(items)
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = WhileSubscribedForUi,
                 initialValue = NotificationsUiState.Loading,
             )
 

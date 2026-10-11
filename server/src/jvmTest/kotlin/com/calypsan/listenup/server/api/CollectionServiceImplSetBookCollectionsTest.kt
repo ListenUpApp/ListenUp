@@ -43,7 +43,7 @@ import kotlinx.coroutines.test.runTest
  * Integration tests for [CollectionServiceImpl.setBookCollections] — the access-aware,
  * admin-only replace-set of a book's collection memberships.
  *
- * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks. The
+ * Uses a real in-memory migrated SQLite database + real repositories; no mocks. The
  * acting caller is supplied via a [PrincipalProvider] stub; [actAs] rebinds the service to a
  * chosen `(userId, role)`. The AccessChanged emission test probes [ChangeBus.subscribeControl]
  * directly, mirroring [AccessChangedEmissionTest].

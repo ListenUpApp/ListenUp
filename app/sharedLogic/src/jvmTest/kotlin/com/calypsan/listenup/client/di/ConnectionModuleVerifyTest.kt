@@ -9,6 +9,7 @@ import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
+import kotlin.time.TimeSource
 
 /**
  * Leaf verify for [connectionModule]. Per the architecture rubric every leaf
@@ -47,6 +48,13 @@ class ConnectionModuleVerifyTest :
                         ServerDiscoveryService::class,
                         CoroutineScope::class,
                         LocalPreferences::class,
+                        // FallbackTrust's probe / connectedServerId / clock and the coordinator's
+                        // allowsFallback are function and time-source seams, not Koin definitions.
+                        Function1::class,
+                        Function2::class,
+                        Function3::class,
+                        Function4::class,
+                        TimeSource::class,
                     ),
             )
         }

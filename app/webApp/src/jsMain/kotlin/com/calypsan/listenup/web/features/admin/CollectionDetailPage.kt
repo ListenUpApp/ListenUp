@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
@@ -69,8 +70,13 @@ fun CollectionDetailPage(
     val saved = (state as? AdminCollectionDetailUiState.Ready)?.saveSuccess == true
     LaunchedEffect(saved) { if (saved) onSaveConfirmed() }
     val name = (state as? AdminCollectionDetailUiState.Ready)?.collection?.name ?: "Collection"
+    // A managed collection's name is fixed, so there is no draft to lose on it.
+    val renameDraft =
+        (state as? AdminCollectionDetailUiState.Ready)?.let { it.isDirty && !it.collection.isSystem } == true
+    val guard = rememberUnsavedWorkGuard(dirty = renameDraft)
+    guard.Dialog()
     Div(attrs = { classes("cdet") }) {
-        Breadcrumb(trail = listOf("Collections", name), onNavigate = { onOpenCollections() })
+        Breadcrumb(trail = listOf("Collections", name), onNavigate = { guard.leave(onOpenCollections) })
 
         PageHeader(
             title = name,

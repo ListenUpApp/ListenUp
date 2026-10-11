@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.download.AppleDownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadEnqueuer
@@ -108,9 +109,12 @@ internal val iosPlaybackModule: Module =
         // Structured device identity — shared source for auth login + listening history.
         single<DeviceInfoProvider> {
             val clientVersion = get<String>(named("clientVersion"))
+            // Detected once by DeviceContextProvider (UIDevice.userInterfaceIdiom) and bound in
+            // platformDeviceModule, so an iPad is listed as a tablet rather than a phone.
+            val deviceType = get<DeviceContext>().type.wireName
             DeviceInfoProvider {
                 DeviceInfo(
-                    deviceType = "phone",
+                    deviceType = deviceType,
                     platform = "iOS",
                     platformVersion = platform.UIKit.UIDevice.currentDevice.systemVersion,
                     clientName = "ListenUp iOS",
@@ -141,7 +145,7 @@ internal val iosPlaybackModule: Module =
             )
         }
 
-        // Sleep timer manager — observed via SKIE by PlayerCoordinator
+        // Sleep timer manager — observed by PlayerCoordinator
         single {
             SleepTimerManager(
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),

@@ -15,7 +15,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -24,6 +23,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
 
@@ -71,7 +71,7 @@ class BrowseFacetViewModel(
             }.distinctUntilChanged()
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                started = WhileSubscribedForUi,
                 initialValue = BrowseFacetUiState.Loading,
             )
 
@@ -142,10 +142,6 @@ class BrowseFacetViewModel(
         val kind: FacetKind,
         val facetId: String,
     )
-
-    private companion object {
-        const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
-    }
 }
 
 /** Sealed UiState for the facet-browse screen. */

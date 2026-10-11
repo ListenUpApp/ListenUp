@@ -82,6 +82,7 @@ class InviteRepositoryImplTest :
             authSession = authSession,
             userRepository = userRepository,
             deviceInfoProvider = { deviceInfo },
+            beforeSignIn = {},
         )
 
         test("lookupInvite dispatches through the public service") {

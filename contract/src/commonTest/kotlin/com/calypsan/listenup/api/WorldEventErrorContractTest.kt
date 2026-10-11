@@ -2,7 +2,6 @@ package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.WorldEventError
-import com.calypsan.listenup.api.error.withCorrelationId
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe

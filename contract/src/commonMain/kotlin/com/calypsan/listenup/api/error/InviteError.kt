@@ -39,6 +39,8 @@ sealed interface InviteError : AppError {
         override val message: String = "That invite could not be found."
         override val code: String = "INVITE_NOT_FOUND"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -54,6 +56,8 @@ sealed interface InviteError : AppError {
         override val message: String = "This invite has expired."
         override val code: String = "INVITE_EXPIRED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -69,6 +73,8 @@ sealed interface InviteError : AppError {
         override val message: String = "This invite has already been used."
         override val code: String = "INVITE_ALREADY_CLAIMED"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -84,6 +90,8 @@ sealed interface InviteError : AppError {
         override val message: String = "An account already exists for this email."
         override val code: String = "INVITE_EMAIL_IN_USE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -99,5 +107,7 @@ sealed interface InviteError : AppError {
         override val message: String = "The request was invalid."
         override val code: String = "INVITE_INVALID_INPUT"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

@@ -49,6 +49,7 @@ internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoo
             AccessGate(
                 liveIds = database.bookMoodDao()::liveIds,
                 tombstoneByIds = database.bookMoodDao()::tombstoneByIds,
+                unacknowledgedIds = database.bookMoodDao()::unacknowledgedIds,
                 delta =
                     AccessDeltaPolicy.Targeted(
                         // After the books gate: a junction is only decidable once the book that

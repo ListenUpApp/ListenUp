@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesedit
 
+import com.calypsan.listenup.web.nav.RouteSession
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
@@ -38,8 +39,8 @@ class SeriesEditSession(
     /** The "Add sub-series" dialog, shared with the series page. */
     val addSubSeries: StateFlow<AddSubSeriesUiState>,
     val onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenSeriesEdit = (seriesId: String) -> SeriesEditSession

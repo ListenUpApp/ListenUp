@@ -14,8 +14,7 @@ import com.calypsan.listenup.server.io.hashBytesSha256
  * Each read splices a [SqlFragment] access subquery — the single visibility definition owned by
  * [com.calypsan.listenup.server.api.BookAccessPolicy] — as `id IN (<fragment.sql>)` into a
  * `WHERE` that also carries the revision predicate, then runs the whole thing over the SQLDelight
- * [SqlDriver]. This is the engine-neutral twin of the old Exposed `exec` path: same SQL text,
- * same placeholder order, raw bind values instead of Exposed-typed pairs.
+ * [SqlDriver] with raw bind values.
  *
  * **Bind-arg ordering is security-relevant and load-bearing.** The placeholders bind, in order:
  *  1. every [predicate] arg (the row-selection clause) — the revision cursor for a `revision > ?`
@@ -24,7 +23,7 @@ import com.calypsan.listenup.server.io.hashBytesSha256
  *  2. then every [SqlFragment.args] value of the spliced access subquery, in its existing order,
  *  3. then the optional trailing `LIMIT ?` ([limit]).
  *
- * This is the EXACT order the prior Exposed `selectIdsWithRevRaw` used. A wrong order would
+ * A wrong order would
  * silently bind a value to the wrong placeholder — e.g. the cursor into the access subquery's
  * `owner_id = ?` — and a member could then see another user's or an inaccessible row. The single
  * implementation here means that ordering is defined once, not re-derived per aggregate.

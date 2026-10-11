@@ -47,8 +47,8 @@ SELECT id, revision FROM user_stats WHERE revision > :cursor ORDER BY revision A
 selectIdRevAtMost:
 SELECT id, revision FROM user_stats WHERE deleted_at IS NULL AND revision <= :cursor;
 
--- User-scoped substrate variants — the per-user filtering the Exposed base applies
--- via `(revision <cmp> cursor) AND user_id = userId`.
+-- User-scoped substrate variants — the per-user filtering
+-- `(revision <cmp> cursor) AND user_id = userId`.
 
 selectIdsAboveRevisionForUser:
 SELECT id, revision FROM user_stats

@@ -7,14 +7,14 @@ import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
-import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.browser.document
 import kotlinx.browser.window
-import kotlinx.coroutines.await
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import org.khronos.webgl.Int8Array
@@ -28,6 +28,7 @@ import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.files.File
 import org.w3c.files.FilePropertyBag
+import kotlin.coroutines.resume
 
 /** How long a spec waits for an event that SHOULD arrive. */
 private const val EVENT_TIMEOUT_MS = 2_000L
@@ -49,6 +50,29 @@ private fun imageFile(
 private suspend fun awaitFirstEvent(events: List<BookEditUiEvent>) {
     withTimeout(EVENT_TIMEOUT_MS) { while (events.isEmpty()) delay(10) }
 }
+
+/** A real 1x1 PNG, so an `<img>` can genuinely decode it: the liveness probe below needs a loadable image. */
+private const val TINY_PNG_BASE64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+
+/** The PNG, plus [trailingBytes] of padding a decoder ignores, so two previews differ without ceasing to be images. */
+private fun tinyPng(trailingBytes: Int = 0): ByteArray {
+    val decoded = window.atob(TINY_PNG_BASE64)
+    return ByteArray(decoded.length + trailingBytes) { i -> if (i < decoded.length) decoded[i].code.toByte() else 0 }
+}
+
+/**
+ * Whether [url] still names a decodable image. Loaded through an `<img>`, the way the app itself
+ * shows a preview, so it is judged by `img-src` — a `fetch` here would be judged by `connect-src`,
+ * which the page's policy keeps closed to `blob:`.
+ */
+private suspend fun loadsAsImage(url: String): Boolean =
+    suspendCancellableCoroutine { continuation ->
+        val probe = document.createElement("img") as HTMLImageElement
+        probe.addEventListener("load", { continuation.resume(true) })
+        probe.addEventListener("error", { continuation.resume(false) })
+        probe.src = url
+    }
 
 /** Drops a valid PNG on the cover control — the drop that MUST reach [BookEditUiEvent.UploadCover]. */
 private fun dropImage(root: HTMLElement) {
@@ -104,21 +128,21 @@ class CoverFieldTest :
         }
 
         test("a replaced preview releases its object URL") {
-            var state by mutableStateOf(withCover().copy(pendingCoverData = byteArrayOf(1)))
+            var state by mutableStateOf(withCover().copy(pendingCoverData = tinyPng()))
             val root = mounts.mount { CoverField(state = state, onEvent = {}) }
             val firstUrl = (root.querySelector(".cover-art img") as HTMLImageElement).src
 
-            state = state.copy(pendingCoverData = byteArrayOf(2))
+            state = state.copy(pendingCoverData = tinyPng(trailingBytes = 1))
             withTimeout(EVENT_TIMEOUT_MS) {
                 while ((root.querySelector(".cover-art img") as HTMLImageElement).src == firstUrl) delay(10)
             }
 
-            // Positive control: the CURRENT preview's URL must fetch fine — proving the
-            // rejection below is revocation, not an environment that can't fetch blob: at all.
-            window.fetch((root.querySelector(".cover-art img") as HTMLImageElement).src).await()
+            // Positive control: the CURRENT preview's URL must load — proving the failure below is
+            // revocation, not an environment that can't load blob: images at all.
+            loadsAsImage((root.querySelector(".cover-art img") as HTMLImageElement).src) shouldBe true
 
-            // A revoked blob: URL is unfetchable — that rejection IS the assertion.
-            shouldThrowAny { window.fetch(firstUrl).await() }
+            // A revoked blob: URL no longer loads — that failure IS the assertion.
+            loadsAsImage(firstUrl) shouldBe false
         }
 
         test("choosing a file reports UploadCover with its bytes and name") {

@@ -23,7 +23,7 @@ data class TestDatabase(
 )
 
 /**
- * Creates a fresh temp-file SQLite database, runs the Flyway migrations via [DatabaseFactory.init]
+ * Creates a fresh temp-file SQLite database, runs the migrations via [DatabaseFactory.init]
  * (so the SQLDelight driver never calls `Schema.create`), and returns it as a SQLDelight
  * [ListenUpDatabase].
  *

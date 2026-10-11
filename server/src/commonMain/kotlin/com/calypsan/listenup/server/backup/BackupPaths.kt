@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.backup
 
 import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.media.ManagedImageDirs
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -32,10 +33,13 @@ class BackupPaths(
     val dbFile: Path get() = Path(homeDir, "listenup.db")
 
     /** Directory containing book cover images managed by the server. */
-    val coversDir: Path get() = Path(homeDir, "covers")
+    val coversDir: Path get() = imageDir(ManagedImageDirs.COVERS)
 
     /** Directory containing user avatar images managed by the server. */
-    val avatarsDir: Path get() = Path(homeDir, "avatars")
+    val avatarsDir: Path get() = imageDir(ManagedImageDirs.AVATARS)
+
+    /** The live directory for one of [ManagedImageDirs.ALL]. */
+    fun imageDir(name: String): Path = Path(homeDir, name)
 
     /** Returns the archive path for a backup with the given [id] stem. */
     fun archiveFor(id: String): Path = Path(backupsDir, "$id.listenup.zip")

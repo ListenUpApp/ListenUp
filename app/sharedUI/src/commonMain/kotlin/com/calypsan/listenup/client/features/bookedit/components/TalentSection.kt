@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -134,7 +133,6 @@ fun TalentSection(
 }
 
 @Suppress("LongParameterList", "CognitiveComplexMethod")
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RoleContributorSection(
     role: ContributorRole,

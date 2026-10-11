@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.metadata
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -64,11 +66,17 @@ enum class FieldSourceKind(
  * `writeTier >= storedTier` replaces, otherwise the stored value is preserved. The persisted map
  * is the per-field max-tier union — sticky, exactly like the set-union it replaces.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("FieldProvenance")
 data class FieldProvenance(
-    /** The authority that wrote the field's current value. */
-    val kind: FieldSourceKind,
+    /**
+     * The authority that wrote the field's current value. A kind this build has never heard of reads as
+     * [FieldSourceKind.USER], the highest tier, so the value is treated as pinned and never silently
+     * overwritten. Always encoded so an app built before this default existed still finds the key.
+     */
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val kind: FieldSourceKind = FieldSourceKind.USER,
     /**
      * The provider that supplied the value — [MetadataProviderId.value] when
      * [kind] is [FieldSourceKind.ENRICHMENT], `null` otherwise.

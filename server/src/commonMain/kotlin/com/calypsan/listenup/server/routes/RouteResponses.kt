@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.plugins.toHttpStatus
-import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -21,8 +20,8 @@ private val logger = KotlinLogging.logger("com.calypsan.listenup.server.routes.R
  * Every rendered failure is logged centrally: 5xx at ERROR, everything else at DEBUG, with the
  * error code, correlation id, and request path.
  *
- * Declared `internal` so the inline function can access the `internal` helpers
- * [toHttpStatus] and [withCorrelationId] from the `plugins` package (same module).
+ * Declared `internal` so the inline function can access the `internal` helper
+ * [toHttpStatus] from the `plugins` package (same module).
  */
 internal suspend inline fun <reified T : Any> respondAppResult(
     call: ApplicationCall,

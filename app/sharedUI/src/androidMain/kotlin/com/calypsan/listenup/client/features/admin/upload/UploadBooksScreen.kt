@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.util.HoldUnsavedWork
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
@@ -72,6 +73,7 @@ import listenup.composeapp.generated.resources.admin_upload_books_too_large_body
 import listenup.composeapp.generated.resources.admin_upload_books_too_large_title
 import listenup.composeapp.generated.resources.admin_upload_books_too_many_files_body
 import listenup.composeapp.generated.resources.admin_upload_books_too_many_files_title
+import listenup.composeapp.generated.resources.admin_upload_books_unreadable
 import listenup.composeapp.generated.resources.admin_upload_books_uploading
 import listenup.composeapp.generated.resources.common_ok
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -131,6 +133,9 @@ fun UploadBooksScreen(
     // abandoning the session would race the import it has already started; it lasts moments, so
     // Back waits it out rather than offering a stop with no clean meaning.
     PlatformBackHandler(enabled = finalizing) { /* deliberately inert while the server imports */ }
+
+    // A tap from outside the app (push, shared link, shortcut) must not clear this entry either.
+    HoldUnsavedWork(active = uploading || finalizing)
 
     ListenUpScaffold(
         topBar = {
@@ -467,6 +472,15 @@ private fun FinishedContent(
                 text = stringResource(Res.string.admin_upload_books_failures, state.failed.size),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
+            )
+        }
+        // An outcome a newer server reported that this build cannot read: stated, in neutral colour.
+        if (state.unreadable.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(Res.string.admin_upload_books_unreadable, state.unreadable.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Spacer(modifier = Modifier.height(32.dp))

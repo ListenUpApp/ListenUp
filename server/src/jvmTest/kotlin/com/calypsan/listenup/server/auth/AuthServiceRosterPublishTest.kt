@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -20,7 +18,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
@@ -87,7 +84,6 @@ class AuthServiceRosterPublishTest :
         }
     })
 
-@OptIn(ExperimentalTime::class)
 private fun authService(
     db: ListenUpDatabase,
     policy: RegistrationPolicy,

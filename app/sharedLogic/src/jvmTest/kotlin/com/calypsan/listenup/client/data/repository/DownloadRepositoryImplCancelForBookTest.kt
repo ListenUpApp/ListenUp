@@ -138,6 +138,22 @@ private class FailingUpdateStateDownloadDao(
 
     override suspend fun markPausedIfNotTerminal(audioFileId: String) = error("not needed by cancelForBook")
 
+    override suspend fun claimForTransfer(
+        audioFileId: String,
+        startedAt: Long,
+    ): Int = 0
+
+    override suspend fun markFailedIfNotTerminal(
+        audioFileId: String,
+        error: String,
+    ) = Unit
+
+    override suspend fun updateStateIfTransferring(
+        audioFileId: String,
+        state: DownloadState,
+        startedAt: Long?,
+    ) = Unit
+
     override suspend fun updateStateForBookExcluding(
         bookId: String,
         newState: DownloadState,
@@ -155,7 +171,7 @@ private class FailingUpdateStateDownloadDao(
         localPath: String,
         completedAt: Long,
         state: DownloadState,
-    ) = error("not needed by cancelForBook")
+    ): Int = error("not needed by cancelForBook")
 
     override suspend fun updateErrorWithState(
         audioFileId: String,

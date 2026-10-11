@@ -13,7 +13,7 @@ import kotlinx.coroutines.test.runTest
  * the singleton library **and** creates the two system collections (ALL_BOOKS and INBOX) in the
  * same transaction, both owned by the [SYSTEM_OWNER_ID] sentinel.
  *
- * These are Flyway-migrated SQLite databases: no mocks, no stubs.
+ * These are migrated SQLite databases: no mocks, no stubs.
  */
 class LibraryRegistryBootstrapSystemCollectionsTest :
     FunSpec({

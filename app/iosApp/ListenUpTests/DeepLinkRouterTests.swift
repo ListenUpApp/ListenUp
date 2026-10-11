@@ -84,6 +84,25 @@ struct DeepLinkRouterTests {
 
     // MARK: - One window
 
+    /// Why the router is one per process: every router over the same manager resolves the same
+    /// link, so two of them present it twice. `RootView` used to build one per window.
+    @Test func twoRoutersOverOneManagerBothResolveTheSameLink() async throws {
+        let manager = DeepLinkManager()
+        let first = DeepLinkRouter(deepLinkManager: manager)
+        let second = DeepLinkRouter(deepLinkManager: manager)
+        let url = URL(
+            string: "https://link.listenup.audio/o?t=invite&server=http%3A%2F%2F192.168.1.5%3A8080&code=JOIN9"
+        )!
+        first.receive(url: url)
+
+        let expected = DeepLinkRouter.Outcome.claimInvite(
+            serverURL: "http://192.168.1.5:8080", code: "JOIN9", remoteURL: nil
+        )
+        await awaitObservation { first.outcome == expected && second.outcome == expected }
+        #expect(first.outcome == expected)
+        #expect(second.outcome == expected)
+    }
+
     /// With several iPad windows open, a book link opens in the front window only — every shell
     /// observes the router, and before the claim each of them pushed the book.
     @Test func aBookLinkOpensInExactlyOneWindow() {
@@ -137,5 +156,28 @@ struct DeepLinkRouterTests {
         router.deliver(invite)
         #expect(router.claimShellOutcome(for: UUID()) == nil)
         #expect(router.outcome == invite)
+    }
+
+    /// "Search ListenUp" (the Search App Shortcut) asks the shell to open Search: the front window
+    /// takes the request once, like a book link.
+    @Test func aSearchRequestIsClaimedOnceByTheFrontWindow() {
+        let router = DeepLinkRouter(deepLinkManager: DeepLinkManager())
+        let front = UUID()
+        let back = UUID()
+        router.sceneBecameActive(back)
+        router.sceneBecameActive(front)
+
+        router.requestSearch()
+
+        #expect(router.claimShellOutcome(for: back) == nil)
+        #expect(router.claimShellOutcome(for: front) == .openSearch)
+        #expect(router.claimShellOutcome(for: front) == nil)
+    }
+
+    /// The intent can fire before any shell exists (cold launch): the request waits for the first one.
+    @Test func aSearchRequestFromAColdLaunchGoesToTheFirstShell() {
+        let router = DeepLinkRouter(deepLinkManager: DeepLinkManager())
+        router.requestSearch()
+        #expect(router.claimShellOutcome(for: UUID()) == .openSearch)
     }
 }

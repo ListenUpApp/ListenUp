@@ -1,3 +1,4 @@
+import ListenupContract
 import Testing
 import Shared
 @testable import ListenUp

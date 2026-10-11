@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.match
 
+import com.calypsan.listenup.web.nav.rememberSession
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -22,8 +23,7 @@ fun BookMatchRoute(
     onOpenBook: () -> Unit,
     onApplied: () -> Unit,
 ) {
-    val session = remember(bookId) { graph.openBookMatch(bookId) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = rememberSession(bookId) { graph.openBookMatch(bookId) }
     BookMatchPage(
         session = session,
         bookId = bookId,

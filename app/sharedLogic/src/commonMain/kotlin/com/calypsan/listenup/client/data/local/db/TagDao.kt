@@ -193,6 +193,10 @@ internal interface BookTagDao {
     @Query("SELECT syncId FROM book_tags WHERE deletedAt IS NULL")
     suspend fun liveIds(): List<String>
 
+    /** Live junction sync ids the server has not acknowledged yet (revision 0): optimistic adds. */
+    @Query("SELECT syncId FROM book_tags WHERE deletedAt IS NULL AND revision = 0")
+    suspend fun unacknowledgedIds(): List<String>
+
     /**
      * Live junction sync ids whose `bookId` is one of [bookIds] — the scoped
      * `AccessDeltaPolicy.Targeted` candidate set.
@@ -224,12 +228,15 @@ internal interface BookTagDao {
     suspend fun deleteAll()
 
     /**
-     * All rows (including tombstones) with [revision][BookTagEntity.revision] <= [max], for digest computation.
+     * All live rows the server has acknowledged (revision above 0) up to [max], for digest computation.
      *
      * The id is the opaque wire [BookTagEntity.syncId] (SERVER-SYNC-04) — the same value the
      * server uses on the wire.
+     *
+     * A revision-0 row is an optimistic add the server has not acknowledged; the server cannot
+     * have it, so counting it would make the domain read as drifted until the add drains.
      */
-    @Query("SELECT syncId AS id, revision FROM book_tags WHERE deletedAt IS NULL AND revision <= :max")
+    @Query("SELECT syncId AS id, revision FROM book_tags WHERE deletedAt IS NULL AND revision > 0 AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /**

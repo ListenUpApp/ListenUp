@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.contributors
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -42,7 +41,6 @@ import org.jetbrains.compose.resources.stringResource
  *   the other-count (`%2$d`) — e.g. "%1$s, %2$d other narrators".
  * @param onOverflowClick Invoked when the folded line is tapped; wired to open the full-cast overlay
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ClickableContributorLine(
     contributors: List<BookContributor>,

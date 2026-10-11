@@ -45,7 +45,7 @@ private const val PULL_LIMIT = 100
  *
  * Catch-up/digest tests drive the real syncable repositories with the
  * [BookAccessPolicy] fragments (the exact pairing `SyncRoutes` wires), against a
- * Flyway-migrated in-memory database. The firehose test boots the full [module]
+ * migrated in-memory database. The firehose test boots the full [module]
  * and asserts the RPC firehose ([rpcFirehose] over the app's real [ChangeBus])
  * gates a collection event per-subscriber.
  */

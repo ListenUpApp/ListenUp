@@ -62,6 +62,7 @@ final class BookSelectionObserver {
 
     init(viewModel: BookMultiSelectViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.selectionMode) { [weak self] mode in
             self?.applySelectionMode(mode)
         }
@@ -89,8 +90,6 @@ final class BookSelectionObserver {
             self?.confirmation = Self.message(for: event)
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - State mapping
 

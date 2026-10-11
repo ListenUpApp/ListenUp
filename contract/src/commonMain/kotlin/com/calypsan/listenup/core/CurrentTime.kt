@@ -1,11 +1,8 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.core
 
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 /**
  * Get current epoch milliseconds.

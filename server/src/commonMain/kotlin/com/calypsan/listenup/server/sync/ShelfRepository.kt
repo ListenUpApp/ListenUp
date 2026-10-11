@@ -25,9 +25,8 @@ data class OwnedShelf(
 )
 
 /**
- * SQLDelight syncable repository for per-user, user-owned shelves — the **first
- * user-scoped aggregate** in the Exposed → SQLDelight cutover and the template the
- * playback/listening domains follow.
+ * SQLDelight syncable repository for per-user, user-owned shelves — the template the other
+ * user-scoped aggregates (the playback/listening domains) follow.
  *
  * `userScoped = true` — every `upsert`, `softDelete`, `pullSince`, and `digest`
  * routes through the per-user dimension of the [SqlSyncableRepository] base: the
@@ -73,7 +72,7 @@ class ShelfRepository(
      * The canonical user-scoped adapter shape: the four global substrate methods forward
      * to the unfiltered queries; the two `*ForUser` methods forward to the user-filtered
      * queries the base calls when [userScoped] is true. Each `*ForUser` query carries the
-     * `user_id = :userId` predicate the Exposed base appends in a WHERE clause.
+     * `user_id = :userId` predicate.
      */
     override val substrate: SyncableSubstrateQueries =
         object : SyncableSubstrateQueries {
@@ -294,7 +293,7 @@ class ShelfRepository(
             name = name,
             description = description,
             // `is_private` is INTEGER (0/1) in SQLite — SQLDelight maps it to Long; convert at
-            // the boundary, the same place the Exposed bool adapter sat.
+            // the boundary.
             isPrivate = is_private == 1L,
             revision = revision,
             updatedAt = updated_at,

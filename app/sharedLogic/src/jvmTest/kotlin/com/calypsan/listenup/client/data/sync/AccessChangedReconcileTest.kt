@@ -16,6 +16,8 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.sync.SyncPayload
 import com.calypsan.listenup.api.sync.Tombstoned
 import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
+import com.calypsan.listenup.client.data.sync.domains.RefreshStrategy
+import com.calypsan.listenup.client.data.sync.domains.RefreshedDomain
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.activitiesDomain
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
@@ -29,6 +31,7 @@ import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.AccessScope
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -552,6 +555,64 @@ class AccessChangedReconcileTest :
             }
         }
 
+        test("a leader finishing its refresh does not reset the next leader's state") {
+            // The first leader leaves its loop (clearing the running flag) and then suspends in the
+            // access-sensitive refresh. A frame arriving in that window starts a second leader; when the
+            // first leader's refresh returns, its cleanup must not clear the SECOND leader's state.
+            val refreshStarted = CompletableDeferred<Unit>()
+            val refreshGate = CompletableDeferred<Unit>()
+            var refreshCalls = 0
+            val gatedRefresh =
+                RefreshedDomain(
+                    trigger = SyncControl.ServerInfoChanged::class,
+                    refresh =
+                        RefreshStrategy.Refetch {
+                            // Only the first leader parks here; later leaders pass straight through.
+                            if (refreshCalls++ == 0) {
+                                refreshStarted.complete(Unit)
+                                refreshGate.await()
+                            }
+                        },
+                    refreshOnAccessChanged = true,
+                )
+            withReconcileEngine(extraRefreshed = listOf(gatedRefresh)) { harness, _, _ ->
+                val fetchGate = CompletableDeferred<Unit>()
+                coroutineScope {
+                    val leader1 =
+                        launch { harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("b1"))) }
+                    refreshStarted.await() // leader 1 has left its loop and is suspended in the refresh
+
+                    harness.fakeCatchUp.gate = fetchGate
+                    val leader2 =
+                        launch { harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("b2"))) }
+                    while (harness.fakeCatchUp.inFlight == 0) yield() // leader 2 is parked in its fetch
+
+                    refreshGate.complete(Unit)
+                    leader1.join()
+
+                    val leader3 =
+                        launch { harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("b3"))) }
+                    repeat(20) { yield() }
+
+                    fetchGate.complete(Unit)
+                    leader2.join()
+                    leader3.join()
+                }
+
+                // Leader 3 folded into leader 2's follow-up. If leader 1's cleanup had cleared leader 2's
+                // running flag, leader 3 would have led a third activation (it queues behind the paging
+                // lock rather than overlapping, so the activation count is what shows it).
+                refreshCalls shouldBe 2
+
+                // b3's scope was folded into leader 2's follow-up rather than dropped.
+                val bookFetchIds =
+                    harness.fakeCatchUp.fetches
+                        .filter { it.domain == "books" }
+                        .flatMap { (it.fetch as TargetedFetch.ByIds).ids }
+                bookFetchIds shouldBe listOf("b1", "b2", "b3")
+            }
+        }
+
         // ---- Transient-failure re-queue (plan 101) --------------------------------------------------
 
         test("delta requeue: a failed scoped fetch is retried on the next drain and the prune completes") {
@@ -694,7 +755,22 @@ private class FakeReconcileCatchUp : CatchUp {
         return AppResult.Success(ids)
     }
 
+    /** Targeted fetches currently inside [fetchTransient]. */
+    var inFlight = 0
+
     override suspend fun <T : Any> fetchTransient(
+        handler: SyncDomainHandler<T>,
+        fetch: TargetedFetch,
+    ): AppResult<Set<String>> {
+        inFlight++
+        try {
+            return fetchTransientBody(handler, fetch)
+        } finally {
+            inFlight--
+        }
+    }
+
+    private suspend fun <T : Any> fetchTransientBody(
         handler: SyncDomainHandler<T>,
         fetch: TargetedFetch,
     ): AppResult<Set<String>> {
@@ -757,79 +833,81 @@ private data class ReconcileHarness(
     val coarseCallsAtPresenceRefresh: List<List<String>>,
 )
 
-private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDatabase, SyncCursorStore) -> Unit) =
-    runBlocking {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        val db = createInMemoryTestDatabase()
-        try {
-            // Register the four access-gated handlers under one shared registry.
-            val registry = ClientSyncDomainRegistry()
-            val txn = RoomTransactionRunner(db)
-            booksDomain(
-                database = db,
-                mapper = BookEntityMapper(),
-                imageStorage = stubImageStorage(),
-            ).toHandler(transactionRunner = txn, registry = registry)
-            collectionsDomain(db).toHandler(txn, registry)
-            collectionBooksDomain(db).toHandler(txn, registry)
-            collectionSharesDomain(db).toHandler(txn, registry)
-            activitiesDomain(db).toHandler(txn, registry)
+private fun withReconcileEngine(
+    extraRefreshed: List<RefreshedDomain> = emptyList(),
+    block: suspend (ReconcileHarness, ListenUpDatabase, SyncCursorStore) -> Unit,
+) = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val db = createInMemoryTestDatabase()
+    try {
+        // Register the four access-gated handlers under one shared registry.
+        val registry = ClientSyncDomainRegistry()
+        val txn = RoomTransactionRunner(db)
+        booksDomain(
+            database = db,
+            mapper = BookEntityMapper(),
+            imageStorage = stubImageStorage(),
+        ).toHandler(transactionRunner = txn, registry = registry)
+        collectionsDomain(db).toHandler(txn, registry)
+        collectionBooksDomain(db).toHandler(txn, registry)
+        collectionSharesDomain(db).toHandler(txn, registry)
+        activitiesDomain(db).toHandler(txn, registry)
 
-            val store = SyncCursorStore(db.syncCursorDao())
-            val state = SyncEngineState()
-            val queue =
-                PendingOperationQueue(
-                    dao = db.pendingOperationV2Dao(),
-                    sender = PendingOperationSender { AppResult.Success(Unit) },
-                )
-            val dispatcher =
-                SyncEventDispatcher(
-                    registry = registry,
-                    state = state,
-                    cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
-                )
-            val fakeCatchUp = FakeReconcileCatchUp()
-            val presence = PresenceRefreshSignal()
-            // Snapshot the coarse reconcile trail at the moment presence refreshes, so ordering
-            // (refresh AFTER the reconcile's fetches) is provable from the recorded sequence.
-            val coarseCallsAtPresenceRefresh = mutableListOf<List<String>>()
-            val engine =
-                SyncEngine(
-                    registry = registry,
-                    queue = queue,
-                    state = state,
-                    store = store,
-                    catchUp = fakeCatchUp,
-                    syncStreamClient = FakeReconcileSse(),
-                    reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
-                    dispatcher = dispatcher,
-                    presenceRefreshSignal = presence,
-                    scope = scope,
-                    // Presence is the access-sensitive refreshed domain: the engine re-fires it at the end
-                    // of an AccessChanged reconcile via refreshAccessSensitive(). Wire it so the test can
-                    // observe the refresh (via the signal) and the reconcile state at refresh time.
-                    refreshedRouter =
-                        RefreshedDomainRouter(
-                            listOf(
-                                presenceDomain(
-                                    ping = {
-                                        coarseCallsAtPresenceRefresh += fakeCatchUp.coarseCalls.toList()
-                                        presence.ping()
-                                    },
-                                ),
-                            ),
-                        ),
-                )
-            block(
-                ReconcileHarness(engine, fakeCatchUp, registry, presence, coarseCallsAtPresenceRefresh),
-                db,
-                store,
+        val store = SyncCursorStore(db.syncCursorDao())
+        val state = SyncEngineState()
+        val queue =
+            PendingOperationQueue(
+                dao = db.pendingOperationV2Dao(),
+                sender = PendingOperationSender { AppResult.Success(Unit) },
             )
-        } finally {
-            scope.cancel()
-            db.close()
-        }
+        val dispatcher =
+            SyncEventDispatcher(
+                registry = registry,
+                state = state,
+                cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+            )
+        val fakeCatchUp = FakeReconcileCatchUp()
+        val presence = PresenceRefreshSignal()
+        // Snapshot the coarse reconcile trail at the moment presence refreshes, so ordering
+        // (refresh AFTER the reconcile's fetches) is provable from the recorded sequence.
+        val coarseCallsAtPresenceRefresh = mutableListOf<List<String>>()
+        val engine =
+            SyncEngine(
+                registry = registry,
+                queue = queue,
+                state = state,
+                store = store,
+                catchUp = fakeCatchUp,
+                syncStreamClient = FakeReconcileSse(),
+                reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
+                dispatcher = dispatcher,
+                presenceRefreshSignal = presence,
+                scope = scope,
+                // Presence is the access-sensitive refreshed domain: the engine re-fires it at the end
+                // of an AccessChanged reconcile via refreshAccessSensitive(). Wire it so the test can
+                // observe the refresh (via the signal) and the reconcile state at refresh time.
+                refreshedRouter =
+                    RefreshedDomainRouter(
+                        listOf(
+                            presenceDomain(
+                                ping = {
+                                    coarseCallsAtPresenceRefresh += fakeCatchUp.coarseCalls.toList()
+                                    presence.ping()
+                                },
+                            ),
+                        ) + extraRefreshed,
+                    ),
+            )
+        block(
+            ReconcileHarness(engine, fakeCatchUp, registry, presence, coarseCallsAtPresenceRefresh),
+            db,
+            store,
+        )
+    } finally {
+        scope.cancel()
+        db.close()
     }
+}
 
 private fun readershipRow(
     bookId: String,

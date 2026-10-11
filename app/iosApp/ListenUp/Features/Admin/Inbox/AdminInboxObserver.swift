@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `AdminInboxViewModel` — flattens the sealed `AdminInboxUiState` into a
@@ -22,10 +23,9 @@ final class AdminInboxObserver {
 
     init(viewModel: AdminInboxViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

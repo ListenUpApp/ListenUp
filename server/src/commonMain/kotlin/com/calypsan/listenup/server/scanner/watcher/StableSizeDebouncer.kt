@@ -12,16 +12,18 @@ import kotlin.time.Duration.Companion.seconds
  * Uniform "done writing" detector across Linux/macOS/Windows.
  *
  * The recursive watcher translates platform events into a uniform
- * Create/Modify/Delete model, but the *semantics* of those events differ:
+ * Create/Modify/Delete model, and none of those events says "the writer has
+ * finished":
  *
- *  - **Linux** (inotify): `IN_CLOSE_WRITE` fires once after the writer's
- *    fd is closed — already a "done writing" signal.
- *  - **macOS** (FSEvents) / **Windows** (ReadDirectoryChangesW): events
- *    fire mid-write; consumers must poll for the file to settle.
+ *  - **Native Linux server** (inotify): the watch mask is create / modify /
+ *    delete / moved-to / moved-from — no `IN_CLOSE_WRITE` — so events fire
+ *    mid-write.
+ *  - **JVM server** (`java.nio` `WatchService`): `ENTRY_CREATE` /
+ *    `ENTRY_MODIFY` / `ENTRY_DELETE`, likewise mid-write.
  *
- * Rather than special-case per OS, we layer this debouncer on every
- * platform: the file is "stable" when its size and mtime don't change
- * for [settle] consecutive duration. A 2 s settle with 500 ms polling is
+ * So this debouncer is layered on every platform: the file is "stable" when
+ * its size and mtime don't change for [settle] consecutive duration. A 2 s
+ * settle with 500 ms polling is
  * the default — fast enough for human latency, slow enough to handle
  * an SMB share's chattier events.
  *

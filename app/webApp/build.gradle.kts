@@ -163,8 +163,8 @@ kotlin {
 // Runs the compiled Kotest bundle in Chromium via `app/webApp/web`, where Vite and Playwright
 // own the browser instead of KGP.
 //
-// This is the only browser lane: it replaced jsBrowserTest, which is gone along with the karma
-// and webpack configuration it needed. CI runs both halves of it — `webKotest` (ci.yml, the
+// This is the only browser test lane: it replaced jsBrowserTest, and the karma and webpack
+// configuration that task needed is gone (KGP still lists karma in its yarn lockfile). CI runs both halves of it — `webKotest` (ci.yml, the
 // test-web-browser job) and `webAuthKotest` (test-web-browser-server).
 //
 // Not wired into `check` — it needs pnpm and a Playwright browser download, which is a bigger
@@ -219,6 +219,12 @@ tasks.register<Exec>("webBundle") {
     inputs.dir(webRoot.dir("scripts"))
     inputs.file(webRoot.file("index.html"))
     inputs.file(webRoot.file("package.json"))
+    // Also read by `pnpm build:check`; an undeclared one lets Gradle call the bundle up to date after it changed.
+    inputs.file(webRoot.file("vite.config.ts"))
+    inputs.file(webRoot.file("pnpm-lock.yaml"))
+    inputs.dir(webRoot.dir("test"))
+    inputs.dir(webRoot.dir("public"))
+    inputs.dir(layout.projectDirectory.dir("worker"))
     outputs.dir(webRoot.dir("dist"))
 }
 

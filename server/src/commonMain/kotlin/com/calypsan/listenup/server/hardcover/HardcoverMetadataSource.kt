@@ -94,6 +94,8 @@ class HardcoverMetadataSource(
 
     override suspend fun findAvailability(): FindAvailability = finder.availability()
 
+    override suspend fun cacheDiscriminator(lookup: FindLookup): String? = finder.cacheDiscriminator(lookup)
+
     override suspend fun findBooks(
         lookup: FindLookup,
         locale: MetadataLocale,

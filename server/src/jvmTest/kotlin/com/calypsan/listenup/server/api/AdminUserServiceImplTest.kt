@@ -30,6 +30,11 @@ import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.hardcover.HARDCOVER_SCOPES
+import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
+import com.calypsan.listenup.server.hardcover.HardcoverMe
+import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
+import com.calypsan.listenup.server.hardcover.HardcoverTokens
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
@@ -58,7 +63,7 @@ import kotlin.time.Instant
 /**
  * Integration tests for [AdminUserServiceImpl].
  *
- * Real in-memory Flyway-migrated SQLite + real [SessionService] and
+ * Real in-memory migrated SQLite + real [SessionService] and
  * [ServerSettingsRepository]; no mocks. The acting caller is supplied via a
  * [PrincipalProvider] stub; [actAs] rebinds the service to a chosen
  * `(userId, role)` so a single test can exercise multiple callers.
@@ -83,6 +88,7 @@ class AdminUserServiceImplTest :
             policyBroadcaster: RegistrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
             bus: ChangeBus = ChangeBus(),
             activityRecorder: ActivityRecorder? = null,
+            forgetHardcoverConnection: (suspend (String) -> Unit)? = null,
         ): AdminUserServiceImpl {
             val sessions =
                 SessionService(db.sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
@@ -98,6 +104,7 @@ class AdminUserServiceImplTest :
                 publicProfileMaintainer = db.sql.noOpPublicProfileMaintainer(),
                 activityRecorder = activityRecorder,
                 passwordResetService = testPasswordResetService(db.sql, fixedClock),
+                forgetHardcoverConnection = forgetHardcoverConnection,
             )
         }
 
@@ -519,6 +526,44 @@ class AdminUserServiceImplTest :
                     svc.deleteUser(UserId("m1")).shouldSucceed()
 
                     sql.passwordResetRequestsQueries.selectById("reset-row-1").executeAsOneOrNull() shouldBe null
+                }
+            }
+        }
+
+        test("deleteUser forgets the user's Hardcover connection") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                val connections =
+                    HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), fixedClock)
+                runTest {
+                    connections.save("m1", HardcoverMe(42L, "reader"), HardcoverTokens("at", "rt", 604_800, HARDCOVER_SCOPES))
+                    connections.hasConnection("m1") shouldBe true
+                    val svc =
+                        makeAdminUserService(db, forgetHardcoverConnection = { connections.delete(it) })
+                            .actAs("root1", UserRole.ROOT)
+
+                    svc.deleteUser(UserId("m1")).shouldSucceed()
+
+                    connections.hasConnection("m1") shouldBe false
+                }
+            }
+        }
+
+        test("deleteUser succeeds when the Hardcover cleanup throws") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                runTest {
+                    val svc =
+                        makeAdminUserService(db, forgetHardcoverConnection = { error("hardcover is down") })
+                            .actAs("root1", UserRole.ROOT)
+
+                    svc.deleteUser(UserId("m1")).shouldSucceed()
+
+                    svc.listUsers().shouldSucceed().map { it.id.value } shouldNotContain "m1"
                 }
             }
         }

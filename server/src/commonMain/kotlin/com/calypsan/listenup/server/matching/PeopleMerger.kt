@@ -68,7 +68,7 @@ internal object PeopleMerger {
 /** A name's comparison key: its letters and digits, lower-cased, as a sorted set of words. */
 internal fun nameKey(name: String): String =
     name
-        .lowercase()
+        .foldForMatching()
         .split(Regex("[^\\p{L}\\p{N}]+"))
         .filter { it.isNotEmpty() }
         .sorted()

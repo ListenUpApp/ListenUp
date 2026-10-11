@@ -3,8 +3,9 @@ import Testing
 @preconcurrency import Shared
 
 /// The matching observers close their shared ViewModels when their screen lets them go: iOS has no `ViewModelStore`
-/// to call `onCleared`, so each observer's `isolated deinit` calls `close()`. Two halves pin that:
-/// - each observer is released with its screen — nothing it binds keeps it alive, so its deinit runs;
+/// to call `onCleared`, so each observer hands its ViewModel to its `FlowBridge`, which clears it on release. Two
+/// halves pin that:
+/// - each observer is released with its screen — nothing it binds keeps it alive, so its bridge is released;
 /// - every screen gets its own ViewModel from Koin's `factory`, so one screen closing its ViewModel can never cancel
 ///   another screen's (the CarPlay Library bug, #1192).
 @Suite("Matching observers close their ViewModels")
@@ -59,7 +60,7 @@ struct MatchObserverLifetimeTests {
 
     @Test func closingAViewModelTwiceIsHarmless() {
         let viewModel = Dependencies.shared.createMatchReceiptViewModel(subjectId: "book-1")
-        viewModel.close()
-        viewModel.close()
+        KoinHelper.shared.closeViewModel(viewModel: viewModel)
+        KoinHelper.shared.closeViewModel(viewModel: viewModel)
     }
 }

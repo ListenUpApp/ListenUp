@@ -30,6 +30,8 @@ sealed interface ProfileError : AppError {
         override val message: String = "That image couldn't be used. Use a JPEG, PNG, or WebP under the size limit."
         override val code: String = "PROFILE_INVALID_IMAGE"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
     /**
@@ -45,5 +47,7 @@ sealed interface ProfileError : AppError {
         override val message: String = "Your current password is incorrect."
         override val code: String = "PROFILE_WRONG_PASSWORD"
         override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 }

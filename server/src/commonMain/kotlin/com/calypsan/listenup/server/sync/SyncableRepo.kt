@@ -10,12 +10,9 @@ import com.calypsan.listenup.api.sync.SyncFrame
  * ([ChangeBus], [SyncRegistry], [SyncStreamServiceImpl]) needs from a
  * syncable-domain repository — independent of the storage engine behind it.
  *
- * Both bases implement it: the Exposed [SyncableRepository] (production today)
- * and the SQLDelight [SqlSyncableRepository] (the cutover twin). The consumers
- * speak this interface, so a repository on either engine registers, publishes,
- * and serves catch-up identically. Widening the consumers from the concrete
- * Exposed type to this interface is what lets both bases coexist on the branch
- * during the incremental Exposed → SQLDelight cutover.
+ * [SqlSyncableRepository] is the base that implements it. The consumers speak
+ * this interface rather than the concrete base, so every repository registers,
+ * publishes, and serves catch-up identically.
  *
  * Kept deliberately small — only what the three consumers actually touch:
  *  - [domainName] — the registry key, the firehose frame's `domain`, the error domain.

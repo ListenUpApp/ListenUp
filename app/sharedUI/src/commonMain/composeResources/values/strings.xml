@@ -348,6 +348,7 @@
     <string name="admin_upload_books_too_large_title">That's too much at once</string>
     <string name="admin_upload_books_too_many_files_body">One upload can carry %1$d files. That selection has %2$d, so try it in smaller batches.</string>
     <string name="admin_upload_books_too_many_files_title">That's too many files</string>
+    <string name="admin_upload_books_unreadable">%1$d with a result this version of the app can't show</string>
     <string name="admin_upload_books_uploading">Sending %1$s</string>
     <string name="admin_upload_new_import">Upload new import</string>
     <string name="admin_valid_email_is_required">A valid email is required.</string>
@@ -655,6 +656,7 @@ One beautiful library.</string>
     <string name="book_role_narrator">Narrator</string>
     <string name="book_role_producer">Producer</string>
     <string name="book_role_translator">Translator</string>
+    <string name="book_role_unknown">Other role</string>
     <string name="book_show_all_chapters">Show all %1$d chapters</string>
     <string name="book_time_left">%1$s left</string>
     <string name="book_visibility_add_to_collection">Add to a collection</string>
@@ -1150,6 +1152,7 @@ One beautiful library.</string>
     <string name="hardcover_broken_missing_scope">ListenUp is missing a permission it needs on Hardcover. Reconnect to grant it.</string>
     <string name="hardcover_broken_revoked">Hardcover no longer accepts ListenUp's access — it may have been removed on Hardcover. Reconnect to continue.</string>
     <string name="hardcover_broken_title">Reconnect to keep sharing</string>
+    <string name="hardcover_broken_unknown">Your Hardcover connection stopped working. Reconnect to continue.</string>
     <string name="hardcover_cancel_linking">Cancel</string>
     <string name="hardcover_code_copied">Copied</string>
     <string name="hardcover_comes_back_line">Books you've read elsewhere appear in Readers with a Hardcover label.</string>
@@ -1398,6 +1401,7 @@ One beautiful library.</string>
     <string name="import_suggested_name">Suggested: %1$s</string>
     <string name="import_title">Import from Audiobookshelf</string>
     <string name="import_to_review_count">%1$s to review</string>
+    <string name="import_unknown">Unknown</string>
     <string name="import_upload_failed">Upload failed</string>
     <string name="import_uploading_hero_subtitle">Sending your backup to the server.</string>
     <string name="import_uploading_subtitle">Uploading %1$s to the server...</string>
@@ -1595,6 +1599,7 @@ One beautiful library.</string>
     <string name="match_credit_of_your_books">%1$s of your books</string>
     <string name="match_credit_producer">Produced %1$d</string>
     <string name="match_credit_translator">Translated %1$d</string>
+    <string name="match_credit_unknown">Credited on %1$d</string>
     <string name="match_details_matched">Details matched %1$s</string>
     <string name="match_details_matched_by">Details matched %1$s by %2$s</string>
     <string name="match_details_matched_by_just_now">Details matched just now by %1$s</string>

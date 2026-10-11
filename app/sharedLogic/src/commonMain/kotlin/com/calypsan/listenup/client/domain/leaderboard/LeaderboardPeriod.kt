@@ -1,9 +1,6 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.domain.leaderboard
 
 import com.calypsan.listenup.domain.stats.StatsWindow
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 

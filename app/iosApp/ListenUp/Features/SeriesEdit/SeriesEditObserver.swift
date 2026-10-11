@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 import Shared
 
@@ -63,6 +64,7 @@ final class SeriesEditObserver {
 
     init(viewModel: SeriesEditViewModel) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
         bridge.bind(viewModel.mergeCandidates) { [weak self] candidates in
@@ -80,8 +82,6 @@ final class SeriesEditObserver {
             if AddSubSeriesSheetModel.hasError(state) { sendAddSubSeries(.errorDismissed) }
         }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func loadSeries(seriesId: String) { viewModel.loadSeries(seriesId: seriesId) }
 

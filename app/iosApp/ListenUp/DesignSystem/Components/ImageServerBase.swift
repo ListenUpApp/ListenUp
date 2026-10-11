@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 @preconcurrency import Shared
 
 /// The connected server's base URL, mirrored on the main actor so image requests can be built in the

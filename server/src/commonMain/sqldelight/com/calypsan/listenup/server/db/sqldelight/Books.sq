@@ -18,12 +18,10 @@
 -- level: SQLite cannot add a NOT NULL column without a constant default in a
 -- single ALTER, so the migration uses a DEFAULT sentinel instead. Every live row
 -- carries a non-null folder_id (the insert path always sets it from the payload),
--- so the generated type is the non-null `String` the reader/writer rely on —
--- matching the Exposed `BookTable.folderId` which is also non-nullable.
+-- so the generated type is the non-null `String` the reader/writer rely on.
 --
--- has_scan_warning / abridged / explicit are INTEGER (0/1) in SQLite; the Exposed
--- table maps them to `bool`. SQLDelight maps INTEGER → Long; the repo rewrite maps
--- 0/1 ↔ Boolean at the boundary (the same place the Exposed bool adapter sat).
+-- has_scan_warning / abridged / explicit are INTEGER (0/1) in SQLite. SQLDelight maps
+-- INTEGER → Long; the repo maps 0/1 ↔ Boolean at the boundary.
 --
 -- FK declarations (library_id → libraries, folder_id → library_folders) are
 -- omitted: SQLDelight cannot resolve cross-table references for tables not defined
@@ -91,23 +89,16 @@ SELECT * FROM books WHERE id IN :ids;
 selectIdByNaturalKey:
 SELECT id FROM books WHERE folder_id = :folder_id AND root_rel_path = :root_rel_path;
 
--- Move-detection resolve (folder_id + inode) → ids. findByInode picks the first
--- match deterministically when hardlinks share an inode.
-selectIdsByInode:
-SELECT id FROM books WHERE folder_id = :folder_id AND inode = :inode;
-
 -- Bulk natural-key resolve (folder_id + a batch of root_rel_paths) → (id, root_rel_path).
 -- The batched counterpart to selectIdByNaturalKey: BookFinder.findExistingByPaths runs this
 -- ONCE per scan so the per-book existence lookup is in-memory, not a read txn per book.
 selectIdsByPaths:
 SELECT id, root_rel_path FROM books WHERE folder_id = :folder_id AND root_rel_path IN :paths;
 
--- Bulk move-detection resolve (folder_id + a batch of inodes) → (id, inode). The batched
--- counterpart to selectIdsByInode: BookFinder.findExistingByInodes runs this ONCE per scan to
--- pre-resolve the move-detection map. A hardlink-shared inode yields multiple rows; the caller
--- keeps the first deterministically, matching findByInode's single-row behaviour.
-selectIdsByInodes:
-SELECT id, inode FROM books WHERE folder_id = :folder_id AND inode IN :inodes;
+-- Move-detection candidates: every book in the folder holding one of these inodes, with the path
+-- it is recorded at. An inode alone is not identity — the caller corroborates each candidate.
+selectInodeCandidates:
+SELECT id, inode, root_rel_path FROM books WHERE folder_id = :folder_id AND inode IN :inodes;
 
 -- All book ids under a folder (tombstone-inclusive) — drives folder-id REUSE revival: when a
 -- soft-deleted folder is re-added at the same path, its books are revived under their original
@@ -349,8 +340,7 @@ SELECT EXISTS(SELECT 1 FROM books WHERE id = :id);
 
 -- True iff a LIVE (non-tombstoned) book row exists for :id. The service-layer
 -- `bookExists` gate (Tag/Mood/Collection add-to flows) must reject a tombstoned
--- book, so this excludes soft-deleted rows — replacing the Exposed
--- `BookTable.selectAll().where { id eq … and deletedAt.isNull() }.count() > 0`.
+-- book, so this excludes soft-deleted rows.
 existsLiveById:
 SELECT EXISTS(SELECT 1 FROM books WHERE id = :id AND deleted_at IS NULL);
 
@@ -387,12 +377,11 @@ selectLiveIdsBySortTitle:
 SELECT id FROM books WHERE deleted_at IS NULL ORDER BY sort_title LIMIT :limit;
 
 -- Count of LIVE (non-tombstoned) books — used by BackupArchive to embed a snapshot
--- count in the backup manifest (replaces the Exposed `BookTable.selectAll().where { deletedAt.isNull() }.count()`).
+-- count in the backup manifest.
 countLive:
 SELECT COUNT(*) FROM books WHERE deleted_at IS NULL;
 
--- All LIVE (non-tombstoned) book ids — SearchReindexService iterates these to
--- drive the full book_search rebuild. Unbounded; callers that need a limited set
+-- All LIVE (non-tombstoned) book ids. Unbounded; callers that need a limited set
 -- should use selectLiveIdsBySortTitle instead.
 selectAllLiveIds:
 SELECT id FROM books WHERE deleted_at IS NULL;

@@ -11,15 +11,16 @@ import kotlin.uuid.Uuid
 private val logger = loggerFor<CoverStorage>()
 
 /**
- * Filesystem-side counterpart to the cover-state column on `books`: the only
- * place that touches an on-disk cover image during a delete.
+ * Filesystem-side counterpart to the cover-state column on `books`: the place
+ * that deletes a **filesystem-source** cover image.
  *
- * ListenUp does **not** maintain a managed cover directory. Filesystem-source
- * covers live inside the book's library folder (`<libraryRoot>/<rootRelPath>/cover.*`
- * or the first sibling image) — exactly where the scanner found them.
+ * Filesystem-source covers live inside the book's library folder
+ * (`<libraryRoot>/<rootRelPath>/cover.*` or the first sibling image) — exactly where the
+ * scanner found them.
  * [BookRepository.coverInfo][com.calypsan.listenup.server.services.BookRepository.coverInfo]
  * resolves that path on demand; this class accepts an already-resolved [Path]
- * and best-effort-removes it.
+ * and best-effort-removes it. Covers in the managed store (`covers/` under the server's home
+ * directory — see [ManagedCoverFiles]) are not deleted here: they go through [CoverImageStore].
  *
  * The split with [BookServiceImpl][com.calypsan.listenup.server.api.BookServiceImpl]
  * is deliberate. The DB nullification happens inside a transaction so the
@@ -27,8 +28,9 @@ private val logger = loggerFor<CoverStorage>()
  * The file delete runs **after** the transaction commits — if the row update
  * fails, the file is untouched. If the file delete fails (file already gone,
  * permission issue, scanner-deleted-it-already), the row update has already
- * taken effect; the file becomes orphaned and gets swept by the orphan-image
- * cleanup pass later. Never inverted, never inlined.
+ * taken effect; the file stays in the library folder until it is removed by hand.
+ * [OrphanImageCleanupTask][com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask]
+ * sweeps only the managed image store, never a library folder. Never inverted, never inlined.
  *
  * **Embedded covers have no file of their own** — the artwork lives inside the
  * primary audio file, which we must never delete. Callers detect the embedded
@@ -56,7 +58,8 @@ class CoverStorage(
                     opId = "delete-cover-${Uuid.random()}",
                     ops = listOf(WriteOp.DeleteFile(path)),
                     // The caller has already moved on; a refused cover delete must not run itself
-                    // at the next boot. The orphan sweep is the fallback, as it always was.
+                    // at the next boot. Nothing sweeps a library folder: the file stays until
+                    // it is removed by hand.
                     resumeAfterReportedFailure = false,
                 ),
             )

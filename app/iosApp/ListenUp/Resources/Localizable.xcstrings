@@ -3481,6 +3481,16 @@
         }
       }
     },
+    "admin.upload_books_unreadable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d with a result this version of the app can't show"
+          }
+        }
+      }
+    },
     "admin.upload_books_uploading": {
       "localizations": {
         "en": {
@@ -6537,6 +6547,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Translator"
+          }
+        }
+      }
+    },
+    "book.role_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other role"
           }
         }
       }
@@ -11491,6 +11511,16 @@
         }
       }
     },
+    "hardcover.broken_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Hardcover connection stopped working. Reconnect to continue."
+          }
+        }
+      }
+    },
     "hardcover.cancel_linking": {
       "localizations": {
         "en": {
@@ -13971,6 +14001,16 @@
         }
       }
     },
+    "import.unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown"
+          }
+        }
+      }
+    },
     "import.upload_failed": {
       "localizations": {
         "en": {
@@ -15937,6 +15977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Translated %1$d"
+          }
+        }
+      }
+    },
+    "match.credit_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Credited on %1$d"
           }
         }
       }

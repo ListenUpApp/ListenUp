@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.profile
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
@@ -30,8 +31,8 @@ class EditProfileSession(
     val onPickAvatar: (ByteArray, String) -> Unit,
     val onRemoveAvatar: () -> Unit,
     val onSave: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the form gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenEditProfile = () -> EditProfileSession

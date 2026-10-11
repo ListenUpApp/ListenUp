@@ -11,11 +11,10 @@ import com.calypsan.listenup.core.BookId
 /**
  * One ABS user in the import Review step, flattened to plain Swift-consumable strings.
  *
- * SKIE unboxes a value class to a `String` only at a *direct, non-collection* parameter or
- * return position. The Review state holds `AbsUserId` / `UserId` inside `data class` fields and
- * `Map`/`Set` collections, so SKIE boxes them to opaque `id` objects Swift can't read. This holder
- * is produced Kotlin-side (where the value classes are in scope) so the Swift Review screen never
- * touches a boxed value class.
+ * Swift Export exports a value class as a wrapper object, never as a `String`. The Review state
+ * holds `AbsUserId` / `UserId` inside `data class` fields and `Map`/`Set` collections, so this
+ * holder is produced Kotlin-side (where the value classes are in scope) and the Swift Review
+ * screen works with plain strings, never a wrapped value class.
  *
  * [resolution] is one of [ImportFlowSwiftBridge.RESOLUTION_ASSIGNED],
  * [ImportFlowSwiftBridge.RESOLUTION_SKIPPED], or [ImportFlowSwiftBridge.RESOLUTION_NEEDS_REVIEW].
@@ -34,7 +33,7 @@ data class ImportReviewUserSnapshot(
  * One ambiguous/unmatched ABS book item in the Review step, flattened to plain Swift strings.
  *
  * Mirrors [ImportReviewUserSnapshot] for books: the value-class ids (`AbsItemId`, `BookId`) live
- * inside the Review state's `List<AbsItemRef>` / `Map<AbsItemId, BookId?>`, where SKIE boxes them,
+ * inside the Review state's `List<AbsItemRef>` / `Map<AbsItemId, BookId?>` as wrapper objects,
  * so this holder is produced Kotlin-side. [resolution] is one of the `RESOLUTION_*` markers;
  * [assignedBookId] is the chosen ListenUp book id when assigned, else null. [isUnmatched]
  * distinguishes an unmatched item from a low-confidence ambiguous one for the row's tier label.
@@ -70,8 +69,8 @@ data class ImportBookSearchSnapshot(
 /**
  * The whole Review snapshot, flattened for Swift: the per-ABS-user rows and the per-book review
  * rows, the open book-search panel (if any), plus the running counts the Review header renders. The
- * picker's ListenUp users ride through SKIE cleanly already (`AdminUserInfo` has String ids), so the
- * Swift observer maps those directly.
+ * picker's ListenUp users need no flattening (`AdminUserInfo` has String ids), so the Swift
+ * observer maps those directly.
  */
 data class ImportReviewSnapshot(
     val users: List<ImportReviewUserSnapshot>,
@@ -87,8 +86,9 @@ data class ImportReviewSnapshot(
 /**
  * Swift-facing bridge over [ImportFlowViewModel]'s value-class-typed user-mapping API.
  *
- * The wizard VM speaks `AbsUserId` / `UserId` value classes for type safety; SKIE boxes those
- * inside the Review state's collections and `data class` fields (see [ImportReviewUserSnapshot]).
+ * The wizard VM speaks `AbsUserId` / `UserId` value classes for type safety; they reach Swift as
+ * wrapper objects inside the Review state's collections and `data class` fields (see
+ * [ImportReviewUserSnapshot]).
  * This object is the thin seam that keeps both sides clean: Swift passes plain `String`s for
  * actions, and reads a fully-flattened [ImportReviewSnapshot] for rendering. The VM itself is
  * unchanged — this only adapts its surface for Swift.

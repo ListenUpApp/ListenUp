@@ -11,12 +11,11 @@ import Shared
 /// the unsafe one stays unused lives in `NoBridgedEnumCollectionsInUiStateRule`.
 ///
 /// `SearchObserver.apply`'s flatten of the sealed `SearchUiState` (including the
-/// `.tooShort` phase added for the trigram-index minimum-query-length floor) can't be
-/// exercised here: SKIE bridges `SearchUiState` as a sealed protocol whose cases aren't
-/// constructible from Swift, so that `sealedType()` mapping — including the new `TooShort` →
+/// `.tooShort` phase for the trigram-index minimum-query-length floor) isn't
+/// exercised here: that `sealedType()` mapping — including the `TooShort` →
 /// `.tooShort` arm landing before any empty-collapse logic — is proven at the
-/// green-build pass (the app target's exhaustive `switch` compiling). What *is* pure and
-/// constructible is the mirrored `minSearchQueryLength` floor, pinned below.
+/// green-build pass (the app target's exhaustive `switch` compiling). What is pinned
+/// below is the mirrored `minSearchQueryLength` floor, which is pure.
 struct SearchObserverTests {
     // MARK: - Name projection → scope (the bridge-safe read path)
 

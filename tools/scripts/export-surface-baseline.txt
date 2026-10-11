@@ -271,6 +271,7 @@ DeleteConfirmation
 DeleteConfirmation_SealedType
 DeviceContext
 DeviceContextProvider
+DeviceGlyph
 DeviceInfo
 DeviceInfoProvider
 DeviceRow
@@ -565,6 +566,7 @@ MoodError_SealedType
 MoodId
 MoodRepository
 NanoId
+NarratorCredit
 NetworkMonitor
 NewSeriesDraft
 NotificationBellViewModel
@@ -733,6 +735,8 @@ ReviewUiState_SealedType
 RoleSection
 RoleWithBookCount
 RpcCacheInvalidator
+SaveOutcome
+SaveOutcome_SealedType
 ScanBookRef
 ScanError
 ScanError_SealedType

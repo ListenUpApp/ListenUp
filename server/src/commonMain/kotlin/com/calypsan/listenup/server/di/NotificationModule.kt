@@ -15,7 +15,7 @@ import org.koin.dsl.module
  * the [NotificationEmitter] seam, and the RPC service.
  *
  * [NotificationRepository] is bound `createdAtStart = true` (like every
- * [com.calypsan.listenup.server.sync.SyncableRepository]) — its `init` registers the
+ * [com.calypsan.listenup.server.sync.SqlSyncableRepository]) — its `init` registers the
  * `"notifications"` sync domain with the [com.calypsan.listenup.server.sync.SyncRegistry] at
  * bootstrap, making `SyncStreamService.listDomains()` correct on the first request.
  *

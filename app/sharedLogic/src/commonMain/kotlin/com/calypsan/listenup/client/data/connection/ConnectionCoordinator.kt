@@ -41,6 +41,9 @@ private val logger = KotlinLogging.logger {}
  * @param engineState firehose connection state; a reconnect to the same server invalidates the
  *   stale RPC proxy caches (see [start]). Defaults to an idle holder so existing call sites that
  *   don't drive reconnects (tests) need no change; production wires the live engine state.
+ * @param allowsFallback asked before the advertised remote URL becomes the active one. It probes the
+ *   candidate itself, so it stands in for a separate reachability check. `reevaluate` passes `fresh = true`
+ *   because it runs when the network may have changed, so a remembered "no answer" must not be reused.
  */
 class ConnectionCoordinator internal constructor(
     private val serverConfig: ServerConfig,
@@ -50,6 +53,7 @@ class ConnectionCoordinator internal constructor(
     private val invalidator: RpcCacheInvalidator,
     private val scope: CoroutineScope,
     private val engineState: SyncEngineState = SyncEngineState(),
+    private val allowsFallback: suspend (candidateUrl: String, currentUrl: String?, fresh: Boolean) -> Boolean,
 ) {
     private val relocationMutex = Mutex()
 
@@ -154,7 +158,7 @@ class ConnectionCoordinator internal constructor(
      *  1. If the local URL is reachable, use it.
      *  2. Else, if the connected server's stable mDNS id can be relocated on the LAN (brief discovery
      *     sweep), follow it to the new address and use that.
-     *  3. Else fall back to a reachable remote URL.
+     *  3. Else fall back to a reachable remote URL that is the same server instance.
      *  4. Else keep the current active URL (offline-first — never clears, never blocks).
      */
     suspend fun reevaluate() {
@@ -171,7 +175,7 @@ class ConnectionCoordinator internal constructor(
             }
         }
         val remote = serverConfig.getRemoteUrl()?.value
-        if (remote != null && instanceRepository.findReachableUrl(listOf(remote)) == remote) {
+        if (remote != null && allowsFallback(remote, serverConfig.getActiveUrl()?.value, true)) {
             serverConfig.setActiveUrl(ServerUrl(remote))
         } else {
             logger.debug { "reevaluate: nothing reachable; keeping current active URL" }

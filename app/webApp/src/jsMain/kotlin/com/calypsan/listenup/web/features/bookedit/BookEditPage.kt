@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.model.Language
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
@@ -46,8 +47,8 @@ import org.jetbrains.compose.web.dom.Text
  * out is not the same as dropping them: an unedited field keeps whatever the book already had,
  * because Save sends the ViewModel's whole state, not this form's subset.
  *
- * There is no Cancel-confirms-discard dialog. That is a deliberate omission rather than an
- * oversight — see the notes on [EditActions].
+ * Cancel, the breadcrumb, the sidebar and the browser's Back all ask before discarding a draft, as
+ * both native clients do.
  */
 @Composable
 fun BookEditPage(
@@ -56,9 +57,11 @@ fun BookEditPage(
     onOpenLibrary: () -> Unit,
     onOpenBook: () -> Unit,
 ) {
+    val guard = rememberUnsavedWorkGuard(dirty = state.hasChanges)
+    guard.Dialog()
     Div(attrs = { classes("bd") }) {
         Breadcrumb(listOf("Library", state.title.ifBlank { "Book" }, "Edit")) { index ->
-            if (index == 0) onOpenLibrary() else onOpenBook()
+            guard.leave { if (index == 0) onOpenLibrary() else onOpenBook() }
         }
         PageHeader(
             title = state.title.ifBlank { "Book" },
@@ -101,7 +104,7 @@ fun BookEditPage(
             FormSection("Classification") { ClassificationFields(state, onEvent) }
             FormSection("Identifiers") { IdentifierFields(state, onEvent) }
             FormSection("Library") { LibraryFields(state, onEvent) }
-            EditActions(state, onEvent)
+            EditActions(state, onCancel = { guard.leave { onEvent(BookEditUiEvent.Cancel) } })
         }
     }
 }
@@ -321,7 +324,7 @@ private fun ContributorFields(
         }
     }
 
-    val hidden = ContributorRole.entries.filterNot { it in state.visibleRoles }
+    val hidden = ContributorRole.entries.filter { it.isAssignable && it !in state.visibleRoles }
     if (hidden.isNotEmpty()) {
         Div(attrs = { classes("rel-add-roles") }) {
             hidden.forEach { role ->
@@ -483,21 +486,20 @@ private const val HELD_NOTE_ICON_SIZE = 16
  * button that quietly does nothing on the second press — is the shape that produces duplicate
  * writes and reports success for a request nobody made.
  *
- * Cancel does not ask "discard changes?". The ViewModel treats Cancel as leave-without-saving, and
- * inventing a confirmation here would put a decision in the web UI that neither native client
- * makes — the kind of per-platform divergence that turns one product into three.
+ * Cancel asks "discard changes?" while the form holds a draft, as both native clients do; [onCancel]
+ * is the guarded leave.
  */
 @Composable
 private fun EditActions(
     state: BookEditUiState,
-    onEvent: (BookEditUiEvent) -> Unit,
+    onCancel: () -> Unit,
 ) {
     Div(attrs = { classes("edit-actions") }) {
         // ⛔ type=button is not decoration. A <button> with no type defaults to SUBMIT, so inside
         // the form this would save the very edits Cancel exists to discard.
         Button(
             kind = ButtonKind.Secondary,
-            onClick = { onEvent(BookEditUiEvent.Cancel) },
+            onClick = { onCancel() },
             enabled = !state.isSaving,
         ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.

@@ -625,6 +625,12 @@ private class CountingDao(
         maxAttempts: Int,
     ) = delegate.countDispatchable(ownerUserId, maxAttempts)
 
+    override suspend fun hasQueuedOpInDomain(
+        domainName: String,
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ) = delegate.hasQueuedOpInDomain(domainName, ownerUserId, maxAttempts)
+
     override suspend fun hasQueuedOp(
         domainName: String,
         entityId: String,

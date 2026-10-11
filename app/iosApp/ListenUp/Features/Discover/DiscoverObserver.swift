@@ -26,12 +26,11 @@ final class DiscoverObserver {
 
     init(viewModel: DiscoverViewModel = Dependencies.shared.createDiscoverViewModel()) {
         self.viewModel = viewModel
+        bridge.own(viewModel)
         bridge.bind(viewModel.discoverBooksState) { [weak self] in self?.applyBooks($0) }
         bridge.bind(viewModel.recentlyAddedState) { [weak self] in self?.applyRecent($0) }
         bridge.bind(viewModel.currentlyListeningState) { [weak self] in self?.applyCurrentlyListening($0) }
     }
-
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

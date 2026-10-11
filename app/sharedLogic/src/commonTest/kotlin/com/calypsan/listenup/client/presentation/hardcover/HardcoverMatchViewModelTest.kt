@@ -249,6 +249,51 @@ class HardcoverMatchViewModelTest :
             }
         }
 
+        test("picking a candidate when the current match could not be read re-reads it first") {
+            runTest {
+                val repo =
+                    FakeHardcoverRepository().apply {
+                        searchResult = AppResult.Success(listOf(REAL))
+                        bookMatchResult = AppResult.Failure(HardcoverError.Unavailable())
+                    }
+                val vm = matchViewModel(repo)
+                vm.uiState.test {
+                    advanceUntilIdle()
+                    repo.bookMatchResult = AppResult.Success(PREVIOUS)
+                    vm.events.test {
+                        vm.link(427_578L)
+                        awaitItem().shouldBeInstanceOf<HardcoverMatchEvent.Linked>().replaced?.hcBookId shouldBe 7L
+                    }
+                    vm.undoLink()
+                    advanceUntilIdle()
+                    cancelAndIgnoreRemainingEvents()
+                }
+                repo.links shouldBe listOf(Triple(BookId(BOOK), 427_578L, 9_001L), Triple(BookId(BOOK), 7L, 70L))
+                repo.unlinks shouldBe emptyList()
+            }
+        }
+
+        test("picking a candidate while the current match still cannot be read links nothing and says why") {
+            runTest {
+                val repo =
+                    FakeHardcoverRepository().apply {
+                        searchResult = AppResult.Success(listOf(REAL))
+                        bookMatchResult = AppResult.Failure(HardcoverError.Unavailable())
+                    }
+                val vm = matchViewModel(repo)
+                vm.uiState.test {
+                    advanceUntilIdle()
+                    vm.events.test {
+                        vm.link(427_578L)
+                        awaitItem() shouldBe HardcoverMatchEvent.ShowError(HardcoverError.Unavailable())
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+                repo.links shouldBe emptyList()
+                repo.unlinks shouldBe emptyList()
+            }
+        }
+
         test("undoing a change from an ASIN match puts it back as ASIN, at its edition, not as the user's pick") {
             runTest {
                 val asinMatch = PREVIOUS.copy(method = HardcoverMatchMethod.ASIN)

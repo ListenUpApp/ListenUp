@@ -4,12 +4,10 @@ import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.BackupId
-import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.isAdmin
 import com.calypsan.listenup.server.backup.BackupArchive
@@ -26,6 +24,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.time.Clock
+import com.calypsan.listenup.server.auth.requireAdmin
 
 /**
  * Admin-only backup/restore surface. All methods are gated behind [requireAdmin].
@@ -51,7 +50,7 @@ class BackupServiceImpl(
         )
 
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return try {
             val id =
                 "backup-" +
@@ -71,7 +70,7 @@ class BackupServiceImpl(
     }
 
     override suspend fun listBackups(): AppResult<List<BackupSummary>> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return withContext(fileIoDispatcher) {
             val backupsDir = paths.backupsDir
             if (!SystemFileSystem.exists(backupsDir)) return@withContext AppResult.Success(emptyList())
@@ -90,7 +89,7 @@ class BackupServiceImpl(
     }
 
     override suspend fun getBackup(id: BackupId): AppResult<BackupSummary> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return withContext(fileIoDispatcher) {
             if (!isSafeBackupId(id.value)) {
                 return@withContext AppResult.Failure(BackupError.BackupNotFound())
@@ -104,7 +103,7 @@ class BackupServiceImpl(
     }
 
     override suspend fun deleteBackup(id: BackupId): AppResult<Unit> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return withContext(fileIoDispatcher) {
             if (!isSafeBackupId(id.value)) {
                 return@withContext AppResult.Failure(BackupError.BackupNotFound())
@@ -121,7 +120,7 @@ class BackupServiceImpl(
     }
 
     override suspend fun restoreBackup(id: BackupId): AppResult<RestoreResult> {
-        requireAdmin()?.let { return it }
+        principal.requireAdmin()?.let { return AppResult.Failure(it) }
         if (!isSafeBackupId(id.value)) return AppResult.Failure(BackupError.BackupNotFound())
         return restoreOrchestrator.restore(id)
     }
@@ -134,12 +133,6 @@ class BackupServiceImpl(
         }
 
     // ── Private helpers ─────────────────────────────────────────────────────────
-
-    /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
-    private fun requireAdmin(): AppResult.Failure? {
-        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return PermissionPolicy.requireAdmin(caller)?.let { AppResult.Failure(it) }
-    }
 
     private fun summaryFrom(
         id: String,

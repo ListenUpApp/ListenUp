@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto.organize
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
@@ -56,13 +58,20 @@ enum class OrganizeAuthorForm {
  * books are left where they are, and a metadata edit relocates a book only if it was already at
  * its canonical path. Reorganizing existing books is an explicit, previewed action.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class OrganizeSettingsDto(
+    /** Always encoded, so an app built before this default existed still finds the key. */
     @SerialName("preset")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val preset: OrganizePreset = OrganizePreset.AUTHOR_SERIES_TITLE,
+    /** Always encoded, so an app built before this default existed still finds the key. */
     @SerialName("seriesPrefix")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val seriesPrefix: OrganizeSeriesPrefix = OrganizeSeriesPrefix.BOOK_N_DASH,
+    /** Always encoded, so an app built before this default existed still finds the key. */
     @SerialName("authorForm")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val authorForm: OrganizeAuthorForm = OrganizeAuthorForm.FIRST_LAST,
 )
 

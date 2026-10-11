@@ -47,6 +47,28 @@ enum class WebIcon(
     ),
     Download("M12 3v11 M8 10.5l4 4 4-4 M4 20h16"),
 
+    // The Devices screen's device kinds. None is mirrored from the design project, which carries no
+    // device glyphs; each is the standard outline for its kind. Reconcile if the project grows them.
+    DeviceBrowser(
+        "M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M3 12h18 " +
+            "M12 3c2.5 2.5 3.5 5.5 3.5 9S14.5 18.5 12 21c-2.5-2.5-3.5-5.5-3.5-9S9.5 5.5 12 3z",
+    ),
+    DeviceCar(
+        "M4 17v-5l2-5h12l2 5v5z M4 12h16 M7.5 14.5h.01 M16.5 14.5h.01 M6 17v2 M18 17v2",
+    ),
+    DeviceCast("M4 7V6h16v12h-6 M4 11a7 7 0 0 1 7 7 M4 15a3 3 0 0 1 3 3 M4 19h.01"),
+    DeviceComputer("M5 5h14v10H5z M2.5 19h19"),
+    DeviceHeadset("M3 8h18v8a1 1 0 0 1-1 1h-4l-2-3h-4l-2 3H4a1 1 0 0 1-1-1z"),
+    DevicePhone("M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z M11 18h2"),
+    DeviceSpeaker(
+        "M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z M12 7.5h.01 " +
+            "M12 15m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0",
+    ),
+    DeviceTablet("M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z M11 18h2"),
+    DeviceTv("M3 5h18v12H3z M8 21h8 M12 17v4"),
+    DeviceUnknown("M3 5h13v9H3z M2 18h15 M19 8h3v10h-3z"),
+    DeviceWatch("M8 7h8v10H8z M9 7l.8-4h4.4l.8 4 M9 17l.8 4h4.4l.8-4"),
+
     // A link that leaves the app for another site, beside the words that say it opens a new tab.
     External("M14 4h6v6 M20 4l-9 9 M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"),
     Eye(

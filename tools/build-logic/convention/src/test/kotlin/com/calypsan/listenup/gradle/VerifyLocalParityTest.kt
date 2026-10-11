@@ -57,6 +57,71 @@ class VerifyLocalParityTest {
         )
     }
 
+    @Test
+    fun `every gating ci-yml job has a Pushing-table row`() {
+        // Both are bookkeeping, not gates: dependency-graph submits a graph to GitHub, and
+        // dependency-review runs only on pull requests against GitHub's advisory data. Neither has a
+        // local equivalent.
+        val nonGating = setOf("dependency-graph", "dependency-review")
+        val jobNames = topLevelJobKeys().filterNot { it in nonGating }.map { jobName(it) }
+        assertTrue("Test (JVM)" in jobNames, "ci.yml parser drift — expected anchor job missing: $jobNames")
+        assertTrue("Lint" in jobNames, "ci.yml parser drift — expected anchor job missing: $jobNames")
+
+        val firstCells = pushingTableRows().map { it.split("|")[1] }
+        val missing = jobNames.filterNot { name -> firstCells.any { "`$name`" in it } }
+        assertEquals(
+            emptyList<String>(),
+            missing,
+            "ci.yml jobs with no row in CLAUDE.md's Pushing table. Add a row, or exclude a job that " +
+                "genuinely has no local form (with a comment saying why).",
+        )
+    }
+
+    @Test
+    fun `each documented row lists every gating gradle task of its job`() {
+        val rowByJob =
+            mapOf(
+                "build-server-native" to "Build & Test (server linuxX64)",
+                "build-android" to "Build (Android)",
+                "test-web-browser" to "Test (web browser)",
+                "test-web-browser-server" to "Test (web browser, server-backed)",
+            )
+        rowByJob.forEach { (job, rowName) ->
+            val tasks = gatingGradleTasks(job)
+            assertTrue(tasks.isNotEmpty(), "ci.yml parser drift — job '$job' yielded no gradle tasks")
+            val row = pushingTableRows().single { it.startsWith("| `$rowName`") }
+            assertEquals(
+                emptyList<String>(),
+                tasks.filterNot { it in row },
+                "'$job' gradle tasks missing from CLAUDE.md's Pushing-table '$rowName' row.",
+            )
+        }
+    }
+
+    private fun pushingTableRows(): List<String> =
+        repoRoot
+            .resolve("CLAUDE.md")
+            .readLines()
+            .dropWhile { it != "## Pushing" }
+            .takeWhile { !it.startsWith("`./gradlew verifyLocal") }
+            .filter { it.startsWith("| `") }
+
+    /** Top-level job keys of ci.yml, in file order. */
+    private fun topLevelJobKeys(): List<String> =
+        ciYml
+            .lines()
+            .dropWhile { it != "jobs:" }
+            .drop(1)
+            .filter { it.matches(Regex("^ {2}[a-z][a-z0-9-]*:$")) }
+            .map { it.trim().removeSuffix(":") }
+
+    private fun jobName(key: String): String =
+        jobBlock(key)
+            .lines()
+            .first { it.startsWith("    name:") }
+            .substringAfter("name:")
+            .trim()
+
     /** Lines of one top-level ci.yml job block (from `  <name>:` to the next 2-space-indented key). */
     private fun jobBlock(name: String): String {
         val lines = ciYml.lines()

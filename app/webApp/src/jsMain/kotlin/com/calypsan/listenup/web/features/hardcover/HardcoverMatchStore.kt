@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.hardcover
 
+import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchEvent
 import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchUiState
@@ -28,8 +29,8 @@ class HardcoverMatchSession(
     val onPick: (hcBookId: Long) -> Unit,
     val onRemoveMatch: () -> Unit,
     val onUndoLink: () -> Unit,
-    val close: () -> Unit,
-)
+    override val close: () -> Unit,
+) : RouteSession
 
 /** How the page gets its session for a book. */
 typealias OpenHardcoverMatch = (bookId: String) -> HardcoverMatchSession
