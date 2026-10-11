@@ -1,8 +1,5 @@
 package com.calypsan.listenup.client.navigation.entries
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -19,11 +16,9 @@ import com.calypsan.listenup.client.navigation.EditProfile
 import com.calypsan.listenup.client.navigation.ShelfDetail
 import com.calypsan.listenup.client.navigation.UserProfile
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
-import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.client.util.decodePickedImageAsJpeg
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.compose.viewmodel.koinViewModel
-import java.io.ByteArrayOutputStream
 
 /** User profile navigation entries. */
 internal fun EntryProviderScope<NavKey>.profileEntries(
@@ -64,7 +59,7 @@ internal fun EntryProviderScope<NavKey>.profileEntries(
             ) { uri: Uri? ->
                 uri?.let { selectedUri ->
                     scope.launch {
-                        val bytes = compressAvatar(context, selectedUri)
+                        val bytes = decodePickedImageAsJpeg(context, selectedUri, AVATAR_QUALITY)
                         if (bytes != null) {
                             viewModel.stageAvatarUpload(bytes, "image/jpeg")
                         }
@@ -90,48 +85,4 @@ internal fun EntryProviderScope<NavKey>.profileEntries(
 
 // ── Avatar compression helpers ─────────────────────────────────────────────────
 
-private const val MAX_AVATAR_SIZE = 2048
 private const val AVATAR_QUALITY = 85
-
-private suspend fun compressAvatar(
-    context: Context,
-    uri: Uri,
-): ByteArray? =
-    withContext(IODispatcher) {
-        try {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext null
-            val original = BitmapFactory.decodeStream(inputStream)
-            inputStream.close()
-
-            if (original == null) return@withContext null
-
-            val scale =
-                minOf(
-                    MAX_AVATAR_SIZE.toFloat() / original.width,
-                    MAX_AVATAR_SIZE.toFloat() / original.height,
-                    1f,
-                )
-
-            val scaled =
-                if (scale < 1f) {
-                    Bitmap.createScaledBitmap(
-                        original,
-                        (original.width * scale).toInt(),
-                        (original.height * scale).toInt(),
-                        true,
-                    )
-                } else {
-                    original
-                }
-
-            val out = ByteArrayOutputStream()
-            scaled.compress(Bitmap.CompressFormat.JPEG, AVATAR_QUALITY, out)
-
-            if (scaled != original) scaled.recycle()
-            original.recycle()
-
-            out.toByteArray()
-        } catch (_: Exception) {
-            null
-        }
-    }
