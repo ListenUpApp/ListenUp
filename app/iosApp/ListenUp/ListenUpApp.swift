@@ -70,6 +70,8 @@ private struct RootView: View {
     @State private var currentUser = CurrentUserObserver()
     @State private var readiness = LibraryReadinessObserver()
     @State private var hapticsSettings = HapticsSettings()
+    /// The app icon's long-press list of recent books (see `RecentBookShortcutsObserver`).
+    @State private var recentShortcuts = RecentBookShortcutsObserver()
     /// This window's identity for "which window presents it" decisions (see `FrontRootWindow`).
     @State private var windowID = UUID()
     @State private var showReauthSheet = false
@@ -78,6 +80,7 @@ private struct RootView: View {
 
     private var deepLinkRouter: DeepLinkRouter { .shared }
     private var frontRoot: FrontRootWindow { .shared }
+    private var quickActions: QuickActionRouter { .shared }
     var body: some View {
         content
             .environment(currentUser)
@@ -126,6 +129,11 @@ private struct RootView: View {
                     GlobalErrorObserver.activate()
                 }
                 activateSyncIfAuthenticated()
+                updateQuickActions(for: newState)
+            }
+            // A quick action tapped while the app is running arrives with the auth state unchanged.
+            .onChange(of: quickActions.pendingBookId) { _, _ in
+                quickActions.resolve(authState: auth.state, playback: PlaybackController())
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
@@ -141,6 +149,9 @@ private struct RootView: View {
                 // from the .backgroundTask handler (BackgroundSync.run reschedules before working).
                 if newPhase == .background {
                     BackgroundSync.schedule()
+                    // The list the icon shows next is the one as of now (the book just played has its
+                    // position saved by this point).
+                    if auth.state == .authenticated { Task { await recentShortcuts.refresh() } }
                     // Record the background timestamp so onAppForegrounded can measure the gap.
                     readiness.onAppBackgrounded()
                 }
@@ -175,6 +186,21 @@ private struct RootView: View {
             },
             set: { presented in if !presented { deepLinkRouter.consume() } }
         )
+    }
+
+    /// Resolves a quick action tapped during launch, then keeps the icon's recent-book list in step
+    /// with sign-in: filled and following the current book while signed in, emptied on sign-out.
+    /// A lapsed session keeps its list (the library is intact); a state still settling touches nothing.
+    private func updateQuickActions(for state: AuthStateKind) {
+        quickActions.resolve(authState: state, playback: PlaybackController())
+        switch state {
+        case .authenticated:
+            recentShortcuts.startObservingCurrentBook(of: dependencies.playerCoordinator)
+        case .needsServerUrl, .needsSetup, .needsLogin, .pendingApproval:
+            recentShortcuts.clear()
+        case .initializing, .checkingServer, .sessionLapsed:
+            break
+        }
     }
 
     /// Connect realtime sync + resume downloads when authenticated, through the process's one
