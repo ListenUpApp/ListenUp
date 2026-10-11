@@ -72,9 +72,13 @@ struct BookFinishedSpan: Equatable {
     let startedAtMs: Int64?
     let finishedAtMs: Int64
 
+    init(startedAtMs: Int64?, finishedAtMs: Int64) {
+        self.startedAtMs = startedAtMs
+        self.finishedAtMs = finishedAtMs
+    }
+
     init(_ span: FinishedSpan) {
-        startedAtMs = span.startedAtMs
-        finishedAtMs = span.finishedAtMs
+        self.init(startedAtMs: span.startedAtMs, finishedAtMs: span.finishedAtMs)
     }
 }
 

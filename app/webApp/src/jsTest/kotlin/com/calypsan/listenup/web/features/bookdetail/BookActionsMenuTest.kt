@@ -60,7 +60,6 @@ class BookActionsMenuTest :
             onMarkComplete: () -> Unit = {},
             onDiscardProgress: () -> Unit = {},
             onRestart: () -> Unit = {},
-            onAddToShelf: () -> Unit = {},
             onAddToCollection: () -> Unit = {},
             onShare: () -> Unit = {},
             onDeleteBook: () -> Unit = {},
@@ -71,7 +70,6 @@ class BookActionsMenuTest :
                     onMarkComplete = onMarkComplete,
                     onDiscardProgress = onDiscardProgress,
                     onRestart = onRestart,
-                    onAddToShelf = onAddToShelf,
                     onAddToCollection = onAddToCollection,
                     onShare = onShare,
                     onDeleteBook = onDeleteBook,
@@ -89,14 +87,21 @@ class BookActionsMenuTest :
             // changes nothing.
             val host = openMenu(menu(readyBook()))
 
-            menuItems(host) shouldContainExactly listOf("Mark as finished", "Add to shelf", "Share")
+            menuItems(host) shouldContainExactly listOf("Mark as finished", "Share")
+        }
+
+        test("Add to shelf is not in the menu: it is a visible button beside the primary") {
+            val host = openMenu(menu(readyBook().copy(progress = 0.4f, isAdmin = true)))
+
+            menuItems(host).contains("Add to shelf") shouldBe false
+            menuItems(host).contains("Add to collection") shouldBe true
         }
 
         test("a book in progress offers all three") {
             val host = openMenu(menu(readyBook().copy(progress = 0.4f)))
 
             menuItems(host) shouldContainExactly
-                listOf("Mark as finished", "Mark as not started", "Restart book", "Add to shelf", "Share")
+                listOf("Mark as finished", "Mark as not started", "Restart book", "Share")
         }
 
         test("a finished book can still be undone, even with no progress left to key on") {
@@ -105,7 +110,7 @@ class BookActionsMenuTest :
             // book finished by mistake.
             val host = openMenu(menu(readyBook().copy(isComplete = true, progress = null)))
 
-            menuItems(host) shouldContainExactly listOf("Mark as not started", "Restart book", "Add to shelf", "Share")
+            menuItems(host) shouldContainExactly listOf("Mark as not started", "Restart book", "Share")
         }
 
         test("each action reports itself — the two that erase progress only once confirmed") {
@@ -234,8 +239,9 @@ class BookActionsMenuTest :
             val host = openMenu(menu(readyBook().copy(progress = 0.4f)))
 
             val items = host.querySelectorAll(".menu-i").asList().filterIsInstance<HTMLElement>()
-            // Three progress actions, two filing ones, and Share — which is always offered.
-            items.size shouldBe 5
+            // Three progress actions and Share, which is always offered. A member files nothing here: Add to
+            // shelf is a visible button now, and collections are an admin's.
+            items.size shouldBe 4
             items.forEach {
                 it.tagName.lowercase() shouldBe "button"
                 it.getAttribute("role") shouldBe "menuitem"

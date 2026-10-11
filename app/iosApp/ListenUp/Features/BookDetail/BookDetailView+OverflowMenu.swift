@@ -57,12 +57,6 @@ extension BookDetailView {
                     }
                 }
 
-                Button {
-                    observer?.openShelfPicker()
-                } label: {
-                    Label(String(localized: "book.detail_add_to_shelf"), systemImage: "text.badge.plus")
-                }
-
                 if observer?.isAdmin == true {
                     Button {
                         observer?.openCollectionPicker()
@@ -85,6 +79,17 @@ extension BookDetailView {
                     ) {
                         Label(String(localized: "common.share"), systemImage: "square.and.arrow.up")
                     }
+                }
+
+                // Add to Shelf is a visible capsule beside Download, so it is not repeated here. Mark as Finished
+                // left the visible pair for this menu, beside the other progress actions (spec D14/D15).
+                if observer?.isComplete != true {
+                    Button {
+                        showMarkFinished = true
+                    } label: {
+                        Label(String(localized: "book.detail_mark_as_finished"), systemImage: "checkmark.circle")
+                    }
+                    .disabled(observer?.isMarkingComplete == true)
                 }
 
                 if observer?.startedAtMs != nil || observer?.isComplete == true {

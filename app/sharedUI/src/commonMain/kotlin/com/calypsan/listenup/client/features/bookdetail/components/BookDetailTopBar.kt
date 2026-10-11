@@ -21,22 +21,23 @@ import com.calypsan.listenup.client.design.LocalInDetailPane
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_back_to_library
 import listenup.composeapp.generated.resources.book_detail_close
 import listenup.composeapp.generated.resources.book_detail_more_options
 
 /**
  * Plain (non-collapsing) top app bar for the Book Detail screen.
  *
- * Shows a back arrow, the screen label ("Book details"), and a three-dot overflow that delegates
- * to [BookActionsMenu]. Beside a list (see [LocalInDetailPane]) the back arrow becomes a Close. Container colour is [MaterialTheme.colorScheme.surface] so it blends
- * seamlessly with the hero section below it. For a book held for review, [showActions] is false and
- * the bar is Back alone — the triage layout has no overflow (spec §8).
+ * Back ("Back to Library") and a three-dot overflow that delegates to [BookActionsMenu]; no title, because the hero
+ * names the book right under it (spec D1: the duplicate title goes). Beside a list (see [LocalInDetailPane]) the back
+ * arrow becomes a Close. Container colour is [MaterialTheme.colorScheme.surface], the surface the hero sits on, so the
+ * two read as one. For a book held for review, [showActions] is false and the bar is Back alone — the triage layout
+ * has no overflow (spec §8).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("LongParameterList") // Compose state-hoisting over BookActionsMenu requires one callback per action item
 @Composable
 fun BookDetailTopBar(
-    title: String,
     isComplete: Boolean,
     hasProgress: Boolean,
     isAdmin: Boolean,
@@ -48,7 +49,6 @@ fun BookDetailTopBar(
     onMarkCompleteClick: () -> Unit,
     onMarkNotStartedClick: () -> Unit,
     onRestartClick: () -> Unit,
-    onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -61,11 +61,12 @@ fun BookDetailTopBar(
     val inDetailPane = LocalInDetailPane.current
 
     ListenUpTopAppBar(
-        title = title,
+        title = "",
         onBack = onBackClick,
         // Beside its list, Back no longer leaves anything — it closes this pane.
         navigationIcon = if (inDetailPane) Icons.Outlined.Close else Icons.AutoMirrored.Outlined.ArrowBack,
-        navigationContentDescription = if (inDetailPane) stringResource(Res.string.book_detail_close) else null,
+        navigationContentDescription =
+            stringResource(if (inDetailPane) Res.string.book_detail_close else Res.string.book_detail_back_to_library),
         actions = {
             if (showActions) {
                 Box {
@@ -111,10 +112,6 @@ fun BookDetailTopBar(
                         onRestartClick = {
                             showMenu = false
                             onRestartClick()
-                        },
-                        onAddToShelfClick = {
-                            showMenu = false
-                            onAddToShelfClick()
                         },
                         onAddToCollectionClick = {
                             showMenu = false

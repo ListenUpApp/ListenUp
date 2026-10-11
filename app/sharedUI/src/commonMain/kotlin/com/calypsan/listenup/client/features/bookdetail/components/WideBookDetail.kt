@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDocument
-import com.calypsan.listenup.client.domain.model.mostSpecificGenre
+import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
 import com.calypsan.listenup.client.features.bookdetail.SupplementaryMaterialsSection
 import com.calypsan.listenup.client.features.contributors.CastRole
@@ -53,10 +53,10 @@ private val RIGHT_COLUMN_MAX_WIDTH = 420.dp
 /**
  * Wide (tablet / desktop) Book Detail layout on the Material 3 Expressive "Color Block" design.
  *
- * A plain [BookDetailTopBar] is hoisted above the scroll; the scrolling [Column] then carries, in
- * order: an optional [OfflineBanner] and [BookDetailScanWarning] advisory, the full-width
- * [WideHeroBand], a [StatsRow], a two-column [Row] (left: About card + connected
- * [PrimaryActionsSection]; right: Readers card + Chapters card).
+ * A plain, untitled [BookDetailTopBar] is hoisted above the scroll; the scrolling [Column] then carries, in
+ * order: an optional [OfflineBanner] and [BookDetailScanWarning] advisory, the [WideHeroBand] (identity, then the
+ * [ResumeUnit] and a labelled [ListenActionGroup] inside it, spec §3.2.4), and a two-column [Row] (left: the held
+ * triage panel when held, About, Visibility, Details; right: Ratings, Readers, Hardcover, Chapters).
  *
  * The left column flexes with `weight(1f)`; the right column caps at [RIGHT_COLUMN_MAX_WIDTH] so it
  * stays readable on very wide displays while still flexing on smaller medium-width screens.
@@ -78,13 +78,9 @@ fun WideBookDetail(
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
-    // Hero classification: the most-specific genre as a chip beside the Abridged/Unabridged flag
-    // (mirrors the compact hero).
-    val heroGenre = book.mostSpecificGenre()?.name
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
-            title = book.title,
             isComplete = state.isComplete,
             hasProgress = state.progress != null,
             isAdmin = state.isAdmin,
@@ -96,7 +92,6 @@ fun WideBookDetail(
             onMarkCompleteClick = actions.onMarkCompleteClick,
             onMarkNotStartedClick = actions.onMarkNotStartedClick,
             onRestartClick = actions.onRestartClick,
-            onAddToShelfClick = actions.onAddToShelfClick,
             onAddToCollectionClick = actions.onAddToCollectionClick,
             onShareClick = actions.onShareClick,
             onDeleteClick = actions.onDeleteBookClick,
@@ -130,28 +125,13 @@ fun WideBookDetail(
                     modifier = screenPadding.padding(vertical = 8.dp),
                 )
 
-                // Identity — full-width color band: title, independent subtitle, series chips, talent,
-                // and the stat chips as the last element of the identity column.
-                WideHeroBand(
-                    coverPath = book.coverPath,
-                    coverHash = book.coverHash,
+                // Identity, then the Resume unit and the action group inside the hero (spec §3.2.4).
+                WideHero(
                     bookId = bookId,
-                    title = book.title,
-                    genre = heroGenre,
-                    abridged = book.abridged,
-                    subtitle = state.subtitle,
-                    seriesPaths = state.seriesPaths,
-                    authors = book.authors,
-                    narrators = book.narrators,
-                    onContributorClick = actions.onContributorClick,
-                    onSeriesClick = actions.onSeriesClick,
+                    state = state,
+                    actions = actions,
+                    isPreparing = isPreparing,
                     onShowCast = { castRole = it },
-                    progress = state.progress,
-                    timeRemaining = state.timeRemainingFormatted,
-                    duration = book.duration,
-                    year = state.year,
-                    addedAt = state.addedAt,
-                    modifier = screenPadding.padding(top = 8.dp),
                 )
 
                 // Two-column body.
@@ -159,7 +139,6 @@ fun WideBookDetail(
                     bookId = bookId,
                     state = state,
                     actions = actions,
-                    isPreparing = isPreparing,
                     isDescriptionExpanded = isDescriptionExpanded,
                     onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
                     documents = documents,
@@ -179,13 +158,77 @@ fun WideBookDetail(
                 narrators = book.narrators,
                 onContributorClick = actions.onContributorClick,
                 onDismiss = { castRole = null },
+                everyone = book.allContributors,
             )
         }
     }
 }
 
 /**
- * The two-column wide body: the flexing left column (About + primary actions) and the
+ * The wide hero (spec §3.2.4): identity, then the Resume unit and the labelled action group inside it, unless the
+ * book is held (the triage panel replaces the action unit) or playback is unavailable here.
+ */
+@Composable
+private fun WideHero(
+    bookId: String,
+    state: BookDetailUiState.Ready,
+    actions: BookDetailActions,
+    isPreparing: Boolean,
+    onShowCast: (CastRole) -> Unit,
+) {
+    val book = state.book
+    val showListen = !state.isHeld && state.isPlaybackAvailable
+    WideHeroBand(
+        coverPath = book.coverPath,
+        coverHash = book.coverHash,
+        bookId = bookId,
+        title = book.title,
+        subtitle = state.subtitle,
+        seriesPaths = state.seriesPaths,
+        authors = book.authors,
+        narrators = book.narrators,
+        durationMs = book.duration,
+        year = state.year,
+        abridged = book.abridged,
+        onContributorClick = actions.onContributorClick,
+        onSeriesClick = actions.onSeriesClick,
+        onShowCast = onShowCast,
+        resumeUnit = {
+            if (showListen) {
+                ResumeUnit(
+                    readingStage = state.readingStage,
+                    currentChapter = state.currentChapter,
+                    timeRemainingMs = state.timeRemainingMs,
+                    progress = state.progress,
+                    finishedSpan = state.finishedSpan,
+                )
+            }
+        },
+        actions = {
+            if (showListen) {
+                ListenActionGroup(
+                    primaryAction = state.primaryAction,
+                    isPreparing = isPreparing,
+                    downloadStatus = state.downloadStatus,
+                    isWaitingForWifi = state.isWaitingForWifi,
+                    downloadSizeBytes = state.downloadSizeBytes,
+                    supportsDownloads = LocalDeviceContext.current.supportsDownloads,
+                    canDownload = state.canDownload,
+                    labelled = true,
+                    onPrimaryClick = actions.onPlayClick,
+                    onDownload = actions.onDownloadClick,
+                    onCancelDownload = actions.onCancelClick,
+                    onRemoveDownload = actions.onDeleteClick,
+                    onAddToShelf = actions.onAddToShelfClick,
+                )
+            }
+        },
+        modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+/**
+ * The two-column wide body: the flexing left column (About, Visibility, Details) and the
  * width-capped right column (Readers + Chapters + Supplementary materials). Extracted from
  * [WideBookDetail] to keep that composable within the method-length budget.
  */
@@ -194,7 +237,6 @@ private fun WideBodyColumns(
     bookId: String,
     state: BookDetailUiState.Ready,
     actions: BookDetailActions,
-    isPreparing: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
     documents: List<BookDocument>,
@@ -211,7 +253,6 @@ private fun WideBodyColumns(
         WideLeftColumn(
             state = state,
             actions = actions,
-            isPreparing = isPreparing,
             isDescriptionExpanded = isDescriptionExpanded,
             onToggleDescription = onToggleDescription,
             lastMatchRow = lastMatchRow,
@@ -236,15 +277,13 @@ private fun WideBodyColumns(
 }
 
 /**
- * Left column of the wide body: the grouped About card (description + Genres + Tags), the
- * admins-only [BookVisibilitySection], a [DetailsSection] (publisher / published / language / format + credits), and the connected
- * Play + Download action group.
+ * Left column of the wide body: the held triage panel (a held book only), the grouped About card (description +
+ * Genres + Tags), the admins-only [BookVisibilitySection] and a [DetailsSection].
  */
 @Composable
 private fun WideLeftColumn(
     state: BookDetailUiState.Ready,
     actions: BookDetailActions,
-    isPreparing: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
     lastMatchRow: @Composable (Modifier) -> Unit,
@@ -253,9 +292,8 @@ private fun WideLeftColumn(
     val book = state.book
 
     Column(modifier = modifier) {
-        // Primary actions — connected Play + Download group, kept above the description so the
-        // primary action is reachable without scrolling on short foldable inner displays.
-        // A held book is triage-only (spec §8, §10): the held section takes Play's place at the top.
+        // A held book is triage-only (spec §8, §10): the held section stands at the top of the body, and the hero
+        // carries no Resume unit or action group.
         if (state.isHeld) {
             HeldForReviewSection(
                 isReleasing = state.isReleasingFromInbox,
@@ -264,21 +302,6 @@ private fun WideLeftColumn(
                 onMatchClick = actions.onFindMetadataClick,
                 onEditChaptersClick = actions.onEditChaptersClick,
                 modifier = Modifier.padding(bottom = 16.dp),
-            )
-        } else if (state.isPlaybackAvailable) {
-            PrimaryActionsSection(
-                downloadStatus = state.downloadStatus,
-                onPlayClick = actions.onPlayClick,
-                onDownloadClick = actions.onDownloadClick,
-                onCancelClick = actions.onCancelClick,
-                onDeleteClick = actions.onDeleteClick,
-                modifier = Modifier.padding(bottom = 16.dp),
-                isWaitingForWifi = state.isWaitingForWifi,
-                playEnabled = state.canPlay,
-                downloadEnabled = state.canDownload,
-                onPlayDisabledClick = actions.onPlayDisabledClick,
-                showServerWarning = state.showServerWarning,
-                isPreparing = isPreparing,
             )
         }
 
@@ -326,6 +349,7 @@ private fun WideLeftColumn(
             credits = book.allContributors,
             onContributorClick = actions.onContributorClick,
             modifier = Modifier.padding(top = 16.dp),
+            addedAt = state.addedAt,
         )
     }
 }

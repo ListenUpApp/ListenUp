@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_collection
-import listenup.composeapp.generated.resources.book_detail_add_to_shelf
 import listenup.composeapp.generated.resources.book_detail_edit_book
 import listenup.composeapp.generated.resources.chapter_editor_title
 import listenup.composeapp.generated.resources.book_detail_mark_as_finished
@@ -50,7 +49,6 @@ import org.jetbrains.compose.resources.stringResource
  * @param onMarkCompleteClick Called when Mark as Complete is clicked (shown only when not complete)
  * @param onMarkNotStartedClick Called when Mark as Not Started is clicked (shown when there is progress or it is complete)
  * @param onRestartClick Called when Restart Book is clicked (shown when there is progress or it is complete)
- * @param onAddToShelfClick Called when Add to Shelf is clicked
  * @param onAddToCollectionClick Called when Add to Collection is clicked (admin only)
  * @param onDeleteClick Called when Delete Book is clicked (admin only) — the caller is expected to
  *   confirm before anything is destroyed; this row only opens that conversation.
@@ -70,7 +68,6 @@ fun BookActionsMenu(
     onMarkCompleteClick: () -> Unit,
     onMarkNotStartedClick: () -> Unit,
     onRestartClick: () -> Unit,
-    onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -137,14 +134,6 @@ fun BookActionsMenu(
                 enabled = actionsEnabled,
             )
         }
-
-        // Add to Shelf
-        ActionMenuItem(
-            label = stringResource(Res.string.book_detail_add_to_shelf),
-            icon = Icons.AutoMirrored.Outlined.PlaylistAdd,
-            onClick = onAddToShelfClick,
-            enabled = actionsEnabled,
-        )
 
         // Add to Collection (admin only)
         if (isAdmin) {
