@@ -920,7 +920,9 @@ private suspend fun PlaybackManager.prepareForSilentStart(
     bookId: BookId,
     startedBy: String,
 ): PlaybackManager.PrepareResult? =
-    prepareForPlayback(bookId, startAtMs = null).valueOrNull { logger.warn { "$startedBy not started for ${bookId.value}: ${it.code}" } }
+    prepareForPlayback(bookId, startAtMs = null).valueOrNull {
+        logger.warn { "$startedBy not started for ${bookId.value}: ${it.code}" }
+    }
 
 /** The hints a voice search arrived with, for the debug log; an absent hint reads "none", not "null". */
 private fun VoiceHints.logLine(): String =

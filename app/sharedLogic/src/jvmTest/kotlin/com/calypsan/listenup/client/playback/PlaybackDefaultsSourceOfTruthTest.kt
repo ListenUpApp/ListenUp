@@ -191,7 +191,10 @@ class PlaybackDefaultsSourceOfTruthTest :
 
         test("a book with no custom speed resumes at the synced default, not the stock 1x") {
             runTest {
-                val result = buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition()).prepare(bookId, startAtMs = null).getOrNull()
+                val result =
+                    buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition())
+                        .prepare(bookId, startAtMs = null)
+                        .getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeSpeed shouldBe 2.0f
@@ -201,7 +204,10 @@ class PlaybackDefaultsSourceOfTruthTest :
 
         test("a never-played book resumes at the synced default too") {
             runTest {
-                val result = buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition = null).prepare(bookId, startAtMs = null).getOrNull()
+                val result =
+                    buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition = null)
+                        .prepare(bookId, startAtMs = null)
+                        .getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeSpeed shouldBe 2.0f

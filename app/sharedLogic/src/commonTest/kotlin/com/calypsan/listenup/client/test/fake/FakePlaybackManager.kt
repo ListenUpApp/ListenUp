@@ -155,8 +155,9 @@ class FakePlaybackManager : PlaybackManager {
         prepareForPlaybackStartAts += startAtMs
         prepareForPlaybackSuspension()
         stubbedPrepareError?.let { return AppResult.Failure(it) }
-        return stubbedPrepareResult?.let { r -> AppResult.Success(startAtMs?.let { r.copy(resumePositionMs = it) } ?: r) }
-            ?: AppResult.Failure(PlaybackError.CouldNotStart())
+        val prepared = stubbedPrepareResult ?: return AppResult.Failure(PlaybackError.CouldNotStart())
+        // A start position replaces the resume position, as the real preparer does.
+        return AppResult.Success(if (startAtMs == null) prepared else prepared.copy(resumePositionMs = startAtMs))
     }
 
     override suspend fun startPlayback(
