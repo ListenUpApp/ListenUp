@@ -227,6 +227,12 @@ final class BookDetailObserver {
         playerCoordinator.play(bookId: book.idString)
     }
 
+    /// Plays this book from a chapter's start (`startMs`, book milliseconds).
+    func play(fromChapterStartMs startMs: Int64) {
+        guard let book else { return }
+        playerCoordinator.play(bookId: book.idString, startAtMs: startMs)
+    }
+
     /// Retry the server connection (re-opens the SSE firehose) — the offline banner's Retry.
     /// The shared `retryConnection` folds failures itself; reachability recovers via the firehose.
     func retryConnection() {

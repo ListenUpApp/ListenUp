@@ -66,6 +66,9 @@ internal class FakePlaybackManager(
 ) : PlaybackManager {
     private var prepareCount = 0
 
+    /** Every start position a prepare was asked for, in order (`null` = resume). */
+    val prepareStartAts = mutableListOf<Long?>()
+
     /**
      * When set, every prepare ends in this typed refusal instead of a timeline — the shape the real
      * choke point returns for, say, a book held for review. Distinct from [PrepareOutcome.THROWS],
@@ -149,7 +152,10 @@ internal class FakePlaybackManager(
         preparingBookId.value = null
     }
 
-    override suspend fun prepareForPlayback(bookId: BookId): AppResult<PlaybackManager.PrepareResult> {
+    override suspend fun prepareForPlayback(
+        bookId: BookId,
+        startAtMs: Long?,
+    ): AppResult<PlaybackManager.PrepareResult> {
         // A real prepare is an RPC round-trip, so it always suspends. Without this the fake returns
         // inline — and because `LivePlayback.playBook` launches UNDISPATCHED, the whole
         // prepare -> activate -> load chain would run to completion *before* `playBook` returns.
@@ -157,6 +163,7 @@ internal class FakePlaybackManager(
         // finished state instead, which is how the no-restart spec passed with its own fix deleted.
         yield()
         prepareCount++
+        prepareStartAts += startAtMs
         stubbedPrepareError?.let { return AppResult.Failure(it) }
         when (prepare) {
             PrepareOutcome.SUCCEEDS -> Unit
@@ -204,7 +211,7 @@ internal class FakePlaybackManager(
                 seriesName = null,
                 coverPath = null,
                 totalChapters = 1,
-                resumePositionMs = 0L,
+                resumePositionMs = startAtMs ?: 0L,
                 resumeSpeed = 1.0f,
                 resumeBoostDb = resumeBoostDb,
                 measuredGainDb = null,

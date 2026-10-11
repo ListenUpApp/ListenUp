@@ -288,8 +288,10 @@ private class StubPlaybackManager : PlaybackManager {
 
     override fun activateBook(bookId: BookId) = Unit
 
-    override suspend fun prepareForPlayback(bookId: BookId): AppResult<PlaybackManager.PrepareResult> =
-        AppResult.Failure(PlaybackError.CouldNotStart())
+    override suspend fun prepareForPlayback(
+        bookId: BookId,
+        startAtMs: Long?,
+    ): AppResult<PlaybackManager.PrepareResult> = AppResult.Failure(PlaybackError.CouldNotStart())
 
     override suspend fun startPlayback(
         player: AudioPlayer,

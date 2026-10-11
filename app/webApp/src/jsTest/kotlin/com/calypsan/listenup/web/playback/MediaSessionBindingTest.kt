@@ -152,7 +152,7 @@ private fun session(
         boostUnavailable = MutableStateFlow(false),
         onPlayPause = onPlayPause,
         onSeek = {},
-        onPlayBook = {},
+        onPlayBook = { _, _ -> },
         onSkipBack = {},
         onSkipForward = {},
         onSetSpeed = {},

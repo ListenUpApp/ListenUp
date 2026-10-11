@@ -236,7 +236,7 @@ class PlaybackManagerBoostTest :
                     val (manager, _) =
                         createPlaybackManagerWithScope(db = db, positionRepository = positionRepository)
 
-                    val result = manager.prepareForPlayback(BookId("book-1")).getOrNull().shouldNotBeNull()
+                    val result = manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull().shouldNotBeNull()
 
                     result.resumeBoostDb shouldBeExactly 6f
                     result.measuredGainDb.shouldNotBeNull() shouldBeExactly -2f
@@ -258,7 +258,7 @@ class PlaybackManagerBoostTest :
                     val (manager, _) =
                         createPlaybackManagerWithScope(db = db, positionRepository = positionRepository)
 
-                    manager.prepareForPlayback(BookId("book-1")).getOrNull().shouldNotBeNull()
+                    manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull().shouldNotBeNull()
 
                     manager.effectiveGainDb.value shouldBeExactly 4f
                 }
@@ -277,7 +277,7 @@ class PlaybackManagerBoostTest :
                     // default playback preferences resolve boost to 0f (no custom boost saved).
                     val (manager, _) = createPlaybackManagerWithScope(db = db)
 
-                    manager.prepareForPlayback(BookId("book-1")).getOrNull().shouldNotBeNull()
+                    manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull().shouldNotBeNull()
 
                     manager.effectiveGainDb.value shouldBeExactly -3f
                 }
@@ -301,7 +301,7 @@ class PlaybackManagerBoostTest :
                     val (manager, repo) =
                         createPlaybackManagerWithScope(db = db, positionRepository = positionRepository)
 
-                    manager.prepareForPlayback(BookId("book-1")).getOrNull().shouldNotBeNull()
+                    manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull().shouldNotBeNull()
                     manager.activateBook(BookId("book-1"))
 
                     manager.onVolumeBoostChanged(9f)
@@ -334,7 +334,7 @@ class PlaybackManagerBoostTest :
                     val (manager, repo) =
                         createPlaybackManagerWithScope(db = db, positionRepository = positionRepository)
 
-                    manager.prepareForPlayback(BookId("book-1")).getOrNull().shouldNotBeNull()
+                    manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull().shouldNotBeNull()
                     manager.activateBook(BookId("book-1"))
 
                     manager.onBoostReset(3f)
@@ -367,7 +367,7 @@ class PlaybackManagerBoostTest :
                     val (manager, _) =
                         createPlaybackManagerWithScope(db = db, positionRepository = positionRepository)
 
-                    manager.prepareForPlayback(BookId("book-1")).getOrNull().shouldNotBeNull()
+                    manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull().shouldNotBeNull()
                     manager.volumeBoostDb.value shouldBeExactly 6f
 
                     manager.activateBook(BookId("book-1"))

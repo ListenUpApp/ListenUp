@@ -107,6 +107,7 @@ class FakePlaybackManager : PlaybackManager {
     val markPreparingCalls: MutableList<BookId> = mutableListOf()
     var clearPreparingCalls: Int = 0
     val prepareForPlaybackCalls: MutableList<BookId> = mutableListOf()
+    val prepareForPlaybackStartAts: MutableList<Long?> = mutableListOf()
     val startPlaybackCalls: MutableList<StartPlaybackCall> = mutableListOf()
     val reportedErrors: MutableList<PlaybackErrorUiState> = mutableListOf()
     var clearPlaybackCalls: Int = 0
@@ -146,11 +147,17 @@ class FakePlaybackManager : PlaybackManager {
         preparingBookIdUiFlow.value = null
     }
 
-    override suspend fun prepareForPlayback(bookId: BookId): AppResult<PrepareResult> {
+    override suspend fun prepareForPlayback(
+        bookId: BookId,
+        startAtMs: Long?,
+    ): AppResult<PrepareResult> {
         prepareForPlaybackCalls += bookId
+        prepareForPlaybackStartAts += startAtMs
         prepareForPlaybackSuspension()
         stubbedPrepareError?.let { return AppResult.Failure(it) }
-        return stubbedPrepareResult?.let { AppResult.Success(it) } ?: AppResult.Failure(PlaybackError.CouldNotStart())
+        val prepared = stubbedPrepareResult ?: return AppResult.Failure(PlaybackError.CouldNotStart())
+        // A start position replaces the resume position, as the real preparer does.
+        return AppResult.Success(if (startAtMs == null) prepared else prepared.copy(resumePositionMs = startAtMs))
     }
 
     override suspend fun startPlayback(

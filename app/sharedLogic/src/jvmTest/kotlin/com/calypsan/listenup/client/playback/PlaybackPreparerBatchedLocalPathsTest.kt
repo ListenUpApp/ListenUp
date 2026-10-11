@@ -175,7 +175,7 @@ class PlaybackPreparerBatchedLocalPathsTest :
                     AppResult.Success(DownloadOutcome.AlreadyDownloaded)
 
                 val preparer = buildPreparer(downloadService, prepareRepository)
-                val result = preparer.prepare(bookId).getOrNull()
+                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
 
                 result.shouldNotBeNull()
                 // Resolves the same paths a per-file getLocalPath loop would have — just via one call.

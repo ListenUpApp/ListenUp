@@ -471,6 +471,85 @@ class NowPlayingViewModelTest :
             }
         }
 
+        // ========== play from a position (a chapter tap) ==========
+
+        test("a start position on the book already loaded seeks and plays, with no new prepare") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                fixture.fakePm.currentTimelineFlow.value = stubTimeline() // book-1 is loaded, 30 min
+                every { fixture.playbackController.seekTo(any()) } returns Unit
+                every { fixture.playbackController.play() } returns Unit
+                val vm = fixture.newVm()
+
+                vm.playBook(bookId, startAtMs = 600_000L)
+                advanceUntilIdle()
+
+                fixture.fakePm.prepareForPlaybackCalls shouldBe emptyList()
+                verify { fixture.playbackController.seekTo(600_000L) }
+                verify { fixture.playbackController.play() }
+                fixture.fakePm.updatedPositions shouldBe listOf(600_000L)
+            }
+        }
+
+        test("a start position on another book prepares it there") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-2")
+                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
+                val vm = fixture.newVm()
+
+                vm.playBook(bookId, startAtMs = 600_000L)
+                advanceUntilIdle()
+
+                fixture.fakePm.prepareForPlaybackCalls shouldBe listOf(bookId)
+                fixture.fakePm.prepareForPlaybackStartAts shouldBe listOf(600_000L)
+                verifySuspend(VerifyMode.exactly(1)) {
+                    fixture.playbackController.startPlayback(stubPrepareResult(bookId).copy(resumePositionMs = 600_000L))
+                }
+            }
+        }
+
+        test("a chapter tap while the same book prepares supersedes that prepare, and keeps the busy window") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                val prepareGate = CompletableDeferred<Unit>()
+                fixture.fakePm.prepareForPlaybackSuspension = { prepareGate.await() }
+                val vm = fixture.newVm()
+
+                vm.playBook(bookId)
+                advanceUntilIdle()
+                vm.playBook(bookId, startAtMs = 600_000L)
+                advanceUntilIdle()
+
+                withClue("the chapter tap is not dropped by the same-book guard") {
+                    fixture.fakePm.prepareForPlaybackStartAts shouldBe listOf(null, 600_000L)
+                }
+                withClue("the cancelled first prepare's cleanup must not close the second prepare's window") {
+                    fixture.fakePm.preparingBookIdFlow.value shouldBe bookId
+                }
+            }
+        }
+
+        test("a plain play of the book already preparing is still a no-op (a double tap)") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                val prepareGate = CompletableDeferred<Unit>()
+                fixture.fakePm.prepareForPlaybackSuspension = { prepareGate.await() }
+                val vm = fixture.newVm()
+
+                vm.playBook(bookId)
+                advanceUntilIdle()
+                vm.playBook(bookId)
+                advanceUntilIdle()
+
+                fixture.fakePm.prepareForPlaybackCalls shouldBe listOf(bookId)
+            }
+        }
+
         test("playBook closes the pending-play window after a successful prepare") {
             runTest(testDispatcher) {
                 val fixture = TestFixture()
