@@ -22,7 +22,7 @@
 # an image that died on first boot with `no such module: fts5` — a release-blocking break that CI
 # could not see, because CI never builds this image and the tests run against the host's SQLite.
 # The verify step below turns that into a build failure instead of a runtime one.
-FROM debian:12-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS libs
+FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS libs
 ARG SQLITE_AMALGAMATION_URL=https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip
 # Trust on first use, recorded 2026-10-10: sqlite.org publishes only SHA3-256 for the current release,
 # and none for this one. Bump this together with the URL.
@@ -88,7 +88,7 @@ RUN mkdir -p /curl-deps \
 # Debian ships neither piece — no fdkaacdec in gstreamer1.0-plugins-bad, and libfdk-aac2 only in
 # non-free — so the plugin is built here. `-Dauto_features=disabled -Dfdkaac=enabled` builds that
 # one plugin rather than all of gst-plugins-bad, which takes about eight seconds.
-FROM debian:12-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS media
+FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS media
 ARG GST_VERSION=1.22.0
 # Published by gstreamer.freedesktop.org as gst-plugins-bad-<version>.tar.xz.sha256sum.
 ARG GST_PLUGINS_BAD_SHA256=3c9d9300f5f4fb3e3d36009379d1fb6d9ecd79c1a135df742b8a68417dd663a1
