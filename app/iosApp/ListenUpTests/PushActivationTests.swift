@@ -26,7 +26,7 @@ struct PushActivationTests {
         var activation = PushActivation()
 
         #expect(activation.steps(for: .notDetermined) == [.requestAuthorization])
-        #expect(activation.steps(for: .notDetermined) == [])
+        #expect(activation.steps(for: .notDetermined).isEmpty)
         #expect(activation.steps(for: .granted) == [.registerWithAPNs, .syncRegistration])
     }
 
@@ -34,7 +34,7 @@ struct PushActivationTests {
     func deniedNeverSyncs() {
         var activation = PushActivation()
 
-        #expect(activation.steps(for: .denied) == [])
-        #expect(activation.steps(for: .denied) == [])
+        #expect(activation.steps(for: .denied).isEmpty)
+        #expect(activation.steps(for: .denied).isEmpty)
     }
 }
