@@ -29,8 +29,9 @@ plugins {
 // =============================================================================
 // JS TOOLCHAIN - npm dependency overrides
 // =============================================================================
-// mocha 11.7.5 (pulled by the karma browser-test lane, which the Kotlin Multiplatform Gradle
-// plugin hardcodes) depends on serialize-javascript ^6.0.2, and every version up to and
+// mocha (still resolved into the yarn lockfile by the Kotlin Multiplatform Gradle plugin
+// because every `js { browser() }` target registers karma's test dependencies, although no
+// project test runs under karma) depends on serialize-javascript ^6.0.2, and every version up to and
 // including 7.0.2 carries GHSA-5c6j-r48x-rmvq — a high-severity RCE via unescaped
 // RegExp.flags, itself an incomplete fix for CVE-2020-7660. It fails CI's dependency-review
 // gate, which is set to fail-on-severity: high.
@@ -64,8 +65,9 @@ plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
         resolution("ws", "8.21.3")
         resolution("qs", "6.16.0")
         // The default drops kotlin-js-store/ at the repo root, which the five-directory root
-        // layout has no slot for. It is build machinery (KGP's yarn lockfile for the karma
-        // lane), so it lives under tools/ — and goes away entirely when karma does.
+        // layout has no slot for. It is build machinery (KGP's yarn lockfile, which still pins
+        // karma, mocha and webpack because the `js { browser() }` targets declare them), so it
+        // lives under tools/ — and goes away when no module's JS target uses `browser()`.
         lockFileDirectory = rootDir.resolve("tools/kotlin-js-store")
     }
 }

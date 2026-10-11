@@ -51,7 +51,7 @@ equivalent default.
 
 OPFS needs `SharedArrayBuffer`, which needs COOP/COEP response headers. `vite.config.ts` is the
 single place that sets them, feeding the dev server, the preview server and the test page. It
-replaces `webpack.config.d/coop-coep.js` and `karma.config.d/coop-coep.js`.
+replaced the former `webpack.config.d/coop-coep.js` and `karma.config.d/coop-coep.js`, both deleted.
 
 **Production hosting needs the same two headers.** When Ktor serves the built assets, that route
 must send them or the browser store silently loses OPFS.
@@ -64,5 +64,5 @@ service messages into a verdict.
 Deliberately **not** Vitest. Kotest 6's JS engine registers *and* reports its own tests — there is
 no `kotlin-test` adapter and no `describe`/`it` for another framework to host. Wrapping it in
 Vitest would produce one opaque Vitest test around N Kotest tests and discard the TeamCity
-stream. What karma actually provided was a browser, a page under the right headers, and a console
-reader; that is what this replaces. Vitest earns a place here only if TS-authored tests appear.
+stream. What karma used to provide was a browser, a page under the right headers, and a console
+reader; this runner now provides all three. Vitest earns a place here only if TS-authored tests appear.

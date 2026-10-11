@@ -163,8 +163,8 @@ kotlin {
 // Runs the compiled Kotest bundle in Chromium via `app/webApp/web`, where Vite and Playwright
 // own the browser instead of KGP.
 //
-// This is the only browser lane: it replaced jsBrowserTest, which is gone along with the karma
-// and webpack configuration it needed. CI runs both halves of it — `webKotest` (ci.yml, the
+// This is the only browser test lane: it replaced jsBrowserTest, and the karma and webpack
+// configuration that task needed is gone (KGP still lists karma in its yarn lockfile). CI runs both halves of it — `webKotest` (ci.yml, the
 // test-web-browser job) and `webAuthKotest` (test-web-browser-server).
 //
 // Not wired into `check` — it needs pnpm and a Playwright browser download, which is a bigger

@@ -132,7 +132,7 @@ internal data class MatchCoverColumns(
  * corrupt every column the id is written to.
  *
  * **Database handles.** [db] (the SQLDelight [ListenUpDatabase]) backs every book read/write,
- * the genre junction writes, the FTS index, and the cover collaborator [ManagedCoverFiles].
+ * the genre junction writes, and the cover collaborator [ManagedCoverFiles].
  * [driver] (the shared SQLDelight [SqlDriver] behind [db]) runs the access-filtered [pullSince]
  * / [digest] id reads engine-neutrally — the runtime-built [SqlFragment] access subquery now
  * carries plain raw args, so it splices over the driver inside the same `suspendTransaction(db)`.
@@ -338,7 +338,7 @@ class BookRepository(
      * Writes the full book aggregate inside the substrate's open SQLDelight transaction.
      *
      * **Atomicity is the contract.** The root row, the four child tables (contributors,
-     * series, chapters, audio files), the FTS index (`book_search` + `book_search_map`), and —
+     * series, chapters, audio files) and —
      * for a genuinely-new book the scan path assigned to a system collection — the book→collection
      * `collection_books` membership ([writeSystemMembership]) land together or not at all. The
      * substrate has already opened the transaction and resolved [existed]; this method issues
@@ -550,7 +550,7 @@ class BookRepository(
      * Replaces a book's child-collection rows after the parent upsert, honouring the per-field
      * provenance preserve flags: a contributors/series/chapters edit the stored book carries (and this
      * write isn't itself re-editing) keeps its rows — the collection analogue of the scalar preserve in
-     * [mergeByProvenance]. Audio files, documents, and the FTS row always refresh.
+     * [mergeByProvenance]. Audio files and documents always refresh.
      */
     private fun replaceBookChildren(
         value: BookSyncPayload,

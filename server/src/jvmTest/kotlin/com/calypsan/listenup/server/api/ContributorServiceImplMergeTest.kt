@@ -39,8 +39,7 @@ import kotlinx.coroutines.withContext
  * Integration tests for [ContributorServiceImpl.mergeContributors] (Books-C2 Task 14).
  *
  * Verifies the full transactional cascade — junction relink with `creditedAs`
- * preservation, alias merge with case-insensitive dedup, source soft-delete, and
- * both FTS reindex passes (book_search.contributor_names + contributor_search.aliases).
+ * preservation, alias merge with case-insensitive dedup, and source soft-delete.
  *
  * Modelled on the `deleteContributor` tests in [ContributorServiceImplTest] — real
  * in-memory migrated SQLite, repositories wired to the same `Database`.

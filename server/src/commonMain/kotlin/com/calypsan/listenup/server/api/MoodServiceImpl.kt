@@ -29,9 +29,9 @@ private const val MIN_LIMIT = 1
 /**
  * [MoodService] implementation.
  *
- * Moods are server-wide (curator model, not user-scoped). Unlike tags, moods are not
- * part of the `book_search` FTS index, so there is no reindex step on mutation — the
- * sync firehose alone propagates changes to clients.
+ * Moods are server-wide (curator model, not user-scoped). The server keeps no search index,
+ * so there is no reindex step on mutation — the sync firehose alone propagates changes
+ * to clients.
  *
  * Slug conflict on rename: only the [Mood.name] is updated — [Mood.slug] is
  * intentionally preserved per the contract spec so existing URLs remain valid.

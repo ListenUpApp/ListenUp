@@ -381,8 +381,7 @@ SELECT id FROM books WHERE deleted_at IS NULL ORDER BY sort_title LIMIT :limit;
 countLive:
 SELECT COUNT(*) FROM books WHERE deleted_at IS NULL;
 
--- All LIVE (non-tombstoned) book ids — SearchReindexService iterates these to
--- drive the full book_search rebuild. Unbounded; callers that need a limited set
+-- All LIVE (non-tombstoned) book ids. Unbounded; callers that need a limited set
 -- should use selectLiveIdsBySortTitle instead.
 selectAllLiveIds:
 SELECT id FROM books WHERE deleted_at IS NULL;
