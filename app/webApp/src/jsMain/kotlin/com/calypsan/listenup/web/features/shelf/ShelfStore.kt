@@ -82,6 +82,7 @@ class ShelfEditSession(
     val onSave: (name: String, description: String, isPrivate: Boolean) -> Unit,
     val onDelete: () -> Unit,
     val onDismissError: () -> Unit,
+    val hasChanges: (name: String, description: String, isPrivate: Boolean) -> Boolean,
     override val close: () -> Unit,
 ) : RouteSession
 
@@ -105,6 +106,7 @@ fun graphShelfEdit(koin: Koin): OpenShelfEdit =
             onSave = viewModel::save,
             onDelete = viewModel::delete,
             onDismissError = viewModel::dismissError,
+            hasChanges = viewModel::hasChanges,
             close = store::clear,
         )
     }
@@ -116,6 +118,7 @@ fun fixedShelfEdit(
     onSave: (name: String, description: String, isPrivate: Boolean) -> Unit = { _, _, _ -> },
     onDelete: () -> Unit = {},
     onDismissError: () -> Unit = {},
+    hasChanges: (name: String, description: String, isPrivate: Boolean) -> Boolean = { _, _, _ -> false },
 ): OpenShelfEdit =
     {
         ShelfEditSession(
@@ -124,6 +127,7 @@ fun fixedShelfEdit(
             onSave = onSave,
             onDelete = onDelete,
             onDismissError = onDismissError,
+            hasChanges = hasChanges,
             close = {},
         )
     }

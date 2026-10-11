@@ -110,7 +110,7 @@ private fun EditProfileRoute(
 
                 // The refreshed profile is the confirmation, exactly as on Android — a notice here
                 // would be read on a page the reader has already left.
-                EditProfileEvent.SaveSucceeded -> router.navigate(Routes.profile(userId))
+                EditProfileEvent.SaveSucceeded -> router.navigate(Routes.profile(userId), force = true)
             }
         }
     }
@@ -129,7 +129,8 @@ private fun EditProfileRoute(
             saveError = null
             session.onSave()
         },
-        onCancel = { router.navigate(Routes.profile(userId)) },
+        // The page has already asked about a draft: do not ask twice.
+        onCancel = { router.navigate(Routes.profile(userId), force = true) },
         saveError = saveError,
     )
 }

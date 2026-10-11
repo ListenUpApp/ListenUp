@@ -74,14 +74,15 @@ private fun ShelfEditRoute(
     val session = rememberSession(shelfId) { openShelfEdit(shelfId) }
     var deleted by remember(shelfId) { mutableStateOf(false) }
 
-    val goHome = { router.navigate(Routes.home) }
+    // Both the page's own departures: it already asked about a draft, or the work was saved/deleted.
+    val goHome = { router.navigate(Routes.home, force = true) }
 
     LaunchedEffect(session) {
         session.navActions.collect {
             if (shelfId == null || deleted) {
                 goHome()
             } else {
-                router.navigate(Routes.shelf(shelfId))
+                router.navigate(Routes.shelf(shelfId), force = true)
             }
         }
     }
@@ -95,7 +96,8 @@ private fun ShelfEditRoute(
             session.onDelete()
         },
         onDismissError = session.onDismissError,
-        onCancel = { if (shelfId == null) goHome() else router.navigate(Routes.shelf(shelfId)) },
+        onCancel = { if (shelfId == null) goHome() else router.navigate(Routes.shelf(shelfId), force = true) },
+        hasChanges = session.hasChanges,
     )
 }
 

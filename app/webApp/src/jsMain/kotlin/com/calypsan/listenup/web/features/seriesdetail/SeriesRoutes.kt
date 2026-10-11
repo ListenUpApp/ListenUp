@@ -65,8 +65,9 @@ private fun SeriesEditRoute(
             when (action) {
                 // A saved form and a cancelled one both leave the same way — this ViewModel has no
                 // separate SaveSuccess, so the series' own page is where both land.
+                // The page already asked about a draft, or it was saved: do not ask twice.
                 SeriesEditNavAction.NavigateBack -> {
-                    router.navigate(Routes.series(seriesId))
+                    router.navigate(Routes.series(seriesId), force = true)
                 }
 
                 // ⛔ `replace`, not `navigate`. The merge deletes the series being edited, so a

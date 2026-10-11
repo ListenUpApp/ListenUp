@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.profile
 
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -70,6 +71,8 @@ fun EditProfilePage(
     onCancel: () -> Unit,
     saveError: String? = null,
 ) {
+    val guard = rememberUnsavedWorkGuard(dirty = (state as? EditProfileUiState.Ready)?.isDirty == true)
+    guard.Dialog()
     Div(attrs = { classes("pedit") }) {
         PageHeader(title = "Edit profile")
 
@@ -94,7 +97,7 @@ fun EditProfilePage(
                     onPickAvatar = onPickAvatar,
                     onRemoveAvatar = onRemoveAvatar,
                     onSave = onSave,
-                    onCancel = onCancel,
+                    onCancel = { guard.leave(onCancel) },
                     saveError = saveError,
                 )
             }
@@ -310,8 +313,7 @@ private fun stagePhoto(
  * a change nobody made. It is disabled again while a save is in flight and says so, for the reason
  * the same button on Book Edit is — the alternative is duplicate writes on the second press.
  *
- * Cancel does not ask "discard changes?". Neither native client asks, and inventing a confirmation
- * on web alone is the per-platform divergence that turns one product into three.
+ * Cancel asks "discard changes?" while the form holds a draft, as both native clients do.
  */
 @Composable
 private fun EditActions(

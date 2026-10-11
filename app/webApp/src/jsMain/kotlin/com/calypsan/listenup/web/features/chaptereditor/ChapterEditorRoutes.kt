@@ -1,7 +1,6 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -14,8 +13,7 @@ import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.rememberSession
-import kotlinx.browser.window
-import org.w3c.dom.events.Event
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 
 /**
  * Opens a Chapter Editor session for [bookId], collects it, and guards the way out.
@@ -44,15 +42,16 @@ internal fun ChapterEditorRoute(
     val playheadMs = if (nowPlaying?.bookId == bookId) transport?.positionMs else null
 
     var problem by remember(bookId) { mutableStateOf<String?>(null) }
-    var pendingDiscard by remember(bookId) { mutableStateOf(false) }
     val isDirty = (state as? ChapterEditorUiState.Editing)?.isDirty == true
+    val guard = rememberUnsavedWorkGuard(dirty = isDirty, onDiscard = session.onResetToSource)
     val book = Routes.Book.detail(bookId)
 
     LaunchedEffect(session) {
         session.events.collect { event ->
             when (event) {
+                // Saved is the page's own departure: the stale draft flag must not ask about it.
                 ChapterEditorEvent.Saved -> {
-                    router.navigate(book)
+                    router.navigate(book, force = true)
                 }
 
                 // SaveFailed already reaches the reader through the global error bus; repeating it
@@ -65,14 +64,6 @@ internal fun ChapterEditorRoute(
                 }
             }
         }
-    }
-
-    // The tab close, and anything else that leaves the page entirely. The browser shows its own
-    // wording; all it takes from us is that there is something to lose.
-    DisposableEffect(isDirty) {
-        val guard: (Event) -> Unit = { event -> if (isDirty) event.preventDefault() }
-        window.addEventListener(BEFORE_UNLOAD, guard)
-        onDispose { window.removeEventListener(BEFORE_UNLOAD, guard) }
     }
 
     ChapterEditorPage(
@@ -97,20 +88,11 @@ internal fun ChapterEditorRoute(
             problem = null
             session.onSave()
         },
-        onLeave = { if (isDirty) pendingDiscard = true else router.navigate(book) },
+        onLeave = { guard.leave { router.navigate(book, force = true) } },
         problem = problem,
     )
 
-    if (pendingDiscard) {
-        DiscardChapterEditsDialog(
-            onDiscard = {
-                pendingDiscard = false
-                session.onResetToSource()
-                router.navigate(book)
-            },
-            onDismiss = { pendingDiscard = false },
-        )
-    }
+    guard.Dialog()
 }
 
 /** `sel=9,10` → the selected chapter numbers; junk entries are dropped rather than crashing. */
@@ -120,6 +102,3 @@ internal fun parseSelection(raw: String?): Set<Int> =
         .split(',')
         .mapNotNull { it.trim().toIntOrNull() }
         .toSet()
-
-/** The browser's own "you have unsaved work" prompt. */
-private const val BEFORE_UNLOAD = "beforeunload"

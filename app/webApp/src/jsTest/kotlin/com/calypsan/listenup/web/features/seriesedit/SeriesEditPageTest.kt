@@ -206,7 +206,7 @@ class SeriesEditPageTest :
         // type=button it will save the very edits it exists to discard.
         test("Cancel leaves without saving") {
             val seen = mutableListOf<SeriesEditUiEvent>()
-            val host = page(editingSeries(hasChanges = true), onEvent = { seen += it })
+            val host = page(editingSeries(hasChanges = false), onEvent = { seen += it })
 
             button(host, "Cancel").shouldNotBeNull().click()
             awaitFrame()

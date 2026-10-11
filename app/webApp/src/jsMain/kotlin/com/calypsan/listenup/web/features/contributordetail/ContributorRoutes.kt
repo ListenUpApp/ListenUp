@@ -62,7 +62,8 @@ private fun ContributorEditRoute(
                 ContributorEditNavAction.NavigateBack,
                 ContributorEditNavAction.SaveSuccess,
                 -> {
-                    router.navigate(Routes.Contributor.detail(contributorId))
+                    // The page already asked about a draft, or it was saved: do not ask twice.
+                    router.navigate(Routes.Contributor.detail(contributorId), force = true)
                 }
 
                 is ContributorEditNavAction.NavigateToMerged -> {

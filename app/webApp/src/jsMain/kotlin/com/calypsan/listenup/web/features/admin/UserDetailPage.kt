@@ -10,11 +10,12 @@ import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UserAvatar
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import org.jetbrains.compose.web.dom.Div
 
 /**
  * One member: who they are, and — in the same page, because there is room — what they may do.
- * The permissions panel is a draft; nothing is sent until Save.
+ * The permissions panel is a draft; nothing is sent until Save, and leaving the page with one asks first.
  */
 @Composable
 fun UserDetailPage(
@@ -23,8 +24,10 @@ fun UserDetailPage(
     actions: PermissionsPanelActions,
     onOpenAdmin: () -> Unit,
 ) {
+    val guard = rememberUnsavedWorkGuard(dirty = (permissions as? UserPermissionsUiState.Ready)?.hasChanges == true)
+    guard.Dialog()
     Div(attrs = { classes("usr") }) {
-        Breadcrumb(trail = listOf("People", userCrumb(state)), onNavigate = { onOpenAdmin() })
+        Breadcrumb(trail = listOf("People", userCrumb(state)), onNavigate = { guard.leave(onOpenAdmin) })
 
         when (state) {
             UserDetailUiState.Loading -> {

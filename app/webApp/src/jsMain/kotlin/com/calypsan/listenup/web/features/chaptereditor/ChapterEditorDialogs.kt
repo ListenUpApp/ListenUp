@@ -75,27 +75,6 @@ internal fun DeleteChapterDialog(
 }
 
 /**
- * Confirm leaving with unsaved edits.
- *
- * ⛔ The editor holds the only copy of the user's work until they save, so every way out of the
- * page has to pass through here — the Back control and the browser's own Back alike.
- */
-@Composable
-internal fun DiscardChapterEditsDialog(
-    onDiscard: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    ConfirmDialog(
-        open = true,
-        title = "Discard your chapter edits?",
-        body = "The changes you made here will be lost.",
-        confirmLabel = "Discard",
-        onConfirm = onDiscard,
-        onDismiss = onDismiss,
-    )
-}
-
-/**
  * Type a chapter's start exactly — spec §7.4's "tap to type to the ms".
  *
  * Opens on the start as the row shows it and accepts that shape and the shorter ones people type.

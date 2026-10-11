@@ -37,6 +37,8 @@ import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.admin.AdminSessions
 import com.calypsan.listenup.web.features.setup.graphLibrarySetup
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
+import androidx.compose.runtime.CompositionLocalProvider
+import com.calypsan.listenup.web.nav.LocalRouter
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
@@ -140,25 +142,27 @@ private fun bootInto(mount: Element) {
         val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
         mounted = true
         renderComposable(root = mount) {
-            AuthGate(
-                authGraph = graphAuth(koin),
-                router = router,
-                graph = graphWeb(koin),
-                openLibrarySetup = graphLibrarySetup(koin),
-                openConnectionHealth = graphConnectionHealth(koin),
-                observeThemeMode = { koin.get<LocalPreferences>().themeMode },
-                initialInviteCode = inviteCode,
-                observeErrors = { koin.get<ErrorBus>().errors },
-                // The gate's notice, so it is visible whether or not anyone is signed in — the
-                // reason the library is slow to appear is the same on the sign-in screen as inside
-                // the app — and sits inside the surface, sharing the screen with the shell.
-                notice = {
-                    if (environment is BrowserStoreEnvironment.Degraded) {
-                        var dismissed by remember { mutableStateOf(false) }
-                        if (!dismissed) StoreDegradedBanner(environment.reason) { dismissed = true }
-                    }
-                },
-            )
+            CompositionLocalProvider(LocalRouter provides router) {
+                AuthGate(
+                    authGraph = graphAuth(koin),
+                    router = router,
+                    graph = graphWeb(koin),
+                    openLibrarySetup = graphLibrarySetup(koin),
+                    openConnectionHealth = graphConnectionHealth(koin),
+                    observeThemeMode = { koin.get<LocalPreferences>().themeMode },
+                    initialInviteCode = inviteCode,
+                    observeErrors = { koin.get<ErrorBus>().errors },
+                    // The gate's notice, so it is visible whether or not anyone is signed in — the
+                    // reason the library is slow to appear is the same on the sign-in screen as inside
+                    // the app — and sits inside the surface, sharing the screen with the shell.
+                    notice = {
+                        if (environment is BrowserStoreEnvironment.Degraded) {
+                            var dismissed by remember { mutableStateOf(false) }
+                            if (!dismissed) StoreDegradedBanner(environment.reason) { dismissed = true }
+                        }
+                    },
+                )
+            }
         }
     }
 }

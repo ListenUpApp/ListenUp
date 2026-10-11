@@ -36,7 +36,8 @@ internal fun BulkEditRoute(
                 is BulkEditEvent.Applied -> onToast(appliedLabel(event.changedCount))
                 is BulkEditEvent.Failed -> onToast(failedLabel(event.appliedCount))
             }
-            router.navigate(library)
+            // The outcome is the page's own departure: the draft was applied, so do not ask.
+            router.navigate(library, force = true)
         }
     }
 
@@ -63,7 +64,8 @@ internal fun BulkEditRoute(
                 onTags = session.onTags,
                 onMoods = session.onMoods,
                 onApply = session.onApply,
-                onLeave = { router.navigate(library) },
+                // The page has already asked about a draft.
+                onLeave = { router.navigate(library, force = true) },
             ),
     )
 }

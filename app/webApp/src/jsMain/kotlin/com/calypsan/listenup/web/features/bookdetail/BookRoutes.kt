@@ -186,7 +186,8 @@ internal fun BookRouteContent(
             bookEditState(
                 bookId = editingBookId,
                 openBookEdit = openBookEdit,
-                onLeave = { router.navigate(Routes.Book.detail(editingBookId)) },
+                // The edit page has already asked, or the draft was saved: do not ask twice.
+                onLeave = { router.navigate(Routes.Book.detail(editingBookId), force = true) },
             )
         BookEditPage(
             state = editSession.state.collectAsState().value,

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
@@ -65,8 +66,10 @@ fun ServerSettingsPage(
     onOpenAdmin: () -> Unit,
     nowMs: Long = 0L,
 ) {
+    val guard = rememberUnsavedWorkGuard(dirty = (state as? AdminSettingsUiState.Ready)?.isDirty == true)
+    guard.Dialog()
     Div(attrs = { classes("srv") }) {
-        Breadcrumb(trail = listOf("Admin", "Server settings"), onNavigate = { onOpenAdmin() })
+        Breadcrumb(trail = listOf("Admin", "Server settings"), onNavigate = { guard.leave(onOpenAdmin) })
 
         PageHeader(title = "Server settings")
 

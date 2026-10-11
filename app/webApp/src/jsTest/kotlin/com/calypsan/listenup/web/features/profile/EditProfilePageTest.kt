@@ -230,7 +230,7 @@ class EditProfilePageTest :
         test("Cancel leaves without saving") {
             var saved = 0
             var cancelled = 0
-            val host = page(editing(isDirty = true), onSave = { saved++ }, onCancel = { cancelled++ })
+            val host = page(editing(isDirty = false), onSave = { saved++ }, onCancel = { cancelled++ })
 
             // ⛔ A <button> with no type inside a <form> defaults to SUBMIT. If Cancel ever loses
             // its type=button it will save the very edits it exists to discard, and this is the

@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import com.calypsan.listenup.web.design.DialogActions
+import com.calypsan.listenup.web.design.DialogText
 import com.calypsan.listenup.web.design.ModalDialog
 import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.TextAreaField
@@ -24,6 +25,9 @@ import org.jetbrains.compose.web.dom.Text
  * server refuse it. Save and Remove both close the dialog: the write is offline-first, so the
  * panel behind it already shows the result.
  *
+ * Closing it by Cancel, Escape or the backdrop while the draft differs from your rating asks first,
+ * inside the same dialog (a second modal would share this one's title id).
+ *
  * The note's cap is the textarea's own `maxlength`, which refuses the *inserted* text at the limit
  * — typing mid-note never trims its ending. The counter counts UTF-16 units, as the server does.
  */
@@ -38,8 +42,26 @@ fun RateBookDialog(
     if (!open) return
     var halfStars by remember { mutableIntStateOf(current?.halfStars ?: 0) }
     var note by remember { mutableStateOf(current?.note.orEmpty()) }
+    var confirmingDiscard by remember { mutableStateOf(false) }
+    val draftChanged =
+        ListenerRatingLimits.isDraftChanged(
+            openedHalfStars = current?.halfStars,
+            openedNote = current?.note,
+            halfStars = halfStars,
+            note = note,
+        )
+    val requestDismiss = { if (draftChanged) confirmingDiscard = true else onDismiss() }
 
-    ModalDialog(open = true, title = "Rate this book", onDismiss = onDismiss) {
+    ModalDialog(open = true, title = "Rate this book", onDismiss = requestDismiss) {
+        if (confirmingDiscard) {
+            DialogText("Discard your changes? The rating you started here will be lost.")
+            DialogActions(
+                confirmLabel = "Discard",
+                onConfirm = onDismiss,
+                onDismiss = { confirmingDiscard = false },
+            )
+            return@ModalDialog
+        }
         Div(attrs = { classes("rt-input") }) {
             RatingStars(halfStars = halfStars, onHalfStarsChange = { halfStars = it })
         }
@@ -72,7 +94,7 @@ fun RateBookDialog(
                 onSave(halfStars, ListenerRatingLimits.normalizeNote(note))
                 onDismiss()
             },
-            onDismiss = onDismiss,
+            onDismiss = requestDismiss,
         )
     }
 }
