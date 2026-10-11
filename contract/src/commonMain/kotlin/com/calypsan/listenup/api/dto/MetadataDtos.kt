@@ -1,5 +1,8 @@
 package com.calypsan.listenup.api.dto
 
+import com.calypsan.listenup.api.metadata.BookFieldLabelMapSerializer
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -71,8 +74,10 @@ data class MatchProvenance(
      * Text/list fields whose winner is NOT that field's configured primary provider ("fell through to a
      * fallback"), or that a gap-filling source (Hardcover) supplied. Keyed by the on-wire
      * [com.calypsan.listenup.api.metadata.BookField]; value is a display label. Sparse — a present entry
-     * means "show where this came from". Excludes COVER (see cover fields below).
+     * means "show where this came from". Excludes COVER (see cover fields below). A field this build
+     * does not know is dropped on decode rather than failing the whole preview.
      */
+    @Serializable(with = BookFieldLabelMapSerializer::class)
     val fallbackFields: Map<com.calypsan.listenup.api.metadata.BookField, String> = emptyMap(),
     /** Display label of the provider supplying the applied (max-size) cover; set whenever a cover exists. */
     val coverSource: String? = null,
@@ -241,10 +246,14 @@ enum class CoverOptionSource {
  * [width]/[height] are pixels, or 0 when the dimension probe could not determine them.
  * [sourceId] is provenance — the Audible ASIN or iTunes collectionId.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("CoverOption")
 data class CoverOption(
-    @SerialName("source") val source: CoverOptionSource,
+    /** A catalog this build has never heard of reads as [CoverOptionSource.OTHER]. Always encoded. */
+    @SerialName("source")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val source: CoverOptionSource = CoverOptionSource.OTHER,
     @SerialName("url") val url: String,
     @SerialName("width") val width: Int,
     @SerialName("height") val height: Int,

@@ -2,6 +2,7 @@ package com.calypsan.listenup.api.dto.scanner
 
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -27,6 +28,7 @@ data class SidecarCuration(
      * Fields the sidecar names but this server doesn't know are dropped by the reader.
      */
     @SerialName("fieldProvenance")
+    @Serializable(with = FieldProvenanceMapSerializer::class)
     val fieldProvenance: Map<BookField, FieldProvenance> = emptyMap(),
     /** The sidecar's USER-sourced chapter set, or null when the sidecar carries none. */
     @SerialName("userChapters")
