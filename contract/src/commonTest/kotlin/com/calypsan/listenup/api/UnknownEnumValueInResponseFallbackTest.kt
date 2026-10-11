@@ -92,7 +92,8 @@ private class FallbackProbe<T>(
 
     fun fallbackIsStillWritten(json: Json) {
         val value = atFallback ?: return
-        json.encodeToString(serializer, value) shouldContain "\"$key\":"
+        val writtenKey = key ?: return
+        json.encodeToString(serializer, value) shouldContain "\"$writtenKey\":"
     }
 }
 

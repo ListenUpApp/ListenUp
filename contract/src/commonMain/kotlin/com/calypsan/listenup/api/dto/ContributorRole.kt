@@ -60,4 +60,8 @@ enum class ContributorRole(
 
 /** Decodes [ContributorRole] by name, falling back to [ContributorRole.UNKNOWN] for one this build has never heard of. */
 object ContributorRoleSerializer :
-    KSerializer<ContributorRole> by LenientEnumSerializer("ContributorRole", ContributorRole.entries, ContributorRole.UNKNOWN)
+    KSerializer<ContributorRole> by LenientEnumSerializer(
+        "ContributorRole",
+        ContributorRole.entries,
+        ContributorRole.UNKNOWN,
+    )

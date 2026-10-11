@@ -22,4 +22,8 @@ enum class RegistrationPolicy { OPEN, APPROVAL_QUEUE, CLOSED }
 
 /** Decodes [RegistrationPolicy] by name, falling back to [RegistrationPolicy.CLOSED] for one this build has never heard of. */
 object RegistrationPolicySerializer :
-    KSerializer<RegistrationPolicy> by LenientEnumSerializer("RegistrationPolicy", RegistrationPolicy.entries, RegistrationPolicy.CLOSED)
+    KSerializer<RegistrationPolicy> by LenientEnumSerializer(
+        "RegistrationPolicy",
+        RegistrationPolicy.entries,
+        RegistrationPolicy.CLOSED,
+    )
