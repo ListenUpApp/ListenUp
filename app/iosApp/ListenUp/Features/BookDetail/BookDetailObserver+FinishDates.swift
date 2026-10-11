@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// The finish-date arithmetic behind `markFinished` — pure, calendar-injected, and split out of
 /// `BookDetailObserver.swift` (the `PlayerCoordinator+Chapters` precedent) to keep that file inside
