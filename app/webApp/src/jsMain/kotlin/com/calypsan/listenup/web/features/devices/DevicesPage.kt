@@ -8,13 +8,16 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.device.DeviceGlyph
 import com.calypsan.listenup.client.presentation.settings.DeviceRow
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.EmptyLook
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
+import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
@@ -121,13 +124,21 @@ private fun DeviceCard(
     onRevoke: (() -> Unit)?,
 ) {
     Div(attrs = { classes("dev-card") }) {
-        Div(attrs = { classes("dev-card-text") }) {
-            Span(attrs = { classes("dev-card-t") }) { Text(device.displayName) }
-            device.secondary.takeIf { it.isNotBlank() }?.let {
-                Span(attrs = { classes("dev-card-sub") }) { Text(it) }
-            }
-            Span(attrs = { classes("dev-card-when") }) {
-                Text(if (device.isCurrent) "Active now" else relativeLastActive(device.lastUsedAt, nowMs))
+        Div(attrs = { classes("dev-card-who") }) {
+            Span(
+                attrs = {
+                    classes("dev-card-icon")
+                    attr("data-glyph", device.glyph.name.lowercase())
+                },
+            ) { Icon(webIconFor(device.glyph), size = DEVICE_ICON_SIZE) }
+            Div(attrs = { classes("dev-card-text") }) {
+                Span(attrs = { classes("dev-card-t") }) { Text(device.displayName) }
+                device.secondary.takeIf { it.isNotBlank() }?.let {
+                    Span(attrs = { classes("dev-card-sub") }) { Text(it) }
+                }
+                Span(attrs = { classes("dev-card-when") }) {
+                    Text(if (device.isCurrent) "Active now" else relativeLastActive(device.lastUsedAt, nowMs))
+                }
             }
         }
         onRevoke?.let { revoke ->
@@ -144,3 +155,21 @@ private fun DeviceCard(
         }
     }
 }
+
+private const val DEVICE_ICON_SIZE = 26
+
+/** The web icon for a session's [DeviceGlyph]; exhaustive, so a glyph added to the shared mapping cannot be forgotten. */
+internal fun webIconFor(glyph: DeviceGlyph): WebIcon =
+    when (glyph) {
+        DeviceGlyph.Phone -> WebIcon.DevicePhone
+        DeviceGlyph.Tablet -> WebIcon.DeviceTablet
+        DeviceGlyph.Computer -> WebIcon.DeviceComputer
+        DeviceGlyph.Browser -> WebIcon.DeviceBrowser
+        DeviceGlyph.Tv -> WebIcon.DeviceTv
+        DeviceGlyph.Watch -> WebIcon.DeviceWatch
+        DeviceGlyph.Car -> WebIcon.DeviceCar
+        DeviceGlyph.Headset -> WebIcon.DeviceHeadset
+        DeviceGlyph.Cast -> WebIcon.DeviceCast
+        DeviceGlyph.Speaker -> WebIcon.DeviceSpeaker
+        DeviceGlyph.Unknown -> WebIcon.DeviceUnknown
+    }

@@ -300,6 +300,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   padding: 0.9rem 1.1rem; border-radius: 14px;
   background: var(--surface); border: 1px solid var(--line);
 }
+.luw .dev-card-who { display: flex; align-items: center; gap: 0.9rem; min-width: 0; }
+.luw .dev-card-icon { display: inline-flex; flex: none; color: var(--ink-2); }
 .luw .dev-card-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .luw .dev-card-t { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
 .luw .dev-card-sub { font-size: var(--fs-small); color: var(--ink-2); }
