@@ -11,4 +11,10 @@ enum class ScanPhase {
     DIFFING,
     PERSISTING,
     COMPLETED,
+
+    /**
+     * What an older app reads a phase a newer server added as, so the progress stream stays alive
+     * and the UI shows generic "working". The scanner never reports it.
+     */
+    UNKNOWN,
 }

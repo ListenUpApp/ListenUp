@@ -29,6 +29,7 @@ internal class StoryWorldHistory(
         before: EntitySyncPayload?,
         after: EntitySyncPayload?,
     ): EntityChange {
+        require(op != StoryWorldOp.UNKNOWN) { "UNKNOWN is a decode fallback for older apps, never an operation to record" }
         val id = Uuid.random().toString()
         db.storyWorldHistoryQueries.insert(
             id = id,

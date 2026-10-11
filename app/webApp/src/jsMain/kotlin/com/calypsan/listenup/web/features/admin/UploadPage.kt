@@ -178,6 +178,7 @@ private fun Finished(
         Group("Added", state.imported)
         Group("Already in your library", state.duplicates)
         Group("Couldn't be added", state.failed)
+        Group("Result this version of the app can't show", state.unreadable)
         Button(kind = ButtonKind.Primary, onClick = { onReset() }) { Text("Add more") }
     }
 }
@@ -208,12 +209,13 @@ internal fun finishedSummary(state: UploadBooksUiState.Finished): String {
     val added = state.imported.size
     val dupes = state.duplicates.size
     val failed = state.failed.size
+    val unreadable = state.unreadable.size
     return when {
-        added == 0 && failed == 0 && dupes > 0 -> {
+        added == 0 && failed == 0 && unreadable == 0 && dupes > 0 -> {
             "Everything you picked was already in your library."
         }
 
-        added == 0 && dupes == 0 && failed > 0 -> {
+        added == 0 && dupes == 0 && unreadable == 0 && failed > 0 -> {
             "Nothing could be added."
         }
 
@@ -222,6 +224,7 @@ internal fun finishedSummary(state: UploadBooksUiState.Finished): String {
                 append(if (added == 1) "1 book added" else "$added books added")
                 if (dupes > 0) append(", $dupes already here")
                 if (failed > 0) append(", $failed failed")
+                if (unreadable > 0) append(", $unreadable with a result this version of the app can't show")
                 append(".")
             }
         }

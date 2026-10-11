@@ -1,19 +1,44 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.AccessMode
 import com.calypsan.listenup.api.dto.CollectionShareDto
 import com.calypsan.listenup.api.dto.CollectionSummary
 import com.calypsan.listenup.api.dto.CoverOption
 import com.calypsan.listenup.api.dto.CoverOptionSource
+import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.MatchProvenance
 import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.api.dto.auth.PasswordResetStatus
+import com.calypsan.listenup.api.dto.auth.PasswordResetStatusEvent
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
+import com.calypsan.listenup.api.dto.entity.EntityChange
+import com.calypsan.listenup.api.dto.entity.StoryWorldOp
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
+import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
+import com.calypsan.listenup.api.dto.imports.ImportStatus
+import com.calypsan.listenup.api.dto.imports.ImportSummary
+import com.calypsan.listenup.api.dto.invite.InviteDto
+import com.calypsan.listenup.api.dto.invite.InviteId
+import com.calypsan.listenup.api.dto.invite.InviteStatus
+import com.calypsan.listenup.api.dto.invite.InviteSummary
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.SidecarCuration
+import com.calypsan.listenup.api.dto.uploads.UploadedBook
+import com.calypsan.listenup.api.dto.uploads.UploadedBookStatus
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.core.EntityId
+import com.calypsan.listenup.core.ImportId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.StoryWorldHistoryId
 import com.calypsan.listenup.core.appJson
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -85,6 +110,37 @@ class UnknownEnumValueInResponseFallbackTest :
                 fieldProvenance = mapOf(title to scanned, BookField.SUBTITLE to scanned),
             )
 
+        val library =
+            Library(
+                id = LibraryId("l1"),
+                name = "Library",
+                folders = emptyList(),
+                metadataPrecedence = "embedded",
+                accessMode = AccessMode.PRIVATE,
+                createdByUserId = null,
+                createdAt = 1,
+            )
+        val invite =
+            InviteSummary(
+                InviteDto(InviteId("i1"), "code", "a@b.c", "A", UserRole.MEMBER, "admin1", expiresAt = 2, createdAt = 1),
+                InviteStatus.CLAIMED,
+            )
+        val import = ImportSummary(ImportId("imp1"), createdAt = 1, status = ImportStatus.MAPPED, bookCount = 2, userCount = 1)
+        val uploaded = UploadedBook(title = "Book", status = UploadedBookStatus.DUPLICATE)
+        val change = EntityChange(StoryWorldHistoryId("h1"), EntityId("e1"), StoryWorldOp.MERGE, occurredAt = 1)
+        val reset = PasswordResetStatusEvent(PasswordResetStatus.APPROVED, expiresAt = 5)
+        val progress =
+            ScanEvent.Progress(
+                correlationId = "c1",
+                libraryId = LibraryId("l1"),
+                phase = ScanPhase.ANALYZING,
+                filesWalked = 1,
+                booksAnalyzed = 1,
+                errors = 0,
+            )
+        val broken = HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED)
+        val weak = AuthError.WeakPassword(reason = WeakPasswordReason.TOO_SHORT)
+
         val probes =
             listOf(
                 FallbackProbe(
@@ -140,6 +196,96 @@ class UnknownEnumValueInResponseFallbackTest :
                     knownLiteral = title.name,
                     read = { it.fieldProvenance },
                     fallback = mapOf(BookField.SUBTITLE to scanned),
+                ),
+                FallbackProbe(
+                    field = "Library.accessMode",
+                    serializer = Library.serializer(),
+                    known = library,
+                    knownLiteral = "PRIVATE",
+                    read = { it.accessMode },
+                    fallback = AccessMode.UNKNOWN,
+                    atFallback = library.copy(accessMode = AccessMode.UNKNOWN),
+                    key = "accessMode",
+                ),
+                FallbackProbe(
+                    field = "InviteSummary.status",
+                    serializer = InviteSummary.serializer(),
+                    known = invite,
+                    knownLiteral = "CLAIMED",
+                    read = { it.status },
+                    fallback = InviteStatus.UNKNOWN,
+                    atFallback = invite.copy(status = InviteStatus.UNKNOWN),
+                    key = "status",
+                ),
+                FallbackProbe(
+                    field = "ImportSummary.status",
+                    serializer = ImportSummary.serializer(),
+                    known = import,
+                    knownLiteral = "MAPPED",
+                    read = { it.status },
+                    fallback = ImportStatus.UNKNOWN,
+                    atFallback = import.copy(status = ImportStatus.UNKNOWN),
+                    key = "status",
+                ),
+                FallbackProbe(
+                    field = "UploadedBook.status",
+                    serializer = UploadedBook.serializer(),
+                    known = uploaded,
+                    knownLiteral = "DUPLICATE",
+                    read = { it.status },
+                    fallback = UploadedBookStatus.UNKNOWN,
+                    atFallback = uploaded.copy(status = UploadedBookStatus.UNKNOWN),
+                    key = "status",
+                ),
+                FallbackProbe(
+                    field = "EntityChange.op",
+                    serializer = EntityChange.serializer(),
+                    known = change,
+                    knownLiteral = "MERGE",
+                    read = { it.op },
+                    fallback = StoryWorldOp.UNKNOWN,
+                    atFallback = change.copy(op = StoryWorldOp.UNKNOWN),
+                    key = "op",
+                ),
+                FallbackProbe(
+                    field = "PasswordResetStatusEvent.status",
+                    serializer = PasswordResetStatusEvent.serializer(),
+                    known = reset,
+                    knownLiteral = "APPROVED",
+                    read = { it.status },
+                    fallback = PasswordResetStatus.UNKNOWN,
+                    atFallback = reset.copy(status = PasswordResetStatus.UNKNOWN),
+                    key = "status",
+                ),
+                FallbackProbe(
+                    field = "ScanEvent.Progress.phase",
+                    serializer = ScanEvent.Progress.serializer(),
+                    known = progress,
+                    knownLiteral = "ANALYZING",
+                    read = { it.phase },
+                    fallback = ScanPhase.UNKNOWN,
+                    atFallback = progress.copy(phase = ScanPhase.UNKNOWN),
+                    key = "phase",
+                ),
+                FallbackProbe(
+                    field = "HardcoverConnection.Broken.reason",
+                    serializer = HardcoverConnection.Broken.serializer(),
+                    known = broken,
+                    knownLiteral = "REVOKED",
+                    read = { it.reason },
+                    fallback = HardcoverBrokenReason.UNKNOWN,
+                    atFallback = broken.copy(reason = HardcoverBrokenReason.UNKNOWN),
+                    key = "reason",
+                ),
+                FallbackProbe(
+                    field = "AuthError.WeakPassword.reason",
+                    serializer = AuthError.WeakPassword.serializer(),
+                    known = weak,
+                    knownLiteral = "TOO_SHORT",
+                    read = { it.reason },
+                    fallback = WeakPasswordReason.UNKNOWN,
+                    atFallback = weak.copy(reason = WeakPasswordReason.UNKNOWN),
+                    key = "reason",
                 ),
             )
 

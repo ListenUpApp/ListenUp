@@ -1,6 +1,8 @@
 package com.calypsan.listenup.api.error
 
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -197,13 +199,18 @@ sealed interface AuthError : AppError {
         override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
     }
 
-    /** Password failed policy. `reason` names the specific violation; see WeakPasswordReason. */
+    /**
+     * Password failed policy. `reason` names the specific violation; see WeakPasswordReason. A reason
+     * this build has never heard of reads as [WeakPasswordReason.UNKNOWN], leaving [message] to stand alone.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
     @SerialName("AuthError.WeakPassword")
     data class WeakPassword(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
-        val reason: WeakPasswordReason,
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+        val reason: WeakPasswordReason = WeakPasswordReason.UNKNOWN,
     ) : AuthError {
         override val message: String = "Password does not meet requirements."
         override val code: String = "AUTH_WEAK_PASSWORD"

@@ -190,6 +190,22 @@ class UploadTest :
                 "Nothing could be added."
         }
 
+        test("a book whose outcome this build cannot read is listed and counted, never called added or failed") {
+            val unreadable =
+                UploadBooksUiState.Finished(
+                    imported = emptyList(),
+                    duplicates = emptyList(),
+                    failed = emptyList(),
+                    unreadable = listOf(uploaded("From The Future", UploadedBookStatus.UNKNOWN)),
+                )
+
+            finishedSummary(unreadable) shouldBe "0 books added, 1 with a result this version of the app can't show."
+            val host = page(unreadable)
+            host.textContent.orEmpty() shouldContain "Result this version of the app can't show (1)"
+            host.textContent.orEmpty() shouldContain "From The Future"
+            host.textContent.orEmpty() shouldNotContain "Couldn't be added"
+        }
+
         test("a finished run offers another go") {
             var reset = 0
             val host = page(finished(imported = listOf(uploaded("Dune", UploadedBookStatus.IMPORTED))), onReset = { reset++ })

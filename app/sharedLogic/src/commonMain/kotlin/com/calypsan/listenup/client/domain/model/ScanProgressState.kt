@@ -34,6 +34,8 @@ data class ScanProgressState(
                 "applying" -> "Syncing"
                 "persisting" -> "Saving library"
                 "complete" -> "Finishing up"
+                // ScanPhase.UNKNOWN: a phase a newer server added that this build cannot name.
+                "unknown" -> "Working"
                 else -> phase.replaceFirstChar { it.uppercase() }
             }
 

@@ -312,6 +312,7 @@ final class HardcoverSettingsObserver {
         case .revoked: String(localized: "hardcover.broken_revoked")
         case .cannotDecrypt: String(localized: "hardcover.broken_cannot_decrypt")
         case .missingScope: String(localized: "hardcover.broken_missing_scope")
+        case .unknown: String(localized: "hardcover.broken_unknown")
         }
     }
 

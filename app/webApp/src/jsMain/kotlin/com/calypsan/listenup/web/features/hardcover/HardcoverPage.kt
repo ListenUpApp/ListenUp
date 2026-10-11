@@ -758,6 +758,10 @@ private fun HardcoverBrokenReason.message(): String =
         HardcoverBrokenReason.MISSING_SCOPE -> {
             "ListenUp is missing a permission it needs on Hardcover. Reconnect to grant it."
         }
+
+        HardcoverBrokenReason.UNKNOWN -> {
+            "Your Hardcover connection stopped working. Reconnect to continue."
+        }
     }
 
 /** `hardcover.app/link` — the address a person types, without the scheme nobody types. */

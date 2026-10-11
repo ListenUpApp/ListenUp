@@ -185,6 +185,13 @@ struct UploadBooksView: View {
                 )
                 .foregroundStyle(Color.luWarning)
             }
+            if outcome.unreadable > 0 {
+                Label(
+                    String(format: String(localized: "admin.upload_books_unreadable"), outcome.unreadable),
+                    systemImage: "questionmark.circle"
+                )
+                .foregroundStyle(.secondary)
+            }
         }
         Section {
             Button(String(localized: "admin.upload_books_done")) {

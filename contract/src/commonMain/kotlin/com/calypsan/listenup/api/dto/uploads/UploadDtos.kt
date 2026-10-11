@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto.uploads
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -43,13 +45,19 @@ data class UploadFinalizeResult(
  * non-imported outcome (the title of the book that already exists, or what went wrong), and is
  * null when the book imported cleanly.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class UploadedBook(
     /** The title the scanner resolved for the staged files — what the user will recognise. */
     @SerialName("title")
     val title: String,
+    /**
+     * An outcome this build has never heard of reads as [UploadedBookStatus.UNKNOWN]: neither a
+     * success nor a failure the server did not state. Always encoded.
+     */
     @SerialName("status")
-    val status: UploadedBookStatus,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val status: UploadedBookStatus = UploadedBookStatus.UNKNOWN,
     @SerialName("rootRelPath")
     val rootRelPath: String? = null,
     @SerialName("detail")
@@ -74,4 +82,8 @@ enum class UploadedBookStatus {
     /** The move into the library failed; nothing of this book reached the library. */
     @SerialName("FAILED")
     FAILED,
+
+    /** What an older app reads an outcome a newer server added as. The server never reports it. */
+    @SerialName("UNKNOWN")
+    UNKNOWN,
 }

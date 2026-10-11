@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.core.LibraryId
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -36,12 +38,15 @@ sealed interface ScanEvent {
      * Periodic progress tick. Throttled at the scanner to at most one emit per ~200ms; clients
      * use this to drive UI counters without redrawing on every file processed.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
     @SerialName("progress")
     data class Progress(
         override val correlationId: String,
         @SerialName("libraryId") override val libraryId: LibraryId,
-        val phase: ScanPhase,
+        /** A phase this build has never heard of reads as [ScanPhase.UNKNOWN]. Always encoded. */
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+        val phase: ScanPhase = ScanPhase.UNKNOWN,
         val filesWalked: Int,
         val booksAnalyzed: Int,
         val errors: Int,

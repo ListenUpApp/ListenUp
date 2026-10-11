@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.domain.model.AccessMode as DomainAccessMode
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -129,6 +130,16 @@ class AdminRepositoryImplLibraryTest :
             lib.id shouldBe "lib1"
             lib.folders.map { it.id } shouldBe listOf("f1", "f2")
             lib.folders.map { it.rootPath } shouldBe listOf("/audiobooks", null)
+        }
+
+        test("an access mode this build cannot read never maps to a mode that says everyone can see the library") {
+            val service = FakeLibraryAdminService()
+            service.seed(contractLibrary(id = "lib1").copy(accessMode = AccessMode.UNKNOWN))
+            val repo = buildRepo(service)
+
+            val lib = (repo.getLibrary() as AppResult.Success).data
+
+            lib.accessMode shouldBe DomainAccessMode.RESTRICTED
         }
 
         test("addScanPath calls addFolder then returns the re-fetched library") {

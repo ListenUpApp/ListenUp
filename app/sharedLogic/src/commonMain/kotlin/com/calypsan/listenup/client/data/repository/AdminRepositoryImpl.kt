@@ -324,6 +324,9 @@ private fun ContractLibrary.toDomain(): Library =
             when (accessMode) {
                 ContractAccessMode.SHARED -> AccessMode.OPEN
                 ContractAccessMode.RESTRICTED, ContractAccessMode.PRIVATE -> AccessMode.RESTRICTED
+
+                // A mode this build cannot read: the reading that never claims everyone can see the library.
+                ContractAccessMode.UNKNOWN -> AccessMode.RESTRICTED
             },
         createdByUserId = createdByUserId?.value,
         createdAt = createdAt,

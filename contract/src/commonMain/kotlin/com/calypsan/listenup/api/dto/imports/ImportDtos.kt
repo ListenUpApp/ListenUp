@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.ImportId
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -14,6 +16,12 @@ enum class ImportStatus {
     ANALYZED,
     MAPPED,
     APPLIED,
+
+    /**
+     * What an older app reads a value a newer server added as. Never sent by a client, never
+     * written by the server, never offered as a choice.
+     */
+    UNKNOWN,
 }
 
 /** Why/how strongly an ABS entity matched a ListenUp entity. */
@@ -36,12 +44,15 @@ enum class MatchTier {
  * are present; [bookCount] and [userCount] are read from `analysis.json` when
  * available, or zero for freshly uploaded (UPLOADED status) jobs.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("ImportSummary")
 data class ImportSummary(
     val id: ImportId,
     val createdAt: Long,
-    val status: ImportStatus,
+    /** A status this build has never heard of reads as [ImportStatus.UNKNOWN]. Always encoded. */
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val status: ImportStatus = ImportStatus.UNKNOWN,
     val bookCount: Int,
     val userCount: Int,
 ) {

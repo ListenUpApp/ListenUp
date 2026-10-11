@@ -3481,6 +3481,16 @@
         }
       }
     },
+    "admin.upload_books_unreadable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d with a result this version of the app can't show"
+          }
+        }
+      }
+    },
     "admin.upload_books_uploading": {
       "localizations": {
         "en": {
@@ -11481,6 +11491,16 @@
         }
       }
     },
+    "hardcover.broken_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Hardcover connection stopped working. Reconnect to continue."
+          }
+        }
+      }
+    },
     "hardcover.cancel_linking": {
       "localizations": {
         "en": {
@@ -13957,6 +13977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ to review"
+          }
+        }
+      }
+    },
+    "import.unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown"
           }
         }
       }

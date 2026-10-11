@@ -59,6 +59,9 @@ enum class WorldEntityChangeOp {
 
     /** Restored an earlier change's `before`; itself revertible. */
     REVERT,
+
+    /** An operation a newer server recorded that this build cannot read. Not revertible. */
+    UNKNOWN,
 }
 
 /**
@@ -74,4 +77,10 @@ data class WorldEntityChange(
     val occurredAtMs: Long,
     val before: WorldEntity?,
     val after: WorldEntity?,
-)
+) {
+    /**
+     * Whether a history row may offer Revert. An operation this build cannot read is never
+     * revertible: restoring its `before` would undo something the user was never shown.
+     */
+    val isRevertible: Boolean get() = op != WorldEntityChangeOp.UNKNOWN
+}

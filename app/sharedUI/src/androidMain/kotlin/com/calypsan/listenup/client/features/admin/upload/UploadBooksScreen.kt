@@ -73,6 +73,7 @@ import listenup.composeapp.generated.resources.admin_upload_books_too_large_body
 import listenup.composeapp.generated.resources.admin_upload_books_too_large_title
 import listenup.composeapp.generated.resources.admin_upload_books_too_many_files_body
 import listenup.composeapp.generated.resources.admin_upload_books_too_many_files_title
+import listenup.composeapp.generated.resources.admin_upload_books_unreadable
 import listenup.composeapp.generated.resources.admin_upload_books_uploading
 import listenup.composeapp.generated.resources.common_ok
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -471,6 +472,15 @@ private fun FinishedContent(
                 text = stringResource(Res.string.admin_upload_books_failures, state.failed.size),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
+            )
+        }
+        // An outcome a newer server reported that this build cannot read: stated, in neutral colour.
+        if (state.unreadable.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(Res.string.admin_upload_books_unreadable, state.unreadable.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Spacer(modifier = Modifier.height(32.dp))

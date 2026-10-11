@@ -304,6 +304,28 @@ class EntityEditRepositoryOfflineTest :
             }
         }
 
+        test("a history entry whose operation this build cannot read is listed, and is not revertible") {
+            runTest {
+                val service = mock<EntityService>()
+                val rig = Rig(service)
+                val id = EntityId("e1")
+                val live = payload(id, name = "Darrow", revision = 3)
+                everySuspend { service.listHistory(id) } returns
+                    AppResult.Success(
+                        listOf(
+                            change("h2", id, StoryWorldOp.UNKNOWN, before = live, after = live),
+                            change("h1", id, StoryWorldOp.CREATE, before = null, after = live),
+                        ),
+                    )
+
+                val history = (rig.repo.listHistory(id) as AppResult.Success).data
+
+                history.map { it.op } shouldBe listOf(WorldEntityChangeOp.UNKNOWN, WorldEntityChangeOp.CREATE)
+                history.map { it.isRevertible } shouldBe listOf(false, true)
+                rig.db.close()
+            }
+        }
+
         test("undoing a delete the server refused withdraws the dead letter and restores the row locally") {
             runTest {
                 val service = mock<EntityService>()
