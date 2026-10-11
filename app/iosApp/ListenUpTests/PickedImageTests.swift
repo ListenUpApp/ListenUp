@@ -42,9 +42,14 @@ struct PickedImageTests {
     @Test func largeImageIsBoundedAndKeepsItsAspectRatio() throws {
         let jpeg = try #require(PickedImage.normalizedJPEG(from: encodedImage(width: 4_000, height: 3_000)))
         let size = try storedPixelSize(of: jpeg)
-        #expect(max(size.width, size.height) <= PickedImage.maxEdgePixels)
+        #expect(max(size.width, size.height) == 2_048)
         #expect(abs(Double(size.width) / Double(size.height) - 4.0 / 3.0) < 0.01)
         #expect(jpeg.starts(with: [0xFF, 0xD8, 0xFF]))
+    }
+
+    @Test func capMatchesAndroid() {
+        // Android's PICKED_IMAGE_MAX_EDGE_PX; if it moves, move both.
+        #expect(PickedImage.maxEdgePixels == 2_048)
     }
 
     @Test func smallImageIsNotUpscaled() throws {
