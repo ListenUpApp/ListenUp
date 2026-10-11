@@ -91,4 +91,24 @@ class BookDetailDerivationsTest :
                     )
             }
         }
+
+        context("primaryActionFor") {
+            test("each stage has its own label when the book can play") {
+                primaryActionFor(ReadingStage.NotStarted, showServerWarning = false, canPlay = true) shouldBe PrimaryAction.Play
+                primaryActionFor(ReadingStage.InProgress, showServerWarning = false, canPlay = true) shouldBe PrimaryAction.Resume
+                primaryActionFor(ReadingStage.Finished, showServerWarning = false, canPlay = true) shouldBe PrimaryAction.ListenAgain
+            }
+            test("unreachable with nothing on the device is Unavailable offline, whatever the stage") {
+                primaryActionFor(ReadingStage.InProgress, showServerWarning = true, canPlay = false) shouldBe
+                    PrimaryAction.UnavailableOffline
+                primaryActionFor(ReadingStage.Finished, showServerWarning = true, canPlay = false) shouldBe
+                    PrimaryAction.UnavailableOffline
+            }
+            test("unreachable but partly downloaded still resumes from disk") {
+                primaryActionFor(ReadingStage.InProgress, showServerWarning = true, canPlay = true) shouldBe PrimaryAction.Resume
+            }
+            test("a held book (no warning, cannot play) is not Unavailable offline: triage replaces the action") {
+                primaryActionFor(ReadingStage.NotStarted, showServerWarning = false, canPlay = false) shouldBe PrimaryAction.Play
+            }
+        }
     })

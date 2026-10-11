@@ -74,3 +74,20 @@ internal fun sectionOrderFor(
         }
     }
 }
+
+/**
+ * Book Detail's primary action. Disabled only for [PrimaryAction.UnavailableOffline]: the server is unreachable
+ * ([showServerWarning]) and nothing of the book is on the device (![canPlay] — `canPlay` is "some audio downloaded,
+ * or the server reachable").
+ */
+internal fun primaryActionFor(
+    stage: ReadingStage,
+    showServerWarning: Boolean,
+    canPlay: Boolean,
+): PrimaryAction =
+    when {
+        showServerWarning && !canPlay -> PrimaryAction.UnavailableOffline
+        stage == ReadingStage.InProgress -> PrimaryAction.Resume
+        stage == ReadingStage.Finished -> PrimaryAction.ListenAgain
+        else -> PrimaryAction.Play
+    }
