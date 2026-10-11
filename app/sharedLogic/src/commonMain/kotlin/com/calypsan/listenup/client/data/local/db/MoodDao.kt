@@ -215,7 +215,7 @@ internal interface BookMoodDao {
     suspend fun deleteAll()
 
     /**
-     * All rows (including tombstones) with [revision][BookMoodEntity.revision] <= [max], for digest computation.
+     * All live rows the server has acknowledged (revision above 0) up to [max], for digest computation.
      *
      * The id is the opaque wire [BookMoodEntity.syncId] (SERVER-SYNC-04) — the same value the
      * server uses on the wire.
