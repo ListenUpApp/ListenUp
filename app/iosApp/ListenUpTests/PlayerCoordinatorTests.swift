@@ -67,6 +67,62 @@ struct PlayerCoordinatorWiringTests {
         return (coordinator, engine, progress)
     }
 
+    @Test func startPositionOnTheLoadedBookSeeksWithoutPreparing() async throws {
+        let (coordinator, engine, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+        let loadsBefore = await engine.lastLoadStartMs
+
+        coordinator.play(bookId: "book1", startAtMs: 30_000)
+        // A seek in place reports the jump synchronously; a reload would not, and the await below
+        // would then never resume — so fail here, fast, instead of hanging.
+        try #require(progress.seeks.last?.2 == 30_000)
+        await engine.waitUntilSeeked()
+
+        #expect(await engine.lastSeekMs == 30_000)
+        #expect(await engine.lastLoadStartMs == loadsBefore) // no second load
+    }
+
+    @Test func startPositionOnAnotherBookPreparesThere() async throws {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
+            resumeSpeed: 1.0, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 0,
+            chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)]))
+        preparer.honourStartAt = true
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(), engine: engine)
+
+        coordinator.play(bookId: "book2", startAtMs: 12_000)
+        await progress.waitForStarted(bookId: "book2")
+
+        #expect(preparer.startAtCalls == [12_000])
+        #expect(await engine.lastLoadStartMs == 12_000)
+    }
+
+    @Test func plainPlayStillPassesNoStartPosition() async throws {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
+            resumeSpeed: 1.0, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 2000,
+            chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)]))
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(), engine: engine)
+
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        #expect(preparer.startAtCalls == [nil])
+    }
+
     @Test func surfacesOverflowMenuNavigationTargets() async throws {
         let engine = FakePlaybackEngine()
         let preparer = FakePlaybackPreparing()

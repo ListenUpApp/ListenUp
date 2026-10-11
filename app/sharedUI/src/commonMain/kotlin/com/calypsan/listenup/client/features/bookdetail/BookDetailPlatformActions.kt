@@ -28,6 +28,15 @@ interface BookDetailPlatformActions {
     fun playBook(bookId: BookId)
 
     /**
+     * Play [bookId] from [startMs] (a chapter's start, in book milliseconds): a seek when it is already loaded,
+     * otherwise a prepare there. A finished book becomes in progress again.
+     */
+    fun playFromChapter(
+        bookId: BookId,
+        startMs: Long,
+    )
+
+    /**
      * Reports that a book screen appeared.
      *
      * ⛔ Here rather than in a shared holder because only Android has anywhere to send it: the

@@ -121,6 +121,9 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// Suspend until `pause()` has executed. Returns immediately if it already has.
     func waitUntilPaused() async { await gate.wait(forKey: "pause") }
 
+    /// Suspend until `seek(toMs:)` has executed. Returns immediately if it already has.
+    func waitUntilSeeked() async { await gate.wait(forKey: "seek") }
+
     /// Suspend until `play()` has executed for the `count`-th time. Keyed, because a
     /// predicate closure can't read this actor's state (see AsyncGate lines 46–59).
     func waitForPlayCount(_ count: Int) async { await gate.wait(forKey: "play-\(count)") }
@@ -288,7 +291,16 @@ final class FakeSkipIntervalProviding: SkipIntervalProviding {
 
 final class FakePlaybackPreparing: PlaybackPreparing, @unchecked Sendable {
     var result: PreparedPlayback?
-    func prepareOrNull(bookId: String) async -> PreparedPlayback? { result }
+    /// Every start position the coordinator asked for, in order (`nil` = resume).
+    private(set) var startAtCalls: [Int64?] = []
+    /// When true, a non-nil start position replaces the stub's resume position, as the Kotlin preparer does.
+    var honourStartAt = false
+
+    func prepareOrNull(bookId: String, startAtMs: Int64?) async -> PreparedPlayback? {
+        startAtCalls.append(startAtMs)
+        guard honourStartAt, let startAtMs, let result else { return result }
+        return result.withResumePosition(startAtMs)
+    }
 }
 
 final class FakeBookDocumentProviding: BookDocumentProviding, @unchecked Sendable {
@@ -296,4 +308,16 @@ final class FakeBookDocumentProviding: BookDocumentProviding, @unchecked Sendabl
     var localPath: String?
     func firstPdfDocId(bookId: String) async -> String? { pdfDocId }
     func ensureLocalPath(bookId: String, docId: String) async -> String? { localPath }
+}
+
+extension PreparedPlayback {
+    /// The same prepared book with only `resumePositionMs` replaced — what the Kotlin preparer
+    /// returns for a start position.
+    func withResumePosition(_ positionMs: Int64) -> PreparedPlayback {
+        PreparedPlayback(
+            bookTitle: bookTitle, bookAuthor: bookAuthor, bookNarrator: bookNarrator, coverPath: coverPath,
+            resumeSpeed: resumeSpeed, resumeBoostDb: resumeBoostDb, measuredGainDb: measuredGainDb,
+            normalizationGainDb: normalizationGainDb, resumePositionMs: positionMs, chapters: chapters,
+            timeline: timeline, seriesId: seriesId, authors: authors, narrators: narrators, coverHash: coverHash)
+    }
 }

@@ -7,7 +7,7 @@ import ListenupContract
 struct KotlinPlaybackPreparing: PlaybackPreparing {
     let preparer: PlaybackPreparer
 
-    func prepareOrNull(bookId: String) async -> PreparedPlayback? {
+    func prepareOrNull(bookId: String, startAtMs: Int64?) async -> PreparedPlayback? {
         // Named after the Kotlin accessor it wraps. The Kotlin `prepareOrNull` returns
         // `PreparedPlayback?`: it folds every refusal (a book held for review included) and failure
         // of the Kotlin choke point `prepare` to `nil`, logging the typed cause. Swift never awaits
@@ -18,7 +18,9 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
         // thrown error is surfaced (no longer silently dropped); type inference avoids naming the
         // bridged Kotlin type, which collides with the native `PreparedPlayback` struct below.
         do {
-            guard let prepared = try await preparer.prepareOrNull(bookId: BookId(value: bookId)) else {
+            guard let prepared = try await preparer.prepareOrNull(
+                bookId: BookId(value: bookId), startAtMs: startAtMs
+            ) else {
                 return nil
             }
             return PreparedPlayback(

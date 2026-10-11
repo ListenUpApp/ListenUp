@@ -85,7 +85,8 @@ class PlaybackSession(
     val boostUnavailable: StateFlow<Boolean>,
     val onPlayPause: () -> Unit,
     val onSeek: (Long) -> Unit,
-    val onPlayBook: (BookId) -> Unit,
+    /** Plays a book: [startAtMs] starts there (a chapter's start, in book ms); null resumes. */
+    val onPlayBook: (bookId: BookId, startAtMs: Long?) -> Unit,
     val onSkipBack: () -> Unit,
     val onSkipForward: () -> Unit,
     val onSetSpeed: (Float) -> Unit,
@@ -207,7 +208,7 @@ fun fixedPlayback(
             boostUnavailable = MutableStateFlow(boostUnavailable),
             onPlayPause = {},
             onSeek = {},
-            onPlayBook = {},
+            onPlayBook = { _, _ -> },
             onSkipBack = {},
             onSkipForward = {},
             onSetSpeed = {},
@@ -551,9 +552,18 @@ internal class LivePlayback(
      * runs the body in the click's own task up to the prepare's first suspension, so the `try` is
      * always entered and cancellation always unwinds through it. (It also puts the RPC's first
      * leg inside the gesture, which is in the spirit of the rest of this method.)
+     *
+     * ## Starting at a chosen position
+     *
+     * [startAtMs] (a chapter's start, in book ms) starts the book there: a seek on the book already
+     * loaded, otherwise a prepare at that position. Null resumes from the saved position.
      */
-    fun playBook(bookId: BookId) {
-        if (playbackManager.preparingBookId.value == bookId) return
+    fun playBook(
+        bookId: BookId,
+        startAtMs: Long?,
+    ) {
+        // A plain second tap on a book already preparing is a double tap; a chapter tap supersedes the prepare.
+        if (startAtMs == null && playbackManager.preparingBookId.value == bookId) return
         // Asking to play the book that is already loaded is a resume, never a restart. Falling
         // through would prime — which unloads the audio mid-sentence, tears down hls.js and
         // re-runs the whole prepare — only to resume from the *persisted* position, written every
@@ -562,6 +572,7 @@ internal class LivePlayback(
             playbackManager.playbackState.value != PlaybackState.Idle
         ) {
             playbackManager.clearError()
+            if (startAtMs != null) seek(startAtMs)
             // Unconditional, deliberately not gated on `isPlaying`: that flow is mirrored from the
             // player one dispatch behind, so a gate would sometimes read stale and drop the resume
             // entirely. `play()` on an element that is already playing is a no-op, which is the
@@ -601,7 +612,7 @@ internal class LivePlayback(
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 var reachedPlayback = false
                 try {
-                    when (val result = playbackManager.prepareForPlayback(bookId)) {
+                    when (val result = playbackManager.prepareForPlayback(bookId, startAtMs)) {
                         is AppResult.Failure -> {
                             // A held book's refusal names what unlocks it, and a retry cannot help.
                             val held = result.error is BookError.HeldForReview

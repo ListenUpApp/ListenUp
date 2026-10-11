@@ -13,6 +13,7 @@ import com.calypsan.listenup.web.playback.awaitState
 import com.calypsan.listenup.web.playback.silentSegment
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeGreaterThan
+import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -338,7 +339,7 @@ class TransportBarTest :
                 )
 
             // Exactly what Book Detail's Play button does.
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
 
             player.awaitState(PlaybackState.Playing)
             // Not merely "Playing was reported": the element's own clock has to have moved, which
@@ -419,7 +420,7 @@ class TransportBarTest :
                     FakeBookRepository(),
                 )
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             // The window closing is the `finally` having run — deterministic, unlike a delay.
             withTimeout(PLAYING_TIMEOUT_MS) { manager.preparingBookId.first { it == null } }
 
@@ -452,7 +453,7 @@ class TransportBarTest :
                     FakeBookRepository(),
                 )
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             playback.close()
             withTimeout(PLAYING_TIMEOUT_MS) { manager.preparingBookId.first { it == null } }
 
@@ -489,11 +490,11 @@ class TransportBarTest :
                     FakeBookRepository(),
                 )
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
 
             // The second book's prepare is still in flight, which is the whole window under test.
-            playback.playBook(BookId("book-2"))
+            playback.playBook(BookId("book-2"), startAtMs = null)
 
             withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it == null } }
 
@@ -522,7 +523,7 @@ class TransportBarTest :
                     FakeBookRepository(),
                 )
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             player.awaitState(PlaybackState.Playing)
 
             playback.close()
@@ -551,7 +552,7 @@ class TransportBarTest :
                 )
             val host = mounts.mount { TransportBarHost(playback.asSession(), {}, {}, {}) }
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             withTimeout(PLAYING_TIMEOUT_MS) { manager.playing.first { it } }
             playback.setSleepTimer(SleepTimerMode.Duration(minutes = 30))
             awaitFrame()
@@ -566,7 +567,7 @@ class TransportBarTest :
             playback.sleepTimer.value shouldBe SleepTimerState.Inactive
             host.querySelector(".tport") shouldBe null
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             player.awaitState(PlaybackState.Playing)
 
             playback.close()
@@ -592,20 +593,60 @@ class TransportBarTest :
                     FakeBookRepository(),
                 )
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             // Wait on the manager's flow, not the player's: `playPause` branches on exactly this
             // value, and so does the bar's own Play/Pause icon — they agree by construction.
             withTimeout(PLAYING_TIMEOUT_MS) { manager.playing.first { it } }
             playback.playPause()
             withTimeout(PLAYING_TIMEOUT_MS) { manager.playing.first { !it } }
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
 
             // Synchronous proof that no restart happened: a prime runs `forgetContent()`, which
             // zeroes this before `playBook` returns. Asserting it here needs no timing at all.
             player.durationMs.value shouldBe AUDIO_SEGMENT_MS
             player.awaitState(PlaybackState.Playing)
 
+            playback.close()
+            URL.revokeObjectURL(segment.url)
+        }
+
+        test("a start position on the book already loaded seeks there, without a new prepare or a restart") {
+            val player = HtmlAudioPlayer()
+            val segment = silentSegment(AUDIO_SEGMENT_MS)
+            val manager = fakePlaybackManager(segment, title = "Dune")
+            val playback =
+                LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences(), FakeBookRepository())
+            playback.playBook(BookId("book-1"), startAtMs = null)
+            withTimeout(PLAYING_TIMEOUT_MS) { manager.playing.first { it } }
+            playback.playPause()
+            withTimeout(PLAYING_TIMEOUT_MS) { manager.playing.first { !it } }
+
+            playback.playBook(BookId("book-1"), startAtMs = 1_000L)
+
+            // No prime ran (a prime zeroes the duration before playBook returns), and no second prepare.
+            player.durationMs.value shouldBe AUDIO_SEGMENT_MS
+            manager.prepareStartAts shouldBe listOf<Long?>(null)
+            // Read before anything can play on: the seek is synchronous, so the playhead is exactly there.
+            player.positionMs.value shouldBe 1_000L
+            player.awaitState(PlaybackState.Playing)
+            playback.close()
+            URL.revokeObjectURL(segment.url)
+        }
+
+        test("a start position on a book not yet loaded prepares it there") {
+            val player = HtmlAudioPlayer()
+            val segment = silentSegment(AUDIO_SEGMENT_MS)
+            val manager = fakePlaybackManager(segment, title = "Dune")
+            val playback =
+                LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences(), FakeBookRepository())
+
+            playback.playBook(BookId("book-1"), startAtMs = 700L)
+
+            withTimeout(PLAYING_TIMEOUT_MS) { manager.playing.first { it } }
+            manager.prepareStartAts shouldBe listOf<Long?>(700L)
+            // Read the moment it starts: a book loaded from 0 would still be near 0 here, not past 700 ms.
+            player.positionMs.value.shouldBeGreaterThanOrEqualTo(700L)
             playback.close()
             URL.revokeObjectURL(segment.url)
         }
@@ -625,7 +666,7 @@ class TransportBarTest :
                     FakeBookRepository(),
                 )
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             val state = withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
 
             state.shouldNotBeNull().skipForwardSec shouldBe CUSTOM_SKIP_FORWARD_SEC
@@ -652,7 +693,7 @@ class TransportBarTest :
                     FakeBookRepository(),
                 )
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
 
             playback.setSpeed(STEPPED_SPEED)
@@ -680,7 +721,7 @@ class TransportBarTest :
                     FakeBookRepository(),
                 )
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
 
             val message = withTimeout(PLAYING_TIMEOUT_MS) { playback.error.first { it != null } }
             val host = mounts.mount { PlaybackNotice(message = message, onDismiss = playback::dismissError) }
@@ -707,7 +748,7 @@ class TransportBarTest :
                     FakeBookRepository(),
                 )
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
 
             val message = withTimeout(PLAYING_TIMEOUT_MS) { playback.error.first { it != null } }
             // The refusal's own words — "Release it first." — not the connection-failure notice,

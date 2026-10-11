@@ -155,13 +155,30 @@ class PlaybackManagerPrepareTest :
 
                     val playbackManager = createPlaybackManager(db)
 
-                    val result = playbackManager.prepareForPlayback(BookId("book-1")).getOrNull().shouldNotBeNull()
+                    val result = playbackManager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull().shouldNotBeNull()
 
                     withClue("timeline should have 3 segments") { result.timeline.files.size shouldBe 3 }
                     // Verify ordering: segments should be in index order (0, 1, 2)
                     result.timeline.files[0].audioFileId shouldBe "af-0"
                     result.timeline.files[1].audioFileId shouldBe "af-1"
                     result.timeline.files[2].audioFileId shouldBe "af-2"
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("prepareForPlayback hands a start position through as the resume position") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedBookAndAudioFiles(db)
+                    val playbackManager = createPlaybackManager(db)
+
+                    val result =
+                        playbackManager.prepareForPlayback(BookId("book-1"), startAtMs = 1_234L).getOrNull().shouldNotBeNull()
+
+                    result.resumePositionMs shouldBe 1_234L
                 }
             } finally {
                 db.close()
@@ -189,7 +206,7 @@ class PlaybackManagerPrepareTest :
                         )
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1")).getOrNull()
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
 

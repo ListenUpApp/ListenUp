@@ -290,7 +290,7 @@ private fun BookDetailRoute(
                 }
             router.replace(Route(route.segments, query))
         },
-        onPlay = { playback.onPlayBook(BookId(bookId)) },
+        onPlay = { playback.onPlayBook(BookId(bookId), null) },
         isPreparing = playback.preparingBookId.collectAsState().value == bookId,
         onMarkComplete = detailSession.onMarkComplete,
         onDiscardProgress = detailSession.onDiscardProgress,

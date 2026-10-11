@@ -351,8 +351,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// still preparing: the in-flight prepare is cancelled, the outgoing book's position is
     /// saved, the metadata surface is reset synchronously, and the engine is silenced before
     /// the new book loads — so a switch never leaks the old book's cover/chapters/audio (RC-1, RC-4).
-    func play(bookId: String) {
+    /// `startAtMs` (book ms) starts there: a seek on the loaded book, else a prepare there; `nil` resumes.
+    func play(bookId: String, startAtMs: Int64? = nil) {
         pausedByInterruption = false
+        if let startAtMs, seekLoadedBook(bookId: bookId, toMs: startAtMs) { return }
 
         // Cancel any in-flight prepare and open a new epoch so its post-`await` continuations bail.
         prepareTask?.cancel()
@@ -389,7 +391,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
             // Silence the outgoing book immediately — before the (possibly slow) prepare —
             // so switching never leaves the previous audio playing under the new metadata.
             if hadLoadedBook { await engine.pause() }
-            await prepareAndStart(bookId: bookId, generation: generation)
+            await prepareAndStart(bookId: bookId, startAtMs: startAtMs, generation: generation)
         }
     }
 
@@ -575,8 +577,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Prepare
 
-    private func prepareAndStart(bookId: String, generation: Int) async {
-        guard let prepared = await preparer.prepareOrNull(bookId: bookId) else {
+    private func prepareAndStart(bookId: String, startAtMs: Int64?, generation: Int) async {
+        guard let prepared = await preparer.prepareOrNull(bookId: bookId, startAtMs: startAtMs) else {
             guard !isSuperseded(generation) else { return }
             isEngineLoading = false
             phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))

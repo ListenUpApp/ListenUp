@@ -272,7 +272,7 @@ class BoostSessionTest :
             val playback =
                 LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences(), FakeBookRepository())
 
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             player.awaitState(PlaybackState.Playing)
 
             player.awaitAppliedGain(BOOSTED_LINEAR)

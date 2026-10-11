@@ -161,15 +161,22 @@ class PlaybackPreparer internal constructor(
      * Offline-first: if every audio file is already downloaded, the server prepare endpoint is skipped
      * entirely and local paths are used. Otherwise, a single call to [PlaybackService.prepare] fetches
      * signed streaming URLs for all files.
+     *
+     * [startAtMs] is where the listener asked to start (a chapter's start), in book milliseconds, or
+     * null to resume from the saved position. A start position skips auto-rewind and the finished→0
+     * reset; a finished book still begins a new listen-through.
      */
-    suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> =
+    suspend fun prepare(
+        bookId: BookId,
+        startAtMs: Long?,
+    ): AppResult<PreparedPlayback> =
         try {
             val refusal = bookDao.heldRefusal(bookId)
             if (refusal != null) {
                 logger.info { "Refusing to play ${bookId.value}: held for review" }
                 AppResult.Failure(refusal)
             } else {
-                prepareInternal(bookId)?.let { AppResult.Success(it) }
+                prepareInternal(bookId, startAtMs)?.let { AppResult.Success(it) }
                     ?: AppResult.Failure(PlaybackError.CouldNotStart(debugInfo = "bookId=${bookId.value}"))
             }
         } catch (e: CancellationException) {
@@ -186,10 +193,16 @@ class PlaybackPreparer internal constructor(
      * Swift — never `await` the `AppResult`-returning [prepare] (Swift Export bridge trap). The held
      * refusal happens inside [prepare], so this path is gated identically.
      */
-    suspend fun prepareOrNull(bookId: BookId): PreparedPlayback? =
-        prepare(bookId).valueOrNull { logger.warn { "prepareOrNull(${bookId.value}): ${it.code} ${it.debugInfo.orEmpty()}" } }
+    suspend fun prepareOrNull(
+        bookId: BookId,
+        startAtMs: Long?,
+    ): PreparedPlayback? =
+        prepare(bookId, startAtMs).valueOrNull { logger.warn { "prepareOrNull(${bookId.value}): ${it.code} ${it.debugInfo.orEmpty()}" } }
 
-    private suspend fun prepareInternal(bookId: BookId): PreparedPlayback? {
+    private suspend fun prepareInternal(
+        bookId: BookId,
+        startAtMs: Long?,
+    ): PreparedPlayback? {
         logger.info { "Preparing playback for book: ${bookId.value}" }
 
         // 1. Get server URL — the ACTIVE url, so audio streams from the remote host after a roam
@@ -284,7 +297,10 @@ class PlaybackPreparer internal constructor(
                 ?: if (timeline.isFullyDownloaded) fetchAuthoritativePosition(bookId) else null
         val resolved = resolveResumePosition(savedPosition, serverPosition)
 
-        val resumePositionMs = resumeStartPositionMs(resolved)
+        // A position the listener named (a chapter tap) is exact: no auto-rewind, no finished→0 reset.
+        val resumePositionMs =
+            startAtMs?.coerceIn(0L, (timeline.totalDurationMs - 1).coerceAtLeast(0L))
+                ?: resumeStartPositionMs(resolved)
         // Starting a finished book over is a new listen-through: clear the flag now, or every later
         // open would take the re-read branch again and throw away how far the listener got.
         if (resolved?.isFinished == true) progressTracker.startRelisten(bookId)

@@ -478,34 +478,54 @@ class NowPlayingViewModel internal constructor(
      * instead of either being swallowed (the original bug) or racing it. */
     private var preparingJob: Job? = null
 
+    /** Counts [playBook] requests that opened a prepare; only the newest may close the pending-play window. */
+    private var playGeneration = 0
+
     /**
-     * Start playback of [bookId].
+     * Start playback of [bookId]. With [startAtMs] (a chapter's start, in book ms) it starts there: a
+     * seek when the book is already loaded, otherwise a prepare at that position. Without it, it
+     * resumes from the saved position.
      *
-     * A repeat tap for the SAME book while its prepare is already in flight is swallowed:
+     * A plain repeat tap for the SAME book while its prepare is already in flight is swallowed:
      * [PlaybackManager.markPreparing] is called synchronously (before [viewModelScope.launch]) so
      * the guard below sees it on the very next call, even one dispatched in the same tick — closing
-     * the TOCTOU gap a check-then-launch would otherwise leave.
+     * the TOCTOU gap a check-then-launch would otherwise leave. A tap with a start position is not a
+     * double tap, so it supersedes the same book's prepare instead.
      *
      * A tap for a DIFFERENT book while one is in flight is never dropped — that would just trade one
      * silent no-op for another. Instead it *supersedes*: [preparingJob] is cancelled, then a new
      * window opens for the new book. The stale job's `finally` still runs (cancellation unwinds the
-     * `try` normally) — it only calls [PlaybackManager.clearPreparing] if [PlaybackManager.preparingBookId]
-     * still names ITS book, never unconditionally. Without that ownership check, a superseded job's
-     * cleanup could run after the new job's [PlaybackManager.markPreparing] and wipe the new window —
-     * this is the exact race [preparingJob] and the check below exist to prevent.
+     * `try` normally) — it only calls [PlaybackManager.clearPreparing] if its generation is still the
+     * newest, never unconditionally. Without that check, a superseded job's cleanup could run after
+     * the new job's [PlaybackManager.markPreparing] and wipe the new window, including when both
+     * requests are for the same book.
      *
      * The window spans the whole prepare/activate/start-playback sequence and — for whichever job
      * still owns it — is always closed via [PlaybackManager.clearPreparing] in a `finally`, so a
      * thrown or failed prepare can never strand it open.
      */
-    fun playBook(bookId: BookId) {
-        if (playbackManager.preparingBookId.value == bookId) return
+    fun playBook(
+        bookId: BookId,
+        startAtMs: Long? = null,
+    ) {
+        val preparing = playbackManager.preparingBookId.value
+        if (startAtMs == null && preparing == bookId) return
+        val loaded = playbackManager.currentTimeline.value
+        if (startAtMs != null && preparing != bookId && loaded?.bookId == bookId) {
+            val target = startAtMs.coerceIn(0L, (loaded.totalDurationMs - 1).coerceAtLeast(0L))
+            playbackController.seekTo(target)
+            // So the playhead reads the new position at once, even before the player reports it.
+            playbackManager.updatePosition(target)
+            playbackController.play()
+            return
+        }
         preparingJob?.cancel()
+        val generation = ++playGeneration
         playbackManager.markPreparing(bookId)
         preparingJob =
             viewModelScope.launch {
                 try {
-                    when (val result = playbackManager.prepareForPlayback(bookId)) {
+                    when (val result = playbackManager.prepareForPlayback(bookId, startAtMs)) {
                         is AppResult.Failure -> {
                             reportPrepareFailure(result.error)
                             return@launch
@@ -517,9 +537,9 @@ class NowPlayingViewModel internal constructor(
                         }
                     }
                 } finally {
-                    if (playbackManager.preparingBookId.value == bookId) {
-                        playbackManager.clearPreparing()
-                    }
+                    // Only the newest request owns the busy window: a superseded prepare (another book, or this one
+                    // asked again at a chapter) must not close the window its successor opened.
+                    if (generation == playGeneration) playbackManager.clearPreparing()
                 }
             }
     }

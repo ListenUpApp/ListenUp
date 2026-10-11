@@ -26,6 +26,13 @@ class DesktopBookDetailPlatformActions(
         nowPlayingViewModel.playBook(bookId)
     }
 
+    override fun playFromChapter(
+        bookId: BookId,
+        startMs: Long,
+    ) {
+        nowPlayingViewModel.playBook(bookId, startAtMs = startMs)
+    }
+
     // Desktop has no handoff to offer it to.
     override fun onBookScreenShown(bookId: BookId) = Unit
 
