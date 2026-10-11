@@ -25,12 +25,4 @@ struct EditSheetDismissalTests {
         #expect(!RateBookSheet.hasChanges(halfStars: 6, note: "Good", openedOn: MyRating(halfStars: 6, note: "Good")))
         #expect(RateBookSheet.hasChanges(halfStars: 6, note: "Great", openedOn: MyRating(halfStars: 6, note: "Good")))
     }
-
-    @Test func aShelfDraftIsAChangeOnlyWhenItDiffersFromWhatItOpenedOn() {
-        let empty = ShelfDraft(name: "", description: "", isPrivate: false)
-        #expect(!empty.differs(from: empty))
-        #expect(ShelfDraft(name: "Sci-fi", description: "", isPrivate: false).differs(from: empty))
-        #expect(ShelfDraft(name: "Sci-fi", description: "", isPrivate: true)
-            .differs(from: ShelfDraft(name: "Sci-fi", description: "", isPrivate: false)))
-    }
 }

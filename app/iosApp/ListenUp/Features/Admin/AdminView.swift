@@ -52,6 +52,7 @@ struct AdminView: View {
         .navigationTitle(String(localized: "common.administration"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar { saveToolbarItem }
+        .guardsUnsavedEdits(hasChanges: serverSettingsHaveUnsavedEdits)
         .onAppear {
             if admin == nil { admin = AdminObserver(viewModel: deps.createAdminViewModel()) }
             if settings == nil { settings = AdminSettingsObserver(viewModel: deps.createAdminSettingsViewModel()) }
@@ -456,6 +457,12 @@ struct AdminView: View {
                 }
             }
         }
+    }
+
+    /// The name and URL fields are an edit buffer until Save; leaving with them changed asks first.
+    private var serverSettingsHaveUnsavedEdits: Bool {
+        if case .ready(let model) = settings?.phase { return model.isDirty }
+        return false
     }
 
     // MARK: - Bindings

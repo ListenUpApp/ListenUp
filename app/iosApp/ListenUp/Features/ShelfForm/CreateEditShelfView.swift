@@ -17,17 +17,17 @@ struct CreateEditShelfView: View {
     @State private var description: String = ""
     @State private var isPrivate: Bool = false
     @State private var seeded: Bool = false
-    /// What the form opened on — empty for a new shelf, the loaded shelf once seeded.
-    @State private var openedOn = ShelfDraft(name: "", description: "", isPrivate: false)
     @State private var showDeleteConfirmation: Bool = false
 
     private var isEditMode: Bool { shelfId != nil }
     private var isSaving: Bool { observer?.phase == .saving }
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var canSave: Bool { !trimmedName.isEmpty && observer?.phase != .saving }
-    private var draft: ShelfDraft { ShelfDraft(name: name, description: description, isPrivate: isPrivate) }
-    /// Edit mode has nothing to lose until the shelf has loaded into the form.
-    private var hasChanges: Bool { (!isEditMode || seeded) && draft.differs(from: openedOn) }
+    /// Whether the form differs from what it opened on — the shared ViewModel's answer, the one Android
+    /// and web ask too. Edit mode has nothing to lose until the shelf has loaded into the form.
+    private func hasChanges(_ observer: CreateEditShelfObserver) -> Bool {
+        (!isEditMode || seeded) && observer.hasChanges(name: name, description: description, isPrivate: isPrivate)
+    }
 
     var body: some View {
         Group {
@@ -36,7 +36,7 @@ struct CreateEditShelfView: View {
                     title: isEditMode
                         ? String(localized: "shelf.edit_shelf_title")
                         : String(localized: "shelf.create_shelf_title"),
-                    hasChanges: hasChanges,
+                    hasChanges: hasChanges(observer),
                     canSave: canSave,
                     isSaving: isSaving,
                     onCancel: { dismiss() },
@@ -83,7 +83,6 @@ struct CreateEditShelfView: View {
                         name = loadedName
                         description = loadedDesc
                         isPrivate = loadedPrivate
-                        openedOn = ShelfDraft(name: loadedName, description: loadedDesc, isPrivate: loadedPrivate)
                         seeded = true
                     }
                 }
@@ -234,13 +233,4 @@ struct CreateEditShelfView: View {
 
 #Preview("Edit") {
     CreateEditShelfView(shelfId: "preview-shelf-id")
-}
-
-/// A shelf form's editable values, compared to tell whether leaving would lose anything.
-struct ShelfDraft: Equatable {
-    let name: String
-    let description: String
-    let isPrivate: Bool
-
-    func differs(from other: ShelfDraft) -> Bool { self != other }
 }

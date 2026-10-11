@@ -73,6 +73,8 @@ struct AdminCollectionDetailView: View {
             membersSection(observer: observer, ready: ready)
         }
         .readableListWidth(720)
+        // A managed collection's name is fixed, so there is no rename draft to lose on it.
+        .guardsUnsavedEdits(hasChanges: ready.isDirty && !ready.isSystem)
         .alert(
             String(localized: "common.something_went_wrong"),
             isPresented: Binding(

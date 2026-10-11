@@ -35,6 +35,11 @@ final class CreateEditShelfObserver {
         viewModel.save(name: name, description: description, isPrivate: isPrivate)
     }
 
+    /// Whether the form's current inputs differ from what it opened on (the ViewModel owns the baseline).
+    func hasChanges(name: String, description: String, isPrivate: Bool) -> Bool {
+        viewModel.hasChanges(name: name, description: description, isPrivate: isPrivate)
+    }
+
     func delete() { viewModel.delete() }
     func dismissError() { viewModel.dismissError() }
 
