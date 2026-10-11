@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.librarywrite.SqlLibraryRootProvider
 import com.calypsan.listenup.server.librarywrite.WriteJournal
 import com.calypsan.listenup.server.librarywrite.tempJournalDir
+import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.organize.MoveManifestExecutor
 import com.calypsan.listenup.server.organize.OrganizePlanBuilder
 import com.calypsan.listenup.server.organize.OrganizeRunState
@@ -41,6 +42,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
@@ -51,6 +53,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import org.slf4j.event.Level
 
 private const val RUN_TIMEOUT_MS = 30_000L
 
@@ -220,6 +223,67 @@ class OrganizeServiceImplTest :
             }
         }
 
+        test("a pass logs its plan, every failed book, and its result — but not every move at INFO") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-organize-svc-log-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedAuthor(sql)
+                Files.createDirectories(libraryRoot.resolve("messy")).also { Files.writeString(it.resolve("01.m4b"), "a") }
+                Files.createDirectories(libraryRoot.resolve("messy2")).also { Files.writeString(it.resolve("02.m4b"), "b") }
+                // b2's destination file already exists: the broker refuses an ambiguous move, so
+                // exactly one book of the two fails.
+                Files
+                    .createDirectories(libraryRoot.resolve("Brandon Sanderson/Words of Radiance"))
+                    .also { Files.writeString(it.resolve("Words of Radiance.m4b"), "someone else's") }
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val capture = ListenUpLoggerFactory.installTestCapture()
+                try {
+                    runBlocking {
+                        seedBook(this@withSqlDatabase, id = "b1", rootRelPath = "messy")
+                        seedBook(
+                            this@withSqlDatabase,
+                            id = "b2",
+                            rootRelPath = "messy2",
+                            title = "Words of Radiance",
+                            audioFileId = "af2",
+                            audioFilename = "02.m4b",
+                        )
+                        val svc = makeOrganizeService(this@withSqlDatabase, principalFor("a1", UserRole.ADMIN), runScope = scope)
+
+                        val settings = OrganizeSettingsDto(preset = OrganizePreset.AUTHOR_TITLE)
+                        val runId = (svc.saveAndExecute(settings) as AppResult.Success).data
+                        val terminal =
+                            withTimeout(RUN_TIMEOUT_MS) {
+                                svc.observeRun(runId).toList().map { (it as RpcEvent.Data).value }
+                            }.last().shouldBeInstanceOf<OrganizeRunEvent.Completed>()
+                        terminal.movedBooks shouldBe 1
+                        terminal.failedBooks shouldBe 1
+                    }
+
+                    val lines = capture.events.filter { it.loggerName == OrganizeServiceImpl::class.qualifiedName }
+                    withClue("organize log lines: ${lines.map { "${it.level} ${it.message}" }}") {
+                        val info = lines.filter { it.level == Level.INFO }
+                        info.size shouldBe 2
+                        info[0].message shouldContain "2 books planned"
+                        info[1].message shouldContain "1 moved"
+                        info[1].message shouldContain "1 failed"
+
+                        val warning = lines.single { it.level == Level.WARN }
+                        warning.message shouldContain "b2"
+                        warning.message shouldContain "messy2"
+                        warning.message shouldContain "Brandon Sanderson/Words of Radiance"
+                        warning.message shouldContain "LIBRARY_WRITE_UNAVAILABLE"
+                        warning.message shouldContain "ambiguous move"
+
+                        lines.single { it.level == Level.DEBUG }.message shouldContain "b1"
+                    }
+                } finally {
+                    ListenUpLoggerFactory.removeTestCapture()
+                    scope.cancel()
+                }
+            }
+        }
+
         test("unwritable library root: saveAndExecute fails typed and persists nothing") {
             withSqlDatabase {
                 // Root path that doesn't exist — the broker probe reports Unavailable.
@@ -340,6 +404,9 @@ private suspend fun seedBook(
     db: SqlTestDatabases,
     id: String,
     rootRelPath: String,
+    title: String = "The Way of Kings",
+    audioFileId: String = "af1",
+    audioFilename: String = "01.m4b",
 ) {
     val bus = ChangeBus()
     val registry = SyncRegistry()
@@ -356,7 +423,7 @@ private suspend fun seedBook(
     repo.upsert(
         bookPayloadFixture(
             id = id,
-            title = "The Way of Kings",
+            title = title,
             rootRelPath = rootRelPath,
             contributors =
                 listOf(
@@ -371,9 +438,9 @@ private suspend fun seedBook(
             audioFiles =
                 listOf(
                     BookAudioFilePayload(
-                        id = "af1",
+                        id = audioFileId,
                         index = 0,
-                        filename = "01.m4b",
+                        filename = audioFilename,
                         format = "m4b",
                         codec = "aac",
                         duration = 1_000L,

@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverPreferences
 import com.calypsan.listenup.server.hardcover.HardcoverPullRequests
 import com.calypsan.listenup.server.hardcover.HardcoverPullStore
 import com.calypsan.listenup.server.hardcover.HardcoverPullWorker
+import com.calypsan.listenup.server.hardcover.HardcoverRatingImport
 import com.calypsan.listenup.server.hardcover.HardcoverPuller
 import com.calypsan.listenup.server.hardcover.HardcoverPushExecutor
 import com.calypsan.listenup.server.hardcover.HardcoverPushHook
@@ -288,11 +289,13 @@ private fun Module.hardcoverPull() {
             resolver = get(),
             links = get(),
             wantToRead = get(),
+            ratingImport = get(),
             rateLimiter = get(),
             sql = get(),
             clock = get(),
         )
     }
+    single { HardcoverRatingImport(sql = get(), ratings = get()) }
     single {
         HardcoverPullWorker(
             puller = get(),

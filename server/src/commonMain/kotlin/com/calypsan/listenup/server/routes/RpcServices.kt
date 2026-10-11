@@ -30,6 +30,7 @@ import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
+import com.calypsan.listenup.api.WorldEventService
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.SessionLiveness
@@ -77,4 +78,6 @@ data class RpcServices(
     val hardcoverService: HardcoverService,
     /** Story World entities: edit, merge, history and revert. */
     val entityService: EntityService,
+    /** Story World events: batched edits, listings, history and revert. */
+    val worldEventService: WorldEventService,
 )

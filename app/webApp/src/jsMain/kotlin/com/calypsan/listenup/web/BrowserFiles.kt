@@ -1,11 +1,5 @@
 package com.calypsan.listenup.web
 
-import com.calypsan.listenup.core.FileSource
-import com.calypsan.listenup.core.FileUnreadableException
-import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.writeFully
-import io.ktor.utils.io.writer
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.io.Buffer
@@ -16,7 +10,6 @@ import org.w3c.dom.HTMLAnchorElement
 import org.w3c.dom.url.URL
 import org.w3c.files.Blob
 import org.w3c.files.BlobPropertyBag
-import org.w3c.files.File
 
 /**
  * A [RawSink] that keeps everything written to it, for a caller that wants the bytes afterwards.
@@ -54,7 +47,8 @@ internal class BufferingSink : RawSink {
 }
 
 /**
- * Hands [bytes] to the browser as a download named [filename].
+ * Hands [bytes] to the browser as a download named [filename], of media [type] (a backup's zip by
+ * default).
  *
  * A synthetic anchor rather than `window.open`: an object URL opened in a tab renders the archive
  * as text in some browsers, and only the `download` attribute makes the file arrive with the name
@@ -65,8 +59,9 @@ internal class BufferingSink : RawSink {
 internal fun saveToDisk(
     filename: String,
     bytes: ByteArray,
+    type: String = "application/zip",
 ) {
-    val blob = Blob(arrayOf(bytes.unsafeCast<Int8Array>()), BlobPropertyBag(type = "application/zip"))
+    val blob = Blob(arrayOf(bytes.unsafeCast<Int8Array>()), BlobPropertyBag(type = type))
     val url = URL.createObjectURL(blob)
     val anchor = document.createElement("a") as HTMLAnchorElement
     anchor.href = url
@@ -77,74 +72,6 @@ internal fun saveToDisk(
     anchor.remove()
     URL.revokeObjectURL(url)
 }
-
-/**
- * A picked browser file, as the shared [FileSource] the upload path speaks, streamed from the file.
- *
- * [openChannel] returns at once with a channel a writer coroutine on [scope] fills one
- * [sliceBytes]-sized `Blob.slice` at a time, so a file of any size is only ever a slice and the
- * channel's own buffer in memory. Each call starts a fresh pump from offset zero, which is what the
- * interface promises and what a retried upload relies on; [size] is the file's own, known without
- * reading it.
- *
- * A slice the browser cannot read (the file was moved, deleted, or its disk went away mid-upload)
- * closes the channel with a [FileUnreadableException], so the transfer fails and says so, rather
- * than ending early as though the file were whole. It is deliberately not an `IOException`: the
- * upload boundary reads those as the network being down, and would retry a file that is gone.
- *
- * [scope] must be the upload's own: cancelling it stops the pump, so an abandoned upload stops
- * reading the disk.
- */
-internal class BrowserFileSource(
-    private val file: File,
-    private val scope: CoroutineScope,
-    private val sliceBytes: Int = UPLOAD_SLICE_BYTES,
-    private val readSlice: suspend (File, Double, Double) -> ByteArray? = ::readFileSlice,
-) : FileSource {
-    override val filename: String get() = file.name
-
-    override val size: Long get() = file.size.toLong()
-
-    override fun openChannel(): ByteReadChannel =
-        scope
-            .writer {
-                val end = file.size.toDouble()
-                var offset = 0.0
-                while (offset < end) {
-                    val next = minOf(offset + sliceBytes, end)
-                    val bytes =
-                        readSlice(file, offset, next) ?: throw FileUnreadableException("Could not read ${file.name}")
-                    channel.writeFully(bytes)
-                    channel.flush()
-                    offset = next
-                }
-            }.channel
-}
-
-/**
- * A picked browser file whose bytes the caller already holds, replayed on each [openChannel].
- *
- * For the single-archive flows (a backup, an import) that read their one file whole before handing
- * it over, the same browser limitation [BufferingSink] documents from the other direction. A library
- * upload does not use this: it streams through [BrowserFileSource].
- */
-internal class BufferedFileSource(
-    private val file: File,
-    private val bytes: ByteArray,
-) : FileSource {
-    override val filename: String get() = file.name
-
-    override val size: Long get() = bytes.size.toLong()
-
-    override fun openChannel(): ByteReadChannel = ByteReadChannel(bytes)
-}
-
-/**
- * How much of a file the upload reads at a time: 1 MiB, large enough that the per-slice round
- * trip through `FileReader` is noise against the network, small enough that a tab holds only a
- * sliver of a multi-GiB audiobook.
- */
-internal const val UPLOAD_SLICE_BYTES: Int = 1024 * 1024
 
 /**
  * Puts [text] on the clipboard, reporting whether it actually got there.

@@ -20,6 +20,9 @@ private const val SCROLLED_TO = 600.0
  * The shell has ONE scroll container that outlives every page, so nothing about a route change
  * moved it: open a book from deep in the library and you landed mid-page, and Back dropped you at
  * wherever the previous page happened to leave the offset.
+ *
+ * Mounted with the router's production hook ([readLeavingPage]), which is what records the page
+ * being left; these drive the whole shell through the real router and real history.
  */
 class ScrollRestorationTest :
     FunSpec({
@@ -28,7 +31,10 @@ class ScrollRestorationTest :
 
         beforeTest { originalUrl = window.location.pathname + window.location.search }
 
-        afterTest { window.history.replaceState(null, "", originalUrl) }
+        afterTest {
+            window.history.replaceState(null, "", originalUrl)
+            forgetScrollMemory()
+        }
 
         /** Makes the shell's scrollport tall enough to scroll, whatever the page inside it is. */
         fun HTMLElement.makeScrollable() {
@@ -45,7 +51,7 @@ class ScrollRestorationTest :
         suspend fun settle() = repeat(SETTLE_FRAMES) { awaitFrame() }
 
         test("a new page opens at the top") {
-            val (host, router, composition) = mountAt("/")
+            val (host, router, composition) = mountAt("/", beforeRouteChange = ::readLeavingPage)
             try {
                 val main = host.querySelector(".shell-main") as HTMLElement
                 main.makeScrollable()
@@ -63,7 +69,7 @@ class ScrollRestorationTest :
         }
 
         test("Back returns to where you were") {
-            val (host, router, composition) = mountAt("/")
+            val (host, router, composition) = mountAt("/", beforeRouteChange = ::readLeavingPage)
             try {
                 val main = host.querySelector(".shell-main") as HTMLElement
                 main.makeScrollable()

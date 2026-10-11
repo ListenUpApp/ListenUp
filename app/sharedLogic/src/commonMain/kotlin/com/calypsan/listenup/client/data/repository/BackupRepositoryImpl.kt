@@ -12,20 +12,15 @@ import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.ArchiveUploadApiContract
 import com.calypsan.listenup.client.data.remote.NonRpcReason
 import com.calypsan.listenup.client.data.remote.NonRpcTransport
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.call.body
 import io.ktor.client.plugins.timeout
-import io.ktor.client.request.forms.ChannelProvider
-import io.ktor.client.request.forms.formData
-import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
-import io.ktor.http.Headers
-import io.ktor.http.HttpHeaders
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -47,9 +42,8 @@ private const val DOWNLOAD_TIMEOUT_MS = 10L * 60 * 1_000 // large image-bearing 
  * connection. Backup/restore run far past the channel's default 15s bound, so they pass an
  * explicit `timeout = 10.minutes`.
  *
- * [uploadBackup] is the one REST operation: binary multipart transfer cannot ride RPC.
- * It streams the `.listenup.zip` via `submitFormWithBinaryData` to
- * [BackupRoutePaths.UPLOAD] and parses the [BackupSummary] response.
+ * [uploadBackup] sends the `.listenup.zip` through [ArchiveUploadApiContract]: binary multipart
+ * transfer cannot ride RPC, and the browser binds its own sender for it.
  *
  * [observeProgress] unwraps the server-pushed [Flow]<[RpcEvent]<[BackupEvent]>> into a
  * plain [Flow]<[BackupEvent]>: [RpcEvent.Data] values are emitted; [RpcEvent.Error] and
@@ -65,36 +59,10 @@ private const val DOWNLOAD_TIMEOUT_MS = 10L * 60 * 1_000 // large image-bearing 
 internal class BackupRepositoryImpl(
     private val channel: RpcChannel<BackupService>,
     private val clientFactory: ApiClientFactory,
+    private val archiveUploads: ArchiveUploadApiContract,
 ) : BackupRepository {
     override suspend fun uploadBackup(fileSource: FileSource): AppResult<BackupSummary> =
-        suspendRunCatching {
-            clientFactory
-                .getClient()
-                .submitFormWithBinaryData(
-                    url = BackupRoutePaths.UPLOAD,
-                    formData =
-                        formData {
-                            // ChannelProvider streams on-demand — never buffers the entire zip.
-                            append(
-                                key = "backup",
-                                value = ChannelProvider(fileSource.size) { fileSource.openChannel() },
-                                headers =
-                                    Headers.build {
-                                        append(
-                                            HttpHeaders.ContentDisposition,
-                                            "filename=\"${fileSource.filename}\"",
-                                        )
-                                    },
-                            )
-                        },
-                ) {
-                    // Large backups can take several minutes to upload.
-                    timeout {
-                        requestTimeoutMillis = 10 * 60 * 1_000
-                        socketTimeoutMillis = 10 * 60 * 1_000
-                    }
-                }.body<BackupSummary>()
-        }
+        archiveUploads.uploadBackup(fileSource)
 
     override suspend fun downloadBackup(
         id: BackupId,

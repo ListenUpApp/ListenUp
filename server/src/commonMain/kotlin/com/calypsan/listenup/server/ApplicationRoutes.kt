@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.EntityService
+import com.calypsan.listenup.api.WorldEventService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.HardcoverService
 import com.calypsan.listenup.api.ImportService
@@ -213,4 +214,5 @@ private fun Application.rpcServiceBundle(): RpcServices =
         notificationService = koinGet<NotificationService>(),
         hardcoverService = koinGet<HardcoverService>(),
         entityService = koinGet<EntityService>(),
+        worldEventService = koinGet<WorldEventService>(),
     )

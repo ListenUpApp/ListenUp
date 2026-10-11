@@ -8,6 +8,12 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
+/** Hardcover's privacy settings (`privacy_settings`, verified live 2026-10-10): every `user_books` row carries one. */
+object HardcoverPrivacy {
+    /** "Public" — the only setting whose rating ListenUp imports. 2 is "Followers only", 3 "Private". */
+    const val PUBLIC: Int = 1
+}
+
 /** Hardcover's reading statuses (`user_books.status_id`) that ListenUp reads or writes. */
 object HardcoverStatus {
     /** "Want to Read": the pull puts these on the user's To Read shelf (#1539). */
@@ -64,6 +70,9 @@ data class HardcoverFinishedRead(
  * [updatedAt] is Hardcover's own `timestamptz` text, opaque: it is handed back verbatim as the next
  * cursor and never parsed, re-rendered or compared locally — Hasura trims trailing fractional zeros
  * (`…19.1+00:00` beside `…19.10654+00:00`), so only Hardcover orders it.
+ *
+ * [ratingHalfStars] is the user's own Hardcover rating in ListenUp half stars, or null when unrated;
+ * [privacySettingId] is the entry's Hardcover privacy ([HardcoverPrivacy]).
  */
 data class HardcoverShelfEntry(
     val userBookId: Long,
@@ -76,7 +85,13 @@ data class HardcoverShelfEntry(
     val editionAsin: String?,
     val editionIsbns: List<String>,
     val defaultAudioEditionId: Long?,
-)
+    val ratingHalfStars: Int? = null,
+    val privacySettingId: Int? = null,
+) {
+    /** [ratingHalfStars] when the entry is public on Hardcover, else null: a private or followers-only rating is never shared with a library's members. */
+    val sharedRatingHalfStars: Int?
+        get() = ratingHalfStars.takeIf { privacySettingId == HardcoverPrivacy.PUBLIC }
+}
 
 /**
  * The user's own library on Hardcover: one book's shelf entry, and the writes push needs. A face on
@@ -303,7 +318,7 @@ class HardcoverUserBooks(
         const val CHANGED_SINCE_QUERY =
             "query(\$after:timestamptz!,\$afterId:Int!,\$limit:Int!){ me { user_books(" +
                 "where:{_or:[{updated_at:{_gt:\$after}},{updated_at:{_eq:\$after},id:{_gt:\$afterId}}]}, " +
-                "order_by:[{updated_at:asc},{id:asc}], limit:\$limit){ id book_id status_id updated_at " +
+                "order_by:[{updated_at:asc},{id:asc}], limit:\$limit){ id book_id status_id rating privacy_setting_id updated_at " +
                 "user_book_reads(order_by:{id:asc}){ id finished_at } edition { asin isbn_13 isbn_10 } " +
                 "book { id title default_audio_edition_id contributions { author { name } } } } } }"
         const val INSERT_USER_BOOK =

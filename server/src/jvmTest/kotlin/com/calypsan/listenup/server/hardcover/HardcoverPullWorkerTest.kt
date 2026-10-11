@@ -5,6 +5,9 @@ import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.sync.BookRatingRepository
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -81,6 +84,11 @@ private class PullWorkerRig(
                     resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver), HardcoverExclusions(sql)),
                     links = links,
                     wantToRead = testWantToRead(dbs, clock),
+                    ratingImport =
+                        HardcoverRatingImport(
+                            sql,
+                            BookRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = dbs.driver),
+                        ),
                     rateLimiter = NoWaitRateLimiter(),
                     sql = sql,
                     clock = clock,

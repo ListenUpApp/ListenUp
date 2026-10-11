@@ -67,6 +67,7 @@ private fun SettingsRoute(
         onOpenHardcover = { router.navigate(Routes.settingsHardcover) },
         canCurateLibrary = session.canCurateLibrary.collectAsState().value,
         onOpenCategories = { router.navigate(Routes.settingsCategories) },
+        onDownloadLogs = session.downloadLogs,
     )
 }
 

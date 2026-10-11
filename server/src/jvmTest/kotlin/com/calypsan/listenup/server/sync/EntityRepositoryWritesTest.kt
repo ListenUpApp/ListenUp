@@ -87,6 +87,54 @@ class EntityRepositoryWritesTest :
             }
         }
 
+        test("undoing the undo of a delete deletes the entity again") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                val repo = entityRepository()
+                runTest {
+                    repo.upsertEntity(entityPayload("e1", homeBookId = "b1"), ACTOR)
+                    repo.deleteEntity(EntityId("e1"), ACTOR) shouldBe AppResult.Success(Unit)
+                    val undoDelete =
+                        repo
+                            .revert(repo.listHistory(EntityId("e1")).first().id, ACTOR, allowMergeRevert = false)
+                            .shouldBeInstanceOf<AppResult.Success<EntityChange>>()
+                            .data
+
+                    repo.revert(undoDelete.id, ACTOR, allowMergeRevert = false).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
+
+                    repo
+                        .findById(EntityId("e1"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
+                }
+            }
+        }
+
+        test("undoing a book re-add's revival deletes the entity again") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                val repo = entityRepository()
+                runTest {
+                    repo.upsertEntity(entityPayload("e1", homeBookId = "b1"), ACTOR)
+                    repo.softDeleteAllForBook("b1") shouldBe 1
+                    repo.reviveAllForBooks(listOf("b1")) shouldBe 1
+                    val revival = repo.listHistory(EntityId("e1")).first()
+                    revival.op shouldBe StoryWorldOp.REVERT
+
+                    repo.revert(revival.id, ACTOR, allowMergeRevert = false).shouldBeInstanceOf<AppResult.Success<EntityChange>>()
+
+                    repo
+                        .findById(EntityId("e1"))
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
+                }
+            }
+        }
+
         test("reverting an edit restores the earlier name") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

@@ -124,6 +124,8 @@ class SyncDomainCompletenessSpec :
                 // (client-minted id), delete is Delete; merge and revert stay online.
                 // reading_orders, reading_order_books and reading_order_follows are offline-first from the
                 // start, create included — the client mints the order id (#962).
+                // world_events is outbox-backed from the start — every write is one atomic EventsBatch; revert
+                // stays online.
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -145,6 +147,7 @@ class SyncDomainCompletenessSpec :
                         "collection_books",
                         "notifications",
                         "entities",
+                        "world_events",
                     )
             } finally {
                 db.close()
@@ -342,6 +345,7 @@ class SyncDomainCompletenessSpec :
                         "book_ratings",
                         "book_external_ratings",
                         "entities",
+                        "world_events",
                         "reading_order_books",
                     )
 
@@ -365,6 +369,7 @@ class SyncDomainCompletenessSpec :
                         "book_external_ratings",
                         "entities",
                         "reading_order_books",
+                        "world_events",
                     )
 
                 // The one LiveTailOnly domain — deliberately NOT fetched in the delta.

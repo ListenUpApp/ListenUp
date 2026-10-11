@@ -8,6 +8,8 @@ import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import com.calypsan.listenup.web.logging.RecentLogBuffer
+import com.calypsan.listenup.web.logging.downloadRecentLogs
 import org.koin.core.Koin
 
 /**
@@ -17,6 +19,9 @@ import org.koin.core.Koin
  *
  * [hardcoverRow] is the Account section's Hardcover entry — null hides it, because a server with
  * no Hardcover app has nothing to connect to, and an entry leading to "not set up" is a dead end.
+ *
+ * [downloadLogs] saves the browser's recent log (see
+ * [com.calypsan.listenup.web.logging.RecentLogBuffer]) — null when this page has none to offer.
  *
  * Eight of the twelve `SettingsViewModel` offers. The other four — dynamic colours, Wi-Fi-only
  * downloads, haptics, the sleep-timer default — are omitted deliberately rather than disabled,
@@ -41,6 +46,7 @@ class SettingsSession(
     val onIgnoreTitleArticles: (Boolean) -> Unit,
     val onHideSingleBookSeries: (Boolean) -> Unit,
     override val close: () -> Unit,
+    val downloadLogs: (() -> Unit)? = null,
 ) : RouteSession
 
 /** How the page gets its session. */
@@ -64,6 +70,7 @@ fun graphSettings(koin: Koin): OpenSettings =
             onIgnoreTitleArticles = viewModel::setIgnoreTitleArticles,
             onHideSingleBookSeries = viewModel::setHideSingleBookSeries,
             close = store::clear,
+            downloadLogs = koin.getOrNull<RecentLogBuffer>()?.let { buffer -> { downloadRecentLogs(buffer) } },
         )
     }
 

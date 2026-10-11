@@ -1,25 +1,21 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.core.BlobFileSource
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.presentation.admin.upload.UploadSelectionRefusal
 import com.calypsan.listenup.web.features.bookdetail.formatBytes
-import kotlinx.coroutines.CoroutineScope
 import org.w3c.dom.HTMLInputElement
 import org.w3c.files.File
 
 /**
  * Everything a file picker handed over, as the [UploadCandidate]s the shared upload path speaks.
  *
- * Nothing is read here: each candidate's [BrowserFileSource] reads its file in slices as the upload
- * sends it, on [scope], so a selection of any size costs a few megabytes of tab memory and a file
- * that cannot be read fails its own transfer instead of vanishing from the selection. What one
- * upload may carry is decided by the shared `uploadSelectionRefusal`, not here.
+ * Nothing is read here. Each candidate carries the picked `File` itself ([BlobFileSource]), and the
+ * browser's upload transport hands that to XMLHttpRequest, which streams it from disk — so a
+ * selection is limited only by the shared rules the server sets, never by what a tab can hold.
  */
-internal fun candidatesFrom(
-    files: List<File>,
-    scope: CoroutineScope,
-): List<UploadCandidate> =
-    files.map { file -> UploadCandidate(relPath = relPathOf(file), source = BrowserFileSource(file, scope)) }
+internal fun candidatesFrom(files: List<File>): List<UploadCandidate> =
+    files.map { file -> UploadCandidate(relPath = relPathOf(file), source = BlobFileSource(file)) }
 
 /**
  * What a refused selection says, naming the limit it broke — the same sentences Android's dialogs

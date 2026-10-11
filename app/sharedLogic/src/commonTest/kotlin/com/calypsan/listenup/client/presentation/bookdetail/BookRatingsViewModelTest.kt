@@ -430,6 +430,35 @@ class BookRatingsViewModelTest :
             }
         }
 
+        test("a rating from Hardcover says so, and stars you set drop the mark before the save lands") {
+            runTest {
+                val gate = CompletableDeferred<Unit>()
+                val repo = FakeBookRatingRepository().apply { rateGate = gate }
+                repo.seed(ListenerRating("b1", "me", 9, null, 1L, fromHardcover = true))
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(),
+                    )
+
+                vm.state.test {
+                    awaitItem() shouldBe BookRatingsUiState.Loading
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.fromHardcover shouldBe true
+
+                    vm.setStars(6)
+                    runCurrent()
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().mine?.fromHardcover shouldBe false
+
+                    gate.complete(Unit)
+                    advanceUntilIdle()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         test("the stars show the new rating before the save lands") {
             runTest {
                 val gate = CompletableDeferred<Unit>()

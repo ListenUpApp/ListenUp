@@ -107,6 +107,9 @@ object SyncDomains {
     /** Story World entities — access-gated by their home book or series. */
     val ENTITIES = SyncDomainKey("entities", EntitySyncPayload.serializer())
 
+    /** Story World events — access-gated by their home book or series, and by their anchor book. */
+    val WORLD_EVENTS = SyncDomainKey("world_events", WorldEventSyncPayload.serializer())
+
     /** Every key, for completeness tests and registry-driven iteration. */
     val all: List<SyncDomainKey<*>> =
         listOf(
@@ -138,5 +141,6 @@ object SyncDomains {
             ACTIVITIES,
             NOTIFICATIONS,
             ENTITIES,
+            WORLD_EVENTS,
         )
 }

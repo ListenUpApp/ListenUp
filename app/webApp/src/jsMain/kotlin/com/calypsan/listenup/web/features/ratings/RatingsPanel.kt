@@ -156,6 +156,9 @@ private fun YourRating(
             KeyCap("End")
         }
         if (mine != null) {
+            if (mine.fromHardcover) {
+                Div(attrs = { classes("rt-mut") }) { Text("Rated on Hardcover") }
+            }
             NoteAndActions(
                 mine = mine,
                 onEditNote = onEditNote,

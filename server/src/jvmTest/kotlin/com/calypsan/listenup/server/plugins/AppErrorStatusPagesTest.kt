@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.ReadingOrderError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.WorldEventError
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -77,6 +78,14 @@ class AppErrorStatusPagesTest :
             (EntityError.InvalidParent() as AppError).toHttpStatus() shouldBe HttpStatusCode.BadRequest
             (EntityError.CycleDetected() as AppError).toHttpStatus() shouldBe HttpStatusCode.Conflict
             (EntityError.KindMismatchOnMerge() as AppError).toHttpStatus() shouldBe HttpStatusCode.Conflict
+        }
+
+        test("WorldEventError maps NotFound to 404 and the integrity refusals to 400") {
+            (WorldEventError.NotFound() as AppError).toHttpStatus() shouldBe HttpStatusCode.NotFound
+            (WorldEventError.HistoryNotFound() as AppError).toHttpStatus() shouldBe HttpStatusCode.NotFound
+            (WorldEventError.InvalidAnchor() as AppError).toHttpStatus() shouldBe HttpStatusCode.BadRequest
+            (WorldEventError.EntityNotInWorld() as AppError).toHttpStatus() shouldBe HttpStatusCode.BadRequest
+            (WorldEventError.WrongEntityKind() as AppError).toHttpStatus() shouldBe HttpStatusCode.BadRequest
         }
 
         test("AudioMetadataError.UnsupportedFormat maps to 415 UnsupportedMediaType") {

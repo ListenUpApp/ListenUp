@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.client.data.remote.ArchiveUploadApi
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
@@ -132,6 +133,7 @@ class BackupRepositoryImplTest :
             BackupRepositoryImpl(
                 channel = RpcChannel.forTest(service),
                 clientFactory = mock(MockMode.autofill),
+                archiveUploads = mock(MockMode.autofill),
             )
 
         fun buildRepoWithEngine(
@@ -141,6 +143,7 @@ class BackupRepositoryImplTest :
             BackupRepositoryImpl(
                 channel = RpcChannel.forTest(service),
                 clientFactory = FakeApiClientFactory(engine),
+                archiveUploads = ArchiveUploadApi(clientFactory = FakeApiClientFactory(engine)),
             )
 
         fun buildRepoWithTimeoutEngine(
@@ -150,6 +153,7 @@ class BackupRepositoryImplTest :
             BackupRepositoryImpl(
                 channel = RpcChannel.forTest(service),
                 clientFactory = FakeApiClientFactoryWithTimeout(engine),
+                archiveUploads = ArchiveUploadApi(clientFactory = FakeApiClientFactoryWithTimeout(engine)),
             )
 
         /** Minimal in-memory [FileSource] with known bytes — never hits the filesystem. */

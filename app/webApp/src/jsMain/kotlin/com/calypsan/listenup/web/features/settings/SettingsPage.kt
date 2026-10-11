@@ -56,6 +56,7 @@ fun SettingsPage(
     onOpenHardcover: () -> Unit = {},
     canCurateLibrary: Boolean = false,
     onOpenCategories: () -> Unit = {},
+    onDownloadLogs: (() -> Unit)? = null,
 ) {
     Div(attrs = { classes("set") }) {
         PageHeader(title = "Settings")
@@ -145,6 +146,7 @@ fun SettingsPage(
             Row("Server", state.serverUrl ?: "Not configured")
             state.serverVersion?.let { Row("Server version", it) }
             Button(kind = ButtonKind.Secondary, onClick = { onOpenLicences() }) { Text("Open source licenses") }
+            onDownloadLogs?.let { DownloadLogsEntry(it) }
         }
     }
 }
@@ -178,6 +180,22 @@ private fun CategoriesEntry(onOpen: () -> Unit) {
     }) {
         Span(attrs = { classes("set-link-t") }) { Text("Categories") }
         Span(attrs = { classes("set-link-sub") }) { Text("Merge and delete genres for everyone") }
+    }
+}
+
+/**
+ * Settings → About → Download logs: Android's "Share logs" as a browser can offer it — the recent
+ * log arrives as a file. The second line is `settings.share_logs_subtitle`, worded as every platform.
+ */
+@Composable
+private fun DownloadLogsEntry(onDownload: () -> Unit) {
+    Button(attrs = {
+        classes("set-link")
+        attr("type", TYPE_BUTTON)
+        onClick { onDownload() }
+    }) {
+        Span(attrs = { classes("set-link-t") }) { Text("Download logs") }
+        Span(attrs = { classes("set-link-sub") }) { Text("Export recent app logs for troubleshooting") }
     }
 }
 

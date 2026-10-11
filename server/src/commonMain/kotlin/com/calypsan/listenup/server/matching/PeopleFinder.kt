@@ -92,6 +92,7 @@ internal class PeopleFinder(
         val key = PeopleFindCache.Key(source.id, lookup, locale.region)
         return askSource(
             source = source.id,
+            label = "people",
             deadline = deadline,
             availability = { source.personAvailability() },
             cached = { cache.get(key) },

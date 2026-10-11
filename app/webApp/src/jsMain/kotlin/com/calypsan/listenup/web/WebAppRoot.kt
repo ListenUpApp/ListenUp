@@ -13,18 +13,18 @@ import com.calypsan.listenup.web.design.ShowActionToast
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.TransportBarHost
 import com.calypsan.listenup.web.features.sync.DeadLetterNotice
+import com.calypsan.listenup.web.motion.PageArrival
 import com.calypsan.listenup.web.nav.HOME_KEY
 import com.calypsan.listenup.web.nav.LIBRARY_DEEP_LINKS
 import com.calypsan.listenup.web.nav.LIBRARY_KEY
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
+import com.calypsan.listenup.web.nav.ScrollRestoration
 import com.calypsan.listenup.web.nav.rememberSession
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.CommandPaletteHost
-import com.calypsan.listenup.web.shell.FadeOnPageChange
 import com.calypsan.listenup.web.shell.RouteContent
-import com.calypsan.listenup.web.shell.ScrollFollowsNavigation
 import com.calypsan.listenup.web.shell.Shell
 import com.calypsan.listenup.web.shell.footerNav
 import com.calypsan.listenup.web.shell.inboxBadge
@@ -65,10 +65,8 @@ fun WebAppRoot(
 
     // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
     // flight works in both directions: out to the detail hero, and back to the same tile on return.
-    // The library's scrollport is the shell's, which does not unmount on a route change; Back
-    // restores the offset the library was left at (ScrollFollowsNavigation), so the tile is usually
-    // still on screen. When it is not — the grid is virtualised — there is simply nothing to fly to
-    // and the pages crossfade instead.
+    // Back restores the grid's scroll first (ScrollRestoration), so the tile is on screen again
+    // before the flight measures it — see HeroFlight.
     var heroBookId by remember { mutableStateOf<String?>(null) }
     // Opened once for the shell's lifetime, not per route: the badge is on the sidebar, which
     // outlives every page. Closing it with a route would blank the count the moment you navigated
@@ -85,9 +83,6 @@ fun WebAppRoot(
     // A book, the person behind it, or the series it belongs to all live in the library, so
     // every one of those deep links keeps Library lit in the sidebar.
     val active = if (page in LIBRARY_DEEP_LINKS) LIBRARY_KEY else page
-
-    FadeOnPageChange(page)
-    ScrollFollowsNavigation(router)
 
     CompositionLocalProvider(LocalRestrictedBookIds provides restrictedBookIds) {
         Shell(
@@ -118,21 +113,24 @@ fun WebAppRoot(
             // at. A Room-backed flow costs almost nothing to keep subscribed, and keeping it is what
             // makes going back instant instead of merely fast.
             val librarySession = libraryState(graph.openLibrary)
-            RouteContent(
-                router = router,
-                route = route,
-                page = page,
-                active = active,
-                graph = graph,
-                currentUserId = currentUserId,
-                onToast = onToast,
-                onActionToast = onActionToast,
-                librarySession = librarySession,
-                inbox = inbox,
-                playback = playback,
-                heroBookId = heroBookId,
-                onHeroBookIdChange = { heroBookId = it },
-            )
+            ScrollRestoration(route)
+            PageArrival(page) {
+                RouteContent(
+                    router = router,
+                    route = route,
+                    page = page,
+                    active = active,
+                    graph = graph,
+                    currentUserId = currentUserId,
+                    onToast = onToast,
+                    onActionToast = onActionToast,
+                    librarySession = librarySession,
+                    inbox = inbox,
+                    playback = playback,
+                    heroBookId = heroBookId,
+                    onHeroBookIdChange = { heroBookId = it },
+                )
+            }
 
             // Above the playback notices, and unlike them it is not dismissible: a failed edit stays
             // until the reader retries or accepts the server's version. See [DeadLetterNotice].

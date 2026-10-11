@@ -30,6 +30,7 @@ import org.w3c.dom.asList
  */
 internal class ViewportFrames {
     private val mounted = mutableListOf<Pair<HTMLIFrameElement, Composition>>()
+    private val handles = mutableListOf<ViewportFrame>()
 
     /**
      * Renders [content] (inside the app surface) into a fresh [width]×[height] frame.
@@ -60,8 +61,11 @@ internal class ViewportFrames {
         val host = document.createElement("div") as HTMLElement
         frameDocument.body!!.appendChild(host)
         mounted += frame to renderComposable(root = host) { WebAppSurface { content() } }
-        return ViewportFrame(host, frame.contentWindow!!, width, height)
+        return ViewportFrame(host, frame.contentWindow!!, width, height).also { handles += it }
     }
+
+    /** The frame mounted most recently. */
+    fun last(): ViewportFrame = handles.last()
 
     /** Disposes every composition and removes its frame. Safe to call twice. */
     fun disposeAll() {
@@ -70,6 +74,7 @@ internal class ViewportFrames {
             frame.remove()
         }
         mounted.clear()
+        handles.clear()
     }
 
     private companion object {

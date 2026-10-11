@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
 import com.calypsan.listenup.server.librarywrite.WriteManifest
 import com.calypsan.listenup.server.librarywrite.WriteOp
+import com.calypsan.listenup.server.librarywrite.ancestorPruneOps
 import com.calypsan.listenup.server.librarywrite.resolvedForContainment
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.sidecar.SidecarWriteStateRepository
@@ -111,40 +112,6 @@ class BookDeleter(
         // elsewhere be mistaken for one of our own writes and skipped.
         sidecarWriteState?.deleteForBook(id.value)
         return AppResult.Success(Unit)
-    }
-
-    /**
-     * The empty-directory cleanup for everything between the book and its library folder root —
-     * one [WriteOp.DeleteDirIfEmpty] per level, deepest first.
-     *
-     * Deleting `Aleron Kong/Chaos Seeds/Book 1` leaves two directories behind that now describe
-     * nothing; the walk removes the series folder, finds the author folder empty too, and removes
-     * that. It needs no knowledge of what a "series folder" is — the shape of the path is the only
-     * input, so any hierarchy the organizer can produce is pruned by the same code.
-     *
-     * Nothing here decides *whether* a directory should go: [WriteOp.DeleteDirIfEmpty] is
-     * best-effort, so the first ancestor still holding a sibling book (or a stray file the user
-     * put there) stops the chain on its own, and the ops above it become no-ops.
-     *
-     * The walk is bounded by **segment count, not path comparison**: a book stored at a
-     * `root_rel_path` of N segments has exactly N-1 ancestors below the root, so the root is
-     * unreachable by construction rather than by a string compare that a trailing slash could
-     * defeat. The broker refuses a root-targeted op regardless — belt and braces on the one
-     * mistake that would take the library with it.
-     */
-    private fun ancestorPruneOps(
-        bookDir: Path,
-        rootRelPath: String,
-    ): List<WriteOp> {
-        val depth = rootRelPath.split('/').count { it.isNotEmpty() }
-        val ops = mutableListOf<WriteOp>()
-        var dir = bookDir.parent
-        repeat(maxOf(depth - 1, 0)) {
-            val current = dir ?: return ops
-            ops.add(WriteOp.DeleteDirIfEmpty(current))
-            dir = current.parent
-        }
-        return ops
     }
 
     /** The live `library_folders.root_path` for [folderId], or null when the folder is gone. */

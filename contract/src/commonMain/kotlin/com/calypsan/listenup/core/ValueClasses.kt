@@ -232,6 +232,22 @@ value class StoryWorldHistoryId(
 }
 
 /**
+ * Type-safe wrapper for a Story World event id — one line of a world's log. Client-minted (random UUID) so
+ * an event can be recorded offline.
+ */
+@Serializable
+@JvmInline
+value class WorldEventId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "World event ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Contributor IDs.
  */
 @Serializable

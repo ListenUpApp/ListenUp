@@ -1,5 +1,5 @@
 -- book_ratings: syncable, soft-deletable, revision-tracked. One listener's rating of one book.
--- Column set matches V72__book_ratings.sql exactly.
+-- Column set matches V72__book_ratings.sql plus V98__book_rating_source.sql.
 -- FK declarations (REFERENCES books/users) are omitted here: SQLDelight cannot resolve
 -- cross-table references for tables not yet defined in this schema's .sq files. The
 -- constraints (including the half_stars CHECK) are present in the migration DDL and
@@ -16,6 +16,8 @@ CREATE TABLE book_ratings (
     revision     INTEGER NOT NULL,
     deleted_at   INTEGER,
     client_op_id TEXT,
+    source       TEXT    NOT NULL DEFAULT 'listenup',
+    hardcover_half_stars INTEGER,
     PRIMARY KEY (book_id, user_id)
 );
 
@@ -56,17 +58,26 @@ selectLiveIdsForUser:
 SELECT id FROM book_ratings WHERE user_id = :user_id AND deleted_at IS NULL;
 
 insert:
-INSERT INTO book_ratings (id, book_id, user_id, half_stars, note, rated_at, created_at, updated_at, revision, deleted_at, client_op_id)
-VALUES (:id, :book_id, :user_id, :half_stars, :note, :rated_at, :created_at, :updated_at, :revision, NULL, :client_op_id);
+INSERT INTO book_ratings (id, book_id, user_id, half_stars, note, rated_at, created_at, updated_at, revision, deleted_at, client_op_id, source)
+VALUES (:id, :book_id, :user_id, :half_stars, :note, :rated_at, :created_at, :updated_at, :revision, NULL, :client_op_id, :source);
 
 -- Re-rating an already-live row keeps its first rated_at; reviving a TOMBSTONED one resets
 -- rated_at to :rated_at (the caller's "now") — a rate() that follows a clear() is a new rating
 -- event, not an edit of the old one. `deleted_at` on the right-hand side reads the pre-update
 -- (old) row, same as every other column referenced there, so this correctly tests the state this
 -- very statement's own `deleted_at = NULL` is about to reconcile away.
+-- `source` is whatever the writer says: a person's rating is always `listenup`, an import `hardcover`.
 update:
 UPDATE book_ratings
 SET half_stars = :half_stars, note = :note, updated_at = :updated_at, revision = :revision,
     rated_at = CASE WHEN deleted_at IS NOT NULL THEN :rated_at ELSE rated_at END,
-    deleted_at = NULL, client_op_id = :client_op_id
+    deleted_at = NULL, client_op_id = :client_op_id, source = :source
 WHERE book_id = :book_id AND user_id = :user_id;
+
+-- What the Hardcover rating import decides from: the pair's row, live or tombstoned.
+selectForImport:
+SELECT id, half_stars, note, source, deleted_at, hardcover_half_stars FROM book_ratings WHERE book_id = :book_id AND user_id = :user_id;
+
+-- Records the Hardcover value the pull just saw (0 = none). Not a sync write: no revision bump.
+setHardcoverSeen:
+UPDATE book_ratings SET hardcover_half_stars = :hardcover_half_stars WHERE book_id = :book_id AND user_id = :user_id;

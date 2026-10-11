@@ -59,7 +59,8 @@ private val LISTENERS_ONLY = CombinedScore(average = 4.4, count = 3, shares = ma
 private fun mine(
     halfStars: Int = 9,
     note: String? = null,
-) = ListenerRating(bookId = "b1", userId = "me", halfStars = halfStars, note = note, ratedAtMs = 1L)
+    fromHardcover: Boolean = false,
+) = ListenerRating(bookId = "b1", userId = "me", halfStars = halfStars, note = note, ratedAtMs = 1L, fromHardcover = fromHardcover)
 
 private fun ready(
     mine: ListenerRating? = null,
@@ -108,6 +109,20 @@ class BookRatingSectionTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun `your rating from Hardcover says so`() {
+        show(ready(mine = mine(halfStars = 9, fromHardcover = true)))
+
+        composeRule.onNodeWithText("Rated on Hardcover").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a rating you set in ListenUp carries no Hardcover line`() {
+        show(ready(mine = mine(halfStars = 9)))
+
+        composeRule.onNodeWithText("Rated on Hardcover").assertDoesNotExist()
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.uploads.UploadFinalizeResult
 import com.calypsan.listenup.api.dto.uploads.UploadSessionSummary
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.UploadApiContract
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.domain.repository.UploadRepository
@@ -14,6 +15,7 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.seconds
 
 private val logger = KotlinLogging.logger {}
@@ -37,8 +39,9 @@ private val RETRY_BACKOFF = listOf(1.seconds, 4.seconds)
  * The whole reason this is a repository rather than four calls at the UI is what happens when a
  * transfer dies halfway. A session that is neither finalized nor abandoned leaves a staging
  * directory of half-uploaded audio on the server, and nothing later cleans it up. So **every** exit
- * from the loop — a failed file, a failed finalize, a cancelled collector — abandons the session on
- * the way out, under [NonCancellable] so cancellation cannot skip the cleanup it triggered.
+ * from the loop — a failed file, a failed finalize, a cancelled collector, a send that threw instead
+ * of answering — abandons the session on the way out, under [NonCancellable] so cancellation cannot
+ * skip the cleanup it triggered. A throw ends the flow as [UploadStep.Failed], never by escaping it.
  *
  * Progress is byte-accurate across the whole session, not per file: [UploadStep.Staging.bytesSent]
  * carries completed files plus the live count of the file in flight, so a bar drawn over it moves
@@ -75,9 +78,18 @@ internal class UploadRepositoryImpl(
             var settled = false
             try {
                 settled = stageAndFinalize(sessionId, candidates)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // The API answers AppResult, but an engine can still throw from underneath it — the
+                // browser's Ktor engine raised a RangeError (not even an Exception) building a large
+                // body. Escaping, that killed the collector and left the screen on "Sending" forever;
+                // ended here, it is an ordinary failed upload, and the session is still abandoned.
+                logger.warn(e) { "upload session $sessionId threw instead of answering a result; ending it as failed" }
+                send(UploadStep.Failed(ErrorMapper.map(e)))
             } finally {
-                // Covers every exit including cancellation — which propagates untouched, since
-                // there is no catch to swallow it. A finalize that ran has already removed the
+                // Covers every exit including cancellation — which propagates untouched, since the
+                // catch above re-throws it. A finalize that ran has already removed the
                 // staging directory server-side; only an unsettled session still owns one.
                 if (!settled) withContext(NonCancellable) { abandonQuietly(sessionId) }
             }

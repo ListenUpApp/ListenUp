@@ -33,6 +33,7 @@ import com.calypsan.listenup.domain.ListenerRatingLimits
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_rating_add_note
 import listenup.composeapp.generated.resources.book_detail_rating_edit_note
+import listenup.composeapp.generated.resources.book_detail_rating_from_hardcover
 import listenup.composeapp.generated.resources.book_detail_rating_saved_on_lift
 import listenup.composeapp.generated.resources.book_detail_rating_tap_hint
 import listenup.composeapp.generated.resources.book_detail_rating_yours
@@ -140,6 +141,13 @@ private fun YourRating(
             }
 
             mine != null -> {
+                if (mine.fromHardcover) {
+                    Text(
+                        text = stringResource(Res.string.book_detail_rating_from_hardcover),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 NoteAndActions(
                     mine = mine,
                     onEditNote = onEditNote,

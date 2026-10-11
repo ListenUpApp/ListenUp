@@ -13,13 +13,19 @@ struct BookRatingsTests {
 
     // MARK: - Fixtures
 
-    private func rating(halfStars: Int, note: String? = nil, userId: String = "u1") -> ListenerRating {
+    private func rating(
+        halfStars: Int,
+        note: String? = nil,
+        userId: String = "u1",
+        fromHardcover: Bool = false
+    ) -> ListenerRating {
         ListenerRating(
             bookId: "b1",
             userId: userId,
             halfStars: Int32(halfStars),
             note: note,
-            ratedAtMs: 1_711_929_600_000
+            ratedAtMs: 1_711_929_600_000,
+            fromHardcover: fromHardcover
         )
     }
 
@@ -481,5 +487,24 @@ struct BookRatingsTests {
         #expect(rows[0].isReading == false)
         #expect(rows[0].lastFinished == nil)
         #expect(rows[0].halfStars == 6)
+    }
+}
+
+// MARK: - Rated on Hardcover
+
+extension BookRatingsTests {
+    @Test func readyCarriesThatMyRatingCameFromHardcover() {
+        let phase = BookRatingsObserver.phase(from: BookRatingsUiStateReady(
+            listeners: nil,
+            mine: rating(halfStars: 9, fromHardcover: true),
+            external: nil,
+            breakdown: [],
+            canRefresh: false,
+            isRefreshingExternal: false,
+            isCheckingExternal: false
+        ))
+
+        guard case .ready(let snapshot) = phase else { Issue.record("expected ready"); return }
+        #expect(snapshot.mine == MyRating(halfStars: 9, note: nil, fromHardcover: true))
     }
 }

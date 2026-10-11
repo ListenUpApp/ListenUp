@@ -106,6 +106,7 @@ import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
 import com.calypsan.listenup.web.features.bulkedit.fixedBulkEdit
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.web.features.search.fixedSearch
+import com.calypsan.listenup.web.nav.RouteChange
 import com.calypsan.listenup.web.nav.Router
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
@@ -245,6 +246,7 @@ internal fun mountAt(
     onActionToast: ShowActionToast = { _, _, _ -> },
     openPlayback: OpenPlayback = fixedPlayback(),
     compositionProbe: (String) -> Unit = {},
+    beforeRouteChange: (RouteChange) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
     // A backstop for the ~60 callers that destructure only `(host, router)` and never dispose: an
     // orphaned shell keeps its palette's window key listener, and once the palette became a modal
@@ -254,7 +256,7 @@ internal fun mountAt(
     liveShells.forEach { it.dispose() }
     liveShells.clear()
     window.history.replaceState(null, "", path)
-    val router = Router()
+    val router = Router(beforeRouteChange)
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
     val composition =

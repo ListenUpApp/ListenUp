@@ -24,6 +24,12 @@ import com.calypsan.listenup.web.features.library.contractLibrary
 import com.calypsan.listenup.web.features.notifications.NotificationsPage
 import com.calypsan.listenup.web.features.notifications.notification
 import com.calypsan.listenup.web.features.serieslist.SeriesListPage
+import com.calypsan.listenup.web.motion.forgetPageArrival
+import com.calypsan.listenup.web.motion.isOnScreen
+import com.calypsan.listenup.web.motion.markPageArrival
+import com.calypsan.listenup.web.recordedAnimations
+import com.calypsan.listenup.web.startRecordingAnimations
+import com.calypsan.listenup.web.stopRecordingAnimations
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThan
@@ -52,6 +58,14 @@ private const val DESKTOP_WIDTH = 1280
 private const val DESKTOP_HEIGHT = 800
 
 private const val SETTLE_TIMEOUT_MS = 4_000L
+
+/** A window wide and tall enough that its first screenful holds more cards than the first paint. */
+private const val WIDE_WIDTH = 2_560
+
+private const val WIDE_HEIGHT = 1_600
+
+/** What VirtualList renders before it has measured anything. */
+private const val FIRST_PAINT_CARDS = 24
 
 private fun books(count: Int): List<BookListItem> = (1..count).map { contractBook("b$it", "Book ${it.toString().padStart(4, '0')}") }
 
@@ -109,6 +123,8 @@ class VirtualListTest :
         afterTest {
             frames.disposeAll()
             mounts.disposeAll()
+            forgetPageArrival()
+            stopRecordingAnimations()
         }
 
         fun grid(
@@ -190,6 +206,29 @@ class VirtualListTest :
 
             val after = frame.findAll(".lib-card").first { it.querySelector(".lib-title")?.textContent == title }
             after shouldBeSameInstanceAs card
+        }
+
+        test("a list arriving with its page sweeps its whole first screenful in, top to bottom") {
+            startRecordingAnimations()
+            val frame =
+                frames.mount(WIDE_WIDTH, WIDE_HEIGHT) {
+                    InShell {
+                        VirtualBookGrid(books = books(LARGE), letterOf = { null }, progressOf = { 0f }, onOpenBook = {})
+                    }
+                }
+            // Before the mount's microtask runs: the list mounts as part of a page arrival.
+            markPageArrival()
+            awaitUntil("the grid to window") { frame.isWindowed() }
+            repeat(2) { awaitFrame() }
+
+            val onScreen = frame.findAll(".lib-card").filter(::isOnScreen)
+            // More than the first paint renders, or this pins nothing.
+            onScreen.size shouldBeGreaterThan FIRST_PAINT_CARDS
+            val animated = recordedAnimations()
+            // Where each card's latest sweep was started, in call order: reading order means rising.
+            val lastSwept = onScreen.map { card -> animated.indexOfLast { it === card } }
+            withClue("cards never swept: ${lastSwept.count { it < 0 }} of ${onScreen.size}") { lastSwept.none { it < 0 } shouldBe true }
+            withClue("sweep order: $lastSwept") { lastSwept.zipWithNext().all { (a, b) -> b > a } shouldBe true }
         }
 
         test("a keyed list keeps each item's node when the list reorders") {

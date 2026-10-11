@@ -4,6 +4,8 @@ package com.calypsan.listenup.client.domain.model
  * One listener's rating of a book, as the UI reads it.
  *
  * @property halfStars 2..10 half-star units (7 is 3½ stars).
+ * @property fromHardcover Imported from the listener's Hardcover rating and not touched since — the
+ *   own-rating card says so.
  */
 data class ListenerRating(
     val bookId: String,
@@ -11,6 +13,7 @@ data class ListenerRating(
     val halfStars: Int,
     val note: String?,
     val ratedAtMs: Long,
+    val fromHardcover: Boolean = false,
 )
 
 /**

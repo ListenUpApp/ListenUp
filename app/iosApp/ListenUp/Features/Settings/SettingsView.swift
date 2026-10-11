@@ -12,6 +12,7 @@ import Shared
 /// Only settings the VM actually exposes are shown. The Downloads section links to the
 /// `StorageView` (usage + per-book delete + clear-all, backed by `StorageViewModel`); the
 /// mockup's Now Playing wallpaper row is intentionally omitted — it has no VM backing yet.
+/// About ends with Share logs, which hands the on-device log files to the system share sheet.
 /// The Administration row is shown only
 /// to admin / root users (`User.isAdmin`) and pushes `AdminView`. The Devices row
 /// is now present and pushes `DevicesView`.
@@ -21,6 +22,8 @@ struct SettingsView: View {
 
     @State private var observer: SettingsObserver?
     @State private var showingSignOutConfirmation = false
+    /// The log files Share logs offers; re-read on every appearance, since logging never stops.
+    @State private var logFiles: [URL] = []
 
     var body: some View {
         Form {
@@ -46,6 +49,7 @@ struct SettingsView: View {
         // clipped its background into a floating column. Matches Admin's 720.
         .readableListWidth(720)
         .onAppear {
+            logFiles = LogFiles.shareable()
             if observer == nil {
                 observer = SettingsObserver(
                     viewModel: deps.createSettingsViewModel(),
@@ -371,6 +375,21 @@ struct SettingsView: View {
                     systemImage: "doc.text",
                     tint: .green
                 )
+            }
+
+            // The system share sheet, not a bespoke exporter: it already offers Add to Files, Mail and
+            // AirDrop (HIG, Activity views: "Avoid creating duplicate versions of common actions that
+            // are already available in the activity view."). Absent rather than disabled until a log
+            // exists: a row that can only fail is not an affordance.
+            if !logFiles.isEmpty {
+                ShareLink(items: logFiles) {
+                    SettingsLabel(
+                        title: String(localized: "settings.share_logs"),
+                        subtitle: String(localized: "settings.share_logs_subtitle"),
+                        systemImage: "square.and.arrow.up",
+                        tint: .gray
+                    )
+                }
             }
         }
     }

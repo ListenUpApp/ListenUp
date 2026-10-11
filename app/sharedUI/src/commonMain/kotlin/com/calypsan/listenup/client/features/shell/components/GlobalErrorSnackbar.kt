@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.diagnosticLogLine
+import com.calypsan.listenup.api.error.surfacedLogLine
 import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -43,8 +43,9 @@ fun GlobalErrorSnackbar(
 ) {
     LaunchedEffect(errorBus, onRetry, canRetry) {
         errorBus.errors.collect { error ->
-            logger.warn { error.diagnosticLogLine() }
-            error.debugInfo?.let { debugInfo -> logger.debug { "Debug: $debugInfo" } }
+            // WARN, debugInfo included: DEBUG never reaches the on-device log a user shares, and the
+            // per-instance detail is the only part of the line that says why.
+            logger.warn { error.surfacedLogLine() }
 
             val offerRetry = onRetry != null && canRetry(error)
             val result =

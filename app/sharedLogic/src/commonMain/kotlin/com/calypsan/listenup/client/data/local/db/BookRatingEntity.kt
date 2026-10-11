@@ -1,10 +1,12 @@
 package com.calypsan.listenup.client.data.local.db
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Dao
 import androidx.room3.Entity
 import androidx.room3.Index
 import androidx.room3.Query
 import androidx.room3.Upsert
+import com.calypsan.listenup.api.sync.ListenerRatingSource
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
  *
  * @property halfStars 2..10 half-star units.
  * @property note The listener's note, or null.
+ * @property source [ListenerRatingSource] name; `HARDCOVER` while an imported rating is untouched.
  */
 @Entity(
     tableName = "book_ratings",
@@ -33,6 +36,8 @@ internal data class BookRatingEntity(
     val updatedAt: Long,
     val revision: Long = 0,
     val deletedAt: Long? = null,
+    @ColumnInfo(defaultValue = "'LISTENUP'")
+    val source: String = ListenerRatingSource.LISTENUP.name,
 )
 
 /** Per-book listener average, for library sort and the Book Detail summary. */

@@ -149,4 +149,25 @@ class FileLogSinkTest :
 
             dir.currentLog().submittedLines() shouldBe listOf("before close")
         }
+
+        test("existing log files lists only non-empty files, oldest first") {
+            val dir = tempDir()
+            val logDir = Path(dir.absolutePath)
+
+            FileLogSink.existingLogFiles(logDir) shouldBe emptyList()
+
+            dir.currentLog().writeText("")
+            FileLogSink.existingLogFiles(logDir) shouldBe emptyList()
+
+            dir.currentLog().writeText("newer\n")
+            dir.rotatedLog().writeText("older\n")
+            FileLogSink.existingLogFiles(logDir) shouldBe
+                listOf(Path(dir.rotatedLog().absolutePath), Path(dir.currentLog().absolutePath))
+        }
+
+        test("a missing log directory has no log files") {
+            val missing = Path(File(tempDir(), "never-created").absolutePath)
+
+            FileLogSink.existingLogFiles(missing) shouldBe emptyList()
+        }
     })

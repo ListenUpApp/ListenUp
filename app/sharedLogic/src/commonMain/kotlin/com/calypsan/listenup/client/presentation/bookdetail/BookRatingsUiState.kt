@@ -15,7 +15,8 @@ sealed interface BookRatingsUiState {
     /**
      * @property listeners your listeners' average, or null when nobody has rated the book.
      * @property mine the signed-in listener's rating, or null when they haven't rated it. Stars you have
-     *   just set show here at once, before the save lands.
+     *   just set show here at once, before the save lands. [ListenerRating.fromHardcover] marks one imported
+     *   from Hardcover that you haven't touched; stars you set clear it at once.
      * @property external the ListenUp score — every enabled outside catalog plus this server's listeners,
      *   calibrated over the library — or null when no source has rated the book yet. Its
      *   [CombinedScore.shares] give each source's weight for the sources view's rows (the listeners' under

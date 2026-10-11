@@ -4,10 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import com.calypsan.listenup.web.motion.CoverSurface
-import com.calypsan.listenup.web.motion.flyHeroInto
-import com.calypsan.listenup.web.motion.releaseHero
-import com.calypsan.listenup.web.motion.trackHero
+import com.calypsan.listenup.web.motion.heroTarget
 import androidx.compose.runtime.setValue
 import org.jetbrains.compose.web.attributes.AttrsScope
 import org.jetbrains.compose.web.css.StyleScope
@@ -64,7 +61,7 @@ fun Cover(
     size: Int? = DEFAULT_COVER_SIZE,
     radius: Int = DEFAULT_COVER_RADIUS,
     heroName: String? = null,
-    heroBookId: String? = null,
+    heroKey: String? = null,
     decorative: Boolean = false,
     eager: Boolean = false,
     srcset: String? = null,
@@ -80,18 +77,9 @@ fun Cover(
     val showImage = imageUrl != null && !failed
 
     Div(attrs = {
-        // The arrival half of the cover's flight. `ref` fires when this node is attached, which is
-        // exactly when its final geometry is known and the origin recorded at click time can be
-        // animated from. See [flyHeroInto] for why this is a FLIP rather than a View Transition.
-        if (heroBookId != null) {
-            ref { element ->
-                flyHeroInto(heroBookId, CoverSurface.HERO, element)
-                // Tracked, not measured: the return leg's origin is read at route-change time, while
-                // this node is still laid out. See [captureHeroOriginBeforeRouteChange].
-                trackHero(heroBookId, element)
-                onDispose { releaseHero(element) }
-            }
-        }
+        // The arrival half of a shared-element flight, and the hero the return leg reads. See
+        // [heroTarget] — and [com.calypsan.listenup.web.motion.flyHeroInto] for why it is a FLIP.
+        heroKey?.let { heroTarget(it) }
         classes("cover")
         style { coverBox(size, radius, heroName, if (showImage) null else title) }
         attrs?.invoke(this)

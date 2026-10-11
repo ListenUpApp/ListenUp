@@ -18,6 +18,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.StoryWorldOp
+import com.calypsan.listenup.api.dto.worldevent.WorldEventChange
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import com.calypsan.listenup.api.dto.imports.AbsUserMatch
@@ -53,6 +54,7 @@ import com.calypsan.listenup.core.EntityId
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.StoryWorldHistoryId
+import com.calypsan.listenup.core.WorldEventId
 import com.calypsan.listenup.core.appJson
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -144,6 +146,7 @@ class UnknownEnumValueInResponseFallbackTest :
         val import = ImportSummary(ImportId("imp1"), createdAt = 1, status = ImportStatus.MAPPED, bookCount = 2, userCount = 1)
         val uploaded = UploadedBook(title = "Book", status = UploadedBookStatus.DUPLICATE)
         val change = EntityChange(StoryWorldHistoryId("h1"), EntityId("e1"), StoryWorldOp.MERGE, occurredAt = 1)
+        val eventChange = WorldEventChange(StoryWorldHistoryId("h2"), WorldEventId("w1"), StoryWorldOp.REVERT, occurredAt = 1)
         val reset = PasswordResetStatusEvent(PasswordResetStatus.APPROVED, expiresAt = 5)
         val progress =
             ScanEvent.Progress(
@@ -290,6 +293,16 @@ class UnknownEnumValueInResponseFallbackTest :
                     read = { it.op },
                     fallback = StoryWorldOp.UNKNOWN,
                     atFallback = change.copy(op = StoryWorldOp.UNKNOWN),
+                    key = "op",
+                ),
+                FallbackProbe(
+                    field = "WorldEventChange.op",
+                    serializer = WorldEventChange.serializer(),
+                    known = eventChange,
+                    knownLiteral = "REVERT",
+                    read = { it.op },
+                    fallback = StoryWorldOp.UNKNOWN,
+                    atFallback = eventChange.copy(op = StoryWorldOp.UNKNOWN),
                     key = "op",
                 ),
                 FallbackProbe(

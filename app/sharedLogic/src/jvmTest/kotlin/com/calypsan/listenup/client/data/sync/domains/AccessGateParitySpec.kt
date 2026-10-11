@@ -53,6 +53,8 @@ class AccessGateParitySpec :
                         "book_external_ratings",
                         // A Story World entity names its home book or series; an ungated one would reveal a hidden book's world.
                         "entities",
+                        // An event names its home and its anchor book; an ungated one would reveal a hidden book's moment.
+                        "world_events",
                         // A membership names a book: an ungated one tells a member which order holds a
                         // book they cannot see (#962).
                         "reading_order_books",

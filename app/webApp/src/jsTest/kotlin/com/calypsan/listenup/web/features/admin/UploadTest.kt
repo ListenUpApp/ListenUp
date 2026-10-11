@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.admin
 import com.calypsan.listenup.api.dto.uploads.UploadedBook
 import com.calypsan.listenup.api.dto.uploads.UploadedBookStatus
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.client.core.BlobFileSource
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadSelectionRefusal
 import com.calypsan.listenup.web.MountRegistry
@@ -14,6 +15,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
@@ -22,10 +24,6 @@ import org.w3c.files.File
 import com.calypsan.listenup.web.candidatesFrom
 import com.calypsan.listenup.web.relPathOf
 import com.calypsan.listenup.web.uploadRefusalSentence
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import com.calypsan.listenup.client.presentation.admin.upload.uploadSelectionRefusal
 
 internal fun uploaded(
@@ -223,31 +221,33 @@ class UploadTest :
             relPathOf(inFolderFile("01.m4b", "The Way of Kings/01.m4b")) shouldBe "The Way of Kings/01.m4b"
         }
 
-        test("a pick becomes candidates carrying their own sizes and paths") {
-            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-            try {
-                val candidates = candidatesFrom(listOf(inFolderFile("01.m4b", "Dune/01.m4b", "hello")), scope)
+        test("a pick becomes candidates carrying their paths and the picked files themselves") {
+            // ⛔ The file itself, never its bytes: a picked audiobook read into the tab's memory is
+            // what capped a browser upload at what a tab could hold. The upload transport hands
+            // this File to the browser, which streams it from disk.
+            val picked = inFolderFile("01.m4b", "Dune/01.m4b", "hello")
+            val candidates = candidatesFrom(listOf(picked))
 
-                candidates.map { it.relPath } shouldContainExactly listOf("Dune/01.m4b")
-                candidates.single().source.filename shouldBe "01.m4b"
-                candidates.single().source.size shouldBe 5L
-            } finally {
-                scope.cancel()
-            }
+            candidates.map { it.relPath } shouldContainExactly listOf("Dune/01.m4b")
+            val source = candidates.single().source.shouldBeInstanceOf<BlobFileSource>()
+            (source.file === picked) shouldBe true
+            source.filename shouldBe "01.m4b"
+            source.size shouldBe 5L
+        }
+
+        test("a selection larger than a tab could hold is still a selection") {
+            // The browser reads nothing up front any more, so the only limits left are the shared
+            // ones the server sets — not where a tab's allocations give out.
+            candidatesFrom(listOf(hugeFile())).single().source.size shouldBe HUGE_BYTES
         }
 
         test("a selection too large for one upload is refused by the shared rule, not dropped from the pick") {
             // ⛔ Picking reads nothing, so a file the tab could never have held is still a candidate;
             // what one upload may carry is the shared rule's call, and it names the limit.
-            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-            try {
-                val candidates = candidatesFrom(listOf(oversizeFile()), scope)
+            val candidates = candidatesFrom(listOf(oversizeFile()))
 
-                candidates.size shouldBe 1
-                uploadSelectionRefusal(candidates).shouldNotBeNull()
-            } finally {
-                scope.cancel()
-            }
+            candidates.size shouldBe 1
+            uploadSelectionRefusal(candidates).shouldNotBeNull()
         }
 
         // The shared rule decides what is refused; the browser only has to say it. Same sentences as
@@ -310,6 +310,11 @@ private fun inFolderFile(
     relativePath: String,
     content: String = "x",
 ) = browserFile(name, content, relativePath, size = null)
+
+private fun hugeFile() = browserFile("big.m4b", "x", relativePath = null, size = HUGE_BYTES.toDouble())
+
+/** 5 GiB — more than any tab could have held, when a pick was read into memory first. */
+private const val HUGE_BYTES = 5L * 1024 * 1024 * 1024
 
 private fun oversizeFile() = browserFile("big.m4b", "x", relativePath = null, size = TIB.toDouble())
 

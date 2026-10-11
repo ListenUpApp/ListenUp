@@ -383,12 +383,18 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .progress-caption { flex-shrink:0; font-size:var(--fs-caption); color:var(--ink-2); white-space:nowrap; }
 
 /* ---- tabs ---- */
-.tabs { display:flex; gap:2px; border-bottom:1px solid var(--line); }
+.tabs { position:relative; display:flex; gap:2px; border-bottom:1px solid var(--line); }
 .tab { height:42px; padding:0 14px; display:inline-flex; align-items:center; gap:var(--sp-8); font-size:var(--fs-ui); font-weight:600; color:var(--ink-2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; }
 @media (hover: hover) { .tab:hover { color:var(--ink); } }
 .tab.on { color:var(--coral-text); border-bottom-color:var(--coral); font-weight:700; }
 .tab .ct { font-family:var(--mono); font-size:var(--fs-caption); color:var(--ink-3); }
 .tab.on .ct { color:var(--coral-text); }
+/* The strip's one underline (motion/TabIndicator.kt), placed under the active tab and slid between
+   tabs. Hidden until it has measured, so the tab's own underline below covers the first frame; once
+   it is placed, the active tab's own border steps aside and the two never draw at once. */
+.tab-ink { position:absolute; left:0; top:0; background:var(--coral); pointer-events:none; visibility:hidden; }
+.tab-ink.is-placed { visibility:visible; }
+.tabs:has(> .tab-ink.is-placed) > .tab.on { border-bottom-color:transparent; }
 /* The panel a tab strip switches. A pane may emit several panels, so the wrapper keeps the page
    column's own spacing rather than collapsing them together. */
 .tabpanel { display:flex; flex-direction:column; gap:inherit; min-width:0; }

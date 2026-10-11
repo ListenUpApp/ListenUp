@@ -45,6 +45,7 @@ class EveryErrorStampsItselfTest :
                 TranscodeError.TranscoderBusy(debugInfo = "transcode"),
                 TransportError.NetworkUnavailable(debugInfo = "transport"),
                 UploadError.SessionNotFound(debugInfo = "upload"),
+                WorldEventError.NotFound(debugInfo = "world-event"),
                 InternalError(debugInfo = "internal", cause = "NullPointerException"),
                 UnexpectedClientError(debugInfo = "client"),
                 UnknownError(code = "FUTURE_CODE", message = "From a newer server.", isRetryable = true),
@@ -52,7 +53,7 @@ class EveryErrorStampsItselfTest :
             )
 
         test("the population covers every family and every direct implementor") {
-            onePerFamily.size shouldBe 37
+            onePerFamily.size shouldBe 38
         }
 
         onePerFamily.forEach { error ->

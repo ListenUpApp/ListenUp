@@ -156,6 +156,7 @@ class BackupRpcE2ETest :
                         BackupRepositoryImpl(
                             channel = RpcChannel.forTest(rpcClient.backupServiceProxy()),
                             clientFactory = mock(MockMode.autofill),
+                            archiveUploads = mock(MockMode.autofill),
                         )
 
                     // list on a fresh server → Success(emptyList), NOT a transport 404.
@@ -227,6 +228,7 @@ class BackupRpcE2ETest :
                         BackupRepositoryImpl(
                             channel = RpcChannel.forTest(rpcClient.backupServiceProxy()),
                             clientFactory = mock(MockMode.autofill),
+                            archiveUploads = mock(MockMode.autofill),
                         )
 
                     val created =

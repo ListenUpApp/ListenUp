@@ -14,6 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import org.koin.core.Koin
 import org.w3c.dom.Worker
 import kotlin.time.Duration.Companion.seconds
 
@@ -60,37 +61,7 @@ suspend fun probeLibrarySync(
     val app = browserGraph(worker, dbName)
 
     return try {
-        // Seed the server URL before anything touches the network — an isolated graph inherits
-        // nothing from the running app, and an unseeded ServerConfig fails every call as
-        // "network unavailable" on a machine whose network is fine. Same reasoning as probeAuthArc.
-        val serverConfig = app.koin.get<ServerConfig>()
-        if (!serverConfig.hasServerConfigured()) {
-            serverConfig.setServerUrl(
-                ServerUrl(seedServerUrlFromOrigin(stored = null, origin = window.location.origin)),
-            )
-        }
-
-        val authSession = app.koin.get<AuthSession>()
-        authSession.initializeAuthState()
-
-        // Set up only when the server is genuinely empty; otherwise sign in. Which branch runs
-        // depends on whether AuthArcTest got here first, and neither spec may depend on that.
-        if (authSession.authState.value is AuthState.NeedsSetup) {
-            app.koin.get<SetupViewModel>().onSetupSubmit(
-                firstName = PROBE_FIRST_NAME,
-                lastName = PROBE_LAST_NAME,
-                email = email,
-                password = password,
-                passwordConfirm = password,
-            )
-        } else {
-            app.koin.get<LoginViewModel>().onLoginSubmit(email = email, password = password)
-        }
-
-        val reachedAuthenticated =
-            withTimeoutOrNull(AUTH_TIMEOUT) {
-                authSession.authState.filterIsInstance<AuthState.Authenticated>().first()
-            } != null
+        val reachedAuthenticated = app.koin.signInProbeAdmin(email, password)
 
         if (!reachedAuthenticated) {
             return LibrarySyncProbe(false, false, NO_BOOK_COUNT, "never reached Authenticated")
@@ -141,3 +112,45 @@ private val SYNC_TIMEOUT = 60.seconds
 private const val NO_BOOK_COUNT = -1
 private const val PROBE_FIRST_NAME = "Probe"
 private const val PROBE_LAST_NAME = "Admin"
+
+/**
+ * Brings an isolated probe graph to [AuthState.Authenticated] as the probe admin, answering whether
+ * it got there within [AUTH_TIMEOUT].
+ *
+ * **Order-independent by construction.** [AuthArcProbe] may or may not have already created the
+ * first admin, and the specs compile into one bundle with no ordering guarantee. So this signs in
+ * when the server already has users and sets up when it does not, rather than assuming either.
+ */
+internal suspend fun Koin.signInProbeAdmin(
+    email: String,
+    password: String,
+): Boolean {
+    // Seed the server URL before anything touches the network — an isolated graph inherits
+    // nothing from the running app, and an unseeded ServerConfig fails every call as
+    // "network unavailable" on a machine whose network is fine. Same reasoning as probeAuthArc.
+    val serverConfig = get<ServerConfig>()
+    if (!serverConfig.hasServerConfigured()) {
+        serverConfig.setServerUrl(
+            ServerUrl(seedServerUrlFromOrigin(stored = null, origin = window.location.origin)),
+        )
+    }
+
+    val authSession = get<AuthSession>()
+    authSession.initializeAuthState()
+
+    if (authSession.authState.value is AuthState.NeedsSetup) {
+        get<SetupViewModel>().onSetupSubmit(
+            firstName = PROBE_FIRST_NAME,
+            lastName = PROBE_LAST_NAME,
+            email = email,
+            password = password,
+            passwordConfirm = password,
+        )
+    } else {
+        get<LoginViewModel>().onLoginSubmit(email = email, password = password)
+    }
+
+    return withTimeoutOrNull(AUTH_TIMEOUT) {
+        authSession.authState.filterIsInstance<AuthState.Authenticated>().first()
+    } != null
+}

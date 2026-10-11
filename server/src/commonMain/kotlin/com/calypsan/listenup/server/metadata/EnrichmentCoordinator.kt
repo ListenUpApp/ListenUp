@@ -662,7 +662,9 @@ internal class EnrichmentCoordinator(
                             } else {
                                 withTimeoutOrNull(deadline) { contained(provider.id, label) { block(provider) } }
                                     ?: ProviderOutcome.Failed(CoreFailure.TimedOut).also {
-                                        logger.warn { "enrichment: $label from ${provider.id.value} timed out" }
+                                        logger.warn {
+                                            "enrichment: $label from ${provider.id.value} didn't answer within $deadline"
+                                        }
                                     }
                             }
                         provider.id to outcome

@@ -5,7 +5,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
 import com.calypsan.listenup.client.presentation.admin.upload.uploadSelectionRefusal
@@ -187,8 +186,8 @@ internal fun AdminRouteContent(
 /**
  * Opens an upload session and collects it.
  *
- * ⛔ Nothing is read here: each picked file streams from disk as the upload sends it, on this
- * route's scope, so leaving the page stops the reading along with the session.
+ * Turning the picked files into candidates is this route's job, not the page's: the page is pure. A
+ * selection the shared rules refuse is said in a toast, with the picker left exactly as it was.
  */
 @Composable
 private fun UploadRoute(
@@ -197,13 +196,12 @@ private fun UploadRoute(
     onToast: (String) -> Unit,
 ) {
     val session = rememberSession { openUpload() }
-    val scope = rememberCoroutineScope()
 
     UploadPage(
         state = session.state.collectAsState().value,
         onFilesPicked = { files ->
             if (files.isNotEmpty()) {
-                val candidates = candidatesFrom(files, scope)
+                val candidates = candidatesFrom(files)
                 val refusal = uploadSelectionRefusal(candidates)
                 if (refusal != null) {
                     onToast(uploadRefusalSentence(refusal))

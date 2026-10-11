@@ -304,8 +304,9 @@ class EntityRepository(
     }
 
     /**
-     * Restores the `before` of [changeId] as a new forward write and records REVERT: a CREATE reverts to a
-     * tombstone; anything else restores (and revives) the earlier snapshot, keeping its home.
+     * Restores the `before` of [changeId] as a new forward write and records REVERT: a CREATE — or a change whose
+     * `before` was a tombstone, like the undo of a delete — reverts to a tombstone; anything else restores (and
+     * revives) the earlier snapshot, keeping its home.
      *
      * The change, the current row and the restore are all read inside the write's transaction, so the
      * REVERT's `before` is the row as it stands — a delete that lands between the caller's read and this
@@ -337,8 +338,9 @@ class EntityRepository(
                     AuthError.PermissionDenied(debugInfo = "merge revert of change=${changeId.value}"),
                 )
             }
+            // Nothing before (a CREATE) or a tombstone before (the undo of a delete, or of a revival) restores a deletion.
             val restore =
-                change.before
+                change.before?.takeIf { it.deletedAt == null }
                     ?: return@suspendTransaction AppResult.Success(
                         tombstone(before = current, op = StoryWorldOp.REVERT, actor = actor, ctx = ctx, revision = rev),
                     )

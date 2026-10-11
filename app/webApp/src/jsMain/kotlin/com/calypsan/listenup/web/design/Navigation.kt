@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.motion.TabIndicator
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -36,6 +37,8 @@ class TabItem(
  * `<idBase>-panel-<key>`), which is how a screen reader learns which tab a panel belongs to. Only
  * the active tab carries `aria-controls`: the page renders the one panel on show, and pointing the
  * others at ids that do not exist would be a reference to nothing.
+ *
+ * The active tab is underlined by a single ink that slides between tabs — see TabIndicator.
  */
 @Composable
 fun Tabs(
@@ -77,6 +80,8 @@ fun Tabs(
                 }
             }
         }
+        // One underline for the whole strip, which travels to the tab picked. See [TabIndicator].
+        TabIndicator(active)
     }
 }
 

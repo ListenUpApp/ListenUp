@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.worldevent.WorldEventOp
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
@@ -17,7 +18,9 @@ import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.testing.entityPayload
+import com.calypsan.listenup.server.testing.eventUpsert
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -88,6 +91,7 @@ class BookCascadeRegistryParityTest :
                     val collectionBookRepo =
                         CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
                     val entityRepo = EntityRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                    val worldEventRepo = WorldEventRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                     val bookRepo =
                         BookRepository(
@@ -102,6 +106,7 @@ class BookCascadeRegistryParityTest :
                             bookTagRepository = bookTagRepo,
                             bookMoodRepository = bookMoodRepo,
                             entityRepository = entityRepo,
+                            worldEventRepository = worldEventRepo,
                         )
 
                     // A live row per CASCADE_TOMBSTONED table, keyed to a book-liveness lambda so a new
@@ -119,6 +124,10 @@ class BookCascadeRegistryParityTest :
                         CollectionBookSyncPayload(id = "c1:book1", collectionId = "c1", bookId = "book1", createdAt = 1000L, revision = 0L),
                     )
                     entityRepo.upsertEntity(entityPayload("ent1", homeBookId = "book1"), UserId("u1"))
+                    worldEventRepo.applyBatch(
+                        listOf(WorldEventOp.Upsert(eventUpsert("evt1", homeBookId = "book1"))),
+                        UserId("u1"),
+                    )
 
                     // live-row count for "book1" per CASCADE_TOMBSTONED table.
                     val liveCount: Map<String, suspend () -> Int> =
@@ -127,6 +136,7 @@ class BookCascadeRegistryParityTest :
                             "book_moods" to { bookMoodRepo.findAllForBook("book1").size },
                             "collection_books" to { collectionBookRepo.findCollectionIdsForBook("book1").size },
                             "entities" to { entityRepo.listLiveForBook(BookId("book1")).size },
+                            "world_events" to { worldEventRepo.listLiveForBook(BookId("book1")).size },
                         )
 
                     val cascadeTables =

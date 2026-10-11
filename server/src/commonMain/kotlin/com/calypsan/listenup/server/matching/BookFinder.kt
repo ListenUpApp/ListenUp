@@ -106,6 +106,7 @@ internal class BookFinder(
             )
         return askSource(
             source = source.id,
+            label = "books",
             deadline = deadline,
             availability = { source.findAvailability() },
             cached = { cache.get(key) },

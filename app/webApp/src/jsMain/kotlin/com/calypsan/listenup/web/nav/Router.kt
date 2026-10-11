@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.browser.window
-import org.w3c.dom.PopStateEvent
 import org.w3c.dom.events.Event
 
 /**
@@ -53,16 +52,11 @@ class Route(
     }
 }
 
-/** What moved the router to its current route; the shell decides what the scrollport does from it. */
+/** How the router is about to move: a link ([PUSH]), a rewrite in place ([REPLACE]), or Back/Forward ([POP]). */
 enum class RouteChange {
-    /** A new page was opened: it starts at the top. */
-    Push,
-
-    /** The same page was rewritten in place (a filter, a selection): the scroll stays where it is. */
-    Replace,
-
-    /** The reader went Back or Forward: the page returns to the offset it was left at. */
-    Pop,
+    PUSH,
+    REPLACE,
+    POP,
 }
 
 /**
@@ -91,18 +85,17 @@ class UnsavedWorkHold(
  * breadcrumb, or the Back button. It exists so a caller can read the outgoing page while it is
  * still on screen; Compose renders on a later frame, so this is the last moment its layout is
  * measurable. The shared-element flight uses it to learn where the cover it must fly back to is.
+ * It is told which of the three it is — Back restores a place, a link starts a new one.
  *
  * A page holding unsaved work registers an [UnsavedWorkHold] ([holdUnsavedWork]); [navigate] then
  * asks it before moving, and so does the browser's Back and Forward. A popstate cannot be vetoed —
  * the URL has already changed — so the held page's URL is pushed back on top and, only if the reader
- * chooses to discard, history is walked one step back to where they were headed.
- *
- * Each history entry remembers how far its page was scrolled when it was left, in `history.state`,
- * so Back can return there. The router cannot see the DOM, so whoever owns the scrollport tells it
- * where to read the offset from ([scrollOffset]) and acts on [lastChange] and [restoredScroll].
+ * chooses to discard, history is walked one step back to where they were headed. A vetoed pop is not
+ * a route change: the hook does not run for it, so nothing recorded about the page that stays —
+ * where it is scrolled, how it was arrived at — is disturbed.
  */
 class Router(
-    private val beforeRouteChange: () -> Unit = {},
+    private val beforeRouteChange: (RouteChange) -> Unit = {},
 ) {
     private var unsavedWork: UnsavedWorkHold? = null
 
@@ -112,16 +105,14 @@ class Router(
     /** Set for the one popstate a discard causes on purpose, so it is not vetoed in turn. */
     private var letNextPopThrough = false
 
-    private val onPopstate: (Event) -> Unit = { event ->
+    private val onPopstate: (Event) -> Unit = {
         val hold = unsavedWork?.takeIf { it.isHeld() && !letNextPopThrough }
         letNextPopThrough = false
         if (hold != null) {
             vetoPop(hold)
         } else {
             vetoedPops = 0
-            beforeRouteChange()
-            restoredScroll = (event as? PopStateEvent)?.state?.let { scrollOffsetOf(it) } ?: 0.0
-            lastChange = RouteChange.Pop
+            beforeRouteChange(RouteChange.POP)
             current = locationRoute()
         }
     }
@@ -129,24 +120,13 @@ class Router(
     /** Puts the held page's own URL back on top of history, then asks whether to go where Back went. */
     private fun vetoPop(hold: UnsavedWorkHold) {
         vetoedPops = if (hold.isAsking()) vetoedPops + 1 else 1
-        window.history.pushState(scrollState(scrollOffset()), "", current.toUrl())
+        window.history.pushState(null, "", current.toUrl())
         val steps = vetoedPops
         hold.ask {
             letNextPopThrough = true
             window.history.go(-steps)
         }
     }
-
-    /** Reads the live scroll offset of the page being left. Installed by the shell that owns the scrollport. */
-    var scrollOffset: () -> Double = { 0.0 }
-
-    /** What produced [current]. Written before [current], so an effect keyed on [current] sees it. */
-    var lastChange: RouteChange = RouteChange.Replace
-        private set
-
-    /** For a [RouteChange.Pop]: the offset the entry now shown was left at, or `0.0` if it never recorded one. */
-    var restoredScroll: Double = 0.0
-        private set
 
     /** The route the window currently shows; observable from composition. */
     var current: Route by mutableStateOf(locationRoute())
@@ -181,19 +161,15 @@ class Router(
             hold.ask { navigate(route, force = true) }
             return
         }
-        beforeRouteChange()
-        window.history.replaceState(scrollState(scrollOffset()), "")
+        beforeRouteChange(RouteChange.PUSH)
         window.history.pushState(null, "", route.toUrl())
-        lastChange = RouteChange.Push
         current = route
     }
 
     /** Replaces the current history entry with [route]. */
     fun replace(route: Route) {
-        beforeRouteChange()
-        // Keep what the entry remembered: replacing the URL must not forget where the page was.
-        window.history.replaceState(window.history.state, "", route.toUrl())
-        lastChange = RouteChange.Replace
+        beforeRouteChange(RouteChange.REPLACE)
+        window.history.replaceState(null, "", route.toUrl())
         current = route
     }
 
@@ -202,14 +178,6 @@ class Router(
         window.removeEventListener("popstate", onPopstate)
     }
 }
-
-private fun scrollState(offset: Double): dynamic {
-    val state = js("({})")
-    state.scroll = offset
-    return state
-}
-
-private fun scrollOffsetOf(state: dynamic): Double? = state.scroll as? Double
 
 private fun locationRoute(): Route = Route.parse(window.location.pathname + window.location.search)
 

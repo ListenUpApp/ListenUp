@@ -1,6 +1,12 @@
 package com.calypsan.listenup.web.nav
 
+import com.calypsan.listenup.web.InShell
+import com.calypsan.listenup.web.ViewportFrames
+import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
+import org.jetbrains.compose.web.css.height
+import org.jetbrains.compose.web.css.px
+import org.jetbrains.compose.web.dom.Div
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -140,7 +146,7 @@ class RouterTest :
             // that holds on all three paths, which is why the hook is defined against it.
             val seen = mutableListOf<List<String>>()
             var observed: Router? = null
-            val router = Router(beforeRouteChange = { observed?.let { seen += it.current.segments } })
+            val router = Router(beforeRouteChange = { _ -> observed?.let { seen += it.current.segments } })
             observed = router
 
             try {
@@ -238,6 +244,77 @@ class RouterTest :
                 window.location.pathname shouldBe "/library"
             } finally {
                 release()
+                router.dispose()
+            }
+        }
+
+        test("Back on a held page, answered Keep, leaves the page's scroll and how it was arrived at alone") {
+            // ⛔ A vetoed pop is not a route change. Were the hook to run for it, the page that stays
+            // would be recorded as left (its offset saved as though it had been departed), the last
+            // change would read POP, and every shared-element flight would wait on an arrival that
+            // never comes.
+            val frames = ViewportFrames()
+            val router = Router(beforeRouteChange = ::captureScrollBeforeRouteChange)
+            router.navigate(Route(listOf("library")))
+            val editing = Route(listOf("book", "42", "edit"))
+            router.navigate(editing)
+            var asked = 0
+            val release = router.holdUnsavedWork(heldHold(onAsk = { asked++ }))
+
+            try {
+                val main =
+                    frames
+                        .mount(1280, 800) {
+                            InShell {
+                                ScrollRestoration(router.current)
+                                Div(attrs = {
+                                    style {
+                                        height(6_000.px)
+                                        property("flex-shrink", "0")
+                                    }
+                                })
+                            }
+                        }.find(".shell-main")
+                awaitFrame()
+                main.scrollTop = 1_500.0
+                val changeBefore = lastRouteChange()
+                val savedBefore = savedScrollFor(editing)
+
+                window.history.back()
+                nextPopstate()
+                awaitTurn()
+                awaitFrame()
+
+                // Keep: the question was asked and is never answered with a discard.
+                asked shouldBe 1
+                router.current.segments shouldBe editing.segments
+                window.location.pathname shouldBe "/book/42/edit"
+                main.scrollTop shouldBe 1_500.0
+                lastRouteChange() shouldBe changeBefore
+                changeBefore shouldBe RouteChange.PUSH
+                savedScrollFor(editing) shouldBe savedBefore
+            } finally {
+                release()
+                router.dispose()
+                frames.disposeAll()
+                forgetScrollMemory()
+            }
+        }
+
+        test("the hook is told how the route is changing") {
+            // Back restores a place; a link starts a new one; a filter keeps the one it is in. The
+            // hook is where that difference is first known, so it is told — not left to guess.
+            val changes = mutableListOf<RouteChange>()
+            val router = Router(beforeRouteChange = { changes += it })
+
+            try {
+                router.navigate(Route(listOf("library")))
+                router.replace(Route(listOf("library"), mapOf("sort" to "title")))
+                window.history.back()
+                nextPopstate()
+
+                changes shouldBe listOf(RouteChange.PUSH, RouteChange.REPLACE, RouteChange.POP)
+            } finally {
                 router.dispose()
             }
         }

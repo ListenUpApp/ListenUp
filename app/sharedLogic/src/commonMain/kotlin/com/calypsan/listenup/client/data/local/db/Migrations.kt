@@ -420,7 +420,7 @@ internal val MIGRATION_17_18 =
  * v18 → v19: `users.canCurateLibrary` and `admin_user_roster.canCurateLibrary` — the Curate library
  * permission split out of Edit metadata. Each is backfilled from `canEdit`, exactly as the server's V92
  * backfills `can_curate_library` from `can_edit`. A roster row that was mirrored after the server gained the
- * permission but before this build did can hold a different real value, which [MIGRATION_21_22] re-pulls.
+ * permission but before this build did can hold a different real value, which [MIGRATION_23_24] re-pulls.
  * A row synced afterwards carries the real value.
  */
 internal val MIGRATION_18_19 =
@@ -530,26 +530,78 @@ internal val MIGRATION_20_21 =
     }
 
 /**
- * v21 → v22: no schema change; the `admin_user_roster` cursor is removed so the next catch-up re-pulls the
+ * v21 → v22: Story World events (PR B).
+ *
+ * - The `world_events` and `world_event_mentions` mirror tables. Their DDL is copied verbatim from the
+ *   exported `schemas/…/22.json` `createSql` entries, so `runMigrationsAndValidate` sees the same schema a
+ *   fresh v22 install has.
+ * - No cursor is rewound: the new domain has no cursor yet, so it pulls from zero on its own.
+ *
+ * Non-destructive by construction — CREATE only, per the policy in [ListenUpDatabase].
+ */
+internal val MIGRATION_21_22 =
+    object : Migration(21, 22) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `world_events` (`id` TEXT NOT NULL, `homeSeriesId` TEXT, `homeBookId` TEXT, " +
+                    "`bookId` TEXT, `positionMs` INTEGER, `type` TEXT NOT NULL, `text` TEXT NOT NULL, `detail` TEXT, " +
+                    "`subjectEntityId` TEXT, `objectEntityId` TEXT, `createdBy` TEXT, " +
+                    "`updatedBy` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            )
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_world_events_homeSeriesId` ON `world_events` (`homeSeriesId`)")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_world_events_homeBookId` ON `world_events` (`homeBookId`)")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_world_events_bookId` ON `world_events` (`bookId`)")
+            connection.executeDdl("CREATE INDEX IF NOT EXISTS `index_world_events_deletedAt` ON `world_events` (`deletedAt`)")
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `world_event_mentions` (`eventId` TEXT NOT NULL, `entityId` TEXT NOT NULL, " +
+                    "PRIMARY KEY(`eventId`, `entityId`))",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_world_event_mentions_entityId` ON `world_event_mentions` (`entityId`)",
+            )
+        }
+    }
+
+/**
+ * v22 → v23: `book_ratings.source` — where a listener's rating came from (Hardcover rating import).
+ *
+ * - Every existing row is a ListenUp rating (`DEFAULT 'LISTENUP'`).
+ * - The `book_ratings` cursor is deleted, as [MIGRATION_15_16] did for its domain: a newer server may
+ *   already have imported ratings from Hardcover, which this client stored without their source, and
+ *   the cursored pull never re-sends an unchanged row. A missing cursor is `since = 0`.
+ *
+ * Non-destructive: one ADD COLUMN and a cursor reset.
+ */
+internal val MIGRATION_22_23 =
+    object : Migration(22, 23) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `book_ratings` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'LISTENUP'")
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'book_ratings'")
+        }
+    }
+
+/**
+ * v23 → v24: no schema change; the `admin_user_roster` cursor is removed so the next catch-up re-pulls the
  * roster. A build that predates a roster permission stores a row's revision without that field, and the
  * migrations that added `canCurateLibrary`, the Story World flags and `canMakeReadingOrders` filled the
  * column with a guess; the cursor was already past the row, so nothing would ever correct it. Rows keep their
  * revisions and a payload at an equal revision is applied, so the re-pull overwrites each column with the
  * server's value. The roster is server-written, so no unsynced local data is touched.
  */
-internal val MIGRATION_21_22 =
-    object : Migration(21, 22) {
+internal val MIGRATION_23_24 =
+    object : Migration(23, 24) {
         override suspend fun migrate(connection: SQLiteConnection) {
             connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'admin_user_roster'")
         }
     }
 
 /**
- * v22 → v23: adds `pending_image_upload`, the covers and photos a user saved on this device that have
+ * v24 → v25: adds `pending_image_upload`, the covers and photos a user saved on this device that have
  * not reached the server. Non-destructive by construction — a CREATE only; no existing row is touched.
  */
-internal val MIGRATION_22_23 =
-    object : Migration(22, 23) {
+internal val MIGRATION_24_25 =
+    object : Migration(24, 25) {
         override suspend fun migrate(connection: SQLiteConnection) {
             connection.executeDdl(
                 "CREATE TABLE IF NOT EXISTS `pending_image_upload` (`kind` TEXT NOT NULL, `entityId` TEXT NOT NULL, " +

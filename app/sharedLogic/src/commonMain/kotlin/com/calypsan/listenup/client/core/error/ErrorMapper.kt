@@ -17,8 +17,10 @@ import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.plugins.websocket.WebSocketException
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
 import kotlinx.serialization.SerializationException
 
@@ -29,8 +31,15 @@ import kotlinx.serialization.SerializationException
  * with `correlationId = null` (these are client-local mappings — server-issued
  * correlation ids arrive in deserialized [AppError] payloads from the RPC
  * exception interceptor, not via this mapper).
+ *
+ * Its one side effect is the log: an exception that falls through to the catch-all is one nobody
+ * anticipated, and this is the last place that still holds the throwable — so it is logged at
+ * ERROR with its stack trace (see [logUnanticipated]). Every typed arm is an outcome the app
+ * already understands and stays quiet.
  */
 internal object ErrorMapper {
+    private const val LOGGER_NAME = "com.calypsan.listenup.client.core.error.ErrorMapper"
+
     private val TLS_CLASS_MARKERS = listOf("SSL", "TLS", "Certificate")
 
     /** How far down a cause chain to look; bounds the walk, and with it any cycle. */
@@ -71,24 +80,7 @@ internal object ErrorMapper {
             }
 
             exception is ResponseException -> {
-                val status = exception.response.status.value
-                when {
-                    // 401 means the session is stale/invalid — type it as an auth error at the
-                    // boundary so the global auth-failure observer drives the app back to login
-                    // instead of looping a generic "server error" snackbar. 403
-                    // (authenticated-but-forbidden) stays a plain 4xx — it is not a session failure.
-                    status == HttpStatusCode.Unauthorized.value -> {
-                        AuthError.SessionExpired(debugInfo = exception.message)
-                    }
-
-                    status in 500..599 -> {
-                        TransportError.Server5xx(statusCode = status, debugInfo = exception.message)
-                    }
-
-                    else -> {
-                        TransportError.Server4xx(statusCode = status, debugInfo = exception.message)
-                    }
-                }
+                forHttpStatus(exception.response.status.value, debugInfo = exception.message)
             }
 
             exception is SerializationException -> {
@@ -163,7 +155,7 @@ internal object ErrorMapper {
             else -> {
                 UnexpectedClientError(
                     debugInfo = listOfNotNull(exception::class.simpleName, exception.message).joinToString(": "),
-                )
+                ).also { logUnanticipated(exception) }
             }
         }
     }
@@ -174,6 +166,51 @@ internal object ErrorMapper {
             .take(MAX_CAUSE_DEPTH)
             .filterIsInstance<FileUnreadableException>()
             .firstOrNull()
+
+    /**
+     * The typed error for a non-2xx HTTP [status] — the one status mapping, shared by Ktor's
+     * [ResponseException] arm above and by a transport that reads a status without Ktor (the
+     * browser's XMLHttpRequest upload), so the two can never disagree about what a status means.
+     */
+    fun forHttpStatus(
+        status: Int,
+        debugInfo: String?,
+    ): AppError =
+        when {
+            // 401 means the session is stale/invalid — type it as an auth error at the
+            // boundary so the global auth-failure observer drives the app back to login
+            // instead of looping a generic "server error" snackbar. 403
+            // (authenticated-but-forbidden) stays a plain 4xx — it is not a session failure.
+            status == HttpStatusCode.Unauthorized.value -> {
+                AuthError.SessionExpired(debugInfo = debugInfo)
+            }
+
+            status in 500..599 -> {
+                TransportError.Server5xx(statusCode = status, debugInfo = debugInfo)
+            }
+
+            else -> {
+                TransportError.Server4xx(statusCode = status, debugInfo = debugInfo)
+            }
+        }
+
+    /**
+     * Logs an exception that reached the catch-all arm. The returned error carries a sentence; the
+     * stack trace exists only here, so without this line a bug report has nothing to go on.
+     *
+     * Cancellation is the exception: a scope ending mid-call is structured concurrency working, not
+     * a fault, and an ERROR line per cancelled request would bury the real ones.
+     */
+    private fun logUnanticipated(exception: Throwable) {
+        // Looked up per call rather than held: the catch-all is rare, and a logger captured when
+        // this object first loads would miss a factory installed later (the iOS file tap, a spec).
+        val logger = KotlinLogging.logger(LOGGER_NAME)
+        if (exception is CancellationException) {
+            logger.debug { "Cancelled before a result: ${exception.message.orEmpty()}" }
+        } else {
+            logger.error(exception) { "Unanticipated exception mapped to a generic error" }
+        }
+    }
 
     /**
      * True when [exception] (or a cause) is a TLS/SSL handshake or certificate failure.

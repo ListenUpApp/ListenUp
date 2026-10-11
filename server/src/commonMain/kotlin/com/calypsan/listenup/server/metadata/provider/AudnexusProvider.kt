@@ -78,7 +78,8 @@ internal class AudnexusProvider(
     /**
      * Audible's author pages in a people Find (matching redesign PR 4): the person's own ASIN, the author ASINs
      * your books' Audible credits name (whatever the person did on those books here), and a name search — each answer cached as the profile and book reads already
-     * are. Photos come from the profiles of at most five people.
+     * are. Photos come from the profiles of at most five people. A book's credits are read from the cache when it
+     * holds them, so only uncached books cost an Audnexus call.
      */
     override suspend fun findPeople(
         lookup: PersonLookup,
@@ -87,6 +88,7 @@ internal class AudnexusProvider(
         AudnexusPeople(
             search = { name -> searchContributors(name, locale) },
             book = { asin -> fetchBook(asin, locale.region, refresh = false) },
+            cachedBook = { asin -> cachedBook(asin, locale.region) },
             profile = { key -> getContributor(key, locale) },
         ).find(lookup)
 
@@ -178,12 +180,26 @@ internal class AudnexusProvider(
         refresh: Boolean,
     ): AppResult<AudnexusBook?> =
         cachedNullable(
-            cacheKey = "book:$asin",
+            cacheKey = bookCacheKey(asin),
             region = region,
             ttl = BOOK_TTL,
             refresh = refresh,
             serializer = AudnexusBook.serializer(),
         ) { client.getBook(asin, region) }
+
+    /** The cached `/books/{asin}` answer, never a network call: `null` when the cache holds none (or a stale shape). */
+    private suspend fun cachedBook(
+        asin: String,
+        region: String,
+    ): AppResult<AudnexusBook?>? {
+        val cachedJson = cache.get(id, region, bookCacheKey(asin)) ?: return null
+        if (cachedJson == NULL_SENTINEL) return AppResult.Success(null)
+        return try {
+            AppResult.Success(json.decodeFromString(AudnexusBook.serializer(), cachedJson))
+        } catch (_: SerializationException) {
+            null
+        }
+    }
 
     // ── Caching helpers (mirror MetadataService, provider-scoped to AUDNEXUS) ──
 
@@ -282,6 +298,8 @@ internal class AudnexusProvider(
         }
         return result
     }
+
+    private fun bookCacheKey(asin: String): String = "book:$asin"
 
     private fun expiresAt(ttl: Duration): Long = (clock.now() + ttl).toEpochMilliseconds()
 

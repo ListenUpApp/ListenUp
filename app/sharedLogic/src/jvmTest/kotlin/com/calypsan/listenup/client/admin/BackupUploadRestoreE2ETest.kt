@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.ArchiveUploadApi
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.testinfra.StripSocketTimeout
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -136,6 +137,7 @@ class BackupUploadRestoreE2ETest :
                         BackupRepositoryImpl(
                             channel = RpcChannel.forTest(rpcClient.backupServiceProxy(accessToken)),
                             clientFactory = clientFactory,
+                            archiveUploads = ArchiveUploadApi(clientFactory = clientFactory),
                         )
 
                     // Build a "foreign" .listenup.zip — a valid archive produced by a separate

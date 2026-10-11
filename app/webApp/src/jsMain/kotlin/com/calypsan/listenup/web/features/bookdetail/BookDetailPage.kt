@@ -328,7 +328,7 @@ private fun SharedHeader(
             size = COVER_SIZE,
             radius = COVER_RADIUS,
             heroName = HERO_COVER,
-            heroBookId = id,
+            heroKey = id,
             decorative = true,
             eager = true,
         )

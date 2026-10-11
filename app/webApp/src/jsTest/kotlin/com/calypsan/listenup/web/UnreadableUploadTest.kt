@@ -2,43 +2,63 @@ package com.calypsan.listenup.web
 
 import com.calypsan.listenup.client.diagnostics.probeUnreadableUpload
 import com.calypsan.listenup.core.FileSource
+import com.calypsan.listenup.core.FileUnreadableException
 import io.kotest.assertions.assertSoftly
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.writeFully
+import io.ktor.utils.io.writer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import org.khronos.webgl.Int8Array
-import org.w3c.files.File
 import kotlin.random.Random
 
 private const val SLICE = 64 * 1024
 private const val FILE_BYTES = 300 * 1024
 
-/** Counts how many times the upload opens the file, so a wrongly retried file is visible. */
-private class CountingSource(
-    private val inner: FileSource,
-) : FileSource by inner {
+/**
+ * A file whose read fails part-way through every time it is opened: two slices arrive, then the
+ * channel closes with a [FileUnreadableException]. Counts its opens, so a wrongly retried file is
+ * visible.
+ */
+private class UnreadablePartWaySource(
+    private val scope: CoroutineScope,
+) : FileSource {
     var opens = 0
         private set
 
+    override val filename: String = "book.m4b"
+
+    override val size: Long = FILE_BYTES.toLong()
+
     override fun openChannel(): ByteReadChannel {
         opens++
-        return inner.openChannel()
+        return scope
+            .writer {
+                repeat(2) {
+                    channel.writeFully(ByteArray(SLICE) { (it % 251).toByte() })
+                    channel.flush()
+                }
+                throw FileUnreadableException("Could not read $filename")
+            }.channel
     }
 }
 
 /**
- * A picked file that cannot be read part-way through, uploaded through the real client stack to a
- * real server.
+ * A file that cannot be read part-way through, uploaded through the real client stack to a real
+ * server.
  *
  * What this pins: the user is told their FILE could not be read, once, rather than that the network
  * is down — three times, with back-off. A failed request body surfaces in the browser as a closed
  * channel (an `IOException`) with the real reason buried in its cause chain, and the client used to
  * read only the outer type.
+ *
+ * The source here is a channel-backed one, so it takes the upload API's Ktor path. A picked browser
+ * file goes through `XhrUploadTransport` instead, whose own unreadable-file verdict is pinned in
+ * `XhrUploadTransportTest` — a real picked file cannot be made unreadable from inside a page.
  *
  * Needs a booted server, so it is gated exactly like [AuthArcTest].
  */
@@ -50,17 +70,7 @@ class UnreadableUploadTest :
             .config(enabled = serverBooted) {
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 try {
-                    var slicesRead = 0
-                    val bytes = ByteArray(FILE_BYTES) { (it % 251).toByte() }
-                    val file = File(arrayOf(bytes.unsafeCast<Int8Array>()).unsafeCast<Array<Any>>(), "book.m4b")
-                    val source =
-                        CountingSource(
-                            BrowserFileSource(file, scope, sliceBytes = SLICE, readSlice = { f, start, end ->
-                                slicesRead++
-                                // The third slice of every open cannot be read.
-                                if (slicesRead % 3 == 0) null else readFileSlice(f, start, end)
-                            }),
-                        )
+                    val source = UnreadablePartWaySource(scope)
 
                     val probe =
                         probeUnreadableUpload(

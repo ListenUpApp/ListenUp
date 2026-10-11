@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 23,
-    "identityHash": "1c18cc73af7aa5fe9a7b2d2446032f9d",
+    "identityHash": "0771535e5ec5e8b40a63a0214e8c46d9",
     "entities": [
       {
         "tableName": "users",
@@ -3049,7 +3049,7 @@
       },
       {
         "tableName": "book_ratings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `userId` TEXT NOT NULL, `syncId` TEXT NOT NULL, `halfStars` INTEGER NOT NULL, `note` TEXT, `ratedAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`bookId`, `userId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `userId` TEXT NOT NULL, `syncId` TEXT NOT NULL, `halfStars` INTEGER NOT NULL, `note` TEXT, `ratedAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `source` TEXT NOT NULL DEFAULT 'LISTENUP', PRIMARY KEY(`bookId`, `userId`))",
         "fields": [
           {
             "fieldPath": "bookId",
@@ -3102,6 +3102,13 @@
             "fieldPath": "deletedAt",
             "columnName": "deletedAt",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'LISTENUP'"
           }
         ],
         "primaryKey": {
@@ -3584,12 +3591,148 @@
         ]
       },
       {
-        "tableName": "pending_image_upload",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`kind` TEXT NOT NULL, `entityId` TEXT NOT NULL, `ownerUserId` TEXT NOT NULL, `enqueuedAt` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, PRIMARY KEY(`kind`, `entityId`))",
+        "tableName": "world_events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `homeSeriesId` TEXT, `homeBookId` TEXT, `bookId` TEXT, `positionMs` INTEGER, `type` TEXT NOT NULL, `text` TEXT NOT NULL, `detail` TEXT, `subjectEntityId` TEXT, `objectEntityId` TEXT, `createdBy` TEXT, `updatedBy` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
-            "fieldPath": "kind",
-            "columnName": "kind",
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "homeSeriesId",
+            "columnName": "homeSeriesId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "homeBookId",
+            "columnName": "homeBookId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "bookId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "positionMs",
+            "columnName": "positionMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detail",
+            "columnName": "detail",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "subjectEntityId",
+            "columnName": "subjectEntityId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "objectEntityId",
+            "columnName": "objectEntityId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "createdBy",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedBy",
+            "columnName": "updatedBy",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deletedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_world_events_homeSeriesId",
+            "unique": false,
+            "columnNames": [
+              "homeSeriesId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_world_events_homeSeriesId` ON `${TABLE_NAME}` (`homeSeriesId`)"
+          },
+          {
+            "name": "index_world_events_homeBookId",
+            "unique": false,
+            "columnNames": [
+              "homeBookId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_world_events_homeBookId` ON `${TABLE_NAME}` (`homeBookId`)"
+          },
+          {
+            "name": "index_world_events_bookId",
+            "unique": false,
+            "columnNames": [
+              "bookId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_world_events_bookId` ON `${TABLE_NAME}` (`bookId`)"
+          },
+          {
+            "name": "index_world_events_deletedAt",
+            "unique": false,
+            "columnNames": [
+              "deletedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_world_events_deletedAt` ON `${TABLE_NAME}` (`deletedAt`)"
+          }
+        ]
+      },
+      {
+        "tableName": "world_event_mentions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`eventId` TEXT NOT NULL, `entityId` TEXT NOT NULL, PRIMARY KEY(`eventId`, `entityId`))",
+        "fields": [
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -3598,38 +3741,31 @@
             "columnName": "entityId",
             "affinity": "TEXT",
             "notNull": true
-          },
-          {
-            "fieldPath": "ownerUserId",
-            "columnName": "ownerUserId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "enqueuedAt",
-            "columnName": "enqueuedAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "attempts",
-            "columnName": "attempts",
-            "affinity": "INTEGER",
-            "notNull": true
           }
         ],
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "kind",
+            "eventId",
             "entityId"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_world_event_mentions_entityId",
+            "unique": false,
+            "columnNames": [
+              "entityId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_world_event_mentions_entityId` ON `${TABLE_NAME}` (`entityId`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1c18cc73af7aa5fe9a7b2d2446032f9d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0771535e5ec5e8b40a63a0214e8c46d9')"
     ]
   }
 }

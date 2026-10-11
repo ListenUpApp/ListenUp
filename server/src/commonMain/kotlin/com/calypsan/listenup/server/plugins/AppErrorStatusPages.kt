@@ -38,6 +38,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.UnknownError
 import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.error.WorldEventError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.MalformedMultipartException
 import com.calypsan.listenup.server.io.MultipartPartTooLargeException
@@ -197,8 +198,9 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is ContributorError -> toHttpStatus()
 
-        // SeriesError + EntityError share one branch: a Story World entity lives under a series.
-        is SeriesError, is EntityError -> seriesOrStoryWorldHttpStatus()
+        // SeriesError + EntityError + WorldEventError share one branch: a Story World entity or event
+        // lives under a series.
+        is SeriesError, is EntityError, is WorldEventError -> seriesOrStoryWorldHttpStatus()
 
         is GenreError -> toHttpStatus()
 
@@ -514,6 +516,7 @@ private fun AppError.seriesOrStoryWorldHttpStatus(): HttpStatusCode =
     when (this) {
         is SeriesError -> toHttpStatus()
         is EntityError -> toHttpStatus()
+        is WorldEventError -> toHttpStatus()
         else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
     }
 
@@ -524,6 +527,15 @@ private fun EntityError.toHttpStatus(): HttpStatusCode =
         is EntityError.InvalidParent -> HttpStatusCode.BadRequest
         is EntityError.CycleDetected -> HttpStatusCode.Conflict
         is EntityError.KindMismatchOnMerge -> HttpStatusCode.Conflict
+    }
+
+private fun WorldEventError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is WorldEventError.NotFound -> HttpStatusCode.NotFound
+        is WorldEventError.HistoryNotFound -> HttpStatusCode.NotFound
+        is WorldEventError.InvalidAnchor -> HttpStatusCode.BadRequest
+        is WorldEventError.EntityNotInWorld -> HttpStatusCode.BadRequest
+        is WorldEventError.WrongEntityKind -> HttpStatusCode.BadRequest
     }
 
 private fun SeriesError.toHttpStatus(): HttpStatusCode =

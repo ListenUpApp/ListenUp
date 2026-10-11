@@ -13,15 +13,18 @@ import com.calypsan.listenup.api.dto.match.UnavailableReason
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.FindAvailability
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.PersonStep
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Duration.Companion.seconds
+import org.slf4j.event.Level
 
 private val AUDIBLE = MetadataSource("audible", "Audible")
 private val HARDCOVER = MetadataSource("hardcover", "Hardcover")
@@ -113,6 +116,25 @@ class PeopleFinderTest :
 
                 result.sources shouldBe listOf(SourceStatus.RateLimited(AUDIBLE, 9), SourceStatus.TimedOut(HARDCOVER))
                 result.candidates shouldBe emptyList()
+            }
+        }
+
+        test("a source that misses the deadline is logged with the operation and the deadline") {
+            runTest {
+                val rig = PeopleRig()
+                rig.hardcover.latency = 30.seconds
+                // installTestCapture() mutates the JVM-global SLF4J factory; safe only because :server:jvmTest
+                // runs specs sequentially.
+                val capture = ListenUpLoggerFactory.installTestCapture()
+                try {
+                    rig.finder.find(porterSubject(), PersonFindRequest(), US)
+
+                    capture.events
+                        .filter { it.level == Level.WARN }
+                        .map { it.message } shouldContain "find: people from hardcover didn't answer within 8s"
+                } finally {
+                    ListenUpLoggerFactory.removeTestCapture()
+                }
             }
         }
 

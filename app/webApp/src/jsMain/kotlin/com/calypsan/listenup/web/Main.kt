@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.web.lifecycle.Playhead
+import com.calypsan.listenup.web.logging.installRecentLogCapture
 import com.calypsan.listenup.web.lifecycle.flushPositionWhenHidden
 import com.calypsan.listenup.web.lifecycle.keepCoverCookieFreshWhileVisible
 import com.calypsan.listenup.web.lifecycle.lapseWhenAnotherTabSignsOut
@@ -36,11 +37,11 @@ import com.calypsan.listenup.web.features.auth.graphConnectionHealth
 import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.admin.AdminSessions
 import com.calypsan.listenup.web.features.setup.graphLibrarySetup
-import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.web.nav.LocalRouter
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.nav.readLeavingPage
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
@@ -91,6 +92,10 @@ private fun bootGuarded(mount: Element) {
 }
 
 private fun bootInto(mount: Element) {
+    // First, so everything below logs into the recent-log buffer Settings → Download logs saves.
+    // Below the guard: the test page boots no app, and its specs install nothing global.
+    val recentLogs = installRecentLogCapture()
+
     // Probe first, boot second. Every precondition below is checked without touching the store,
     // so a browser that can persist the database is unaffected.
     //
@@ -103,7 +108,13 @@ private fun bootInto(mount: Element) {
 
     // The worker is the one thing :app:sharedLogic cannot supply — it ships no worker script —
     // so it is the browser application's contribution to an otherwise shared graph.
-    val koin = startWebKoin(module { single<Worker> { createSqliteWorker() } }).koin
+    val koin =
+        startWebKoin(
+            module {
+                single<Worker> { createSqliteWorker() }
+                single { recentLogs }
+            },
+        ).koin
 
     // The server URL must be seeded before the composition mounts, or a ViewModel's first RPC
     // call can race the seed write and dial an unconfigured client. Sequencing render as this
@@ -139,7 +150,7 @@ private fun bootInto(mount: Element) {
             window.history.replaceState(null, "", withoutInvite.toUrl())
         }
 
-        val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
+        val router = Router(beforeRouteChange = ::readLeavingPage)
         mounted = true
         renderComposable(root = mount) {
             CompositionLocalProvider(LocalRouter provides router) {

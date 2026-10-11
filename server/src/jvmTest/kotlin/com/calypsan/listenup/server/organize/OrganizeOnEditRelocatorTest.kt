@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.librarywrite.SqlLibraryRootProvider
 import com.calypsan.listenup.server.librarywrite.WriteJournal
 import com.calypsan.listenup.server.librarywrite.tempJournalDir
+import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -27,6 +28,7 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +37,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration.Companion.seconds
+import org.slf4j.event.Level
 
 /**
  * [OrganizeOnEditRelocator] — the metadata-edit hook, and the one rule that makes always-on
@@ -117,6 +120,51 @@ class OrganizeOnEditRelocatorTest :
                         libraryRoot.resolve("Brandon Sanderson").toFile().exists() shouldBe false
                     }
                 } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("a failed relocation logs the error code and its detail") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-relocate-fails-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedAuthorRow(sql)
+                val bookDir =
+                    libraryRoot.resolve("Brandon Sanderson/Elantris").also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("01.m4b"), "a")
+                // The destination is already taken, so the broker refuses the move as ambiguous.
+                Files
+                    .createDirectories(libraryRoot.resolve("Brandon Sanderson/The Way of Kings"))
+                    .also { Files.writeString(it.resolve("The Way of Kings.m4b"), "someone else's") }
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val capture = ListenUpLoggerFactory.installTestCapture()
+                try {
+                    runBlocking {
+                        val repo = makeBookRepository(this@withSqlDatabase)
+                        val preEdit =
+                            bookPayload(title = "Elantris", rootRelPath = "Brandon Sanderson/Elantris")
+                        repo.upsert(preEdit)
+                        repo.upsert(
+                            bookPayload(title = "The Way of Kings", rootRelPath = "Brandon Sanderson/Elantris"),
+                        )
+                        val relocator = makeRelocator(this@withSqlDatabase, repo, scope)
+
+                        relocator.onBookEdited(BookId("b1"), preEdit)
+
+                        eventually(10.seconds) {
+                            val warning =
+                                capture.events.single { event ->
+                                    event.loggerName == OrganizeOnEditRelocator::class.qualifiedName &&
+                                        event.level == Level.WARN
+                                }
+                            warning.message shouldContain "b1"
+                            warning.message shouldContain "LIBRARY_WRITE_UNAVAILABLE"
+                            warning.message shouldContain "ambiguous move"
+                        }
+                    }
+                } finally {
+                    ListenUpLoggerFactory.removeTestCapture()
                     scope.cancel()
                 }
             }

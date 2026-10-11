@@ -44,7 +44,8 @@ enum class PullProgress {
  * opened or continued (the pushed-read ledger — the echo suppression, which wins even when the user
  * finished that read on Hardcover), and commits the rest as `source = 'hardcover'` reads together
  * with the cursor move ([HardcoverPullStore.commitPage]). Before that commit, [HardcoverWantToRead] brings
- * the page's Want to Read entries onto the user's To Read shelf (#1539); a shelf write that fails fails
+ * the page's Want to Read entries onto the user's To Read shelf (#1539), and the user's own Hardcover
+ * ratings fill the gaps in their ListenUp ratings ([HardcoverRatingImport]); a write that fails fails
  * the page, so the cursor stays put. A read with no finish date never arrives
  * ([HardcoverFinishedRead]), and neither does one finished after today in the user's zone: that date is
  * a typo ListenUp doesn't try to correct, so the read is treated as absent (a full pull removes it if it
@@ -62,6 +63,7 @@ class HardcoverPuller(
     private val resolver: HardcoverShelfResolver,
     private val links: HardcoverBookLinkStore,
     private val wantToRead: HardcoverWantToRead,
+    private val ratingImport: HardcoverRatingImport,
     private val rateLimiter: HardcoverRateLimiter,
     private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
@@ -116,6 +118,10 @@ class HardcoverPuller(
         wantToRead
             .applyPage(userId = userId, page = page, resolved = resolved, seenAt = now)
             .asPullFailure()
+            ?.let { return it }
+        ratingImport
+            .applyPage(userId = userId, page = page, resolved = resolved)
+            .asPullFailure(what = "rating import")
             ?.let { return it }
         val listenUpsOwn = links.pushedReadsAmong(userId, page.flatMap { entry -> entry.finishedReads.map { it.id } })
         val zone = sql.homeTimeZone(userId)
@@ -175,7 +181,7 @@ private fun HardcoverFinishedRead.toPulled(
  * A shelf write that failed, as the pull's own failure: nothing moves the cursor, and the pull's retry
  * policy asks for the page again. Null when it worked.
  */
-internal fun AppResult<Unit>.asPullFailure(): HardcoverCall.Failed? =
+internal fun AppResult<Unit>.asPullFailure(what: String = "want to read"): HardcoverCall.Failed? =
     (this as? AppResult.Failure)?.let { failure ->
-        HardcoverCall.Failed("want to read: ${failure.error.code} ${failure.error.debugInfo.orEmpty()}".trim())
+        HardcoverCall.Failed("$what: ${failure.error.code} ${failure.error.debugInfo.orEmpty()}".trim())
     }
