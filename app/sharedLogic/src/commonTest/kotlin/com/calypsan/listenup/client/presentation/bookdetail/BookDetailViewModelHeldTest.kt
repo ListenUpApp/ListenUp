@@ -24,7 +24,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -69,7 +68,7 @@ class BookDetailViewModelHeldTest :
             val errorBus = ErrorBus()
 
             init {
-                everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
+                every { playbackPositionRepository.observe(any()) } returns flowOf(null)
                 every { userRepository.observeCurrentUser() } returns flowOf(null)
                 every { userRepository.observeIsAdmin() } returns flowOf(true)
                 every { shelfRepository.observeMyShelves(any()) } returns flowOf(emptyList())
@@ -78,7 +77,7 @@ class BookDetailViewModelHeldTest :
                 every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
                 every { collectionRepository.observeCollections() } returns flowOf(emptyList())
                 every { bookRepository.observeBookDetail("book-1") } returns flowOf(TestData.bookDetail(id = "book-1"))
-                everySuspend { bookRepository.getChapters("book-1") } returns emptyList()
+                every { bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
             }
 
             fun build(): BookDetailViewModel =

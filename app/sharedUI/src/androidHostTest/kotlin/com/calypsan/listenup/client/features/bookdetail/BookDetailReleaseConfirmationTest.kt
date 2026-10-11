@@ -41,7 +41,6 @@ import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.matchers.shouldBe
@@ -185,13 +184,13 @@ class BookDetailReleaseConfirmationTest {
             bookRepository =
                 mock<BookRepository> {
                     every { observeBookDetail(BOOK_ID) } returns flowOf(book)
-                    everySuspend { getChapters(BOOK_ID) } returns emptyList()
+                    every { observeChapters(BOOK_ID) } returns flowOf(emptyList())
                     every { observeMatchRecord(BOOK_ID) } returns flowOf(null)
                 },
             tagRepository = mock<TagRepository> { every { observeAll() } returns flowOf(emptyList()) },
             playbackPositionRepository =
                 mock<PlaybackPositionRepository> {
-                    everySuspend { get(any<BookId>()) } returns AppResult.Success(null)
+                    every { observe(any()) } returns flowOf(null)
                 },
             userRepository =
                 mock<UserRepository> {
