@@ -74,11 +74,13 @@ struct PlayerCoordinatorWiringTests {
         let loadsBefore = await engine.lastLoadStartMs
 
         coordinator.play(bookId: "book1", startAtMs: 30_000)
+        // A seek in place reports the jump synchronously; a reload would not, and the await below
+        // would then never resume — so fail here, fast, instead of hanging.
+        try #require(progress.seeks.last?.2 == 30_000)
         await engine.waitUntilSeeked()
 
         #expect(await engine.lastSeekMs == 30_000)
         #expect(await engine.lastLoadStartMs == loadsBefore) // no second load
-        #expect(progress.seeks.last?.2 == 30_000)
     }
 
     @Test func startPositionOnAnotherBookPreparesThere() async throws {
