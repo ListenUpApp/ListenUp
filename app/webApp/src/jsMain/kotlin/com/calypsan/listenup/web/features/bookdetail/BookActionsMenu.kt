@@ -29,7 +29,6 @@ fun BookActionsMenu(
     onMarkComplete: () -> Unit,
     onDiscardProgress: () -> Unit,
     onRestart: () -> Unit,
-    onAddToShelf: () -> Unit,
     onAddToCollection: () -> Unit,
     onShare: () -> Unit,
     onDeleteBook: () -> Unit,
@@ -46,7 +45,7 @@ fun BookActionsMenu(
             onDiscardProgress = { pending = ProgressConfirmation.MarkNotStarted },
             onRestart = { pending = ProgressConfirmation.Restart },
         ) +
-            filingActions(ready, onAddToShelf, onAddToCollection) +
+            filingActions(ready, onAddToCollection) +
             // Always offered, unlike the progress actions: sharing says nothing about your own
             // relationship to the book, so there is no state in which it would do nothing.
             MenuAction("Share", WebIcon.Share, onShare) +
@@ -123,19 +122,14 @@ internal fun progressActions(
  * refused server-side. Android gates its own picker the same way and says why: defence in depth, so
  * the picker cannot render for a non-admin even if the flag behind it leaks true.
  *
- * "Add to shelf" has no such gate — a shelf is the listener's own.
+ * Add to shelf is not here: it is a visible button beside the primary (spec §2.7), and a second copy in the
+ * menu would be one too many.
  */
 internal fun filingActions(
     ready: BookDetailUiState.Ready,
-    onAddToShelf: () -> Unit,
     onAddToCollection: () -> Unit,
 ): List<MenuAction> =
-    buildList {
-        add(MenuAction("Add to shelf", WebIcon.Bookmark, onAddToShelf))
-        if (ready.isAdmin) {
-            add(MenuAction("Add to collection", WebIcon.Layers, onAddToCollection))
-        }
-    }
+    if (ready.isAdmin) listOf(MenuAction("Add to collection", WebIcon.Layers, onAddToCollection)) else emptyList()
 
 /**
  * Deleting the book — its folder and everything in it — from the server's disk.

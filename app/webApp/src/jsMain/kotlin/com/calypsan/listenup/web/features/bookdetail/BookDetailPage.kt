@@ -1,7 +1,5 @@
 package com.calypsan.listenup.web.features.bookdetail
 
-import com.calypsan.listenup.web.design.percentOf
-import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
@@ -16,7 +14,9 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
@@ -45,6 +45,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Book Detail — the Workbench layout in the Paper voice, over the shared
@@ -322,33 +323,35 @@ private fun SharedHeader(
     val id = ready?.book?.id?.value ?: bookId ?: return
 
     Div(attrs = { classes("bd-head") }) {
-        Cover(
-            title = ready?.book?.title.orEmpty(),
-            imageUrl = coverUrl(id, ready?.book?.coverHash, COVER_RUNG),
-            size = COVER_SIZE,
-            radius = COVER_RADIUS,
-            heroName = HERO_COVER,
-            heroKey = id,
-            decorative = true,
-            eager = true,
-        )
+        // Fluid inside a box CSS sizes (260px on a desktop, 210px on a phone): the size is the stylesheet's, so the
+        // image rung requested, and the hero flight's destination node, stay the same at every width.
+        Div(attrs = { classes("bd-cover") }) {
+            Cover(
+                title = ready?.book?.title.orEmpty(),
+                imageUrl = coverUrl(id, ready?.book?.coverHash, COVER_RUNG),
+                size = null,
+                radius = COVER_RADIUS,
+                heroName = HERO_COVER,
+                heroKey = id,
+                decorative = true,
+                eager = true,
+            )
+        }
         Div(attrs = { classes("bd-tblock") }) {
             if (ready == null) {
                 // The page's H1 is there from the first frame, named "Book" for a screen reader and
                 // drawn as a skeleton bar — a page that is loading still says which page it is.
                 PageHeader(title = crumb(state), pending = true)
             } else {
+                // Where the book sits, read before what it is called (board rev 7).
+                SeriesPathLines(ready.seriesPaths, onOpenSeries)
                 PageHeader(title = ready.book.title, display = true)
+                ready.subtitle?.takeIf { it.isNotBlank() }?.let { P(attrs = { classes("bd-subtitle") }) { Text(it) } }
                 Byline(ready, onOpenContributor)
                 if (ready.isHeld) HeldPill()
-                SeriesPathLines(ready.seriesPaths, onOpenSeries)
-                ready.progress?.let { fraction ->
-                    ProgressBar(
-                        value = fraction,
-                        label = "Listening progress",
-                        caption = "${percentOf(fraction)}% · ${ready.timeRemainingFormatted.orEmpty()}",
-                    )
-                }
+                Div(attrs = { classes("bd-stats") }) { Text(statsLine(ready)) }
+                // The Resume unit sits directly above the actions; a held book has neither.
+                if (!ready.isHeld) ResumeUnit(ready)
                 // The row itself is not gated on `canPlay`: a book with no playable audio is
                 // exactly the one whose metadata most needs correcting, so Edit has to survive
                 // the absence of Play. It is gated on `isHeld`: a held book's hero has no Play, no
@@ -397,22 +400,31 @@ private fun HeroActions(
 ) {
     var showDeleteDialog by remember(ready.book.id) { mutableStateOf(false) }
     Div(attrs = { classes("bd-actions") }) {
-        if (ready.canPlay) {
-            // ⛔ The button answers its own tap. Preparing a book nulls the transport
-            // bar's title (nothing is loaded, so the bar is gone) — which left pressing
-            // Play with no visible consequence anywhere until audio actually began. The
-            // flag behind this is `preparingBookIdUi`, delayed so a fast prepare never
-            // flashes; both natives make this same button their busy surface.
-            Button(
-                kind = ButtonKind.Primary,
-                size = ButtonSize.Lg,
-                onClick = { onPlay() },
-                enabled = !isPreparing,
-            ) {
-                Icon(if (isPreparing) WebIcon.Clock else WebIcon.Play, size = PLAY_ICON_SIZE)
-                Text(playLabel(ready, isPreparing))
-            }
+        // ⛔ The button answers its own tap. Preparing a book nulls the transport
+        // bar's title (nothing is loaded, so the bar is gone) — which left pressing
+        // Play with no visible consequence anywhere until audio actually began. The
+        // flag behind this is `preparingBookIdUi`, delayed so a fast prepare never
+        // flashes; both natives make this same button their busy surface.
+        // ⛔ Always drawn now, and disabled ONLY for Unavailable offline (spec N8): a primary that vanished when
+        // the book could not play left the reader with no word for why. `Button` emits no `disabled` attribute
+        // at all while enabled — never `disabled="false"`.
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            onClick = { onPlay() },
+            enabled = ready.primaryAction != PrimaryAction.UnavailableOffline && !isPreparing,
+            attrs = { classes("bd-primary") },
+        ) {
+            Icon(if (isPreparing) WebIcon.Clock else WebIcon.Play, size = PLAY_ICON_SIZE)
+            Text(primaryLabel(ready.primaryAction, isPreparing))
         }
+        // Visible, not in the menu (spec §2.7): two Add to shelf controls would be one too many.
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Lg,
+            onClick = { pickers.onShowShelfPicker() },
+            attrs = { classes("bd-shelf") },
+        ) { Text("Add to shelf") }
         ready.let { loaded ->
             // Finishing asks for the days first, as it does on Android and iOS — the
             // menu item opens the question rather than answering it with "now".
@@ -422,7 +434,6 @@ private fun HeroActions(
                 onMarkComplete = { askingFinishDates = true },
                 onDiscardProgress = onDiscardProgress,
                 onRestart = onRestart,
-                onAddToShelf = pickers.onShowShelfPicker,
                 onAddToCollection = pickers.onShowCollectionPicker,
                 onShare = onShare,
                 onDeleteBook = {
@@ -695,28 +706,39 @@ private const val BUTTON_VALUE = "button"
 /** Shared with the library grid's tapped tile, so the cover flies between the two. */
 const val HERO_COVER = "book-cover"
 
-private const val COVER_SIZE = 180
-
-/** Twice [COVER_SIZE], so the hero stays sharp on a 2x display. */
+/** The hero cover's derivative rung: covers the 260px desktop box at 1x and the 180px it was at 2x. */
 private const val COVER_RUNG = 360
 
 private const val COVER_RADIUS = 16
 
 /**
- * What the Play button says.
+ * What the primary button says (spec §2.9): Play, Resume, Listen again, or Unavailable offline.
  *
  * ⛔ "Loading…" rather than keeping "Play"/"Resume" under a changed icon: the label is what a screen
  * reader gets, and a disabled button still called "Play" says nothing about why it stopped working.
  */
-internal fun playLabel(
-    ready: BookDetailUiState.Ready,
+internal fun primaryLabel(
+    action: PrimaryAction,
     isPreparing: Boolean,
 ): String =
     when {
         isPreparing -> "Loading…"
-        ready.progress != null -> "Resume"
+        action == PrimaryAction.Resume -> "Resume"
+        action == PrimaryAction.ListenAgain -> "Listen again"
+        action == PrimaryAction.UnavailableOffline -> "Unavailable offline"
         else -> "Play"
     }
+
+/** The hero's quick stats: "45h 30m · 2010 · Unabridged · 75 chapters", skipping a missing year (spec D9/D10). */
+internal fun statsLine(ready: BookDetailUiState.Ready): String {
+    val chapters = ready.chapters.size
+    return listOfNotNull(
+        DurationFormatter.hoursMinutesAlways(ready.book.duration.milliseconds),
+        ready.year?.takeIf { it > 0 }?.toString(),
+        if (ready.book.abridged) "Abridged" else "Unabridged",
+        chapters.takeIf { it > 0 }?.let { if (it == 1) "1 chapter" else "$it chapters" },
+    ).joinToString(" · ")
+}
 
 private const val PLAY_ICON_SIZE = 16
 

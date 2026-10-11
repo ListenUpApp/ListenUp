@@ -216,10 +216,9 @@ class BookPickersTest :
             closeAny(host)
         }
 
-        test("the menu offers a collection entry only to an admin") {
-            filingActions(readyBook().copy(isAdmin = false), {}, {}).map { it.label } shouldContainExactly
-                listOf("Add to shelf")
-            filingActions(readyBook().copy(isAdmin = true), {}, {}).map { it.label } shouldContainExactly
-                listOf("Add to shelf", "Add to collection")
+        test("the menu offers a collection entry only to an admin, and never a shelf entry") {
+            filingActions(readyBook().copy(isAdmin = false), {}).map { it.label } shouldContainExactly emptyList()
+            filingActions(readyBook().copy(isAdmin = true), {}).map { it.label } shouldContainExactly
+                listOf("Add to collection")
         }
     })

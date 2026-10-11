@@ -249,6 +249,21 @@
    handed the cover's flight a destination that moved out from under it mid-animation. */
 .bd { width:100%; padding:var(--sp-24) 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
 .bd-head { display:flex; gap:26px; align-items:flex-end; }
+/* The hero sits on one solid tone, read from ONE variable so the cover-derived wash (PR 3) replaces
+   exactly this. Light: the spec's paper-based neutral; dark: the inset surface. */
+:root { --bd-hero-wash: #EFE9E1; }
+[data-theme="dark"] { --bd-hero-wash: var(--surface-2); }
+.bd-head { background:var(--bd-hero-wash); border-radius:var(--r-xl); padding:var(--sp-32); }
+/* The cover is fluid inside this box, so CSS owns its size at every width (260px here, 210px on a phone). */
+.bd-cover { width:260px; flex-shrink:0; }
+.bd-subtitle { margin:0; font-size:1.125rem; color:var(--ink-2); }
+.bd-stats { font-size:0.875rem; color:var(--ink-2); }
+/* The Resume unit: the chapter and time left over the bar, directly above the actions. */
+.bd-unit { display:flex; flex-direction:column; gap:6px; max-width:560px; margin-top:var(--sp-4); }
+.bd-unit-row { display:flex; justify-content:space-between; gap:var(--sp-12); font-size:0.875rem; }
+.bd-unit-ch { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bd-unit-left { color:var(--ink-2); flex-shrink:0; }
+.bd-unit-finished { font-size:0.875rem; font-weight:600; color:var(--ink); }
 /* The edit page's <form> wraps every section, which would otherwise make all of them ONE flex
    item of `.bd` and collapse the 20px rhythm between them. The form reproduces its parent's
    column so the element is structural only — it must not be visible in the layout. */
@@ -261,8 +276,8 @@
 @media (hover: hover) { .bd-by-name:hover { color:var(--coral-text); text-decoration:underline; } }
 .bd-by-name:focus { outline:none; }
 .bd-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-/* One action, deliberately: a browser cannot finish a download, so Play stands alone. */
-.bd-actions { display:flex; gap:10px; margin-top:var(--sp-4); }
+/* No Download, deliberately: a browser cannot finish one, so the primary stands beside Add to shelf. */
+.bd-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:var(--sp-4); }
 /* The About body. `BookMarkdown` emits its own <p> runs, so the type lives here rather than as
    inline style on a single paragraph. */
 .bd-desc { font-size:0.90625rem; line-height:1.6; color:var(--ink-2); }
@@ -400,7 +415,9 @@
 /* < 760: the thin fallback — same structure, tighter everything. */
 @media (max-width: 759px) {
   .bd { padding:var(--sp-16) 14px 28px; gap:var(--sp-16); }
-  .bd-head { gap:var(--sp-16); }
+  .bd-head { gap:var(--sp-16); padding:var(--sp-16); }
+  /* A phone's two actions each take the full width: Resume, then Add to shelf under it. */
+  .bd-primary, .bd-shelf { flex:1 1 100%; }
 
 }
 /* < 640: the cover stands above the title. Beside it, a 390px phone left the title 166px to wrap
@@ -408,6 +425,7 @@
    nothing on the page said they were there. The actions wrap for the same reason. */
 @media (max-width: 639px) {
   .bd-head { flex-direction:column; align-items:flex-start; }
+  .bd-cover { width:210px; align-self:center; }
   .bd-tblock { width:100%; }
   .bd-actions { flex-wrap:wrap; }
 }
