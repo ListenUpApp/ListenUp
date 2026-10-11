@@ -27,7 +27,7 @@ struct BookDetailReadingModelsTests {
             seriesId: "s1", name: "Mistborn",
             books: [
                 SeriesShelfBook(id: "b1", coverPath: nil, coverHash: nil, sequenceLabel: "1", isThis: true),
-                SeriesShelfBook(id: "b2", coverPath: "/c.jpg", coverHash: "h", sequenceLabel: "2", isThis: false),
+                SeriesShelfBook(id: "b2", coverPath: "/c.jpg", coverHash: "h", sequenceLabel: "2", isThis: false)
             ],
             thisIndex: 0, nextBookId: "b2")
         let projected = BookSeriesShelf(shelf)
