@@ -65,7 +65,15 @@ class DevicesPageTest :
             fun iconOf(glyph: String): String =
                 host
                     .querySelectorAll(".dev-card-icon[data-glyph=\"$glyph\"] path")
-                    .let { paths -> (0 until paths.length).joinToString(" ") { paths.item(it)!!.unsafeCast<HTMLElement>().getAttribute("d").orEmpty() } }
+                    .let { paths ->
+                        (0 until paths.length).joinToString(" ") {
+                            paths
+                                .item(it)!!
+                                .unsafeCast<HTMLElement>()
+                                .getAttribute("d")
+                                .orEmpty()
+                        }
+                    }
 
             iconOf("tablet").isNotEmpty() shouldBe true
             iconOf("browser").isNotEmpty() shouldBe true

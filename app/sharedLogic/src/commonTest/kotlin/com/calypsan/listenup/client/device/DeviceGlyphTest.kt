@@ -11,7 +11,10 @@ class DeviceGlyphTest :
             DeviceType.entries.forEach { type ->
                 deviceGlyphFor(type.wireName) shouldNotBe DeviceGlyph.Unknown
             }
-            DeviceType.entries.map { deviceGlyphFor(it.wireName) }.toSet().size shouldBe DeviceType.entries.size
+            DeviceType.entries
+                .map { deviceGlyphFor(it.wireName) }
+                .toSet()
+                .size shouldBe DeviceType.entries.size
         }
 
         test("each device type maps to its own kind of glyph") {
