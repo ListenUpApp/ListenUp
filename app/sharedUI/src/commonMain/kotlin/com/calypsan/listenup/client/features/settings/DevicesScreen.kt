@@ -482,7 +482,7 @@ private fun ThisDeviceCardContent(
     inHero: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val visual = deviceVisualFor(device.deviceType)
+    val visual = deviceVisualFor(device.glyph)
     val inkColor =
         if (inHero) {
             MaterialTheme.colorScheme.onPrimaryContainer
@@ -678,7 +678,7 @@ private fun DeviceRowItem(
     nowMs: Long,
     onRevoke: () -> Unit,
 ) {
-    val visual = deviceVisualFor(device.deviceType)
+    val visual = deviceVisualFor(device.glyph)
 
     Row(
         modifier =
