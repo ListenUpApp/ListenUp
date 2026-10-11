@@ -28,10 +28,10 @@
   </head>
   <body>
     <!--
-      Karma's entire job for this project was: serve a page under COOP/COEP, load the compiled
-      Kotest bundle, and capture what it printed. Kotest 6's JS engine registers AND reports its
-      own tests (TeamCity service messages on the console), so what it needs is a page and a
-      console — not a second test framework. This is that page.
+      This page loads the compiled Kotest bundle; Vite serves it under COOP/COEP. Kotest 6's JS
+      engine registers AND reports its own tests (TeamCity service messages on the console), so
+      what it needs is a page and a console — not a second test framework. run-kotest.mjs opens
+      this page in a browser and reads that console.
     -->
     <script type="module" src="/kotlin/listenup-app-webApp-test.mjs"></script>
   </body>

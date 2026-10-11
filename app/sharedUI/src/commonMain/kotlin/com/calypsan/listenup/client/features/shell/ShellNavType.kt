@@ -6,8 +6,10 @@ import androidx.window.core.layout.WindowSizeClass
  * Which adaptive navigation surface the shell renders at the current window size.
  *
  * - [BottomBar] — compact widths (phones): an expressive `ShortNavigationBar`.
- * - [RailCollapsed] — medium widths (tablet portrait, foldables): an icon-only `WideNavigationRail`.
- * - [RailExpanded] — expanded widths (landscape tablet, desktop): an icon + label `WideNavigationRail`.
+ * - [RailCollapsed] — medium widths (tablet portrait, foldables): a `NavigationRail`.
+ * - [RailExpanded] — expanded widths (landscape tablet, desktop): the same `NavigationRail`.
+ *
+ * `AppNavigationSuite` draws one icon-over-label rail for both rail cases.
  */
 enum class ShellNavType { BottomBar, RailCollapsed, RailExpanded }
 

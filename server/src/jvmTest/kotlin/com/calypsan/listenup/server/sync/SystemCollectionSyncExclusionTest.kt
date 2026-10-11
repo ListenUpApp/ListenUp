@@ -30,7 +30,7 @@ private const val PULL_LIMIT = 100
  * must still be visible to members via book-level visibility (the `accessibleBookIdsSql`
  * fragment is deliberately unchanged).
  *
- * Each test seeds an in-memory Flyway-migrated SQLite database, materialises the
+ * Each test seeds an in-memory migrated SQLite database, materialises the
  * relevant [BookAccessPolicy] SQL fragment against real data, and asserts the resulting
  * id set.
  */

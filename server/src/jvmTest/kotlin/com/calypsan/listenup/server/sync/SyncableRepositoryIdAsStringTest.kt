@@ -111,7 +111,7 @@ internal data class FixturePayload(
  * (non-user-scoped) syncable aggregate on [SqlSyncableRepository] with a
  * `@JvmInline value class` id. Backs both this test and
  * [SyncableRepositoryFirehoseSuppressionTest]. The root table
- * `fixture_idAsString_test` is test-only (no Flyway migration), so [createSchema]
+ * `fixture_idAsString_test` is test-only (no migration), so [createSchema]
  * creates it via raw DDL and all reads/writes run raw SQL over the [SqlDriver].
  */
 internal class FixtureRepository(

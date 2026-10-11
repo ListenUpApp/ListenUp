@@ -75,10 +75,12 @@ export default defineConfig({
   plugins: [emitIndexHtmlForSpecs],
   resolve: {
     alias: {
-      // The SQLite worker's source lives in app/webApp/worker/, OUTSIDE this project root, where
-      // Node resolution walks up and never reaches web/node_modules. sync-kotlin.mjs copies it
-      // into kotlin/ before a run; this alias pins its bare import of @sqlite.org/sqlite-wasm to
-      // this project's installed copy wherever the worker is resolved from.
+      // Pins the bare import of @sqlite.org/sqlite-wasm to this project's installed copy,
+      // wherever the importing file is resolved from. The SQLite worker's source lives in
+      // app/webApp/worker/, outside this project root, but sync-kotlin.mjs copies it into
+      // kotlin/ (inside the root) before a run, where ordinary Node resolution reaches
+      // web/node_modules: `webBundle` and its boot checks pass without this alias as of this
+      // commit.
       '@sqlite.org/sqlite-wasm': resolve(
         __dirname,
         'node_modules/@sqlite.org/sqlite-wasm',
@@ -87,8 +89,10 @@ export default defineConfig({
   },
   server: {
     headers: responseHeaders,
-    // The Kotlin output and the SQLite worker both live outside this project root, so Vite's
-    // file-serving allowlist is widened to the whole :app:webApp directory.
+    // Widens the dev server's file-serving allowlist to the whole :app:webApp directory.
+    // sync-kotlin.mjs copies the Kotlin output and the SQLite worker into kotlin/, inside this
+    // project root. `webBundle` (a build, which does not start the dev server) passes without
+    // this setting as of this commit.
     fs: { allow: [resolve(__dirname, '..')] },
     proxy: {
       '/api': { target: apiTarget, ws: true, changeOrigin: true },

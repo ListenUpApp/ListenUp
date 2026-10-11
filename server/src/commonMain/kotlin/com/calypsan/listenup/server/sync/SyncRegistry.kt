@@ -13,7 +13,7 @@ import kotlinx.atomicfu.locks.synchronized
  * singleton — just one scoped to the application lifecycle rather than the
  * JVM.
  *
- * Registration is performed by [SyncableRepository.init] via constructor
+ * Registration is performed by [SqlSyncableRepository]'s `init` block via constructor
  * injection. Lookups happen in [SyncStreamServiceImpl]'s pull surface — catch-up,
  * targeted fetch, digest and domain discovery.
  */

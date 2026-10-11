@@ -29,7 +29,7 @@ import kotlin.time.Instant
 
 /**
  * The shared fixture behind the collection access-model guard suite (G0–G5). Wires a real
- * [CollectionServiceImpl] over a Flyway-migrated in-memory SQLite db, alongside the single
+ * [CollectionServiceImpl] over a migrated in-memory SQLite db, alongside the single
  * [BookAccessPolicy] visibility seam and a [BookRepository] armed with the removal-cascade repos
  * — so every guard drives the same production seams a client would, and asserts through
  * `canAccess` / `pullSince` (the invariant) rather than junction-table reads (the mechanism).

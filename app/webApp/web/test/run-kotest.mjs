@@ -1,5 +1,5 @@
 // Runs the compiled Kotest bundle in a real browser and translates its TeamCity service
-// messages into a pass/fail verdict — the whole of what karma was doing for this project.
+// messages into a pass/fail verdict.
 //
 // Deliberately NOT Vitest: Kotest 6's JS engine owns test registration and reporting itself,
 // so a second framework would only wrap N Kotest tests in 1 opaque Vitest test and discard the

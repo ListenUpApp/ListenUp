@@ -46,7 +46,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Gating and happy-path tests for [ShelfServiceImpl].
  *
- * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks.
+ * Uses a real in-memory migrated SQLite database + real repositories; no mocks.
  * The acting caller is supplied via a [PrincipalProvider] stub; [actAs] rebinds the
  * service to a chosen `(userId, role)` so a single test can exercise multiple callers.
  *

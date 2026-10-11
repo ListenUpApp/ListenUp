@@ -525,6 +525,8 @@ class BookPersister internal constructor(
      * For [CoverSource.Filesystem]: reads the image bytes from [scanRoot]/[file.relPath],
      * refusing a file larger than [LIBRARY_COVER_MAX_BYTES] before reading any of it.
      * For [CoverSource.Embedded]: uses the artwork bytes already in memory.
+     * For [CoverSource.Spooled]: reads the artwork back from the scan's spool file; a file that
+     * cannot be read is logged and the book gets no cover.
      *
      * This is intentionally done outside the DB transaction — file I/O does not belong
      * inside a `suspendTransaction`.

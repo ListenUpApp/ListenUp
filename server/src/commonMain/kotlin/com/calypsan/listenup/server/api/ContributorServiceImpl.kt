@@ -32,17 +32,13 @@ import com.calypsan.listenup.server.auth.requirePermission
  * (`null` means "don't touch"), and writes it back through the syncable substrate
  * so the revision bumps and the change-bus fires uniformly. The read-then-write
  * runs inside one [suspendTransaction] so concurrent edits can't interleave.
- * When `name` or `sortName` changes, the post-commit pass kicks the FTS reindex
- * for every linked book — reindex failure is logged and swallowed so a flaky FTS
- * write can't roll back a successful DB update.
  *
  * [deleteContributor] hard-deletes the junction rows linking the contributor to
  * every book (the canonical mass-removal idiom for many-to-many catalogues), then
  * re-upserts each affected book with the contributor stripped — which bumps each
  * book's revision and publishes the resulting `Updated` events so clients see
  * the contributor disappear from book detail views — and finally soft-deletes
- * the contributor itself. Post-commit, every affected book has its `book_search`
- * FTS row reindexed (best-effort; logged on failure).
+ * the contributor itself.
  *
  * [mergeContributors] folds the [source] contributor into [target]: re-links
  * every `book_contributors` row from source to target while capturing the
@@ -53,9 +49,6 @@ import com.calypsan.listenup.server.auth.requirePermission
  * own name excluded — source's NAME is never manufactured into an alias, since
  * aliases are user-curated facts only), and finally soft-deletes the source
  * while recording the server-only `merged_into` redirect on its row.
- * Post-commit, the target's
- * affected books reindex `book_search.contributor_names` and the target's
- * `contributor_search.aliases` is refreshed; reindex failures are logged and swallowed.
  *
  * [unmergeContributor] is the inverse of [mergeContributors]: splits a single
  * alias back into its own fresh contributor row. Resolves-or-creates a contributor
@@ -66,9 +59,10 @@ import com.calypsan.listenup.server.auth.requirePermission
  * that column (the new contributor's canonical name covers it now), re-upserts
  * each affected book to bump revision and publish `book.Updated`, then removes
  * the alias from the target. Returns the new contributor's id so callers can
- * navigate to it. Post-commit, both contributors' books reindex
- * `book_search.contributor_names` and the target's `contributor_search.aliases`
- * is refreshed; reindex failures are logged and swallowed.
+ * navigate to it.
+ *
+ * The server keeps no search index (migration V55 dropped them all), so no write here
+ * reindexes anything.
  *
  * **Transaction model.** [mergeContributors], [unmergeContributor] and [deleteContributor]
  * are **not** one transaction. Each keeps its snapshot + junction relink/delete in a single
@@ -174,7 +168,7 @@ internal class ContributorServiceImpl(
     }
 
     /**
-     * The merge write sequence (no FTS reindex). Read-consistency checks and the aggregate
+     * The merge write sequence. Read-consistency checks and the aggregate
      * writes run sequentially over the single SQLDelight connection; the snapshot + junction
      * relink are the one pair that must commit together, kept in a single SQLDelight
      * [sqlTransaction]. Whole-flow atomicity is not guaranteed across the independent
@@ -264,7 +258,7 @@ internal class ContributorServiceImpl(
     }
 
     /**
-     * The unmerge write sequence (no FTS reindex). The snapshot + junction relink are the one
+     * The unmerge write sequence. The snapshot + junction relink are the one
      * pair kept in a single SQLDelight [sqlTransaction]; the rest are sequential aggregate
      * writes over the single SQLDelight connection — matching the established cutover shape.
      */
@@ -339,7 +333,7 @@ internal class ContributorServiceImpl(
     }
 
     /**
-     * The delete write sequence (no FTS reindex). The snapshot + junction hard-delete are the
+     * The delete write sequence. The snapshot + junction hard-delete are the
      * one pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the
      * contributor soft-delete are sequential aggregate writes over the single SQLDelight
      * connection — matching the established cutover shape.

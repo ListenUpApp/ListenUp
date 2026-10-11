@@ -58,7 +58,7 @@ import kotlinx.datetime.toInstant
  *    `SocialError.NotFound` (never revealing the book exists).
  * 4. An unauthenticated caller receives `AppResult.Failure(SocialError.NotFound)`.
  *
- * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks.
+ * Uses a real in-memory migrated SQLite database + real repositories; no mocks.
  */
 class SocialServiceTest :
     FunSpec({

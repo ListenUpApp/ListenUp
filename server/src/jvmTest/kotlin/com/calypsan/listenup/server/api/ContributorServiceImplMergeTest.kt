@@ -43,7 +43,7 @@ import kotlinx.coroutines.withContext
  * both FTS reindex passes (book_search.contributor_names + contributor_search.aliases).
  *
  * Modelled on the `deleteContributor` tests in [ContributorServiceImplTest] — real
- * in-memory Flyway-migrated SQLite, repositories wired to the same `Database`.
+ * in-memory migrated SQLite, repositories wired to the same `Database`.
  */
 class ContributorServiceImplMergeTest :
     FunSpec({

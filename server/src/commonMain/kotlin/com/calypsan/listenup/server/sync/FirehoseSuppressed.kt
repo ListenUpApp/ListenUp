@@ -7,7 +7,7 @@ import kotlin.coroutines.CoroutineContext
  * Coroutine-context marker that suppresses the per-write [ChangeBus] *publish*
  * while a bulk write runs, **without** suppressing the revision bump.
  *
- * Present in the context → [SyncableRepository.upsert] / [SyncableRepository.softDelete]
+ * Present in the context → [SqlSyncableRepository.upsert] / [SqlSyncableRepository.softDelete]
  * still bump the global revision counter and commit the row (so REST catch-up via
  * `pullSince` sees every row), but they skip `bus.publish(...)`. The lossy live-tail
  * ([ChangeBus]'s `replay = 256`, `DROP_OLDEST`) therefore never carries the burst —

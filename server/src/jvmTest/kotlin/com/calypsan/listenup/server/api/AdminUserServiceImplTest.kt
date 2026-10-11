@@ -63,7 +63,7 @@ import kotlin.time.Instant
 /**
  * Integration tests for [AdminUserServiceImpl].
  *
- * Real in-memory Flyway-migrated SQLite + real [SessionService] and
+ * Real in-memory migrated SQLite + real [SessionService] and
  * [ServerSettingsRepository]; no mocks. The acting caller is supplied via a
  * [PrincipalProvider] stub; [actAs] rebinds the service to a chosen
  * `(userId, role)` so a single test can exercise multiple callers.

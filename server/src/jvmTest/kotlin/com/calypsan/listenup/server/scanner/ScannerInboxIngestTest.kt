@@ -53,7 +53,7 @@ import kotlinx.coroutines.test.runTest
  * The gate-OFF branch (→ ALL_BOOKS, NOT INBOX) is covered by [ScanAllBooksMembershipTest].
  *
  * Drives a real [BookRepository] (the ingest port) and a real [CollectionServiceImpl]
- * (the inbox resolver) against a Flyway-migrated in-memory database — no mocks.
+ * (the inbox resolver) against a migrated in-memory database — no mocks.
  * Membership is read back through [CollectionBookRepository.findBookIdsForCollection].
  */
 class ScannerInboxIngestTest :

@@ -43,8 +43,8 @@ import com.calypsan.listenup.server.auth.requirePermission
  * re-upserts each affected book with the series stripped — which bumps each
  * book's revision and publishes the resulting `Updated` events so clients see
  * the series disappear from book detail views — and finally soft-deletes
- * the series itself. Post-commit, every affected book has its `book_search` FTS
- * row reindexed (best-effort; logged on failure).
+ * the series itself. The server keeps no search index (migration V55 dropped them all), so
+ * no write here reindexes anything.
  *
  * **Transaction model.** Like [com.calypsan.listenup.server.api.ContributorServiceImpl],
  * [mergeSeries] and [deleteSeries] are **not** one transaction. Each keeps its snapshot +
@@ -172,7 +172,7 @@ internal class SeriesServiceImpl(
     }
 
     /**
-     * The merge write sequence (no FTS reindex). The receipt + snapshot + membership relink are
+     * The merge write sequence. The receipt + snapshot + membership relink are
      * kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the source
      * soft-delete are sequential aggregate writes over the single SQLDelight connection —
      * matching the established cutover shape.
@@ -286,7 +286,7 @@ internal class SeriesServiceImpl(
     }
 
     /**
-     * The delete write sequence (no FTS reindex). The snapshot + membership hard-delete are the
+     * The delete write sequence. The snapshot + membership hard-delete are the
      * one pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the
      * series soft-delete are sequential aggregate writes over the single SQLDelight connection —
      * matching the established cutover shape.

@@ -40,7 +40,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Integration tests for [CollectionServiceImpl.getOrCreateSystemCollection].
  *
- * Drives the generalized find-or-create against a real in-memory Flyway-migrated SQLite
+ * Drives the generalized find-or-create against a real in-memory migrated SQLite
  * database + real repositories; no mocks. Asserts the server-only `collections.type`
  * column is set on creation, the name follows the system type, and the create is idempotent.
  * Also covers the rename/delete guards: system collections (ALL_BOOKS, INBOX) reject

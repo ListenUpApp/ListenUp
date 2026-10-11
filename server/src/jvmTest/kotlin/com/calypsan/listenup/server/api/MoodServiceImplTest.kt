@@ -33,7 +33,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Integration tests for [MoodServiceImpl].
  *
- * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks.
+ * Uses a real in-memory migrated SQLite database + real repositories; no mocks.
  */
 class MoodServiceImplTest :
     FunSpec({

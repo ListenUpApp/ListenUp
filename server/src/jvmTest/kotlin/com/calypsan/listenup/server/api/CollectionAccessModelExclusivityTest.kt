@@ -30,7 +30,7 @@ import kotlinx.coroutines.test.runTest
  * book into a real collection must remove it from the everyone-visible ALL_BOOKS substrate;
  * removing its last real membership must return it.
  *
- * These tests drive the real [CollectionServiceImpl] over a real Flyway-migrated in-memory SQLite
+ * These tests drive the real [CollectionServiceImpl] over a real migrated in-memory SQLite
  * db via the shared [collectionAccessHarness]. Every case now carries a **load-bearing**
  * [BookAccessPolicy.canAccess] assertion — what a member actually sees — while the junction-state
  * check is demoted to a `junctionDiagnostic(...)` *mechanism diagnostic* that only makes a failure

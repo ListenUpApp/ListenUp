@@ -34,7 +34,7 @@ import kotlinx.coroutines.test.runTest
  * Integration tests for [GenreServiceImpl.updateGenre] and
  * [GenreServiceImpl.deleteGenre].
  *
- * Uses a real in-memory Flyway-migrated SQLite database + real repositories.
+ * Uses a real in-memory migrated SQLite database + real repositories.
  * The cascade behavior of deleteGenre (book_genres + genre_aliases + book
  * re-upserts) is exercised end-to-end against the live V23 schema.
  */

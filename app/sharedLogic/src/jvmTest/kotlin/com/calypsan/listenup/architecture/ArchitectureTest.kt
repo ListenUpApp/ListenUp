@@ -19,6 +19,10 @@ import kotlinx.serialization.Serializable
  *     transport types — Ktor or kotlinx.rpc — keeping the boundary clean.
  *  3. No `:server` symbols (`com.calypsan.listenup.server..`) are imported
  *     outside the `:server` module.
+ *  4. Classes in `com.calypsan.listenup.api.event..` (the `ScanEvent` variants)
+ *     live in `:contract`'s commonMain.
+ *  5. Files under `server/src/jvmMain` in the `com.calypsan.listenup.server.scanner`
+ *     package import nothing from `io.ktor`.
  *
  * Each rule fails the build with a list of offenders. Koin `module.verify()`
  * coverage lives in the per-module `*ModuleVerifyTest` specs; no rule yet

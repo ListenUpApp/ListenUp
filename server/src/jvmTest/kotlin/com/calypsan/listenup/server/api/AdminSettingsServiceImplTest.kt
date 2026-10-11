@@ -72,7 +72,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Integration tests for [AdminSettingsServiceImpl].
  *
- * Real in-memory Flyway-migrated SQLite + real [ServerSettingsRepository]; no mocks.
+ * Real in-memory migrated SQLite + real [ServerSettingsRepository]; no mocks.
  * The acting caller is supplied via a [PrincipalProvider] stub; [principalFor] binds
  * the service to a chosen `(userId, role)`.
  */

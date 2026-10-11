@@ -31,7 +31,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Integration tests for [GenreServiceImpl.getGenreStats] and [GenreServiceImpl.getGenreBySlug].
  *
- * Genre tree fixture: Fiction > Fantasy > Epic Fantasy. Uses a real in-memory Flyway-migrated
+ * Genre tree fixture: Fiction > Fantasy > Epic Fantasy. Uses a real in-memory migrated
  * SQLite database + real repositories; no mocks.
  */
 class GenreServiceImplStatsTest :

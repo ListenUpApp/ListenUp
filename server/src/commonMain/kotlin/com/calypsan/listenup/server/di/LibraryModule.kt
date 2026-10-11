@@ -23,7 +23,7 @@ import org.koin.dsl.module
  */
 fun libraryModule(): Module =
     module {
-        // createdAtStart = true is mandatory for every SyncableRepository: the init block
+        // createdAtStart = true is mandatory for every SqlSyncableRepository: the init block
         // self-registers the domain with SyncRegistry at bootstrap, so SyncStreamService.listDomains()
         // and the firehose's library_folders gating are correct on the very first request —
         // rather than relying on an incidental eager deref during routing setup.

@@ -51,7 +51,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Integration tests for [InviteServiceImpl].
  *
- * Real in-memory Flyway-migrated SQLite + real [InviteCodeGenerator]; no mocks.
+ * Real in-memory migrated SQLite + real [InviteCodeGenerator]; no mocks.
  * The acting caller is supplied via a [PrincipalProvider] stub; [actAs] rebinds
  * the service to a chosen `(userId, role)` so a single test can exercise
  * multiple callers — mirrors [AdminUserServiceImplTest].

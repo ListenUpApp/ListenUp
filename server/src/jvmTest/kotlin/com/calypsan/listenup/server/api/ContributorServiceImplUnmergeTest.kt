@@ -45,7 +45,7 @@ import kotlinx.coroutines.withContext
  * alias removal from target, and both FTS reindex passes (target + new contributor
  * `book_search.contributor_names`, target `contributor_search.aliases`).
  *
- * Modelled on [ContributorServiceImplMergeTest] — real in-memory Flyway-migrated SQLite,
+ * Modelled on [ContributorServiceImplMergeTest] — real in-memory migrated SQLite,
  * repositories wired to the same `Database`.
  */
 class ContributorServiceImplUnmergeTest :

@@ -117,7 +117,7 @@ internal data class UserScopedPayload(
 /**
  * SQLDelight twin of the former Exposed `UserScopedFixtureTable` fixture: a per-user
  * syncable aggregate on [SqlSyncableRepository]. The root table `user_scoped_fixture_test`
- * is test-only (no Flyway migration), so [createSchema] creates it via raw DDL and the
+ * is test-only (no migration), so [createSchema] creates it via raw DDL and the
  * substrate / read / write run raw SQL over the [SqlDriver] — the same engine-neutral
  * pattern [AccessFilteredReads] uses for production access-filtered reads.
  */

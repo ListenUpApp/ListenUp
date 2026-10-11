@@ -45,7 +45,7 @@ import kotlinx.coroutines.test.runTest
  * 4. A shelf with one accessible and one inaccessible book has bookCount == 1.
  * 5. An unauthenticated caller receives AppResult.Failure(ShelfError.NotFound).
  *
- * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks.
+ * Uses a real in-memory migrated SQLite database + real repositories; no mocks.
  */
 class ShelfServiceUserShelvesTest :
     FunSpec({

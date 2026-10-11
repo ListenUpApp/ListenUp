@@ -27,7 +27,7 @@ import kotlin.time.Instant
 /**
  * Smoke tests for [ShelfDomainSeeder].
  *
- * Uses the real [ShelfRepository] against an in-memory SQLite DB (via Flyway) so
+ * Uses the real [ShelfRepository] against an in-memory SQLite DB (migrated by the server's runner) so
  * [isAlreadySeeded] and the seeded rows exercise the real schema and write-path.
  */
 class ShelfDomainSeederTest :

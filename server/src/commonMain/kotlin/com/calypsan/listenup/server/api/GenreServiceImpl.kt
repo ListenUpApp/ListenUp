@@ -284,7 +284,7 @@ internal class GenreServiceImpl(
         val newPath = "$parentPath/$slug"
         val newDepth = (parent?.depth ?: -1) + 1
 
-        // 5. Persist via the substrate (revision bump + sync event are owned by SyncableRepository).
+        // 5. Persist via the substrate (revision bump + sync event are owned by SqlSyncableRepository).
         val newId = Uuid.random().toString()
         val payload =
             GenreSyncPayload(

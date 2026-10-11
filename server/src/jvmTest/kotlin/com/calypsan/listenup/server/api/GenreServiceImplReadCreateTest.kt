@@ -34,7 +34,7 @@ import kotlinx.coroutines.test.runTest
  * Integration tests for the read + create surface of [GenreServiceImpl]:
  * `listGenres`, `getGenre`, `getGenreChildren`, `createGenre`.
  *
- * Uses a real in-memory Flyway-migrated SQLite database + real repositories.
+ * Uses a real in-memory migrated SQLite database + real repositories.
  * Tombstones, hierarchy, and slug conflicts are exercised end-to-end against
  * the live V23 schema.
  */

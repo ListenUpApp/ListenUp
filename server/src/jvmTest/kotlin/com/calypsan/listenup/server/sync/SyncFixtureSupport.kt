@@ -9,7 +9,7 @@ import app.cash.sqldelight.db.SqlDriver
  *
  * Shared by the test-only [SqlSyncableRepository] fixtures ([UserScopedFixtureRepository],
  * `FixtureRepository`, `ThrowingRepository`) whose backing tables have no generated
- * SQLDelight queries — their schemas are test-only (no Flyway migration), so the substrate
+ * SQLDelight queries — their schemas are test-only (no migration), so the substrate
  * runs raw SQL over the [SqlDriver] exactly the way [AccessFilteredReads] does for the
  * access-filtered production reads. Called only from inside the base's open
  * `suspendTransaction(db) { … }`, so the read shares that transaction's connection.

@@ -43,7 +43,7 @@ import kotlinx.coroutines.test.runTest
  * every member (all hold an ALL_BOOKS grant), defeating the inbox quarantine.
  *
  * Drives a real [BookRepository] and [CollectionServiceImpl] against a
- * Flyway-migrated in-memory database — no mocks. Membership is verified through
+ * migrated in-memory database — no mocks. Membership is verified through
  * [CollectionRepository.findSystemCollection] + [CollectionBookRepository.findBookIdsForCollection].
  */
 class ScanAllBooksMembershipTest :

@@ -345,6 +345,7 @@ tools/                         # Build machinery — never ships
 ├── build-logic/                # Gradle convention plugins + detekt-rules (included build)
 ├── rpc-guard-ksp/               # KSP RPC-guard processor
 ├── scripts/                     # CI gate scripts (export surface, AppResult-await, …)
+├── kotlin-js-store/             # yarn.lock the Kotlin Gradle plugin keeps for Kotlin/JS npm dependencies
 └── detekt/                      # detekt.yml + baseline.xml
 ```
 

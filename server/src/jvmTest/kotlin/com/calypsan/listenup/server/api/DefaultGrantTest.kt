@@ -47,7 +47,7 @@ import kotlin.time.Instant
  * - The grant IS issued when an admin approves the registration.
  * - A denied registrant receives no grant.
  *
- * Uses real in-memory Flyway-migrated SQLite with a bootstrapped library (so ALL_BOOKS
+ * Uses real in-memory migrated SQLite with a bootstrapped library (so ALL_BOOKS
  * exists). No mocks — [DefaultAllBooksGrantIssuer] is fully wired.
  */
 class DefaultGrantTest :
