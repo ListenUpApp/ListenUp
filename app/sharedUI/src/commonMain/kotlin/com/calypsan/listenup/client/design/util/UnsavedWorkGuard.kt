@@ -17,12 +17,15 @@ import com.calypsan.listenup.client.design.components.UnsavedChangesDialog
  *
  * @param dirty whether the screen holds a draft that differs from what it opened on.
  * @param onLeave leaves the screen; called straight away when clean, or after Discard.
+ * @param onDiscard what Discard does, in place of [onLeave], for a screen whose discard must also drop
+ *   its draft (a ViewModel reset) or leave by its own route; a clean leave never calls it.
  * @return the function a back or Cancel affordance calls instead of [onLeave].
  */
 @Composable
 fun rememberUnsavedWorkGuard(
     dirty: Boolean,
     onLeave: () -> Unit,
+    onDiscard: () -> Unit = onLeave,
 ): () -> Unit {
     var asking by remember { mutableStateOf(false) }
 
@@ -33,7 +36,7 @@ fun rememberUnsavedWorkGuard(
         UnsavedChangesDialog(
             onDiscard = {
                 asking = false
-                onLeave()
+                onDiscard()
             },
             onKeepEditing = { asking = false },
         )

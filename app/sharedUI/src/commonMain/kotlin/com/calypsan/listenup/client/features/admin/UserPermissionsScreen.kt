@@ -55,8 +55,7 @@ import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import com.calypsan.listenup.client.design.components.TonalLabel
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.design.util.HoldUnsavedWork
-import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.domain.model.PermissionPreset
 import com.calypsan.listenup.client.presentation.admin.PermissionSection
 import com.calypsan.listenup.client.presentation.admin.UserPermissionsUiState
@@ -108,14 +107,20 @@ fun UserPermissionsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val ready = state as? UserPermissionsUiState.Ready
     val snackbarHostState = remember { SnackbarHostState() }
-    var confirmingDiscard by rememberSaveable { mutableStateOf(false) }
     val actions =
         remember(viewModel) {
             PermissionsActions(viewModel::selectPreset, viewModel::setPermission, viewModel::requestRole)
         }
 
-    PlatformBackHandler(enabled = ready?.hasChanges == true) { confirmingDiscard = true }
-    HoldUnsavedWork(active = ready?.hasChanges == true)
+    val requestLeave =
+        rememberUnsavedWorkGuard(
+            dirty = ready?.hasChanges == true,
+            onLeave = onBackClick,
+            onDiscard = {
+                viewModel.discard()
+                onBackClick()
+            },
+        )
     LaunchedEffect(ready?.error) { ready?.error?.let { snackbarHostState.showSnackbar(it.localizedString()) } }
 
     ListenUpScaffold(
@@ -124,7 +129,7 @@ fun UserPermissionsScreen(
             ListenUpTopAppBar(
                 title = stringResource(Res.string.common_permissions),
                 subtitle = ready?.run { user.displayableName },
-                onBack = { if (ready?.hasChanges == true) confirmingDiscard = true else onBackClick() },
+                onBack = requestLeave,
             )
         },
         bottomBar = {
@@ -170,20 +175,6 @@ fun UserPermissionsScreen(
             dismissText = stringResource(Res.string.common_cancel),
             onDismiss = viewModel::cancelAdminPromotion,
             icon = Icons.Outlined.VerifiedUser,
-        )
-    }
-    if (confirmingDiscard) {
-        ListenUpDestructiveDialog(
-            onDismissRequest = { confirmingDiscard = false },
-            title = stringResource(Res.string.book_edit_unsaved_changes),
-            text = stringResource(Res.string.book_edit_you_have_unsaved_changes_are),
-            confirmText = stringResource(Res.string.common_discard),
-            onConfirm = {
-                confirmingDiscard = false
-                viewModel.discard()
-                onBackClick()
-            },
-            dismissText = stringResource(Res.string.book_edit_keep_editing),
         )
     }
 }

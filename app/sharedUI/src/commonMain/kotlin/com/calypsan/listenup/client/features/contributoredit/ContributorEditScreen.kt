@@ -42,8 +42,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
-import com.calypsan.listenup.client.design.util.HoldUnsavedWork
-import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.contributoredit.components.AliasesSection
@@ -124,12 +123,13 @@ fun ContributorEditScreen(
         }
     }
 
-    var showUnsavedChangesDialog by remember { mutableStateOf(false) }
-
-    PlatformBackHandler(enabled = state.hasChanges) {
-        showUnsavedChangesDialog = true
-    }
-    HoldUnsavedWork(active = state.hasChanges)
+    val requestLeave =
+        rememberUnsavedWorkGuard(
+            dirty = state.hasChanges,
+            onLeave = onBackClick,
+            // Discard leaves through the ViewModel so it can clean up what the draft staged.
+            onDiscard = { viewModel.onEvent(ContributorEditUiEvent.Cancel) },
+        )
 
     // Generate color palette from contributor ID
     val colorScheme = rememberContributorColorScheme(contributorId)
@@ -187,13 +187,7 @@ fun ContributorEditScreen(
                                 viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
                             }
                         },
-                        onBackClick = {
-                            if (state.hasChanges) {
-                                showUnsavedChangesDialog = true
-                            } else {
-                                onBackClick()
-                            }
-                        },
+                        onBackClick = requestLeave,
                         // consumeWindowInsets so the inner Column's imePadding() doesn't double-count the
                         // Scaffold's already-reserved bottom inset — otherwise a surface-colored band
                         // appears between the field and the keyboard.
@@ -209,16 +203,6 @@ fun ContributorEditScreen(
                 MergeProgressOverlay()
             }
         }
-    }
-
-    if (showUnsavedChangesDialog) {
-        UnsavedChangesDialog(
-            onDiscard = {
-                showUnsavedChangesDialog = false
-                onBackClick()
-            },
-            onKeepEditing = { showUnsavedChangesDialog = false },
-        )
     }
 
     if (state.mergeDialogVisible) {
@@ -286,22 +270,6 @@ private fun MergeProgressOverlay() {
 // =============================================================================
 // DIALOGS
 // =============================================================================
-
-@Composable
-private fun UnsavedChangesDialog(
-    onDiscard: () -> Unit,
-    onKeepEditing: () -> Unit,
-) {
-    ListenUpDestructiveDialog(
-        onDismissRequest = onKeepEditing,
-        title = stringResource(Res.string.book_edit_unsaved_changes),
-        text = stringResource(Res.string.book_edit_you_have_unsaved_changes_are),
-        confirmText = stringResource(Res.string.common_discard),
-        onConfirm = onDiscard,
-        dismissText = stringResource(Res.string.book_edit_keep_editing),
-        onDismiss = onKeepEditing,
-    )
-}
 
 @Composable
 private fun ErrorContent(

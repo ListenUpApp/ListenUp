@@ -25,8 +25,6 @@ import com.calypsan.listenup.client.design.components.ListenUpTextField
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.chapter_editor_delete_body
 import listenup.composeapp.generated.resources.chapter_editor_delete_title
-import listenup.composeapp.generated.resources.chapter_editor_discard_body
-import listenup.composeapp.generated.resources.chapter_editor_discard_title
 import listenup.composeapp.generated.resources.chapter_editor_rename_label
 import listenup.composeapp.generated.resources.chapter_editor_rename_title
 import listenup.composeapp.generated.resources.common_cancel
@@ -36,27 +34,6 @@ import listenup.composeapp.generated.resources.common_save
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
-
-/**
- * Leaving with unsaved edits.
- *
- * Asked rather than assumed, because the draft is the only copy: the editor never writes as you
- * type, so a silent back gesture is the one action on this screen that can destroy work.
- */
-@Composable
-internal fun DiscardChapterEditsDialog(
-    onDiscard: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    ListenUpDestructiveDialog(
-        onDismissRequest = onDismiss,
-        title = stringResource(Res.string.chapter_editor_discard_title),
-        text = stringResource(Res.string.chapter_editor_discard_body),
-        confirmText = stringResource(Res.string.common_discard),
-        onConfirm = onDiscard,
-        onDismiss = onDismiss,
-    )
-}
 
 /**
  * Removing a boundary.
