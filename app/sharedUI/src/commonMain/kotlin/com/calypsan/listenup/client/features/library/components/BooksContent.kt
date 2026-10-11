@@ -26,6 +26,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -49,6 +52,8 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.BookCard
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.util.nameLetter
@@ -205,8 +210,8 @@ private fun SectionHeader(
  * @param isServerScanning Whether the server is currently scanning the library
  * @param sortState Current sort state (category + direction)
  * @param ignoreTitleArticles Whether to ignore articles (A, An, The) when sorting by title
- * @param bookProgress Map of bookId to progress (0.0-1.0) for in-progress books
- * @param bookIsFinished Map of bookId to isFinished flag (authoritative completion status from server)
+ * @param bookStatus What each book's card says about where the reader is with it (spec §2.6)
+ * @param progressUnderTitle Compact grid: the progress mark sits under the title, not on the art
  * @param isInSelectionMode Whether multi-select mode is active
  * @param selectedBookIds Set of currently selected book IDs
  * @param onCategorySelected Called when the user selects a new sort category
@@ -215,6 +220,9 @@ private fun SectionHeader(
  * @param onBookClick Callback when a book is clicked (navigates or toggles selection)
  * @param onBookLongPress Callback when a book is long-pressed (enters selection mode)
  * @param onRetry Callback when retry is clicked in error state
+ * @param isFilteredEmpty The library has books but [statusFilter] matches none of them
+ * @param statusFilter The active reading-state filter, which picks the filtered-empty copy
+ * @param onShowAllBooks Clears the status filter from the filtered-empty state
  * @param header Content drawn as the grid's first, full-width item — the Library's inbox entry. Scrolls
  *   with the books.
  * @param modifier Optional modifier
@@ -229,8 +237,8 @@ fun BooksContent(
     scanProgress: ScanProgressState? = null,
     sortState: SortState,
     ignoreTitleArticles: Boolean,
-    bookProgress: Map<BookId, Float>,
-    bookIsFinished: Map<BookId, Boolean> = emptyMap(),
+    bookStatus: Map<BookId, BookCardStatus> = emptyMap(),
+    progressUnderTitle: Boolean = false,
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
     onCategorySelected: (SortCategory) -> Unit,
@@ -239,6 +247,9 @@ fun BooksContent(
     onBookClick: (String) -> Unit,
     onBookLongPress: ((String) -> Unit)? = null,
     onRetry: () -> Unit,
+    isFilteredEmpty: Boolean = false,
+    statusFilter: BookStatusFilter = BookStatusFilter.ALL,
+    onShowAllBooks: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -252,6 +263,21 @@ fun BooksContent(
             // Loaded but empty AND syncing - show loading
             books.isEmpty() && syncState is SyncState.Syncing -> {
                 BooksLoadingState()
+            }
+
+            // The library has books, but the status filter matches none: say so, and offer the way
+            // back. Ahead of the error and scanning states, which are about the library being empty.
+            isFilteredEmpty -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    header?.let { slot ->
+                        Box(modifier = Modifier.padding(horizontal = Spacing.gridMargin, vertical = 12.dp)) { slot() }
+                    }
+                    FilteredEmptyState(
+                        filter = statusFilter,
+                        onShowAll = onShowAllBooks,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
 
             // Loaded but empty AND sync error - show error
@@ -288,7 +314,8 @@ fun BooksContent(
                         state = sortState,
                         categories = SortCategory.booksCategories,
                         count = books.size,
-                        unit = "titles",
+                        // A status filter can leave one book: "1 title", never "1 titles".
+                        unit = if (books.size == 1) "title" else "titles",
                         ignoreArticles = ignoreTitleArticles,
                         showArticleToggle = sortState.category == SortCategory.TITLE,
                         onCategorySelected = onCategorySelected,
@@ -301,8 +328,9 @@ fun BooksContent(
                         books = books,
                         sortState = sortState,
                         ignoreTitleArticles = ignoreTitleArticles,
-                        bookProgress = bookProgress,
-                        bookIsFinished = bookIsFinished,
+                        bookStatus = bookStatus,
+                        progressUnderTitle = progressUnderTitle,
+                        statusFilter = statusFilter,
                         isInSelectionMode = isInSelectionMode,
                         selectedBookIds = selectedBookIds,
                         onBookClick = onBookClick,
@@ -325,8 +353,9 @@ private fun BookGrid(
     books: List<BookListItem>,
     sortState: SortState,
     ignoreTitleArticles: Boolean,
-    bookProgress: Map<BookId, Float>,
-    bookIsFinished: Map<BookId, Boolean>,
+    bookStatus: Map<BookId, BookCardStatus>,
+    progressUnderTitle: Boolean,
+    statusFilter: BookStatusFilter,
     isInSelectionMode: Boolean,
     selectedBookIds: Set<String>,
     onBookClick: (String) -> Unit,
@@ -336,6 +365,17 @@ private fun BookGrid(
 ) {
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
+
+    // A new status filter is a new list: open it at the top. A grid keeps its place by item key, so
+    // without this a filter opened part-way down, its first books scrolled off above. The last filter
+    // is saved so returning from Book Detail (same filter) keeps the reader's place.
+    var lastStatusFilter by rememberSaveable { mutableStateOf(statusFilter) }
+    LaunchedEffect(statusFilter) {
+        if (statusFilter != lastStatusFilter) {
+            lastStatusFilter = statusFilter
+            gridState.scrollToItem(0)
+        }
+    }
 
     // Group books with section headers for text-based sorts
     val gridItems =
@@ -406,9 +446,9 @@ private fun BookGrid(
                         BookCard(
                             cover = gridItem.book.toCoverModel(),
                             onClick = { onBookClick(bookId) },
-                            duration = gridItem.book.formatDuration(),
-                            progress = bookProgress[gridItem.book.id],
-                            isFinished = bookIsFinished[gridItem.book.id] == true,
+                            narrators = gridItem.book.narratorNames.ifBlank { null },
+                            libraryStatus = bookStatus[gridItem.book.id],
+                            progressUnderTitle = progressUnderTitle,
                             hasDocuments = gridItem.book.hasDocuments,
                             isInSelectionMode = isInSelectionMode,
                             isSelected = bookId in selectedBookIds,

@@ -10,10 +10,17 @@ import Shared
 /// - Loading, empty, and error states
 struct BooksContent: View {
     let books: [BookRow]
-    let bookProgress: [String: Float]
+    /// What each book's card says about where the reader is with it (spec §2.6).
+    var bookStatus: [String: LibraryCardState] = [:]
     let sortState: SortState?
     let isLoading: Bool
+    /// The library itself has no books.
     let isEmpty: Bool
+    /// The library has books, but `statusFilter` matches none of them.
+    var isFilteredEmpty = false
+    var statusFilter: BookStatusFilter = .all
+    /// Clears the status filter from the filtered-empty state.
+    var onShowAll: () -> Void = {}
     let errorMessage: String?
     /// Title-sort article handling. When sorting by Title, "The Hobbit" groups under H (ignoring the
     /// article); the section letters honor it too.
@@ -40,7 +47,9 @@ struct BooksContent: View {
     }
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: 150), spacing: layout.gridSpacing)]
+        // Top-aligned: a card with a "Read by" line is taller than one without, and a centred row would
+        // stagger the covers.
+        [GridItem(.adaptive(minimum: 150), spacing: layout.gridSpacing, alignment: .top)]
     }
 
     /// A letter group wrapped as `Identifiable` — the grid's outer `ForEach` needs stable per-section
@@ -63,6 +72,8 @@ struct BooksContent: View {
                 errorState(message: error)
             } else if isEmpty {
                 emptyState
+            } else if isFilteredEmpty {
+                filteredEmptyState
             } else {
                 booksGrid
             }
@@ -173,9 +184,10 @@ struct BooksContent: View {
     private func bookCell(_ book: BookRow) -> some View {
         let card = BookCoverCard(
             book: book,
-            progress: bookProgress[book.id],
             isSelecting: selection.isSelecting,
-            isSelected: selection.isSelected(book.id)
+            isSelected: selection.isSelected(book.id),
+            libraryState: bookStatus[book.id],
+            showsNarrator: true
         )
         if selection.isSelecting {
             Button { selection.toggle(book.id) } label: { card }
@@ -227,6 +239,25 @@ struct BooksContent: View {
                     systemImage: "books.vertical",
                     description: Text(String(localized: "library.empty_description"))
                 )
+            }
+        }
+    }
+
+    // MARK: - Filtered-Empty State
+
+    /// The library has books, but the status filter matches none — never "your library is empty".
+    private var filteredEmptyState: some View {
+        LibrarySectionState(picker: picker) {
+            VStack(spacing: Spacing.m) {
+                if let inbox {
+                    LibraryInboxEntry(model: inbox)
+                        .padding(.horizontal, Spacing.m)
+                }
+                ContentUnavailableView {
+                    Text(LibrarySubtitle.filteredEmpty(statusFilter))
+                } actions: {
+                    Button(String(localized: "library.show_all_books")) { onShowAll() }
+                }
             }
         }
     }

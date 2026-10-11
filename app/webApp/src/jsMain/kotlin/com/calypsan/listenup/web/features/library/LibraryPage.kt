@@ -5,12 +5,14 @@ import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.ProgressBar
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -32,6 +34,7 @@ import com.calypsan.listenup.web.motion.recordHeroOrigin
 import org.w3c.dom.Element
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -87,7 +90,14 @@ fun LibraryPage(
     // strand them for good. Sorting is the exception, and stays with the loaded branch: offering to
     // reorder nothing is an affordance whose only outcome is nothing.
     Div(attrs = { classes("lib-header") }) {
-        PageHeader(title = "Library") {
+        PageHeader(
+            title = "Library",
+            // "1,286 books · 41 days of listening": the whole library, whatever the filter.
+            subtitle =
+                (state as? LibraryUiState.Loaded)
+                    ?.takeIf { it.statusCounts.all > 0 }
+                    ?.let { libraryCountLine(it.statusCounts.all, it.totalDurationMs) },
+        ) {
             // Offered only once there is something to select. Arming selection over an empty grid
             // is an affordance whose only outcome is nothing — the same reason Sort stays with the
             // loaded branch.
@@ -123,6 +133,7 @@ fun LibraryPage(
         is LibraryUiState.Loaded -> {
             LoadedLibrary(
                 state = state,
+                onEvent = onEvent,
                 onOpenBook = onOpenBook,
                 heroBookId = heroBookId,
                 selecting = selecting,
@@ -139,6 +150,7 @@ fun LibraryPage(
 @Suppress("LongParameterList")
 private fun LoadedLibrary(
     state: LibraryUiState.Loaded,
+    onEvent: (LibraryUiEvent) -> Unit,
     onOpenBook: (String) -> Unit,
     heroBookId: String?,
     selecting: Boolean,
@@ -157,15 +169,29 @@ private fun LoadedLibrary(
     // Above the grid and above an empty library alike: an admin whose every new book is held has
     // an empty grid, and the strip is the way in. Selecting turns the grid into a picking surface.
     if (!selecting) LibraryInboxStrip(inbox = inbox, onOpenInbox = onOpenInbox)
-    if (state.books.isEmpty()) {
+    // Filters only over a library that has books: offering to narrow nothing is no offer at all.
+    if (!state.isEmpty && !selecting) {
+        StatusFilterRow(
+            selected = state.statusFilter,
+            counts = state.statusCounts,
+            onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
+        )
+    }
+    // ⛔ `isEmpty` is the LIBRARY having no books; a filter that matches nothing is `isFilteredEmpty`,
+    // and telling that reader "No books yet" would say their library had gone.
+    if (state.isEmpty) {
         EmptyLibrary(isBuilding = state.isBuildingInitialLibrary)
+        return
+    }
+    if (state.isFilteredEmpty) {
+        FilteredEmpty(state.statusFilter) { onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.ALL)) }
         return
     }
 
     VirtualBookGrid(
         books = state.books,
         letterOf = { it.sectionLetter(state.booksSortState.category, state.ignoreTitleArticles) },
-        progressOf = { state.bookProgress[it.id] ?: 0f },
+        statusOf = { state.bookStatus[it.id] },
         // ⛔ While selecting, a press picks the book instead of opening it. One gesture, two jobs,
         // decided by the mode — not a second target on every tile in a 1200-book grid.
         onOpenBook = { id -> if (selecting) onToggleSelect(id) else onOpenBook(id) },
@@ -236,7 +262,7 @@ private fun EmptyLibrary(isBuilding: Boolean) {
 @Composable
 internal fun BookCard(
     book: BookListItem,
-    progress: Float,
+    status: BookCardStatus?,
     onOpen: () -> Unit,
     isHero: Boolean = false,
     selecting: Boolean = false,
@@ -245,6 +271,8 @@ internal fun BookCard(
     Div(attrs = {
         classes("lib-card")
         if (selecting && isSelected) classes("on")
+        // The dense desktop grid drops the narrator line; the tooltip carries it (spec §2.6).
+        attr("title", cardTooltip(book))
         // A click target owes the same affordance to a reader who is not using a mouse. A bare
         // Div is not focusable, so before this the library could not be reached by keyboard at
         // all — and a focus ring had nothing to attach to.
@@ -278,25 +306,21 @@ internal fun BookCard(
                 }
             }
         }
-        CardCover(book, flyBack, selecting)
+        CardCover(book, status, flyBack, selecting)
         Div(attrs = { classes("lib-title") }) { Text(book.title) }
-        // Rendered even when empty, and likewise the progress rail below: the grid is virtualised,
+        // Rendered even when empty, and likewise the narrator line below: the grid is virtualised,
         // and that only works because every card is exactly the same height. A card that dropped
         // its author line would be shorter than its neighbours and the row arithmetic would drift.
         Div(attrs = { classes("lib-author") }) { Text(book.authors.joinToString(", ") { it.name }) }
-        run {
-            ProgressBar(
-                value = progress,
-                label = "Listening progress",
-                look = ProgressLook.Rail,
-                attrs = {
-                    classes("lib-progress")
-                    // Holds its row so every card is the same height, but shows nothing until there
-                    // is progress — a rail on an unstarted book would claim the reader had begun it.
-                    if (progress <= 0f) classes("is-empty")
-                },
-            )
+        // A no-break space when there is no narrator, for the same reason. Hidden per grid (by a
+        // container query) below 160px, where the tooltip carries it instead.
+        Div(attrs = { classes("lib-narrator") }) {
+            Text(if (book.narratorNames.isBlank()) NO_BREAK_SPACE else "Read by ${book.narratorNames}")
         }
+        Div(attrs = {
+            classes("lib-meta")
+            if (status is BookCardStatus.InProgress) classes("is-progress")
+        }) { Text(cardLastLine(status, book.duration)) }
     }
 }
 
@@ -326,6 +350,7 @@ private fun SelectionTick(isSelected: Boolean) {
 @Composable
 private fun CardCover(
     book: BookListItem,
+    status: BookCardStatus?,
     flyBack: (org.jetbrains.compose.web.attributes.AttrsScope<*>) -> Unit,
     selecting: Boolean,
 ) {
@@ -341,7 +366,31 @@ private fun CardCover(
             flyBack(this)
         },
         // Inside the cover, so it lifts with it on hover; clear of the selection tick while selecting.
-        overlay = { RestrictedMarker(book.id.value, shifted = selecting) },
+        overlay = {
+            when (status) {
+                is BookCardStatus.InProgress -> {
+                    ProgressBar(
+                        value = status.fraction,
+                        label = "Listening progress",
+                        // The house cover-tile idiom: 4px along the art's bottom edge.
+                        look = ProgressLook.Overlay,
+                    )
+                }
+
+                is BookCardStatus.Finished -> {
+                    Span(attrs = {
+                        classes("lib-done")
+                        attr("role", "img")
+                        attr("aria-label", "Finished")
+                    }) { Icon(WebIcon.Check, size = DONE_ICON) }
+                }
+
+                else -> {
+                    Unit
+                }
+            }
+            RestrictedMarker(book.id.value, shifted = selecting)
+        },
     )
 }
 
@@ -376,7 +425,11 @@ private fun coverSrcset(
 
 private const val TICK_ICON = 14
 
-/** The grid's tiles are `minmax(190px, 1fr)`; 300 is the smallest rung that covers one at 1x. */
+private const val DONE_ICON = 11
+
+private const val NO_BREAK_SPACE = "\u00A0"
+
+/** The grid's tiles are at most a little over 150px wide (108px on desktop); 300 covers one at 1x with room. */
 private const val GRID_RUNG = 300
 
 /** The rung a 2x display needs for the same tile. Also the largest the ladder offers. */

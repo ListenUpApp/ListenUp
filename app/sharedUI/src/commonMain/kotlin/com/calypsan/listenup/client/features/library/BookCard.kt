@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.library
 
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import listenup.composeapp.generated.resources.selection_select
@@ -17,8 +18,10 @@ import com.calypsan.listenup.client.design.util.onSecondaryClick
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,15 +62,27 @@ import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.design.components.BookCoverModel
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.components.CoverScrimDefaults
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.presentation.library.BookCardStatus
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_time_left
+import listenup.composeapp.generated.resources.library_card_finished_length
+import listenup.composeapp.generated.resources.library_card_progress_a11y
+import listenup.composeapp.generated.resources.library_card_read_by
 import listenup.composeapp.generated.resources.common_completed
 import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.library_has_documents_badge
 import listenup.composeapp.generated.resources.player_now_playing_wide
+
+/** Test tag on a Library card's progress mark: the linear indicator (the wave is for the book playing now). */
+internal const val LIBRARY_CARD_PROGRESS_TAG = "library-card-progress"
 
 // Material 3's hover state-layer opacity.
 private const val HOVER_STATE_LAYER_ALPHA = 0.08f
@@ -110,6 +127,12 @@ data class AvatarOverlayData(
  * @param isSelected Whether this book is currently selected
  * @param onLongPress Callback when card is long-pressed (for entering selection mode)
  * @param cardWidth Fixed width for horizontal rows, or null to fill parent (library grid)
+ * @param narrators "Read by …" line. Library grids pass it; their `Adaptive(160.dp)` cells always meet
+ *   spec §2.6's 160 dp floor.
+ * @param libraryStatus When non-null, this card is a Library card: the status drives the progress mark,
+ *   finished badge and last line, and overrides [duration], [progress], [timeRemaining] and [isFinished].
+ * @param progressUnderTitle Compact Library grid (Android phone, board `Main`): a wavy indicator under
+ *   the title instead of a progress mark on the art.
  * @param modifier Optional modifier for the card
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -131,6 +154,9 @@ fun BookCard(
     isSelected: Boolean = false,
     onLongPress: (() -> Unit)? = null,
     cardWidth: Dp? = null,
+    narrators: String? = null,
+    libraryStatus: BookCardStatus? = null,
+    progressUnderTitle: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -227,7 +253,19 @@ fun BookCard(
     ) {
         // Cover with optional overlays and indicators
         Box {
-            val isCompleted = isFinished
+            val isCompleted = if (libraryStatus != null) libraryStatus is BookCardStatus.Finished else isFinished
+            // A Library card's art carries the progress mark only on wide windows; compact grids draw
+            // it under the title instead (board `Main`).
+            val artProgress =
+                when {
+                    libraryStatus == null -> if (isCompleted) null else progress
+                    libraryStatus is BookCardStatus.InProgress && !progressUnderTitle -> libraryStatus.fraction
+                    else -> null
+                }
+            val artProgressLabel =
+                (libraryStatus as? BookCardStatus.InProgress)?.let {
+                    stringResource(Res.string.library_card_progress_a11y, (it.fraction * 100).roundToInt())
+                }
 
             // The now-playing book gets a coral frame; selection/focus still win when active.
             val playingBorder = MaterialTheme.colorScheme.primary
@@ -238,8 +276,9 @@ fun BookCard(
                 contentDescription = cover.title,
                 title = cover.title,
                 author = cover.author.orEmpty(),
-                progress = if (isCompleted) null else progress,
-                timeRemaining = if (isCompleted) null else timeRemaining,
+                progress = artProgress,
+                progressDescription = artProgressLabel,
+                timeRemaining = if (isCompleted || libraryStatus != null) null else timeRemaining,
                 avatarOverlay = avatarOverlay,
                 isHovered = isHovered,
                 isSelected = isSelected || isFocused || isPlaying,
@@ -318,12 +357,26 @@ fun BookCard(
                 )
             }
 
-            duration?.let { dur ->
+            narrators?.let { names ->
                 Text(
-                    text = dur,
-                    style = MaterialTheme.typography.labelSmall,
+                    text = stringResource(Res.string.library_card_read_by, names),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
+            }
+
+            if (libraryStatus != null) {
+                LibraryStatusLine(status = libraryStatus, progressUnderTitle = progressUnderTitle)
+            } else {
+                duration?.let { dur ->
+                    Text(
+                        text = dur,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             subtitle?.let { sub ->
@@ -335,6 +388,75 @@ fun BookCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+    }
+}
+
+/**
+ * A Library card's last line (spec §2.6): time left in the Library action colour, with a wavy progress
+ * mark when [progressUnderTitle]; "Finished · 12h 4m"; or the book's length.
+ */
+@Composable
+private fun LibraryStatusLine(
+    status: BookCardStatus,
+    progressUnderTitle: Boolean,
+) {
+    when (status) {
+        is BookCardStatus.InProgress -> {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (progressUnderTitle) {
+                    val progressLabel =
+                        stringResource(Res.string.library_card_progress_a11y, (status.fraction * 100).roundToInt())
+                    // Linear, with M3's track gap and stop dot: the wave is reserved for the book playing
+                    // now (M3E alignment, rev 7).
+                    LinearProgressIndicator(
+                        progress = { status.fraction },
+                        modifier =
+                            Modifier
+                                .width(56.dp)
+                                .testTag(LIBRARY_CARD_PROGRESS_TAG)
+                                .semantics { contentDescription = progressLabel },
+                    )
+                }
+                Text(
+                    text =
+                        stringResource(
+                            Res.string.book_time_left,
+                            DurationFormatter.hoursMinutes(status.timeLeftMs.milliseconds),
+                        ),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    // The Library action colour (N6); dynamic colour keeps working.
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        is BookCardStatus.Finished -> {
+            Text(
+                text =
+                    stringResource(
+                        Res.string.library_card_finished_length,
+                        DurationFormatter.hoursMinutes(status.durationMs.milliseconds),
+                    ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+
+        is BookCardStatus.NotStarted -> {
+            Text(
+                text = DurationFormatter.hoursMinutes(status.durationMs.milliseconds),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -397,6 +519,7 @@ private fun BookCardCover(
     title: String,
     author: String,
     progress: Float? = null,
+    progressDescription: String? = null,
     timeRemaining: String? = null,
     avatarOverlay: AvatarOverlayData? = null,
     isHovered: Boolean = false,
@@ -452,8 +575,33 @@ private fun BookCardCover(
                 )
             }
 
-            // Progress overlay
-            if (progress != null && progress > 0f) {
+            // A Library card (it names its progress) draws a thin line along the art's bottom edge,
+            // because its last line already says the time left (board Library-AndroidTablet); every
+            // other card keeps the percentage overlay.
+            if (progress != null && progress > 0f && progressDescription != null) {
+                // Inset clear of the art's rounded corners, on a small scrim so it reads on a dark cover
+                // as well as a light one. Linear with M3's track gap and stop dot (the wave is for the
+                // book playing now).
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 10.dp)
+                            .clip(CircleShape)
+                            .background(CoverScrimDefaults.color)
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                ) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(LIBRARY_CARD_PROGRESS_TAG)
+                                .semantics { this.contentDescription = progressDescription },
+                    )
+                }
+            } else if (progress != null && progress > 0f) {
                 ProgressOverlay(
                     progress = progress,
                     timeRemaining = timeRemaining,
@@ -564,7 +712,9 @@ private fun CompletionBadge(modifier: Modifier = Modifier) {
                     elevation = 3.dp,
                     shape = CircleShape,
                 ).background(
-                    color = MaterialTheme.colorScheme.tertiary,
+                    // The light cookie with a dark check (boards Main / Library-AndroidTablet): it reads
+                    // on any cover, where a mid-tone tertiary fill sank into one.
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
                     shape = cookieScallopShape(),
                 ),
         contentAlignment = Alignment.Center,
@@ -572,7 +722,7 @@ private fun CompletionBadge(modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.Default.Check,
             contentDescription = stringResource(Res.string.common_completed),
-            tint = MaterialTheme.colorScheme.onTertiary,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
             modifier = Modifier.size(18.dp),
         )
     }

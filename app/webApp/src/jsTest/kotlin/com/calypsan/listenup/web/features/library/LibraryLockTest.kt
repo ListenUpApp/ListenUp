@@ -27,7 +27,7 @@ class LibraryLockTest :
             mounts
                 .mount {
                     CompositionLocalProvider(LocalRestrictedBookIds provides restricted) {
-                        BookCard(book = contractBook("b1", "Dune"), progress = 0f, onOpen = {}, selecting = selecting)
+                        BookCard(book = contractBook("b1", "Dune"), status = null, onOpen = {}, selecting = selecting)
                     }
                 }.querySelector(".lib-card") as HTMLElement
 

@@ -24,7 +24,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -69,7 +68,7 @@ class BookDetailViewModelHeldTest :
             val errorBus = ErrorBus()
 
             init {
-                everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
+                every { playbackPositionRepository.observe(any()) } returns flowOf(null)
                 every { userRepository.observeCurrentUser() } returns flowOf(null)
                 every { userRepository.observeIsAdmin() } returns flowOf(true)
                 every { shelfRepository.observeMyShelves(any()) } returns flowOf(emptyList())
@@ -78,7 +77,7 @@ class BookDetailViewModelHeldTest :
                 every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
                 every { collectionRepository.observeCollections() } returns flowOf(emptyList())
                 every { bookRepository.observeBookDetail("book-1") } returns flowOf(TestData.bookDetail(id = "book-1"))
-                everySuspend { bookRepository.getChapters("book-1") } returns emptyList()
+                every { bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
             }
 
             fun build(): BookDetailViewModel =
@@ -131,7 +130,7 @@ class BookDetailViewModelHeldTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
-                val vm = f.build()
+                val vm = watch(f.build())
 
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -147,7 +146,7 @@ class BookDetailViewModelHeldTest :
         test("an ordinary book carries no held section and keeps its actions") {
             runTest(dispatcher) {
                 val f = Fixture()
-                val vm = f.build()
+                val vm = watch(f.build())
 
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -164,7 +163,7 @@ class BookDetailViewModelHeldTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -182,7 +181,7 @@ class BookDetailViewModelHeldTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -202,7 +201,7 @@ class BookDetailViewModelHeldTest :
                 f.heldIds.value = setOf(BookId("book-1"))
                 val refusal = ValidationError(message = "Only admins can release books.")
                 f.inboxRepository.releaseResult = AppResult.Failure(refusal)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -227,7 +226,7 @@ class BookDetailViewModelHeldTest :
                 f.heldIds.value = setOf(BookId("book-1"))
                 val incomplete = CollectionError.ReleaseIncomplete(failedBookIds = listOf("book-1"))
                 f.inboxRepository.releaseResult = AppResult.Failure(incomplete)
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -252,7 +251,7 @@ class BookDetailViewModelHeldTest :
         test("releaseFromInbox does nothing for a book that is not held") {
             runTest(dispatcher) {
                 val f = Fixture()
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -268,7 +267,7 @@ class BookDetailViewModelHeldTest :
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
                 f.inboxRepository.releaseGate = CompletableDeferred()
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
@@ -288,7 +287,7 @@ class BookDetailViewModelHeldTest :
                 val f = Fixture()
                 f.heldIds.value = setOf(BookId("book-1"))
                 f.inboxRepository.releaseGate = CompletableDeferred()
-                val vm = f.build()
+                val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 

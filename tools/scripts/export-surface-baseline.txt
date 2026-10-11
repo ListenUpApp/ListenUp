@@ -91,11 +91,15 @@ BackupSummary
 BiographyUi
 BookAvailability
 BookCandidateKey
+BookCardStatus
+BookCardStatus_SealedType
 BookContributor
 BookContributorInput
 BookDetail
 BookDetailNavAction
 BookDetailNavAction_SealedType
+BookDetailSection
+BookDetailSection_SealedType
 BookDetailUiState
 BookDetailUiState_SealedType
 BookDetailViewModel
@@ -147,6 +151,8 @@ BookSearchState
 BookSeries
 BookSeriesInput
 BookSeriesPath
+BookStatusCounts
+BookStatusFilter
 BookSummaryFields
 BookUpdate
 BookUpdateRequest
@@ -254,6 +260,7 @@ CreateInviteUiState
 CreateInviteUiState_SealedType
 CreateInviteViewModel
 CreditRoleGroup
+CurrentChapter
 CurrentCover
 CurrentlyListeningUiSession
 CurrentlyListeningUiState
@@ -350,6 +357,7 @@ FineScrubStep
 FinishDates
 FinishDatesProblem
 FinishTimestamps
+FinishedSpan
 FolderId
 ForgotPasswordUiState
 ForgotPasswordUiState_SealedType
@@ -668,6 +676,8 @@ PlaybackTimeline
 PlaybackUpdate
 PlaybackUpdate_SealedType
 PreparedPlayback
+PrimaryAction
+PrimaryAction_SealedType
 ProfileEditRepository
 ProfileError
 ProfileError_SealedType
@@ -691,8 +701,12 @@ Reader
 ReaderLine
 ReaderLineKind
 ReaderLineKind_SealedType
+ReaderRef
+ReadersSummary
 ReadingOrderError
 ReadingOrderError_SealedType
+ReadingStage
+ReadingStage_SealedType
 RecentlyAddedUiBook
 RecentlyAddedUiState
 RecentlyAddedUiState_SealedType
@@ -784,6 +798,8 @@ SeriesResumeUi
 SeriesSearchResponse
 SeriesSearchResult
 SeriesSectionKind
+SeriesShelf
+SeriesShelfBook
 SeriesUpdate
 SeriesUpdateRequest
 SeriesWithBooks

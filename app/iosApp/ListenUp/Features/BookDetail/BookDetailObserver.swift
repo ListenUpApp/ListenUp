@@ -29,6 +29,8 @@ final class BookDetailObserver {
     private(set) var genres: [FacetChip] = []
     private(set) var tags: [FacetChip] = []
     private(set) var moods: [FacetChip] = []
+    /// Where the reader is with the book and what follows from it, projected once per `Ready`.
+    private(set) var reading = BookReadingState()
 
     // MARK: - Projected from `book`
 
@@ -43,8 +45,7 @@ final class BookDetailObserver {
     private(set) var asin: String?
     private(set) var publisher: String?
     private(set) var language: String?
-    /// The hero's book-derived cover fields, projected so the hero
-    /// never re-bridges the raw `BookDetail`.
+    /// The hero's book-derived cover fields, projected so the hero never re-bridges the raw `BookDetail`.
     private(set) var header: BookDetailHeaderModel?
 
     /// Pre-formatted audio-format display strings (Format / Bitrate / Sample rate / Channels),
@@ -139,13 +140,12 @@ final class BookDetailObserver {
         BookDeletion.Tracked(audioFileSizes: audioFileSizes, documentSizes: documents.map(\.size))
     }
 
-    /// True while a play request for THIS book is in flight — drives the Resume/Play button's
-    /// busy variant (spinner + "Preparing…" label, including to VoiceOver). Sourced directly from
-    /// `PlayerCoordinator`'s native `PlayerPhase.preparing`, not a bridged Kotlin flow: iOS never
-    /// binds the shared `PlaybackManager` (see `PlaybackModule.ios.kt`), so this is the
-    /// platform-native equivalent of `PlaybackManager.preparingBookIdUi`. `@Observable` composes
-    /// across the two objects, so this recomputes and republishes whenever `playerCoordinator.phase`
-    /// changes — no separate subscription needed.
+    /// True while a play request for THIS book is in flight — drives the Resume/Play button's busy variant
+    /// (spinner + "Preparing…" label, including to VoiceOver). Sourced directly from `PlayerCoordinator`'s
+    /// native `PlayerPhase.preparing`, not a bridged Kotlin flow: iOS never binds the shared `PlaybackManager`
+    /// (see `PlaybackModule.ios.kt`), so this is the platform-native equivalent of
+    /// `PlaybackManager.preparingBookIdUi`. `@Observable` composes across the two objects, so this recomputes
+    /// and republishes whenever `playerCoordinator.phase` changes — no separate subscription needed.
     var isPlayPending: Bool {
         Self.isPlayPending(phase: playerCoordinator.phase, bookId: book?.idString)
     }
@@ -431,6 +431,7 @@ final class BookDetailObserver {
             isReleasingFromInbox = r.isReleasingFromInbox
             visibility = BookVisibilityModel.from(r.visibility)
             isRestoringToAllBooks = r.isRestoringToAllBooks
+            reading = BookReadingState(r)
             if isWaitingForWifi != r.isWaitingForWifi {
                 isWaitingForWifi = r.isWaitingForWifi
                 latestDownloadStatus.map { applyDownloadStatus($0) }

@@ -80,7 +80,9 @@ class BookReadersViewModelTest :
 
                 viewModel.uiState.test {
                     awaitItem() shouldBe BookReadersUiState.Loading
-                    awaitItem() shouldBe BookReadersUiState.Data(readers)
+                    val item = awaitItem()
+                    item shouldBe BookReadersUiState.Data(readers)
+                    (item as BookReadersUiState.Data).summary shouldBe item.readers.summary()
                     cancelAndIgnoreRemainingEvents()
                 }
             }

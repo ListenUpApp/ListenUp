@@ -25,6 +25,8 @@ sealed interface BookReadersUiState {
     /** At least one listener or completion is present. */
     data class Data(
         val readers: BookReaders,
+        /** Who else is reading, for the hero's social line. Derived from [readers]; never includes you. */
+        val summary: ReadersSummary = readers.summary(),
     ) : BookReadersUiState
 
     /**
