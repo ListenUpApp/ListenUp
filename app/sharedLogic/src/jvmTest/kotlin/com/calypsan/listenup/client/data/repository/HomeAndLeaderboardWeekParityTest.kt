@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
@@ -12,7 +10,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf

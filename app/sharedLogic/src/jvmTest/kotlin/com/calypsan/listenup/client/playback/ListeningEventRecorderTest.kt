@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
-
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.contractJson

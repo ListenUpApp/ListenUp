@@ -53,7 +53,6 @@ import platform.Foundation.setValue
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
 
@@ -107,7 +106,6 @@ private const val MAX_CONCURRENT_FILE_DOWNLOADS = 3
  * not natively support, this class requires codec negotiation matching the Android worker's
  * pattern.** This is a principled asymmetry, not a silent omission.
  */
-@OptIn(ExperimentalTime::class)
 class AppleDownloadService internal constructor(
     private val downloadDao: DownloadDao,
     private val bookDao: BookDao,

@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
+@file:OptIn(ExperimentalCoroutinesApi::class)
 
 package com.calypsan.listenup.client.data.repository
 
@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.transform
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
 

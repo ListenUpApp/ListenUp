@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.server.testing.FixedClock

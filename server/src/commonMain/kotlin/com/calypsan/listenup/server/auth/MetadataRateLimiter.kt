@@ -1,11 +1,8 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
 
 /**
  * The throttled metadata-lookup operations, with their per-**user**, per-minute ceilings.

@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.plugins
 
 import com.calypsan.listenup.server.auth.SocketTicketStore
@@ -12,7 +10,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 /**
  * What [BLOB_READ_PROVIDER] accepts — a header or [ACCESS_TOKEN_COOKIE] — and, the half that makes

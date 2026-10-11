@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -54,7 +53,6 @@ data class MeterSegment(
  * @param modifier Modifier for the whole component column.
  * @param legendLimit Maximum number of segments to include in the legend (defaults to 4).
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DistributionMeter(
     segments: List<MeterSegment>,

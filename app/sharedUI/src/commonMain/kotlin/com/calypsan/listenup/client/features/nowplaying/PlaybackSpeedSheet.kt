@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.nowplaying
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -83,7 +82,6 @@ fun formatPlaybackSpeed(speed: Float): String =
  * @param onResetToDefault Called when the user taps reset (marks it as using the default).
  * @param onDismiss Called when the panel is dismissed.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PlaybackSpeedSheet(
     currentSpeed: Float,
@@ -188,7 +186,6 @@ private fun SpeedSlider(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SpeedPresetRow(
     currentSpeed: Float,

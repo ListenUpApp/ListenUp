@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.bookdetail.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -160,7 +159,6 @@ private fun MetadataRow(
  * A single credits row: the role's contributor names on the left (each tappable, wrapping across
  * lines when there are many), and the role label on the right.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CreditRow(
     group: CreditRoleGroup,

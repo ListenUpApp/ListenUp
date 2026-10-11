@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.AdminUserService
@@ -50,7 +48,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import com.calypsan.listenup.server.auth.requireAdmin
 
 private val log = loggerFor<AdminUserServiceImpl>()

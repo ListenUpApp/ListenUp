@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.contractJson

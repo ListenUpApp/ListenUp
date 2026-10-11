@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.absimport
 
 import io.kotest.core.spec.style.FunSpec

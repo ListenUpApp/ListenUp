@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.AuthServiceAuthed
@@ -55,7 +53,6 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onSubscription
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
-import kotlin.time.ExperimentalTime
 
 private val logger = loggerFor<AuthServiceImpl>()
 

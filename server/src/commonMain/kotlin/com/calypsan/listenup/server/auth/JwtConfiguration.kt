@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -12,7 +10,6 @@ import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

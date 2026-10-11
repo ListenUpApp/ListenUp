@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import io.kotest.core.spec.style.FunSpec
@@ -9,7 +7,6 @@ import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /** Advanceable clock so refill — and therefore the sweep — is driven deterministically. */

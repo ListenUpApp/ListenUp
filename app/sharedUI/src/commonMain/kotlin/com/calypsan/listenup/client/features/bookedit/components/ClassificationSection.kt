@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.bookedit.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -45,7 +44,6 @@ import listenup.composeapp.generated.resources.common_genres
  * Classification section with genres and tags.
  */
 @Suppress("LongParameterList")
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ClassificationSection(
     genres: List<EditableGenre>,
@@ -133,7 +131,6 @@ fun ClassificationSection(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GenresSubsection(
     genres: List<EditableGenre>,
@@ -188,7 +185,6 @@ private fun GenresSubsection(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TagsSubsection(
     tags: List<EditableTag>,
@@ -276,7 +272,6 @@ private fun TagsSubsection(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MoodsSubsection(
     moods: List<EditableMood>,
@@ -364,7 +359,6 @@ private fun MoodsSubsection(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CollectionsSubsection(
     collections: List<EditableCollection>,

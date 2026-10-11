@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
@@ -21,7 +19,6 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
 

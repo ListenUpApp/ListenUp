@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.result.AppResult

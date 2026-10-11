@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.InviteService
@@ -42,7 +40,6 @@ import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.Duration.Companion.days
-import kotlin.time.ExperimentalTime
 import com.calypsan.listenup.server.auth.requireAdmin
 
 /**

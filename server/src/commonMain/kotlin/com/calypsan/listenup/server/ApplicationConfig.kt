@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.server.auth.RootResetToken
@@ -20,7 +18,6 @@ import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import kotlin.time.Clock
 import kotlin.time.Duration
-import kotlin.time.ExperimentalTime
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 

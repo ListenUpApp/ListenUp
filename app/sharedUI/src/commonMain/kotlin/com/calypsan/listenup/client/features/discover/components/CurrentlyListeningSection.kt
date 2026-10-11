@@ -21,7 +21,6 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSt
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.util.relativeLastActive
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -68,7 +67,6 @@ fun CurrentlyListeningSection(
  *   `DevicesScreen` pattern) so a recomposition cannot make "3 days ago" flicker to "4 days ago"
  *   mid-scroll; passed explicitly by tests.
  */
-@OptIn(ExperimentalTime::class)
 @Composable
 internal fun CurrentlyListeningSection(
     state: CurrentlyListeningUiState,

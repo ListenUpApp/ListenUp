@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -94,7 +93,6 @@ internal fun LazyListScope.personGroups(
  * One person: photo (or initials), name with its badges, "<Role> · <known works>", how many of their books are
  * here, and where they were found. Its accessible name says all of it in one breath.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PersonRow(
     person: PersonCandidateUi,

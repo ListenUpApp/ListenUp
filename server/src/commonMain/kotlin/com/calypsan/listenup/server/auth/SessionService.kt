@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
@@ -17,7 +15,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
 
 private val logger = loggerFor<SessionService>()
 

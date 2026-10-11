@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
@@ -62,7 +61,6 @@ internal fun SeriesPathLines(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SeriesPathLine(
     path: BookSeriesPath,

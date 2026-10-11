@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
-
 package com.calypsan.listenup.client.listening
 
 import com.calypsan.listenup.api.dto.auth.DeviceInfo

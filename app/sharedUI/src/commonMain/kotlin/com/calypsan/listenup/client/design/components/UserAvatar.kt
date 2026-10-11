@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalUuidApi::class)
-
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.background
@@ -42,7 +40,6 @@ import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.compose.koinInject

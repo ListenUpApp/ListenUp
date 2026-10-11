@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import kotlinx.coroutines.sync.Mutex
@@ -8,7 +6,6 @@ import kotlin.math.ceil
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
 
 /**
  * In-memory token buckets, one per ([K], subject). Each starts full and refills continuously at

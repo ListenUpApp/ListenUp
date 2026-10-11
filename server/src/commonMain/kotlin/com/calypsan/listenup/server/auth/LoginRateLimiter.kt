@@ -1,11 +1,8 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
 
 /**
  * The throttled auth operations reachable over the RPC public mount, with their per-IP (or, for

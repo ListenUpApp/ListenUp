@@ -5,7 +5,6 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,7 +48,6 @@ import androidx.compose.ui.semantics.semantics
  * styling) is shared with the flat facet (tag/mood) hero via [FacetHeroScaffold]; only the
  * breadcrumb/blurb body below the badge is genre-specific.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun GenreDestinationHero(
     identity: GenreIdentity,
@@ -134,7 +132,6 @@ internal fun GenreDestinationHero(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BreadcrumbRow(
     breadcrumb: List<GenreCrumb>,

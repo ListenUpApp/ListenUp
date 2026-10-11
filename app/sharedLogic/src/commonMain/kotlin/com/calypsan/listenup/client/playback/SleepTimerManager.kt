@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.playback
 
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -14,7 +12,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlin.time.TimeSource
 
 private val logger = KotlinLogging.logger {}

@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,7 +43,6 @@ enum class StatChipTone {
  *   accent "Added" chip a `primary` fill — instead of the default surface-background styling used by
  *   the compact layout's StatsRow.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StatsRow(
     duration: Long,

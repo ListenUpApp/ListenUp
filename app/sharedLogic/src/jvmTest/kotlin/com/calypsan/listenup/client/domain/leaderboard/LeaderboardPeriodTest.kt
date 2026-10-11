@@ -1,11 +1,8 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.domain.leaderboard
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 

@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.AdminSettingsService
@@ -56,7 +54,6 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.ExperimentalTime
 
 /**
  * The [AdminUserServiceImpl] singleton, extracted from [authModule] purely to keep that

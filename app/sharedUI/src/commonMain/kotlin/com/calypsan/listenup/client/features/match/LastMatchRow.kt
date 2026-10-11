@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.features.match
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -65,7 +64,6 @@ fun LastMatchHost(
  * changes; Undo goes through the same use case as the receipt's. A failed Undo says why under the sentence and
  * stays, to be tried again. The actions wrap beneath the sentence when the text is large.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LastMatchRow(
     lastMatch: LastMatchUi,

@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.seriesdetail.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,7 +29,6 @@ import org.jetbrains.compose.resources.stringResource
  * so Back still returns here); the "›" separators are silent to TalkBack, and the row describes
  * itself as "Part of Cosmere, Mistborn". Wraps only between crumbs, never inside a name.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SeriesBreadcrumb(
     ancestors: List<SeriesCrumb>,

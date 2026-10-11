@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.bookedit.components
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,7 +37,6 @@ import listenup.composeapp.generated.resources.book_edit_showing_offline_results
  * Series editing section with search and sequence editing.
  */
 @Suppress("LongParameterList")
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SeriesSection(
     series: List<EditableSeries>,

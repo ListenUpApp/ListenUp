@@ -1,12 +1,9 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -473,7 +470,6 @@ internal fun ReaderRow(
  * label for a read logged there, "Finished {date}" for a ListenUp finish — beside an "Also on
  * Hardcover" label when it was logged there too — or "Rated".
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReaderStateLine(reader: ReaderRowUi) {
     if (reader.isReading) {

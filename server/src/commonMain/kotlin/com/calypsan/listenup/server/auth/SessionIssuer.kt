@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
@@ -7,7 +5,6 @@ import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.UserId
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 /** Mints an [AuthSession] (refresh-session row + access JWT) for an already-created/resolved user. */
 class SessionIssuer(

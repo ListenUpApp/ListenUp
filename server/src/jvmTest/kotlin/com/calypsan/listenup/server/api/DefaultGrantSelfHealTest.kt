@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.auth.LoginRequest

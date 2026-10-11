@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.core
 
 import kotlinx.serialization.KSerializer
@@ -12,7 +10,6 @@ import kotlinx.serialization.encoding.Encoder
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**

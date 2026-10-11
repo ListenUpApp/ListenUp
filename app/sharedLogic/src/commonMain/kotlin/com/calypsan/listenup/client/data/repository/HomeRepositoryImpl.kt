@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTime::class, ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class)
 
 package com.calypsan.listenup.client.data.repository
 
@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
