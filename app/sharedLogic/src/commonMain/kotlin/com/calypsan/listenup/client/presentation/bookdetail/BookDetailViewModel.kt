@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
@@ -38,10 +41,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -82,7 +83,7 @@ class BookDetailViewModel(
     private val inboxRepository: InboxRepository,
     private val bookVisibilityRepository: BookVisibilityRepository,
     private val bookEditRepository: BookEditRepository,
-    seriesRepository: SeriesRepository,
+    private val seriesRepository: SeriesRepository,
     undoMatch: UndoMatch,
     userProfileRepository: UserProfileRepository,
 ) : ViewModel() {
@@ -159,6 +160,7 @@ class BookDetailViewModel(
                     load = current.load,
                     ambient = ambientFacts,
                     overlay = current.overlay,
+                    orderLatch = current.orderLatch,
                 )
             },
             roomWrites,
@@ -219,50 +221,55 @@ class BookDetailViewModel(
         field = MutableStateFlow<Set<String>>(emptySet())
 
     /**
-     * Room's word on [bookId]: one-shot reads for the chapters and the saved position (PR 1 makes both live),
-     * then the row, its availability, the held set and its visibility, live.
+     * Room's word on [bookId], all of it live: the row and its first series, the chapters, the saved position, its
+     * availability, the held set and its visibility. A position saved by playback (about every 10 s) re-emits the
+     * page; the overlay and the section-order latch sit outside the load, so neither notices.
      */
-    private fun observeBook(bookId: String): Flow<BookLoad> =
-        flow {
-            val chapters = bookRepository.getChapters(bookId)
-            val position: PlaybackPosition? =
-                when (val r = playbackPositionRepository.get(BookId(bookId))) {
-                    is AppResult.Success -> {
-                        r.data
-                    }
-
-                    is AppResult.Failure -> {
-                        logger.warn { "BookDetailViewModel: get($bookId) failed: ${r.error.message}" }
-                        null
-                    }
+    private fun observeBook(bookId: String): Flow<BookLoad> {
+        val id = BookId(bookId)
+        val rowAndSeries: Flow<Pair<BookDetail?, SeriesWithBooks?>> =
+            bookRepository.observeBookDetail(bookId).flatMapLatest { detail ->
+                val seriesId = detail?.series?.firstOrNull()?.seriesId
+                if (seriesId == null) {
+                    flowOf(detail to null)
+                } else {
+                    seriesRepository.observeSeriesWithBooks(seriesId).map { detail to it }
                 }
-            emitAll(
-                combine(
-                    flow = bookRepository.observeBookDetail(bookId),
-                    flow2 = bookAvailability.observe(BookId(bookId)),
-                    flow3 = inboxRepository.observeHeldBookIds(),
-                    // Null on a member's device; live for an admin (share/membership/hold/roster changes).
-                    flow4 = bookVisibilityRepository.observeBookVisibility(BookId(bookId)),
-                ) { detail, availability, heldIds, visibility ->
-                    if (detail == null) {
-                        BookLoad.Missing(bookId)
-                    } else {
-                        BookLoad.Loaded(
-                            bookId = bookId,
-                            snapshot =
-                                BookSnapshot(
-                                    detail = detail,
-                                    chapters = chapters,
-                                    position = position,
-                                    availability = availability,
-                                    isHeld = BookId(bookId) in heldIds,
-                                    visibility = visibility,
-                                ),
-                        )
-                    }
-                },
-            )
+            }
+        val listening: Flow<Pair<List<Chapter>, PlaybackPosition?>> =
+            combine(
+                bookRepository.observeChapters(bookId),
+                playbackPositionRepository.observe(id),
+            ) { chapters, position ->
+                chapters to position
+            }
+        return combine(
+            flow = rowAndSeries,
+            flow2 = listening,
+            flow3 = bookAvailability.observe(id),
+            flow4 = inboxRepository.observeHeldBookIds(),
+            // Null on a member's device; live for an admin (share/membership/hold/roster changes).
+            flow5 = bookVisibilityRepository.observeBookVisibility(id),
+        ) { (detail, series), (chapters, position), availability, heldIds, visibility ->
+            if (detail == null) {
+                BookLoad.Missing(bookId)
+            } else {
+                BookLoad.Loaded(
+                    bookId = bookId,
+                    snapshot =
+                        BookSnapshot(
+                            detail = detail,
+                            chapters = chapters,
+                            position = position,
+                            availability = availability,
+                            isHeld = id in heldIds,
+                            visibility = visibility,
+                            series = series,
+                        ),
+                )
+            }
         }
+    }
 
     /**
      * The page as it stands right now — [bookDetailUiState] over the sources themselves rather than [state]'s last
@@ -276,6 +283,7 @@ class BookDetailViewModel(
             load = current.load,
             ambient = ambient.value,
             overlay = current.overlay,
+            orderLatch = current.orderLatch,
         ) as? BookDetailUiState.Ready
     }
 
@@ -347,7 +355,7 @@ class BookDetailViewModel(
                 is AppResult.Success -> {
                     updateOverlay(
                         visit,
-                    ) { it.copy(isMarkingComplete = false, progressOverride = ProgressOverride.Completed) }
+                    ) { it.copy(isMarkingComplete = false) }
                     logger.info { "Marked book $bookId as complete" }
                 }
 
@@ -371,7 +379,7 @@ class BookDetailViewModel(
                 is AppResult.Success -> {
                     updateOverlay(
                         visit,
-                    ) { it.copy(isDiscardingProgress = false, progressOverride = ProgressOverride.Discarded) }
+                    ) { it.copy(isDiscardingProgress = false) }
                     logger.info { "Discarded progress for book $bookId" }
                 }
 
@@ -395,7 +403,7 @@ class BookDetailViewModel(
                 is AppResult.Success -> {
                     updateOverlay(
                         visit,
-                    ) { it.copy(isRestarting = false, progressOverride = ProgressOverride.Restarted) }
+                    ) { it.copy(isRestarting = false) }
                     logger.info { "Restarted book $bookId" }
                 }
 

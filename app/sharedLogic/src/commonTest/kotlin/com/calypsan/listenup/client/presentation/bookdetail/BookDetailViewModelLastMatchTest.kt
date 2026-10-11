@@ -39,7 +39,6 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -96,7 +95,7 @@ class BookDetailViewModelLastMatchTest :
                 val bookRepository: BookRepository =
                     mock {
                         every { observeBookDetail("book-1") } returns flowOf(TestData.bookDetail(id = "book-1"))
-                        everySuspend { getChapters("book-1") } returns emptyList()
+                        every { observeChapters("book-1") } returns flowOf(emptyList())
                         every { observeMatchRecord(any()) } returns books.observeMatchRecord("book-1")
                     }
                 return BookDetailViewModel(
@@ -104,7 +103,7 @@ class BookDetailViewModelLastMatchTest :
                     tagRepository = mock<TagRepository> { every { observeAll() } returns flowOf(emptyList()) },
                     playbackPositionRepository =
                         mock<PlaybackPositionRepository> {
-                            everySuspend { get(any<BookId>()) } returns AppResult.Success(null)
+                            every { observe(any()) } returns flowOf(null)
                         },
                     userRepository = users,
                     permissionsRepository = permissions,

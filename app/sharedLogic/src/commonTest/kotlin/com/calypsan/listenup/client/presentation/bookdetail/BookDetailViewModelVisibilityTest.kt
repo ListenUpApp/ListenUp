@@ -78,7 +78,7 @@ class BookDetailViewModelVisibilityTest :
             val errorBus = ErrorBus()
 
             init {
-                everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
+                every { playbackPositionRepository.observe(any()) } returns flowOf(null)
                 every { userRepository.observeCurrentUser() } returns flowOf(null)
                 every { userRepository.observeIsAdmin() } returns flowOf(true)
                 every { shelfRepository.observeMyShelves(any()) } returns flowOf(emptyList())
@@ -87,7 +87,7 @@ class BookDetailViewModelVisibilityTest :
                 every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
                 every { collectionRepository.observeCollections() } returns flowOf(emptyList())
                 every { bookRepository.observeBookDetail("book-1") } returns flowOf(TestData.bookDetail(id = "book-1"))
-                everySuspend { bookRepository.getChapters("book-1") } returns emptyList()
+                every { bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
             }
 
             fun build(): BookDetailViewModel =

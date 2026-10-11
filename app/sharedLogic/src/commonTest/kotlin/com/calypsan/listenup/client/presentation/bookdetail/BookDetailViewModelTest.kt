@@ -126,10 +126,14 @@ class BookDetailViewModelTest :
             val bookAvailability = FakeBookAvailability()
             val serverReachability = FakeServerReachability()
             val hierarchy = MutableStateFlow(SeriesHierarchy.Empty)
-            val seriesRepository: SeriesRepository = mock { every { observeHierarchy() } returns hierarchy }
+            val seriesRepository: SeriesRepository =
+                mock {
+                    every { observeHierarchy() } returns hierarchy
+                    every { observeSeriesWithBooks(any()) } returns flowOf(null)
+                }
 
             fun setup() {
-                everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
+                every { playbackPositionRepository.observe(any()) } returns flowOf(null)
                 every { userRepository.observeCurrentUser() } returns flowOf(null)
                 every { shelfRepository.observeMyShelves(any()) } returns flowOf(emptyList())
                 every { shelfRepository.observeShelvesContainingBook(any()) } returns flowOf(emptyList())
@@ -225,7 +229,7 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(title = "My Book", description = "A description")
                 val chapters = listOf(TestData.chapter(id = "ch1"), TestData.chapter(id = "ch2"))
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns chapters
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(chapters)
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -251,7 +255,7 @@ class BookDetailViewModelTest :
                 // Given
                 val fixture = createTestFixture()
                 every { fixture.bookRepository.observeBookDetail("nonexistent") } returns flowOf(null)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -284,7 +288,7 @@ class BookDetailViewModelTest :
                         seriesSequence = 1.0,
                     )
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -316,7 +320,7 @@ class BookDetailViewModelTest :
                     SeriesHierarchy(listOf(series("mistborn", "Mistborn"), series("era1", "Era 1", "mistborn")), emptyList())
                 val book = TestData.bookDetail(seriesId = "era1", seriesName = "Era 1", seriesSequence = 1.0)
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -360,7 +364,7 @@ class BookDetailViewModelTest :
                         seriesSequence = 1.0,
                     )
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -389,7 +393,7 @@ class BookDetailViewModelTest :
                         seriesName = null,
                     )
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -422,7 +426,7 @@ class BookDetailViewModelTest :
                     )
                 val book = TestData.bookDetail(genres = bookGenres)
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -451,7 +455,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail()
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 // BookDetail genres default to empty
                 val viewModel = fixture.build()
 
@@ -479,7 +483,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail()
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -508,8 +512,8 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(duration = 3_600_000L) // 1 hour
                 val position = createPlaybackPosition(positionMs = 1_800_000L) // 30 min in
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
-                everySuspend { fixture.playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(position)
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
+                every { fixture.playbackPositionRepository.observe(any()) } returns flowOf(position)
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -534,8 +538,8 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail(duration = 3_600_000L)
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
-                everySuspend { fixture.playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
+                every { fixture.playbackPositionRepository.observe(any()) } returns flowOf(null)
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -561,8 +565,8 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(duration = 3_600_000L) // 1 hour
                 val position = createPlaybackPosition(positionMs = 3_564_000L) // 99% complete
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
-                everySuspend { fixture.playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(position)
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
+                every { fixture.playbackPositionRepository.observe(any()) } returns flowOf(position)
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -592,8 +596,8 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(duration = 10_800_000L) // 3 hours
                 val position = createPlaybackPosition(positionMs = 2_700_000L) // 45 min in
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
-                everySuspend { fixture.playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(position)
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
+                every { fixture.playbackPositionRepository.observe(any()) } returns flowOf(position)
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -619,8 +623,8 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(duration = 3_600_000L) // 1 hour
                 val position = createPlaybackPosition(positionMs = 2_700_000L) // 45 min in
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
-                everySuspend { fixture.playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(position)
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
+                every { fixture.playbackPositionRepository.observe(any()) } returns flowOf(position)
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -656,7 +660,7 @@ class BookDetailViewModelTest :
                     )
                 val book = TestData.bookDetail(tags = bookTags)
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 every { fixture.tagRepository.observeAll() } returns flowOf(allTags)
                 val viewModel = fixture.build()
 
@@ -685,7 +689,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail()
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -721,7 +725,7 @@ class BookDetailViewModelTest :
                         awaitCancellation()
                     }
                 every { fixture.bookRepository.observeBookDetail("book-Y") } returns flowOf(bookY)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -754,8 +758,8 @@ class BookDetailViewModelTest :
                         awaitCancellation()
                     }
                 every { fixture.bookRepository.observeBookDetail("book-2") } returns flowOf(book2)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
-                everySuspend { fixture.playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
+                every { fixture.playbackPositionRepository.observe(any()) } returns flowOf(null)
                 val viewModel = fixture.build()
 
                 turbineScope {
@@ -789,7 +793,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail(id = "book-1")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 // Set the fake to an availability state the VM must propagate
                 fixture.bookAvailability.stateFlow.value =
                     BookAvailability.State(
@@ -836,7 +840,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail(title = "My Book")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 every { fixture.shelfRepository.observeShelvesContainingBook(BookId("book-1")) } returns
                     flowOf(
                         listOf(
@@ -876,7 +880,7 @@ class BookDetailViewModelTest :
                 val doc1 = TestData.bookDocument(id = "doc-1", index = 0, filename = "map.pdf")
                 val doc2 = TestData.bookDocument(id = "doc-2", index = 1, filename = "extras/notes.pdf")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns
                     flowOf(listOf(doc1, doc2))
                 val viewModel = fixture.build()
@@ -903,7 +907,7 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(id = "book-1")
                 val doc = TestData.bookDocument(id = "doc-1", format = "pdf")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
                 everySuspend {
                     fixture.documentRepository.ensureLocal(BookId("book-1"), "doc-1")
@@ -947,7 +951,7 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(id = "book-1")
                 val doc = TestData.bookDocument(id = "doc-2", format = "epub")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
                 val viewModel = fixture.build()
 
@@ -987,7 +991,7 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(id = "book-1")
                 val doc = TestData.bookDocument(id = "doc-1", format = "pdf")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
                 val gate = CompletableDeferred<AppResult<String>>()
                 everySuspend { fixture.documentRepository.ensureLocal(BookId("book-1"), "doc-1") } calls { gate.await() }
@@ -1038,7 +1042,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail(id = "book-1")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 val newCollection = collection(id = "col-1", name = "New Collection")
                 everySuspend { fixture.collectionRepository.create("test-library", "New Collection") } returns
                     AppResult.Success(newCollection)
@@ -1076,7 +1080,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail(id = "book-1")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 everySuspend { fixture.collectionRepository.create("test-library", "New Collection") } returns
                     AppResult.Failure(InternalError(debugInfo = "boom"))
                 val viewModel = fixture.build()
@@ -1109,7 +1113,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail(id = "book-1")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 val newCollection = collection(id = "col-1", name = "New Collection")
                 everySuspend { fixture.collectionRepository.create("test-library", "New Collection") } returns
                     AppResult.Success(newCollection)
@@ -1146,7 +1150,7 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(id = "book-1")
                 val doc = TestData.bookDocument(id = "doc-1", format = "pdf")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
                 val gate = CompletableDeferred<AppResult<String>>()
                 everySuspend { fixture.documentRepository.ensureLocal(BookId("book-1"), "doc-1") } calls { gate.await() }
@@ -1182,7 +1186,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail(id = "book-1")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 everySuspend { fixture.bookRepository.deleteBook(BookId("book-1")) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
 
@@ -1213,7 +1217,7 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(id = "book-1")
                 val refusal = BookError.FolderNotExclusive(otherBookId = "book-2", otherBookTitle = "Animal Farm")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 everySuspend {
                     fixture.bookRepository.deleteBook(BookId("book-1"))
                 } returns AppResult.Failure(refusal)
@@ -1253,7 +1257,7 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 fixture.permissionsRepository.granted.value = emptySet()
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(TestData.bookDetail())
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 val viewModel = fixture.build()
 
                 turbineScope {

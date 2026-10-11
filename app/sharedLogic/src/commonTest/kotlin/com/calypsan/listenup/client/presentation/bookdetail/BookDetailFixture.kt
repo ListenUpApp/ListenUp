@@ -5,8 +5,10 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
@@ -74,8 +76,15 @@ internal class BookDetailFixture {
     val visibility = FakeBookVisibilityRepository()
     val errorBus = ErrorBus()
 
-    /** What `PlaybackPositionRepository.get` answers, read at each book load. */
-    var position: PlaybackPosition? = null
+    /** The saved position Room holds for the book; specs push it, and the progress writes move it like Room does. */
+    val position = MutableStateFlow<PlaybackPosition?>(null)
+
+    /** The book's chapters as Room holds them. */
+    val chapters = MutableStateFlow<List<Chapter>>(emptyList())
+
+    /** Series rows by id, for the shelf. */
+    val series = mutableMapOf<String, MutableStateFlow<SeriesWithBooks?>>()
+
     var markCompleteGate: CompletableDeferred<AppResult<Unit>>? = null
     var addToShelfGate: CompletableDeferred<AppResult<Int>>? = null
     var addToShelfResult: AppResult<Int> = AppResult.Success(1)
@@ -93,17 +102,34 @@ internal class BookDetailFixture {
     val bookRepository: BookRepository =
         mock<BookRepository> {
             every { observeBookDetail(any()) } calls { (id: String) -> observedDetail(id) }
-            everySuspend { getChapters(any()) } returns emptyList()
+            every { observeChapters(any()) } returns chapters
             everySuspend { deleteBook(any()) } calls { deleteResult }
             every { observeMatchRecord(any()) } returns flowOf(null)
         }
     val playbackPositionRepository: PlaybackPositionRepository =
         mock<PlaybackPositionRepository> {
-            everySuspend { get(any<BookId>()) } calls { AppResult.Success(position) }
+            every { observe(any()) } returns position
             everySuspend { markComplete(any(), any(), any()) } calls
-                { markCompleteGate?.await() ?: AppResult.Success(Unit) }
-            everySuspend { discardProgress(any()) } returns AppResult.Success(Unit)
-            everySuspend { restartBook(any()) } returns AppResult.Success(Unit)
+                { (_: BookId, startedAt: Long?, finishedAt: Long?) ->
+                    val answer = markCompleteGate?.await() ?: AppResult.Success(Unit)
+                    if (answer is AppResult.Success) {
+                        position.value =
+                            (position.value ?: positionOf(0L)).copy(
+                                isFinished = true,
+                                startedAtMs = startedAt ?: position.value?.startedAtMs,
+                                finishedAtMs = finishedAt ?: FIXTURE_NOW_MS,
+                            )
+                    }
+                    answer
+                }
+            everySuspend { discardProgress(any()) } calls {
+                position.value = null
+                AppResult.Success(Unit)
+            }
+            everySuspend { restartBook(any()) } calls {
+                position.value = position.value?.copy(positionMs = 0L, isFinished = false, finishedAtMs = null)
+                AppResult.Success(Unit)
+            }
         }
     val collectionRepository: CollectionRepository =
         mock<CollectionRepository> {
@@ -134,6 +160,8 @@ internal class BookDetailFixture {
     private val seriesRepository: SeriesRepository =
         mock<SeriesRepository> {
             every { observeHierarchy() } returns hierarchy
+            every { observeSeriesWithBooks(any()) } calls
+                { (id: String) -> series.getOrPut(id) { MutableStateFlow(null) } }
         }
 
     fun build(): BookDetailViewModel =
@@ -167,6 +195,27 @@ internal class BookDetailFixture {
             userProfileRepository = mock(),
         )
 }
+
+/** "Now", for writes that stamp a time. */
+internal const val FIXTURE_NOW_MS = 1_700_000_000_000L
+
+/** A saved position [ms] into the fixture's book. */
+internal fun positionOf(
+    ms: Long,
+    finished: Boolean = false,
+) = PlaybackPosition(
+    bookId = "book-1",
+    positionMs = ms,
+    playbackSpeed = 1f,
+    hasCustomSpeed = false,
+    volumeBoostDb = 0f,
+    hasCustomBoost = false,
+    measuredGainDb = null,
+    updatedAtMs = 0L,
+    syncedAtMs = null,
+    lastPlayedAtMs = 0L,
+    isFinished = finished,
+)
 
 /**
  * Keeps [vm]'s `state` collected for the rest of the test, the way an open screen does. `state` runs only while

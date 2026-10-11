@@ -263,11 +263,10 @@ class BookDetailViewModelOverlayTest :
             }
         }
 
-        // PR 1 makes the position live, so the page will stay finished: invert this test then, on purpose.
-        test("marking finished shows it at once; the next Room emission re-derives it from the position read at load") {
+        test("marking finished shows it at once and stays finished: the position is live") {
             runTest {
                 val f = BookDetailFixture()
-                f.position = positionAt(1_800_000L) // 30 min of the fixture's 90
+                f.position.value = positionAt(1_800_000L) // 30 min of the fixture's 90
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -276,18 +275,19 @@ class BookDetailViewModelOverlayTest :
                 vm.markComplete()
                 advanceUntilIdle()
                 vm.ready().isComplete shouldBe true
+                vm.ready().primaryAction shouldBe PrimaryAction.ListenAgain
 
                 f.availability.update { it.copy(isWaitingForWifi = true) }
                 advanceUntilIdle()
-                vm.ready().isComplete shouldBe false
-                vm.ready().progress shouldBe 1_800_000f / 5_400_000f
+                vm.ready().isComplete shouldBe true
+                vm.ready().progress shouldBe null
             }
         }
 
         test("discarding progress clears progress and time left at once") {
             runTest {
                 val f = BookDetailFixture()
-                f.position = positionAt(1_800_000L)
+                f.position.value = positionAt(1_800_000L)
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -302,10 +302,10 @@ class BookDetailViewModelOverlayTest :
             }
         }
 
-        test("restarting shows the book at the start at once") {
+        test("restarting shows the book as not started, because Room now says position zero") {
             runTest {
                 val f = BookDetailFixture()
-                f.position = positionAt(1_800_000L)
+                f.position.value = positionAt(1_800_000L)
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -313,7 +313,9 @@ class BookDetailViewModelOverlayTest :
                 vm.restartBook()
                 advanceUntilIdle()
 
-                vm.ready().progress shouldBe 0f
+                vm.ready().progress shouldBe null
+                vm.ready().readingStage shouldBe ReadingStage.NotStarted
+                vm.ready().primaryAction shouldBe PrimaryAction.Play
                 vm.ready().isComplete shouldBe false
                 vm.ready().isRestarting shouldBe false
             }

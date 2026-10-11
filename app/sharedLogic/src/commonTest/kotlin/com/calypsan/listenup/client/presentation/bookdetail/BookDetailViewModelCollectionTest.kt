@@ -98,7 +98,7 @@ class BookDetailViewModelCollectionTest :
             val serverReachability = FakeServerReachability()
 
             fun setup() {
-                everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
+                every { playbackPositionRepository.observe(any()) } returns flowOf(null)
                 every { userRepository.observeCurrentUser() } returns flowOf(null)
                 every { shelfRepository.observeMyShelves(any()) } returns flowOf(emptyList())
                 every { shelfRepository.observeShelvesContainingBook(any()) } returns flowOf(emptyList())
@@ -157,7 +157,7 @@ class BookDetailViewModelCollectionTest :
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail(id = "book-1")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
-                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.bookRepository.observeChapters("book-1") } returns flowOf(emptyList())
                 everySuspend { fixture.collectionRepository.addBook("col-1", "book-1") } returns
                     AppResult.Success(true)
                 val viewModel = fixture.build()
