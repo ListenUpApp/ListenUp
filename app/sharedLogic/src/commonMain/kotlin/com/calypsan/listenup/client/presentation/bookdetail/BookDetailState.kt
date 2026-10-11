@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.SeriesHierarchy
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import kotlin.time.Duration.Companion.milliseconds
@@ -25,6 +26,8 @@ internal data class BookSnapshot(
     val availability: BookAvailability.State,
     val isHeld: Boolean,
     val visibility: BookVisibility?,
+    /** The book's first series and its books; null when it is in none. */
+    val series: SeriesWithBooks? = null,
 )
 
 /** What Book Detail shows that does not depend on which book is open: who you are, and the library's shape. */
@@ -54,26 +57,15 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
             }
         }
 
+    val stage = readingStage(position, detail.duration)
+    val isComplete = stage == ReadingStage.Finished
+    val hasMeaningfulProgress = stage == ReadingStage.InProgress
+    val positionMs = position?.positionMs ?: 0L
+
     val progress =
-        if (position != null && detail.duration > 0) {
-            (position.positionMs.toFloat() / detail.duration).coerceIn(0f, 1f)
-        } else {
-            null
-        }
+        if (hasMeaningfulProgress) (positionMs.toFloat() / detail.duration).coerceIn(0f, 1f) else null
 
-    // Authoritative completion flag from the saved position
-    val isComplete = position?.isFinished == true
-
-    val hasMeaningfulProgress = progress != null && progress > 0f && !isComplete
-
-    // Resolve the current-chapter highlight only once the position is known. An un-started book (no meaningful
-    // progress) highlights nothing.
-    val currentIdx =
-        if (hasMeaningfulProgress) {
-            currentChapterIndex(chapters.map { it.startTime }, position?.positionMs ?: 0L)
-        } else {
-            null
-        }
+    val current = if (hasMeaningfulProgress) currentChapterOf(chapters, positionMs) else null
 
     val chapterRows =
         chapters.mapIndexed { index, domainChapter ->
@@ -82,19 +74,16 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
                 title = domainChapter.title,
                 duration = domainChapter.formatDuration(),
                 imageUrl = null, // Placeholder
-                isCurrent = index == currentIdx,
+                isCurrent = index == current?.index,
                 startMs = domainChapter.startTime,
                 durationMs = domainChapter.duration,
             )
         }
 
-    val timeRemaining =
-        if (hasMeaningfulProgress) {
-            val remainingMs = detail.duration - (position?.positionMs ?: 0L)
-            DurationFormatter.timeLeft(remainingMs.milliseconds)
-        } else {
-            null
-        }
+    val timeRemainingMs = if (hasMeaningfulProgress) (detail.duration - positionMs).coerceAtLeast(0L) else null
+    val canPlay = availability.canPlay && !isHeld
+    val showServerWarning = availability.showServerWarning && !isHeld
+    val shelf = seriesShelfOf(series, detail.id.value)
 
     return BookDetailUiState.Ready(
         book = detail,
@@ -109,8 +98,8 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
         narrators = detail.narratorNames,
         year = detail.publishYear,
         chapters = chapterRows,
-        progress = if (hasMeaningfulProgress) progress else null,
-        timeRemainingFormatted = timeRemaining,
+        progress = progress,
+        timeRemainingFormatted = timeRemainingMs?.let { DurationFormatter.timeLeft(it.milliseconds) },
         addedAt = detail.addedAt.epochMillis,
         hasScanWarning = detail.hasScanWarning,
         genres = detail.genres,
@@ -118,12 +107,23 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
         moods = detail.moods,
         downloadStatus = availability.downloadStatus,
         isPlaybackAvailable = availability.isPlaybackAvailable,
-        canPlay = availability.canPlay && !isHeld,
+        canPlay = canPlay,
         canDownload = availability.canDownload && !isHeld,
-        showServerWarning = availability.showServerWarning && !isHeld,
+        showServerWarning = showServerWarning,
         isWaitingForWifi = availability.isWaitingForWifi,
         isHeld = isHeld,
         visibility = visibility,
+        readingStage = stage,
+        sectionOrder = sectionOrderFor(stage, SectionPresence(hasSeries = shelf != null, hasChapters = chapters.isNotEmpty())),
+        primaryAction = primaryActionFor(stage, showServerWarning, canPlay),
+        currentChapter = current,
+        chapterPreview = chapterWindow(chapterRows, current?.index),
+        timeRemainingMs = timeRemainingMs,
+        finishedSpan =
+            position?.finishedAtMs?.takeIf { isComplete }?.let { FinishedSpan(startedAtMs = position.startedAtMs, finishedAtMs = it) },
+        downloadSizeBytes = detail.audioFiles.sumOf { it.size },
+        seriesShelf = shelf,
+        showScanWarning = detail.hasScanWarning && ambient.isAdmin,
     )
 }
 
@@ -216,13 +216,6 @@ internal sealed interface BookLoad {
 }
 
 /**
- * What the reader's own action shows before Room catches up. The position is read once per load, so after Mark
- * finished, Discard progress or Restart the page shows the outcome at once; the next Room emission re-derives it.
- * PR 1 makes the position live and deletes this.
- */
-internal enum class ProgressOverride { Completed, Discarded, Restarted }
-
-/**
  * The reader's transient state on one book — open pickers, writes in flight, inline refusals — kept apart from what
  * Room says, so Room re-emitting (a sync frame, a download tick, a reachability flip) can never close a picker
  * mid-interaction. Keyed by [visit], one number per visit to a book: switching books starts a fresh overlay with the
@@ -247,10 +240,9 @@ internal data class BookDetailOverlay(
     val deleteError: AppError? = null,
     val isReleasingFromInbox: Boolean = false,
     val isRestoringToAllBooks: Boolean = false,
-    val progressOverride: ProgressOverride? = null,
 ) {
     /**
-     * What a fresh Room emission for [load] retires: the optimistic progress (Room has spoken), and "restoring"
+     * What a fresh Room emission for [load] retires: "restoring"
      * once the book is no longer stranded — for good, so being stranded again later does not resurrect it. A
      * vanished row clears everything, as the old Error-breaks-the-chain behaviour did. Another book's load is
      * none of this overlay's business.
@@ -267,7 +259,7 @@ internal data class BookDetailOverlay(
 
             else -> {
                 val stillStranded = (load as BookLoad.Loaded).snapshot.visibility is BookVisibility.Stranded
-                copy(progressOverride = null, isRestoringToAllBooks = isRestoringToAllBooks && stillStranded)
+                copy(isRestoringToAllBooks = isRestoringToAllBooks && stillStranded)
             }
         }
 }
@@ -280,29 +272,46 @@ internal data class BookDetailOverlay(
 internal data class BookDetailPage(
     val load: BookLoad?,
     val overlay: BookDetailOverlay,
+    val orderLatch: SectionOrderLatch? = null,
 ) {
     /** The page once Room has said [newLoad]. */
-    fun withLoad(newLoad: BookLoad): BookDetailPage =
-        BookDetailPage(load = newLoad, overlay = overlay.retiredBy(newLoad))
+    fun withLoad(newLoad: BookLoad): BookDetailPage = copy(load = newLoad, overlay = overlay.retiredBy(newLoad)).latched()
 
     /**
      * The page once the reader asks for [bookId]: the same book keeps whatever is open; another book starts the next
      * visit with nothing open. The load stays, so coming back to a book that is still loaded shows it at once.
      */
     fun visiting(bookId: String): BookDetailPage =
-        if (overlay.bookId ==
-            bookId
-        ) {
+        if (overlay.bookId == bookId) {
             this
         } else {
-            copy(overlay = BookDetailOverlay(bookId = bookId, visit = overlay.visit + 1))
+            copy(overlay = BookDetailOverlay(bookId = bookId, visit = overlay.visit + 1)).latched()
         }
+
+    /** Takes this visit's section order from its first load of the visited book, once. */
+    private fun latched(): BookDetailPage {
+        val loaded = load as? BookLoad.Loaded ?: return this
+        val bookId = overlay.bookId
+        if (loaded.bookId != bookId) return this
+        if (orderLatch?.bookId == bookId && orderLatch.visit == overlay.visit) return this
+        val order = loaded.snapshot.toReady(BookDetailAmbient()).sectionOrder
+        return copy(orderLatch = SectionOrderLatch(bookId = bookId, visit = overlay.visit, order = order))
+    }
 }
 
+/**
+ * The section order taken at the first load of one visit to [bookId] (spec §2.4 rule 2). Held beside the overlay
+ * rather than in it: it is not something the reader did, and nothing but a new visit replaces it.
+ */
+internal data class SectionOrderLatch(
+    val bookId: String,
+    val visit: Int,
+    val order: List<BookDetailSection>,
+)
+
 /** This page with the reader's [overlay] laid on it. */
-internal fun BookDetailUiState.Ready.withOverlay(overlay: BookDetailOverlay): BookDetailUiState.Ready {
-    val shown =
-        copy(
+internal fun BookDetailUiState.Ready.withOverlay(overlay: BookDetailOverlay): BookDetailUiState.Ready =
+    copy(
             isMarkingComplete = overlay.isMarkingComplete,
             isDiscardingProgress = overlay.isDiscardingProgress,
             isRestarting = overlay.isRestarting,
@@ -318,13 +327,6 @@ internal fun BookDetailUiState.Ready.withOverlay(overlay: BookDetailOverlay): Bo
             // The echo that re-homes a stranded book is exactly what ends "restoring".
             isRestoringToAllBooks = overlay.isRestoringToAllBooks && visibility is BookVisibility.Stranded,
         )
-    return when (overlay.progressOverride) {
-        null -> shown
-        ProgressOverride.Completed -> shown.copy(isComplete = true)
-        ProgressOverride.Discarded -> shown.copy(isComplete = false, progress = null, timeRemainingFormatted = null)
-        ProgressOverride.Restarted -> shown.copy(isComplete = false, progress = 0f)
-    }
-}
 
 /**
  * Book Detail's whole screen state. `Loading` whenever the latest [load] is not for [requestedBookId], so a page
@@ -335,6 +337,7 @@ internal fun bookDetailUiState(
     load: BookLoad?,
     ambient: BookDetailAmbient,
     overlay: BookDetailOverlay,
+    orderLatch: SectionOrderLatch?,
 ): BookDetailUiState {
     if (requestedBookId == null || load == null || load.bookId != requestedBookId) return BookDetailUiState.Loading
     return when (load) {
@@ -344,7 +347,9 @@ internal fun bookDetailUiState(
 
         is BookLoad.Loaded -> {
             val own = overlay.takeIf { it.bookId == requestedBookId } ?: BookDetailOverlay(requestedBookId)
-            load.snapshot.toReady(ambient).withOverlay(own)
+            val latched = orderLatch?.takeIf { it.bookId == requestedBookId && it.visit == own.visit }?.order
+            val ready = load.snapshot.toReady(ambient).withOverlay(own)
+            if (latched == null) ready else ready.copy(sectionOrder = latched)
         }
     }
 }

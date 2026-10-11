@@ -2,12 +2,16 @@ package com.calypsan.listenup.client.presentation.bookdetail
 
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.TestData
+import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.BookAvailability
+import com.calypsan.listenup.core.SeriesId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -46,7 +50,8 @@ internal fun snapshot(
     availability: BookAvailability.State = available,
     isHeld: Boolean = false,
     visibility: BookVisibility? = null,
-) = BookSnapshot(detail, chapters, position, availability, isHeld, visibility)
+    series: SeriesWithBooks? = null,
+) = BookSnapshot(detail, chapters, position, availability, isHeld, visibility, series)
 
 class BookDetailStateTest :
     FunSpec({
@@ -98,18 +103,18 @@ class BookDetailStateTest :
             val loaded = BookLoad.Loaded("book-1", snapshot())
 
             test("Loading until a book is asked for") {
-                bookDetailUiState(null, null, BookDetailAmbient(), BookDetailOverlay(null)) shouldBe BookDetailUiState.Loading
+                bookDetailUiState(null, null, BookDetailAmbient(), BookDetailOverlay(null), orderLatch = null) shouldBe BookDetailUiState.Loading
             }
 
             test("Loading while the latest load is another book's — never that book's page") {
-                bookDetailUiState("book-2", loaded, BookDetailAmbient(), BookDetailOverlay("book-2")) shouldBe
+                bookDetailUiState("book-2", loaded, BookDetailAmbient(), BookDetailOverlay("book-2"), orderLatch = null) shouldBe
                     BookDetailUiState.Loading
-                bookDetailUiState("book-1", null, BookDetailAmbient(), BookDetailOverlay("book-1")) shouldBe
+                bookDetailUiState("book-1", null, BookDetailAmbient(), BookDetailOverlay("book-1"), orderLatch = null) shouldBe
                     BookDetailUiState.Loading
             }
 
             test("a book with no row is NotFound") {
-                bookDetailUiState("book-1", BookLoad.Missing("book-1"), BookDetailAmbient(), BookDetailOverlay("book-1"))
+                bookDetailUiState("book-1", BookLoad.Missing("book-1"), BookDetailAmbient(), BookDetailOverlay("book-1"), orderLatch = null)
                     .shouldBeInstanceOf<BookDetailUiState.Error>()
                     .error
                     .shouldBeInstanceOf<BookError.NotFound>()
@@ -122,13 +127,14 @@ class BookDetailStateTest :
                         loaded,
                         BookDetailAmbient(),
                         BookDetailOverlay("book-1", showShelfPicker = true, shelfError = "Full."),
+                        orderLatch = null,
                     ).shouldBeInstanceOf<BookDetailUiState.Ready>()
                 ready.showShelfPicker shouldBe true
                 ready.shelfError shouldBe "Full."
             }
 
             test("an overlay left over from another book is ignored") {
-                bookDetailUiState("book-1", loaded, BookDetailAmbient(), BookDetailOverlay("book-0", showShelfPicker = true))
+                bookDetailUiState("book-1", loaded, BookDetailAmbient(), BookDetailOverlay("book-0", showShelfPicker = true), orderLatch = null)
                     .shouldBeInstanceOf<BookDetailUiState.Ready>()
                     .showShelfPicker shouldBe false
             }
@@ -136,23 +142,6 @@ class BookDetailStateTest :
 
         context("withOverlay") {
             val inProgress = snapshot(position = position(900_000L)).toReady(BookDetailAmbient())
-
-            test("Completed shows the book finished") {
-                inProgress.withOverlay(BookDetailOverlay("book-1", progressOverride = ProgressOverride.Completed)).isComplete shouldBe true
-            }
-
-            test("Discarded clears progress and time left") {
-                val ready = inProgress.withOverlay(BookDetailOverlay("book-1", progressOverride = ProgressOverride.Discarded))
-                ready.isComplete shouldBe false
-                ready.progress shouldBe null
-                ready.timeRemainingFormatted shouldBe null
-            }
-
-            test("Restarted shows the start") {
-                val ready = inProgress.withOverlay(BookDetailOverlay("book-1", progressOverride = ProgressOverride.Restarted))
-                ready.isComplete shouldBe false
-                ready.progress shouldBe 0f
-            }
 
             test("'restoring' shows only while the book is still stranded") {
                 val restoring = BookDetailOverlay("book-1", isRestoringToAllBooks = true)
@@ -174,12 +163,10 @@ class BookDetailStateTest :
                     showShelfPicker = true,
                     isReleasingFromInbox = true,
                     isRestoringToAllBooks = true,
-                    progressOverride = ProgressOverride.Completed,
                 )
 
-            test("Room speaking again retires the optimistic progress, and keeps everything the reader has open") {
+            test("Room speaking again keeps everything the reader has open") {
                 val after = busy.retiredBy(BookLoad.Loaded("book-1", snapshot(visibility = BookVisibility.Stranded)))
-                after.progressOverride shouldBe null
                 after.showShelfPicker shouldBe true
                 after.isReleasingFromInbox shouldBe true
                 after.isRestoringToAllBooks shouldBe true
@@ -230,6 +217,144 @@ class BookDetailStateTest :
             test("a vanished row clears the overlay but keeps the visit") {
                 BookDetailPage(load = null, overlay = restoring).withLoad(BookLoad.Missing("book-1")).overlay shouldBe
                     BookDetailOverlay("book-1", visit = 3)
+            }
+        }
+
+        context("toReady: the reading fields") {
+            val four = TestData.chapters(count = 4, chapterDuration = 900_000L) // a 1 h book
+
+            test("not started: Play, the first chapters, nothing in progress") {
+                val ready = snapshot(chapters = four, position = null).toReady(BookDetailAmbient())
+                ready.readingStage shouldBe ReadingStage.NotStarted
+                ready.primaryAction shouldBe PrimaryAction.Play
+                ready.currentChapter shouldBe null
+                ready.timeRemainingMs shouldBe null
+                ready.finishedSpan shouldBe null
+                ready.chapterPreview.map { it.id } shouldBe four.map { it.id }
+            }
+
+            test("in progress: Resume, the current chapter, raw time left") {
+                val ready = snapshot(chapters = four, position = position(1_000_000L)).toReady(BookDetailAmbient())
+                ready.readingStage shouldBe ReadingStage.InProgress
+                ready.primaryAction shouldBe PrimaryAction.Resume
+                ready.currentChapter?.number shouldBe 2
+                ready.currentChapter?.elapsedInChapterMs shouldBe 100_000L
+                ready.timeRemainingMs shouldBe 2_600_000L
+                ready.isComplete shouldBe false
+            }
+
+            test("finished: Listen again and the dates it was read between") {
+                val finished = position(3_600_000L, finished = true).copy(startedAtMs = 1_000L, finishedAtMs = 9_000L)
+                val ready = snapshot(chapters = four, position = finished).toReady(BookDetailAmbient())
+                ready.readingStage shouldBe ReadingStage.Finished
+                ready.primaryAction shouldBe PrimaryAction.ListenAgain
+                ready.isComplete shouldBe true
+                ready.finishedSpan shouldBe FinishedSpan(startedAtMs = 1_000L, finishedAtMs = 9_000L)
+                ready.currentChapter shouldBe null
+                ready.timeRemainingMs shouldBe null
+            }
+
+            test("a finished book with no recorded finish time shows no span rather than a made-up one") {
+                snapshot(position = position(0L, finished = true)).toReady(BookDetailAmbient()).finishedSpan shouldBe null
+            }
+
+            test("unreachable with nothing on the device is Unavailable offline") {
+                val offline = available.copy(showServerWarning = true, canPlay = false)
+                snapshot(position = position(900_000L), availability = offline)
+                    .toReady(BookDetailAmbient())
+                    .primaryAction shouldBe PrimaryAction.UnavailableOffline
+            }
+
+            test("the download size is every audio file's size added up") {
+                fun file(
+                    id: String,
+                    size: Long,
+                ) = AudioFile(id = id, index = 0, filename = "$id.m4b", format = "m4b", codec = "aac", duration = 1_000L, size = size)
+                val files = listOf(file("a", 1_000L), file("b", 2_500L))
+                snapshot(detail = TestData.bookDetail(id = "book-1").copy(audioFiles = files))
+                    .toReady(BookDetailAmbient())
+                    .downloadSizeBytes shouldBe 3_500L
+            }
+
+            test("the scan warning shows to an admin only") {
+                val flagged = snapshot(detail = TestData.bookDetail(id = "book-1").copy(hasScanWarning = true))
+                flagged.toReady(BookDetailAmbient(isAdmin = false)).showScanWarning shouldBe false
+                flagged.toReady(BookDetailAmbient(isAdmin = true)).showScanWarning shouldBe true
+                flagged.toReady(BookDetailAmbient(isAdmin = false)).hasScanWarning shouldBe true // kept for today's UIs
+            }
+
+            test("the series shelf comes from the snapshot's series") {
+                val series =
+                    SeriesWithBooks(
+                        series = Series(id = SeriesId("s1"), name = "Mistborn"),
+                        books = listOf(TestData.bookListItem(id = "book-1"), TestData.bookListItem(id = "book-2")),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0),
+                    )
+                snapshot(series = series).toReady(BookDetailAmbient()).seriesShelf?.nextBookId shouldBe "book-2"
+            }
+
+            test("an unlatched page orders sections by its live stage") {
+                snapshot(chapters = four, position = position(900_000L))
+                    .toReady(BookDetailAmbient())
+                    .sectionOrder
+                    .first() shouldBe BookDetailSection.Chapters
+            }
+        }
+
+        context("the section-order latch") {
+            val four = TestData.chapters(count = 4, chapterDuration = 900_000L)
+            val inProgress = BookLoad.Loaded("book-1", snapshot(chapters = four, position = position(900_000L)))
+            val finished = BookLoad.Loaded("book-1", snapshot(chapters = four, position = position(0L, finished = true)))
+            val other = BookLoad.Loaded("book-2", snapshot(detail = TestData.bookDetail(id = "book-2")))
+            val start = BookDetailPage(load = null, overlay = BookDetailOverlay(bookId = null))
+
+            fun BookDetailPage.screen(id: String) =
+                bookDetailUiState(id, load, BookDetailAmbient(), overlay, orderLatch).shouldBeInstanceOf<BookDetailUiState.Ready>()
+
+            test("the first load of a visit latches its order") {
+                val page = start.visiting("book-1").withLoad(inProgress)
+                page.orderLatch?.order?.first() shouldBe BookDetailSection.Chapters
+            }
+
+            test("finishing during the visit changes the action, not the order") {
+                val page = start.visiting("book-1").withLoad(inProgress).withLoad(finished)
+                val ready = page.screen("book-1")
+                ready.primaryAction shouldBe PrimaryAction.ListenAgain
+                ready.sectionOrder.first() shouldBe BookDetailSection.Chapters
+            }
+
+            test("asking for the same book again keeps the latch (an iOS observer reusing its ViewModel)") {
+                val page = start.visiting("book-1").withLoad(inProgress).withLoad(finished).visiting("book-1")
+                page.screen("book-1").sectionOrder.first() shouldBe BookDetailSection.Chapters
+            }
+
+            test("a new visit to the book latches afresh: away and back shows the finished order") {
+                val page =
+                    start
+                        .visiting("book-1")
+                        .withLoad(inProgress)
+                        .withLoad(finished)
+                        .visiting("book-2")
+                        .withLoad(other)
+                        .visiting("book-1")
+                        .withLoad(finished)
+                page.screen("book-1").sectionOrder.first() shouldBe BookDetailSection.Ratings
+            }
+
+            test("coming straight back while the old load is still held latches from it at once") {
+                val page =
+                    start
+                        .visiting("book-1")
+                        .withLoad(inProgress)
+                        .withLoad(finished)
+                        .visiting("book-2") // book-2 never loads
+                        .visiting("book-1")
+                page.screen("book-1").sectionOrder.first() shouldBe BookDetailSection.Ratings
+            }
+
+            test("a vanished row does not disturb the latch") {
+                val page = start.visiting("book-1").withLoad(inProgress).withLoad(BookLoad.Missing("book-1")).withLoad(finished)
+                page.screen("book-1").sectionOrder.first() shouldBe BookDetailSection.Chapters
             }
         }
     })

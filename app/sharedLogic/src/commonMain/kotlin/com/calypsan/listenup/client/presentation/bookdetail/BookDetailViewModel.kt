@@ -159,6 +159,7 @@ class BookDetailViewModel(
                     load = current.load,
                     ambient = ambientFacts,
                     overlay = current.overlay,
+                    orderLatch = current.orderLatch,
                 )
             },
             roomWrites,
@@ -276,6 +277,7 @@ class BookDetailViewModel(
             load = current.load,
             ambient = ambient.value,
             overlay = current.overlay,
+            orderLatch = current.orderLatch,
         ) as? BookDetailUiState.Ready
     }
 
@@ -347,7 +349,7 @@ class BookDetailViewModel(
                 is AppResult.Success -> {
                     updateOverlay(
                         visit,
-                    ) { it.copy(isMarkingComplete = false, progressOverride = ProgressOverride.Completed) }
+                    ) { it.copy(isMarkingComplete = false) }
                     logger.info { "Marked book $bookId as complete" }
                 }
 
@@ -371,7 +373,7 @@ class BookDetailViewModel(
                 is AppResult.Success -> {
                     updateOverlay(
                         visit,
-                    ) { it.copy(isDiscardingProgress = false, progressOverride = ProgressOverride.Discarded) }
+                    ) { it.copy(isDiscardingProgress = false) }
                     logger.info { "Discarded progress for book $bookId" }
                 }
 
@@ -395,7 +397,7 @@ class BookDetailViewModel(
                 is AppResult.Success -> {
                     updateOverlay(
                         visit,
-                    ) { it.copy(isRestarting = false, progressOverride = ProgressOverride.Restarted) }
+                    ) { it.copy(isRestarting = false) }
                     logger.info { "Restarted book $bookId" }
                 }
 

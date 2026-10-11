@@ -108,6 +108,30 @@ sealed interface BookDetailUiState {
         val canDownload: Boolean = false,
         val showServerWarning: Boolean = false,
         val isWaitingForWifi: Boolean = false,
+        /** Where the reader is with the book. Live. */
+        val readingStage: ReadingStage = ReadingStage.NotStarted,
+        /**
+         * The sections below the action unit, in order. Decided once per visit, at the first load, and never changed
+         * while the page is open, even when [readingStage] changes (spec §2.4 rule 2). Platforms skip a section they have
+         * nothing to show for (Readers, Ratings, Hardcover); Series and Chapters are already left out when absent.
+         */
+        val sectionOrder: List<BookDetailSection> = emptyList(),
+        /** The primary button. Live. Disabled only when [PrimaryAction.UnavailableOffline]. */
+        val primaryAction: PrimaryAction = PrimaryAction.Play,
+        /** The chapter the saved position is in, while in progress; null otherwise. */
+        val currentChapter: CurrentChapter? = null,
+        /** The collapsed chapter list: five rows around [currentChapter], or the first five. [chapters] stays the full list. */
+        val chapterPreview: List<ChapterUiModel> = emptyList(),
+        /** Time left in milliseconds while in progress, for platforms to format in their own units; null otherwise. */
+        val timeRemainingMs: Long? = null,
+        /** When a finished book was read; null unless finished with a recorded finish time. */
+        val finishedSpan: FinishedSpan? = null,
+        /** The size of every audio file together, in bytes: what a download costs. */
+        val downloadSizeBytes: Long = 0L,
+        /** The book's first series as a shelf, or null when it is in no series. */
+        val seriesShelf: SeriesShelf? = null,
+        /** [hasScanWarning], for an admin only: members are never shown the scanner's flag. */
+        val showScanWarning: Boolean = false,
     ) : BookDetailUiState
 
     /** Load failure (e.g. the book is not in the local library); carries the typed [error] to localize. */
