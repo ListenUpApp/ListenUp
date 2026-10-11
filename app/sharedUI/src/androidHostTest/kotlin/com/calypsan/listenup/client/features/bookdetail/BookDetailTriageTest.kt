@@ -101,12 +101,15 @@ class BookDetailTriageTest {
         composeRule.onNodeWithText("Edit").assertExists()
         composeRule.onNodeWithText("Match details").assertExists()
         composeRule.onNodeWithText("Edit chapters").assertExists()
-        // Absent: play, download, and the overflow menu that carries shelf, collection and share.
+        // Absent: play, download, Add to shelf, and the overflow menu that carries collection and share.
         // Rating, readers and Hardcover are absent too: see the class KDoc (no Koin is started).
         composeRule.onNodeWithText("Play").assertDoesNotExist()
-        // The download control is an icon button: its name is its content description.
-        composeRule.onNodeWithContentDescription("Download book").assertDoesNotExist()
+        composeRule.onNodeWithText("Resume").assertDoesNotExist()
+        // Download and Add to shelf are icon buttons on a phone: their names are their content descriptions
+        // ("Download, 1.2 GB" carries the size, spec N2). Neither is drawn, labelled or not.
+        composeRule.onNodeWithContentDescription("Download,", substring = true).assertDoesNotExist()
         composeRule.onNodeWithContentDescription("More options").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Add to shelf").assertDoesNotExist()
         composeRule.onNodeWithText("Add to shelf").assertDoesNotExist()
         composeRule.onNodeWithText("Add to collection").assertDoesNotExist()
         composeRule.onNodeWithText("Share").assertDoesNotExist()
@@ -158,7 +161,6 @@ class BookDetailTriageTest {
                             onDeleteBookClick = {},
                             onPlayClick = {},
                             onRetryConnection = {},
-                            onPlayDisabledClick = {},
                             onDownloadClick = {},
                             onCancelClick = {},
                             onDeleteClick = {},

@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.audioFormatDisplay
 import com.calypsan.listenup.client.presentation.bookdetail.groupContributorsByRole
 import com.calypsan.listenup.client.presentation.bookdetail.languageDisplayName
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_added
 import listenup.composeapp.generated.resources.book_detail_bitrate
 import listenup.composeapp.generated.resources.book_detail_channels
 import listenup.composeapp.generated.resources.book_detail_details
@@ -54,6 +55,7 @@ fun DetailsSection(
     credits: List<BookContributor>,
     onContributorClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    addedAt: Long? = null,
 ) {
     val audioFormat = audioFormatDisplay(audioFiles)
     val format = audioFormat.format
@@ -85,6 +87,12 @@ fun DetailsSection(
                         value = languageDisplayName(language),
                         label = stringResource(Res.string.book_detail_language),
                     )
+                }
+            }
+            // When it joined the library: moved here from the hero's chips (the hero keeps length · year · abridgement).
+            if (addedAt != null) {
+                add {
+                    MetadataRow(value = formatBookDay(addedAt), label = stringResource(Res.string.book_detail_added))
                 }
             }
             if (format != null) {

@@ -101,15 +101,18 @@ fun ListenUpTopAppBar(
         expandedHeight = expandedHeight,
         title = {
             Column {
-                Text(
-                    text = title,
-                    style = titleStyle,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = if (largeText) LARGE_TEXT_TITLE_LINES else 1,
-                    overflow = TextOverflow.Ellipsis,
-                    onTextLayout = { titleLines = it.lineCount },
-                    modifier = Modifier.semantics { heading() },
-                )
+                // A bar whose screen names itself below (Book Detail's hero) passes no title: no empty heading node.
+                if (title.isNotEmpty()) {
+                    Text(
+                        text = title,
+                        style = titleStyle,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = if (largeText) LARGE_TEXT_TITLE_LINES else 1,
+                        overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { titleLines = it.lineCount },
+                        modifier = Modifier.semantics { heading() },
+                    )
+                }
                 subtitle?.let { subtitleText ->
                     Text(
                         text = subtitleText,

@@ -4,29 +4,33 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.BookContributor
-import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.features.bookdetail.components.BookDetailHeroBand
+import com.calypsan.listenup.client.features.bookdetail.components.ListenActionGroup
+import com.calypsan.listenup.client.features.bookdetail.components.ResumeUnit
 import com.calypsan.listenup.client.features.bookdetail.components.WideHeroBand
 import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
+import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
+import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
+import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesCrumb
 
 /**
- * Design previews for [CompactHero] and [WideHeroBand], in light and dark, against the static
+ * Design previews for [BookDetailHeroBand] and [WideHeroBand], in light and dark, against the static
  * fallback palette so the designed coral scheme renders rather than a Material You sample.
  */
 private const val PHONE_WIDTH = 412
 private const val PHONE_HEIGHT = 800
 private const val WIDE_WIDTH = 1000
-private const val WIDE_HEIGHT = 400
+private const val WIDE_HEIGHT = 560
 
 private const val PREVIEW_TITLE = "Mistborn"
-private const val PREVIEW_GENRE = "Epic Fantasy"
 private const val PREVIEW_SUBTITLE = "The Final Empire"
 private const val PREVIEW_BOOK_ID = "preview-book"
-private const val PREVIEW_TIME_REMAINING = "21h 30m left"
 private const val PREVIEW_PROGRESS = 0.4f
 private const val PREVIEW_DURATION_MS = 24L * 3600 * 1000 + 41L * 60 * 1000
 private const val PREVIEW_YEAR = 2006
-private const val PREVIEW_ADDED_AT_MS = 1_704_067_200_000L
+private const val PREVIEW_DOWNLOAD_BYTES = 1_288_490_189L
 
 @Composable
 private fun PreviewTheme(
@@ -63,32 +67,31 @@ private val previewSeries =
 
 @Composable
 private fun CompactHeroPreviewBody() {
-    CompactHero(
+    BookDetailHeroBand(
         coverPath = null,
         coverHash = null,
         bookId = PREVIEW_BOOK_ID,
         title = PREVIEW_TITLE,
-        genre = PREVIEW_GENRE,
-        abridged = false,
         subtitle = PREVIEW_SUBTITLE,
         seriesPaths = previewSeries,
         authors = previewAuthors,
         narrators = previewNarrators,
+        durationMs = PREVIEW_DURATION_MS,
+        year = PREVIEW_YEAR,
+        abridged = false,
         onContributorClick = {},
         onSeriesClick = {},
         onShowCast = {},
-        progress = PREVIEW_PROGRESS,
-        timeRemaining = PREVIEW_TIME_REMAINING,
     )
 }
 
-@Preview(name = "CompactHero · light", widthDp = PHONE_WIDTH, heightDp = PHONE_HEIGHT)
+@Preview(name = "BookDetailHeroBand · light", widthDp = PHONE_WIDTH, heightDp = PHONE_HEIGHT)
 @Composable
 private fun CompactHeroLight() {
     PreviewTheme(dark = false) { CompactHeroPreviewBody() }
 }
 
-@Preview(name = "CompactHero · dark", widthDp = PHONE_WIDTH, heightDp = PHONE_HEIGHT)
+@Preview(name = "BookDetailHeroBand · dark", widthDp = PHONE_WIDTH, heightDp = PHONE_HEIGHT)
 @Composable
 private fun CompactHeroDark() {
     PreviewTheme(dark = true) { CompactHeroPreviewBody() }
@@ -101,20 +104,42 @@ private fun WideHeroBandPreviewBody() {
         coverHash = null,
         bookId = PREVIEW_BOOK_ID,
         title = PREVIEW_TITLE,
-        genre = PREVIEW_GENRE,
-        abridged = false,
         subtitle = PREVIEW_SUBTITLE,
         seriesPaths = previewSeries,
         authors = previewAuthors,
         narrators = previewNarrators,
+        durationMs = PREVIEW_DURATION_MS,
+        year = PREVIEW_YEAR,
+        abridged = false,
         onContributorClick = {},
         onSeriesClick = {},
         onShowCast = {},
-        progress = PREVIEW_PROGRESS,
-        timeRemaining = PREVIEW_TIME_REMAINING,
-        duration = PREVIEW_DURATION_MS,
-        year = PREVIEW_YEAR,
-        addedAt = PREVIEW_ADDED_AT_MS,
+        resumeUnit = {
+            ResumeUnit(
+                readingStage = ReadingStage.InProgress,
+                currentChapter = CurrentChapter(index = 5, number = 6, title = "The Well of Ascension", startMs = 0, elapsedInChapterMs = 0),
+                timeRemainingMs = PREVIEW_DURATION_MS * 6 / 10,
+                progress = PREVIEW_PROGRESS,
+                finishedSpan = null,
+            )
+        },
+        actions = {
+            ListenActionGroup(
+                primaryAction = PrimaryAction.Resume,
+                isPreparing = false,
+                downloadStatus = BookDownloadStatus.NotDownloaded(PREVIEW_BOOK_ID),
+                isWaitingForWifi = false,
+                downloadSizeBytes = PREVIEW_DOWNLOAD_BYTES,
+                supportsDownloads = true,
+                canDownload = true,
+                labelled = true,
+                onPrimaryClick = {},
+                onDownload = {},
+                onCancelDownload = {},
+                onRemoveDownload = {},
+                onAddToShelf = {},
+            )
+        },
     )
 }
 

@@ -41,15 +41,19 @@ import com.calypsan.listenup.client.features.bookdetail.components.BookVisibilit
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
 import com.calypsan.listenup.client.features.contributors.CastRole
-import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
+import com.calypsan.listenup.client.features.bookdetail.components.BookDetailHeroBand
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
-import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
+import com.calypsan.listenup.client.features.bookdetail.components.ListenActionGroup
+import com.calypsan.listenup.client.features.bookdetail.components.ResumeUnit
+import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
+import com.calypsan.listenup.client.presentation.bookdetail.FinishedSpan
+import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
+import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.features.bookdetail.components.ReaderRowUi
-import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
 import com.calypsan.listenup.client.features.bookdetail.components.WideHeroBand
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 
@@ -63,12 +67,11 @@ private const val MOCK_TITLE = "The Way of Kings"
 // An independent subtitle (not just the series name) plus multi-series membership — the case the
 // subtitle + series-chip treatment exists for.
 private const val MOCK_SUBTITLE = "A Novel"
-private const val MOCK_GENRE = "Epic Fantasy"
 private const val MOCK_PROGRESS = 0.62f
-private const val MOCK_TIME_REMAINING = "17h 12m left"
 private const val MOCK_DURATION_MS = 45L * 3600 * 1000
 private const val MOCK_YEAR = 2010
 private const val MOCK_ADDED_AT_MS = 1_704_067_200_000L
+private const val MOCK_DOWNLOAD_BYTES = 1_288_490_189L
 
 private const val ROLE_AUTHOR = "Author"
 private const val ROLE_NARRATOR = "Narrator"
@@ -204,7 +207,6 @@ fun BookDetailPreviewGallery() {
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             HeroSection()
-            StatsSection()
             GenresVsTagsSection()
             AboutSectionGallery()
             VisibilitySectionGallery()
@@ -225,47 +227,43 @@ private fun HeroSection() {
     // Tapping a folded contributor line opens the full-cast overlay, same as the real screen.
     var castRole by remember { mutableStateOf<CastRole?>(null) }
 
-    GalleryLabel("Hero — compact (phone)")
-    CompactHero(
+    GalleryLabel("Hero — phone")
+    BookDetailHeroBand(
         coverPath = null,
         coverHash = null,
         bookId = MOCK_BOOK_ID,
         title = MOCK_TITLE,
-        genre = MOCK_GENRE,
-        abridged = false,
         subtitle = MOCK_SUBTITLE,
         seriesPaths = mockSeries,
         authors = mockAuthors,
         narrators = mockNarrators,
+        durationMs = MOCK_DURATION_MS,
+        year = MOCK_YEAR,
+        abridged = false,
         onContributorClick = {},
         onSeriesClick = {},
         onShowCast = { castRole = it },
-        progress = MOCK_PROGRESS,
-        timeRemaining = MOCK_TIME_REMAINING,
     )
 
-    GalleryLabel("Hero — wide band (tablet / desktop) — scroll horizontally →")
+    GalleryLabel("Hero — wide (tablet), with the Resume unit and labelled actions — scroll horizontally →")
     WidePreview {
         WideHeroBand(
             coverPath = null,
             coverHash = null,
             bookId = MOCK_BOOK_ID,
             title = MOCK_TITLE,
-            genre = MOCK_GENRE,
-            abridged = false,
             subtitle = MOCK_SUBTITLE,
             seriesPaths = mockSeries,
             authors = mockAuthors,
             narrators = mockNarrators,
+            durationMs = MOCK_DURATION_MS,
+            year = MOCK_YEAR,
+            abridged = false,
             onContributorClick = {},
             onSeriesClick = {},
             onShowCast = { castRole = it },
-            progress = MOCK_PROGRESS,
-            timeRemaining = MOCK_TIME_REMAINING,
-            duration = MOCK_DURATION_MS,
-            year = MOCK_YEAR,
-            addedAt = MOCK_ADDED_AT_MS,
-            modifier = Modifier.padding(horizontal = Spacing.lg),
+            resumeUnit = { PreviewResumeUnit() },
+            actions = { PreviewActions(PrimaryAction.Resume, labelled = true) },
         )
     }
 
@@ -289,17 +287,6 @@ private fun WidePreview(content: @Composable () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
         Box(modifier = Modifier.width(WIDE_PREVIEW_WIDTH)) { content() }
     }
-}
-
-@Composable
-private fun StatsSection() {
-    GalleryLabel("Stats")
-    StatsRow(
-        duration = MOCK_DURATION_MS,
-        year = MOCK_YEAR,
-        addedAt = MOCK_ADDED_AT_MS,
-        modifier = horizontalGutter(),
-    )
 }
 
 @Composable
@@ -371,50 +358,78 @@ private fun DetailsSectionGallery() {
         credits = mockCredits,
         onContributorClick = {},
         modifier = horizontalGutter(),
+        addedAt = MOCK_ADDED_AT_MS,
     )
 }
 
 @Composable
 private fun ActionsSection() {
-    GalleryLabel("Actions — not downloaded, play enabled")
-    PrimaryActionsSection(
-        downloadStatus = BookDownloadStatus.NotDownloaded(MOCK_BOOK_ID),
-        onPlayClick = {},
-        onDownloadClick = {},
-        onCancelClick = {},
-        onDeleteClick = {},
-        modifier = horizontalGutter(),
-    )
+    GalleryLabel("Listen — not started (Play, no unit)")
+    PreviewActions(PrimaryAction.Play)
 
-    GalleryLabel("Actions — downloading")
-    PrimaryActionsSection(
-        downloadStatus =
-            BookDownloadStatus.InProgress(
-                bookId = MOCK_BOOK_ID,
-                totalFiles = 12,
-                downloadingFiles = 1,
-                completedFiles = 4,
-                totalBytes = 500_000_000L,
-                downloadedBytes = 180_000_000L,
-            ),
-        onPlayClick = {},
-        onDownloadClick = {},
-        onCancelClick = {},
-        onDeleteClick = {},
-        modifier = horizontalGutter(),
-    )
+    GalleryLabel("Listen — in progress (unit + Resume)")
+    Column(modifier = horizontalGutter(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PreviewResumeUnit()
+        PreviewActions(PrimaryAction.Resume, gutter = false)
+    }
 
-    GalleryLabel("Actions — offline (play disabled, server warning)")
-    PrimaryActionsSection(
-        downloadStatus = BookDownloadStatus.NotDownloaded(MOCK_BOOK_ID),
-        onPlayClick = {},
-        onDownloadClick = {},
-        onCancelClick = {},
-        onDeleteClick = {},
-        modifier = horizontalGutter(),
-        playEnabled = false,
-        downloadEnabled = false,
-        showServerWarning = true,
+    GalleryLabel("Listen — finished (span + Listen again, downloaded)")
+    Column(modifier = horizontalGutter(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ResumeUnit(
+            readingStage = ReadingStage.Finished,
+            currentChapter = null,
+            timeRemainingMs = null,
+            progress = null,
+            finishedSpan = FinishedSpan(startedAtMs = MOCK_ADDED_AT_MS, finishedAtMs = MOCK_ADDED_AT_MS + MOCK_DURATION_MS * 3),
+        )
+        PreviewActions(
+            PrimaryAction.ListenAgain,
+            gutter = false,
+            status = BookDownloadStatus.Completed(MOCK_BOOK_ID, totalBytes = MOCK_DOWNLOAD_BYTES),
+        )
+    }
+
+    GalleryLabel("Listen — unavailable offline (the only disabled primary)")
+    PreviewActions(PrimaryAction.UnavailableOffline, canDownload = false)
+
+    GalleryLabel("Listen — tablet, labelled — scroll horizontally →")
+    WidePreview { PreviewActions(PrimaryAction.Resume, labelled = true) }
+}
+
+@Composable
+private fun PreviewResumeUnit() {
+    ResumeUnit(
+        readingStage = ReadingStage.InProgress,
+        currentChapter = CurrentChapter(index = 5, number = 6, title = "Bridge Four", startMs = 0, elapsedInChapterMs = 0),
+        timeRemainingMs = MOCK_DURATION_MS * 8 / 10,
+        progress = MOCK_PROGRESS,
+        finishedSpan = null,
+    )
+}
+
+@Composable
+private fun PreviewActions(
+    action: PrimaryAction,
+    labelled: Boolean = false,
+    gutter: Boolean = true,
+    canDownload: Boolean = true,
+    status: BookDownloadStatus = BookDownloadStatus.NotDownloaded(MOCK_BOOK_ID),
+) {
+    ListenActionGroup(
+        primaryAction = action,
+        isPreparing = false,
+        downloadStatus = status,
+        isWaitingForWifi = false,
+        downloadSizeBytes = MOCK_DOWNLOAD_BYTES,
+        supportsDownloads = true,
+        canDownload = canDownload,
+        labelled = labelled,
+        onPrimaryClick = {},
+        onDownload = {},
+        onCancelDownload = {},
+        onRemoveDownload = {},
+        onAddToShelf = {},
+        modifier = if (gutter) horizontalGutter() else Modifier,
     )
 }
 

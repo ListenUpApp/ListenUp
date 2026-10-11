@@ -440,6 +440,7 @@ One beautiful library.</string>
     <string name="book_detail_cancel_download">Cancel download</string>
     <string name="book_detail_cast_author">Author</string>
     <string name="book_detail_cast_authors">Authors</string>
+    <string name="book_detail_cast_count_all">%1$d contributors</string>
     <string name="book_detail_cast_count_authors">%1$d authors</string>
     <string name="book_detail_cast_count_narrators">%1$d narrators</string>
     <string name="book_detail_cast_narrator">%1$d narrator</string>
@@ -559,7 +560,7 @@ One beautiful library.</string>
     <string name="book_detail_rating_updated_today">Updated today</string>
     <string name="book_detail_rating_updated_yesterday">Updated yesterday</string>
     <string name="book_detail_rating_yours">Your rating</string>
-    <string name="book_detail_read_by">Read by %1$s</string>
+    <string name="book_detail_read_by">Read by</string>
     <string name="book_detail_reader_view_profile">View profile</string>
     <string name="book_detail_readers">Readers</string>
     <string name="book_detail_readers_a11y_finished">%1$s, finished %2$s</string>

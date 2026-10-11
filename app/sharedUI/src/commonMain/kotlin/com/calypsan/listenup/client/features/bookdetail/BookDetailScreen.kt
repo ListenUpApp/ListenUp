@@ -66,7 +66,6 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
-import com.calypsan.listenup.client.domain.model.mostSpecificGenre
 import com.calypsan.listenup.client.features.library.CollectionPickerSheet
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
@@ -80,15 +79,16 @@ import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSe
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
 import com.calypsan.listenup.client.features.contributors.CastRole
-import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
+import com.calypsan.listenup.client.features.bookdetail.components.BookDetailHeroBand
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteDialog
 import com.calypsan.listenup.client.features.bookdetail.components.MarkNotStartedDialog
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
-import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
+import com.calypsan.listenup.client.features.bookdetail.components.ListenActionGroup
+import com.calypsan.listenup.client.features.bookdetail.components.PhoneHeroCoverSize
 import com.calypsan.listenup.client.features.bookdetail.components.RestartBookDialog
-import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
+import com.calypsan.listenup.client.features.bookdetail.components.ResumeUnit
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.playback.PlaybackManager
@@ -113,6 +113,7 @@ import listenup.composeapp.generated.resources.book_detail_scan_warning
 import listenup.composeapp.generated.resources.book_detail_supplementary_materials
 import listenup.composeapp.generated.resources.book_show_all_chapters
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.LocalDeviceContext
 
 /**
  * Immersive book detail screen following Material 3 Expressive Design.
@@ -285,7 +286,6 @@ private fun BookDetailLoadingFrame(
 ) {
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
-            title = "",
             isComplete = false,
             hasProgress = false,
             isAdmin = false,
@@ -297,7 +297,6 @@ private fun BookDetailLoadingFrame(
             onMarkCompleteClick = {},
             onMarkNotStartedClick = {},
             onRestartClick = {},
-            onAddToShelfClick = {},
             onAddToCollectionClick = {},
             onShareClick = {},
             onDeleteClick = {},
@@ -309,19 +308,15 @@ private fun BookDetailLoadingFrame(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // The cover ALONE — deliberately not an ElevatedCoverCard. The card draws its elevation
-            // shadow and surface immediately, which would sit here as an empty lit frame while the
-            // hero is still in flight, announcing the destination before the thing that belongs in
-            // it arrives. Only the shared element itself should be visible during the transition;
-            // the card's chrome comes with the loaded screen. Same 200.dp box and 16.dp corner as
-            // CompactHero's cover, so the hero lands where the loaded screen keeps it.
+            // The cover ALONE, flat, exactly as BookDetailHeroBand draws it: the same box and corner, so the
+            // shared element lands where the loaded screen keeps it.
             BookCoverImage(
                 bookId = bookId,
                 coverPath = null,
                 contentDescription = null,
                 heroKey = bookCoverHeroKey(bookId),
-                heroClipShape = ContentShapes.card,
-                modifier = Modifier.size(200.dp),
+                heroClipShape = MaterialTheme.shapes.extraLarge,
+                modifier = Modifier.size(PhoneHeroCoverSize).clip(MaterialTheme.shapes.extraLarge),
             )
         }
     }
@@ -449,13 +444,6 @@ private fun BookDetailReadyContent(
                 },
                 onPlayClick = { platformActions.playBook(BookId(bookId)) },
                 onRetryConnection = { viewModel.retryConnection() },
-                onPlayDisabledClick = {
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            "Server is unreachable. Connect to your server to stream this book, or download it for offline playback.",
-                        )
-                    }
-                },
                 onUserProfileClick = onUserProfileClick,
                 onDownloadClick = {
                     scope.launch {
@@ -675,12 +663,11 @@ fun BookDetailContent(
 // =============================================================================
 
 /**
- * Compact (phone) Book Detail column on the Material 3 Expressive "Color Block" design.
+ * Compact (phone) Book Detail column.
  *
- * A plain [BookDetailTopBar] is hoisted above the scroll; the [LazyColumn] then carries, in order:
- * offline + scan advisories, the centered [CompactHero], a centered [StatsRow], the grouped
- * frameless [AboutSection] (description + Genres + Tags), the connected [PrimaryActionsSection],
- * the frameless [DetailsSection], readers, and chapters.
+ * A plain, untitled [BookDetailTopBar] (Back to Library, More) is hoisted above the scroll; the [LazyColumn] then
+ * carries, in order: offline + scan advisories, the [BookDetailHeroBand] (cover, series path, title, byline, stat
+ * chips), the [ResumeUnit] over the [ListenActionGroup] (or the held triage panel), then the sections.
  */
 @Suppress("LongMethod")
 @Composable
@@ -699,13 +686,9 @@ private fun ImmersiveBookDetail(
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
-    // Hero classification: the most-specific genre (deepest in the hierarchy) as a chip beside the
-    // Abridged/Unabridged flag.
-    val heroGenre = book.mostSpecificGenre()?.name
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
-            title = book.title,
             isComplete = state.isComplete,
             hasProgress = state.progress != null,
             isAdmin = state.isAdmin,
@@ -717,7 +700,6 @@ private fun ImmersiveBookDetail(
             onMarkCompleteClick = actions.onMarkCompleteClick,
             onMarkNotStartedClick = actions.onMarkNotStartedClick,
             onRestartClick = actions.onRestartClick,
-            onAddToShelfClick = actions.onAddToShelfClick,
             onAddToCollectionClick = actions.onAddToCollectionClick,
             onShareClick = actions.onShareClick,
             onDeleteClick = actions.onDeleteBookClick,
@@ -748,43 +730,32 @@ private fun ImmersiveBookDetail(
                 )
             }
 
-            // Identity — centered cover, title, subtitle, series chips, author, narrator.
-            item {
-                CompactHero(
+            // Identity — cover, series path, title, subtitle, byline and the quick-stat chips.
+            item(key = "hero") {
+                BookDetailHeroBand(
                     coverPath = book.coverPath,
                     coverHash = book.coverHash,
                     bookId = bookId,
                     title = book.title,
-                    genre = heroGenre,
-                    abridged = book.abridged,
                     subtitle = state.subtitle,
                     seriesPaths = state.seriesPaths,
                     authors = book.authors,
                     narrators = book.narrators,
+                    durationMs = book.duration,
+                    year = state.year,
+                    abridged = book.abridged,
                     onContributorClick = actions.onContributorClick,
                     onSeriesClick = actions.onSeriesClick,
                     onShowCast = { castRole = it },
-                    progress = state.progress,
-                    timeRemaining = state.timeRemainingFormatted,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
 
-            // Stats — duration, year, date added (centered).
-            item {
-                StatsRow(
-                    duration = book.duration,
-                    year = state.year,
-                    addedAt = state.addedAt,
-                    modifier = screenPadding.padding(top = 16.dp),
-                )
-            }
-
             // A held book is triage-only (spec §8, §10): the held section — Release, Edit, Match,
-            // Edit chapters — stands where Play would, under the title, and nothing below offers
+            // Edit chapters — stands where the action unit would, under the title, and nothing below offers
             // anything else. Match and Edit chapters reuse the overflow menu's routes.
             if (state.isHeld) {
-                item {
+                item(key = "held") {
                     HeldForReviewSection(
                         isReleasing = state.isReleasingFromInbox,
                         onReleaseClick = actions.onReleaseFromInboxClick,
@@ -794,26 +765,36 @@ private fun ImmersiveBookDetail(
                         modifier = screenPadding.padding(top = 20.dp),
                     )
                 }
-            }
-
-            // Primary actions — connected Play + Download group, kept above the description so the
-            // primary action is reachable without scrolling past the synopsis.
-            if (state.isPlaybackAvailable && !state.isHeld) {
-                item {
-                    PrimaryActionsSection(
-                        downloadStatus = state.downloadStatus,
-                        onPlayClick = actions.onPlayClick,
-                        onDownloadClick = actions.onDownloadClick,
-                        onCancelClick = actions.onCancelClick,
-                        onDeleteClick = actions.onDeleteClick,
+            } else if (state.isPlaybackAvailable) {
+                // The Resume unit directly over the action group (spec §2.9): where you are, then what to do next.
+                item(key = "listen") {
+                    Column(
                         modifier = screenPadding.padding(top = 20.dp),
-                        isWaitingForWifi = state.isWaitingForWifi,
-                        playEnabled = state.canPlay,
-                        downloadEnabled = state.canDownload,
-                        onPlayDisabledClick = actions.onPlayDisabledClick,
-                        showServerWarning = state.showServerWarning,
-                        isPreparing = isPreparing,
-                    )
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        ResumeUnit(
+                            readingStage = state.readingStage,
+                            currentChapter = state.currentChapter,
+                            timeRemainingMs = state.timeRemainingMs,
+                            progress = state.progress,
+                            finishedSpan = state.finishedSpan,
+                        )
+                        ListenActionGroup(
+                            primaryAction = state.primaryAction,
+                            isPreparing = isPreparing,
+                            downloadStatus = state.downloadStatus,
+                            isWaitingForWifi = state.isWaitingForWifi,
+                            downloadSizeBytes = state.downloadSizeBytes,
+                            supportsDownloads = LocalDeviceContext.current.supportsDownloads,
+                            canDownload = state.canDownload,
+                            labelled = false,
+                            onPrimaryClick = actions.onPlayClick,
+                            onDownload = actions.onDownloadClick,
+                            onCancelDownload = actions.onCancelClick,
+                            onRemoveDownload = actions.onDeleteClick,
+                            onAddToShelf = actions.onAddToShelfClick,
+                        )
+                    }
                 }
             }
 
@@ -951,6 +932,7 @@ private fun ImmersiveBookDetail(
                     credits = book.allContributors,
                     onContributorClick = actions.onContributorClick,
                     modifier = screenPadding.padding(top = 8.dp),
+                    addedAt = state.addedAt,
                 )
             }
         }
@@ -962,6 +944,7 @@ private fun ImmersiveBookDetail(
                 narrators = book.narrators,
                 onContributorClick = actions.onContributorClick,
                 onDismiss = { castRole = null },
+                everyone = book.allContributors,
             )
         }
     }

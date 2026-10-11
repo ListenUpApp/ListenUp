@@ -25,7 +25,6 @@ data class BookDetailActions(
     val onDeleteBookClick: () -> Unit,
     val onPlayClick: () -> Unit,
     val onRetryConnection: () -> Unit,
-    val onPlayDisabledClick: () -> Unit,
     val onDownloadClick: () -> Unit,
     val onCancelClick: () -> Unit,
     val onDeleteClick: () -> Unit,

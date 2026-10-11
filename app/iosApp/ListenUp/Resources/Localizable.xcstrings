@@ -4391,6 +4391,16 @@
         }
       }
     },
+    "book.detail_cast_count_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d contributors"
+          }
+        }
+      }
+    },
     "book.detail_cast_count_authors": {
       "localizations": {
         "en": {
@@ -5586,7 +5596,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Read by %1$@"
+            "value": "Read by"
           }
         }
       }

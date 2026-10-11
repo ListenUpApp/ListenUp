@@ -170,7 +170,6 @@ private fun BookDetailUnderTest() {
                 onDeleteBookClick = {},
                 onPlayClick = {},
                 onRetryConnection = {},
-                onPlayDisabledClick = {},
                 onDownloadClick = {},
                 onCancelClick = {},
                 onDeleteClick = {},

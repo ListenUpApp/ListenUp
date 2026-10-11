@@ -42,6 +42,8 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookContributor
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_authors
+import listenup.composeapp.generated.resources.book_detail_credits
+import listenup.composeapp.generated.resources.book_detail_cast_count_all
 import listenup.composeapp.generated.resources.book_detail_cast_count_authors
 import listenup.composeapp.generated.resources.book_detail_cast_count_narrators
 import listenup.composeapp.generated.resources.book_detail_done
@@ -50,7 +52,7 @@ import org.jetbrains.compose.resources.stringResource
 import androidx.compose.material3.BottomSheetDefaults
 
 /** Which contributor role a [FullCastSheet] is showing — selected by a folded hero line. */
-enum class CastRole { Authors, Narrators }
+enum class CastRole { Authors, Narrators, All }
 
 /**
  * Opens the [FullCastSheet] for the given [role], resolving the title and count line from string
@@ -59,6 +61,8 @@ enum class CastRole { Authors, Narrators }
  *
  * @param authors      The book's authors (shown when [role] is [CastRole.Authors]).
  * @param narrators    The book's narrators (shown when [role] is [CastRole.Narrators]).
+ * @param everyone     Every credited contributor, each once (shown when [role] is [CastRole.All], Book Detail's
+ *   "All credits"); empty falls back to the authors and narrators.
  */
 @Composable
 fun FullCastSheetFor(
@@ -67,13 +71,29 @@ fun FullCastSheetFor(
     narrators: List<BookContributor>,
     onContributorClick: (String) -> Unit,
     onDismiss: () -> Unit,
+    everyone: List<BookContributor> = emptyList(),
 ) {
-    val isNarrators = role == CastRole.Narrators
-    val contributors = if (isNarrators) narrators else authors
-    val title = stringResource(if (isNarrators) Res.string.book_detail_full_cast else Res.string.book_detail_authors)
+    val contributors =
+        when (role) {
+            CastRole.Authors -> authors
+            CastRole.Narrators -> narrators
+            CastRole.All -> everyone.ifEmpty { (authors + narrators).distinctBy { it.id } }
+        }
+    val title =
+        stringResource(
+            when (role) {
+                CastRole.Authors -> Res.string.book_detail_authors
+                CastRole.Narrators -> Res.string.book_detail_full_cast
+                CastRole.All -> Res.string.book_detail_credits
+            },
+        )
     val countText =
         stringResource(
-            if (isNarrators) Res.string.book_detail_cast_count_narrators else Res.string.book_detail_cast_count_authors,
+            when (role) {
+                CastRole.Authors -> Res.string.book_detail_cast_count_authors
+                CastRole.Narrators -> Res.string.book_detail_cast_count_narrators
+                CastRole.All -> Res.string.book_detail_cast_count_all
+            },
             contributors.size,
         )
     FullCastSheet(

@@ -5,12 +5,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.LibraryAdd
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,10 +15,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Instant
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import com.calypsan.listenup.client.design.theme.HeroInk
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_abridged
+import listenup.composeapp.generated.resources.book_detail_unabridged
+import org.jetbrains.compose.resources.stringResource
 
 /** Tone variants for [StatChip]. */
 enum class StatChipTone {
@@ -33,53 +28,36 @@ enum class StatChipTone {
 
     /** Tertiary container — for the lead/accent chip. */
     Tertiary,
+
+    /** Secondary container — Book Detail's hero stats, quiet beside the primary actions. */
+    Accent,
 }
 
 /**
- * Row of stat chips showing duration, year, and date added.
- *
- * @param onHeroBand When true, the chips are recoloured to read on the wide hero's
- *   [MaterialTheme.colorScheme.primaryContainer] band — content in `onPrimaryContainer` tones, the
- *   accent "Added" chip a `primary` fill — instead of the default surface-background styling used by
- *   the compact layout's StatsRow.
+ * The hero's quick stats as chips: length · year · Unabridged/Abridged (spec D9/D10). Text only, on the
+ * [StatChipTone.Accent] container: Android takes no cover-derived accent, so the chips stay on a colour role and
+ * follow Material You when it is on.
  */
 @Composable
-fun StatsRow(
-    duration: Long,
+internal fun HeroStatChips(
+    durationMs: Long,
     year: Int?,
-    addedAt: Long? = null,
+    abridged: Boolean,
+    centered: Boolean,
     modifier: Modifier = Modifier,
-    horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-    onHeroBand: Boolean = false,
 ) {
     FlowRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = horizontalArrangement,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        // Order: Added (accent) → Duration → Year.
-        addedAt?.let { timestamp ->
-            StatChip(
-                icon = { Icon(Icons.Default.LibraryAdd, null, Modifier.size(16.dp)) },
-                text = formatAddedDate(timestamp),
-                tone = StatChipTone.Tertiary,
-                onHeroBand = onHeroBand,
-            )
-        }
-
+        StatChip(icon = null, text = DurationFormatter.hoursMinutesAlways(durationMs.milliseconds), tone = StatChipTone.Accent)
+        year?.takeIf { it > 0 }?.let { StatChip(icon = null, text = it.toString(), tone = StatChipTone.Accent) }
         StatChip(
-            icon = { Icon(Icons.Default.AccessTime, null, Modifier.size(16.dp)) },
-            text = DurationFormatter.hoursMinutesAlways(duration.milliseconds),
-            onHeroBand = onHeroBand,
+            icon = null,
+            text = stringResource(if (abridged) Res.string.book_detail_abridged else Res.string.book_detail_unabridged),
+            tone = StatChipTone.Accent,
         )
-
-        year?.takeIf { it > 0 }?.let { y ->
-            StatChip(
-                icon = { Icon(Icons.Default.CalendarMonth, null, Modifier.size(16.dp)) },
-                text = y.toString(),
-                onHeroBand = onHeroBand,
-            )
-        }
     }
 }
 
@@ -93,7 +71,7 @@ fun StatsRow(
  */
 @Composable
 fun StatChip(
-    icon: @Composable () -> Unit,
+    icon: (@Composable () -> Unit)?,
     text: String,
     tone: StatChipTone = StatChipTone.Surface,
     onHeroBand: Boolean = false,
@@ -118,6 +96,10 @@ fun StatChip(
                     MaterialTheme.colorScheme.tertiaryContainer
                 }
             }
+
+            StatChipTone.Accent -> {
+                MaterialTheme.colorScheme.secondaryContainer
+            }
         }
     val contentColor =
         when (tone) {
@@ -136,6 +118,10 @@ fun StatChip(
                     MaterialTheme.colorScheme.onTertiaryContainer
                 }
             }
+
+            StatChipTone.Accent -> {
+                MaterialTheme.colorScheme.onSecondaryContainer
+            }
         }
     Surface(
         shape = MaterialTheme.shapes.medium,
@@ -147,7 +133,7 @@ fun StatChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            icon()
+            icon?.invoke()
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelMedium,
@@ -155,15 +141,4 @@ fun StatChip(
             )
         }
     }
-}
-
-/**
- * Formats epoch milliseconds to a short date string for "Date Added".
- * Uses "MMM yyyy" format (e.g., "Jan 2024").
- */
-private fun formatAddedDate(epochMillis: Long): String {
-    val instant = Instant.fromEpochMilliseconds(epochMillis)
-    val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-    val monthNames = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-    return "${monthNames[localDateTime.month.ordinal]} ${localDateTime.year}"
 }

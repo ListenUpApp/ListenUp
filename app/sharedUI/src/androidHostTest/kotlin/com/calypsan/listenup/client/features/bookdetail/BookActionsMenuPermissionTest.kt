@@ -38,7 +38,6 @@ class BookActionsMenuPermissionTest {
                     onMarkCompleteClick = {},
                     onMarkNotStartedClick = {},
                     onRestartClick = {},
-                    onAddToShelfClick = {},
                     onAddToCollectionClick = {},
                     onShareClick = {},
                     onDeleteClick = {},
@@ -61,5 +60,19 @@ class BookActionsMenuPermissionTest {
         composeRule.onNodeWithText("Edit book").assertDoesNotExist()
         composeRule.onNodeWithText("Match details").assertDoesNotExist()
         composeRule.onNodeWithText("Edit chapters").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Add to shelf is not in the menu for a member, because it is a visible action now`() {
+        show(canEditMetadata = false)
+        composeRule.onNodeWithText("Share").assertIsDisplayed()
+        composeRule.onNodeWithText("Add to shelf").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Add to shelf is not in the menu for an admin either`() {
+        show(canEditMetadata = true, isAdmin = true)
+        composeRule.onNodeWithText("Add to collection").assertIsDisplayed()
+        composeRule.onNodeWithText("Add to shelf").assertDoesNotExist()
     }
 }

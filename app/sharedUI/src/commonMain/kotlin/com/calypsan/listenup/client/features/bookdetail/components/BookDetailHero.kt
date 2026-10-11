@@ -1,554 +1,298 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.ElevatedCoverCard
-import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
-import com.calypsan.listenup.client.design.components.ProgressOverlay
-import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.domain.model.BookContributor
-import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
+import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_abridged
-import listenup.composeapp.generated.resources.book_detail_narrated_by
+import listenup.composeapp.generated.resources.book_detail_all_credits
 import listenup.composeapp.generated.resources.book_detail_other_authors
 import listenup.composeapp.generated.resources.book_detail_other_narrators
-import listenup.composeapp.generated.resources.book_detail_unabridged
+import listenup.composeapp.generated.resources.book_detail_read_by
 import org.jetbrains.compose.resources.stringResource
-import com.calypsan.listenup.client.design.theme.HeroInk
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
+
+/** The phone hero's square cover (board rev 7: 232 dp, flat, 28 dp corners). */
+internal val PhoneHeroCoverSize = 232.dp
+
+/** The tablet hero's square cover. */
+private val WideHeroCoverSize = 240.dp
 
 /**
- * Centered "compact" hero for the Book Detail screen (phone layout).
- *
- * Stacks a 200×200 cover card, an optional overline in the brand coral, a large display title
- * (max 2 lines), a subtitle, an author line, and an optional narrator line — all centered on the
- * [MaterialTheme.colorScheme.surface] background. Stat chips belong to the StatsRow above the
- * scroll content, not here.
- *
- * @param coverPath Local cover file path, or null to show the placeholder
- * @param bookId Book ID for server-URL fallback cover loading
- * @param title Book title (max 2 lines, ellipsised)
- * @param genre Most-specific genre name shown as an uppercase label above the title (e.g. "Progression
- *   Fantasy"); null hides it
- * @param abridged Whether the book is abridged — drives the Abridged/Unabridged flag beside the
- *   genre label
- * @param subtitle Independent subtitle line (e.g. "The Final Empire"); null/blank hides it. The
- *   caller suppresses subtitles that merely restate a series, so this is shown verbatim when present
- * @param seriesPaths Where the book sits, one tappable path line per series; empty hides the block
- * @param authors Author contributors — each name is individually tappable
- * @param narrators Narrator contributors — each name is individually tappable; empty hides the row
- * @param onContributorClick Invoked with a contributor id when an author or narrator name is tapped
- * @param onSeriesClick Invoked with a series id when a series chip is tapped
- * @param onShowCast Invoked with the role whose folded line ("{lead}, N other …") was tapped, to
- *   open the full-cast overlay for that role
- * @param progress Playback progress from 0.0 to 1.0; null hides the [ProgressOverlay]
- * @param timeRemaining Formatted time remaining (e.g. "21h 30m left"); null hides the label
- * @param modifier Optional layout modifier
+ * Book Detail's hero on a phone (spec §3.2.1 D2–D10): a flat square cover, the series path, the title (the screen's
+ * one display moment), the subtitle, the authors, "Read by … · All credits", and the quick-stat chips. It sits on the
+ * screen's own `surface`: on Android the cover carries the colour and the hero takes no wash (Simon, 2026-10-10:
+ * surface roles only, so Material You stays coherent). No shadow under the cover (M3E: elevation by tone, not shadow).
  */
 @Suppress("LongParameterList")
 @Composable
-fun CompactHero(
+internal fun BookDetailHeroBand(
     coverPath: String?,
     coverHash: String?,
     bookId: String,
     title: String,
-    genre: String?,
-    abridged: Boolean,
     subtitle: String?,
     seriesPaths: List<BookSeriesPath>,
     authors: List<BookContributor>,
     narrators: List<BookContributor>,
-    onContributorClick: (contributorId: String) -> Unit,
-    onSeriesClick: (seriesId: String) -> Unit,
+    durationMs: Long,
+    year: Int?,
+    abridged: Boolean,
+    onContributorClick: (String) -> Unit,
+    onSeriesClick: (String) -> Unit,
     onShowCast: (CastRole) -> Unit,
-    progress: Float?,
-    timeRemaining: String?,
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.screenMargin),
+        modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Cover — 200×200 dp, with an optional progress pill at the bottom
-        ElevatedCoverCard(
-            path = coverPath,
-            bookId = bookId,
-            coverHash = coverHash,
-            contentDescription = title,
+        HeroCover(coverPath = coverPath, coverHash = coverHash, bookId = bookId, title = title, authors = authors, size = PhoneHeroCoverSize)
+        HeroIdentity(
             title = title,
-            author = authors.firstOrNull()?.name.orEmpty(),
-            heroKey = bookCoverHeroKey(bookId),
-            modifier = Modifier.size(200.dp),
-        ) {
-            progress?.let { prog ->
-                ProgressOverlay(
-                    progress = prog,
-                    timeRemaining = timeRemaining,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
-            }
-        }
-
-        // Classification — most-specific genre label beside the Abridged/Unabridged flag
-        HeroClassification(
-            genre = genre,
-            abridged = abridged,
-            classificationColor = MaterialTheme.colorScheme.primary,
-            centered = true,
-            // larger cover→classification gap than the 8dp column rhythm
-            modifier = Modifier.padding(top = 16.dp),
-        )
-
-        // Title — large display text, max 2 lines
-        Text(
-            text = title,
-            style =
-                MaterialTheme.typography.displaySmall.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.semantics { heading() },
-        )
-
-        // Subtitle — an independent quiet, italic line; hidden when null/blank
-        if (!subtitle.isNullOrBlank()) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.titleMedium.copy(fontStyle = FontStyle.Italic),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
-
-        // Author — up to two names individually tappable; folds to "{lead}, N other authors" beyond
-        if (authors.isNotEmpty()) {
-            ClickableContributorLine(
-                contributors = authors,
-                onContributorClick = onContributorClick,
-                style = MaterialTheme.typography.titleSmall,
-                nameColor = MaterialTheme.colorScheme.onSurface,
-                separatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-                foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
-                overflowTextRes = Res.string.book_detail_other_authors,
-                onOverflowClick = { onShowCast(CastRole.Authors) },
-            )
-        }
-
-        // Narrator — record_voice_over icon + tappable names; folds to "{lead}, N others" beyond two
-        if (narrators.isNotEmpty()) {
-            ClickableContributorLine(
-                contributors = narrators,
-                onContributorClick = onContributorClick,
-                style = MaterialTheme.typography.bodyMedium,
-                nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                separatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.RecordVoiceOver,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                prefix = "${stringResource(Res.string.book_detail_narrated_by)} ",
-                foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
-                overflowTextRes = Res.string.book_detail_other_narrators,
-                onOverflowClick = { onShowCast(CastRole.Narrators) },
-            )
-        }
-
-        // Series — one path line per series (Cosmere › Mistborn #1), every name a link
-        if (seriesPaths.isNotEmpty()) {
-            SeriesPathLines(
-                paths = seriesPaths,
-                onSeriesClick = onSeriesClick,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                centered = true,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            )
-        }
-    }
-}
-
-/**
- * Wide "color band" hero for the Book Detail screen (tablet / desktop layout).
- *
- * A [MaterialTheme.colorScheme.primaryContainer] surface that spans the full width, carrying the
- * book identity — cover, overline, title, subtitle, author, and narrator — arranged in a horizontal
- * row. Identity only: no Play FAB (the Play + Download group lives in a separate actions section).
- *
- * A decorative oversized blob is rendered top-right behind the content at 16 % primary opacity,
- * clipped to the band so it never overflows. The shape is intentionally organic to break up the
- * rectangular band without distracting from the content.
- *
- * @param coverPath Local cover file path, or null to show the placeholder
- * @param bookId Book ID for server-URL fallback cover loading
- * @param title Book title (max 2 lines, ellipsised)
- * @param genre Most-specific genre name shown as an uppercase label above the title (e.g. "Progression
- *   Fantasy"); null hides it
- * @param abridged Whether the book is abridged — drives the Abridged/Unabridged flag beside the
- *   genre label
- * @param subtitle Independent subtitle line (e.g. "The Final Empire"); null/blank hides it. The
- *   caller suppresses subtitles that merely restate a series, so this is shown verbatim when present
- * @param seriesPaths Where the book sits, one tappable path line per series; empty hides the block
- * @param authors Author contributors — each name is individually tappable
- * @param narrators Narrator contributors — each name is individually tappable; empty hides the row
- * @param onContributorClick Invoked with a contributor id when an author or narrator name is tapped
- * @param onSeriesClick Invoked with a series id when a series chip is tapped
- * @param onShowCast Invoked with the role whose folded line ("{lead}, N other …") was tapped, to
- *   open the full-cast overlay for that role
- * @param progress Playback progress from 0.0 to 1.0; null hides the [ProgressOverlay]
- * @param timeRemaining Formatted time remaining (e.g. "21h 30m left"); null hides the label
- * @param duration Total duration in milliseconds, shown as the duration stat chip
- * @param year Publication year; null/≤0 hides the year stat chip
- * @param addedAt Epoch millis the book was added; null hides the lead "Added" accent stat chip
- * @param modifier Optional layout modifier
- */
-@Suppress("LongParameterList")
-@Composable
-fun WideHeroBand(
-    coverPath: String?,
-    coverHash: String?,
-    bookId: String,
-    title: String,
-    genre: String?,
-    abridged: Boolean,
-    subtitle: String?,
-    seriesPaths: List<BookSeriesPath>,
-    authors: List<BookContributor>,
-    narrators: List<BookContributor>,
-    onContributorClick: (contributorId: String) -> Unit,
-    onSeriesClick: (seriesId: String) -> Unit,
-    onShowCast: (CastRole) -> Unit,
-    progress: Float?,
-    timeRemaining: String?,
-    duration: Long,
-    year: Int?,
-    addedAt: Long?,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = ContentShapes.card,
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        // Clip the blob to the band so it never overflows the surface bounds
-        Box(modifier = Modifier.fillMaxWidth().clip(ContentShapes.card)) {
-            // Decorative background blob — top-right, oversized, organic corners, very subtle. Its
-            // four unequal radii are the drawing itself, so they stay literal.
-            Box(
-                modifier =
-                    Modifier
-                        .size(340.dp)
-                        .offset(x = (-80).dp, y = (-100).dp)
-                        .align(Alignment.TopEnd)
-                        .clip(
-                            RoundedCornerShape(
-                                topStart = 40.dp,
-                                topEnd = 120.dp,
-                                bottomEnd = 80.dp,
-                                bottomStart = 160.dp,
-                            ),
-                        ),
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                    modifier = Modifier.matchParentSize(),
-                ) {}
-            }
-
-            // Main content row
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 44.dp, vertical = 40.dp),
-                horizontalArrangement = Arrangement.spacedBy(44.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Cover — 240×240 dp with optional progress pill
-                ElevatedCoverCard(
-                    path = coverPath,
-                    bookId = bookId,
-                    coverHash = coverHash,
-                    contentDescription = title,
-                    title = title,
-                    author = authors.firstOrNull()?.name.orEmpty(),
-                    heroKey = bookCoverHeroKey(bookId),
-                    modifier = Modifier.size(240.dp),
-                ) {
-                    progress?.let { prog ->
-                        ProgressOverlay(
-                            progress = prog,
-                            timeRemaining = timeRemaining,
-                            modifier = Modifier.align(Alignment.BottomCenter),
-                        )
-                    }
-                }
-
-                // Identity column
-                WideHeroIdentity(
-                    title = title,
-                    genre = genre,
-                    abridged = abridged,
-                    subtitle = subtitle,
-                    seriesPaths = seriesPaths,
-                    authors = authors,
-                    narrators = narrators,
-                    onContributorClick = onContributorClick,
-                    onSeriesClick = onSeriesClick,
-                    onShowCast = onShowCast,
-                    duration = duration,
-                    year = year,
-                    addedAt = addedAt,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
-/**
- * The identity text column inside [WideHeroBand]: classification flag, title, optional subtitle,
- * the author · narrator row, optional series path lines, and — as the last element, matching the design —
- * the [StatsRow] recoloured to read on the colour band. Extracted so [WideHeroBand] stays within the
- * method-length budget.
- */
-@Suppress("LongParameterList")
-@Composable
-private fun WideHeroIdentity(
-    title: String,
-    genre: String?,
-    abridged: Boolean,
-    subtitle: String?,
-    seriesPaths: List<BookSeriesPath>,
-    authors: List<BookContributor>,
-    narrators: List<BookContributor>,
-    onContributorClick: (contributorId: String) -> Unit,
-    onSeriesClick: (seriesId: String) -> Unit,
-    onShowCast: (CastRole) -> Unit,
-    duration: Long,
-    year: Int?,
-    addedAt: Long?,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        // Classification — most-specific genre label beside the Abridged/Unabridged flag
-        HeroClassification(
-            genre = genre,
-            abridged = abridged,
-            classificationColor = HeroInk.muted(),
-            centered = false,
-        )
-
-        // Title — large display, max 2 lines
-        Text(
-            text = title,
-            style =
-                MaterialTheme.typography.displaySmall.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 2.dp).semantics { heading() },
-        )
-
-        // Subtitle — an independent quiet, italic line; hidden when null/blank
-        if (!subtitle.isNullOrBlank()) {
-            Text(
-                text = subtitle,
-                style =
-                    MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Medium,
-                        fontStyle = FontStyle.Italic,
-                    ),
-                color = HeroInk.muted(),
-            )
-        }
-
-        // Author · narrator row
-        WideContributorRow(
+            subtitle = subtitle,
+            seriesPaths = seriesPaths,
             authors = authors,
             narrators = narrators,
+            centered = true,
+            titleStyleSize = TitleSize.Phone,
             onContributorClick = onContributorClick,
+            onSeriesClick = onSeriesClick,
             onShowCast = onShowCast,
-            modifier = Modifier.padding(top = 14.dp),
         )
-
-        // Series — one path line per series, every name a link; hidden when empty
-        if (seriesPaths.isNotEmpty()) {
-            SeriesPathLines(
-                paths = seriesPaths,
-                onSeriesClick = onSeriesClick,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                centered = false,
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            )
-        }
-
-        // Stats — Added (accent) · Duration · Year, last in the identity column and
-        // recoloured to read on the colour band.
-        StatsRow(
-            duration = duration,
-            year = year,
-            addedAt = addedAt,
-            modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
-            onHeroBand = true,
-        )
+        HeroStatChips(durationMs = durationMs, year = year, abridged = abridged, centered = true)
     }
 }
 
 /**
- * The classification row shared by both heroes: the most-specific [genre] and the
- * Abridged/Unabridged flag, both rendered as plain uppercase `labelMedium` text in the brand-accent
- * [classificationColor] — the hero's flag style, not a pill. (`FacetChip` pills are reserved for the
- * list/section surfaces where the facet is interactive.)
- *
- * The genre is omitted when null; the flag is always shown. [centered] aligns the row for the
- * compact (centered) hero versus the wide (left-aligned) band.
+ * Book Detail's hero on a wide layout (spec §3.2.4: Android tablet ≥ 840 dp): the cover on the left, and beside it
+ * the same identity as the phone, then the [resumeUnit] and the [actions] inside the hero so the Resume unit and the
+ * action group stay with the book they act on. On `surface`, like the phone hero.
  */
+@Suppress("LongParameterList")
 @Composable
-private fun HeroClassification(
-    genre: String?,
-    abridged: Boolean,
-    classificationColor: Color,
-    centered: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val classification =
-        stringResource(
-            if (abridged) Res.string.book_detail_abridged else Res.string.book_detail_unabridged,
-        )
-    Row(
-        modifier = modifier,
-        horizontalArrangement =
-            Arrangement.spacedBy(8.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The most-specific genre reads as the same understated flag as Abridged/Unabridged — a
-        // plain uppercase label, not a filled pill.
-        if (!genre.isNullOrBlank()) {
-            Text(
-                text = genre.uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = classificationColor,
-            )
-            Text(
-                text = "•",
-                style = MaterialTheme.typography.labelMedium,
-                color = classificationColor,
-            )
-        }
-        Text(
-            text = classification.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            color = classificationColor,
-        )
-    }
-}
-
-/**
- * The author · narrator credit row for [WideHeroBand]: tappable author names, a dot separator, then
- * a [Icons.Default.RecordVoiceOver] icon, the "Narrated by" prefix, and tappable narrator names —
- * all in [MaterialTheme.colorScheme.onPrimaryContainer] tones to read against the colour band.
- */
-@Composable
-private fun WideContributorRow(
+internal fun WideHeroBand(
+    coverPath: String?,
+    coverHash: String?,
+    bookId: String,
+    title: String,
+    subtitle: String?,
+    seriesPaths: List<BookSeriesPath>,
     authors: List<BookContributor>,
     narrators: List<BookContributor>,
-    onContributorClick: (contributorId: String) -> Unit,
+    durationMs: Long,
+    year: Int?,
+    abridged: Boolean,
+    onContributorClick: (String) -> Unit,
+    onSeriesClick: (String) -> Unit,
     onShowCast: (CastRole) -> Unit,
+    resumeUnit: @Composable () -> Unit,
+    actions: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Stacked vertically (author over narrator) so long names never overflow a single row and
-    // collapse character-by-character; each line is full-width and left-aligned.
-    Column(
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier,
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(40.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        if (authors.isNotEmpty()) {
-            ClickableContributorLine(
-                contributors = authors,
+        HeroCover(coverPath = coverPath, coverHash = coverHash, bookId = bookId, title = title, authors = authors, size = WideHeroCoverSize)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            HeroIdentity(
+                title = title,
+                subtitle = subtitle,
+                seriesPaths = seriesPaths,
+                authors = authors,
+                narrators = narrators,
+                centered = false,
+                titleStyleSize = TitleSize.Wide,
                 onContributorClick = onContributorClick,
-                style = MaterialTheme.typography.titleMedium,
-                nameColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                separatorColor = HeroInk.muted(),
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
-                foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
-                overflowTextRes = Res.string.book_detail_other_authors,
-                onOverflowClick = { onShowCast(CastRole.Authors) },
+                onSeriesClick = onSeriesClick,
+                onShowCast = onShowCast,
             )
+            HeroStatChips(durationMs = durationMs, year = year, abridged = abridged, centered = false)
+            // Capped so Resume holds at least half the row and the unit's line keeps a readable length.
+            Column(
+                modifier = Modifier.widthIn(max = 640.dp).padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                resumeUnit()
+                actions()
+            }
         }
+    }
+}
 
+@Composable
+private fun HeroCover(
+    coverPath: String?,
+    coverHash: String?,
+    bookId: String,
+    title: String,
+    authors: List<BookContributor>,
+    size: Dp,
+) {
+    val shape = MaterialTheme.shapes.extraLarge
+    BookCoverImage(
+        bookId = bookId,
+        coverPath = coverPath,
+        coverHash = coverHash,
+        contentDescription = title,
+        title = title,
+        author = authors.firstOrNull()?.name.orEmpty(),
+        heroKey = bookCoverHeroKey(bookId),
+        heroClipShape = shape,
+        modifier = Modifier.size(size).clip(shape),
+    )
+}
+
+/** The phone and wide titles differ only in size; both are the screen's one ExtraBold display moment. */
+private enum class TitleSize { Phone, Wide }
+
+@Suppress("LongParameterList")
+@Composable
+private fun ColumnScope.HeroIdentity(
+    title: String,
+    subtitle: String?,
+    seriesPaths: List<BookSeriesPath>,
+    authors: List<BookContributor>,
+    narrators: List<BookContributor>,
+    centered: Boolean,
+    titleStyleSize: TitleSize,
+    onContributorClick: (String) -> Unit,
+    onSeriesClick: (String) -> Unit,
+    onShowCast: (CastRole) -> Unit,
+) {
+    val textAlign = if (centered) TextAlign.Center else TextAlign.Start
+    val lineArrangement = Arrangement.spacedBy(0.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start)
+
+    // Series path above the title: where the book sits, read before what it is called (board rev 7).
+    if (seriesPaths.isNotEmpty()) {
+        SeriesPathLines(
+            paths = seriesPaths,
+            onSeriesClick = onSeriesClick,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            centered = centered,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    val baseTitleStyle =
+        if (titleStyleSize == TitleSize.Phone) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium
+    Text(
+        text = title,
+        style = baseTitleStyle.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.ExtraBold),
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = textAlign,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth().semantics { heading() },
+    )
+
+    if (!subtitle.isNullOrBlank()) {
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = textAlign,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    if (authors.isNotEmpty()) {
+        ClickableContributorLine(
+            contributors = authors,
+            onContributorClick = onContributorClick,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            nameColor = MaterialTheme.colorScheme.onSurface,
+            separatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = lineArrangement,
+            foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
+            overflowTextRes = Res.string.book_detail_other_authors,
+            onOverflowClick = { onShowCast(CastRole.Authors) },
+        )
+    }
+
+    NarratorsAndCredits(
+        narrators = narrators,
+        centered = centered,
+        onContributorClick = onContributorClick,
+        onShowCast = onShowCast,
+    )
+}
+
+/** "Read by Michael Kramer & Kate Reading · All credits": narrator links, then one link to the whole cast (D7, D8). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NarratorsAndCredits(
+    narrators: List<BookContributor>,
+    centered: Boolean,
+    onContributorClick: (String) -> Unit,
+    onShowCast: (CastRole) -> Unit,
+) {
+    val haptics = LocalHaptics.current
+    val style = MaterialTheme.typography.bodyLarge
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(0.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
         if (narrators.isNotEmpty()) {
             ClickableContributorLine(
                 contributors = narrators,
                 onContributorClick = onContributorClick,
-                style = MaterialTheme.typography.titleMedium,
-                nameColor = HeroInk.muted(),
-                separatorColor = HeroInk.muted(),
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.RecordVoiceOver,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = HeroInk.muted(),
-                    )
-                },
-                prefix = "${stringResource(Res.string.book_detail_narrated_by)} ",
+                style = style,
+                nameColor = muted,
+                separatorColor = muted,
+                prefix = "${stringResource(Res.string.book_detail_read_by)} ",
                 foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
                 overflowTextRes = Res.string.book_detail_other_narrators,
                 onOverflowClick = { onShowCast(CastRole.Narrators) },
             )
+            Text(text = " · ", style = style, color = muted)
         }
+        Text(
+            text = stringResource(Res.string.book_detail_all_credits),
+            style = style.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.primary,
+            modifier =
+                Modifier.minimumInteractiveComponentSize().clickable(role = Role.Button) {
+                    haptics.press()
+                    onShowCast(CastRole.All)
+                },
+        )
     }
 }

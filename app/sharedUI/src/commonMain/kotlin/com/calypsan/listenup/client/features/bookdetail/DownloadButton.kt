@@ -1,168 +1,156 @@
 package com.calypsan.listenup.client.features.bookdetail
 
-import androidx.compose.material.icons.outlined.Close
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.DownloadDone
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.WifiOff
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.domain.model.BookDownloadStatus
-import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.features.bookdetail.components.DownloadAction
+import com.calypsan.listenup.client.features.bookdetail.components.DownloadActionKind
+import com.calypsan.listenup.client.features.bookdetail.components.DownloadTap
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_cancel_download
-import listenup.composeapp.generated.resources.book_delete_download
-import listenup.composeapp.generated.resources.book_detail_download_book
+import listenup.composeapp.generated.resources.book_detail_download
+import listenup.composeapp.generated.resources.book_detail_download_size_a11y
+import listenup.composeapp.generated.resources.book_detail_downloaded
+import listenup.composeapp.generated.resources.book_detail_downloading_percent
+import listenup.composeapp.generated.resources.book_detail_queued
 import listenup.composeapp.generated.resources.book_detail_retry_download
 import listenup.composeapp.generated.resources.book_detail_waiting_for_wifi
+import org.jetbrains.compose.resources.stringResource
 
 /**
- * Download button with visual state for book detail screen.
- *
- * States:
- * - Not downloaded: Download icon, tap to queue
- * - Queued (normal): Progress spinner, tap to cancel
- * - Queued (waiting for WiFi): WiFi-off icon, tap to cancel
- * - Downloading: Progress circle with %, tap to cancel
- * - Downloaded: Trash icon, tap to delete
- * - Failed/Paused: Retry icon, tap to resume
- *
- * @param isWaitingForWifi True when download is queued but waiting for WiFi connection
- *                         (wifiOnlyDownloads enabled + not on WiFi). Shows WiFi-off icon.
+ * Icon-only Download control (phone): a tonal circle of [size] whose accessible name carries the file size (spec
+ * N2), never the book's length. Drawn from a [DownloadAction], so the phone and tablet renderings share one truth.
+ * A downloaded book shows a done glyph; tapping it asks to remove the download (the screen confirms).
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun DownloadButton(
-    status: BookDownloadStatus,
-    onDownloadClick: () -> Unit,
-    onCancelClick: () -> Unit,
-    onDeleteClick: () -> Unit,
+internal fun DownloadIconButton(
+    action: DownloadAction,
+    enabled: Boolean,
+    onTap: (DownloadTap) -> Unit,
+    size: Dp,
     modifier: Modifier = Modifier,
-    isWaitingForWifi: Boolean = false,
-    enabled: Boolean = true,
-    shape: Shape = MaterialTheme.shapes.medium,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
     val haptics = LocalHaptics.current
-    val containerColor =
-        if (enabled) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-        }
-    val contentColor =
-        if (enabled) {
-            MaterialTheme.colorScheme.onSecondaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-        }
+    val name = downloadAccessibleName(action)
+    FilledTonalIconButton(
+        onClick = {
+            if (action.tap == DownloadTap.Start) haptics.commit()
+            onTap(action.tap)
+        },
+        enabled = enabled,
+        shapes = IconButtonDefaults.shapes(),
+        interactionSource = interactionSource,
+        modifier = modifier.size(size).semantics { contentDescription = name },
+    ) { DownloadGlyph(action.kind) }
+}
 
-    Surface(
-        // Size comes from the caller (the connected action group passes 64.dp to match the Play
-        // button); filling the slot keeps the download glyph centered in the full square.
-        modifier = modifier,
-        shape = shape,
-        color = containerColor,
+/** Labelled Download control (tablet): a tonal button of at least [minHeight] with the same states, worded. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun DownloadLabelledButton(
+    action: DownloadAction,
+    enabled: Boolean,
+    onTap: (DownloadTap) -> Unit,
+    minHeight: Dp,
+    modifier: Modifier = Modifier,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+) {
+    val haptics = LocalHaptics.current
+    val name = downloadAccessibleName(action)
+    FilledTonalButton(
+        onClick = {
+            if (action.tap == DownloadTap.Start) haptics.commit()
+            onTap(action.tap)
+        },
+        enabled = enabled,
+        shapes = ButtonDefaults.shapes(),
+        interactionSource = interactionSource,
+        modifier = modifier.heightIn(min = minHeight).semantics { contentDescription = name },
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            when (status) {
-                is BookDownloadStatus.NotDownloaded -> {
-                    IconButton(
-                        onClick = {
-                            haptics.commit()
-                            onDownloadClick()
-                        },
-                        enabled = enabled,
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        Icon(
-                            Icons.Outlined.Download,
-                            contentDescription = stringResource(Res.string.book_detail_download_book),
-                            tint = contentColor,
-                        )
-                    }
-                }
+        DownloadGlyph(action.kind)
+        Spacer(Modifier.width(8.dp))
+        Text(downloadLabel(action.kind), maxLines = 1)
+    }
+}
 
-                is BookDownloadStatus.InProgress -> {
-                    IconButton(onClick = onCancelClick, modifier = Modifier.fillMaxSize()) {
-                        when {
-                            status.downloadingFiles > 0 -> {
-                                Box(contentAlignment = Alignment.Center) {
-                                    CircularProgressIndicator(
-                                        progress = { status.progress },
-                                        modifier = Modifier.size(32.dp),
-                                        strokeWidth = 3.dp,
-                                        color = contentColor,
-                                        trackColor = contentColor.copy(alpha = 0.3f),
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Outlined.Close,
-                                        contentDescription = stringResource(Res.string.book_detail_cancel_download),
-                                        modifier = Modifier.size(12.dp),
-                                        tint = contentColor.copy(alpha = 0.6f),
-                                    )
-                                }
-                            }
+/** "Download, 1.2 GB" while there is something to download; otherwise the state's own words. */
+@Composable
+private fun downloadAccessibleName(action: DownloadAction): String =
+    when (action.kind) {
+        DownloadActionKind.Download -> stringResource(Res.string.book_detail_download_size_a11y, action.sizeLabel)
+        else -> downloadLabel(action.kind)
+    }
 
-                            isWaitingForWifi -> {
-                                Icon(
-                                    Icons.Outlined.WifiOff,
-                                    contentDescription = stringResource(Res.string.book_detail_waiting_for_wifi),
-                                    tint = contentColor.copy(alpha = 0.7f),
-                                )
-                            }
+@Composable
+private fun downloadLabel(kind: DownloadActionKind): String =
+    when (kind) {
+        DownloadActionKind.Download -> stringResource(Res.string.book_detail_download)
+        DownloadActionKind.Queued -> stringResource(Res.string.book_detail_queued)
+        DownloadActionKind.WaitingForWifi -> stringResource(Res.string.book_detail_waiting_for_wifi)
+        is DownloadActionKind.Downloading -> stringResource(Res.string.book_detail_downloading_percent, kind.percent)
+        DownloadActionKind.Downloaded -> stringResource(Res.string.book_detail_downloaded)
+        DownloadActionKind.Retry -> stringResource(Res.string.book_detail_retry_download)
+    }
 
-                            else -> {
-                                ListenUpLoadingIndicatorSmall()
-                            }
-                        }
-                    }
-                }
+@Composable
+private fun DownloadGlyph(kind: DownloadActionKind) {
+    when (kind) {
+        DownloadActionKind.Download -> {
+            Icon(Icons.Outlined.Download, contentDescription = null)
+        }
 
-                is BookDownloadStatus.Completed -> {
-                    IconButton(onClick = onDeleteClick, modifier = Modifier.fillMaxSize()) {
-                        Icon(
-                            Icons.Outlined.Delete,
-                            contentDescription = stringResource(Res.string.book_delete_download),
-                            tint = contentColor,
-                        )
-                    }
-                }
+        DownloadActionKind.Queued -> {
+            ListenUpLoadingIndicatorSmall()
+        }
 
-                is BookDownloadStatus.Failed,
-                is BookDownloadStatus.Paused,
-                -> {
-                    IconButton(
-                        onClick = {
-                            haptics.commit()
-                            onDownloadClick()
-                        },
-                        enabled = enabled,
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        Icon(
-                            Icons.Outlined.Refresh,
-                            contentDescription = stringResource(Res.string.book_detail_retry_download),
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-            }
+        DownloadActionKind.WaitingForWifi -> {
+            Icon(Icons.Outlined.WifiOff, contentDescription = null)
+        }
+
+        is DownloadActionKind.Downloading -> {
+            CircularProgressIndicator(
+                progress = { kind.percent / PERCENT },
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 3.dp,
+                color = LocalContentColor.current,
+            )
+        }
+
+        DownloadActionKind.Downloaded -> {
+            Icon(Icons.Outlined.DownloadDone, contentDescription = null)
+        }
+
+        DownloadActionKind.Retry -> {
+            Icon(Icons.Outlined.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
         }
     }
 }
+
+private const val PERCENT = 100f

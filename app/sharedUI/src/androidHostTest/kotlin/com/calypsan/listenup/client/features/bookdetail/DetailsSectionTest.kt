@@ -72,4 +72,21 @@ class DetailsSectionTest {
         composeRule.onNodeWithText("Channels").assertDoesNotExist()
         composeRule.onNodeWithText("Gre7g Luterman").assertIsDisplayed()
     }
+
+    @Test
+    fun `the date the book was added has its own row`() {
+        composeRule.setContent {
+            DetailsSection(
+                publisher = null,
+                publishYear = null,
+                language = null,
+                audioFiles = emptyList(),
+                credits = emptyList(),
+                onContributorClick = {},
+                addedAt = 1_770_854_400_000L,
+            )
+        }
+        composeRule.onNodeWithText("Added").assertIsDisplayed()
+        composeRule.onNodeWithText("2026", substring = true).assertIsDisplayed()
+    }
 }
