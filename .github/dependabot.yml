@@ -8,6 +8,19 @@ updates:
       github-actions:
         patterns: ["*"]
 
+  - package-ecosystem: docker
+    directory: /server
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: npm
+    directory: /app/webApp/web
+    schedule:
+      interval: monthly
+    groups:
+      web-toolchain:
+        patterns: ["*"]
+
   - package-ecosystem: gradle
     directory: /
     schedule:
