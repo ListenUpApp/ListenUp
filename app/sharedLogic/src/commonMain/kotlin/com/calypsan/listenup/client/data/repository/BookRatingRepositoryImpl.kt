@@ -183,7 +183,8 @@ internal class BookRatingRepositoryImpl(
     override fun observeExternalCheck(bookId: String): Flow<Boolean> =
         ratingChannel
             .stream { it.checkExternalRatings(BookId(bookId)) }
-            .map { event -> event is RpcEvent.Data && event.value == ExternalRatingsCheck.CHECKING }
+            // UNKNOWN is a value a newer server added; the stream's end, not the value, ends the wait.
+            .map { event -> event is RpcEvent.Data && event.value != ExternalRatingsCheck.DONE }
 }
 
 private fun BookRatingEntity.toDomain(): ListenerRating =

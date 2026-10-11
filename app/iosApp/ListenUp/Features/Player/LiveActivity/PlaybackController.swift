@@ -14,4 +14,15 @@ final class PlaybackController: PlaybackControlling {
 
     /// Resolves the "Play <book> in ListenUp" App Intent to playback start.
     func playBook(id: String) { coordinator.play(bookId: id) }
+
+    /// A book counts as loaded from the moment `play(bookId:)` starts preparing it; an idle player
+    /// and a failed load have nothing for a sleep timer to count down against.
+    var hasLoadedBook: Bool {
+        switch coordinator.phase {
+        case .preparing, .playing, .paused, .buffering: true
+        case .idle, .error: false
+        }
+    }
+
+    func setSleepTimer(minutes: Int) { coordinator.setSleepTimer(minutes: minutes) }
 }

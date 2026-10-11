@@ -42,6 +42,12 @@ enum class HardcoverBrokenReason {
 
     /** The connection lacks a permission ListenUp needs. */
     MISSING_SCOPE,
+
+    /**
+     * What an older app reads a reason a newer server added as: the connection still needs a
+     * reconnect, this build just cannot say why. The server never reports it.
+     */
+    UNKNOWN,
 }
 
 /** The state of the calling user's Hardcover connection, as [com.calypsan.listenup.api.HardcoverService.observeConnection] streams it. */
@@ -98,12 +104,16 @@ sealed interface HardcoverConnection {
 
     /**
      * Was connected as [hardcoverUsername], and now needs a reconnect for [reason]. The name is null
-     * only when it is genuinely unknown, including a payload from a server that predates it.
+     * only when it is genuinely unknown, including a payload from a server that predates it. A reason
+     * this build has never heard of reads as [HardcoverBrokenReason.UNKNOWN], so the stream stays alive.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
     @SerialName("HardcoverConnection.Broken")
     data class Broken(
-        @SerialName("reason") val reason: HardcoverBrokenReason,
+        @SerialName("reason")
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+        val reason: HardcoverBrokenReason = HardcoverBrokenReason.UNKNOWN,
         @SerialName("hardcoverUsername") val hardcoverUsername: String? = null,
     ) : HardcoverConnection
 }

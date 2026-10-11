@@ -372,7 +372,9 @@ internal class LibraryAdminServiceImpl(
             metadataPrecedence = this.metadataPrecedence,
             accessMode =
                 runCatching { AccessMode.valueOf(this.accessMode.uppercase()) }
-                    .getOrDefault(AccessMode.SHARED),
+                    .getOrDefault(AccessMode.SHARED)
+                    // UNKNOWN is a decode fallback for older apps; a stored value is never read as it.
+                    .takeUnless { it == AccessMode.UNKNOWN } ?: AccessMode.SHARED,
             createdByUserId =
                 this.createdByUserId?.let { userId ->
                     com.calypsan.listenup.api.dto.auth

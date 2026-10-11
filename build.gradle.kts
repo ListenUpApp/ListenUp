@@ -150,14 +150,6 @@ dependencies {
     detektPlugins("com.calypsan.listenup.build-logic:detekt-rules:0.0.1")
 }
 
-// Suppress SLF4J "no binding" warnings during SKIE processing (build-time only).
-// Version comes from the catalog so it can't drift from the runtime slf4j version.
-buildscript {
-    dependencies {
-        classpath(libs.slf4j.simple)
-    }
-}
-
 // =============================================================================
 // SPOTLESS - Code Formatting
 // =============================================================================

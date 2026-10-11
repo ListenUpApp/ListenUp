@@ -2,6 +2,8 @@ package com.calypsan.listenup.api.dto
 
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.CollectionId
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -40,6 +42,7 @@ enum class SharePermission {
  * was granted. [isOwner] lets the UI show owner-only actions (rename, delete, share)
  * without a separate API call.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("CollectionSummary")
 data class CollectionSummary(
@@ -55,8 +58,14 @@ data class CollectionSummary(
     @SerialName("isSystem") val isSystem: Boolean = false,
     /** Number of live books currently in this collection (no tombstones). */
     @SerialName("bookCount") val bookCount: Long,
-    /** Effective permission of the authenticated caller on this collection. */
-    @SerialName("callerPermission") val callerPermission: SharePermission,
+    /**
+     * Effective permission of the authenticated caller on this collection. An older app reads a
+     * permission it has never heard of as [SharePermission.Read]: least privilege, and the server still
+     * enforces the real one. Always encoded, so an app built before this default existed finds the key.
+     */
+    @SerialName("callerPermission")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val callerPermission: SharePermission = SharePermission.Read,
     /** Whether the authenticated caller is the owner of this collection. */
     @SerialName("isOwner") val isOwner: Boolean,
 )
@@ -67,6 +76,7 @@ data class CollectionSummary(
  * Surfaces the details of one `(collection, user, permission)` triple so the
  * collection owner can inspect and revoke individual shares.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("CollectionShareDto")
 data class CollectionShareDto(
@@ -76,6 +86,11 @@ data class CollectionShareDto(
     @SerialName("collectionId") val collectionId: CollectionId,
     /** The user who received access. */
     @SerialName("sharedWithUserId") val sharedWithUserId: UserId,
-    /** The permission level granted to the recipient. */
-    @SerialName("permission") val permission: SharePermission,
+    /**
+     * The permission level granted to the recipient. An unknown level reads as [SharePermission.Read],
+     * the same least-privilege fallback the sync payload uses. Always encoded.
+     */
+    @SerialName("permission")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val permission: SharePermission = SharePermission.Read,
 )

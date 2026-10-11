@@ -72,6 +72,7 @@ import listenup.composeapp.generated.resources.hardcover_broken_cannot_decrypt
 import listenup.composeapp.generated.resources.hardcover_broken_missing_scope
 import listenup.composeapp.generated.resources.hardcover_broken_revoked
 import listenup.composeapp.generated.resources.hardcover_broken_title
+import listenup.composeapp.generated.resources.hardcover_broken_unknown
 import listenup.composeapp.generated.resources.hardcover_cancel_linking
 import listenup.composeapp.generated.resources.hardcover_code_copied
 import listenup.composeapp.generated.resources.hardcover_connect
@@ -649,4 +650,5 @@ private fun HardcoverBrokenReason.messageRes(): StringResource =
         HardcoverBrokenReason.REVOKED -> Res.string.hardcover_broken_revoked
         HardcoverBrokenReason.CANNOT_DECRYPT -> Res.string.hardcover_broken_cannot_decrypt
         HardcoverBrokenReason.MISSING_SCOPE -> Res.string.hardcover_broken_missing_scope
+        HardcoverBrokenReason.UNKNOWN -> Res.string.hardcover_broken_unknown
     }

@@ -24,16 +24,23 @@ data class InviteDto(
     @SerialName("claimedBy") val claimedBy: String? = null,
 )
 
-/** Admin-list row: an invite plus a derived [status]. */
+/**
+ * Admin-list row: an invite plus a derived [status]. A status this build has never heard of reads
+ * as [InviteStatus.UNKNOWN], so one row turns vague rather than the whole list failing to decode.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class InviteSummary(
     @SerialName("invite") val invite: InviteDto,
-    @SerialName("status") val status: InviteStatus,
+    @SerialName("status") @EncodeDefault(EncodeDefault.Mode.ALWAYS) val status: InviteStatus = InviteStatus.UNKNOWN,
 )
 
-/** Lifecycle state of an invite, derived from claim/expiry. */
+/**
+ * Lifecycle state of an invite, derived from claim/expiry. [UNKNOWN] is what an older app reads a
+ * state a newer server added as; the server never derives it.
+ */
 @Serializable
-enum class InviteStatus { PENDING, CLAIMED, EXPIRED }
+enum class InviteStatus { PENDING, CLAIMED, EXPIRED, UNKNOWN }
 
 /** What the public landing page shows for a code, before claiming. */
 @Serializable

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto.auth
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -34,14 +36,24 @@ enum class PasswordResetStatus {
 
     @SerialName("EXPIRED")
     EXPIRED,
+
+    /**
+     * What an older app reads a state a newer server added as. The server never stores or emits
+     * it; a waiting screen that sees it stops waiting rather than polling a state it cannot read.
+     */
+    @SerialName("UNKNOWN")
+    UNKNOWN,
 }
 
 /** Wire payload for `AuthServicePublic.observePasswordResetStatus`. */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("PasswordResetStatusEvent")
 data class PasswordResetStatusEvent(
+    /** A state this build has never heard of reads as [PasswordResetStatus.UNKNOWN]. Always encoded. */
     @SerialName("status")
-    val status: PasswordResetStatus,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val status: PasswordResetStatus = PasswordResetStatus.UNKNOWN,
     @SerialName("expiresAt")
     val expiresAt: Long,
 )

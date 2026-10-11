@@ -12,6 +12,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -271,6 +272,44 @@ class ForgotPasswordViewModelTest :
 
                     vm.state.value.shouldBeInstanceOf<ForgotPasswordUiState.Error>()
                     repo.abandonCallCount shouldBe 1
+                } finally {
+                    vm.close()
+                }
+            }
+        }
+
+        test("a status this build cannot read stops the wait, points at the admin and keeps the request") {
+            runTest {
+                Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+                val unreadable = PasswordResetStatusEvent(status = PasswordResetStatus.UNKNOWN, expiresAt = 1L)
+                val repo =
+                    FakePasswordResetRepository(
+                        resumable = "t-1",
+                        fetchStatusResult = unreadable,
+                        // A newer server's stream need not end on a status this build cannot read.
+                        streamFactory = {
+                            flow {
+                                while (true) {
+                                    emit(unreadable)
+                                    delay(1_000L)
+                                }
+                            }
+                        },
+                    )
+                val vm = viewModel(repo)
+                try {
+                    runCurrent()
+
+                    val error = vm.state.value.shouldBeInstanceOf<ForgotPasswordUiState.Error>()
+                    error.message shouldContain "admin"
+                    repo.abandonCallCount shouldBe 0
+
+                    // The watch is over: starting again is not overwritten by a later tick.
+                    vm.retryRequest()
+                    advanceTimeBy(60_000L)
+                    runCurrent()
+                    vm.state.value shouldBe ForgotPasswordUiState.EnterEmail
+                    repo.subscriptionCount shouldBe 1
                 } finally {
                     vm.close()
                 }

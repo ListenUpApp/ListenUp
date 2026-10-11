@@ -22,14 +22,18 @@
 # an image that died on first boot with `no such module: fts5` — a release-blocking break that CI
 # could not see, because CI never builds this image and the tests run against the host's SQLite.
 # The verify step below turns that into a build failure instead of a runtime one.
-FROM debian:12-slim AS libs
+FROM debian:12-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS libs
 ARG SQLITE_AMALGAMATION_URL=https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip
+# Trust on first use, recorded 2026-10-10: sqlite.org publishes only SHA3-256 for the current release,
+# and none for this one. Bump this together with the URL.
+ARG SQLITE_AMALGAMATION_SHA256=bde30d13ebdf84926ddd5e8b6df145be03a577a48fd075a087a5dd815bcdf740
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         gcc libc6-dev ca-certificates curl unzip libargon2-1 libcurl4 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 RUN curl -fsSL -o amalg.zip "$SQLITE_AMALGAMATION_URL" \
+    && echo "${SQLITE_AMALGAMATION_SHA256}  amalg.zip" | sha256sum -c - \
     && unzip -q amalg.zip \
     && cd sqlite-amalgamation-* \
     && gcc -O2 -fPIC -shared -DSQLITE_ENABLE_FTS5 -o /build/libsqlite3.so.0 sqlite3.c -lm \
@@ -84,9 +88,15 @@ RUN mkdir -p /curl-deps \
 # Debian ships neither piece — no fdkaacdec in gstreamer1.0-plugins-bad, and libfdk-aac2 only in
 # non-free — so the plugin is built here. `-Dauto_features=disabled -Dfdkaac=enabled` builds that
 # one plugin rather than all of gst-plugins-bad, which takes about eight seconds.
-FROM debian:12-slim AS media
+FROM debian:12-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS media
 ARG GST_VERSION=1.22.0
+# Published by gstreamer.freedesktop.org as gst-plugins-bad-<version>.tar.xz.sha256sum.
+ARG GST_PLUGINS_BAD_SHA256=3c9d9300f5f4fb3e3d36009379d1fb6d9ecd79c1a135df742b8a68417dd663a1
 ARG FFMPEG_VERSION=7.1.1
+# ffmpeg.org publishes no checksum file, only a GPG signature: this value was computed from a tarball
+# whose .asc verified against the FFmpeg release signing key FCF986EA15E6E293A5644F10B4322F04D67658D8
+# (2026-10-10). Bump this together with FFMPEG_VERSION.
+ARG FFMPEG_SHA256=733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1
 # Edit the deb822 source in place. Adding a legacy .list line collides with the base image's
 # Signed-By and breaks apt outright with "Conflicting values set for option Signed-By".
 RUN sed -i "s/^Components: main$/Components: main contrib non-free/" /etc/apt/sources.list.d/debian.sources \
@@ -108,6 +118,7 @@ RUN sed -i "s/^Components: main$/Components: main contrib non-free/" /etc/apt/so
 # --enable-libfdk-aac here — that would require --enable-nonfree, and such builds may not be
 # redistributed. FDK decodes through GStreamer instead, as a separate program.
 RUN curl -fsSL -o ff.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
+    && echo "${FFMPEG_SHA256}  ff.tar.xz" | sha256sum -c - \
     && tar -xJf ff.tar.xz \
     && cd ffmpeg-${FFMPEG_VERSION} \
     && ./configure \
@@ -140,6 +151,7 @@ RUN curl -fsSL -o ff.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION
 # gst-plugins-bad, which takes about eight seconds.
 RUN curl -fsSL -o bad.tar.xz \
         "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-${GST_VERSION}.tar.xz" \
+    && echo "${GST_PLUGINS_BAD_SHA256}  bad.tar.xz" | sha256sum -c - \
     && tar -xJf bad.tar.xz \
     && cd gst-plugins-bad-${GST_VERSION} \
     && meson setup build --prefix=/usr --libdir=lib/x86_64-linux-gnu \
@@ -219,7 +231,7 @@ RUN set -eu; P=/usr/lib/x86_64-linux-gnu/gstreamer-1.0; mkdir -p /stage/plugins 
     cp /usr/bin/gst-launch-1.0 /usr/local/bin/ffmpeg /stage/; \
     du -sh /stage
 
-FROM gcr.io/distroless/cc-debian12:nonroot
+FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
 # None of these three are in distroless/cc. libcrypt.so.1 — Debian split it out of glibc into
 # libcrypt1 and the binary links crypt(3). libsqlite3.so.0 — our self-built build from the stage
 # above; the base ships no SQLite whatsoever. libargon2.so.1 — debian's.

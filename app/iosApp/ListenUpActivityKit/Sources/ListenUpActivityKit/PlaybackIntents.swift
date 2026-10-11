@@ -75,6 +75,38 @@ public struct ResumePlaybackIntent: LiveActivityIntent {
     }
 }
 
+/// "Set a sleep timer in ListenUp" — a countdown of `minutes` (default 30, as on Android).
+///
+/// With nothing loaded it first resumes the most recent book, as the Android launcher shortcut
+/// does. No waiting is needed: `PlayerCoordinator.play(bookId:)` retargets the player (and its
+/// sleep timer) synchronously on the main actor, so the timer set right after belongs to the
+/// resumed book. With nothing to resume it throws the same spoken error as `ResumePlaybackIntent`
+/// and sets no timer.
+public struct SleepTimerIntent: LiveActivityIntent {
+    public static let title: LocalizedStringResource = "Set Sleep Timer"
+    public static let openAppWhenRun = true
+
+    @Parameter(title: "Minutes", default: 30, inclusiveRange: (1, 720))
+    public var minutes: Int
+
+    @Dependency public var playback: any PlaybackControlling
+    @Dependency public var lastPlayed: any LastPlayedBookProviding
+
+    public init() {}
+
+    @MainActor
+    public func perform() async throws -> some IntentResult {
+        if !playback.hasLoadedBook {
+            guard let bookId = await lastPlayed.mostRecentBookId() else {
+                throw ResumePlaybackError.nothingToResume
+            }
+            playback.playBook(id: bookId)
+        }
+        playback.setSleepTimer(minutes: minutes)
+        return .result()
+    }
+}
+
 /// Failure surfaced to Siri / Shortcuts / Control Center when resume is requested but
 /// the user has no in-progress book. `errorDescription` is what Siri speaks.
 public enum ResumePlaybackError: Swift.Error, LocalizedError, Equatable {

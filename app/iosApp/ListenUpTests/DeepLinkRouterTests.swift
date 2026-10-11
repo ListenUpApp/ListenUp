@@ -157,4 +157,27 @@ struct DeepLinkRouterTests {
         #expect(router.claimShellOutcome(for: UUID()) == nil)
         #expect(router.outcome == invite)
     }
+
+    /// "Search ListenUp" (the Search App Shortcut) asks the shell to open Search: the front window
+    /// takes the request once, like a book link.
+    @Test func aSearchRequestIsClaimedOnceByTheFrontWindow() {
+        let router = DeepLinkRouter(deepLinkManager: DeepLinkManager())
+        let front = UUID()
+        let back = UUID()
+        router.sceneBecameActive(back)
+        router.sceneBecameActive(front)
+
+        router.requestSearch()
+
+        #expect(router.claimShellOutcome(for: back) == nil)
+        #expect(router.claimShellOutcome(for: front) == .openSearch)
+        #expect(router.claimShellOutcome(for: front) == nil)
+    }
+
+    /// The intent can fire before any shell exists (cold launch): the request waits for the first one.
+    @Test func aSearchRequestFromAColdLaunchGoesToTheFirstShell() {
+        let router = DeepLinkRouter(deepLinkManager: DeepLinkManager())
+        router.requestSearch()
+        #expect(router.claimShellOutcome(for: UUID()) == .openSearch)
+    }
 }

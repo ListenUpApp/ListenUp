@@ -16,6 +16,9 @@ enum class UserRole { ROOT, ADMIN, MEMBER }
 @Serializable
 enum class UserStatus { ACTIVE, PENDING_APPROVAL, DENIED }
 
-/** Why a password fails policy. Surfaces in AuthError.WeakPassword. */
+/**
+ * Why a password fails policy. Surfaces in AuthError.WeakPassword. [UNKNOWN] is what an older app
+ * reads a reason a newer server added as, so the error always decodes; the policy never reports it.
+ */
 @Serializable
-enum class WeakPasswordReason { TOO_SHORT, TOO_LONG, BLANK }
+enum class WeakPasswordReason { TOO_SHORT, TOO_LONG, BLANK, UNKNOWN }

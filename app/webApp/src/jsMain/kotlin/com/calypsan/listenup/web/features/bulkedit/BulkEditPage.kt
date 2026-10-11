@@ -288,7 +288,7 @@ private fun CreditFields(
     SelectField(
         label = "Credit as",
         value = pendingRole.apiValue,
-        options = ContributorRole.entries.map { SelectOption(it.apiValue, it.displayName) },
+        options = ContributorRole.entries.filter { it.isAssignable }.map { SelectOption(it.apiValue, it.displayName) },
         onSelect = { value -> pendingRole = value?.let { ContributorRole.fromApiValue(it) } ?: ContributorRole.AUTHOR },
         id = "bke-role",
     )

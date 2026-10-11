@@ -103,12 +103,13 @@ enum ImportStage: Equatable {
     /// Pure: classify the typed `ImportStatus` into a display stage. Mirrors the Android
     /// hub's status badges. Switches on the bridged Kotlin enum so the four real lifecycle
     /// states (`uploaded`/`analyzed`/`mapped`/`applied`) are exhaustive and a contract change
-    /// surfaces at compile time. (Swift Export camelCases the Kotlin `SCREAMING_SNAKE` cases.)
+    /// surfaces at compile time. `unknown` is a status a newer server added: a neutral badge. (Swift Export camelCases the Kotlin `SCREAMING_SNAKE` cases.)
     static func from(status: ImportStatus) -> ImportStage {
         switch status {
         case .uploaded, .analyzed: return .pending
         case .mapped: return .ready
         case .applied: return .imported
+        case .unknown: return .other(String(localized: "import.unknown"))
         @unknown default: return .other(status.description)
         }
     }

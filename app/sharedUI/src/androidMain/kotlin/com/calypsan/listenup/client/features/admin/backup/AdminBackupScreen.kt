@@ -107,6 +107,7 @@ import listenup.composeapp.generated.resources.import_audiobookshelf_imports
 import listenup.composeapp.generated.resources.import_delete_confirm
 import listenup.composeapp.generated.resources.import_delete_import
 import listenup.composeapp.generated.resources.common_administration
+import listenup.composeapp.generated.resources.import_unknown
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -738,6 +739,15 @@ private fun StatusBadge(status: ImportStatus) {
                     MaterialTheme.colorScheme.tertiaryContainer,
                     MaterialTheme.colorScheme.onTertiaryContainer,
                     "Applied",
+                )
+            }
+
+            // A status a newer server added: neutral colour, neutral word, never a guess at a stage.
+            ImportStatus.UNKNOWN -> {
+                Triple(
+                    MaterialTheme.colorScheme.surfaceContainerHighest,
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                    stringResource(Res.string.import_unknown),
                 )
             }
         }

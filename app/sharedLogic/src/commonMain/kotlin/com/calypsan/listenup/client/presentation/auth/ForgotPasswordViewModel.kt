@@ -23,6 +23,10 @@ private val logger = KotlinLogging.logger {}
 /** Cadence for the automatic status re-check while awaiting approval. */
 private const val POLL_INTERVAL_MS = 5_000L
 
+/** Shown when the server reports a reset status this build has never heard of. */
+private const val UNREADABLE_STATUS_MESSAGE =
+    "This version of the app can't tell where your reset request stands. Check with your admin."
+
 /**
  * Upper bound on consecutive stream-reconnect attempts before this loop stops and leaves the
  * (never-stopping) poll as the sole driver. Mirrors [PendingApprovalViewModel]'s bound: a
@@ -257,7 +261,12 @@ class ForgotPasswordViewModel internal constructor(
         state.value = next
         when (event.status) {
             PasswordResetStatus.DENIED, PasswordResetStatus.EXPIRED -> repository.abandonPendingRequest()
+
             PasswordResetStatus.PENDING, PasswordResetStatus.APPROVED, PasswordResetStatus.CONSUMED -> Unit
+
+            // A status this build cannot read: stop watching rather than wait on it forever, but keep
+            // the persisted request, which an updated app may still be able to finish.
+            PasswordResetStatus.UNKNOWN -> stopWatching()
         }
     }
 
@@ -305,6 +314,10 @@ class ForgotPasswordViewModel internal constructor(
 
             PasswordResetStatus.EXPIRED -> {
                 ForgotPasswordUiState.Error("Your reset request expired. Please start again.")
+            }
+
+            PasswordResetStatus.UNKNOWN -> {
+                ForgotPasswordUiState.Error(UNREADABLE_STATUS_MESSAGE)
             }
         }
 

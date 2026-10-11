@@ -19,6 +19,7 @@ internal fun roleLabel(role: ContributorRole): String =
     when (role) {
         ContributorRole.AUTHOR -> "Author"
         ContributorRole.NARRATOR -> "Narrator"
+        ContributorRole.UNKNOWN -> "Other role"
         else -> role.apiValue.replaceFirstChar { it.uppercase() }
     }
 
@@ -45,6 +46,7 @@ private fun creditText(credit: LibraryCredit): String {
             ContributorRole.PRODUCER -> "Produced"
             ContributorRole.ADAPTER -> "Adapted"
             ContributorRole.ILLUSTRATOR -> "Illustrated"
+            ContributorRole.UNKNOWN -> "Credited on"
         }
     return "$verb ${credit.bookCount}"
 }

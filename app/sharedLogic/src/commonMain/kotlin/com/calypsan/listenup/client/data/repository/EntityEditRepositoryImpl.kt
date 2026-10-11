@@ -344,4 +344,5 @@ private fun StoryWorldOp.toDomain(): WorldEntityChangeOp =
         StoryWorldOp.DELETE -> WorldEntityChangeOp.DELETE
         StoryWorldOp.MERGE -> WorldEntityChangeOp.MERGE
         StoryWorldOp.REVERT -> WorldEntityChangeOp.REVERT
+        StoryWorldOp.UNKNOWN -> WorldEntityChangeOp.UNKNOWN
     }

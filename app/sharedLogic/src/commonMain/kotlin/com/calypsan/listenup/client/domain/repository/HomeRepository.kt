@@ -41,6 +41,17 @@ interface HomeRepository {
             ?.firstOrNull()
 
     /**
+     * iOS-safe accessor: up to [limit] "continue listening" books, most recent first, or an empty
+     * list when the read fails (logged). Use from Swift — never `await` the `AppResult`-returning
+     * [getContinueListening] (Swift Export bridge trap). Swift Export does not bridge default
+     * parameter values, so [limit] is required.
+     */
+    suspend fun getRecentBooksOrEmpty(limit: Int): List<ContinueListeningBook> =
+        getContinueListening(limit = limit)
+            .valueOrNull { homeRepositoryLogger.warn { "getRecentBooksOrEmpty: ${it.debugInfo ?: it.message}" } }
+            .orEmpty()
+
+    /**
      * Observe continue listening books from local database.
      *
      * Provides real-time updates when playback positions change locally.

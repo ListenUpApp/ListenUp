@@ -23,6 +23,7 @@ data class ScanProgressState(
     val recentBooks: List<ScanBookRef> = emptyList(),
     val startedAtMs: Long = 0,
 ) {
+    /** The phase in words. `"unknown"` is `ScanPhase.UNKNOWN`, a phase a newer server added: generic "Working". */
     val phaseDisplayName: String
         get() =
             when (phase) {
@@ -34,6 +35,7 @@ data class ScanProgressState(
                 "applying" -> "Syncing"
                 "persisting" -> "Saving library"
                 "complete" -> "Finishing up"
+                "unknown" -> "Working"
                 else -> phase.replaceFirstChar { it.uppercase() }
             }
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.metadata
 
+import com.calypsan.listenup.api.EnumKeyedMapSerializer
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -28,6 +29,14 @@ public object FieldProvenanceMapSerializer :
 /** The same forward-compatible codec for a [ContributorField]-keyed provenance map. */
 public object ContributorFieldProvenanceMapSerializer :
     KSerializer<Map<ContributorField, FieldProvenance>> by EnumKeyedProvenanceSerializer(ContributorField.entries)
+
+/**
+ * The same forward-compatible codec for a [BookField]-keyed map of display labels
+ * ([com.calypsan.listenup.api.dto.MatchProvenance.fallbackFields]): a field name this build does not
+ * recognise is dropped on decode instead of failing the whole match preview.
+ */
+public object BookFieldLabelMapSerializer :
+    KSerializer<Map<BookField, String>> by EnumKeyedMapSerializer(BookField.entries, String.serializer())
 
 /**
  * A provenance map keyed by an enum, encoded with the enum names as JSON keys; on decode a name this build

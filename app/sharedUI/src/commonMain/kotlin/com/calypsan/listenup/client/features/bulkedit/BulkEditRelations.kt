@@ -65,6 +65,7 @@ import listenup.composeapp.generated.resources.book_role_introduction
 import listenup.composeapp.generated.resources.book_role_narrator
 import listenup.composeapp.generated.resources.book_role_producer
 import listenup.composeapp.generated.resources.book_role_translator
+import listenup.composeapp.generated.resources.book_role_unknown
 import listenup.composeapp.generated.resources.bulk_edit_add_trimmed
 import listenup.composeapp.generated.resources.bulk_edit_contributors
 import listenup.composeapp.generated.resources.bulk_edit_genres
@@ -544,7 +545,7 @@ private fun RolePicker(
             Icon(imageVector = Icons.Outlined.ArrowDropDown, contentDescription = null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            ContributorRole.entries.forEach { option ->
+            ContributorRole.entries.filter { it.isAssignable }.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(roleLabel(option)) },
                     onClick = {
@@ -572,6 +573,7 @@ private fun roleLabel(role: ContributorRole): String =
             ContributorRole.PRODUCER -> Res.string.book_role_producer
             ContributorRole.ADAPTER -> Res.string.book_role_adapter
             ContributorRole.ILLUSTRATOR -> Res.string.book_role_illustrator
+            ContributorRole.UNKNOWN -> Res.string.book_role_unknown
         },
     )
 

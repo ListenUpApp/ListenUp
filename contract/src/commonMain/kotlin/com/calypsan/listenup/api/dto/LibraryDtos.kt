@@ -3,6 +3,8 @@ package com.calypsan.listenup.api.dto
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -18,6 +20,7 @@ import kotlinx.serialization.Serializable
  * The [folders] list contains lightweight [LibraryFolderRef] snapshots — enough
  * for display and folder-lifecycle operations without a separate fetch.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("Library")
 data class Library(
@@ -34,9 +37,12 @@ data class Library(
     val metadataPrecedence: String,
     /**
      * Who can see this library. Defaults to [AccessMode.SHARED] (all users).
-     * Forward-staged for multi-user support — not enforced until permissions land.
+     * Forward-staged for multi-user support — not enforced until permissions land. A mode this build
+     * has never heard of reads as [AccessMode.UNKNOWN], never as a mode that misstates who can see
+     * the library. Always encoded, so an app built before this default existed still finds the key.
      */
-    val accessMode: AccessMode,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val accessMode: AccessMode = AccessMode.UNKNOWN,
     /**
      * The user who created this library. `null` for bootstrap-created libraries
      * (env-var path at first boot) or pre-multi-user libraries.
@@ -140,4 +146,10 @@ enum class AccessMode {
     SHARED,
     PRIVATE,
     RESTRICTED,
+
+    /**
+     * What an older app reads a value a newer server added as. Never sent by a client, never
+     * written by the server, never offered as a choice.
+     */
+    UNKNOWN,
 }

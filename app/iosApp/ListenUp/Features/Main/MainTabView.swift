@@ -205,6 +205,7 @@ struct MainTabView: View {
         guard let claimed = deepLinkRouter.claimShellOutcome(for: sceneID) else { return }
         switch claimed {
         case .openBook(let id): shell.open(BookDestination(id: id))
+        case .openSearch: shell.focusSearch()
         case .wrongServer: bookLinkError = .wrongServer
         case .notConnected: bookLinkError = .notConnected
         case .none, .claimInvite: break

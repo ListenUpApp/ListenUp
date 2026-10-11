@@ -1,3 +1,4 @@
+import Foundation
 import ListenupContract
 import Testing
 import Shared
@@ -143,6 +144,11 @@ struct ImportFlowObserverTests {
     @Test func stageMapsPendingStatuses() {
         #expect(ImportStage.from(status: .uploaded) == .pending)
         #expect(ImportStage.from(status: .analyzed) == .pending)
+    }
+
+    /// A status a newer server added reads as a neutral "Unknown" badge, never as a real stage.
+    @Test func stageMapsAnUnreadableStatusToANeutralLabel() {
+        #expect(ImportStage.from(status: .unknown) == .other(String(localized: "import.unknown")))
     }
 
     @Test func stageMapsReadyAndImported() {

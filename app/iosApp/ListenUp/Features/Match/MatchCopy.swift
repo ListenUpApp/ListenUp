@@ -432,6 +432,7 @@ extension MatchCopy {
         case .producer: String(localized: "book.role_producer")
         case .adapter: String(localized: "book.role_adapter")
         case .illustrator: String(localized: "book.role_illustrator")
+        case .unknown: String(localized: "book.role_unknown")
         }
     }
 
@@ -448,6 +449,7 @@ extension MatchCopy {
         case .producer: String(localized: "match.credit_producer")
         case .adapter: String(localized: "match.credit_adapter")
         case .illustrator: String(localized: "match.credit_illustrator")
+        case .unknown: String(localized: "match.credit_unknown")
         }
         return String(format: format, Int(credit.bookCount))
     }

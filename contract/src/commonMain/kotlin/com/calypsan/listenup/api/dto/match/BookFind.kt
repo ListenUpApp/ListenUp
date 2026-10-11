@@ -72,7 +72,12 @@ sealed interface SearchStep {
     ) : SearchStep
 }
 
-/** The facts of your copy every candidate is ranked against, echoed so the ranking and the strip agree. */
+/**
+ * The facts of your copy every candidate is ranked against, echoed so the ranking and the strip agree.
+ * A [format] this build has never heard of reads as null: "format not stated". It is always encoded,
+ * null included, because an app built before that default existed treats the key as required.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("YourCopy")
 data class YourCopy(
@@ -80,7 +85,7 @@ data class YourCopy(
     @SerialName("narrators") val narrators: List<String>,
     @SerialName("chapterCount") val chapterCount: Int?,
     @SerialName("year") val year: Int?,
-    @SerialName("format") val format: EditionFormat?,
+    @SerialName("format") @EncodeDefault(EncodeDefault.Mode.ALWAYS) val format: EditionFormat? = null,
 )
 
 /**

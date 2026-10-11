@@ -153,6 +153,21 @@ class MatchingServiceImplPersonMatchTest :
             }
         }
 
+        test("a role this server cannot read is never echoed back as UNKNOWN") {
+            withSqlDatabase {
+                runTest {
+                    val people = PersonRig(this@withSqlDatabase)
+                    people.seedRay()
+                    val service = personService(people).copyWith(rootPrincipal())
+
+                    service
+                        .reviewPersonMatch(ContributorId(people.rayId), PERSON_KEY, ContributorRole.UNKNOWN)
+                        .value()
+                        .role shouldBe null
+                }
+            }
+        }
+
         test("keeping both photo and biography still links the person, with an empty receipt") {
             withSqlDatabase {
                 runTest {
