@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -109,6 +110,43 @@ class BookDetailDerivationsTest :
             }
             test("a held book (no warning, cannot play) is not Unavailable offline: triage replaces the action") {
                 primaryActionFor(ReadingStage.NotStarted, showServerWarning = false, canPlay = false) shouldBe PrimaryAction.Play
+            }
+        }
+
+        context("currentChapterOf") {
+            val chapters = TestData.chapters(count = 4, chapterDuration = 900_000L) // starts 0, 900k, 1.8M, 2.7M
+            test("names the chapter the position is in, one-based, with time into it") {
+                currentChapterOf(chapters, positionMs = 1_000_000L) shouldBe
+                    CurrentChapter(index = 1, number = 2, title = "Chapter 2", startMs = 900_000L, elapsedInChapterMs = 100_000L)
+            }
+            test("a position exactly on a boundary is in the chapter that starts there") {
+                currentChapterOf(chapters, 1_800_000L)?.index shouldBe 2
+            }
+            test("no chapters, no current chapter") {
+                currentChapterOf(emptyList(), 1_000L) shouldBe null
+            }
+        }
+
+        context("chapterWindow") {
+            fun rows(n: Int) = (0 until n).map { ChapterUiModel(id = "c$it", title = "Ch $it", duration = "1m", imageUrl = null) }
+
+            fun ids(window: List<ChapterUiModel>) = window.map { it.id }
+
+            test("no current chapter shows the first five") {
+                ids(chapterWindow(rows(20), currentIndex = null)) shouldBe listOf("c0", "c1", "c2", "c3", "c4")
+            }
+            test("the current chapter sits in the middle, two either side") {
+                ids(chapterWindow(rows(20), currentIndex = 10)) shouldBe listOf("c8", "c9", "c10", "c11", "c12")
+            }
+            test("clamped at the start") {
+                ids(chapterWindow(rows(20), currentIndex = 0)) shouldBe listOf("c0", "c1", "c2", "c3", "c4")
+                ids(chapterWindow(rows(20), currentIndex = 1)) shouldBe listOf("c0", "c1", "c2", "c3", "c4")
+            }
+            test("clamped at the end") {
+                ids(chapterWindow(rows(20), currentIndex = 19)) shouldBe listOf("c15", "c16", "c17", "c18", "c19")
+            }
+            test("fewer than five chapters shows them all") {
+                ids(chapterWindow(rows(3), currentIndex = 2)) shouldBe listOf("c0", "c1", "c2")
             }
         }
     })

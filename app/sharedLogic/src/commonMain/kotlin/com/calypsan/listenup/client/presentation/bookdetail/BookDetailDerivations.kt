@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 
 /** Where the reader is with a book of [durationMs], from its saved [position]. Pure. */
@@ -91,3 +92,40 @@ internal fun primaryActionFor(
         stage == ReadingStage.Finished -> PrimaryAction.ListenAgain
         else -> PrimaryAction.Play
     }
+
+/** How many chapter rows Book Detail shows collapsed (spec §2.5). */
+internal const val CHAPTER_WINDOW_SIZE = 5
+
+/** The chapter [positionMs] sits in, or null when there are no chapters. Pure. */
+internal fun currentChapterOf(
+    chapters: List<Chapter>,
+    positionMs: Long,
+): CurrentChapter? {
+    val index = currentChapterIndex(chapters.map { it.startTime }, positionMs) ?: return null
+    val chapter = chapters[index]
+    return CurrentChapter(
+        index = index,
+        number = index + 1,
+        title = chapter.title,
+        startMs = chapter.startTime,
+        elapsedInChapterMs = (positionMs - chapter.startTime).coerceAtLeast(0L),
+    )
+}
+
+/**
+ * The collapsed chapter list: five rows around [currentIndex] (two either side, clamped at the ends), or the first
+ * five when there is no current chapter (not started, finished). Pure.
+ */
+internal fun chapterWindow(
+    rows: List<ChapterUiModel>,
+    currentIndex: Int?,
+): List<ChapterUiModel> {
+    if (rows.size <= CHAPTER_WINDOW_SIZE) return rows
+    val start =
+        if (currentIndex == null) {
+            0
+        } else {
+            (currentIndex - CHAPTER_WINDOW_SIZE / 2).coerceIn(0, rows.size - CHAPTER_WINDOW_SIZE)
+        }
+    return rows.subList(start, start + CHAPTER_WINDOW_SIZE)
+}
