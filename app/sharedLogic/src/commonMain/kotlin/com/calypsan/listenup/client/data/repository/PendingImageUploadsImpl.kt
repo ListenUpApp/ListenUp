@@ -210,10 +210,12 @@ internal class PendingImageUploadsImpl(
 
         data object Dropped : UploadOutcome
 
+        /** The upload failed for a reason that may pass ([error]); the image stays queued for the next pass. */
         data class Failed(
             val error: AppError,
         ) : UploadOutcome
 
+        /** The server refused the image for good ([refusal]); it is dropped from the queue and reported. */
         data class Refused(
             val refusal: ImageUploadRefusal,
         ) : UploadOutcome
