@@ -358,13 +358,13 @@ class SleepTimerSessionTest :
                 )
 
             manager.currentChapter.value = chapterInfo(index = 0)
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             player.awaitState(PlaybackState.Playing)
             playback.setSleepTimer(SleepTimerMode.EndOfChapter)
             playback.sleepTimer.value.shouldBeInstanceOf<SleepTimerState.Active>()
 
             // A different book, started while that timer is live.
-            playback.playBook(BookId("book-2"))
+            playback.playBook(BookId("book-2"), startAtMs = null)
             player.awaitState(PlaybackState.Playing)
 
             // Cancelled by the change of book, not carried over.
@@ -405,7 +405,7 @@ class SleepTimerSessionTest :
             // yet sees only 1, so the end-of-chapter baseline never becomes 0 and the turn cannot
             // be detected. This ordering is load-bearing, not incidental.
             manager.currentChapter.value = chapterInfo(index = 0)
-            playback.playBook(BookId("book-1"))
+            playback.playBook(BookId("book-1"), startAtMs = null)
             player.awaitState(PlaybackState.Playing)
 
             playback.setSleepTimer(SleepTimerMode.EndOfChapter)

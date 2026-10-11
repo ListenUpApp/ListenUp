@@ -575,7 +575,7 @@ private fun SeriesRouteContent(
         onEdit = { router.navigate(Route(listOf(SERIES_KEY, seriesId, EDIT_KEY))) },
         onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
         onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-        onPlayBook = { id -> playback.onPlayBook(BookId(id)) },
+        onPlayBook = { id -> playback.onPlayBook(BookId(id), null) },
         // Pushed, not popped to: Back from the ancestor still returns to this series.
         onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
         onToggleSection = session.onToggleSection,
@@ -1841,7 +1841,7 @@ private fun BookDetailRoute(
                 }
             router.replace(Route(route.segments, query))
         },
-        onPlay = { playback.onPlayBook(BookId(bookId)) },
+        onPlay = { playback.onPlayBook(BookId(bookId), null) },
         isPreparing = playback.preparingBookId.collectAsState().value == bookId,
         onMarkComplete = detailSession.onMarkComplete,
         onDiscardProgress = detailSession.onDiscardProgress,
