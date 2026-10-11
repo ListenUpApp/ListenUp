@@ -92,3 +92,16 @@ enum class FinishDatesProblem {
 }
 
 private fun LocalDate.startMs(timeZone: TimeZone): Long = atStartOfDayIn(timeZone).toEpochMilliseconds()
+
+/**
+ * When a finished book was read: "Finished · 12 Feb – 3 Mar 2026". Instants, in epoch milliseconds; each platform
+ * formats the days in the reader's own zone.
+ *
+ * @property startedAtMs When the read began, or null when the device never learned it (the span then shows only the
+ *   finish).
+ * @property finishedAtMs When the book was marked or played to finished.
+ */
+data class FinishedSpan(
+    val startedAtMs: Long?,
+    val finishedAtMs: Long,
+)
