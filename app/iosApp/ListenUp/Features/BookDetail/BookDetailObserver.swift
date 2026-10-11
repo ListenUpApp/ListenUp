@@ -29,6 +29,9 @@ final class BookDetailObserver {
     private(set) var genres: [FacetChip] = []
     private(set) var tags: [FacetChip] = []
     private(set) var moods: [FacetChip] = []
+    /// Reading stage, the visit's section order, primary action, current chapter and its window, time left,
+    /// finished span, download size, series shelf and the admin-only scan flag — projected once per `Ready`.
+    private(set) var reading = BookReadingState()
 
     // MARK: - Projected from `book`
 
@@ -432,6 +435,7 @@ final class BookDetailObserver {
             isReleasingFromInbox = r.isReleasingFromInbox
             visibility = BookVisibilityModel.from(r.visibility)
             isRestoringToAllBooks = r.isRestoringToAllBooks
+            reading = BookReadingState(r)
             if isWaitingForWifi != r.isWaitingForWifi {
                 isWaitingForWifi = r.isWaitingForWifi
                 latestDownloadStatus.map { applyDownloadStatus($0) }

@@ -17,6 +17,8 @@ final class BookReadersObserver {
     // MARK: - State
 
     private(set) var phase: BookReadersPhase = .loading
+    /// Who else is reading, for the hero's social line; nil until there is someone besides you.
+    private(set) var socialLine: ReadersSocialLine?
 
     // MARK: - Dependencies
 
@@ -38,14 +40,18 @@ final class BookReadersObserver {
         switch state.sealedType() {
         case .loading:
             phase = .loading
+            socialLine = nil
         case .noReaders:
             phase = .empty
+            socialLine = nil
         case .data(let dataType):
             let data = dataType.value
             phase = .data(Self.rows(from: data.readers))
+            socialLine = ReadersSocialLine(data.summary)
         case .error(let errorType):
             let error = errorType.value
             phase = .error(isRetryable: error.isRetryable)
+            socialLine = nil
         }
     }
 

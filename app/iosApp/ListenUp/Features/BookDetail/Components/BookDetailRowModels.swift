@@ -11,12 +11,15 @@ struct BookChapterRow: Identifiable, Equatable, Hashable {
     let title: String
     let duration: String
     let isCurrent: Bool
+    /// Where the chapter starts in the book, in milliseconds: what playing from this chapter seeks to.
+    let startMs: Int64
 
-    init(id: String, title: String, duration: String, isCurrent: Bool) {
+    init(id: String, title: String, duration: String, isCurrent: Bool, startMs: Int64 = 0) {
         self.id = id
         self.title = title
         self.duration = duration
         self.isCurrent = isCurrent
+        self.startMs = startMs
     }
 
     init(_ chapter: ChapterUiModel) {
@@ -24,6 +27,7 @@ struct BookChapterRow: Identifiable, Equatable, Hashable {
         self.title = chapter.title
         self.duration = chapter.duration
         self.isCurrent = chapter.isCurrent
+        self.startMs = chapter.startMs
     }
 }
 
