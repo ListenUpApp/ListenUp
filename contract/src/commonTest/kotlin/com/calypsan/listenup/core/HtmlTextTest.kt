@@ -32,6 +32,10 @@ class HtmlTextTest :
             htmlToPlainText("a<img src=x onerror=y>b") shouldBe "ab"
         }
 
+        test("encoded tags stay text, because entities are decoded after tags are stripped") {
+            htmlToPlainText("&lt;b&gt;bold&lt;/b&gt; &lt;img src=x&gt;") shouldBe "<b>bold</b> <img src=x>"
+        }
+
         test("plain text is unchanged") {
             htmlToPlainText("plain text") shouldBe "plain text"
         }
