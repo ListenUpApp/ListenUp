@@ -19,15 +19,45 @@ struct DeviceRowModel: Identifiable, Equatable {
     let secondary: String
     let lastUsedAtMs: Int64
     let isCurrent: Bool
+    /// What kind of device signed in, decided once in shared code so every platform draws the same one.
+    let glyph: DeviceGlyph
 
     var id: String { sessionId }
 
-    init(sessionId: String, displayName: String, secondary: String, lastUsedAtMs: Int64, isCurrent: Bool) {
+    /// The SF Symbol this device is drawn with.
+    var symbolName: String { Self.symbolName(for: glyph) }
+
+    init(
+        sessionId: String,
+        displayName: String,
+        secondary: String,
+        lastUsedAtMs: Int64,
+        isCurrent: Bool,
+        glyph: DeviceGlyph
+    ) {
         self.sessionId = sessionId
         self.displayName = displayName
         self.secondary = secondary
         self.lastUsedAtMs = lastUsedAtMs
         self.isCurrent = isCurrent
+        self.glyph = glyph
+    }
+
+    /// The SF Symbol for a kind of device. Exhaustive, so a glyph added in shared code cannot be forgotten.
+    static func symbolName(for glyph: DeviceGlyph) -> String {
+        switch glyph {
+        case .Phone: "iphone.gen3"
+        case .Tablet: "ipad"
+        case .Computer: "laptopcomputer"
+        case .Browser: "globe"
+        case .Tv: "tv"
+        case .Watch: "applewatch"
+        case .Car: "car"
+        case .Headset: "visionpro"
+        case .Cast: "airplayvideo"
+        case .Speaker: "hifispeaker"
+        case .Unknown: "ipad.and.iphone"
+        }
     }
 
     /// Reads each bridged property once.
@@ -37,7 +67,8 @@ struct DeviceRowModel: Identifiable, Equatable {
             displayName: row.displayName,
             secondary: row.secondary,
             lastUsedAtMs: row.lastUsedAt,
-            isCurrent: row.isCurrent
+            isCurrent: row.isCurrent,
+            glyph: row.glyph
         )
     }
 }

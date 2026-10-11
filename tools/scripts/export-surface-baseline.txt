@@ -264,6 +264,7 @@ DeleteConfirmation
 DeleteConfirmation_SealedType
 DeviceContext
 DeviceContextProvider
+DeviceGlyph
 DeviceInfo
 DeviceInfoProvider
 DeviceRow

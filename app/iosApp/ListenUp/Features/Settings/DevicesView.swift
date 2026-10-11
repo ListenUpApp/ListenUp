@@ -132,7 +132,7 @@ struct DevicesView: View {
     @ViewBuilder
     private func thisDeviceRow(_ device: DeviceRowModel) -> some View {
         HStack(spacing: 14) {
-            IconTile(systemImage: deviceIcon(for: device.secondary), size: 50)
+            IconTile(systemImage: device.symbolName, size: 50)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
                     Text(device.displayName)
@@ -175,7 +175,7 @@ struct DevicesView: View {
     private func otherDeviceRow(_ device: DeviceRowModel, signingOut: Set<String>) -> some View {
         let target = RevokeTarget(sessionId: device.sessionId, displayName: device.displayName)
         HStack(spacing: 13) {
-            IconTile(systemImage: deviceIcon(for: device.secondary), size: 44)
+            IconTile(systemImage: device.symbolName, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(device.displayName)
                     .font(.callout.weight(.semibold))
@@ -221,18 +221,6 @@ struct DevicesView: View {
     }
 
     // MARK: - Helpers
-
-    /// Heuristic: map a device's secondary descriptor to an SF Symbol icon name.
-    private func deviceIcon(for secondary: String) -> String {
-        let lower = secondary.lowercased()
-        if lower.contains("ipad") { return "ipad" }
-        if lower.contains("iphone") || lower.contains("ios") { return "iphone.gen3" }
-        if lower.contains("mac") || lower.contains("desktop") { return "laptopcomputer" }
-        if lower.contains("web") || lower.contains("safari") || lower.contains("chrome") {
-            return "globe"
-        }
-        return "ipad.and.iphone"
-    }
 
     /// Formats `epochMs` as a relative date string ("2 hours ago", "Yesterday", etc.).
     private func relativeDate(epochMs: Int64) -> String {
