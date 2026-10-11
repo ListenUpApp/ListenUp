@@ -26,6 +26,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -327,6 +330,7 @@ fun BooksContent(
                         ignoreTitleArticles = ignoreTitleArticles,
                         bookStatus = bookStatus,
                         progressUnderTitle = progressUnderTitle,
+                        statusFilter = statusFilter,
                         isInSelectionMode = isInSelectionMode,
                         selectedBookIds = selectedBookIds,
                         onBookClick = onBookClick,
@@ -351,6 +355,7 @@ private fun BookGrid(
     ignoreTitleArticles: Boolean,
     bookStatus: Map<BookId, BookCardStatus>,
     progressUnderTitle: Boolean,
+    statusFilter: BookStatusFilter,
     isInSelectionMode: Boolean,
     selectedBookIds: Set<String>,
     onBookClick: (String) -> Unit,
@@ -360,6 +365,17 @@ private fun BookGrid(
 ) {
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
+
+    // A new status filter is a new list: open it at the top. A grid keeps its place by item key, so
+    // without this a filter opened part-way down, its first books scrolled off above. The last filter
+    // is saved so returning from Book Detail (same filter) keeps the reader's place.
+    var lastStatusFilter by rememberSaveable { mutableStateOf(statusFilter) }
+    LaunchedEffect(statusFilter) {
+        if (statusFilter != lastStatusFilter) {
+            lastStatusFilter = statusFilter
+            gridState.scrollToItem(0)
+        }
+    }
 
     // Group books with section headers for text-based sorts
     val gridItems =
