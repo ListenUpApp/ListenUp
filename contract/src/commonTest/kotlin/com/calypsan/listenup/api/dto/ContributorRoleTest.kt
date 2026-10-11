@@ -15,9 +15,16 @@ class ContributorRoleTest :
             ContributorRole.fromApiValue("special guest").shouldBeNull()
         }
 
-        test("apiValue round-trips for every role") {
-            ContributorRole.entries.forEach { role ->
+        test("apiValue round-trips for every role a person can hold") {
+            ContributorRole.entries.filter { it.isAssignable }.forEach { role ->
                 ContributorRole.fromApiValue(role.apiValue) shouldBe role
             }
+        }
+
+        test("UNKNOWN is a decode fallback, not a role: it is the only unassignable entry and no token resolves to it") {
+            ContributorRole.entries.filterNot { it.isAssignable } shouldBe listOf(ContributorRole.UNKNOWN)
+            ContributorRole.entries.last() shouldBe ContributorRole.UNKNOWN
+            ContributorRole.fromApiValue(ContributorRole.UNKNOWN.apiValue).shouldBeNull()
+            ContributorRole.fromApiValue("UNKNOWN").shouldBeNull()
         }
     })

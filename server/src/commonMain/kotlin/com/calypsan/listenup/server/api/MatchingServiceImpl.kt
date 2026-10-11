@@ -184,7 +184,8 @@ internal class MatchingServiceImpl(
         val person = details.people.loadPerson(contributorId) ?: return AppResult.Failure(notFound(contributorId))
         return details.people.reviewer
             .review(person, candidate, personLocale(candidate))
-            .map { it.review.copy(role = role) }
+            // UNKNOWN is what a role this server cannot read decodes as; only a real role is echoed.
+            .map { it.review.copy(role = role?.takeIf(ContributorRole::isAssignable)) }
     }
 
     override suspend fun applyPersonMatch(

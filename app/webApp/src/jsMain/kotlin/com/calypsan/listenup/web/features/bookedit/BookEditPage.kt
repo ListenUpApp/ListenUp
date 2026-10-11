@@ -321,7 +321,7 @@ private fun ContributorFields(
         }
     }
 
-    val hidden = ContributorRole.entries.filterNot { it in state.visibleRoles }
+    val hidden = ContributorRole.entries.filter { it.isAssignable && it !in state.visibleRoles }
     if (hidden.isNotEmpty()) {
         Div(attrs = { classes("rel-add-roles") }) {
             hidden.forEach { role ->

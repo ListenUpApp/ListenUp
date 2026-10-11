@@ -3,13 +3,16 @@ package com.calypsan.listenup.api
 import com.calypsan.listenup.api.dto.AccessMode
 import com.calypsan.listenup.api.dto.CollectionShareDto
 import com.calypsan.listenup.api.dto.CollectionSummary
+import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.CoverOption
 import com.calypsan.listenup.api.dto.CoverOptionSource
+import com.calypsan.listenup.api.dto.ExternalRatingsCheck
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.MatchProvenance
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.PasswordResetStatus
 import com.calypsan.listenup.api.dto.auth.PasswordResetStatusEvent
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
@@ -17,12 +20,22 @@ import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.StoryWorldOp
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
+import com.calypsan.listenup.api.dto.imports.AbsUserMatch
+import com.calypsan.listenup.api.dto.imports.ImportAnalysis
 import com.calypsan.listenup.api.dto.imports.ImportStatus
 import com.calypsan.listenup.api.dto.imports.ImportSummary
+import com.calypsan.listenup.api.dto.imports.MatchTier as ImportMatchTier
 import com.calypsan.listenup.api.dto.invite.InviteDto
 import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.api.dto.invite.InviteStatus
 import com.calypsan.listenup.api.dto.invite.InviteSummary
+import com.calypsan.listenup.api.dto.match.BookCandidate
+import com.calypsan.listenup.api.dto.match.BookCandidateKey
+import com.calypsan.listenup.api.dto.match.EditionFormat
+import com.calypsan.listenup.api.dto.match.ExternalRef
+import com.calypsan.listenup.api.dto.match.LibraryCredit
+import com.calypsan.listenup.api.dto.match.MatchTier
+import com.calypsan.listenup.api.dto.match.YourCopy
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
@@ -34,6 +47,7 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
+import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.EntityId
 import com.calypsan.listenup.core.ImportId
@@ -44,6 +58,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 /**
@@ -140,6 +155,35 @@ class UnknownEnumValueInResponseFallbackTest :
             )
         val broken = HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED)
         val weak = AuthError.WeakPassword(reason = WeakPasswordReason.TOO_SHORT)
+
+        val absUser = AbsUserMatch(AbsUserId("a1"), "alex", null, UserId("u1"), ImportMatchTier.STRONG)
+        val analysis =
+            ImportAnalysis(
+                userMatches = emptyList(),
+                bookMatchCounts = mapOf(ImportMatchTier.ASIN to 4, ImportMatchTier.PATH to 2),
+                ambiguous = emptyList(),
+                unmatched = emptyList(),
+            )
+        val yourCopy = YourCopy(durationMs = 1, narrators = emptyList(), chapterCount = 3, year = 2020, format = EditionFormat.ABRIDGED)
+        val candidate =
+            BookCandidate(
+                key = BookCandidateKey(listOf(ExternalRef("hardcover", "427578"))),
+                title = "Project Hail Mary",
+                subtitle = null,
+                authors = listOf("Andy Weir"),
+                narrators = emptyList(),
+                durationMs = null,
+                year = null,
+                format = EditionFormat.ABRIDGED,
+                chapterCount = null,
+                coverUrl = null,
+                foundIn = emptyList(),
+                tier = MatchTier.STRONG,
+                score = 0.9,
+                isBest = true,
+                isCurrentLink = false,
+                reasons = emptyList(),
+            )
 
         val probes =
             listOf(
@@ -286,6 +330,74 @@ class UnknownEnumValueInResponseFallbackTest :
                     fallback = WeakPasswordReason.UNKNOWN,
                     atFallback = weak.copy(reason = WeakPasswordReason.UNKNOWN),
                     key = "reason",
+                ),
+                FallbackProbe(
+                    field = "RegistrationPolicy as a bare RPC result",
+                    serializer = RegistrationPolicy.serializer(),
+                    known = RegistrationPolicy.OPEN,
+                    knownLiteral = "OPEN",
+                    read = { it },
+                    fallback = RegistrationPolicy.CLOSED,
+                ),
+                FallbackProbe(
+                    field = "AbsUserMatch.confidence",
+                    serializer = AbsUserMatch.serializer(),
+                    known = absUser,
+                    knownLiteral = "STRONG",
+                    read = { it.confidence },
+                    fallback = ImportMatchTier.UNMATCHED,
+                ),
+                FallbackProbe(
+                    field = "ImportAnalysis.bookMatchCounts (the unknown key is dropped, the rest survive)",
+                    serializer = ImportAnalysis.serializer(),
+                    known = analysis,
+                    knownLiteral = "ASIN",
+                    read = { it.bookMatchCounts },
+                    fallback = mapOf(ImportMatchTier.PATH to 2),
+                ),
+                FallbackProbe(
+                    field = "YourCopy.format",
+                    serializer = YourCopy.serializer(),
+                    known = yourCopy,
+                    knownLiteral = "ABRIDGED",
+                    read = { it.format },
+                    fallback = null,
+                    atFallback = yourCopy.copy(format = null),
+                    key = "format",
+                ),
+                FallbackProbe(
+                    field = "BookCandidate.format",
+                    serializer = BookCandidate.serializer(),
+                    known = candidate,
+                    knownLiteral = "ABRIDGED",
+                    read = { it.format },
+                    fallback = null,
+                    atFallback = candidate.copy(format = null),
+                    key = "format",
+                ),
+                FallbackProbe(
+                    field = "LibraryCredit.role",
+                    serializer = LibraryCredit.serializer(),
+                    known = LibraryCredit(ContributorRole.NARRATOR, bookCount = 3),
+                    knownLiteral = "NARRATOR",
+                    read = { it.role },
+                    fallback = ContributorRole.UNKNOWN,
+                ),
+                FallbackProbe(
+                    field = "PersonCandidate.roles (one element of the list; the rest survive)",
+                    serializer = ListSerializer(ContributorRole.serializer()),
+                    known = listOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR),
+                    knownLiteral = "NARRATOR",
+                    read = { it },
+                    fallback = listOf(ContributorRole.AUTHOR, ContributorRole.UNKNOWN),
+                ),
+                FallbackProbe(
+                    field = "ExternalRatingsCheck as a bare stream element",
+                    serializer = ExternalRatingsCheck.serializer(),
+                    known = ExternalRatingsCheck.CHECKING,
+                    knownLiteral = "CHECKING",
+                    read = { it },
+                    fallback = ExternalRatingsCheck.UNKNOWN,
                 ),
             )
 

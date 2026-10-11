@@ -6541,6 +6541,16 @@
         }
       }
     },
+    "book.role_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other role"
+          }
+        }
+      }
+    },
     "book.show_all_chapters": {
       "localizations": {
         "en": {
@@ -15757,6 +15767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Translated %1$d"
+          }
+        }
+      }
+    },
+    "match.credit_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Credited on %1$d"
           }
         }
       }

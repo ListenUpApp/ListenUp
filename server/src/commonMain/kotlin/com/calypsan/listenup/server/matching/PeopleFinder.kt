@@ -57,7 +57,7 @@ internal class PeopleFinder(
                     .map { SourcedPerson(source.id.presentedAs(), it) }
             }
         return PersonFindResult(
-            role = request.role,
+            role = request.role?.takeIf { it.isAssignable },
             steps = steps(asked, subject, query),
             inLibrary = InLibrary(subject.books.size, subject.books.take(IN_LIBRARY_TITLES).map { it.title }),
             coverage = sources.map { RoleCoverage(it.id.toMetadataSource(), hasProfiles = true) },

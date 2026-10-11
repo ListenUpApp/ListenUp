@@ -1,13 +1,17 @@
 package com.calypsan.listenup.api.dto.imports
 
+import com.calypsan.listenup.api.EnumKeyedMapSerializer
+import com.calypsan.listenup.api.LenientEnumSerializer
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.ImportId
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
 
 /** Lifecycle status of a staged ABS import, derived from which staging files exist. */
 @Serializable
@@ -24,8 +28,13 @@ enum class ImportStatus {
     UNKNOWN,
 }
 
-/** Why/how strongly an ABS entity matched a ListenUp entity. */
-@Serializable
+/**
+ * Why/how strongly an ABS entity matched a ListenUp entity.
+ *
+ * Serialized by [ImportMatchTierSerializer]: a tier a newer server added reads as [UNMATCHED],
+ * because a match this build cannot explain is not one the admin can act on.
+ */
+@Serializable(with = ImportMatchTierSerializer::class)
 enum class MatchTier {
     ASIN,
     ISBN,
@@ -35,6 +44,18 @@ enum class MatchTier {
     AMBIGUOUS,
     UNMATCHED,
 }
+
+/** Decodes the import [MatchTier] by name, falling back to [MatchTier.UNMATCHED] for one this build has never heard of. */
+object ImportMatchTierSerializer :
+    KSerializer<MatchTier> by LenientEnumSerializer("MatchTier", MatchTier.entries, MatchTier.UNMATCHED)
+
+/**
+ * The codec for [ImportAnalysis.bookMatchCounts]: a count filed under a tier this build does not
+ * recognise is dropped on decode. Folding it onto [MatchTier.UNMATCHED] would overwrite that tier's
+ * real count.
+ */
+object ImportMatchTierCountSerializer :
+    KSerializer<Map<MatchTier, Int>> by EnumKeyedMapSerializer(MatchTier.entries, Int.serializer())
 
 /**
  * Summary of one staged ABS import job.
@@ -111,6 +132,7 @@ data class AbsItemRef(
 @SerialName("ImportAnalysis")
 data class ImportAnalysis(
     val userMatches: List<AbsUserMatch>,
+    @Serializable(with = ImportMatchTierCountSerializer::class)
     val bookMatchCounts: Map<MatchTier, Int>,
     val ambiguous: List<AbsItemRef>,
     val unmatched: List<AbsItemRef>,

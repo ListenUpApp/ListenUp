@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto
 
+import com.calypsan.listenup.api.LenientEnumSerializer
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 
 /**
@@ -16,8 +18,12 @@ import kotlinx.serialization.Serializable
  * `@Serializable` because it is also a bare RPC argument (`MatchingService.reviewPersonMatch`): inside a
  * `@Serializable` class the plugin supplies its serializer, but an argument is looked up at call time, and
  * Kotlin/Native has no reflection to build one. It encodes as the entry name, as those fields always have.
+ *
+ * Serialized by [ContributorRoleSerializer]: a role is also a list element
+ * (`PersonCandidate.roles`), which no property default can reach, so a role a newer server added
+ * reads as [UNKNOWN] instead of failing the whole response.
  */
-@Serializable
+@Serializable(with = ContributorRoleSerializer::class)
 enum class ContributorRole(
     val apiValue: String,
 ) {
@@ -31,11 +37,27 @@ enum class ContributorRole(
     PRODUCER("producer"),
     ADAPTER("adapter"),
     ILLUSTRATOR("illustrator"),
+
+    /**
+     * What an older app reads a role a newer server added as. Never offered as a choice, never sent
+     * by a client, never stored by the server: [isAssignable] is false and [fromApiValue] never returns it.
+     */
+    UNKNOWN("unknown"),
     ;
 
+    /** Whether a person can be credited in this role. False only for [UNKNOWN], the decode fallback. */
+    val isAssignable: Boolean get() = this != UNKNOWN
+
     companion object {
-        /** Resolves a stored/wire [value] (case-insensitive) to a role, or null if unrecognized. */
+        /**
+         * Resolves a stored/wire [value] (case-insensitive) to a role, or null if unrecognized.
+         * Never [UNKNOWN]: its token is not a role anyone can hold.
+         */
         fun fromApiValue(value: String): ContributorRole? =
-            entries.find { it.apiValue.equals(value, ignoreCase = true) }
+            entries.find { it.isAssignable && it.apiValue.equals(value, ignoreCase = true) }
     }
 }
+
+/** Decodes [ContributorRole] by name, falling back to [ContributorRole.UNKNOWN] for one this build has never heard of. */
+object ContributorRoleSerializer :
+    KSerializer<ContributorRole> by LenientEnumSerializer("ContributorRole", ContributorRole.entries, ContributorRole.UNKNOWN)

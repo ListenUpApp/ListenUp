@@ -1,6 +1,8 @@
 package com.calypsan.listenup.api.dto.match
 
 import com.calypsan.listenup.api.metadata.MetadataLocale
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -116,6 +118,7 @@ sealed interface MatchReason {
  * One book Find found, merged across the sources that agree it is the same edition, and ranked against your
  * copy. [key] is what Review takes back. [isCurrentLink] is labelled, never pinned to the top.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("BookCandidate")
 data class BookCandidate(
@@ -126,7 +129,11 @@ data class BookCandidate(
     @SerialName("narrators") val narrators: List<String>,
     @SerialName("durationMs") val durationMs: Long?,
     @SerialName("year") val year: Int?,
-    @SerialName("format") val format: EditionFormat?,
+    /**
+     * A format this build has never heard of reads as null: "format not stated". Always encoded,
+     * null included, because an app built before this default existed treats the key as required.
+     */
+    @SerialName("format") @EncodeDefault(EncodeDefault.Mode.ALWAYS) val format: EditionFormat? = null,
     @SerialName("chapterCount") val chapterCount: Int?,
     @SerialName("coverUrl") val coverUrl: String?,
     @SerialName("foundIn") val foundIn: List<FoundIn>,
