@@ -27,7 +27,8 @@ class MatchFactsTest :
             )
 
         cases.forEach { case ->
-            test("${case.narrators} / ${case.format} credits ${case.credit}, edition label shown ${case.showsFormat}") {
+            val format = case.format?.name ?: "no format"
+            test("${case.narrators} / $format credits ${case.credit}, edition label ${case.showsFormat}") {
                 narratorCredit(case.narrators, case.format) shouldBe case.credit
                 showsEditionFormat(case.narrators, case.format) shouldBe case.showsFormat
             }

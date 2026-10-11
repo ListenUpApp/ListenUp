@@ -25,7 +25,7 @@ class HtmlTextTest :
         }
 
         test("break tags with attributes, or in any case, are breaks") {
-            htmlToPlainText("One<br class=\"x\">Two<BR/>Three") shouldBe "One\nTwo\nThree"
+            htmlToPlainText("""One<br class="x">Two<BR/>Three""") shouldBe "One\nTwo\nThree"
         }
 
         test("a tag never survives as text") {
@@ -37,6 +37,7 @@ class HtmlTextTest :
         }
 
         test("blank lines left after tag removal collapse to one") {
-            htmlToPlainText("a<b></b>\n\n\n\nb") shouldBe "a\n\nb"
+            val blankLines = "\n".repeat(4)
+            htmlToPlainText("a<b></b>${blankLines}b") shouldBe "a\n\nb"
         }
     })
