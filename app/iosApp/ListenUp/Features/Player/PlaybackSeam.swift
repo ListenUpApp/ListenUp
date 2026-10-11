@@ -94,9 +94,10 @@ struct PreparedFile: Sendable {
     let startOffsetMs: Int64
 }
 
-/// Resolve + map a book to a `PreparedPlayback`, or `nil` on failure.
+/// Resolve + map a book to a `PreparedPlayback`, or `nil` on failure. `startAtMs` is where the
+/// listener asked to start (a chapter's start, book ms); `nil` resumes from the saved position.
 protocol PlaybackPreparing: Sendable {
-    func prepareOrNull(bookId: String) async -> PreparedPlayback?
+    func prepareOrNull(bookId: String, startAtMs: Int64?) async -> PreparedPlayback?
 }
 
 /// Position + listening-event persistence. `bookId` is the value-class-erased id.

@@ -354,7 +354,17 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// still preparing: the in-flight prepare is cancelled, the outgoing book's position is
     /// saved, the metadata surface is reset synchronously, and the engine is silenced before
     /// the new book loads — so a switch never leaks the old book's cover/chapters/audio (RC-1, RC-4).
-    func play(bookId: String) {
+    ///
+    /// With `startAtMs` (a chapter's start, in book ms) it starts there: a seek when the book is
+    /// already loaded, otherwise a prepare at that position through the shared choke point. Without
+    /// it, it resumes.
+    func play(bookId: String, startAtMs: Int64? = nil) {
+        if let startAtMs, let loaded = phase.playingState, loaded.bookId == bookId {
+            pausedByInterruption = false
+            seekTo(positionMs: startAtMs)
+            if !isPlaybackActive { togglePlayback() }
+            return
+        }
         pausedByInterruption = false
 
         // Cancel any in-flight prepare and open a new epoch so its post-`await` continuations bail.
@@ -392,7 +402,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
             // Silence the outgoing book immediately — before the (possibly slow) prepare —
             // so switching never leaves the previous audio playing under the new metadata.
             if hadLoadedBook { await engine.pause() }
-            await prepareAndStart(bookId: bookId, generation: generation)
+            await prepareAndStart(bookId: bookId, startAtMs: startAtMs, generation: generation)
         }
     }
 
@@ -578,8 +588,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Prepare
 
-    private func prepareAndStart(bookId: String, generation: Int) async {
-        guard let prepared = await preparer.prepareOrNull(bookId: bookId) else {
+    private func prepareAndStart(bookId: String, startAtMs: Int64?, generation: Int) async {
+        guard let prepared = await preparer.prepareOrNull(bookId: bookId, startAtMs: startAtMs) else {
             guard !isSuperseded(generation) else { return }
             isEngineLoading = false
             phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))
