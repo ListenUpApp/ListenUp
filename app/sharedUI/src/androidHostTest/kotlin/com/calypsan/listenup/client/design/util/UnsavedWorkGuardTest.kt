@@ -16,6 +16,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * [rememberUnsavedWorkGuard] is the one place an edit screen asks before it discards a draft: it
@@ -23,6 +24,7 @@ import org.robolectric.RobolectricTestRunner
  * between a leave request and the leaving.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [34])
 class UnsavedWorkGuardTest {
     @get:Rule
     val composeRule = createComposeRule()
