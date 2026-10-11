@@ -66,7 +66,7 @@ const emitIndexHtmlForSpecs = {
     this.emitFile({
       type: 'asset',
       fileName: 'index.html',
-      source: readFileSync(resolve(__dirname, 'index.html'), 'utf8'),
+      source: readFileSync(resolve(import.meta.dirname, 'index.html'), 'utf8'),
     })
   },
 }
@@ -82,7 +82,7 @@ export default defineConfig({
       // web/node_modules: `webBundle` and its boot checks pass without this alias as of this
       // commit.
       '@sqlite.org/sqlite-wasm': resolve(
-        __dirname,
+        import.meta.dirname,
         'node_modules/@sqlite.org/sqlite-wasm',
       ),
     },
@@ -93,7 +93,7 @@ export default defineConfig({
     // sync-kotlin.mjs copies the Kotlin output and the SQLite worker into kotlin/, inside this
     // project root. `webBundle` (a build, which does not start the dev server) passes without
     // this setting as of this commit.
-    fs: { allow: [resolve(__dirname, '..')] },
+    fs: { allow: [resolve(import.meta.dirname, '..')] },
     proxy: {
       '/api': { target: apiTarget, ws: true, changeOrigin: true },
       '/healthz': { target: apiTarget, changeOrigin: true },
@@ -111,8 +111,8 @@ export default defineConfig({
       // synced fails to resolve. `LU_TEST_PAGE=1` selects the test build.
       input:
         process.env.LU_TEST_PAGE === '1'
-          ? { kotest: resolve(__dirname, 'test/kotest.html') }
-          : { index: resolve(__dirname, 'index.html') },
+          ? { kotest: resolve(import.meta.dirname, 'test/kotest.html') }
+          : { index: resolve(import.meta.dirname, 'index.html') },
     },
   },
   // @sqlite.org/sqlite-wasm ships its own worker and .wasm sidecar; excluding it from
