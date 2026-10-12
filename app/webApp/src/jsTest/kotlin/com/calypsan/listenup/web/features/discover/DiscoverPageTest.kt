@@ -412,8 +412,8 @@ class DiscoverPageTest :
                                         user = DiscoverShelfOwner(id = "u1", displayName = "Ada"),
                                         shelves =
                                             listOf(
-                                                DiscoverShelfUi("s1", "Comfort reads", null, SHELF_BOOK_COUNT, 0),
-                                                DiscoverShelfUi("s2", "Long haul", null, 1, 0),
+                                                DiscoverShelfUi("s1", "Comfort reads", null, SHELF_BOOK_COUNT, 0, emptyList()),
+                                                DiscoverShelfUi("s2", "Long haul", null, 1, 0, emptyList()),
                                             ),
                                     ),
                                 ),

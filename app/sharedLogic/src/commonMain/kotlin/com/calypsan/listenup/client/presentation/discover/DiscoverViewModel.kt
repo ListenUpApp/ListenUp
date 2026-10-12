@@ -9,6 +9,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.client.domain.model.ShelfCover
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -261,6 +262,7 @@ class DiscoverViewModel(
             description = description,
             bookCount = bookCount,
             totalDurationSeconds = totalDurationSeconds,
+            covers = covers,
         )
 
     /**
@@ -367,7 +369,16 @@ data class DiscoverShelfOwner(
 )
 
 /**
- * Shelf UI model for Discover screen.
+ * One of another reader's public shelves on Discover.
+ *
+ * @property id The shelf.
+ * @property name Its name.
+ * @property description Its description, when it has one.
+ * @property bookCount How many of its books the reader can access.
+ * @property totalDurationSeconds Always 0 for a discovered shelf: its books never enter this device's
+ *   mirror, so their lengths are unknown here.
+ * @property covers Up to four cover tiles for its 2×2 mosaic, in shelf order; fewer when this device
+ *   lacks some of the books.
  */
 data class DiscoverShelfUi(
     val id: String,
@@ -375,6 +386,7 @@ data class DiscoverShelfUi(
     val description: String?,
     val bookCount: Int,
     val totalDurationSeconds: Long,
+    val covers: List<ShelfCover>,
 )
 
 /**

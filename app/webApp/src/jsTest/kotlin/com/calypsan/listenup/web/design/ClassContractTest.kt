@@ -2254,6 +2254,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                                         description = null,
                                         bookCount = 4,
                                         totalDurationSeconds = 0,
+                                        covers = emptyList(),
                                     ),
                                 ),
                         ),

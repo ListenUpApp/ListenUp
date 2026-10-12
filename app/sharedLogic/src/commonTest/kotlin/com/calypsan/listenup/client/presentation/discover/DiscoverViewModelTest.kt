@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.discover
 
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.client.domain.model.ShelfCover
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -133,6 +134,7 @@ class DiscoverViewModelTest :
             id: String = "shelf-1",
             ownerId: String = OTHER_USER_ID,
             ownerDisplayName: String = "Alice",
+            covers: List<ShelfCover> = emptyList(),
         ): Shelf =
             Shelf(
                 id = ShelfId(id),
@@ -145,6 +147,7 @@ class DiscoverViewModelTest :
                 totalDurationSeconds = 0L,
                 createdAtMs = 0L,
                 updatedAtMs = 0L,
+                covers = covers,
             )
 
         // ========== Test Fixture ==========
@@ -607,6 +610,18 @@ class DiscoverViewModelTest :
 
                 // Then - real errors still surface globally
                 emitted shouldBe listOf(serverError)
+            }
+        }
+
+        test("a discovered shelf carries its locally resolved covers to the UI") {
+            runTest {
+                val cover = ShelfCover(bookId = "b1", coverPath = "/c/b1.jpg", coverHash = "h1")
+                val fixture = createFixture(discoveredShelves = listOf(createShelf(covers = listOf(cover))))
+                val viewModel = fixture.build().also { keepStateHot(it.discoverShelvesState) }
+                advanceUntilIdle()
+
+                val ready = viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Ready>()
+                ready.users.single().shelves.single().covers shouldBe listOf(cover)
             }
         }
 
