@@ -53,10 +53,10 @@ struct LeaderboardSectionView: View {
                 set: { observer.selectPeriod($0) }
             )
         ) {
-            ForEach(LeaderboardSelection.allCases) { selection in
-                Text(String(localized: selection.titleKey))
-                    .accessibilityLabel(Text(String(localized: selection.accessibilityKey)))
-                    .tag(selection)
+            ForEach(LeaderboardPeriodOption.allCases) { option in
+                Text(String(localized: option.titleKey))
+                    .accessibilityLabel(Text(String(localized: option.accessibilityKey)))
+                    .tag(option)
             }
         }
         .pickerStyle(.segmented)

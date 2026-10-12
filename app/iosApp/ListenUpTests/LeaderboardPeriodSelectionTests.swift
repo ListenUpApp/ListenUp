@@ -11,23 +11,23 @@ import UIKit
 struct LeaderboardPeriodSelectionTests {
 
     @Test func offersFourTrailingPeriodsInOrder() {
-        #expect(LeaderboardSelection.allCases == [.sevenDays, .thirtyDays, .twelveMonths, .allTime])
+        #expect(LeaderboardPeriodOption.allCases == [.sevenDays, .thirtyDays, .twelveMonths, .allTime])
     }
 
     @Test func eachPeriodSelectsItsSharedWindow() {
-        #expect(LeaderboardSelection.sevenDays.kmpPeriod is LeaderboardPeriodWeek)
-        #expect(LeaderboardSelection.thirtyDays.kmpPeriod is LeaderboardPeriodMonth)
-        #expect(LeaderboardSelection.twelveMonths.kmpPeriod is LeaderboardPeriodYear)
-        #expect(LeaderboardSelection.allTime.kmpPeriod is LeaderboardPeriodAllTime)
+        #expect(LeaderboardPeriodOption.sevenDays.kmpPeriod is LeaderboardPeriodWeek)
+        #expect(LeaderboardPeriodOption.thirtyDays.kmpPeriod is LeaderboardPeriodMonth)
+        #expect(LeaderboardPeriodOption.twelveMonths.kmpPeriod is LeaderboardPeriodYear)
+        #expect(LeaderboardPeriodOption.allTime.kmpPeriod is LeaderboardPeriodAllTime)
     }
 
     @Test func labelsNameTheWindow() {
-        let titles = LeaderboardSelection.allCases.map { String(localized: $0.titleKey) }
+        let titles = LeaderboardPeriodOption.allCases.map { String(localized: $0.titleKey) }
         #expect(titles == ["7 days", "30 days", "12 months", "All time"])
     }
 
     @Test func voiceOverHearsTheWholeWindow() {
-        let labels = LeaderboardSelection.allCases.map { String(localized: $0.accessibilityKey) }
+        let labels = LeaderboardPeriodOption.allCases.map { String(localized: $0.accessibilityKey) }
         #expect(labels == ["Last 7 days", "Last 30 days", "Last 12 months", "All time"])
     }
 
@@ -35,7 +35,7 @@ struct LeaderboardPeriodSelectionTests {
     /// (iPhone SE, 375pt, minus Discover's 20pt compact inset each side) all four segments must
     /// fit at the default text size without truncating.
     @Test @MainActor func fourSegmentsFitOnTheNarrowestPhone() {
-        let titles = LeaderboardSelection.allCases.map { String(localized: $0.titleKey) }
+        let titles = LeaderboardPeriodOption.allCases.map { String(localized: $0.titleKey) }
         let control = UISegmentedControl(items: titles)
         let needed = control.intrinsicContentSize.width
         #expect(needed <= 375 - 2 * 20, "needs \(needed)pt")

@@ -67,10 +67,6 @@ struct DiscoverView: View {
             if selection == nil {
                 selection = BookSelectionObserver(viewModel: deps.createBookMultiSelectViewModel())
             }
-            leaderboard?.setCurrentUserId(user?.idString)
-        }
-        .onChange(of: user?.idString) { _, newId in
-            leaderboard?.setCurrentUserId(newId)
         }
     }
 
