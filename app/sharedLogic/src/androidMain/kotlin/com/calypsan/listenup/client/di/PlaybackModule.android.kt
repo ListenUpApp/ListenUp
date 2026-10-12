@@ -6,9 +6,13 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.playback.ManagedPlayerEngine
+import com.calypsan.listenup.client.playback.NoPlaybackStartGate
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
+import com.calypsan.listenup.client.playback.PlaybackStartGate
+import com.calypsan.listenup.client.playback.PlayerEngine
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -61,6 +65,20 @@ val androidPlaybackModule: Module =
                 // (the same signals reach here via MediaControllerHolder). Speed-change
                 // persistence still routes through the reporter.
                 persistTransitionsViaReporter = false,
+            )
+        }
+
+        // The shared player's engine (playerModule): today's PlaybackManager + PlaybackController behind one seam.
+        single(named(OFFLINE_COPIES)) { true }
+        single<PlaybackStartGate> { NoPlaybackStartGate }
+        // OutputRoute comes from sharedUI's playbackModule (CastOutputRoute), which names the Cast device.
+        single<PlayerEngine> {
+            ManagedPlayerEngine(
+                playbackManager = get(),
+                playbackController = get(),
+                startGate = get(),
+                outputRoute = get(),
+                scope = get(),
             )
         }
     }

@@ -56,9 +56,10 @@ import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStateWriter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SkipIntervalsHolder
-import com.calypsan.listenup.client.playback.SleepTimerManager
+import com.calypsan.listenup.client.playback.OutputRoute
 import com.calypsan.listenup.client.playback.UriPermissionGranter
 import com.calypsan.listenup.client.playback.ContextUriPermissionGranter
+import com.calypsan.listenup.client.playback.cast.CastOutputRoute
 import com.calypsan.listenup.client.playback.cast.CastPreparer
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.data.push.PushRegistrar
@@ -270,10 +271,9 @@ val playbackModule =
         // this delegate the write-seam is unbound and MediaControllerHolder fails.
         single<PlaybackStateWriter> { get<PlaybackManager>() }
 
-        // Sleep timer manager - handles sleep timer state and countdown
-        single {
-            SleepTimerManager(scope = get())
-        }
+        // Where audio goes when it leaves the phone: the Cast device's name for the player (spec §4.7).
+        // The shared sleep timer lives in sharedLogic's playerModule.
+        single<OutputRoute> { CastOutputRoute(androidContext()) }
 
         // Cover art seams for CoverContentProvider. The provider is instantiated by Android
         // before Koin starts, so it resolves these lazily on first use — never in onCreate.

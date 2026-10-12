@@ -15,7 +15,6 @@ import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.DesktopPlaybackController
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.ProgressTracker
-import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.FfmpegAudioPlayer
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -117,13 +116,6 @@ val platformModule: Module =
                     deviceName = System.getProperty("user.name"),
                 )
             }
-        }
-
-        // Sleep timer manager
-        single {
-            SleepTimerManager(
-                scope = get(qualifier = named("playbackScope")),
-            )
         }
 
         // Background sync scheduler (stub)

@@ -10,12 +10,15 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
+import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InboxRepository
+import com.calypsan.listenup.client.domain.repository.LoadedBookStore
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -24,11 +27,13 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.core.error.ErrorBus
@@ -94,6 +99,29 @@ class KoinModuleVerifyTest :
             )
         }
 
+        // Verify [playerModule] — the shared player: the loaded-book repository, the session (created at start)
+        // and the one sleep timer. The engine and the "keeps offline copies" flag come from each platform's
+        // playback module; the rest are repositories other modules bind.
+        test("verifyPlayerModule") {
+            playerModule.verify(
+                extraTypes =
+                    listOf(
+                        PlayerEngine::class,
+                        LoadedBookStore::class,
+                        BookRepository::class,
+                        DownloadRepository::class,
+                        PlaybackPositionRepository::class,
+                        BookAvailability::class,
+                        InboxRepository::class,
+                        NetworkMonitor::class,
+                        ServerReachability::class,
+                        AuthSession::class,
+                        PlaybackPreferences::class,
+                        Boolean::class,
+                    ),
+            )
+        }
+
         // Verify [androidPlaybackModule] — wires PlaybackProgressReporter and the Android
         // PlaybackManagerImpl. extraTypes covers all cross-module get() targets: DAOs, repos,
         // config, and infrastructure types provided by other modules at runtime.
@@ -122,6 +150,9 @@ class KoinModuleVerifyTest :
                         com.calypsan.listenup.client.domain.repository.AuthRepository::class,
                         kotlin.time.Clock::class,
                         Function0::class,
+                        // The shared player's engine wraps the controller (sharedUI) and the Cast route (sharedUI).
+                        PlaybackController::class,
+                        com.calypsan.listenup.client.playback.OutputRoute::class,
                     ),
             )
         }

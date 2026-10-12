@@ -8,19 +8,30 @@ import com.calypsan.listenup.client.data.remote.DefaultRpcCacheInvalidator
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
+import com.calypsan.listenup.client.playback.PlayerSession
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.kotest.matchers.types.shouldBeSameInstanceAs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.koin.core.annotation.KoinInternalApi
 import org.koin.core.definition.Kind
 
 class ClientKoinGraphE2ETest :
     FunSpec({
+        // The player's scope runs on Dispatchers.Main.immediate (playerModule), and its session is created at
+        // start; the JVM test lane has no main dispatcher of its own.
+        beforeSpec { Dispatchers.setMain(UnconfinedTestDispatcher()) }
+        afterSpec { Dispatchers.resetMain() }
 
         test("fixture boots the server and builds the client graph") {
             val fixture = autoClose(DiWiredClientFixture.start())
@@ -96,6 +107,13 @@ class ClientKoinGraphE2ETest :
                     // not as cycles.
                 }
             }
+        }
+
+        test("the player graph resolves one session and one loaded-book repository") {
+            val fixture = autoClose(DiWiredClientFixture.start())
+            val koin = fixture.koin.koin
+            koin.get<PlayerSession>() shouldBeSameInstanceAs koin.get<PlayerSession>()
+            koin.get<LoadedBookRepository>() shouldBeSameInstanceAs koin.get<LoadedBookRepository>()
         }
 
         test("no ViewModel is registered as a Koin singleton") {

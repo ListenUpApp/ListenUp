@@ -2,6 +2,8 @@ package com.calypsan.listenup.web.di
 
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackController
+import com.calypsan.listenup.client.playback.PlaybackStartGate
+import com.calypsan.listenup.web.playback.HtmlAudioStartGate
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
 import com.calypsan.listenup.web.playback.WebPlaybackController
 import org.koin.core.module.Module
@@ -46,6 +48,10 @@ internal val webPlaybackModule: Module =
         single<PlaybackController> {
             WebPlaybackController(audioPlayer = get(), playbackManager = get())
         }
+
+        // Overrides browserPlaybackModule's NoPlaybackStartGate: the shared player spends the user's tap on this
+        // same <audio> element before the prepare, so the browser counts the gesture.
+        single<PlaybackStartGate> { HtmlAudioStartGate(get()) }
 
         // Overrides browserPlaybackModule's `false`. Loading last is what makes this win, the
         // same way platformStorageModule overrides mediaModule's DocumentStorage.

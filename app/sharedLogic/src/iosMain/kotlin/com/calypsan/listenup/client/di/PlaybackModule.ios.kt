@@ -16,10 +16,11 @@ import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.AppleDownloadService
 import com.calypsan.listenup.client.playback.AudioTokenProvider
+import com.calypsan.listenup.client.playback.NativePlayerEngine
 import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
+import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.ProgressTracker
-import com.calypsan.listenup.client.playback.SleepTimerManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.Module
@@ -37,7 +38,7 @@ private const val PLAYBACK_SCOPE = "playbackScope"
  * - DownloadService for offline downloads
  * - PlaybackPreparer — stateless playback-preparation pipeline
  * - ProgressTracker — position persistence + server sync
- * - SleepTimerManager — sleep-timer state
+ * - NativePlayerEngine — the shared player's engine, driven by PlayerSession and executed by Swift
  */
 internal val iosPlaybackModule: Module =
     module {
@@ -145,10 +146,9 @@ internal val iosPlaybackModule: Module =
             )
         }
 
-        // Sleep timer manager — observed by PlayerCoordinator
-        single {
-            SleepTimerManager(
-                scope = get(qualifier = named(PLAYBACK_SCOPE)),
-            )
-        }
+        // The shared player's engine (playerModule): Kotlin issues EngineCommands, Swift's PlayerCoordinator
+        // executes them on AVAudioEngine and reports back. The sleep timer is playerModule's shared one.
+        single(named(OFFLINE_COPIES)) { true }
+        single { NativePlayerEngine(prepare = get<PlaybackPreparer>()::prepare, scope = get(named(PLAYBACK_SCOPE))) }
+        single<PlayerEngine> { get<NativePlayerEngine>() }
     }

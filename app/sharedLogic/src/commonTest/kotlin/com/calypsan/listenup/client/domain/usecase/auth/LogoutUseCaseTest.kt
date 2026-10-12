@@ -8,13 +8,19 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.playback.PlayerSession
+import com.calypsan.listenup.client.playback.PlayerSessionRig
+import com.calypsan.listenup.client.playback.PlayerSessionState
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode.Companion.order
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 private class LogoutFixture {
@@ -25,7 +31,7 @@ private class LogoutFixture {
     val rpcCacheInvalidator: RpcCacheInvalidator = mock()
     val libraryResetHelper: LibraryResetHelper = mock()
 
-    fun build(): LogoutUseCase =
+    fun build(playerSession: PlayerSession? = null): LogoutUseCase =
         LogoutUseCase(
             authRepository = authRepository,
             authSession = authSession,
@@ -33,6 +39,7 @@ private class LogoutFixture {
             syncRepository = syncRepository,
             rpcCacheInvalidator = rpcCacheInvalidator,
             libraryResetHelper = libraryResetHelper,
+            playerSession = playerSession,
         )
 }
 
@@ -213,6 +220,46 @@ class LogoutUseCaseTest :
                 verifySuspend(order) {
                     fixture.authSession.clearAuthTokens()
                     fixture.rpcCacheInvalidator.invalidateAll()
+                }
+            }
+        }
+
+        test("logout closes the loaded book and clears its device-local key") {
+            runTest {
+                val rig = PlayerSessionRig(this, storedBookId = "b1")
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.state.value
+                        .shouldBeInstanceOf<PlayerSessionState.Loaded>()
+                    val useCase = createFixture().build(playerSession = rig.session)
+
+                    useCase()
+                    runCurrent()
+
+                    rig.store.stored.shouldBeNull()
+                    rig.session.state.value shouldBe PlayerSessionState.NothingLoaded
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("local-only logout closes the loaded book too") {
+            runTest {
+                val rig = PlayerSessionRig(this, storedBookId = "b1")
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    val useCase = createFixture().build(playerSession = rig.session)
+
+                    useCase.logoutLocally()
+                    runCurrent()
+
+                    rig.store.stored.shouldBeNull()
+                    rig.session.state.value shouldBe PlayerSessionState.NothingLoaded
+                } finally {
+                    rig.close()
                 }
             }
         }
