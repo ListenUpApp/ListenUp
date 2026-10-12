@@ -706,6 +706,39 @@ class DiscoverViewModelTest :
             }
         }
 
+        test("shuffle redraws picks and does not refetch shelves") {
+            runTest {
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryPick(id = "r-1")))
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+
+                viewModel.shuffle()
+                advanceUntilIdle()
+
+                verifySuspend(dev.mokkery.verify.VerifyMode.atLeast(2)) {
+                    fixture.bookRepository.observeRandomUnstartedBooks(any())
+                }
+                // Once, on init: Shuffle is about the books, and a shelf fetch is a network call.
+                verifySuspend(dev.mokkery.verify.VerifyMode.exactly(1)) { fixture.shelfRepository.discoverShelves() }
+            }
+        }
+
+        test("a redraw goes straight from one set of picks to the next, never back through Loading") {
+            runTest {
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryPick(id = "r-1")))
+                val viewModel = fixture.build()
+                val seen = mutableListOf<DiscoverBooksUiState>()
+                backgroundScope.launch { viewModel.discoverBooksState.collect { seen += it } }
+                advanceUntilIdle()
+                seen.clear()
+
+                viewModel.shuffle()
+                advanceUntilIdle()
+
+                seen.none { it is DiscoverBooksUiState.Loading } shouldBe true
+            }
+        }
+
         // ========== Discover RPC Load Tests ==========
 
         test("discover shelves are loaded on init when authenticated") {

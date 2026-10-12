@@ -46,6 +46,8 @@ class DiscoverSession(
     val communitySize: StateFlow<CommunitySize>,
     val onSelectPeriod: (LeaderboardPeriod) -> Unit,
     val onSelectCategory: (LeaderboardCategory) -> Unit,
+    /** Draws ten different books for Something new (PR 5 renders its button). */
+    val onShuffle: () -> Unit,
     /**
      * A fresh load of the four sections [DiscoverViewModel] owns — books, shelves, listeners and
      * recently added — each restarted only if it failed. The page offers it only on a failed
@@ -96,6 +98,7 @@ fun graphDiscover(koin: Koin): OpenDiscover =
             communitySize = discover.communitySize,
             onSelectPeriod = leaderboard::selectPeriod,
             onSelectCategory = leaderboard::selectCategory,
+            onShuffle = discover::shuffle,
             onRefresh = discover::refresh,
             onRefreshLeaderboard = leaderboard::refresh,
             onRefreshActivity = activity::refresh,
@@ -114,6 +117,7 @@ fun fixedDiscover(
     communitySize: CommunitySize = CommunitySize.Unknown,
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
+    onShuffle: () -> Unit = {},
     onRefresh: () -> Unit = {},
     onRefreshLeaderboard: () -> Unit = {},
     onRefreshActivity: () -> Unit = {},
@@ -129,6 +133,7 @@ fun fixedDiscover(
             communitySize = MutableStateFlow(communitySize),
             onSelectPeriod = onSelectPeriod,
             onSelectCategory = onSelectCategory,
+            onShuffle = onShuffle,
             onRefresh = onRefresh,
             onRefreshLeaderboard = onRefreshLeaderboard,
             onRefreshActivity = onRefreshActivity,

@@ -121,7 +121,7 @@ class DiscoverViewModel(
      * Bumped by [refresh] to re-run a failed currently-listening observation.
      *
      * ⛔ The fallback sits INSIDE the [flatMapLatest], so a failure ends one run rather than the flow
-     * the screen is subscribed to — see [discoverBooksRefreshTrigger].
+     * the screen is subscribed to — see [discoverBooksDraws].
      */
     private val currentlyListeningRuns = MutableStateFlow(0)
 
@@ -176,14 +176,15 @@ class DiscoverViewModel(
      * flow the screen is subscribed to. Outside it, the Error was the flow's last word: every later
      * [refresh] bumped a trigger nothing was collecting any more. `LibraryViewModel` has the same
      * shape for the same reason.
+     *
+     * Bumped by [shuffle] and [refresh].
      */
-    private val discoverBooksRefreshTrigger = MutableStateFlow(0)
+    private val discoverBooksDraws = MutableStateFlow(0)
 
     val discoverBooksState: StateFlow<DiscoverBooksUiState> =
-        discoverBooksRefreshTrigger
+        discoverBooksDraws
             .flatMapLatest {
-                flow {
-                    emit(DiscoverBooksUiState.Loading as DiscoverBooksUiState)
+                flow<DiscoverBooksUiState> {
                     val books = bookRepository.observeRandomUnstartedBooks(limit = 10).first()
                     emit(DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() }))
                 }.fallbackTo { e ->
@@ -195,6 +196,14 @@ class DiscoverViewModel(
                 started = WhileSubscribedForUi,
                 initialValue = DiscoverBooksUiState.Loading,
             )
+
+    /**
+     * Draw ten different books for "Something new". Only the picks change: shelves, listeners and
+     * recently added are left alone, so pressing Shuffle never costs a network call.
+     */
+    fun shuffle() {
+        discoverBooksDraws.update { it + 1 }
+    }
 
     /**
      * Convert a [DiscoveryPick] to its "Something new" card.
@@ -313,12 +322,12 @@ class DiscoverViewModel(
     /**
      * Refresh all discovery content.
      * - Shelves: re-fetched via the discover RPC
-     * - Books: new RANDOM() selection via refresh trigger
+     * - Books: a new draw, as [shuffle]
      * - Sessions & recently added: live flows that update themselves, so only a FAILED one is
      *   restarted — re-subscribing a healthy one would say the same thing again
      */
     fun refresh() {
-        discoverBooksRefreshTrigger.update { it + 1 }
+        discoverBooksDraws.update { it + 1 }
         if (currentlyListeningState.value is CurrentlyListeningUiState.Error) currentlyListeningRuns.update { it + 1 }
         if (recentlyAddedState.value is RecentlyAddedUiState.Error) recentlyAddedRuns.update { it + 1 }
         loadDiscoverShelves()
