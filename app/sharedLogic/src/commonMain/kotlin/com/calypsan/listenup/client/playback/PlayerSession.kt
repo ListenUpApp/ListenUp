@@ -10,6 +10,10 @@ import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
+import com.calypsan.listenup.client.presentation.player.skipTargetMs
+import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
@@ -48,7 +52,7 @@ class PlayerSession(
     private val downloadRepository: DownloadRepository,
     private val positionRepository: PlaybackPositionRepository,
     private val sleepTimer: SleepTimerManager,
-    playbackPreferences: PlaybackPreferences,
+    private val playbackPreferences: PlaybackPreferences,
     private val scope: CoroutineScope,
 ) {
     private val stage = MutableStateFlow<SessionStage?>(null)
@@ -418,6 +422,132 @@ class PlayerSession(
     private fun loadedOrNull(): PlayerSessionState.Loaded? = state.value as? PlayerSessionState.Loaded
 
     // ── Transport (Task 15) ──────────────────────────────────────────────────────────────────────────
+
+    /** The one play/pause intent (§4.3): resume, pause, prepare a restored book, re-listen, or retry. */
+    fun playPause() {
+        val loaded = loadedOrNull() ?: return
+        when (loaded.phase) {
+            PlayerPhase.Playing, PlayerPhase.Buffering, PlayerPhase.SleepFading -> {
+                engine.pause()
+            }
+
+            PlayerPhase.Paused -> {
+                engine.clearError()
+                engine.play()
+            }
+
+            PlayerPhase.Restored -> {
+                startLoad(loaded.bookId, pendingStartMs.value)
+            }
+
+            PlayerPhase.Finished -> {
+                startLoad(loaded.bookId, null)
+            }
+
+            is PlayerPhase.Failed, is PlayerPhase.Unavailable, PlayerPhase.Preparing -> {
+                // Nothing to resume yet: a load is in flight, or Retry decides (Task 16).
+            }
+        }
+    }
+
+    /** Back by the user's interval × speed, clamped (§3.3). */
+    fun skipBack() {
+        skipBy(skipBackwardSec.value, forward = false)
+    }
+
+    /** Forward by the user's interval × speed, clamped. */
+    fun skipForward() {
+        skipBy(skipForwardSec.value, forward = true)
+    }
+
+    private fun skipBy(
+        seconds: Int,
+        forward: Boolean,
+    ) {
+        val phase = loadedOrNull()?.phase ?: return
+        if (phase is PlayerPhase.Finished || phase is PlayerPhase.Preparing) return
+        val duration = durationMs.value
+        if (duration <= 0) return
+        seekTo(
+            skipTargetMs(
+                currentPositionMs = positionMs.value,
+                seconds = seconds,
+                speed = speed.value,
+                totalDurationMs = duration,
+                forward = forward,
+            ),
+        )
+    }
+
+    /** §3.3: restart the chapter after 3 s, else the previous one; chapter 1 restarts. */
+    fun previousChapter() {
+        seekTo(previousChapterTargetMs(positionMs.value, chapters.value))
+    }
+
+    /** §3.3: the next chapter's start; a no-op at the last chapter. */
+    fun nextChapter() {
+        nextChapterTargetMs(positionMs.value, chapters.value)?.let(::seekTo)
+    }
+
+    /** The start of chapter [index]; an index the list no longer has is ignored, never clamped. */
+    fun seekToChapter(index: Int) {
+        chapters.value.getOrNull(index)?.let { seekTo(it.startTime) }
+    }
+
+    /** [fraction] of the current chapter (the whole book when it has no chapters). */
+    fun seekWithinChapter(fraction: Float) {
+        val clamped = fraction.coerceIn(0f, 1f)
+        val chapter = currentChapter.value
+        val target =
+            if (chapter == null) {
+                (durationMs.value * clamped).toLong()
+            } else {
+                chapter.startMs + ((chapter.endMs - chapter.startMs) * clamped).toLong()
+            }
+        seekTo(target)
+    }
+
+    /**
+     * Move the playhead. The engine seeks when it holds the book. A not-prepared book moves its pending start
+     * (Decision 5). A finished book plays again from there, like Listen again (§4.5, Book Detail §2.5).
+     */
+    fun seekTo(positionMs: Long) {
+        val loaded = loadedOrNull() ?: return
+        val target = positionMs.coerceAtLeast(0L)
+        when {
+            loaded.phase is PlayerPhase.Finished -> startLoad(loaded.bookId, target)
+            loaded.isEngineBound -> engine.seekTo(target)
+            loaded.phase !is PlayerPhase.Preparing -> pendingStartMs.value = target
+        }
+    }
+
+    /** Play at [speed], clamped to 0.5–3.0, as this book's own rate. Only while the engine holds the book. */
+    fun setSpeed(speed: Float) {
+        if (engineBound.value) engine.setSpeed(speed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX))
+    }
+
+    /** ±0.05 within 0.5–3.0, with no float drift (§4.3, Q3). */
+    fun stepSpeed(up: Boolean) {
+        setSpeed(stepPlaybackSpeed(speed.value, up))
+    }
+
+    /** Back to the user's default rate; this book stops being an exception. */
+    fun resetSpeed() {
+        if (!engineBound.value) return
+        scope.launch { engine.resetSpeed(playbackPreferences.getDefaultPlaybackSpeed()) }
+    }
+
+    /** Boost by [boostDb] as this book's own. */
+    fun setBoost(boostDb: Float) {
+        if (engineBound.value) engine.setBoost(boostDb)
+    }
+
+    /** Back to the user's default boost. */
+    fun resetBoost() {
+        if (!engineBound.value) return
+        scope.launch { engine.resetBoost(playbackPreferences.getDefaultVolumeBoostDb()) }
+    }
+
     // ── Errors (Task 16) ─────────────────────────────────────────────────────────────────────────────
     // ── Sleep (Task 17) ──────────────────────────────────────────────────────────────────────────────
 }
