@@ -574,6 +574,7 @@ internal val discoverPresentationModule =
                 activeSessionRepository = get(),
                 authSession = get(),
                 shelfRepository = get(),
+                serverReachability = get(),
                 errorBus = get(),
             )
         }

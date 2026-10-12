@@ -2224,7 +2224,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         page(
             books = DiscoverBooksUiState.Ready(emptyList()),
             recentlyAdded = RecentlyAddedUiState.Ready(emptyList()),
-            currentlyListening = CurrentlyListeningUiState.Ready(emptyList()),
+            currentlyListening = CurrentlyListeningUiState.Ready(emptyList(), observedAtMs = null, isStale = false),
             leaderboard = LeaderboardUiState.Empty,
             activityState = ActivityFeedUiState.Ready(emptyList()),
             shelves = DiscoverShelvesUiState.Ready(emptyList()),
@@ -2233,7 +2233,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         page(
             books = DiscoverBooksUiState.Ready(listOf(discoverBook())),
             recentlyAdded = RecentlyAddedUiState.Ready(listOf(recentBook())),
-            currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener, listener.copy(sessionId = "s2", isLive = false))),
+            currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener, listener.copy(sessionId = "s2", isLive = false)), observedAtMs = null, isStale = false),
             leaderboard =
                 LeaderboardUiState.Data(
                     snapshot = snapshot,

@@ -10,6 +10,8 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.DiscoveryPick
+import com.calypsan.listenup.client.domain.repository.Reachability
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
@@ -70,6 +72,7 @@ class DiscoverViewModelTest :
             bookId: String = "book-1",
             lastActiveAtMs: Long = 0L,
             isLive: Boolean = true,
+            observedAtMs: Long = 0L,
         ): ActiveSession =
             ActiveSession(
                 sessionId = sessionId,
@@ -77,6 +80,7 @@ class DiscoverViewModelTest :
                 bookId = bookId,
                 lastActiveAtMs = lastActiveAtMs,
                 isLive = isLive,
+                observedAtMs = observedAtMs,
                 user =
                     ActiveSession.SessionUser(
                         displayName = "Reader",
@@ -153,6 +157,7 @@ class DiscoverViewModelTest :
             val authStateFlow = MutableStateFlow<AuthState>(AuthState.Initializing)
             val activeSessionsFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
             val recentlyAddedFlow = MutableStateFlow<List<DiscoveryBook>>(emptyList())
+            val reachability = MutableStateFlow<Reachability>(Reachability.Reachable)
             val errorBus = ErrorBus()
 
             fun build(): DiscoverViewModel =
@@ -161,6 +166,12 @@ class DiscoverViewModelTest :
                     activeSessionRepository = activeSessionRepository,
                     authSession = authSession,
                     shelfRepository = shelfRepository,
+                    serverReachability =
+                        object : ServerReachability {
+                            override val state: StateFlow<Reachability> = reachability
+
+                            override suspend fun retry() = Unit
+                        },
                     errorBus = errorBus,
                 )
         }
@@ -307,6 +318,53 @@ class DiscoverViewModelTest :
 
                 val ready = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
                 ready.sessions.first().sessionId shouldBe "s-1"
+            }
+        }
+
+        test("Listening now splits live from recent and carries the snapshot time") {
+            runTest {
+                val fixture = createFixture()
+                fixture.activeSessionsFlow.value =
+                    listOf(
+                        createActiveSession(sessionId = "a", userId = "u2", isLive = true, observedAtMs = 9_000L),
+                        createActiveSession(sessionId = "b", userId = "u3", isLive = false, observedAtMs = 9_000L),
+                        createActiveSession(sessionId = "c", userId = "u4", isLive = false, observedAtMs = 9_000L),
+                    )
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+
+                val ready = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                ready.liveCount shouldBe 1
+                ready.recentCount shouldBe 2
+                ready.observedAtMs shouldBe 9_000L
+                ready.isStale shouldBe false
+            }
+        }
+
+        test("Listening now is stale exactly while the server is unreachable") {
+            runTest {
+                val fixture = createFixture()
+                fixture.activeSessionsFlow.value = listOf(createActiveSession())
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+
+                fixture.reachability.value = Reachability.Unreachable
+                advanceUntilIdle()
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>().isStale shouldBe true
+
+                fixture.reachability.value = Reachability.Unknown
+                advanceUntilIdle()
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>().isStale shouldBe false
+            }
+        }
+
+        test("an empty roster has no snapshot time") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>().observedAtMs shouldBe null
             }
         }
 

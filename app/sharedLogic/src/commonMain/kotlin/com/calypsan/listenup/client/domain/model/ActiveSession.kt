@@ -13,6 +13,7 @@ package com.calypsan.listenup.client.domain.model
  * @property lastActiveAtMs When they were last active on [bookId]: the session start when [isLive],
  *   otherwise when they last played it
  * @property isLive True when they are listening right now
+ * @property observedAtMs When the roster this row came from was fetched (epoch ms) — offline, the row may be that old
  * @property user User display information
  * @property book Book display information
  */
@@ -22,6 +23,7 @@ data class ActiveSession(
     val bookId: String,
     val lastActiveAtMs: Long,
     val isLive: Boolean,
+    val observedAtMs: Long,
     val user: SessionUser,
     val book: SessionBook,
 ) {

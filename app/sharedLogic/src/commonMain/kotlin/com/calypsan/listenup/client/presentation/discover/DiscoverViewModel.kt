@@ -15,11 +15,14 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.DiscoveryPick
+import com.calypsan.listenup.client.domain.repository.Reachability
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -55,6 +58,7 @@ class DiscoverViewModel(
     activeSessionRepository: ActiveSessionRepository,
     private val authSession: AuthSession,
     private val shelfRepository: ShelfRepository,
+    serverReachability: ServerReachability,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     // === Discover Shelves State (on-demand RPC) ===
@@ -99,10 +103,14 @@ class DiscoverViewModel(
     val currentlyListeningState: StateFlow<CurrentlyListeningUiState> =
         currentlyListeningRuns
             .flatMapLatest {
-                currentlyListeningFlow
-                    .map<_, CurrentlyListeningUiState> { sessions ->
-                        CurrentlyListeningUiState.Ready(sessions = sessions.map { it.toUiModel() })
-                    }.onStart { emit(CurrentlyListeningUiState.Loading) }
+                combine(currentlyListeningFlow, serverReachability.state) { sessions, reachability ->
+                    CurrentlyListeningUiState.Ready(
+                        sessions = sessions.map { it.toUiModel() },
+                        observedAtMs = sessions.maxOfOrNull { it.observedAtMs },
+                        // Unknown (still connecting) is not stale: only a known-down server dates the roster.
+                        isStale = reachability is Reachability.Unreachable,
+                    ) as CurrentlyListeningUiState
+                }.onStart { emit(CurrentlyListeningUiState.Loading) }
                     .fallbackTo { e ->
                         logger.error(e) { "Error observing currently listening" }
                         CurrentlyListeningUiState.Error("Failed to load currently listening")
@@ -352,12 +360,29 @@ sealed interface CurrentlyListeningUiState {
     /** Pre-first-emission placeholder. */
     data object Loading : CurrentlyListeningUiState
 
-    /** The roster loaded from Room: live listeners first, then the recent-listen fill. */
+    /**
+     * The roster from Room: live listeners first, then each other person's most recent book.
+     *
+     * @property sessions The rows, in display order.
+     * @property observedAtMs When the server last sent this roster (epoch ms); null when it is empty.
+     * @property isStale True while the server is unreachable, so the roster may be [observedAtMs] old.
+     */
     data class Ready(
         val sessions: List<CurrentlyListeningUiSession>,
+        val observedAtMs: Long?,
+        val isStale: Boolean,
     ) : CurrentlyListeningUiState {
+        /** Whether nobody is shown at all. */
         val isEmpty: Boolean
             get() = sessions.isEmpty()
+
+        /** People listening right now. */
+        val liveCount: Int
+            get() = sessions.count { it.isLive }
+
+        /** People shown on the book they last played, within the server's recent window. */
+        val recentCount: Int
+            get() = sessions.count { !it.isLive }
     }
 
     /** Upstream failure — section renders the message in error styling. */

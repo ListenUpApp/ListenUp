@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -32,6 +33,7 @@ import org.koin.test.verify.verify
  *  - [ErrorBus] — owned by `appCoreModule`.
  *  - [LeaderboardRepository] — owned by `socialModule`.
  *  - [ActivityRepository] — owned by `socialModule`.
+ *  - [ServerReachability] — owned by `clientSyncModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class DiscoverPresentationModuleVerifyTest :
@@ -52,6 +54,7 @@ class DiscoverPresentationModuleVerifyTest :
                         ErrorBus::class,
                         LeaderboardRepository::class,
                         ActivityRepository::class,
+                        ServerReachability::class,
                     ),
             )
         }

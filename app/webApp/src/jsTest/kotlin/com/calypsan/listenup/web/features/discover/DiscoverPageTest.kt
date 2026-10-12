@@ -164,7 +164,7 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         leaderboard = LeaderboardUiState.Error(isRetryable = true),
-                        currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                        currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false),
                     )
                 }
 
@@ -264,7 +264,7 @@ class DiscoverPageTest :
 
         test("a live listener is marked as listening now, not as a stale timestamp") {
             val host =
-                mounts.mount { page(currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)))) }
+                mounts.mount { page(currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false)) }
 
             host.querySelector(".disc-live")!!.textContent shouldBe "Listening now"
             host.querySelector(".disc-when") shouldBe null
@@ -277,6 +277,8 @@ class DiscoverPageTest :
                         currentlyListening =
                             CurrentlyListeningUiState.Ready(
                                 listOf(listener(isLive = false, lastActiveAt = NOW_MS - TWO_DAYS_MS)),
+                                observedAtMs = null,
+                                isStale = false,
                             ),
                     )
                 }
@@ -485,7 +487,7 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         currentlyListening =
-                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false),
                         leaderboard =
                             LeaderboardUiState.Data(
                                 snapshot = LeaderboardSnapshot(listOf(entry("Grace")), emptyList(), emptyList()),
@@ -517,7 +519,7 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         currentlyListening =
-                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false),
                         onOpenBook = { books += it },
                         onOpenProfile = { profiles += it },
                     )
@@ -535,7 +537,7 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         currentlyListening =
-                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false),
                     )
                 }
 
