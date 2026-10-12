@@ -476,6 +476,18 @@ class SettingsRepositoryTest :
             }
         }
 
+        test("the loaded book id is device-local storage: saved, read back by a fresh repository, cleared by null") {
+            runTest {
+                val storage = InMemorySecureStorage()
+                val repository = createRepository(storage = storage)
+                repository.readLoadedBookId() shouldBe null
+                repository.saveLoadedBookId("book-7")
+                createRepository(storage = storage).readLoadedBookId() shouldBe "book-7"
+                repository.saveLoadedBookId(null)
+                createRepository(storage = storage).readLoadedBookId() shouldBe null
+            }
+        }
+
         test("a malformed persisted dismissal value hydrates to null (guard)") {
             runTest {
                 val storage = InMemorySecureStorage()

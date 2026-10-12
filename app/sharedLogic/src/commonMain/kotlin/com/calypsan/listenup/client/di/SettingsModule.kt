@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.repository.SyncedPlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LibrarySync
+import com.calypsan.listenup.client.domain.repository.LoadedBookStore
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -46,6 +47,7 @@ internal val settingsModule: Module =
         single<LibrarySync> { get<SettingsRepositoryImpl>() }
         single<LibraryPreferences> { get<SettingsRepositoryImpl>() }
         single<LocalPreferences> { get<SettingsRepositoryImpl>() }
+        single<LoadedBookStore> { get<SettingsRepositoryImpl>() }
 
         // The player's defaults are a read-only projection of the server-synced preferences —
         // one store, so the player can never disagree with what Settings shows.

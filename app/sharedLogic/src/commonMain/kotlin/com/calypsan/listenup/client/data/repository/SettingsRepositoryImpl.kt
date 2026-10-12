@@ -40,7 +40,8 @@ internal class SettingsRepositoryImpl(
 ) : com.calypsan.listenup.client.domain.repository.ServerConfig,
     com.calypsan.listenup.client.domain.repository.LibrarySync,
     com.calypsan.listenup.client.domain.repository.LibraryPreferences,
-    com.calypsan.listenup.client.domain.repository.LocalPreferences {
+    com.calypsan.listenup.client.domain.repository.LocalPreferences,
+    com.calypsan.listenup.client.domain.repository.LoadedBookStore {
     // Deferred to first suspend-method use; never read at construction time.
     private val authSession by authSession
 
@@ -105,11 +106,20 @@ internal class SettingsRepositoryImpl(
         private const val KEY_AUTO_REWIND = "auto_rewind"
         private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
         private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
+        private const val KEY_LOADED_BOOK = "loaded_book_id"
 
         // Connection health (peer version + outdated-hint dismissal)
         private const val KEY_PEER_SERVER_VERSION = "peer_server_version"
         private const val KEY_PEER_SERVER_API = "peer_server_api"
         private const val KEY_OUTDATED_DISMISSED = "outdated_dismissed"
+    }
+
+    // The loaded book (device-local, NOT synced)
+
+    override suspend fun readLoadedBookId(): String? = secureStorage.read(KEY_LOADED_BOOK)
+
+    override suspend fun saveLoadedBookId(bookId: String?) {
+        if (bookId == null) secureStorage.delete(KEY_LOADED_BOOK) else secureStorage.save(KEY_LOADED_BOOK, bookId)
     }
 
     // Server configuration
