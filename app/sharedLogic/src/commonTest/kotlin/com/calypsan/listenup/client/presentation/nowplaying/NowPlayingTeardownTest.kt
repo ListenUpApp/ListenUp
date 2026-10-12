@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.client.presentation.player.PlayerSheetState
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -109,7 +110,7 @@ class NowPlayingTeardownTest :
                 documentRepository = documentRepository,
                 downloadRepository = downloadRepository,
                 playbackPositionRepository = positionRepository,
-                sheetState = NowPlayingSheetState(),
+                sheetState = PlayerSheetState(),
                 errorBus =
                     com.calypsan.listenup.core.error
                         .ErrorBus(),

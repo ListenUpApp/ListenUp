@@ -77,7 +77,7 @@ class KoinModuleVerifyTest :
         }
 
         // Verify [playbackPresentationModule] — NowPlayingViewModel is bound as `factory`, plus its
-        // two process-lifetime collaborators (PlaybackControllerActivator, NowPlayingSheetState).
+        // two process-lifetime collaborators (PlaybackControllerActivator, PlayerSheetState).
         // This module was previously not covered by module.verify().
         //
         // `extraTypes` enumerates cross-module dependencies that other Koin modules satisfy.

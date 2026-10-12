@@ -29,8 +29,8 @@ import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.shell.components.NavigationBarHeight
-import com.calypsan.listenup.client.playback.ContributorPickerType
-import com.calypsan.listenup.client.playback.NowPlayingOverlay
+import com.calypsan.listenup.client.presentation.player.ContributorPickerType
+import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingNavAction
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
@@ -229,16 +229,16 @@ fun NowPlayingHost(
 
 @Composable
 private fun OverlayDispatch(
-    overlay: NowPlayingOverlay,
+    overlay: PlayerOverlay,
     sleepTimerState: SleepTimerState,
     activeState: NowPlayingState.Active?,
     viewModel: NowPlayingViewModel,
     onNavigateToContributor: (String) -> Unit,
 ) {
     when (overlay) {
-        NowPlayingOverlay.None -> { /* no overlay */ }
+        PlayerOverlay.None -> { /* no overlay */ }
 
-        NowPlayingOverlay.ChapterPicker -> {
+        PlayerOverlay.ChapterPicker -> {
             if (activeState != null) {
                 ChapterPickerSheet(
                     chapters = viewModel.chapters,
@@ -249,7 +249,7 @@ private fun OverlayDispatch(
             }
         }
 
-        NowPlayingOverlay.SleepTimer -> {
+        PlayerOverlay.SleepTimer -> {
             SleepTimerSheet(
                 currentState = sleepTimerState,
                 onSetTimer = viewModel::setSleepTimer,
@@ -259,7 +259,7 @@ private fun OverlayDispatch(
             )
         }
 
-        is NowPlayingOverlay.ContributorPicker -> {
+        is PlayerOverlay.ContributorPicker -> {
             if (activeState != null) {
                 val role =
                     when (overlay.type) {
@@ -279,7 +279,7 @@ private fun OverlayDispatch(
             }
         }
 
-        NowPlayingOverlay.SpeedPicker -> {
+        PlayerOverlay.SpeedPicker -> {
             if (activeState != null) {
                 PlaybackSpeedSheet(
                     currentSpeed = activeState.playbackSpeed,
@@ -291,7 +291,7 @@ private fun OverlayDispatch(
             }
         }
 
-        NowPlayingOverlay.BoostPicker -> {
+        PlayerOverlay.BoostPicker -> {
             if (activeState != null) {
                 VolumeBoostSheet(
                     currentBoostDb = activeState.volumeBoostDb,

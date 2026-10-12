@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.client.presentation.player.PlayerOverlay
+
 /**
  * Tail-combined screen state. The VM exposes a single `screenState: StateFlow<NowPlayingScreenState>`
  * to the UI; combine produces this from independent flows of [state], [overlay], [isExpanded],
@@ -11,7 +13,7 @@ package com.calypsan.listenup.client.playback
  */
 data class NowPlayingScreenState(
     val state: NowPlayingState,
-    val overlay: NowPlayingOverlay,
+    val overlay: PlayerOverlay,
     val isExpanded: Boolean,
     val sleepTimerState: SleepTimerState,
     /**

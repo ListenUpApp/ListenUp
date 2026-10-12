@@ -20,7 +20,7 @@ data class NowPlayingChapter(
  * Replaces the pre-Phase-E2.2.1 flat data class with `isVisible`, `errorMessage`,
  * `isPreparing`, etc. — the boolean / nullable fields are now expressed as variants.
  *
- * Per-variant UI ephemera (`isExpanded`, picker visibility) lives in [NowPlayingOverlay]
+ * Per-variant UI ephemera (`isExpanded`, picker visibility) lives in [com.calypsan.listenup.client.presentation.player.PlayerOverlay]
  * and a separate `isExpanded: StateFlow<Boolean>`, both tail-combined into
  * [NowPlayingScreenState] by the VM.
  */
@@ -64,12 +64,4 @@ sealed interface NowPlayingState {
         val message: String,
         val isRecoverable: Boolean,
     ) : NowPlayingState
-}
-
-/**
- * Type of contributor picker to show.
- */
-enum class ContributorPickerType {
-    AUTHORS,
-    NARRATORS,
 }

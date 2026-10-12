@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.client.presentation.player.PlayerSheetState
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.playback.TimelineFileInput
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -102,7 +103,7 @@ class NowPlayingSkipIntervalTest :
                     documentRepository = documentRepository,
                     downloadRepository = FakeDownloadRepository(),
                     playbackPositionRepository = FakePlaybackPositionRepository(),
-                    sheetState = NowPlayingSheetState(),
+                    sheetState = PlayerSheetState(),
                     errorBus = ErrorBus(),
                 )
         }

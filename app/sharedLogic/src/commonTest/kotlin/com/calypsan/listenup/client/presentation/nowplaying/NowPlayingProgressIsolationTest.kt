@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.client.presentation.player.PlayerSheetState
 import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -88,7 +89,7 @@ class NowPlayingProgressIsolationTest :
                 playbackPositionRepository =
                     com.calypsan.listenup.client.test.fake
                         .FakePlaybackPositionRepository(),
-                sheetState = NowPlayingSheetState(),
+                sheetState = PlayerSheetState(),
                 errorBus =
                     com.calypsan.listenup.core.error
                         .ErrorBus(),

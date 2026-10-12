@@ -1,6 +1,7 @@
 
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.client.presentation.player.PlayerSheetState
 import com.calypsan.listenup.api.error.PlaybackError
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,8 +18,8 @@ import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.playback.ContributorPickerType
-import com.calypsan.listenup.client.playback.NowPlayingOverlay
+import com.calypsan.listenup.client.presentation.player.ContributorPickerType
+import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.playback.NowPlayingScreenState
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackController
@@ -95,10 +96,10 @@ class NowPlayingViewModel internal constructor(
     private val documentRepository: DocumentRepository,
     private val downloadRepository: DownloadRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
-    private val sheetState: NowPlayingSheetState,
+    private val sheetState: PlayerSheetState,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
-    private val overlayFlow = MutableStateFlow<NowPlayingOverlay>(NowPlayingOverlay.None)
+    private val overlayFlow = MutableStateFlow<PlayerOverlay>(PlayerOverlay.None)
 
     private val navActionsChannel = Channel<NowPlayingNavAction>(Channel.BUFFERED)
 
@@ -203,7 +204,7 @@ class NowPlayingViewModel internal constructor(
             initialValue =
                 NowPlayingScreenState(
                     state = NowPlayingState.Idle,
-                    overlay = NowPlayingOverlay.None,
+                    overlay = PlayerOverlay.None,
                     // Read the live singleton's current value (not a hardcoded false) so a fresh
                     // VM instance's screenState.value is correct even before the combine above
                     // has had a chance to emit — e.g. a second koinViewModel() instance created
@@ -382,43 +383,43 @@ class NowPlayingViewModel internal constructor(
     }
 
     fun showChapterPicker() {
-        overlayFlow.value = NowPlayingOverlay.ChapterPicker
+        overlayFlow.value = PlayerOverlay.ChapterPicker
     }
 
     fun hideChapterPicker() {
-        overlayFlow.value = NowPlayingOverlay.None
+        overlayFlow.value = PlayerOverlay.None
     }
 
     fun showSpeedPicker() {
-        overlayFlow.value = NowPlayingOverlay.SpeedPicker
+        overlayFlow.value = PlayerOverlay.SpeedPicker
     }
 
     fun hideSpeedPicker() {
-        overlayFlow.value = NowPlayingOverlay.None
+        overlayFlow.value = PlayerOverlay.None
     }
 
     fun showBoostPicker() {
-        overlayFlow.value = NowPlayingOverlay.BoostPicker
+        overlayFlow.value = PlayerOverlay.BoostPicker
     }
 
     fun hideBoostPicker() {
-        overlayFlow.value = NowPlayingOverlay.None
+        overlayFlow.value = PlayerOverlay.None
     }
 
     fun showSleepTimer() {
-        overlayFlow.value = NowPlayingOverlay.SleepTimer
+        overlayFlow.value = PlayerOverlay.SleepTimer
     }
 
     fun hideSleepTimer() {
-        overlayFlow.value = NowPlayingOverlay.None
+        overlayFlow.value = PlayerOverlay.None
     }
 
     fun showContributorPicker(type: ContributorPickerType) {
-        overlayFlow.value = NowPlayingOverlay.ContributorPicker(type)
+        overlayFlow.value = PlayerOverlay.ContributorPicker(type)
     }
 
     fun hideContributorPicker() {
-        overlayFlow.value = NowPlayingOverlay.None
+        overlayFlow.value = PlayerOverlay.None
     }
 
     // === Sleep Timer ===

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.client.presentation.player.PlayerSheetState
 import com.calypsan.listenup.client.test.fake.prepareResultFor
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.BookError
@@ -18,7 +19,7 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.playback.NowPlayingOverlay
+import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
@@ -80,7 +81,7 @@ class NowPlayingViewModelTest :
             val networkMonitor: NetworkMonitor = mock()
             val documentRepository: DocumentRepository = mock()
             val sleepTimerManager: SleepTimerManager = SleepTimerManager(CoroutineScope(Job()))
-            val sheetState = NowPlayingSheetState()
+            val sheetState = PlayerSheetState()
             val errorBus = ErrorBus()
 
             init {
@@ -916,13 +917,13 @@ class NowPlayingViewModelTest :
                 vm.showChapterPicker()
                 advanceUntilIdle()
                 withClue("expected ChapterPicker overlay; got: ${vm.screenState.value.overlay}") {
-                    (vm.screenState.value.overlay is NowPlayingOverlay.ChapterPicker) shouldBe true
+                    (vm.screenState.value.overlay is PlayerOverlay.ChapterPicker) shouldBe true
                 }
 
                 vm.hideChapterPicker()
                 advanceUntilIdle()
                 withClue("expected None overlay; got: ${vm.screenState.value.overlay}") {
-                    (vm.screenState.value.overlay is NowPlayingOverlay.None) shouldBe true
+                    (vm.screenState.value.overlay is PlayerOverlay.None) shouldBe true
                 }
             }
         }
@@ -940,13 +941,13 @@ class NowPlayingViewModelTest :
                 vm.showBoostPicker()
                 advanceUntilIdle()
                 withClue("expected BoostPicker overlay; got: ${vm.screenState.value.overlay}") {
-                    (vm.screenState.value.overlay is NowPlayingOverlay.BoostPicker) shouldBe true
+                    (vm.screenState.value.overlay is PlayerOverlay.BoostPicker) shouldBe true
                 }
 
                 vm.hideBoostPicker()
                 advanceUntilIdle()
                 withClue("expected None overlay; got: ${vm.screenState.value.overlay}") {
-                    (vm.screenState.value.overlay is NowPlayingOverlay.None) shouldBe true
+                    (vm.screenState.value.overlay is PlayerOverlay.None) shouldBe true
                 }
             }
         }
