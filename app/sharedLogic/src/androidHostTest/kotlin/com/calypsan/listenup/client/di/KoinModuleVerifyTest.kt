@@ -1,6 +1,11 @@
 package com.calypsan.listenup.client.di
 
 import androidx.work.WorkManager
+import com.calypsan.listenup.client.presentation.player.PlayerSheetState
+import com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
@@ -77,7 +82,7 @@ class KoinModuleVerifyTest :
         }
 
         // Verify [playbackPresentationModule] — NowPlayingViewModel is bound as `factory`, plus its
-        // two process-lifetime collaborators (PlaybackControllerActivator, PlayerSheetState).
+        // process-lifetime collaborator PlaybackControllerActivator (PlayerSheetState comes from playerModule).
         // This module was previously not covered by module.verify().
         //
         // `extraTypes` enumerates cross-module dependencies that other Koin modules satisfy.
@@ -95,13 +100,14 @@ class KoinModuleVerifyTest :
                         DownloadRepository::class,
                         PlaybackPositionRepository::class,
                         ErrorBus::class,
+                        PlayerSheetState::class,
                     ),
             )
         }
 
-        // Verify [playerModule] — the shared player: the loaded-book repository, the session (created at start)
-        // and the one sleep timer. The engine and the "keeps offline copies" flag come from each platform's
-        // playback module; the rest are repositories other modules bind.
+        // Verify [playerModule] — the shared player: the loaded-book repository, the session (created at start),
+        // the one sleep timer, the shared sheet state and the PlayerViewModel factory. The engine and the "keeps
+        // offline copies" flag come from each platform's playback module; the rest are bound by other modules.
         test("verifyPlayerModule") {
             playerModule.verify(
                 extraTypes =
@@ -117,6 +123,12 @@ class KoinModuleVerifyTest :
                         ServerReachability::class,
                         AuthSession::class,
                         PlaybackPreferences::class,
+                        ContributorRepository::class,
+                        DocumentRepository::class,
+                        BookRatingRepository::class,
+                        ObserveNextInSeriesUseCase::class,
+                        UserRepository::class,
+                        ErrorBus::class,
                         Boolean::class,
                     ),
             )

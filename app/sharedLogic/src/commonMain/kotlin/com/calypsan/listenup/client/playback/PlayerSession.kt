@@ -191,6 +191,10 @@ class PlayerSession(
     /** The sleep timer, as the shared manager holds it. */
     val sleepTimerState: StateFlow<SleepTimerState> get() = sleepTimer.state
 
+    /** The finish and start instants on [bookId]'s position row (the finished state's "6 Sep – 10 Oct"). */
+    fun finishDates(bookId: BookId): Flow<Pair<Long?, Long?>> =
+        positionRepository.observe(bookId).map { it?.finishedAtMs to it?.startedAtMs }.distinctUntilChanged()
+
     private val phaseInputs: Flow<PhaseInputs?> =
         stageBookId.flatMapLatest { id ->
             if (id == null) {

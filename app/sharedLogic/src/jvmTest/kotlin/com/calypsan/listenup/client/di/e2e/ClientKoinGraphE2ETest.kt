@@ -12,12 +12,14 @@ import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.playback.PlayerSession
+import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.matchers.types.shouldBeSameInstanceAs
+import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -109,10 +111,11 @@ class ClientKoinGraphE2ETest :
             }
         }
 
-        test("the player graph resolves one session and one loaded-book repository") {
+        test("the player graph resolves one session, one loaded-book repository and a fresh view model per get") {
             val fixture = autoClose(DiWiredClientFixture.start())
             val koin = fixture.koin.koin
             koin.get<PlayerSession>() shouldBeSameInstanceAs koin.get<PlayerSession>()
+            koin.get<PlayerViewModel>() shouldNotBeSameInstanceAs koin.get<PlayerViewModel>()
             koin.get<LoadedBookRepository>() shouldBeSameInstanceAs koin.get<LoadedBookRepository>()
         }
 

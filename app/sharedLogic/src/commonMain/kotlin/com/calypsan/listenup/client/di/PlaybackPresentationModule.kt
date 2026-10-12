@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.playback.PlaybackControllerActivator
-import com.calypsan.listenup.client.presentation.player.PlayerSheetState
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import org.koin.dsl.module
 
@@ -24,7 +23,7 @@ import org.koin.dsl.module
  *   `factory`" rule — because a `factory` would create a fresh instance (and double-acquire the
  *   controller) at each of its two `koinViewModel()` consumers (the shell mini-player and the
  *   document viewer). Extracting acquisition here removes that constraint entirely.
- * - [PlayerSheetState] holds the sheet's expand/collapse `StateFlow` so every VM instance —
+ * - `PlayerSheetState` (bound in `playerModule`) holds the sheet's expand/collapse `StateFlow` so every VM instance —
  *   now one per owning store — reads and writes the SAME expansion state, rather than each
  *   instance owning its own (which would desync the shell and document-viewer sheets).
  *
@@ -42,8 +41,6 @@ import org.koin.dsl.module
  */
 internal val playbackPresentationModule =
     module {
-        single { PlayerSheetState() }
-
         single { PlaybackControllerActivator(playbackController = get()) }
 
         factory {
