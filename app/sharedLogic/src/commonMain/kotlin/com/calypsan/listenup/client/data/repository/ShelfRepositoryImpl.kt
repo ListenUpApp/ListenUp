@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
+import com.calypsan.listenup.client.data.local.db.coverPathFor
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
@@ -25,7 +26,9 @@ import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.data.sync.domains.junctionOutboxKey
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfBook
+import com.calypsan.listenup.client.domain.model.ShelfCover
 import com.calypsan.listenup.client.domain.model.ShelfDetail
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
@@ -64,6 +67,7 @@ import kotlinx.coroutines.flow.map
  * @property offlineEditor Composes the optimistic Room merge and the durable outbox enqueue into a
  *   single transaction for the offline-first surfaces.
  * @property collectionBookDao The held-for-review set, kept out of the shelf detail on an admin's device.
+ * @property imageStorage Resolves the local cover path of each book a discovered shelf names.
  */
 internal class ShelfRepositoryImpl(
     private val dao: ShelfDao,
@@ -72,6 +76,7 @@ internal class ShelfRepositoryImpl(
     private val channel: RpcChannel<ShelfService>,
     private val offlineEditor: OfflineEditor,
     private val collectionBookDao: CollectionBookDao,
+    private val imageStorage: ImageStorage,
 ) : ShelfRepository {
     // ── Own-shelf observation (Room) ──────────────────────────────────────────────
 
@@ -98,7 +103,24 @@ internal class ShelfRepositoryImpl(
     override suspend fun discoverShelves(): AppResult<List<Shelf>> =
         channel
             .call(idempotent = true) { it.discoverShelves() }
-            .map { discovered -> discovered.map { it.toDomain() } }
+            .map { discovered ->
+                val ids = discovered.flatMap { it.coverBookIds }.distinct()
+                val rows = if (ids.isEmpty()) emptyMap() else dao.coverRowsFor(ids).associateBy { it.bookId }
+                discovered.map { shelf ->
+                    shelf.toDomain(
+                        covers =
+                            shelf.coverBookIds.mapNotNull { id ->
+                                rows[id]?.let { row ->
+                                    ShelfCover(
+                                        bookId = id,
+                                        coverPath = imageStorage.coverPathFor(BookId(id), row.coverDownloadedAt),
+                                        coverHash = row.coverHash,
+                                    )
+                                }
+                            },
+                    )
+                }
+            }
 
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
@@ -415,7 +437,7 @@ private fun com.calypsan.listenup.api.dto.shelf.Shelf.toDomain(): Shelf =
         updatedAtMs = updatedAt,
     )
 
-private fun DiscoveredShelf.toDomain(): Shelf =
+private fun DiscoveredShelf.toDomain(covers: List<ShelfCover>): Shelf =
     Shelf(
         id = shelf.id,
         name = shelf.name,
@@ -427,6 +449,7 @@ private fun DiscoveredShelf.toDomain(): Shelf =
         totalDurationSeconds = 0,
         createdAtMs = shelf.updatedAt,
         updatedAtMs = shelf.updatedAt,
+        covers = covers,
     )
 
 private fun ShelfDetailDto.toDomain(coverHashByBook: Map<String, String?>): ShelfDetail =

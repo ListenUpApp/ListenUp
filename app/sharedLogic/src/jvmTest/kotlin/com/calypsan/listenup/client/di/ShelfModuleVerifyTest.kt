@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -27,6 +28,7 @@ import org.koin.test.verify.verify
  *  - [BookRatingDao] — owned by `persistenceModule` ([BookRatingRepository][com.calypsan.listenup.client.domain.repository.BookRatingRepository] is piggy-backed here, see [shelfModule]'s KDoc).
  *  - [OfflineEditor] — owned by `clientSyncModule`.
  *  - [AuthSession] — owned by `clientAuthModule`.
+ *  - [ImageStorage] — owned by `mediaModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ShelfModuleVerifyTest :
@@ -46,6 +48,7 @@ class ShelfModuleVerifyTest :
                         BookRatingDao::class,
                         OfflineEditor::class,
                         AuthSession::class,
+                        ImageStorage::class,
                     ),
             )
         }

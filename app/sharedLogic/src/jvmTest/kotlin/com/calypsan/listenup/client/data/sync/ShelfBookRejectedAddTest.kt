@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -162,6 +163,7 @@ private class Harness(
                     authSession = FakeAuthSession(userId = "u1"),
                 ),
             collectionBookDao = db.collectionBookDao(),
+            imageStorage = stubImageStorage(),
         )
 
     /** Drain the refused op, then heal exactly as the engine's heal-drain collector does. */
