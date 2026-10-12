@@ -654,51 +654,10 @@ internal class PlaybackManagerImpl(
      * Called from updatePosition() to track chapter changes.
      */
     internal fun updateCurrentChapter(positionMs: Long) {
-        val chapterList = chapters.value
-        if (chapterList.isEmpty()) {
-            currentChapter.value = null
-            return
-        }
-
-        val index =
-            chapterList
-                .indexOfLast { it.startTime <= positionMs }
-                .coerceAtLeast(0)
-
-        val chapter = chapterList[index]
-        val endMs =
-            chapterList.getOrNull(index + 1)?.startTime
-                ?: currentTimeline.value?.totalDurationMs
-                ?: chapter.startTime
-
-        val newChapter =
-            PlaybackManager.ChapterInfo(
-                index = index,
-                title = chapter.title,
-                startMs = chapter.startTime,
-                endMs = endMs,
-                remainingMs = (endMs - positionMs).coerceAtLeast(0),
-                totalChapters = chapterList.size,
-                isGenericTitle = isGenericChapterTitle(chapter.title),
-            )
-
-        // Only trigger notification update on chapter change
-        if (newChapter.index != currentChapter.value?.index) {
-            currentChapter.value = newChapter
-            onChapterChanged?.invoke(newChapter)
-        } else {
-            // Update remaining time without triggering notification
-            currentChapter.value = newChapter
-        }
-    }
-
-    /**
-     * Detect if a chapter title is generic (e.g., "Chapter 14", "Track 7", or empty).
-     */
-    private fun isGenericChapterTitle(title: String): Boolean {
-        val normalized = title.trim().lowercase()
-        return normalized.isEmpty() ||
-            normalized.matches(Regex("""^(chapter|part|track|section)\s*\d+$""")) ||
-            normalized.matches(Regex("""^\d+$"""))
+        val newChapter = chapterInfoAt(positionMs, chapters.value, currentTimeline.value?.totalDurationMs)
+        val chapterChanged = newChapter?.index != currentChapter.value?.index
+        currentChapter.value = newChapter
+        // Only a change of chapter re-stamps the notification.
+        if (chapterChanged && newChapter != null) onChapterChanged?.invoke(newChapter)
     }
 }
