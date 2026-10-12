@@ -30,6 +30,9 @@ private const val MAX_NAME_LENGTH = 200
 private const val DISCOVER_LIMIT_MIN = 1
 private const val DISCOVER_LIMIT_MAX = 200
 
+/** How many of a discovered shelf's books the server names for its cover mosaic (a 2×2 grid). */
+internal const val DISCOVER_COVER_COUNT = 4
+
 /**
  * Largest ordering [ShelfServiceImpl.reorderShelfBooks] will accept in one call. A reorder
  * legitimately carries every live book on the shelf, and the shelf itself has no server-side size
@@ -378,18 +381,22 @@ internal class ShelfServiceImpl(
      * Maps [owned] to a [DiscoveredShelf] for [caller], or null when the caller can
      * see none of the shelf's books — a shelf with zero accessible books is excluded
      * from discovery entirely. The summary's book count reflects only accessible books.
+     * Its `coverBookIds` are the first [DISCOVER_COVER_COUNT] of those same accessible books, in shelf order.
      */
     private suspend fun discoveredOrNull(
         owned: OwnedShelf,
         caller: Caller,
     ): DiscoveredShelf? {
         val liveBookIds = shelfBookRepo.listByShelf(owned.shelf.id).map { it.bookId }
-        val accessibleCount = filterAccessible(liveBookIds, caller).size
-        if (accessibleCount == 0) return null
+        val accessible = filterAccessible(liveBookIds, caller)
+        if (accessible.isEmpty()) return null
         return DiscoveredShelf(
-            shelf = owned.shelf.toSummary(bookCount = accessibleCount),
+            shelf = owned.shelf.toSummary(bookCount = accessible.size),
             ownerId = owned.ownerId,
             ownerDisplayName = readAssembler.displayNameFor(owned.ownerId),
+            // The same access-filtered, sort-ordered list the count is taken from: a cover can never
+            // show a book the count leaves out, nor one the caller cannot open.
+            coverBookIds = accessible.take(DISCOVER_COVER_COUNT),
         )
     }
 

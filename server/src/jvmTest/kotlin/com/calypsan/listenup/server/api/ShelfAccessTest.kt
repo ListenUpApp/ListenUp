@@ -357,6 +357,52 @@ class ShelfAccessTest :
                 }
             }
         }
+
+        // ── 9: discovered covers are the caller's accessible books, in shelf order ──
+
+        test("a discovered shelf's cover ids are only the caller's accessible books, in shelf order") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("a")
+                sql.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { sql.seedTestBook(it) }
+                val f = fixtures(this)
+                runTest {
+                    seedBaseFixture(f)
+
+                    val discovered = service(this@withSqlDatabase).actAs("b").discoverShelves().value()
+
+                    // S is [pub, priv, glob]; priv is invisible to B and must never leak as a cover.
+                    discovered.single().coverBookIds shouldContainExactly listOf("pub", "glob")
+                }
+            }
+        }
+
+        test("a discovered shelf names at most four cover books, the first four in shelf order") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("a")
+                sql.seedTestUser("b")
+                val many = (1..6).map { "c$it" }
+                (listOf("pub", "priv", "glob") + many).forEach { sql.seedTestBook(it) }
+                val f = fixtures(this)
+                runTest {
+                    seedBaseFixture(f)
+                    many.forEach { f.collectionBookRepo.upsert(membership("all-books", it)) }
+                    seedShelf(f, "a", name = "Long Haul", isPrivate = false, bookIds = many)
+
+                    val longHaul =
+                        service(this@withSqlDatabase)
+                            .actAs("b")
+                            .discoverShelves()
+                            .value()
+                            .single { it.shelf.name == "Long Haul" }
+
+                    longHaul.shelf.bookCount shouldBe 6
+                    longHaul.coverBookIds shouldContainExactly listOf("c1", "c2", "c3", "c4")
+                }
+            }
+        }
     })
 
 private data class Fixtures(
