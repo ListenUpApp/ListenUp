@@ -306,7 +306,7 @@ class NowPlayingViewModel internal constructor(
         viewModelScope.launch {
             sleepTimerManager.sleepEvent.collect {
                 try {
-                    fadeOutAndPause(playbackController)
+                    fadeOutAndPause(playbackController::setVolume, playbackController::pause)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

@@ -33,7 +33,7 @@ class SleepFadeTest :
         test("the volume ramps down over the whole fade rather than simply muting") {
             runTest {
                 val controller = FakePlaybackController()
-                backgroundScope.launch { fadeOutAndPause(controller) }
+                backgroundScope.launch { fadeOutAndPause(controller::setVolume, controller::pause) }
 
                 advanceTimeBy(SLEEP_FADE_DURATION_MS / 2)
                 runCurrent()
@@ -52,7 +52,7 @@ class SleepFadeTest :
         test("silence lands before the pause, so the book is never cut off mid-word") {
             runTest {
                 val controller = FakePlaybackController()
-                backgroundScope.launch { fadeOutAndPause(controller) }
+                backgroundScope.launch { fadeOutAndPause(controller::setVolume, controller::pause) }
 
                 // Past the ramp, short of the restore: the one moment where the ordering shows.
                 advanceTimeBy(SLEEP_FADE_DURATION_MS + 1)
@@ -66,7 +66,7 @@ class SleepFadeTest :
         test("the volume is put back, so the next book does not start silent") {
             runTest {
                 val controller = FakePlaybackController()
-                backgroundScope.launch { fadeOutAndPause(controller) }
+                backgroundScope.launch { fadeOutAndPause(controller::setVolume, controller::pause) }
 
                 advanceTimeBy(wellPastTheEnd)
                 runCurrent()

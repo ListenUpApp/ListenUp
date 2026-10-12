@@ -18,12 +18,12 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.test.fake.FakeBookVisibilityRepository
+import com.calypsan.listenup.client.test.fake.FakeBookAvailability
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
+import com.calypsan.listenup.client.test.fake.FakeServerReachability
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
-import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.InternalError
-import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -51,7 +51,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -81,36 +80,6 @@ class BookDetailViewModelTest :
 
         // ========== Test Fixtures ==========
 
-        // Fake BookAvailability that returns a controllable StateFlow.
-        class FakeBookAvailability(
-            initial: BookAvailability.State =
-                BookAvailability.State(
-                    downloadStatus = BookDownloadStatus.NotDownloaded(""),
-                    isPlaybackAvailable = true,
-                    canPlay = true,
-                    canDownload = false,
-                    showServerWarning = false,
-                    isWaitingForWifi = false,
-                ),
-        ) : BookAvailability {
-            val stateFlow = MutableStateFlow(initial)
-
-            override fun observe(bookId: BookId): Flow<BookAvailability.State> = stateFlow
-        }
-
-        // Fake ServerReachability that records retry() invocations and exposes a
-        // controllable state flow.
-        class FakeServerReachability : ServerReachability {
-            override val state = MutableStateFlow<Reachability>(Reachability.Unknown)
-            var retryCalls = 0
-                private set
-
-            override suspend fun retry() {
-                retryCalls++
-            }
-        }
-
-        // Convenience fixture class to avoid Triple unpacking
         class TestFixture {
             val bookRepository: BookRepository = mock()
             val tagRepository: TagRepository = mock()

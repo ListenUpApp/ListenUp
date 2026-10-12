@@ -6,19 +6,16 @@ import app.cash.turbine.turbineScope
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Collection
-import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.test.fake.FakeBookVisibilityRepository
+import com.calypsan.listenup.client.test.fake.FakeBookAvailability
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
+import com.calypsan.listenup.client.test.fake.FakeServerReachability
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
-import com.calypsan.listenup.client.domain.repository.Reachability
-import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -34,8 +31,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -59,28 +54,6 @@ class BookDetailViewModelCollectionTest :
         val testDispatcher = StandardTestDispatcher()
 
         // ========== Test Fixtures ==========
-
-        class FakeBookAvailability(
-            initial: BookAvailability.State =
-                BookAvailability.State(
-                    downloadStatus = BookDownloadStatus.NotDownloaded(""),
-                    isPlaybackAvailable = true,
-                    canPlay = true,
-                    canDownload = false,
-                    showServerWarning = false,
-                    isWaitingForWifi = false,
-                ),
-        ) : BookAvailability {
-            val stateFlow = MutableStateFlow(initial)
-
-            override fun observe(bookId: BookId): Flow<BookAvailability.State> = stateFlow
-        }
-
-        class FakeServerReachability : ServerReachability {
-            override val state = MutableStateFlow<Reachability>(Reachability.Unknown)
-
-            override suspend fun retry() {}
-        }
 
         class TestFixture {
             val bookRepository: BookRepository = mock()
