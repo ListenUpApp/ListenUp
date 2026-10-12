@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -138,7 +139,7 @@ class DiscoverViewModel(
                 }.onStart { emit(CurrentlyListeningUiState.Loading) }
                     .fallbackTo { e ->
                         logger.error(e) { "Error observing currently listening" }
-                        CurrentlyListeningUiState.Error("Failed to load currently listening")
+                        CurrentlyListeningUiState.Error(ErrorMapper.map(e))
                     }
             }.stateIn(
                 scope = viewModelScope,
@@ -189,7 +190,7 @@ class DiscoverViewModel(
                     emit(DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() }))
                 }.fallbackTo { e ->
                     logger.error(e) { "Error loading discover books" }
-                    DiscoverBooksUiState.Error("Failed to load discover books")
+                    DiscoverBooksUiState.Error(ErrorMapper.map(e))
                 }
             }.stateIn(
                 scope = viewModelScope,
@@ -240,7 +241,7 @@ class DiscoverViewModel(
                     }.onStart { emit(RecentlyAddedUiState.Loading) }
                     .fallbackTo { e ->
                         logger.error(e) { "Error observing recently added books" }
-                        RecentlyAddedUiState.Error("Failed to load recently added")
+                        RecentlyAddedUiState.Error(ErrorMapper.map(e))
                     }
             }.stateIn(
                 scope = viewModelScope,
@@ -313,7 +314,7 @@ class DiscoverViewModel(
                         errorBus.emit(result.error)
                         logger.error { "Failed to load discover shelves: ${result.error.message}" }
                     }
-                    discoverShelvesState.value = DiscoverShelvesUiState.Error("Failed to load discover shelves")
+                    discoverShelvesState.value = DiscoverShelvesUiState.Error(result.error)
                 }
             }
         }
@@ -352,9 +353,9 @@ sealed interface DiscoverShelvesUiState {
             get() = users.sumOf { it.shelves.size }
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : DiscoverShelvesUiState
 }
 
@@ -430,9 +431,9 @@ sealed interface CurrentlyListeningUiState {
             get() = sessions.count { !it.isLive }
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : CurrentlyListeningUiState
 }
 
@@ -451,9 +452,9 @@ sealed interface DiscoverBooksUiState {
             get() = books.isEmpty()
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : DiscoverBooksUiState
 }
 
@@ -472,9 +473,9 @@ sealed interface RecentlyAddedUiState {
             get() = books.isEmpty()
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : RecentlyAddedUiState
 }
 

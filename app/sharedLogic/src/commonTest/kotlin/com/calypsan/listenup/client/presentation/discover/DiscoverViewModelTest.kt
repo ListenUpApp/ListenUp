@@ -44,6 +44,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 
 /**
  * Tests for [DiscoverViewModel].
@@ -300,7 +301,7 @@ class DiscoverViewModelTest :
 
                 // Then
                 val err = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
-                err.message shouldBe "Failed to load currently listening"
+                err.error.shouldBeInstanceOf<UnexpectedClientError>()
             }
         }
 
@@ -453,7 +454,7 @@ class DiscoverViewModelTest :
 
                 // Then
                 val err = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Error>()
-                err.message shouldBe "Failed to load recently added"
+                err.error.shouldBeInstanceOf<UnexpectedClientError>()
             }
         }
 
@@ -546,7 +547,7 @@ class DiscoverViewModelTest :
 
                 // Then
                 val err = viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
-                err.message shouldBe "Failed to load discover shelves"
+                err.error.shouldBeInstanceOf<com.calypsan.listenup.api.error.ValidationError>()
             }
         }
 
@@ -680,7 +681,9 @@ class DiscoverViewModelTest :
                     }
                 val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
                 advanceUntilIdle()
-                viewModel.discoverBooksState.value.shouldBeInstanceOf<DiscoverBooksUiState.Error>()
+                viewModel.discoverBooksState.value
+                    .shouldBeInstanceOf<DiscoverBooksUiState.Error>()
+                    .error.shouldBeInstanceOf<UnexpectedClientError>()
 
                 viewModel.refresh()
                 advanceUntilIdle()

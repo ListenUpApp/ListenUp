@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
@@ -2213,12 +2214,12 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         page(),
         // Every section in its error.
         page(
-            books = DiscoverBooksUiState.Error("nope"),
-            recentlyAdded = RecentlyAddedUiState.Error("nope"),
-            currentlyListening = CurrentlyListeningUiState.Error("nope"),
+            books = DiscoverBooksUiState.Error(UnexpectedClientError()),
+            recentlyAdded = RecentlyAddedUiState.Error(UnexpectedClientError()),
+            currentlyListening = CurrentlyListeningUiState.Error(UnexpectedClientError()),
             leaderboard = LeaderboardUiState.Error(isRetryable = true),
-            activityState = ActivityFeedUiState.Error("nope"),
-            shelves = DiscoverShelvesUiState.Error("nope"),
+            activityState = ActivityFeedUiState.Error(UnexpectedClientError()),
+            shelves = DiscoverShelvesUiState.Error(UnexpectedClientError()),
         ),
         // Every section empty.
         page(

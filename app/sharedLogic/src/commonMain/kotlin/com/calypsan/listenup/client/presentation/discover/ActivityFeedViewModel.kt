@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.core.fallbackTo
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -80,7 +82,7 @@ class ActivityFeedViewModel internal constructor(
             }.onStart { emit(ActivityFeedUiState.Loading) }
             .fallbackTo { e ->
                 logger.error(e) { "Error observing activity feed" }
-                ActivityFeedUiState.Error("Failed to load activity feed")
+                ActivityFeedUiState.Error(ErrorMapper.map(e))
             }
 
     /**
@@ -166,8 +168,8 @@ sealed interface ActivityFeedUiState {
             get() = activities.isEmpty()
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : ActivityFeedUiState
 }

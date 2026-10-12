@@ -153,7 +153,7 @@ private fun CurrentlyListeningSection(
             }
 
             is CurrentlyListeningUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is CurrentlyListeningUiState.Ready -> {
@@ -225,7 +225,7 @@ private fun DiscoverBooksSection(
             }
 
             is DiscoverBooksUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is DiscoverBooksUiState.Ready -> {
@@ -260,7 +260,7 @@ private fun RecentlyAddedSection(
             }
 
             is RecentlyAddedUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is RecentlyAddedUiState.Ready -> {
@@ -401,7 +401,7 @@ private fun ActivityFeedSection(
             }
 
             is ActivityFeedUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is ActivityFeedUiState.Ready -> {
@@ -585,7 +585,7 @@ private fun SharedShelvesSection(
             }
 
             is DiscoverShelvesUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is DiscoverShelvesUiState.Ready -> {

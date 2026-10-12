@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.discover
 
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.model.ScanProgressState
@@ -200,7 +201,7 @@ class ActivityFeedViewModelTest :
 
                 // Then
                 val err = viewModel.state.value.shouldBeInstanceOf<ActivityFeedUiState.Error>()
-                err.message shouldBe "Failed to load activity feed"
+                err.error.shouldBeInstanceOf<UnexpectedClientError>()
             }
         }
 

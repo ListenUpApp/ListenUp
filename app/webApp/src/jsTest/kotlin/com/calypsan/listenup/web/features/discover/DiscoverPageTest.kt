@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.discover
 
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
@@ -177,7 +178,7 @@ class DiscoverPageTest :
             var refreshes = 0
             val root =
                 mounts.mount {
-                    page(books = DiscoverBooksUiState.Error("Failed to load discover books"), onRefresh = { refreshes++ })
+                    page(books = DiscoverBooksUiState.Error(UnexpectedClientError()), onRefresh = { refreshes++ })
                 }
 
             val retry = root.querySelector(".disc-retry") as HTMLElement
@@ -191,7 +192,7 @@ class DiscoverPageTest :
             var refreshes = 0
             val root =
                 mounts.mount {
-                    page(shelves = DiscoverShelvesUiState.Error("Failed to load discover shelves"), onRefresh = { refreshes++ })
+                    page(shelves = DiscoverShelvesUiState.Error(UnexpectedClientError()), onRefresh = { refreshes++ })
                 }
 
             (root.querySelector(".disc-retry") as HTMLElement).click()
@@ -206,8 +207,8 @@ class DiscoverPageTest :
             val root =
                 mounts.mount {
                     page(
-                        currentlyListening = CurrentlyListeningUiState.Error("nope"),
-                        recentlyAdded = RecentlyAddedUiState.Error("nope"),
+                        currentlyListening = CurrentlyListeningUiState.Error(UnexpectedClientError()),
+                        recentlyAdded = RecentlyAddedUiState.Error(UnexpectedClientError()),
                         onRefresh = { refreshes++ },
                     )
                 }
@@ -244,7 +245,7 @@ class DiscoverPageTest :
             val root =
                 mounts.mount {
                     page(
-                        activityState = ActivityFeedUiState.Error("nope"),
+                        activityState = ActivityFeedUiState.Error(UnexpectedClientError()),
                         onRefresh = { discoverRefreshes++ },
                         onRefreshActivity = { activityRefreshes++ },
                     )
