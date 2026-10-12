@@ -56,4 +56,21 @@ struct EngineInstructionOrderTests {
         #expect(harness.facts.unloadedCount == 0)
         #expect(harness.coordinator.engineBook == nil)
     }
+
+    @Test("The coordinator keeps its instruction source alive, so the shared player's commands keep flowing")
+    func retainsInstructionSource() {
+        // Production hands the coordinator a source nothing else holds (`KotlinEngineInstructions`, whose
+        // FlowBridge collects NativePlayerEngine.commands). If the coordinator drops it, the bridge cancels on
+        // deinit and every Load/Play/Pause piles up unread: on device, Play spun forever.
+        weak var weakSource: FakeEngineInstructions?
+        let coordinator: PlayerCoordinator = {
+            let source = FakeEngineInstructions()
+            weakSource = source
+            return PlayerCoordinator(
+                instructions: source, facts: FakeEngineFacts(), progress: FakeProgressReporting(),
+                engine: FakePlaybackEngine())
+        }()
+        #expect(weakSource != nil)
+        withExtendedLifetime(coordinator) {}
+    }
 }
