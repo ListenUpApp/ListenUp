@@ -66,7 +66,8 @@ struct HomeWrapperTests {
             totalDurationSeconds: 9_000,
             createdAtMs: 0,
             updatedAtMs: 0,
-            coverPaths: ["/a.jpg", "/b.jpg"]
+            coverPaths: ["/a.jpg", "/b.jpg"],
+            covers: []
         )
         let item = ShelfItem(from: shelf)
 
