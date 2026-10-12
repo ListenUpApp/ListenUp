@@ -8,6 +8,11 @@ import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.data.repository.LeaderboardRepositoryImpl
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
+import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.repository.AuthSession
+import dev.mokkery.answering.returns
+import dev.mokkery.every
+import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -73,7 +78,8 @@ class LeaderboardViewModelRealRepoTest :
         fun vmOver(rows: MutableStateFlow<List<PublicProfileEntity>>): LeaderboardViewModel {
             val dao = FakePublicProfileDao(rows)
             val repo = LeaderboardRepositoryImpl(dao)
-            return LeaderboardViewModel(repo)
+            val signedOut = mock<AuthSession> { every { authState } returns MutableStateFlow(AuthState.Initializing) }
+            return LeaderboardViewModel(repo, signedOut)
         }
 
         // ── 1. Loading → Data (AllTime/Time defaults) ─────────────────────────
@@ -94,8 +100,8 @@ class LeaderboardViewModelRealRepoTest :
                 advanceUntilIdle()
 
                 val data = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
-                data.period shouldBe LeaderboardPeriod.Week
-                data.category shouldBe LeaderboardCategory.Time
+                vm.selection.value.period shouldBe LeaderboardPeriod.Week
+                vm.selection.value.category shouldBe LeaderboardCategory.Time
                 // Week uses last7; alice has last7=10 → single entry
                 data.snapshot.time
                     .single()
@@ -130,7 +136,7 @@ class LeaderboardViewModelRealRepoTest :
 
                 val after = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
                 // Category changes
-                after.category shouldBe LeaderboardCategory.Books
+                vm.selection.value.category shouldBe LeaderboardCategory.Books
                 // Snapshot is identical — no re-query
                 after.snapshot shouldBe snapshotBefore
             }
@@ -156,7 +162,7 @@ class LeaderboardViewModelRealRepoTest :
                 advanceUntilIdle()
 
                 val data = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
-                data.period shouldBe LeaderboardPeriod.AllTime
+                vm.selection.value.period shouldBe LeaderboardPeriod.AllTime
                 // Time: alice wins on allTime
                 data.snapshot.time
                     .first()

@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSt
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
+import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -103,6 +104,7 @@ private fun page(
     recentlyAdded: RecentlyAddedUiState = RecentlyAddedUiState.Loading,
     currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
     leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
+    leaderboardSelection: LeaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
     activityState: ActivityFeedUiState = ActivityFeedUiState.Loading,
     shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     nowMs: Long = NOW_MS,
@@ -121,6 +123,7 @@ private fun page(
         recentlyAdded = recentlyAdded,
         currentlyListening = currentlyListening,
         leaderboard = leaderboard,
+        leaderboardSelection = leaderboardSelection,
         activity = activityState,
         shelves = shelves,
         nowMs = nowMs,
@@ -165,7 +168,7 @@ class DiscoverPageTest :
             val host =
                 mounts.mount {
                     page(
-                        leaderboard = LeaderboardUiState.Error(isRetryable = true),
+                        leaderboard = LeaderboardUiState.Error(UnexpectedClientError()),
                         currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false),
                     )
                 }
@@ -228,7 +231,7 @@ class DiscoverPageTest :
             val root =
                 mounts.mount {
                     page(
-                        leaderboard = LeaderboardUiState.Error(isRetryable = true),
+                        leaderboard = LeaderboardUiState.Error(UnexpectedClientError()),
                         onRefresh = { discoverRefreshes++ },
                         onRefreshLeaderboard = { leaderboardRefreshes++ },
                     )
@@ -258,10 +261,27 @@ class DiscoverPageTest :
             discoverRefreshes shouldBe 0
         }
 
-        test("a leaderboard that cannot be retried says so and offers nothing") {
-            val root = mounts.mount { page(leaderboard = LeaderboardUiState.Error(isRetryable = false)) }
+        test("a failed leaderboard always offers Try again, like every other section") {
+            val root = mounts.mount { page(leaderboard = LeaderboardUiState.Error(UnexpectedClientError())) }
 
-            root.querySelectorAll(".disc-retry").length shouldBe 0
+            root.querySelectorAll(".disc-retry").length shouldBe 1
+        }
+
+        test("a period nobody listened in keeps its period chips, so another period is one press away") {
+            var period: LeaderboardPeriod? = null
+            val host =
+                mounts.mount {
+                    page(
+                        leaderboard = LeaderboardUiState.Empty,
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
+                        onSelectPeriod = { period = it },
+                    )
+                }
+
+            val on = host.querySelectorAll(".disc-chip.is-on")
+            (on.item(0) as HTMLElement).textContent shouldBe "7 days"
+            (host.querySelectorAll(".disc-chip").item(3) as HTMLElement).click()
+            period shouldBe LeaderboardPeriod.AllTime
         }
 
         test("a live listener is marked as listening now, not as a stale timestamp") {
@@ -296,9 +316,8 @@ class DiscoverPageTest :
                         leaderboard =
                             LeaderboardUiState.Data(
                                 snapshot = LeaderboardSnapshot(listOf(entry("Ada")), emptyList(), emptyList()),
-                                period = LeaderboardPeriod.Month,
-                                category = LeaderboardCategory.Time,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Month, LeaderboardCategory.Time),
                     )
                 }
 
@@ -317,9 +336,8 @@ class DiscoverPageTest :
                         leaderboard =
                             LeaderboardUiState.Data(
                                 snapshot = LeaderboardSnapshot(listOf(entry("Ada")), emptyList(), emptyList()),
-                                period = LeaderboardPeriod.Week,
-                                category = LeaderboardCategory.Time,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
                     )
                 }
 
@@ -339,9 +357,8 @@ class DiscoverPageTest :
                         leaderboard =
                             LeaderboardUiState.Data(
                                 snapshot = LeaderboardSnapshot(listOf(entry("Ada")), emptyList(), emptyList()),
-                                period = LeaderboardPeriod.Week,
-                                category = LeaderboardCategory.Time,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
                         onSelectPeriod = { period = it },
                         onSelectCategory = { category = it },
                     )
@@ -371,9 +388,8 @@ class DiscoverPageTest :
                                         books = listOf(entry("AlsoWrong", booksFinished = 5)),
                                         streak = listOf(entry("Ada", currentStreakDays = 3, longestStreakDays = 90)),
                                     ),
-                                period = LeaderboardPeriod.Week,
-                                category = LeaderboardCategory.Streak,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Streak),
                     )
                 }
 
@@ -493,9 +509,8 @@ class DiscoverPageTest :
                         leaderboard =
                             LeaderboardUiState.Data(
                                 snapshot = LeaderboardSnapshot(listOf(entry("Grace")), emptyList(), emptyList()),
-                                period = LeaderboardPeriod.Month,
-                                category = LeaderboardCategory.Time,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Month, LeaderboardCategory.Time),
                         activityState = ActivityFeedUiState.Ready(listOf(activity("finished_book"))),
                         onOpenProfile = { opened += it },
                     )

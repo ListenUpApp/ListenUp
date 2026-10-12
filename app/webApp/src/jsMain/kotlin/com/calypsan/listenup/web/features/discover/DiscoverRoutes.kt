@@ -39,6 +39,7 @@ internal fun DiscoverRoute(
             recentlyAdded = session.recentlyAdded.collectAsState().value,
             currentlyListening = session.currentlyListening.collectAsState().value,
             leaderboard = session.leaderboard.collectAsState().value,
+            leaderboardSelection = session.leaderboardSelection.collectAsState().value,
             activity = session.activity.collectAsState().value,
             shelves = session.shelves.collectAsState().value,
             nowMs = nowMs,

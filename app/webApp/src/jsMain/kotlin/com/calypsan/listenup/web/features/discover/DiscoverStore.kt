@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSt
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
+import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -41,6 +42,8 @@ class DiscoverSession(
     val currentlyListening: StateFlow<CurrentlyListeningUiState>,
     val shelves: StateFlow<DiscoverShelvesUiState>,
     val leaderboard: StateFlow<LeaderboardUiState>,
+    /** The leaderboard's period and category, live in every board state. */
+    val leaderboardSelection: StateFlow<LeaderboardSelection>,
     val activity: StateFlow<ActivityFeedUiState>,
     /** Who else is on the server; PR 6's only-you states read it. */
     val communitySize: StateFlow<CommunitySize>,
@@ -94,6 +97,7 @@ fun graphDiscover(koin: Koin): OpenDiscover =
             currentlyListening = discover.currentlyListeningState,
             shelves = discover.discoverShelvesState,
             leaderboard = leaderboard.uiState,
+            leaderboardSelection = leaderboard.selection,
             activity = activity.state,
             communitySize = discover.communitySize,
             onSelectPeriod = leaderboard::selectPeriod,
@@ -113,6 +117,7 @@ fun fixedDiscover(
     currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
     shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
+    leaderboardSelection: LeaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
     activity: ActivityFeedUiState = ActivityFeedUiState.Loading,
     communitySize: CommunitySize = CommunitySize.Unknown,
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
@@ -129,6 +134,7 @@ fun fixedDiscover(
             currentlyListening = MutableStateFlow(currentlyListening),
             shelves = MutableStateFlow(shelves),
             leaderboard = MutableStateFlow(leaderboard),
+            leaderboardSelection = MutableStateFlow(leaderboardSelection),
             activity = MutableStateFlow(activity),
             communitySize = MutableStateFlow(communitySize),
             onSelectPeriod = onSelectPeriod,

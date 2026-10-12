@@ -13,12 +13,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
-import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
@@ -53,7 +53,7 @@ fun DiscoverLeaderboardSection(
     viewModel: LeaderboardViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val selectedPeriod = (state as? LeaderboardUiState.Data)?.period ?: LeaderboardPeriod.Week
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -62,16 +62,22 @@ fun DiscoverLeaderboardSection(
         // The title and period selector sit above the card, at the screen margins: inside the card's
         // padding, "12 months" has no room on a phone.
         LeaderboardHeader(
-            selectedPeriod = selectedPeriod,
+            selectedPeriod = selection.period,
             onPeriodSelected = viewModel::selectPeriod,
         )
-        LeaderboardCard(state = state, onCategorySelected = viewModel::selectCategory, onUserClick = onUserClick)
+        LeaderboardCard(
+            state = state,
+            category = selection.category,
+            onCategorySelected = viewModel::selectCategory,
+            onUserClick = onUserClick,
+        )
     }
 }
 
 @Composable
 private fun LeaderboardCard(
     state: LeaderboardUiState,
+    category: LeaderboardCategory,
     onCategorySelected: (LeaderboardCategory) -> Unit,
     onUserClick: (String) -> Unit,
 ) {
@@ -109,6 +115,7 @@ private fun LeaderboardCard(
                 is LeaderboardUiState.Data -> {
                     DataContent(
                         data = current,
+                        category = category,
                         onCategorySelected = onCategorySelected,
                         onUserClick = onUserClick,
                     )
@@ -129,19 +136,21 @@ private fun LeaderboardCard(
 @Composable
 private fun DataContent(
     data: LeaderboardUiState.Data,
+    category: LeaderboardCategory,
     onCategorySelected: (LeaderboardCategory) -> Unit,
     onUserClick: (String) -> Unit,
 ) {
     val categories = LeaderboardCategory.entries
+    val selectedCategory by rememberUpdatedState(category)
     val pagerState =
         rememberPagerState(
-            initialPage = categories.indexOf(data.category).coerceAtLeast(0),
+            initialPage = categories.indexOf(category).coerceAtLeast(0),
             pageCount = { categories.size },
         )
 
     // Sync pager page to category state.
-    LaunchedEffect(data.category) {
-        val targetPage = categories.indexOf(data.category)
+    LaunchedEffect(category) {
+        val targetPage = categories.indexOf(category)
         if (targetPage >= 0 && pagerState.currentPage != targetPage) {
             pagerState.animateScrollToPage(targetPage)
         }
@@ -150,15 +159,15 @@ private fun DataContent(
     // Sync category state to pager swipes.
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.collect { page ->
-            val category = categories.getOrNull(page)
-            if (category != null && category != data.category) {
-                onCategorySelected(category)
+            val pageCategory = categories.getOrNull(page)
+            if (pageCategory != null && pageCategory != selectedCategory) {
+                onCategorySelected(pageCategory)
             }
         }
     }
 
     LeaderboardCategoryTabs(
-        selectedCategory = data.category,
+        selectedCategory = category,
         onCategorySelected = onCategorySelected,
     )
 
@@ -166,14 +175,14 @@ private fun DataContent(
         state = pagerState,
         modifier = Modifier.fillMaxWidth(),
     ) { page ->
-        val category = categories[page]
-        // `category` (this page's), NOT `data.category` (the selected one): the pager renders all
+        val pageCategory = categories[page]
+        // `pageCategory` (this page's), NOT `category` (the selected one): the pager renders all
         // three boards side by side, and reading the selection here would show the same list on
         // every page while the tabs still moved.
-        val entries = leaderboardEntries(data.snapshot, category)
+        val entries = leaderboardEntries(data.snapshot, pageCategory)
         LeaderboardList(
             entries = entries,
-            category = category,
+            category = pageCategory,
             onUserClick = onUserClick,
         )
     }

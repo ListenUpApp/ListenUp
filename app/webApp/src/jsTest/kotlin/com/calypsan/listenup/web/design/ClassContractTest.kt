@@ -121,6 +121,7 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSe
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
+import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -2187,6 +2188,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         recentlyAdded: RecentlyAddedUiState = RecentlyAddedUiState.Loading,
         currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
         leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
+        leaderboardSelection: LeaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
         activityState: ActivityFeedUiState = ActivityFeedUiState.Loading,
         shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     ): @Composable () -> Unit =
@@ -2196,6 +2198,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                 recentlyAdded = recentlyAdded,
                 currentlyListening = currentlyListening,
                 leaderboard = leaderboard,
+                leaderboardSelection = leaderboardSelection,
                 activity = activityState,
                 shelves = shelves,
                 nowMs = 0L,
@@ -2218,7 +2221,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             books = DiscoverBooksUiState.Error(UnexpectedClientError()),
             recentlyAdded = RecentlyAddedUiState.Error(UnexpectedClientError()),
             currentlyListening = CurrentlyListeningUiState.Error(UnexpectedClientError()),
-            leaderboard = LeaderboardUiState.Error(isRetryable = true),
+            leaderboard = LeaderboardUiState.Error(UnexpectedClientError()),
             activityState = ActivityFeedUiState.Error(UnexpectedClientError()),
             shelves = DiscoverShelvesUiState.Error(UnexpectedClientError()),
         ),
@@ -2236,12 +2239,8 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             books = DiscoverBooksUiState.Ready(listOf(discoverBook())),
             recentlyAdded = RecentlyAddedUiState.Ready(listOf(recentBook())),
             currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener, listener.copy(sessionId = "s2", isLive = false)), observedAtMs = null, isStale = false),
-            leaderboard =
-                LeaderboardUiState.Data(
-                    snapshot = snapshot,
-                    period = LeaderboardPeriod.Week,
-                    category = LeaderboardCategory.Time,
-                ),
+            leaderboard = LeaderboardUiState.Data(snapshot = snapshot),
+            leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
             activityState = ActivityFeedUiState.Ready(listOf(activity, joined)),
             shelves =
                 DiscoverShelvesUiState.Ready(
