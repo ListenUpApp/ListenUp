@@ -35,9 +35,12 @@ internal class LoadedBookRepositoryImpl(
     private val positionRepository: PlaybackPositionRepository,
     private val engine: PlayerEngine,
 ) : LoadedBookRepository {
+    /** Whether the persisted id has been read from [store] yet, and what it was. */
     private sealed interface Persisted {
+        /** Not read yet: [observe] says [LoadedBook.Restoring]. */
         data object Unread : Persisted
 
+        /** Read; [bookId] is null when nothing is loaded. */
         data class Read(
             val bookId: BookId?,
         ) : Persisted
