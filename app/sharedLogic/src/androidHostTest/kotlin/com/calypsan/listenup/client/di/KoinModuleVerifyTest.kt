@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.di
 
 import androidx.work.WorkManager
-import com.calypsan.listenup.client.presentation.player.PlayerSheetState
 import com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
@@ -37,10 +36,8 @@ import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.client.playback.PlaybackController
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.ProgressTracker
-import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.CoroutineScope
@@ -81,27 +78,13 @@ class KoinModuleVerifyTest :
             )
         }
 
-        // Verify [playbackPresentationModule] — NowPlayingViewModel is bound as `factory`, plus its
-        // process-lifetime collaborator PlaybackControllerActivator (PlayerSheetState comes from playerModule).
-        // This module was previously not covered by module.verify().
+        // Verify [playbackPresentationModule] — the process-lifetime PlaybackControllerActivator. The
+        // PlayerViewModel factory lives in playerModule, verified below.
         //
         // `extraTypes` enumerates cross-module dependencies that other Koin modules satisfy.
         test("verifyPlaybackPresentationModule") {
             playbackPresentationModule.verify(
-                extraTypes =
-                    listOf(
-                        PlaybackManager::class,
-                        PlaybackController::class,
-                        BookRepository::class,
-                        SleepTimerManager::class,
-                        PlaybackPreferences::class,
-                        NetworkMonitor::class,
-                        DocumentRepository::class,
-                        DownloadRepository::class,
-                        PlaybackPositionRepository::class,
-                        ErrorBus::class,
-                        PlayerSheetState::class,
-                    ),
+                extraTypes = listOf(PlaybackController::class),
             )
         }
 

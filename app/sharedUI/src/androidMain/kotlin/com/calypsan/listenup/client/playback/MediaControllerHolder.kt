@@ -81,8 +81,8 @@ internal suspend fun awaitReady(
 /**
  * Singleton holder for the MediaController connection.
  *
- * NowPlayingViewModel consumes this controller via the PlaybackController seam
- * (there is no longer a separate PlayerViewModel). The holder owns the
+ * `PlayerSession` drives this controller through the PlaybackController seam
+ * (wrapped by `ManagedPlayerEngine`). The holder owns the
  * Player.Listener that drives PlaybackStateWriter's state/speed/error updates on
  * Android — those are coordinate-agnostic and forwarded faithfully by
  * `ChapterWindowPlayer`, the chapter-scoped presentation wrapper the session now

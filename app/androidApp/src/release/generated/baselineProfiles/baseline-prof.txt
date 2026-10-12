@@ -17682,7 +17682,7 @@ Lcom/calypsan/listenup/client/presentation/library/LibraryActionsViewModel;
 Lcom/calypsan/listenup/client/presentation/library/LibrarySelectionManager;
 Lcom/calypsan/listenup/client/presentation/library/LibraryViewModel;
 Lcom/calypsan/listenup/client/presentation/metadata/MetadataViewModel;
-Lcom/calypsan/listenup/client/presentation/nowplaying/NowPlayingViewModel;
+Lcom/calypsan/listenup/client/presentation/player/PlayerViewModel;
 Lcom/calypsan/listenup/client/presentation/profile/EditProfileViewModel;
 Lcom/calypsan/listenup/client/presentation/profile/UserProfileViewModel;
 Lcom/calypsan/listenup/client/presentation/search/SearchViewModel;

@@ -74,14 +74,6 @@ class FakePlaybackManager : PlaybackManager {
     val effectiveGainDbFlow = MutableStateFlow(0f)
     override val effectiveGainDb: StateFlow<Float> = effectiveGainDbFlow.asStateFlow()
 
-    val preparingBookIdFlow = MutableStateFlow<BookId?>(null)
-    override val preparingBookId: StateFlow<BookId?> = preparingBookIdFlow.asStateFlow()
-
-    // No debounce in the fake — tests drive [preparingBookIdFlow]/[markPreparing] synchronously
-    // and assert on it directly; the real debounce timing is covered by PreparingBookIdUiFlowTest.
-    val preparingBookIdUiFlow = MutableStateFlow<BookId?>(null)
-    override val preparingBookIdUi: StateFlow<BookId?> = preparingBookIdUiFlow.asStateFlow()
-
     // === Notification callback hook ===
 
     override var onChapterChanged: ((ChapterInfo) -> Unit)? = null
@@ -103,8 +95,6 @@ class FakePlaybackManager : PlaybackManager {
     var prepareForPlaybackSuspension: suspend () -> Unit = {}
 
     val activatedBookIds: MutableList<BookId> = mutableListOf()
-    val markPreparingCalls: MutableList<BookId> = mutableListOf()
-    var clearPreparingCalls: Int = 0
     val prepareForPlaybackCalls: MutableList<BookId> = mutableListOf()
     val prepareForPlaybackStartAts: MutableList<Long?> = mutableListOf()
     val startPlaybackCalls: MutableList<StartPlaybackCall> = mutableListOf()
@@ -132,18 +122,6 @@ class FakePlaybackManager : PlaybackManager {
     override fun activateBook(bookId: BookId) {
         activatedBookIds += bookId
         currentBookIdFlow.value = bookId
-    }
-
-    override fun markPreparing(bookId: BookId) {
-        markPreparingCalls += bookId
-        preparingBookIdFlow.value = bookId
-        preparingBookIdUiFlow.value = bookId
-    }
-
-    override fun clearPreparing() {
-        clearPreparingCalls += 1
-        preparingBookIdFlow.value = null
-        preparingBookIdUiFlow.value = null
     }
 
     override suspend fun prepareForPlayback(

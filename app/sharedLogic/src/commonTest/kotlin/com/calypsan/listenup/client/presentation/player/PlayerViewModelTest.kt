@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.playback.PREPARING_UI_DELAY
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.PlayerSessionState
 import com.calypsan.listenup.client.test.fake.positionFor
@@ -21,6 +22,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -272,6 +274,32 @@ class PlayerViewModelTest :
                         val settings = expectMostRecentLoaded().settings
                         settings.boostDb shouldBe 6f
                         settings.defaultBoostDb shouldBe 3f
+                    }
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("preparingBookId names a slow prepare only after the debounce, and clears when it lands") {
+            runTest {
+                val rig = PlayerViewModelRig(this)
+                try {
+                    rig.s.withBook("b1")
+                    val gate = CompletableDeferred<Unit>()
+                    rig.s.engine.loadSuspension = { gate.await() }
+                    rig.vm.preparingBookId.test {
+                        awaitItem() shouldBe null
+                        rig.vm.playBook(BookId("b1"), null)
+                        advanceTimeBy(PREPARING_UI_DELAY.inWholeMilliseconds - 1)
+                        runCurrent()
+                        expectNoEvents()
+                        advanceTimeBy(2)
+                        runCurrent()
+                        awaitItem() shouldBe "b1"
+                        gate.complete(Unit)
+                        runCurrent()
+                        awaitItem() shouldBe null
                     }
                 } finally {
                     rig.close()

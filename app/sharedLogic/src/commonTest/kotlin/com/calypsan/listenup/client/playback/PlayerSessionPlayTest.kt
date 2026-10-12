@@ -1,6 +1,10 @@
 package com.calypsan.listenup.client.playback
 
+import app.cash.turbine.test
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.kotest.matchers.types.shouldNotBeInstanceOf
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.test.advanceTimeBy
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -194,6 +198,49 @@ class PlayerSessionPlayTest :
                         .shouldBeInstanceOf<PlaybackError.CouldNotStart>()
                     rig.engine.calls.last() shouldBe "abandonLoad"
                     rig.session.preparingBookId.value shouldBe null
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("preparingBookIdUi is a cold flow: the session parks no collector for it until someone subscribes") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    // A `.stateIn`/`.shareIn` here would park a never-ending collector in the session's scope
+                    // for every session built, subscribed or not (the bug PlaybackManagerPreparingSharingTest
+                    // guarded on the old manager). Hot state is the consumer's job.
+                    rig.session.preparingBookIdUi.shouldNotBeInstanceOf<SharedFlow<*>>()
+                    rig.withBook("b1")
+                    rig.engine.loadSuspension = { CompletableDeferred<Unit>().await() }
+                    runCurrent()
+                    rig.session.preparingBookIdUi.test {
+                        awaitItem() shouldBe null
+                        rig.session.playBook(BookId("b1"), null)
+                        advanceTimeBy(PREPARING_UI_DELAY.inWholeMilliseconds + 1)
+                        runCurrent()
+                        awaitItem() shouldBe BookId("b1")
+                    }
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a start position on another book prepares that book there, not where the engine is") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.withBook("b2")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.session.playBook(BookId("b2"), 50_000)
+                    runCurrent()
+                    rig.engine.loads.last() shouldBe (BookId("b2") to 50_000L)
+                    rig.loaded.bookId shouldBe BookId("b2")
                 } finally {
                     rig.close()
                 }

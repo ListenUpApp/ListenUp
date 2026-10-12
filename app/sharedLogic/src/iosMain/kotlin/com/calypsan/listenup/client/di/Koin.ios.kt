@@ -28,11 +28,9 @@ import org.koin.dsl.module
 import org.koin.mp.KoinPlatform
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
-import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.NativePlayerEngine
 import com.calypsan.listenup.client.presentation.player.PlayerViewModel
-import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
@@ -487,10 +485,6 @@ object KoinHelper {
     }
 
     fun getDownloadService(): DownloadService = resolve(DownloadService::class)
-
-    fun getSleepTimerManager(): SleepTimerManager = resolve(SleepTimerManager::class)
-
-    fun getPlaybackPreparer(): PlaybackPreparer = resolve(PlaybackPreparer::class)
 
     fun getPlaybackBandwidthCoordinator(): PlaybackBandwidthCoordinator = resolve(PlaybackBandwidthCoordinator::class)
 

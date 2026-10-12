@@ -280,12 +280,6 @@ private class StubPlaybackManager : PlaybackManager {
     override val playbackError: StateFlow<AppError?> = MutableStateFlow(null)
     override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
     override val effectiveGainDb: StateFlow<Float> = MutableStateFlow(0f)
-    override val preparingBookId: StateFlow<BookId?> = MutableStateFlow(null)
-    override val preparingBookIdUi: StateFlow<BookId?> = MutableStateFlow(null)
-
-    override fun markPreparing(bookId: BookId) = Unit
-
-    override fun clearPreparing() = Unit
 
     override fun activateBook(bookId: BookId) = Unit
 

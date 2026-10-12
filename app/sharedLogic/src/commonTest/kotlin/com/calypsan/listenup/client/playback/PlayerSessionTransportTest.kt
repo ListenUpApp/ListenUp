@@ -269,4 +269,52 @@ class PlayerSessionTransportTest :
                 }
             }
         }
+
+        test("resuming a paused book clears a latched engine error before it plays") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    playing(rig)
+                    rig.session.playPause()
+                    runCurrent()
+                    rig.session.playPause()
+                    rig.engine.calls.takeLast(2) shouldContainExactly listOf("clearError", "play")
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("the stock 10 s back and 30 s forward apply when the listener never set an interval") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    playing(rig, at = 100_000)
+                    rig.session.skipForward()
+                    rig.engine.calls.last() shouldBe "seekTo:130000"
+                    runCurrent()
+                    rig.session.skipBack()
+                    rig.engine.calls.last() shouldBe "seekTo:120000"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("an interval changed mid-session is picked up on the very next skip") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    playing(rig, at = 100_000)
+                    rig.session.skipForward()
+                    rig.engine.calls.last() shouldBe "seekTo:130000"
+                    rig.preferences.skipForwardSec.value = 60
+                    runCurrent()
+                    rig.session.skipForward()
+                    rig.engine.calls.last() shouldBe "seekTo:190000"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
     })

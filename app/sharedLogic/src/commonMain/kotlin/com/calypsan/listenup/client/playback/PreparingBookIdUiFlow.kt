@@ -17,7 +17,7 @@ import kotlin.time.Duration.Companion.milliseconds
 internal val PREPARING_UI_DELAY = 250.milliseconds
 
 /**
- * Derives the UI-facing view of a play-in-flight signal such as [PlaybackManager.preparingBookId]:
+ * Derives the UI-facing view of a play-in-flight signal such as [PlayerSession.preparingBookId]:
  * a non-null value is held back for [debounce] before it is surfaced, so a prepare that resolves
  * quickly never flashes a spinner. A transition to null (prepare finished, failed, or superseded by
  * another book) propagates immediately — the spinner must never linger past the real state.

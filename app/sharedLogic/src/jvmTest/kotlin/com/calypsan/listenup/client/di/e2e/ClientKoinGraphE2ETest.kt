@@ -131,13 +131,13 @@ class ClientKoinGraphE2ETest :
             // ABS-import flow (2026-07-21): its observeRoster() collector died with the cleared
             // store and never re-ran. This pins the invariant the libraryPresentationModule comment
             // documents but nothing enforced.
-            // No exceptions: NowPlayingViewModel was the one justified holdout (its init acquired a
+            // No exceptions: the player ViewModel was the one justified holdout (its init acquired a
             // process-singleton playback controller via playbackController.acquire(), and it has two
             // koinViewModel() consumers in separate nav stores — the shell mini-player + the document
             // viewer — so a factory would have double-acquired). The acquisition now lives in
             // PlaybackControllerActivator (a process-lifetime `single` in
             // playbackPresentationModule) and expand/collapse state lives in PlayerSheetState, so
-            // NowPlayingViewModel is a plain factory like every other VM. Every VM must be a factory.
+            // PlayerViewModel is a plain factory like every other VM. Every VM must be a factory.
             val allowedSingletonViewModels = emptySet<String>()
 
             @OptIn(KoinInternalApi::class)

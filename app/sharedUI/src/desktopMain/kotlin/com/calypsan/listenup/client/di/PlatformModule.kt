@@ -35,7 +35,7 @@ import java.util.UUID
  * - PlaybackManager for playback orchestration
  * - ProgressTracker for position persistence
  *
- * NowPlayingViewModel is bound in the shared `playbackPresentationModule`.
+ * PlayerViewModel and PlayerSession are bound in the shared `playerModule`.
  */
 val platformModule: Module =
     module {

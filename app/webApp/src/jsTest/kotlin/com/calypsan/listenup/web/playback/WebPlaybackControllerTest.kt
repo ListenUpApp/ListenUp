@@ -10,7 +10,6 @@ import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -100,17 +99,11 @@ private val neverCalledPlaybackManager: PlaybackManager =
         override val playbackState: StateFlow<PlaybackState> = MutableStateFlow(PlaybackState.Idle)
         override val playbackError: StateFlow<AppError?> = MutableStateFlow(null)
         override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
-        override val preparingBookId: StateFlow<BookId?> = MutableStateFlow(null)
-        override val preparingBookIdUi: Flow<BookId?> = MutableStateFlow(null)
         override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> = MutableStateFlow(null)
         override val effectiveGainDb: StateFlow<Float> = MutableStateFlow(0f)
         override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
 
         override fun activateBook(bookId: BookId) = unexpected()
-
-        override fun markPreparing(bookId: BookId) = unexpected()
-
-        override fun clearPreparing() = unexpected()
 
         override suspend fun prepareForPlayback(
             bookId: BookId,

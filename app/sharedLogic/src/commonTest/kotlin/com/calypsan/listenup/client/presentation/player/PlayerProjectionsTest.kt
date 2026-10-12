@@ -149,4 +149,12 @@ class PlayerProjectionsTest :
             p.bookRemainingMs shouldBe 8_900
             PlayerProgress.Zero.bookFraction shouldBe 0f
         }
+
+        test("PlayerProgress clamps past the end to 1, floors remaining at 0, and a zero duration reads 0") {
+            val past = PlayerProgress(chapterPositionMs = 0, chapterDurationMs = 0, bookPositionMs = 300_000, bookDurationMs = 200_000)
+            past.bookFraction shouldBe 1f
+            past.bookRemainingMs shouldBe 0
+            past.chapterFraction shouldBe 0f
+            past.chapterRemainingMs shouldBe 0
+        }
     })

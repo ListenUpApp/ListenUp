@@ -14,7 +14,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -71,8 +70,6 @@ internal class FakePlaybackManager(
     override val playbackState = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
     override val playbackError = MutableStateFlow<AppError?>(null)
     override val chapters = MutableStateFlow<List<Chapter>>(emptyList())
-    override val preparingBookId = MutableStateFlow<BookId?>(null)
-    override val preparingBookIdUi: Flow<BookId?> = preparingBookId
     override val currentChapter = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
     override val effectiveGainDb = MutableStateFlow(0f)
     override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
@@ -120,14 +117,6 @@ internal class FakePlaybackManager(
 
     override fun activateBook(bookId: BookId) {
         currentBookId.value = bookId
-    }
-
-    override fun markPreparing(bookId: BookId) {
-        preparingBookId.value = bookId
-    }
-
-    override fun clearPreparing() {
-        preparingBookId.value = null
     }
 
     override suspend fun prepareForPlayback(

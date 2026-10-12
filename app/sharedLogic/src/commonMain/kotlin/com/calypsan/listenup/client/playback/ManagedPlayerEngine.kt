@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.stateIn
 
 /**
  * [PlayerEngine] over today's [PlaybackManager] (read side) and [PlaybackController] (commands): Android,
- * desktop and web. No behaviour change for those platforms; it is the same pair of calls the old
- * `NowPlayingViewModel` and web `LivePlayback` made, in one place.
+ * desktop and web. No behaviour change for those platforms; it is the same pair of calls the retired
+ * Android player ViewModel and web `LivePlayback` made, in one place.
  */
 internal class ManagedPlayerEngine(
     private val playbackManager: PlaybackManager,
