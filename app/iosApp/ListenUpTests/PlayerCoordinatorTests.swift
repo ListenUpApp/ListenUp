@@ -351,7 +351,7 @@ struct SeekPersistenceTests {
 @Suite("Seam value types")
 struct SeamValueTypeTests {
     @Test func preparedPlaybackHoldsTimeline() {
-        #expect(PreparedPlayback.fixture().timeline.files.count == 1)
+        #expect(ListenUp.PreparedPlayback.fixture().timeline.files.count == 1)
     }
 
     /// An item failure is typed once, at the engine edge, from its error domain and code — never its text.

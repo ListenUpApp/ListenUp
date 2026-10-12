@@ -9,7 +9,7 @@ private enum EngineSignal: Sendable {
     case periodicTick
     case itemEnded(ObjectIdentifier)
     case currentItemChanged
-    case itemStatus(status: AVPlayerItem.Status, errorMessage: String?, errorDetail: String, failure: EngineFailure)
+    case itemStatus(status: AVPlayerItem.Status, errorMessage: String?, failure: EngineFailure)
 }
 
 /// Wraps `AVQueuePlayer` + `AVAudioSession`. The single isolation domain for all
@@ -124,8 +124,8 @@ actor AudioEngine: PlaybackEngine {
         case .periodicTick: emitPosition()
         case .itemEnded(let itemId): handleItemEnded(itemId)
         case .currentItemChanged: handleCurrentItemChanged()
-        case .itemStatus(let status, let msg, let detail, let failure):
-            handleItemStatus(status, errorMessage: msg, errorDetail: detail, failure: failure)
+        case .itemStatus(let status, let msg, let failure):
+            handleItemStatus(status, errorMessage: msg, failure: failure)
         }
     }
 
@@ -513,18 +513,14 @@ actor AudioEngine: PlaybackEngine {
             guard let self else { return }
             let status = item.status
             let errorMessage = item.error?.localizedDescription
-            // Capture the NSError domain/code too — the localized text alone rarely
-            // names the cause (ATS, TLS trust, HTTP status).
-            let detail = (item.error as NSError?).map { " [\($0.domain) \($0.code)]" } ?? ""
+            // Typed from the NSError domain/code — the localized text alone rarely names the cause
+            // (ATS, TLS trust, HTTP status); the failure's detail carries both for the log.
             let failure = AudioEngine.failure(for: item.error as NSError?)
-            self.signalContinuation.yield(
-                .itemStatus(status: status, errorMessage: errorMessage, errorDetail: detail, failure: failure))
+            self.signalContinuation.yield(.itemStatus(status: status, errorMessage: errorMessage, failure: failure))
         }
     }
 
-    private func handleItemStatus(
-        _ status: AVPlayerItem.Status, errorMessage: String?, errorDetail: String, failure: EngineFailure
-    ) {
+    private func handleItemStatus(_ status: AVPlayerItem.Status, errorMessage: String?, failure: EngineFailure) {
         switch status {
         case .readyToPlay:
             // A deferred cross-segment seek (set by `seek(toMs:)`, which rebuilds the queue and
@@ -542,7 +538,7 @@ actor AudioEngine: PlaybackEngine {
             // owns that distinction so the UI can't claim "playing" during the startup buffer.
             resumeReadyIfWaiting(true)
         case .failed:
-            Log.error("AVPlayerItem failed: \(errorMessage ?? "unknown error")\(errorDetail)")
+            Log.error("AVPlayerItem failed: \(errorMessage ?? "unknown error") [\(failure)]")
             resumeReadyIfWaiting(false)
             continuation.yield(.failed(failure))
         case .unknown:
@@ -550,25 +546,5 @@ actor AudioEngine: PlaybackEngine {
         @unknown default:
             break
         }
-    }
-}
-
-extension AudioEngine {
-    /// The item's failure, typed once (spec §4.6): network domains are a dropped connection, AVFoundation's
-    /// format and decoder codes are an unsupported format, anything else could not start.
-    nonisolated static func failure(for error: NSError?) -> EngineFailure {
-        guard let error else { return .couldNotStart(detail: nil) }
-        let detail = "\(error.domain) \(error.code)"
-        if error.domain == NSURLErrorDomain { return .connectionLost(detail: detail) }
-        let formatCodes: Set<Int> = [
-            AVError.Code.fileFormatNotRecognized.rawValue,
-            AVError.Code.decoderNotFound.rawValue,
-            AVError.Code.decodeFailed.rawValue,
-            AVError.Code.undecodableMediaData.rawValue
-        ]
-        if error.domain == AVFoundationErrorDomain, formatCodes.contains(error.code) {
-            return .unsupportedFormat(detail: detail)
-        }
-        return .couldNotStart(detail: detail)
     }
 }

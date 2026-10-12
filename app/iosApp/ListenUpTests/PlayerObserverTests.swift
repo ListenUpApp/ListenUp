@@ -1,5 +1,6 @@
 import Testing
 @testable import ListenUp
+import ListenupContract
 @preconcurrency import Shared
 
 @Suite("PlayerObserver maps the shared state to native values")
@@ -13,7 +14,8 @@ struct PlayerObserverTests {
 
     @Test("a loaded book becomes native rows with exactly one current chapter")
     func loaded() {
-        let snapshot = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(phase: PlayerPhasePlaying.shared, currentIndex: 5))
+        let state = PlayerUiStateLoaded.fixture(phase: PlayerPhasePlaying.shared, currentIndex: 5)
+        let snapshot = PlayerSnapshot.from(state)
         #expect(snapshot.isVisible)
         #expect(snapshot.currentBookId == "book-1")
         #expect(snapshot.bookTitle == "The Way of Kings")
@@ -47,9 +49,9 @@ struct PlayerObserverTests {
     @Test("a known reason the book can't play reads as an error with its reason")
     func unavailable() {
         let reason = PlaybackErrorOfflineNotDownloaded(correlationId: nil, debugInfo: nil)
-        let snapshot = PlayerSnapshot.from(
-            PlayerUiStateLoaded.fixture(phase: PlayerPhaseUnavailable(reason: reason), primary: PrimaryControlRetry.shared)
-        )
+        let state = PlayerUiStateLoaded.fixture(
+            phase: PlayerPhaseUnavailable(reason: reason), primary: PrimaryControlRetry.shared)
+        let snapshot = PlayerSnapshot.from(state)
         #expect(snapshot.isErrored)
         #expect(snapshot.errorCode == "PLAYBACK_OFFLINE_NOT_DOWNLOADED")
     }

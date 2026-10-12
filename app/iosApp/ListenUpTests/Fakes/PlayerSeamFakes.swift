@@ -67,7 +67,7 @@ actor FakePlaybackEngine: PlaybackEngine {
     func setBlockLoad(_ block: Bool) { shouldBlockLoad = block }
     func releaseLoad() { loadBlocker?.resume(); loadBlocker = nil }
 
-    func load(segments: [AudioSegment], startPositionMs: Int64) async -> Bool {
+    func load(segments: [ListenUp.AudioSegment], startPositionMs: Int64) async -> Bool {
         if isReleased { commandLog.append("load-after-release"); return false }
         didLoad = true; lastLoadStartMs = startPositionMs; commandLog.append("load")
         gate.fire("load")
@@ -277,7 +277,7 @@ final class FakeEngineFacts: EngineFactReporting {
     func unloaded() { unloadedCount += 1 }
 }
 
-extension PreparedPlayback {
+extension ListenUp.PreparedPlayback {
     /// A one-file, chapterless prepared book: the base every coordinator test varies.
     static func fixture(
         resumePositionMs: Int64 = 0,
@@ -290,8 +290,8 @@ extension PreparedPlayback {
         chapters: [Chapter] = [],
         localPath: String? = "/a.m4a",
         streamingUrl: String = ""
-    ) -> PreparedPlayback {
-        PreparedPlayback(
+    ) -> ListenUp.PreparedPlayback {
+        ListenUp.PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: coverPath,
             resumeSpeed: resumeSpeed, resumeBoostDb: resumeBoostDb, measuredGainDb: measuredGainDb,
             normalizationGainDb: normalizationGainDb, resumePositionMs: resumePositionMs, chapters: chapters,
@@ -328,7 +328,7 @@ struct PlayerHarness {
     func run(_ instruction: EngineInstruction) async { await coordinator.execute(instruction) }
 
     /// Load `prepared` as `bookId` and wait until the coordinator has reported it started.
-    func loadAndStart(_ bookId: String = "book1", _ prepared: PreparedPlayback = .fixture()) async {
+    func loadAndStart(_ bookId: String = "book1", _ prepared: ListenUp.PreparedPlayback = .fixture()) async {
         await run(.load(bookId: bookId, prepared: prepared))
         await progress.waitForStarted(bookId: bookId)
     }

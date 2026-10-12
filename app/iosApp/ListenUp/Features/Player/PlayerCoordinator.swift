@@ -230,7 +230,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bridge.bind(notificationCenter.notifications(named: name)) { [weak self] note in
             guard let self else { return }
             // The status slot names an AirPlay device (spec §4.7); every route change may move it.
-            facts.route(AVAudioSession.sharedInstance().currentRoute.outputs.first { $0.portType == .airPlay }?.portName)
+            let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
+            facts.route(outputs.first { $0.portType == .airPlay }?.portName)
             guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
                   let reason = AVAudioSession.RouteChangeReason(rawValue: raw),
                   RouteChangePolicy.shouldPause(reason: reason) else { return }
@@ -346,7 +347,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         lastReportedPositionMs = prepared.resumePositionMs
     }
 
-    private func startLoaded(bookId: String, prepared: PreparedPlayback, segments: [AudioSegment], generation: Int) async {
+    private func startLoaded(
+        bookId: String, prepared: PreparedPlayback, segments: [AudioSegment], generation: Int
+    ) async {
         // `load` awaits readiness and seeks to the resume position before returning.
         let loaded = await engine.load(segments: segments, startPositionMs: prepared.resumePositionMs)
         guard !isSuperseded(generation) else { return }

@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 @preconcurrency import Shared
 
 /// One chapter as the list surfaces consume it — a native Swift value type, so SwiftUI's diff never
@@ -212,6 +213,8 @@ final class PlayerObserver {
     /// The held-book primary (admins) asked for the Inbox.
     var inboxRequested = false
 
+    // view-model-owner: nobody — the observer is an app-lifetime singleton (`Dependencies.playerObserver`),
+    // so its `PlayerViewModel` lives for the process.
     private let viewModel: PlayerViewModel
     private let coordinator: PlayerCoordinator
     private let bridge = FlowBridge()
@@ -275,7 +278,9 @@ final class PlayerObserver {
 
     /// Fine, per-frame position — the scrubber's smooth thumb. The engine's display-link tracker while
     /// it holds the book; the shared 4 Hz progress otherwise (a restored book).
-    var bookPositionMs: Int64 { isLive ? (coordinator.livePositionMs ?? progress.bookPositionMs) : progress.bookPositionMs }
+    var bookPositionMs: Int64 {
+        isLive ? (coordinator.livePositionMs ?? progress.bookPositionMs) : progress.bookPositionMs
+    }
 
     /// Coarse, ~1×/sec position — for time labels and progress lines, so they don't redraw per frame.
     var displayBookPositionMs: Int64 {
@@ -295,7 +300,9 @@ final class PlayerObserver {
 
     // MARK: - Actions (each forwards to the shared player)
 
-    func play(bookId: String, startAtMs: Int64? = nil) { viewModel.playBook(bookId: BookId(value: bookId), startAtMs: startAtMs) }
+    func play(bookId: String, startAtMs: Int64? = nil) {
+        viewModel.playBook(bookId: BookId(value: bookId), startAtMs: startAtMs)
+    }
     func togglePlayback() { viewModel.playPause() }
     /// The one main button: play/pause, or Retry / Sign in / Open Inbox / Close as the state decides.
     func primaryAction() { viewModel.onPrimary() }

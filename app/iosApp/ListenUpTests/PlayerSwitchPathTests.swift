@@ -10,9 +10,11 @@ import Shared
 @Suite("Player switch path")
 @MainActor
 struct PlayerSwitchPathTests {
-    private let chapters = [Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0, partTitle: nil, bookTitle: nil)]
+    private let chapters = [
+        Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0, partTitle: nil, bookTitle: nil)
+    ]
 
-    private func book(cover: String? = "/covers/a.jpg") -> PreparedPlayback {
+    private func book(cover: String? = "/covers/a.jpg") -> ListenUp.PreparedPlayback {
         .fixture(coverPath: cover, chapters: chapters)
     }
 
