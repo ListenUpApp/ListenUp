@@ -41,10 +41,10 @@ final class RecentBookShortcutsObserver {
     }
 
     /// Refreshes now and again each time the player's current book changes. Idempotent.
-    func startObservingCurrentBook(of coordinator: PlayerCoordinator) {
+    func startObservingCurrentBook(of player: PlayerObserver) {
         guard currentBookTask == nil else { return }
         currentBookTask = Task { [weak self] in
-            for await _ in Observations({ coordinator.currentBookId }) {
+            for await _ in Observations({ player.currentBookId }) {
                 if Task.isCancelled { break }
                 await self?.refresh()
             }

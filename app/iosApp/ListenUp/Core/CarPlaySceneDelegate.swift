@@ -155,7 +155,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     private func listItem(for row: CarPlayRow) -> CPListItem {
         let item = CPListItem(text: row.title, detailText: row.detailText, image: rowImage(for: row))
         item.handler = { [weak self] _, completion in
-            Dependencies.shared.playerCoordinator.play(bookId: row.id)
+            Dependencies.shared.playerObserver.play(bookId: row.id)
             // Push now-playing so the driver lands on transport controls rather than staying in
             // a list they have to navigate out of.
             self?.interfaceController?.pushTemplate(CPNowPlayingTemplate.shared, animated: true) { _, error in
@@ -188,16 +188,16 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             let image = buttonImage(spec.symbolName, accessibilityLabel: spec.accessibilityLabel)
             return CPNowPlayingImageButton(image: image) { _ in
                 Task { @MainActor in
-                    let coordinator = Dependencies.shared.playerCoordinator
-                    coordinator.selectChapter(index: coordinator.chapterIndex + spec.chapterOffset)
+                    let player = Dependencies.shared.playerObserver
+                    player.selectChapter(index: player.chapterIndex + spec.chapterOffset)
                 }
             }
         }
 
         let rateButton = CPNowPlayingPlaybackRateButton { _ in
             Task { @MainActor in
-                let coordinator = Dependencies.shared.playerCoordinator
-                coordinator.setSpeed(PlaybackRates.next(after: coordinator.playbackSpeed))
+                let player = Dependencies.shared.playerObserver
+                player.setSpeed(PlaybackRates.next(after: player.playbackSpeed))
             }
         }
 
@@ -227,12 +227,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     /// Push the "Chapters" list for the current book — the Up Next button's destination.
     ///
-    /// Built fresh per tap from the coordinator's scalar accessors (titles and index), so it
-    /// reflects the playing book at that moment without observing anything between taps.
+    /// Built fresh per tap from the shared player's native chapter rows, so it reflects the loaded book
+    /// at that moment without observing anything between taps.
     private func pushChapterList() {
-        let coordinator = Dependencies.shared.playerCoordinator
-        let titles = (0..<coordinator.totalChapters).map { coordinator.chapterTitleForIndex($0) }
-        let rows = CarPlayChapterRows.chapters(titles: titles, currentIndex: coordinator.chapterIndex)
+        let player = Dependencies.shared.playerObserver
+        let titles: [String?] = player.chapterRows.map(\.title)
+        let rows = CarPlayChapterRows.chapters(titles: titles, currentIndex: player.chapterIndex)
         guard !rows.isEmpty else { return }
 
         let items = rows.prefix(CPListTemplate.maximumItemCount).map { row in
@@ -240,7 +240,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             item.isPlaying = row.isCurrent
             item.handler = { [weak self] _, completion in
                 Task { @MainActor in
-                    Dependencies.shared.playerCoordinator.selectChapter(index: row.index)
+                    Dependencies.shared.playerObserver.selectChapter(index: row.index)
                     self?.interfaceController?.popTemplate(animated: true) { _, error in
                         if let error { Log.error("CarPlay chapter-list pop failed", error: error) }
                         completion()

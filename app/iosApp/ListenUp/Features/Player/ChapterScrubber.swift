@@ -1,4 +1,3 @@
-import Shared
 import SwiftUI
 
 /// What the chapter scrubber tells VoiceOver, split out of the view so it is testable.
@@ -34,7 +33,7 @@ enum ScrubberAccessibility {
 /// The chapter slider + elapsed/remaining labels. Its own view so the per-frame position reads
 /// that drive the moving thumb re-evaluate only this small view, not the whole player.
 struct ChapterScrubberSection: View {
-    let observer: PlayerCoordinator
+    let observer: PlayerObserver
     let tint: Color
 
     @State private var sliderPosition: Double = 0
@@ -47,8 +46,8 @@ struct ChapterScrubberSection: View {
                 in: 0...max(Double(observer.chapterDurationMs), 1),
                 onEditingChanged: { editing in
                     isDraggingSlider = editing
-                    if !editing, let info = observer.currentChapterInfoForSeeking {
-                        observer.seekTo(positionMs: Int64(info.startMs) + Int64(sliderPosition))
+                    if !editing {
+                        observer.seekTo(positionMs: observer.chapterStartMs + Int64(sliderPosition))
                     }
                 }
             )

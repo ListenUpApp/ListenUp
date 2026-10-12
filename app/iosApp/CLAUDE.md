@@ -32,8 +32,11 @@ inline below.
      platform-only surfaces (Live Activities, lock screen, menu-bar/Now Playing variants).
    - The Kotlin MVI `*ViewModel`s are **optional** on iOS. Bind one directly only when
      that's genuinely cleanest; otherwise wrap shared logic in a native `@Observable`.
-     `Features/Player` is the reference precedent — only `PlayerCoordinator` imports `Shared`,
-     and its `AudioEngine`/math units are already platform-neutral.
+     `Features/Player` binds the shared `PlayerViewModel` directly through `PlayerObserver`: it is the one
+     model every platform renders (player spec S1), so a native copy would be a second truth. `PlayerCoordinator`
+     is the engine adapter: it executes `NativePlayerEngine`'s ordered commands on AVAudioEngine and reports
+     engine facts back. Kotlin types stop at `PlayerObserver` and the `Kotlin*Seam` adapters; `AudioEngine` and
+     the position/segment/chapter math stay platform-neutral.
 
    **Multi-Apple-platform readiness (forward-looking, structure now):** iOS is the priority,
    but we will later split the native codebase to support **macOS and watchOS natively**.

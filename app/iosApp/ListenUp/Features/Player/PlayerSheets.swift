@@ -183,7 +183,7 @@ struct ChapterRow: View {
 /// Scrolling chapter list. The current chapter is coral-highlighted; tapping any row
 /// seeks to that chapter and dismisses.
 struct ChapterListSheet: View {
-    let observer: PlayerCoordinator
+    let observer: PlayerObserver
     let onDismiss: () -> Void
 
     var body: some View {

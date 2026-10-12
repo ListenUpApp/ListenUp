@@ -1,12 +1,12 @@
 import Foundation
 
 /// Which Playback menu commands can run, and what the play/pause item says — derived from the
-/// player's phase so the menu bar never offers a command that would do nothing.
+/// shared player's state so the menu bar never offers a command that would do nothing.
 ///
 /// HIG, The menu bar: people look for app-specific commands there, and a command that cannot run
 /// right now stays listed but dimmed rather than disappearing.
 struct PlaybackCommandState: Equatable {
-    /// Play/Pause can run: a book is loaded, or an errored one can be retried.
+    /// Play/Pause can run: a book is loaded and not mid-prepare (a failed one retries).
     let canTogglePlayback: Bool
     /// The item reads Pause (audio advancing or buffering) rather than Play.
     let showsPause: Bool
@@ -24,27 +24,17 @@ struct PlaybackCommandState: Equatable {
         hasPreviousChapter: false, hasNextChapter: false, canExtendSleepTimer: false
     )
 
-    static func from(
-        phase: PlayerPhase,
-        chapterIndex: Int,
-        totalChapters: Int,
-        sleepTimerActive: Bool = false,
-        sleepTimerIsEndOfChapter: Bool = false
-    ) -> PlaybackCommandState {
-        let isLoaded = phase.playingState != nil
-        let isErrored: Bool = if case .error = phase { true } else { false }
-        let isActive: Bool = switch phase {
-        case .playing, .buffering: true
-        case .idle, .preparing, .paused, .error: false
-        }
+    static func from(snapshot: PlayerSnapshot) -> PlaybackCommandState {
+        guard snapshot.isVisible else { return .unavailable }
         return PlaybackCommandState(
-            canTogglePlayback: isLoaded || isErrored,
-            showsPause: isLoaded && isActive,
-            canSeek: isLoaded,
-            hasPreviousChapter: isLoaded && chapterIndex > 0,
-            hasNextChapter: isLoaded && chapterIndex < totalChapters - 1,
-            canExtendSleepTimer: isLoaded && SleepTimerOption.canExtend(
-                isActive: sleepTimerActive, isEndOfChapter: sleepTimerIsEndOfChapter
+            // Busy while buffering still pauses; only a prepare in flight has nothing to toggle.
+            canTogglePlayback: !snapshot.isPreparing,
+            showsPause: snapshot.isPlaying || snapshot.isBuffering,
+            canSeek: snapshot.showsSkipBack,
+            hasPreviousChapter: snapshot.showsSkipBack && snapshot.chapterIndex > 0,
+            hasNextChapter: snapshot.canSkipToNextChapter,
+            canExtendSleepTimer: SleepTimerOption.canExtend(
+                isActive: snapshot.sleepTimerActive, isEndOfChapter: snapshot.sleepTimerIsEndOfChapter
             )
         )
     }

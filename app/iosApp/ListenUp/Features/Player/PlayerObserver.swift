@@ -32,6 +32,16 @@ enum PlayerPrimary: Sendable, Equatable {
         case .tapToPlay: .tapToPlay
         }
     }
+
+    /// The error surfaces' action button: what the primary does for a book that can't play.
+    var errorActionTitle: String {
+        switch self {
+        case .signIn: String(localized: "auth.sign_in")
+        case .openInbox: String(localized: "common.inbox")
+        case .close: String(localized: "player.close")
+        case .pause, .play, .busy, .retry, .listenAgain, .tapToPlay: String(localized: "player.retry")
+        }
+    }
 }
 
 /// Native values the player surfaces render (rule 8). Built once per `uiState` emission, never on a

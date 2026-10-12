@@ -5,7 +5,7 @@ import SwiftUI
 /// Previous chapter · skip back · play/pause · skip forward · next chapter. Every target is at
 /// least 44pt (HIG, Accessibility: controls need a 44×44pt hit area).
 struct PlayerTransportControls: View {
-    let observer: PlayerCoordinator
+    let observer: PlayerObserver
 
     /// Counts deliberate transport taps so the haptic fires on the tap, never on a state change
     /// arriving from elsewhere (a remote command, the lock screen). Mirrors `MiniPlayerBar`.
@@ -18,8 +18,8 @@ struct PlayerTransportControls: View {
 
     @ScaledMetric(relativeTo: .title) private var playButtonSize: CGFloat = 76
 
-    private var hasPreviousChapter: Bool { observer.chapterIndex > 0 }
-    private var hasNextChapter: Bool { observer.chapterIndex < observer.totalChapters - 1 }
+    private var hasPreviousChapter: Bool { observer.showsSkipBack && observer.chapterIndex > 0 }
+    private var hasNextChapter: Bool { observer.canSkipToNextChapter }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -29,7 +29,7 @@ struct PlayerTransportControls: View {
                 label: String(localized: "player.previous_chapter"),
                 isEnabled: hasPreviousChapter
             ) {
-                observer.selectChapter(index: observer.chapterIndex - 1)
+                observer.previousChapter()
             }
 
             Spacer(minLength: 4)
@@ -64,7 +64,7 @@ struct PlayerTransportControls: View {
                 label: String(localized: "player.next_chapter"),
                 isEnabled: hasNextChapter
             ) {
-                observer.selectChapter(index: observer.chapterIndex + 1)
+                observer.nextChapter()
             }
         }
         .haptic(.press, trigger: transportTapCount)
@@ -99,7 +99,7 @@ struct PlayerTransportControls: View {
         Button {
             playPauseWillBeActive = !observer.isPlaybackActive
             playPauseTapCount += 1
-            observer.togglePlayback()
+            observer.primaryAction()
         } label: {
             ZStack {
                 Circle()
@@ -134,7 +134,7 @@ struct PlayerTransportControls: View {
 /// read twice. At accessibility text sizes the row becomes a list of control-beside-caption rows,
 /// which the player column scrolls (HIG, Typography: "consider using a stacked layout").
 struct PlayerSecondaryControls: View {
-    let observer: PlayerCoordinator
+    let observer: PlayerObserver
     let tint: Color
     let showsChaptersControl: Bool
     let onShowChapters: () -> Void

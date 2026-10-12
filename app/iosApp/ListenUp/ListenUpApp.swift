@@ -195,7 +195,7 @@ private struct RootView: View {
         quickActions.resolve(authState: state, playback: PlaybackController())
         switch state {
         case .authenticated:
-            recentShortcuts.startObservingCurrentBook(of: dependencies.playerCoordinator)
+            recentShortcuts.startObservingCurrentBook(of: dependencies.playerObserver)
         case .needsServerUrl, .needsSetup, .needsLogin, .pendingApproval:
             recentShortcuts.clear()
         case .initializing, .checkingServer, .sessionLapsed:
@@ -236,6 +236,12 @@ private struct RootView: View {
                 }
                 .sheet(isPresented: $showReauthSheet) {
                     AuthFlowCoordinator(openRegistration: false)
+                }
+                // The player's Sign in (a session-expired book with nothing downloaded) opens the same sheet.
+                .onChange(of: dependencies.playerObserver.signInRequested) { _, requested in
+                    guard requested else { return }
+                    dependencies.playerObserver.signInRequested = false
+                    showReauthSheet = true
                 }
         case .authenticated:
             // Overlay a non-blocking banner when a version skew is detected (Update available).

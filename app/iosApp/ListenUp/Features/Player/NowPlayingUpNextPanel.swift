@@ -7,7 +7,7 @@ import SwiftUI
 /// scrolling list of `ChapterRow` over the live chapter list; the current chapter
 /// is tint-highlighted and tapping any row seeks to it.
 struct NowPlayingUpNextPanel: View {
-    let observer: PlayerCoordinator
+    let observer: PlayerObserver
     let tint: Color
 
     /// The pane's fixed width; the player column takes the rest.

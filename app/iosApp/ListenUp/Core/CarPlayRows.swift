@@ -7,7 +7,7 @@ import Foundation
 /// the boundary. Same rule as the phone's `ForEach` rows (`app/iosApp/CLAUDE.md` rule 8) — map
 /// once, at the boundary, into plain Swift.
 struct CarPlayRow: Equatable, Identifiable {
-    /// Book id — what selecting the row hands to `PlayerCoordinator.play(bookId:)`.
+    /// Book id — what selecting the row hands to `PlayerObserver.play(bookId:)`.
     let id: String
     let title: String
     /// The secondary line: author and remaining time, whichever of them exist.

@@ -5,7 +5,7 @@ import Foundation
 /// A native value type, same rule as `CarPlayRow`: the list is rebuilt per render, and rows must
 /// never hand bridged Kotlin objects to the template layer.
 struct CarPlayChapterRow: Equatable, Identifiable {
-    /// Chapter index — what selecting the row hands to `PlayerCoordinator.selectChapter(index:)`.
+    /// Chapter index — what selecting the row hands to `PlayerObserver.selectChapter(index:)`.
     let index: Int
     let title: String
     /// Marks the chapter currently playing, rendered as the row's playing indicator.

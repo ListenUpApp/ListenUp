@@ -19,7 +19,7 @@ struct MainTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @State private var shell = MainShellModel()
-    @State private var playerCoordinator: PlayerCoordinator?
+    @State private var playerObserver: PlayerObserver?
     /// One library projection for every Library tab and sidebar entry in this window.
     @State private var libraryObserver: LibraryObserver?
     /// The held-for-review count for the Library badge and the Books entry, one per window.
@@ -119,9 +119,9 @@ struct MainTabView: View {
         // the tab bar when it minimizes on scroll.
         .tabBarMinimizeBehavior(.onScrollDown)
         .modifier(MiniPlayerAccessory(isEnabled: isMiniPlayerShown) {
-            if let coordinator = playerCoordinator {
+            if let playerObserver {
                 MiniPlayerBar(
-                    observer: coordinator,
+                    observer: playerObserver,
                     transitionNamespace: playerNamespace,
                     onOpen: { shell.isPlayerPresented = true }
                 )
@@ -131,11 +131,11 @@ struct MainTabView: View {
         // for in-depth content"), which brings VoiceOver modality, swipe-down dismissal and the
         // zoom back into the mini player with it.
         .fullScreenCover(isPresented: $shell.isPlayerPresented) {
-            if let coordinator = playerCoordinator {
+            if let playerObserver {
                 FullScreenPlayerView(
-                    observer: coordinator,
+                    observer: playerObserver,
                     onViewDetails: {
-                        if let bookId = coordinator.currentBookId { shell.open(BookDestination(id: bookId)) }
+                        if let bookId = playerObserver.currentBookId { shell.open(BookDestination(id: bookId)) }
                     },
                     onViewSeries: { seriesId in shell.open(SeriesDestination(id: seriesId)) },
                     onViewContributor: { contributorId in shell.open(ContributorDestination(id: contributorId)) }
@@ -145,14 +145,27 @@ struct MainTabView: View {
         }
         // The menu bar's Playback and View commands act on the focused window's shell and player.
         .focusedSceneValue(\.mainShell, shell)
-        .focusedSceneValue(\.playerCoordinator, playerCoordinator)
+        .focusedSceneValue(\.playerObserver, playerObserver)
         // Closing the book (or anything else that ends the session) takes the player with it.
         .onChange(of: isMiniPlayerShown) { _, isShown in
             if !isShown { shell.isPlayerPresented = false }
         }
+        // The shared player's navigation: Go to book, and the held book's Open Inbox for an admin.
+        .onChange(of: playerObserver?.bookToOpen) { _, bookId in
+            guard let bookId else { return }
+            playerObserver?.bookToOpen = nil
+            shell.isPlayerPresented = false
+            shell.open(BookDestination(id: bookId))
+        }
+        .onChange(of: playerObserver?.inboxRequested) { _, requested in
+            guard requested == true else { return }
+            playerObserver?.inboxRequested = false
+            shell.isPlayerPresented = false
+            shell.open(AdminInboxDestination())
+        }
         .onAppear {
-            if playerCoordinator == nil {
-                playerCoordinator = deps.playerCoordinator
+            if playerObserver == nil {
+                playerObserver = deps.playerObserver
             }
             if libraryObserver == nil {
                 libraryObserver = LibraryObserver(viewModel: deps.libraryViewModel)
@@ -298,7 +311,7 @@ struct MainTabView: View {
     }
 
     /// Whether a book is loaded (or failed to load) — the mini player shows exactly then.
-    private var isMiniPlayerShown: Bool { playerCoordinator?.isVisible == true }
+    private var isMiniPlayerShown: Bool { playerObserver?.isVisible == true }
 
     /// Brings back the window's tab and stacks the first time the shell appears in this scene.
     private func restoreNavigationOnce() {
