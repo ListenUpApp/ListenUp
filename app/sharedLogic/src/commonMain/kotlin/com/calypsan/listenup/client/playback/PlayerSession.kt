@@ -259,6 +259,12 @@ class PlayerSession(
     private fun onPersistedBookId(persisted: BookId?) {
         val current = stage.value
         when {
+            persisted == null && current != null && isHeldInMemory(current) -> {
+                // A cleared key that lands under a load in flight or a book the engine plays is stale: the cold
+                // start's first read, or Close's clear arriving after the next Play. Write the book back.
+                scope.launch { loadedBooks.setLoaded(current.bookId) }
+            }
+
             persisted == null -> {
                 if (current != null) unloadInMemory()
             }
@@ -270,6 +276,11 @@ class PlayerSession(
         }
         restoring.value = false
     }
+
+    /** A load in flight, or the engine holding the stage's book: what only Close (or sign-out's Close) unloads. */
+    private fun isHeldInMemory(current: SessionStage): Boolean =
+        current is SessionStage.Preparing ||
+            (current is SessionStage.Engine && engine.loadedBookId.value == current.bookId)
 
     private fun onEngineBook(held: BookId?) {
         val current = stage.value
@@ -297,26 +308,30 @@ class PlayerSession(
     private suspend fun watchLiveness() {
         stageBookId
             .flatMapLatest { id ->
-                if (id == null) {
-                    flowOf(Liveness.Live)
-                } else {
-                    combine(
-                        flow = bookRepository.observeBookDetail(id.value).map { it != null },
-                        flow2 = bookRepository.observeIsBookLive(id.value),
-                        flow3 = downloadRepository.observeBookStatus(id),
-                        flow4 = positionRepository.observe(id),
-                    ) { exists, live, download, position ->
-                        livenessOf(
-                            rowExists = exists,
-                            isLive = live,
-                            isDownloaded = download is BookDownloadStatus.Completed,
-                            positionMs = position?.positionMs ?: 0L,
-                            isFinished = position?.isFinished == true,
-                        )
+                val verdicts =
+                    if (id == null) {
+                        flowOf(Liveness.Live)
+                    } else {
+                        combine(
+                            flow = bookRepository.observeBookDetail(id.value).map { it != null },
+                            flow2 = bookRepository.observeIsBookLive(id.value),
+                            flow3 = downloadRepository.observeBookStatus(id),
+                            flow4 = positionRepository.observe(id),
+                        ) { exists, live, download, position ->
+                            livenessOf(
+                                rowExists = exists,
+                                isLive = live,
+                                isDownloaded = download is BookDownloadStatus.Completed,
+                                positionMs = position?.positionMs ?: 0L,
+                                isFinished = position?.isFinished == true,
+                            )
+                        }
                     }
-                }
-            }.distinctUntilChanged()
-            .collect { verdict ->
+                verdicts.map { verdict -> id to verdict }
+            }
+            // Keyed on the book too: one revoked book straight after another must still tear the second down.
+            .distinctUntilChanged()
+            .collect { (_, verdict) ->
                 when (verdict) {
                     Liveness.Live -> Unit
                     Liveness.RowGone -> closeBook()

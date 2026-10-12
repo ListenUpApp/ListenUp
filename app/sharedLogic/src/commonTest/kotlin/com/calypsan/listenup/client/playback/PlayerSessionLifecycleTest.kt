@@ -9,6 +9,7 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -187,6 +188,96 @@ class PlayerSessionLifecycleTest :
                     rig.store.stored.shouldBeNull()
                     rig.sleep.state.value shouldBe SleepTimerState.Inactive
                     rig.session.state.value shouldBe PlayerSessionState.NothingLoaded
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a Play tapped before the first read of the loaded key finishes is not lost") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    val firstRead = CompletableDeferred<Unit>()
+                    rig.store.readSuspension = { firstRead.await() }
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    firstRead.complete(Unit)
+                    runCurrent()
+                    rig.loaded.bookId shouldBe BookId("b1")
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                    rig.loaded.isEngineBound shouldBe true
+                    rig.store.stored shouldBe "b1"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a book the engine adopts before the first read finishes stays bound to the engine") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    val firstRead = CompletableDeferred<Unit>()
+                    rig.store.readSuspension = { firstRead.await() }
+                    runCurrent()
+                    rig.engine.loadedBookId.value = BookId("b1")
+                    rig.engine.phase.value = EnginePhase.PLAYING
+                    runCurrent()
+                    firstRead.complete(Unit)
+                    runCurrent()
+                    rig.loaded.bookId shouldBe BookId("b1")
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                    rig.loaded.isEngineBound shouldBe true
+                    rig.store.stored shouldBe "b1"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("Close book then an immediate Play of another book loads that book and keeps it loaded") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.withBook("b2")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    rig.session.closeBook()
+                    rig.session.playBook(BookId("b2"), startAtMs = null)
+                    runCurrent()
+                    rig.loaded.bookId shouldBe BookId("b2")
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                    rig.store.stored shouldBe "b2"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("playing a second revoked book straight after a first still stops it") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.withBook("b2")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    rig.books.setBooks(emptyList()) // both tombstoned
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Unavailable(PlaybackError.NoLongerAvailable())
+                    rig.session.playBook(BookId("b2"), startAtMs = null)
+                    runCurrent()
+                    rig.loaded.bookId shouldBe BookId("b2")
+                    rig.loaded.phase shouldBe PlayerPhase.Unavailable(PlaybackError.NoLongerAvailable())
+                    rig.engine.loadedBookId.value
+                        .shouldBeNull()
                 } finally {
                     rig.close()
                 }
