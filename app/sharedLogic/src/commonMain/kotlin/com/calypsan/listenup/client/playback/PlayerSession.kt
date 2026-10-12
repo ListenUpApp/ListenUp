@@ -1,15 +1,24 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
 import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
 import com.calypsan.listenup.client.presentation.player.skipTargetMs
@@ -45,14 +54,22 @@ private val logger = KotlinLogging.logger {}
  * `PlayerViewModel` projects it for the UI; non-UI holders call it directly.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Suppress("LongParameterList") // DI constructor: each param is a distinct domain responsibility.
 class PlayerSession(
     private val engine: PlayerEngine,
     private val loadedBooks: LoadedBookRepository,
     private val bookRepository: BookRepository,
     private val downloadRepository: DownloadRepository,
     private val positionRepository: PlaybackPositionRepository,
+    private val availability: BookAvailability,
+    private val inboxRepository: InboxRepository,
+    private val networkMonitor: NetworkMonitor,
+    private val serverReachability: ServerReachability,
+    private val authSession: AuthSession,
     private val sleepTimer: SleepTimerManager,
     private val playbackPreferences: PlaybackPreferences,
+    /** True where the device keeps downloads; the browser does not, so it never says "offline, not downloaded". */
+    val offlineCopiesSupported: Boolean,
     private val scope: CoroutineScope,
 ) {
     private val stage = MutableStateFlow<SessionStage?>(null)
@@ -173,12 +190,13 @@ class PlayerSession(
             if (id == null) {
                 flowOf(null)
             } else {
+                val engineFacts =
+                    combine(engine.phase, engine.error, engine.loadedBookId) { p, e, b -> Triple(p, e, b) }
                 combine(
-                    flow = engine.phase,
-                    flow2 = engine.error,
-                    flow3 = engine.loadedBookId,
-                    flow4 = positionRepository.observe(id).map { it?.isFinished == true },
-                ) { phase, error, engineBook, finished ->
+                    engineFacts,
+                    positionRepository.observe(id).map { it?.isFinished == true },
+                    observeUnavailableReason(id),
+                ) { (phase, error, engineBook), finished, unavailable ->
                     PhaseInputs(
                         forBookId = id,
                         enginePhase = phase,
@@ -186,7 +204,7 @@ class PlayerSession(
                         engineBookId = engineBook,
                         isFading = false,
                         isFinishedRow = finished,
-                        unavailable = null,
+                        unavailable = unavailable,
                     )
                 }
             }
@@ -336,6 +354,23 @@ class PlayerSession(
             unavailable = null,
         )
 
+    private fun observeUnavailableReason(bookId: BookId): Flow<AppError?> =
+        combine(
+            flow = inboxRepository.observeHeldBookIds().map { bookId in it },
+            flow2 = authSession.authState.map { it is AuthState.SessionLapsed },
+            flow3 = availability.observe(bookId),
+            flow4 = networkMonitor.onlineFlow,
+        ) { held, lapsed, available, online ->
+            unavailableReasonOf(
+                isHeld = held,
+                isSessionLapsed = lapsed,
+                hasDownloadedAudio = available.downloadStatus is BookDownloadStatus.Completed,
+                canPlay = available.canPlay,
+                isDeviceOnline = online,
+                offlineCopiesSupported = offlineCopiesSupported,
+            )
+        }.distinctUntilChanged()
+
     // ── Load (Task 14) ───────────────────────────────────────────────────────────────────────────────
 
     /**
@@ -426,7 +461,7 @@ class PlayerSession(
     /** The one play/pause intent (§4.3): resume, pause, prepare a restored book, re-listen, or retry. */
     fun playPause() {
         val loaded = loadedOrNull() ?: return
-        when (loaded.phase) {
+        when (val phase = loaded.phase) {
             PlayerPhase.Playing, PlayerPhase.Buffering, PlayerPhase.SleepFading -> {
                 engine.pause()
             }
@@ -444,8 +479,21 @@ class PlayerSession(
                 startLoad(loaded.bookId, null)
             }
 
-            is PlayerPhase.Failed, is PlayerPhase.Unavailable, PlayerPhase.Preparing -> {
-                // Nothing to resume yet: a load is in flight, or Retry decides (Task 16).
+            is PlayerPhase.Failed -> {
+                if (phase.error is PlaybackError.AutoplayBlocked || phase.error is PlaybackError.BlockedInBackground) {
+                    engine.clearError()
+                    engine.play()
+                } else {
+                    retry()
+                }
+            }
+
+            is PlayerPhase.Unavailable -> {
+                retry()
+            }
+
+            PlayerPhase.Preparing -> {
+                // A load is in flight; its result decides.
             }
         }
     }
@@ -549,5 +597,51 @@ class PlayerSession(
     }
 
     // ── Errors (Task 16) ─────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Retry a failed or unavailable book (§4.3): re-probe the server when the cause is transport, then
+     * re-prepare at the saved position and play. Held, revoked and session-expired books are not retried here:
+     * their primary control leads elsewhere (Open Inbox, Close, Sign in).
+     */
+    fun retry() {
+        val loaded = loadedOrNull() ?: return
+        val cause =
+            (loaded.phase as? PlayerPhase.Failed)?.error
+                ?: (loaded.phase as? PlayerPhase.Unavailable)?.reason
+                ?: return
+        if (cause is BookError.HeldForReview || cause is PlaybackError.NoLongerAvailable ||
+            cause is AuthError.SessionExpired
+        ) {
+            return
+        }
+        if (cause.isTransport()) scope.launch { serverReachability.retry() }
+        engine.clearError()
+        startLoad(loaded.bookId, null)
+    }
+
+    /**
+     * Dismiss the error card (gap 6): the bar never hides. A failed prepare returns to Restored (Decision 6);
+     * an engine failure mid-play clears and pauses.
+     */
+    fun dismissError() {
+        val current = stage.value ?: return
+        when {
+            current is SessionStage.Failed -> {
+                stage.value = SessionStage.Idle(current.bookId)
+            }
+
+            engine.error.value != null -> {
+                engine.clearError()
+                engine.pause()
+            }
+        }
+    }
+
+    private fun AppError.isTransport(): Boolean =
+        this is PlaybackError.ConnectionLost ||
+            this is PlaybackError.ServerUnreachable ||
+            this is PlaybackError.Stalled ||
+            this is PlaybackError.OfflineNotDownloaded
+
     // ── Sleep (Task 17) ──────────────────────────────────────────────────────────────────────────────
 }

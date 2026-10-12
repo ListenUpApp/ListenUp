@@ -31,6 +31,7 @@ internal val threeChapters =
 internal class PlayerSessionRig(
     testScope: TestScope,
     storedBookId: String? = null,
+    offlineCopiesSupported: Boolean = true,
 ) {
     val scope = CoroutineScope(StandardTestDispatcher(testScope.testScheduler))
     val engine = FakePlayerEngine()
@@ -53,8 +54,14 @@ internal class PlayerSessionRig(
             bookRepository = books,
             downloadRepository = downloads,
             positionRepository = positions,
+            availability = availability,
+            inboxRepository = inbox,
+            networkMonitor = network,
+            serverReachability = reachability,
+            authSession = auth,
             sleepTimer = sleep,
             playbackPreferences = preferences,
+            offlineCopiesSupported = offlineCopiesSupported,
             scope = scope,
         )
 
