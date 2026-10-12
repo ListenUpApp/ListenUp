@@ -98,6 +98,50 @@ class PlayerSessionErrorsTest :
             }
         }
 
+        test("Retry while still offline keeps saying offline, not that the book couldn't play") {
+            runTest {
+                val rig = PlayerSessionRig(this, storedBookId = "b1")
+                try {
+                    rig.withBook("b1")
+                    rig.network.onlineFlow.value = false
+                    rig.availability.stateFlow.value =
+                        rig.availability.stateFlow.value
+                            .copy(canPlay = false)
+                    rig.engine.loadResult = AppResult.Failure(PlaybackError.CouldNotStart())
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Unavailable(PlaybackError.OfflineNotDownloaded())
+                    rig.session.retry()
+                    runCurrent()
+                    rig.engine.loads.last() shouldBe (BookId("b1") to null)
+                    rig.loaded.phase shouldBe PlayerPhase.Unavailable(PlaybackError.OfflineNotDownloaded())
+                    rig.network.onlineFlow.value = true
+                    rig.availability.stateFlow.value =
+                        rig.availability.stateFlow.value
+                            .copy(canPlay = true)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Restored
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a failed prepare with nothing standing in the book's way is the typed failure") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.engine.loadResult = AppResult.Failure(PlaybackError.CouldNotStart())
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.CouldNotStart())
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("the browser says server unreachable where a phone says offline") {
             runTest {
                 val rig = PlayerSessionRig(this, storedBookId = "b1", offlineCopiesSupported = false)
