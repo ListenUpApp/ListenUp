@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.presentation.nowplaying
+package com.calypsan.listenup.client.presentation.player
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.floats.plusOrMinus
@@ -42,6 +42,21 @@ class TransportProjectionsTest :
                 skipTargetMs(0L, seconds = 30, speed = 1.0f, totalDurationMs = 600_000L, forward = false) shouldBe 0L
                 skipTargetMs(600_000L, seconds = 30, speed = 1.0f, totalDurationMs = 600_000L, forward = true) shouldBe
                     600_000L
+            }
+        }
+
+        context("stepPlaybackSpeed") {
+            test("steps exactly 0.05 with no float drift over twenty steps") {
+                var speed = 1.0f
+                repeat(20) { speed = stepPlaybackSpeed(speed, up = true) }
+                speed shouldBe 2.0f
+            }
+            test("clamps at 0.5 and 3.0") {
+                stepPlaybackSpeed(0.5f, up = false) shouldBe 0.5f
+                stepPlaybackSpeed(3.0f, up = true) shouldBe 3.0f
+            }
+            test("a rate that came back from storage as 1.2499999 steps to 1.3") {
+                stepPlaybackSpeed(1.2499999f, up = true) shouldBe 1.3f
             }
         }
     })

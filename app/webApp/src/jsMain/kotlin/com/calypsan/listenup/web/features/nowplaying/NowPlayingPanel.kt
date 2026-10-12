@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.SleepTimerState
-import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
+import com.calypsan.listenup.client.presentation.player.isSameVolumeBoost
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.Cover

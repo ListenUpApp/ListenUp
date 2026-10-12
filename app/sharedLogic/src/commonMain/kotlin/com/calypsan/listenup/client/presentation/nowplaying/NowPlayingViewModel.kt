@@ -30,6 +30,7 @@ import com.calypsan.listenup.client.playback.SurfaceMetadata
 import com.calypsan.listenup.client.playback.fadeOutAndPause
 import com.calypsan.listenup.client.playback.mapToNowPlayingState
 import com.calypsan.listenup.client.playback.mapToPlaybackProgress
+import com.calypsan.listenup.client.presentation.player.skipTargetMs
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException

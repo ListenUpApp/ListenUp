@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.presentation.nowplaying
+package com.calypsan.listenup.client.presentation.player
 
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -63,8 +63,7 @@ fun isSameVolumeBoost(
  *
  * Callers are expected to have a loaded book: with no timeline there is no meaningful
  * [totalDurationMs], and a forward skip would clamp to zero and throw the listener back to the
- * start. Both the shared `NowPlayingViewModel` and the browser's `PlaybackSession` guard on a
- * non-null timeline before calling.
+ * start. Callers (`PlayerSession`) guard on a known duration first.
  */
 fun skipTargetMs(
     currentPositionMs: Long,
@@ -79,6 +78,20 @@ fun skipTargetMs(
     } else {
         (currentPositionMs - distanceMs).coerceAtLeast(0L)
     }
+}
+
+/**
+ * One [PLAYBACK_SPEED_INCREMENT] up or down from [speed], clamped to [PLAYBACK_SPEED_MIN]..[PLAYBACK_SPEED_MAX].
+ *
+ * Counted in whole hundredths and divided once, so a hundred presses land exactly on a rung instead of
+ * accumulating `0.05f`'s representation error.
+ */
+fun stepPlaybackSpeed(
+    speed: Float,
+    up: Boolean,
+): Float {
+    val steps = (speed / PLAYBACK_SPEED_INCREMENT).roundToInt() + if (up) 1 else -1
+    return (steps * 5 / 100f).coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX)
 }
 
 /** Slack allowed when matching a speed to a rung — see [isSamePlaybackSpeed]. */

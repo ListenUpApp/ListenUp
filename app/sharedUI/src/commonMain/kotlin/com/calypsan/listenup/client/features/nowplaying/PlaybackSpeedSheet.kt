@@ -26,10 +26,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_MAX
-import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_MIN
-import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
-import com.calypsan.listenup.client.presentation.nowplaying.snapPlaybackSpeed
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.presentation.player.snapPlaybackSpeed
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold

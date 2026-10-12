@@ -1,6 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
