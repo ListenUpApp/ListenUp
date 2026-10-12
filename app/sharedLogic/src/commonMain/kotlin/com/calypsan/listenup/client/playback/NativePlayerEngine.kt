@@ -24,8 +24,11 @@ import kotlinx.coroutines.flow.stateIn
  *
  * Bound only by the iOS Koin module. It lives in commonMain because nothing in it is Apple-specific, which
  * lets its spec run on the JVM lane as well as the Apple lane.
+ *
+ * The constructor is `internal`: Koin builds it, and Swift Export cannot bridge its suspend `prepare`
+ * function type (an `AppResult<PreparedPlayback>` return), so exposing it would break the iOS framework.
  */
-class NativePlayerEngine(
+class NativePlayerEngine internal constructor(
     private val prepare: suspend (BookId, Long?) -> AppResult<PreparedPlayback>,
     scope: CoroutineScope,
 ) : PlayerEngine {

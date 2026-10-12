@@ -1,11 +1,15 @@
 package com.calypsan.listenup.client.testing
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.playback.NativePlayerEngine
-import com.calypsan.listenup.client.playback.PreparedPlayback
+import com.calypsan.listenup.client.playback.EnginePhase
+import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.core.BookId
@@ -14,6 +18,8 @@ import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.mock
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 
 /**
@@ -23,7 +29,7 @@ import kotlinx.coroutines.flow.flowOf
  */
 internal fun idlePlayerSession(scope: CoroutineScope): PlayerSession =
     PlayerSession(
-        engine = NativePlayerEngine(prepare = ::refuse, scope = scope),
+        engine = IdlePlayerEngine,
         loadedBooks =
             mock<LoadedBookRepository>(MockMode.autoUnit) {
                 every { observeLoadedBookId() } returns
@@ -49,9 +55,49 @@ internal fun idlePlayerSession(scope: CoroutineScope): PlayerSession =
         scope = scope,
     )
 
-/** Every prepare fails: these screens never play. */
-@Suppress("UnusedParameter") // the engine's prepare signature
-private fun refuse(
-    bookId: BookId,
-    startAtMs: Long?,
-): AppResult<PreparedPlayback> = AppResult.Failure(PlaybackError.CouldNotStart())
+/**
+ * An engine holding nothing that refuses every load: these screens never play. (`NativePlayerEngine`'s
+ * constructor is internal to `:app:sharedLogic`, so this module brings its own.)
+ */
+private object IdlePlayerEngine : PlayerEngine {
+    override val loadedBookId: StateFlow<BookId?> = MutableStateFlow(null)
+    override val phase: StateFlow<EnginePhase> = MutableStateFlow(EnginePhase.IDLE)
+    override val positionMs: StateFlow<Long> = MutableStateFlow(0L)
+    override val durationMs: StateFlow<Long> = MutableStateFlow(0L)
+    override val speed: StateFlow<Float> = MutableStateFlow(1.0f)
+    override val boostDb: StateFlow<Float> = MutableStateFlow(0f)
+    override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
+    override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> = MutableStateFlow(null)
+    override val timeline: StateFlow<PlaybackTimeline?> = MutableStateFlow(null)
+    override val outputDeviceName: StateFlow<String?> = MutableStateFlow(null)
+    override val error: StateFlow<AppError?> = MutableStateFlow(null)
+
+    override fun beginLoad(bookId: BookId) = Unit
+
+    override suspend fun load(
+        bookId: BookId,
+        startAtMs: Long?,
+    ): AppResult<Unit> = AppResult.Failure(PlaybackError.CouldNotStart())
+
+    override fun abandonLoad() = Unit
+
+    override fun play() = Unit
+
+    override fun pause() = Unit
+
+    override fun seekTo(positionMs: Long) = Unit
+
+    override fun setSpeed(speed: Float) = Unit
+
+    override fun resetSpeed(defaultSpeed: Float) = Unit
+
+    override fun setBoost(boostDb: Float) = Unit
+
+    override fun resetBoost(defaultBoostDb: Float) = Unit
+
+    override fun setVolume(volume: Float) = Unit
+
+    override fun clearError() = Unit
+
+    override fun stop() = Unit
+}
