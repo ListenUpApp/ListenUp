@@ -2144,6 +2144,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             booksFinished = 3,
             currentStreakDays = 2,
             longestStreakDays = 9,
+            isYou = false,
         )
     val snapshot = LeaderboardSnapshot(time = listOf(entry), books = listOf(entry), streak = listOf(entry))
     val listener =

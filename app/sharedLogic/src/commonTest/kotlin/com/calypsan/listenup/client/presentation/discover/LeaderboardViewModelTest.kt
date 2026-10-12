@@ -60,6 +60,7 @@ class LeaderboardViewModelTest :
             booksFinished = 0,
             currentStreakDays = 0,
             longestStreakDays = 0,
+            isYou = false,
         )
 
         fun snapshot(
@@ -81,6 +82,7 @@ class LeaderboardViewModelTest :
             override fun observeSnapshot(
                 period: LeaderboardPeriod,
                 limit: Int,
+                currentUserId: String?,
             ): Flow<LeaderboardSnapshot> = flowForPeriod(period)
         }
 

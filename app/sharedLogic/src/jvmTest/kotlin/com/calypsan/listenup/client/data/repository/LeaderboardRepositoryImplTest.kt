@@ -82,7 +82,7 @@ class LeaderboardRepositoryImplTest :
                     ),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
-            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20).test {
+            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20, currentUserId = null).test {
                 val snap = awaitItem()
                 snap.time.map { it.userId } shouldBe listOf("a", "b", "c")
                 snap.time.map { it.rank } shouldBe listOf(1, 1, 3)
@@ -101,7 +101,7 @@ class LeaderboardRepositoryImplTest :
                     ),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
-            repo.observeSnapshot(LeaderboardPeriod.Year, limit = 20).test {
+            repo.observeSnapshot(LeaderboardPeriod.Year, limit = 20, currentUserId = null).test {
                 val snap = awaitItem()
                 snap.time.map { it.userId } shouldBe listOf("c", "a")
                 // Books/Streak now rank by the 365-day windowed columns and carry the windowed value.
@@ -122,7 +122,7 @@ class LeaderboardRepositoryImplTest :
                     ),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
-            repo.observeSnapshot(LeaderboardPeriod.Week, limit = 20).test {
+            repo.observeSnapshot(LeaderboardPeriod.Week, limit = 20, currentUserId = null).test {
                 val snap = awaitItem()
                 // b has more last7 seconds
                 snap.time.map { it.userId } shouldBe listOf("b", "a")
@@ -146,7 +146,7 @@ class LeaderboardRepositoryImplTest :
                     ),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
-            repo.observeSnapshot(LeaderboardPeriod.Month, limit = 20).test {
+            repo.observeSnapshot(LeaderboardPeriod.Month, limit = 20, currentUserId = null).test {
                 val snap = awaitItem()
                 snap.time.map { it.userId } shouldBe listOf("x", "y")
                 snap.time[0].totalSeconds shouldBe 200L
@@ -170,7 +170,7 @@ class LeaderboardRepositoryImplTest :
                     ),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
-            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20).test {
+            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20, currentUserId = null).test {
                 val snap = awaitItem()
                 snap.time.map { it.rank } shouldBe listOf(1, 1, 1, 4)
                 cancelAndIgnoreRemainingEvents()
@@ -185,7 +185,7 @@ class LeaderboardRepositoryImplTest :
                     ),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
-            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20).test {
+            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20, currentUserId = null).test {
                 val snap = awaitItem()
                 snap.time[0].totalSeconds shouldBe 3600L
                 cancelAndIgnoreRemainingEvents()
@@ -200,7 +200,7 @@ class LeaderboardRepositoryImplTest :
                     },
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
-            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 3).test {
+            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 3, currentUserId = null).test {
                 val snap = awaitItem()
                 snap.time.size shouldBe 3
                 snap.books.size shouldBe 3
@@ -212,7 +212,7 @@ class LeaderboardRepositoryImplTest :
         test("empty roster yields empty snapshot") {
             val rows = MutableStateFlow(emptyList<PublicProfileEntity>())
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
-            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20).test {
+            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20, currentUserId = null).test {
                 val snap = awaitItem()
                 snap.time shouldBe emptyList()
                 snap.books shouldBe emptyList()
@@ -227,12 +227,67 @@ class LeaderboardRepositoryImplTest :
                     listOf(entity("a", allTime = 100, last365 = 0, finished = 1, longest = 1)),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
-            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20).test {
+            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20, currentUserId = null).test {
                 awaitItem().time.size shouldBe 1
                 rows.value = rows.value + entity("b", allTime = 200, last365 = 0, finished = 2, longest = 2)
                 val updated = awaitItem()
                 updated.time.size shouldBe 2
                 updated.time[0].userId shouldBe "b"
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        test("ties are ordered by display name, then by user id") {
+            val rows =
+                MutableStateFlow(
+                    listOf(
+                        entity(id = "z", allTime = 100, last365 = 0, finished = 0, longest = 0).copy(displayName = "bea"),
+                        entity(id = "b", allTime = 100, last365 = 0, finished = 0, longest = 0).copy(displayName = "Ada"),
+                        entity(id = "a", allTime = 100, last365 = 0, finished = 0, longest = 0).copy(displayName = "Ada"),
+                        entity(id = "c", allTime = 300, last365 = 0, finished = 0, longest = 0).copy(displayName = "Zed"),
+                    ),
+                )
+            val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
+
+            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20, currentUserId = null).test {
+                val time = awaitItem().time
+                time.map { it.userId } shouldBe listOf("c", "a", "b", "z")
+                time.map { it.rank } shouldBe listOf(1, 2, 2, 2)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        test("the tie order decides who survives the limit, not the database's row order") {
+            val rows =
+                MutableStateFlow(
+                    listOf(
+                        entity(id = "y", allTime = 100, last365 = 0, finished = 0, longest = 0).copy(displayName = "Yan"),
+                        entity(id = "x", allTime = 100, last365 = 0, finished = 0, longest = 0).copy(displayName = "Xia"),
+                    ),
+                )
+            val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
+
+            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 1, currentUserId = null).test {
+                awaitItem().time.single().userId shouldBe "x"
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        test("only the current user's row is marked as theirs, in every list") {
+            val rows =
+                MutableStateFlow(
+                    listOf(
+                        entity(id = "me", allTime = 100, last365 = 0, finished = 1, longest = 1),
+                        entity(id = "ada", allTime = 200, last365 = 0, finished = 2, longest = 2),
+                    ),
+                )
+            val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
+
+            repo.observeSnapshot(LeaderboardPeriod.AllTime, limit = 20, currentUserId = "me").test {
+                val snap = awaitItem()
+                listOf(snap.time, snap.books, snap.streak).forEach { list ->
+                    list.single { it.isYou }.userId shouldBe "me"
+                }
                 cancelAndIgnoreRemainingEvents()
             }
         }

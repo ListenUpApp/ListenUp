@@ -97,7 +97,7 @@ class LeaderboardViewModel(
     private fun leaderboardPipeline() =
         combine(
             period.flatMapLatest { p ->
-                repo.observeSnapshot(p, limit = 20).map { snap -> p to snap }
+                repo.observeSnapshot(p, limit = 20, currentUserId = null).map { snap -> p to snap }
             },
             category,
         ) { (p, snap), cat ->
