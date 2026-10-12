@@ -318,6 +318,10 @@ internal class PlaybackManagerImpl(
                     // than a delay loop, so it schedules no timer task.
                     var lastPersistedPositionMs = resumePositionMs
                     player.positionMs.collect { position ->
+                        // A failed player's position is not the listener's: on web, tearing hls.js down after
+                        // a fatal error reloads the element, which zeroes it. Keep the last real place for the
+                        // error card; a retry re-prepares from the saved position anyway.
+                        if (player.state.value is PlaybackState.Error) return@collect
                         updatePosition(position)
                         val advancedMs = position - lastPersistedPositionMs
                         if (advancedMs < 0) {

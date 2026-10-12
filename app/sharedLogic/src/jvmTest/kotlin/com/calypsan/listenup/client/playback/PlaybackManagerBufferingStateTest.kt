@@ -289,6 +289,41 @@ class PlaybackManagerBufferingStateTest :
             }
         }
 
+        test("a failed player's reset to zero does not move the playhead (the web stream-error reload)") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedBookAndAudioFiles(db)
+
+                    val managerScope = CoroutineScope(coroutineContext + Job())
+                    val sut = createPlaybackManager(db, scope = managerScope)
+                    val player = FakePlayer()
+
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
+                    sut.activateBook(BookId("book-1"))
+                    sut.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
+                    player.advancePosition(754_000L)
+                    advanceUntilIdle()
+                    sut.currentPositionMs.value shouldBe 754_000L
+
+                    // hls.js's fatal network error: the player publishes Error, then tearing hls.js down
+                    // reloads the element, whose currentTime (and so the player's position) drops to 0.
+                    player.emitState(PlaybackState.Error(PlaybackError.ConnectionLost()))
+                    player.advancePosition(0L)
+                    advanceUntilIdle()
+
+                    withClue("the bar keeps the listener's place while the error shows") {
+                        sut.currentPositionMs.value shouldBe 754_000L
+                    }
+
+                    managerScope.coroutineContext[Job]?.cancel()
+                }
+            } finally {
+                db.close()
+            }
+        }
+
         test("playerObservationJob clears playbackError on transition to Playing") {
             val db = createInMemoryTestDatabase()
             try {
