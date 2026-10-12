@@ -3,6 +3,7 @@ package com.calypsan.listenup.client
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
@@ -12,6 +13,7 @@ import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.Tag
 
 /**
@@ -285,4 +287,10 @@ object TestData {
             seriesName = seriesName,
             seriesSequence = seriesSequence,
         )
+
+    /** Creates a sample [Series] with the fields a series shelf reads. */
+    fun series(
+        id: String = "series-1",
+        name: String = "The Stormlight Archive",
+    ): Series = Series(id = SeriesId(id), name = name)
 }

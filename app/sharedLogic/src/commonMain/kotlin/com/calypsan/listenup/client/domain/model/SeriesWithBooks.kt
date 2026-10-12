@@ -33,4 +33,11 @@ data class SeriesWithBooks(
             // Unnumbered books sort last rather than at zero — they are unplaced, not first.
             bookSequences[book.id.value] ?: Double.MAX_VALUE
         }
+
+    /** The book after [bookId] in sequence order, or null when [bookId] is last or not in this series. */
+    fun bookAfter(bookId: String): BookListItem? {
+        val books = booksSortedBySequence()
+        val index = books.indexOfFirst { it.id.value == bookId }
+        return if (index < 0) null else books.getOrNull(index + 1)
+    }
 }

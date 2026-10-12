@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesRepositoryImpl
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
+import com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -60,6 +61,13 @@ internal val seriesModule: Module =
         }
 
         // Series use cases
+        factory {
+            ObserveNextInSeriesUseCase(
+                bookRepository = get(),
+                seriesRepository = get(),
+                inboxRepository = get(),
+            )
+        }
         factory {
             UpdateSeriesUseCase(
                 seriesEditRepository = get(),
