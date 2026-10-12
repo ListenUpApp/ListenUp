@@ -1,13 +1,14 @@
 package com.calypsan.listenup.web.playback
 
-import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PlayerContributor
+import com.calypsan.listenup.client.presentation.player.PlayerOverlay
+import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.web.design.coverUrl
-import com.calypsan.listenup.web.features.nowplaying.NowPlayingBook
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
-import com.calypsan.listenup.web.features.nowplaying.PlayerLink
-import com.calypsan.listenup.web.features.nowplaying.PlayerSeriesLink
-import com.calypsan.listenup.web.features.nowplaying.TransportChapter
-import com.calypsan.listenup.web.features.nowplaying.TransportState
+import com.calypsan.listenup.web.features.nowplaying.loadedPlayerState
+import com.calypsan.listenup.web.features.nowplaying.playerProgress
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -18,6 +19,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withTimeout
 
 /** How long a spec waits for a mirror that SHOULD reach the bridge. */
@@ -98,71 +100,64 @@ private class RecordingMediaSession : MediaSessionBridge {
     }
 }
 
-private fun transportState(
-    title: String,
-    isPlaying: Boolean,
-): TransportState =
-    TransportState(
-        title = title,
-        isPlaying = isPlaying,
-        positionMs = POSITION_MS,
+/** Dune by both Herberts, read by Simon Vance, book 1 of the Chronicles; playing unless [phase] says not. */
+private fun dune(phase: PlayerPhase = PlayerPhase.Playing): PlayerUiState =
+    loadedPlayerState(
+        title = FIRST_TITLE,
+        bookId = FIRST_BOOK_ID,
+        phase = phase,
+        authors = listOf(PlayerContributor("c1", "Frank Herbert", 1), PlayerContributor("c2", "Brian Herbert", 1)),
+        narrators = listOf(PlayerContributor("n1", "Simon Vance", 1)),
+        series = listOf(PlayerSeriesRef("s1", FIRST_SERIES, "1")),
+        coverHash = FIRST_COVER_HASH,
         durationMs = DURATION_MS,
     )
 
-private fun dune(): NowPlayingBook =
-    NowPlayingBook(
-        bookId = FIRST_BOOK_ID,
-        coverHash = FIRST_COVER_HASH,
-        authors = listOf(PlayerLink("c1", "Frank Herbert"), PlayerLink("c2", "Brian Herbert")),
-        narrators = "Simon Vance",
-        series = listOf(PlayerSeriesLink("s1", FIRST_SERIES, "1")),
-    )
-
-private fun piranesi(): NowPlayingBook =
-    NowPlayingBook(
+private fun piranesi(): PlayerUiState =
+    loadedPlayerState(
+        title = SECOND_TITLE,
         bookId = SECOND_BOOK_ID,
+        authors = listOf(PlayerContributor("c3", SECOND_ARTIST, 1)),
+        narrators = listOf(PlayerContributor("n2", "Chiwetel Ejiofor", 1)),
+        series = listOf(PlayerSeriesRef("s2", SECOND_SERIES, null)),
         coverHash = SECOND_COVER_HASH,
-        authors = listOf(PlayerLink("c3", SECOND_ARTIST)),
-        narrators = "Chiwetel Ejiofor",
-        series = listOf(PlayerSeriesLink("s2", SECOND_SERIES, null)),
+        durationMs = DURATION_MS,
     )
 
 /**
- * A session over the two flows this binding reads, and one recordable gesture.
+ * A session over the flow this binding reads, and one recordable gesture.
  *
  * Constructed rather than borrowed from `fixedPlayback`, whose flows cannot be driven — two of
- * these specs are about what happens when the playing book *changes*.
+ * these specs are about what happens when the loaded book *changes*.
  */
 private fun session(
-    state: StateFlow<TransportState?>,
-    nowPlaying: StateFlow<NowPlayingBook?>,
+    state: StateFlow<PlayerUiState>,
     onPlayPause: () -> Unit,
 ): PlaybackSession =
     PlaybackSession(
         state = state,
-        error = MutableStateFlow<String?>(null),
+        progress = MutableStateFlow(playerProgress(positionMs = POSITION_MS, durationMs = DURATION_MS)),
+        overlay = MutableStateFlow(PlayerOverlay.None),
         preparingBookId = MutableStateFlow<String?>(null),
-        chapters = MutableStateFlow<List<TransportChapter>>(emptyList()),
-        currentChapterIndex = MutableStateFlow<Int?>(null),
-        nowPlaying = nowPlaying,
-        sleepTimer = MutableStateFlow<SleepTimerState>(SleepTimerState.Inactive),
-        defaultSpeed = MutableStateFlow(1.0f),
-        volumeBoostDb = MutableStateFlow(0f),
-        defaultBoostDb = MutableStateFlow(0f),
         boostUnavailable = MutableStateFlow(false),
+        events = emptyFlow(),
+        onPrimary = {},
         onPlayPause = onPlayPause,
-        onSeek = {},
         onPlayBook = { _, _ -> },
+        onSeek = {},
         onSkipBack = {},
         onSkipForward = {},
+        onPreviousChapter = {},
+        onNextChapter = {},
+        onSeekToChapter = {},
         onSetSpeed = {},
         onResetSpeed = {},
         onSetBoost = {},
         onResetBoost = {},
-        onSeekToChapter = {},
         onSetSleepTimer = {},
         onCancelSleepTimer = {},
         onExtendSleepTimer = {},
+        onRetry = {},
         onDismissError = {},
         onCloseBook = {},
         close = {},
@@ -190,8 +185,7 @@ class MediaSessionBindingTest :
                 bindMediaSession(
                     session =
                         session(
-                            state = MutableStateFlow<TransportState?>(transportState(FIRST_TITLE, isPlaying = true)),
-                            nowPlaying = MutableStateFlow<NowPlayingBook?>(dune()),
+                            state = MutableStateFlow(dune()),
                             onPlayPause = {},
                         ),
                     bridge = bridge,
@@ -215,12 +209,11 @@ class MediaSessionBindingTest :
 
         test("a book change replaces the metadata") {
             val bridge = RecordingMediaSession()
-            val state = MutableStateFlow<TransportState?>(transportState(FIRST_TITLE, isPlaying = true))
-            val nowPlaying = MutableStateFlow<NowPlayingBook?>(dune())
+            val state = MutableStateFlow(dune())
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
             val dispose =
                 bindMediaSession(
-                    session = session(state = state, nowPlaying = nowPlaying, onPlayPause = {}),
+                    session = session(state = state, onPlayPause = {}),
                     bridge = bridge,
                     scope = scope,
                 )
@@ -228,8 +221,7 @@ class MediaSessionBindingTest :
                 awaitTrue { bridge.metadata.isNotEmpty() }
                 bridge.metadata.first().title shouldBe FIRST_TITLE
 
-                nowPlaying.value = piranesi()
-                state.value = transportState(SECOND_TITLE, isPlaying = true)
+                state.value = piranesi()
 
                 // The arrival of the SECOND book's own metadata is the assertion; a timeout here
                 // means the binding kept telling the OS about a book that stopped playing.
@@ -252,23 +244,18 @@ class MediaSessionBindingTest :
 
         test("pausing is reflected in the OS controls") {
             val bridge = RecordingMediaSession()
-            val state = MutableStateFlow<TransportState?>(transportState(FIRST_TITLE, isPlaying = true))
+            val state = MutableStateFlow(dune())
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
             val dispose =
                 bindMediaSession(
-                    session =
-                        session(
-                            state = state,
-                            nowPlaying = MutableStateFlow<NowPlayingBook?>(dune()),
-                            onPlayPause = {},
-                        ),
+                    session = session(state = state, onPlayPause = {}),
                     bridge = bridge,
                     scope = scope,
                 )
             try {
                 awaitTrue { bridge.playing == listOf(true) }
 
-                state.value = transportState(FIRST_TITLE, isPlaying = false)
+                state.value = dune(phase = PlayerPhase.Paused)
 
                 awaitTrue { bridge.playing == listOf(true, false) }
             } finally {
@@ -284,8 +271,7 @@ class MediaSessionBindingTest :
                 bindMediaSession(
                     session =
                         session(
-                            state = MutableStateFlow<TransportState?>(transportState(FIRST_TITLE, isPlaying = true)),
-                            nowPlaying = MutableStateFlow<NowPlayingBook?>(dune()),
+                            state = MutableStateFlow(dune()),
                             onPlayPause = {},
                         ),
                     bridge = bridge,
@@ -309,8 +295,7 @@ class MediaSessionBindingTest :
                 bindMediaSession(
                     session =
                         session(
-                            state = MutableStateFlow<TransportState?>(transportState(FIRST_TITLE, isPlaying = true)),
-                            nowPlaying = MutableStateFlow<NowPlayingBook?>(dune()),
+                            state = MutableStateFlow(dune()),
                             onPlayPause = { playPauses++ },
                         ),
                     bridge = bridge,

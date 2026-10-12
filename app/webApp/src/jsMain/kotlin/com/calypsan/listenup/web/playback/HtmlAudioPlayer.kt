@@ -186,14 +186,15 @@ internal class HtmlAudioPlayer : AudioPlayer {
      *
      * **Both can leave it set with nothing playing**, so neither is safe on its own:
      *  - [primeForPlayback] strands it whenever the prepare it was betting on never lands.
-     *    `LivePlayback.playBook`'s `finally` owns withdrawing it on every such path and is the only
-     *    caller; `TransportBarTest` pins the throw and cancellation cases.
+     *    The shared `PlayerSession`'s load withdraws it (through `HtmlAudioStartGate`) on every such
+     *    path and is the only caller; `PlayerSessionPlayTest` pins the failure, throw and supersede
+     *    cases, and `LivePlaybackWiringTest` the sign-out mid-prepare.
      *  - [play] strands it when the element errors: `reportElementError` publishes
      *    [PlaybackState.Error] without clearing, and the play promise's own [onPlayRejected] then
      *    returns early on that existing error, before it reaches its clear.
      *
      * The second case has no consequence today only because every web [load] arrives via
-     * `LivePlayback.playBook`, which primes first — and priming clears through [forgetContent].
+     * the shared `PlayerSession`'s load, which primes first — and priming clears through [forgetContent].
      * That coupling is a convention, not a guarantee, and nothing asserts it.
      *
      * Clearing happens in [pause], [forgetContent] (so [releasePlayer], [primeForPlayback] and a
@@ -273,8 +274,8 @@ internal class HtmlAudioPlayer : AudioPlayer {
      * [PlaybackState.Buffering] is published rather than left stale for the same reason [attach]
      * publishes it: the honest report between "you asked" and "it is playing" is that the book is
      * on its way. A prepare that does not complete withdraws the intent via [pause] — see
-     * `LivePlayback.playBook`, which owns that and is also what turns the failure into something
-     * the listener can read.
+     * `HtmlAudioStartGate`, which the shared `PlayerSession` drives; the session is also what turns
+     * the failure into something the listener can read.
      */
     internal fun primeForPlayback() {
         released = false

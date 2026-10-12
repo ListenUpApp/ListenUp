@@ -168,12 +168,15 @@ import com.calypsan.listenup.web.features.profile.ProfilePage
 import com.calypsan.listenup.web.features.profile.editing
 import com.calypsan.listenup.web.features.profile.readyProfile
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
-import com.calypsan.listenup.client.playback.SleepTimerState
-import com.calypsan.listenup.web.features.nowplaying.NowPlayingBook
 import com.calypsan.listenup.web.features.nowplaying.NowPlayingPanel
-import com.calypsan.listenup.web.features.nowplaying.PlayerLink
-import com.calypsan.listenup.web.features.nowplaying.PlayerSeriesLink
-import com.calypsan.listenup.web.features.nowplaying.TransportChapter
+import com.calypsan.listenup.web.features.nowplaying.chapterRows
+import com.calypsan.listenup.web.features.nowplaying.loadedPlayerState
+import com.calypsan.listenup.web.features.nowplaying.playerProgress
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PlayerContributor
+import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.candidate
@@ -262,7 +265,6 @@ import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
-import com.calypsan.listenup.web.features.nowplaying.TransportState
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.search.CommandPalette
@@ -1399,7 +1401,12 @@ class ClassContractTest :
                             },
                         )
                         AccountMenu(onSignOut = {})
-                        PlaybackNotice(message = "Couldn't start this book.", onDismiss = {})
+                        PlaybackNotice(
+                            error = PlaybackError.ConnectionLost(),
+                            primary = PrimaryControl.Retry,
+                            onRetry = {},
+                            onDismiss = {},
+                        )
                         playerShapes().forEach { it() }
                         browseShapes().forEach { it() }
                         readerShapes().forEach { it() }
@@ -2040,52 +2047,65 @@ private fun notificationShapes(): List<@Composable () -> Unit> =
 private fun playerShapes(): List<@Composable () -> Unit> =
     listOf(
         {
+            val kings =
+                loadedPlayerState(
+                    title = "The Way of Kings",
+                    bookId = "b1",
+                    authors = listOf(PlayerContributor("c1", "Brandon Sanderson", 1)),
+                    series = listOf(PlayerSeriesRef("s1", "The Stormlight Archive", "1")),
+                    coverHash = "abc",
+                    durationMs = 3_600_000,
+                    chapters = chapterRows(1),
+                    currentChapterIndex = 0,
+                    boostDb = 6f,
+                )
             TransportBar(
-                state =
-                    TransportState(
-                        title = "The Institute",
-                        isPlaying = true,
-                        positionMs = 61_000,
-                        durationMs = 3_600_000,
-                    ),
-                onPlayPause = {},
+                state = kings,
+                progress = playerProgress(positionMs = 61_000, durationMs = 3_600_000),
+                onPrimary = {},
                 onSeek = {},
                 onSkipBack = {},
                 onSkipForward = {},
                 onSetSpeed = {},
-                volumeBoostDb = 6f,
+            )
+            // A book whose prepare is in flight (the spinner) and one the browser refused to start (the ring).
+            TransportBar(
+                state = loadedPlayerState(phase = PlayerPhase.Preparing),
+                progress = playerProgress(),
+                onPrimary = {},
+                onSeek = {},
+                onSkipBack = {},
+                onSkipForward = {},
+                onSetSpeed = {},
+            )
+            TransportBar(
+                state =
+                    loadedPlayerState(
+                        phase = PlayerPhase.Failed(PlaybackError.AutoplayBlocked()),
+                        primary = PrimaryControl.TapToPlay,
+                    ),
+                progress = playerProgress(),
+                onPrimary = {},
+                onSeek = {},
+                onSkipBack = {},
+                onSkipForward = {},
+                onSetSpeed = {},
             )
             // The expanded player, rendered open. It cannot ride the bar above into
             // this contract — it appears only after a click, and this harness renders
             // without gesturing — so a class invented in there would go unchecked.
-            // Both the fully-known book and the one Room has not seen: the second
-            // draws a different subset (no byline, no series, no Go to book).
+            // Both a fully-known book and a chapterless, authorless standalone: the second
+            // draws a different subset (no byline, no series, no chapter line).
             NowPlayingPanel(
                 open = true,
-                state =
-                    TransportState(
-                        title = "The Way of Kings",
-                        isPlaying = true,
-                        positionMs = 61_000,
-                        durationMs = 3_600_000,
-                    ),
-                book =
-                    NowPlayingBook(
-                        bookId = "b1",
-                        coverHash = "abc",
-                        authors = listOf(PlayerLink("c1", "Brandon Sanderson")),
-                        narrators = "Michael Kramer",
-                        series = listOf(PlayerSeriesLink("s1", "The Stormlight Archive", "1")),
-                    ),
-                chapters = listOf(TransportChapter("The Shattered Plains", 0L)),
-                currentChapterIndex = 0,
-                sleepTimer = SleepTimerState.Inactive,
-                volumeBoostDb = 6f,
-                onPlayPause = {},
+                state = kings,
+                progress = playerProgress(positionMs = 61_000, durationMs = 3_600_000),
+                onPrimary = {},
                 onSeek = {},
                 onSkipBack = {},
                 onSkipForward = {},
-                onSeekToChapter = {},
+                onPreviousChapter = {},
+                onNextChapter = {},
                 onOpenSpeed = {},
                 onOpenChapters = {},
                 onOpenBoost = {},
@@ -2098,23 +2118,14 @@ private fun playerShapes(): List<@Composable () -> Unit> =
             )
             NowPlayingPanel(
                 open = true,
-                state =
-                    TransportState(
-                        title = "A book the mirror has not seen",
-                        isPlaying = false,
-                        positionMs = 0,
-                        durationMs = 3_600_000,
-                    ),
-                book = null,
-                chapters = emptyList(),
-                currentChapterIndex = null,
-                sleepTimer = SleepTimerState.Inactive,
-                volumeBoostDb = 0f,
-                onPlayPause = {},
+                state = loadedPlayerState(title = "A standalone", phase = PlayerPhase.Paused, authors = emptyList()),
+                progress = playerProgress(),
+                onPrimary = {},
                 onSeek = {},
                 onSkipBack = {},
                 onSkipForward = {},
-                onSeekToChapter = {},
+                onPreviousChapter = {},
+                onNextChapter = {},
                 onOpenSpeed = {},
                 onOpenChapters = {},
                 onOpenBoost = {},

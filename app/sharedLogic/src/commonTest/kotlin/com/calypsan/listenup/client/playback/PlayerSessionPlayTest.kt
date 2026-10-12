@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import io.kotest.matchers.types.shouldBeInstanceOf
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -172,6 +173,27 @@ class PlayerSessionPlayTest :
                     rig.session.playBook(BookId("b1"), null)
                     runCurrent()
                     rig.engine.loads.size shouldBe 2
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a load that throws is Failed(CouldNotStart), not swallowed, and withdraws the prime") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.engine.loadSuspension = { error("prepare failed") }
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.loaded.phase
+                        .shouldBeInstanceOf<PlayerPhase.Failed>()
+                        .error
+                        .shouldBeInstanceOf<PlaybackError.CouldNotStart>()
+                    rig.engine.calls.last() shouldBe "abandonLoad"
+                    rig.session.preparingBookId.value shouldBe null
                 } finally {
                     rig.close()
                 }

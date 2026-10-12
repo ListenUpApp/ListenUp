@@ -1,30 +1,18 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.Composable
-import com.calypsan.listenup.client.playback.PlaybackManager
-import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
-import com.calypsan.listenup.web.playback.HtmlAudioPlayer
-import com.calypsan.listenup.web.playback.WebPlaybackController
-import com.calypsan.listenup.web.playback.awaitState
-import com.calypsan.listenup.web.playback.silentSegment
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeout
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
-import org.w3c.dom.url.URL
 
 /** A duration timer with [remainingMs] left of [totalMs]. */
 private fun running(
@@ -250,13 +238,13 @@ class SleepTimerBarTest :
             val host =
                 mount {
                     TransportBar(
-                        state = playingState(),
-                        onPlayPause = {},
+                        state = loadedPlayerState(durationMs = SEGMENT_MS, chapters = emptyList()),
+                        progress = playerProgress(durationMs = SEGMENT_MS),
+                        onPrimary = {},
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
                         onSetSpeed = {},
-                        chapters = emptyList(),
                     )
                 }
 
@@ -269,13 +257,13 @@ class SleepTimerBarTest :
             val host =
                 mount {
                     TransportBar(
-                        state = playingState(),
-                        onPlayPause = {},
+                        state = loadedPlayerState(durationMs = SEGMENT_MS, sleepTimer = running()),
+                        progress = playerProgress(durationMs = SEGMENT_MS),
+                        onPrimary = {},
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
                         onSetSpeed = {},
-                        sleepTimer = running(),
                     )
                 }
 
@@ -284,167 +272,5 @@ class SleepTimerBarTest :
         }
     })
 
-class SleepTimerSessionTest :
-    FunSpec({
-
-        test("setting a timer arms it, and cancelling disarms it") {
-            val player = HtmlAudioPlayer()
-            val manager = fakePlaybackManager(silentSegment(SEGMENT_MS), title = "Dune")
-            val playback =
-                LivePlayback(
-                    manager,
-                    WebPlaybackController(
-                        player,
-                        manager,
-                    ),
-                    player,
-                    FakePlaybackPreferences(),
-                    FakeBookRepository(),
-                )
-
-            playback.setSleepTimer(SleepTimerMode.Duration(TIMER_MINUTES))
-            playback.sleepTimer.value.shouldBeInstanceOf<SleepTimerState.Active>()
-
-            playback.cancelSleepTimer()
-            playback.sleepTimer.value shouldBe SleepTimerState.Inactive
-
-            playback.close()
-            player.releasePlayer()
-        }
-
-        test("extending a running timer adds to what is left") {
-            val player = HtmlAudioPlayer()
-            val manager = fakePlaybackManager(silentSegment(SEGMENT_MS), title = "Dune")
-            val playback =
-                LivePlayback(
-                    manager,
-                    WebPlaybackController(
-                        player,
-                        manager,
-                    ),
-                    player,
-                    FakePlaybackPreferences(),
-                    FakeBookRepository(),
-                )
-
-            playback.setSleepTimer(SleepTimerMode.Duration(TIMER_MINUTES))
-            val before = (playback.sleepTimer.value as SleepTimerState.Active).remainingMs
-
-            playback.extendSleepTimer(AN_EXTENSION_MIN)
-            val after = (playback.sleepTimer.value as SleepTimerState.Active).remainingMs
-
-            after shouldBeGreaterThan before
-
-            playback.close()
-            player.releasePlayer()
-        }
-
-        test("a timer armed on one book does not survive into the next") {
-            // ⛔ The bug this exists for: web never told the shared timer the book had changed, so an
-            // end-of-chapter timer armed on book A faded out book B at ITS first chapter turn — and
-            // `SleepTimerManager.onBookChanged`'s KDoc names why that is the worst case: it happens
-            // "while the listener is asleep and cannot correct it". A duration timer likewise just
-            // kept counting across books.
-            val segment = silentSegment(SEGMENT_MS)
-            val manager = fakePlaybackManager(segment, title = "Dune")
-            val player = HtmlAudioPlayer()
-            val playback =
-                LivePlayback(
-                    manager,
-                    WebPlaybackController(player, manager),
-                    player,
-                    FakePlaybackPreferences(),
-                    FakeBookRepository(),
-                )
-
-            manager.currentChapter.value = chapterInfo(index = 0)
-            playback.playBook(BookId("book-1"), startAtMs = null)
-            player.awaitState(PlaybackState.Playing)
-            playback.setSleepTimer(SleepTimerMode.EndOfChapter)
-            playback.sleepTimer.value.shouldBeInstanceOf<SleepTimerState.Active>()
-
-            // A different book, started while that timer is live.
-            playback.playBook(BookId("book-2"), startAtMs = null)
-            player.awaitState(PlaybackState.Playing)
-
-            // Cancelled by the change of book, not carried over.
-            playback.sleepTimer.value shouldBe SleepTimerState.Inactive
-
-            // And the new book's first chapter turn does not fade it out.
-            manager.currentChapter.value = chapterInfo(index = 1)
-            playback.sleepTimer.value shouldBe SleepTimerState.Inactive
-            player.state.value shouldBe PlaybackState.Playing
-
-            playback.close()
-            player.releasePlayer()
-            URL.revokeObjectURL(segment.url)
-        }
-
-        test("an end-of-chapter timer stops the audio when the chapter turns over") {
-            // The whole chain, on a real player: the chapter feed reaches the shared timer, the
-            // timer fires, the fade runs, the element actually pauses, and the timer resets so the
-            // next one can be set. Nothing here is stubbed except the book itself.
-            val segment = silentSegment(SEGMENT_MS)
-            val manager = fakePlaybackManager(segment, title = "Dune")
-            val player = HtmlAudioPlayer()
-            val playback =
-                LivePlayback(
-                    manager,
-                    WebPlaybackController(
-                        player,
-                        manager,
-                    ),
-                    player,
-                    FakePlaybackPreferences(),
-                    FakeBookRepository(),
-                )
-
-            // ⛔ Chapter 0 is published BEFORE the book, and the suspension inside `playBook` is
-            // what makes it observable. `currentChapter` is a StateFlow and therefore conflates:
-            // set 0 and then 1 with nothing suspending in between and a collector that has not run
-            // yet sees only 1, so the end-of-chapter baseline never becomes 0 and the turn cannot
-            // be detected. This ordering is load-bearing, not incidental.
-            manager.currentChapter.value = chapterInfo(index = 0)
-            playback.playBook(BookId("book-1"), startAtMs = null)
-            player.awaitState(PlaybackState.Playing)
-
-            playback.setSleepTimer(SleepTimerMode.EndOfChapter)
-            manager.currentChapter.value = chapterInfo(index = 1)
-
-            player.awaitState(PlaybackState.Paused)
-            // Back to Inactive, not stuck in FadingOut — a timer stuck mid-fade would refuse
-            // every later one and show a countdown that never resolves.
-            withTimeout(FADE_TIMEOUT_MS) { playback.sleepTimer.first { it == SleepTimerState.Inactive } }
-            // And audible again, or the next book plays silently with no way to tell why.
-            player.volume shouldBe 1.0
-
-            playback.close()
-            player.releasePlayer()
-            URL.revokeObjectURL(segment.url)
-        }
-    })
-
-private fun playingState() =
-    TransportState(
-        title = "Dune",
-        isPlaying = true,
-        positionMs = 0L,
-        durationMs = SEGMENT_MS,
-    )
-
-private fun chapterInfo(index: Int) =
-    PlaybackManager.ChapterInfo(
-        index = index,
-        title = "Chapter ${index + 1}",
-        startMs = index * MS_PER_MINUTE,
-        endMs = (index + 1) * MS_PER_MINUTE,
-        remainingMs = MS_PER_MINUTE,
-        totalChapters = 2,
-        isGenericTitle = false,
-    )
-
-/** Long enough to outlast the three-second fade, so the pause under test is the fade's. */
+/** The book under the bar in these specs. */
 private const val SEGMENT_MS = 9_000L
-
-/** The fade is three seconds; this leaves generous room for a loaded CI browser. */
-private const val FADE_TIMEOUT_MS = 15_000L

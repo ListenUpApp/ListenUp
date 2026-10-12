@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import io.kotest.matchers.collections.shouldNotContain
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -123,6 +124,27 @@ class PlayerSessionSleepTest :
                     rig.engine.setPosition(100_500)
                     runCurrent()
                     rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("extending a running timer adds to what is left, and cancelling disarms it") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.Duration(15))
+                    val before = (rig.sleep.state.value as SleepTimerState.Active).remainingMs
+                    rig.session.extendSleepTimer(10)
+                    (rig.sleep.state.value as SleepTimerState.Active).remainingMs shouldBe before + 10 * 60_000L
+                    rig.session.cancelSleepTimer()
+                    rig.sleep.state.value shouldBe SleepTimerState.Inactive
+                    rig.engine.calls shouldNotContain "pause"
                 } finally {
                     rig.close()
                 }

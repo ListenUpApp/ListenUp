@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
@@ -11,15 +12,23 @@ import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 
-/** An index no book in this spec has, to prove the rule holds well past the boundary too. */
-private const val WAY_PAST_THE_END = 99
-
 /** Ten minutes. Long enough that a formatted start time is unambiguous in an assertion. */
 private const val CHAPTER_LENGTH_MS = 600_000L
 
-internal fun chapterMarks(count: Int = 3): List<TransportChapter> =
+/** [count] ten-minute chapter rows, with [currentIndex] marked current (the shared model's rows). */
+internal fun chapterMarks(
+    count: Int = 3,
+    currentIndex: Int? = 0,
+): List<PlayerChapterRow> =
     (0 until count).map {
-        TransportChapter(title = "Chapter ${it + 1}", startMs = it * CHAPTER_LENGTH_MS)
+        PlayerChapterRow(
+            index = it,
+            number = it + 1,
+            title = "Chapter ${it + 1}",
+            startMs = it * CHAPTER_LENGTH_MS,
+            durationMs = CHAPTER_LENGTH_MS,
+            isCurrent = it == currentIndex,
+        )
     }
 
 class ChapterPickerTest :
@@ -35,8 +44,8 @@ class ChapterPickerTest :
          * wiring.
          */
         fun picker(
-            chapters: List<TransportChapter> = chapterMarks(),
             currentIndex: Int? = 0,
+            chapters: List<PlayerChapterRow> = chapterMarks(currentIndex = currentIndex),
             open: Boolean = true,
             onPick: (Int) -> Unit = {},
             onDismiss: () -> Unit = {},
@@ -46,7 +55,6 @@ class ChapterPickerTest :
                     ChapterPicker(
                         open = open,
                         chapters = chapters,
-                        currentIndex = currentIndex,
                         onPick = onPick,
                         onDismiss = onDismiss,
                     )
@@ -146,30 +154,5 @@ class ChapterPickerTest :
 
             dismissed shouldNotBe 0
             host.closeDialogs()
-        }
-    })
-
-class ChapterSeekTest :
-    FunSpec({
-
-        test("a chapter resolves to where it starts") {
-            chapterStartMs(chapterMarks(3), 2) shouldBe 2 * CHAPTER_LENGTH_MS
-        }
-
-        test("an index past the end resolves to nothing, not to the last chapter") {
-            // ⛔ The rule this exists for. A stale index can only arrive from a caller reading a
-            // list that has since changed, and clamping would land the listener at some OTHER
-            // chapter with no way to tell they had been moved somewhere they did not choose.
-            // Caught by a sabotage pass: the KDoc said this and nothing enforced it.
-            chapterStartMs(chapterMarks(3), 3) shouldBe null
-            chapterStartMs(chapterMarks(3), WAY_PAST_THE_END) shouldBe null
-        }
-
-        test("a negative index resolves to nothing, not to the first chapter") {
-            chapterStartMs(chapterMarks(3), -1) shouldBe null
-        }
-
-        test("no chapters at all resolves to nothing") {
-            chapterStartMs(emptyList(), 0) shouldBe null
         }
     })

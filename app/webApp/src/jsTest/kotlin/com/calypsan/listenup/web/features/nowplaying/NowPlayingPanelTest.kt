@@ -1,6 +1,10 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
+import com.calypsan.listenup.client.presentation.player.PlayerContributor
+import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
@@ -11,30 +15,32 @@ import io.kotest.matchers.string.shouldNotContain
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
 
-private const val BOOK_MS = 600_000L
+private const val BOOK_MS = FIXTURE_BOOK_MS
 
-private const val CHAPTER_SPACING_MS = 1_000L
-
-private fun book(
+/** The Way of Kings as the shared model hands it over: a known author, one series. */
+@Suppress("LongParameterList") // one knob per thing a spec varies
+private fun kings(
     bookId: String = "b1",
     coverHash: String? = "abc123",
-    authors: List<PlayerLink> = listOf(PlayerLink("c1", "Brandon Sanderson")),
-    narrators: String = "Michael Kramer",
-    series: List<PlayerSeriesLink> = listOf(PlayerSeriesLink("s1", "The Stormlight Archive", "1")),
-) = NowPlayingBook(bookId, coverHash, authors, narrators, series)
-
-private fun playing(isPlaying: Boolean): TransportState =
-    TransportState(
+    authors: List<PlayerContributor> = listOf(PlayerContributor("c1", "Brandon Sanderson", 1)),
+    series: List<PlayerSeriesRef> = listOf(PlayerSeriesRef("s1", "The Stormlight Archive", "1")),
+    phase: PlayerPhase = PlayerPhase.Paused,
+    chapters: List<PlayerChapterRow> = emptyList(),
+    currentChapterIndex: Int? = null,
+    boostDb: Float = 0f,
+): PlayerUiState.Loaded =
+    loadedPlayerState(
         title = "The Way of Kings",
-        isPlaying = isPlaying,
-        positionMs = 0,
+        bookId = bookId,
+        phase = phase,
+        authors = authors,
+        series = series,
+        coverHash = coverHash,
         durationMs = BOOK_MS,
+        chapters = chapters,
+        currentChapterIndex = currentChapterIndex,
+        boostDb = boostDb,
     )
-
-private fun chapters(count: Int): List<TransportChapter> =
-    (0 until count).map {
-        TransportChapter(title = "Chapter ${it + 1}", startMs = it * CHAPTER_SPACING_MS)
-    }
 
 /**
  * The expanded player: the book the bar has no room to describe, and the places you can go from it.
@@ -52,24 +58,16 @@ class NowPlayingPanelTest :
         afterTest { mounts.disposeAll() }
 
         /** Just the bar, with no panel opened — enough for the controls it owns itself. */
-        fun plainBar(state: TransportState): HTMLElement =
+        fun plainBar(state: PlayerUiState.Loaded): HTMLElement =
             mounts.mount {
                 TransportBar(
                     state = state,
-                    onPlayPause = {},
+                    progress = playerProgress(),
+                    onPrimary = {},
                     onSeek = {},
                     onSkipBack = {},
                     onSkipForward = {},
                     onSetSpeed = {},
-                    chapters = emptyList(),
-                    currentChapterIndex = null,
-                    onSeekToChapter = {},
-                    sleepTimer = SleepTimerState.Inactive,
-                    volumeBoostDb = 0f,
-                    nowPlaying = book(),
-                    onOpenBook = {},
-                    onOpenSeries = {},
-                    onOpenContributor = {},
                 )
             }
 
@@ -83,15 +81,10 @@ class NowPlayingPanelTest :
          * of those would be gone on a phone without a single assertion noticing.
          */
         suspend fun openPanel(
-            state: TransportState = playing(isPlaying = false),
-            nowPlaying: NowPlayingBook? = book(),
-            chapterList: List<TransportChapter> = emptyList(),
-            currentChapterIndex: Int? = null,
-            sleepTimer: SleepTimerState = SleepTimerState.Inactive,
-            volumeBoostDb: Float = 0f,
-            onPlayPause: () -> Unit = {},
-            onSeek: (Long) -> Unit = {},
-            onSeekToChapter: (Int) -> Unit = {},
+            state: PlayerUiState.Loaded = kings(),
+            onPrimary: () -> Unit = {},
+            onPreviousChapter: () -> Unit = {},
+            onNextChapter: () -> Unit = {},
             onOpenBook: (String) -> Unit = {},
             onOpenSeries: (String) -> Unit = {},
             onOpenContributor: (String) -> Unit = {},
@@ -101,17 +94,14 @@ class NowPlayingPanelTest :
                 mounts.mount {
                     TransportBar(
                         state = state,
-                        onPlayPause = onPlayPause,
-                        onSeek = onSeek,
+                        progress = playerProgress(durationMs = BOOK_MS),
+                        onPrimary = onPrimary,
+                        onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
                         onSetSpeed = {},
-                        chapters = chapterList,
-                        currentChapterIndex = currentChapterIndex,
-                        onSeekToChapter = onSeekToChapter,
-                        sleepTimer = sleepTimer,
-                        volumeBoostDb = volumeBoostDb,
-                        nowPlaying = nowPlaying,
+                        onPreviousChapter = onPreviousChapter,
+                        onNextChapter = onNextChapter,
                         onOpenBook = onOpenBook,
                         onOpenSeries = onOpenSeries,
                         onOpenContributor = onOpenContributor,
@@ -149,32 +139,24 @@ class NowPlayingPanelTest :
         }
 
         test("the cover carries the book's hash, so a re-cover is not served from a year-old cache") {
-            val host = openPanel(nowPlaying = book(bookId = "b7", coverHash = "deadbeef"))
+            val host = openPanel(kings(bookId = "b7", coverHash = "deadbeef"))
 
             val cover = host.querySelector(".np-body img") as HTMLImageElement
             cover.src shouldContain "/api/v1/books/b7/cover"
             cover.src shouldContain "v=deadbeef"
         }
 
-        // [state] is the player's truth and [book] is Room's; a book playing before the mirror has
-        // caught up must still show what IS known rather than nothing.
-        test("a book the mirror has not seen still opens, with no links and no cover") {
-            val host = openPanel(nowPlaying = null)
-
-            (host.querySelector(".np-t") as HTMLElement).textContent shouldBe "The Way of Kings"
-            host.querySelector(".np-by") shouldBe null
-            host.querySelector(".np-series") shouldBe null
-            host.querySelector(".np-goto") shouldBe null
-        }
-
         test("every author is named, and opens that contributor by id") {
             val opened = mutableListOf<String>()
             val host =
                 openPanel(
-                    nowPlaying =
-                        book(
-                            authors = listOf(PlayerLink("c1", "Robert Jordan"), PlayerLink("c2", "Brandon Sanderson")),
-                        ),
+                    kings(
+                        authors =
+                            listOf(
+                                PlayerContributor("c1", "Robert Jordan", 1),
+                                PlayerContributor("c2", "Brandon Sanderson", 1),
+                            ),
+                    ),
                     onOpenContributor = { opened += it },
                 )
 
@@ -186,7 +168,7 @@ class NowPlayingPanelTest :
         }
 
         test("a book with no author renders no byline rather than an empty line") {
-            val host = openPanel(nowPlaying = book(authors = emptyList()))
+            val host = openPanel(kings(authors = emptyList()))
 
             host.querySelector(".np-by") shouldBe null
         }
@@ -195,7 +177,7 @@ class NowPlayingPanelTest :
             val opened = mutableListOf<String>()
             val host =
                 openPanel(
-                    nowPlaying = book(series = listOf(PlayerSeriesLink("s-cosmere", "The Cosmere", "7"))),
+                    kings(series = listOf(PlayerSeriesRef("s-cosmere", "The Cosmere", "7"))),
                     onOpenSeries = { opened += it },
                 )
 
@@ -207,14 +189,38 @@ class NowPlayingPanelTest :
             opened shouldBe listOf("s-cosmere")
         }
 
+        test("a book in two series shows both, in the book's order, each opening its own") {
+            // The shared model carries every membership; showing only the first would drop the Cosmere.
+            val opened = mutableListOf<String>()
+            val host =
+                openPanel(
+                    kings(
+                        series =
+                            listOf(
+                                PlayerSeriesRef("s1", "The Stormlight Archive", "1"),
+                                PlayerSeriesRef("s-cosmere", "The Cosmere", "7"),
+                            ),
+                    ),
+                    onOpenSeries = { opened += it },
+                )
+
+            val chips = host.querySelectorAll(".np-series-chip")
+            chips.length shouldBe 2
+            (chips.item(0) as HTMLElement).textContent.orEmpty() shouldContain "The Stormlight Archive"
+            (chips.item(1) as HTMLElement).textContent.orEmpty() shouldContain "The Cosmere"
+            (chips.item(1) as HTMLElement).click()
+
+            opened shouldBe listOf("s-cosmere")
+        }
+
         test("a standalone book renders no series row") {
-            val host = openPanel(nowPlaying = book(series = emptyList()))
+            val host = openPanel(kings(series = emptyList()))
 
             host.querySelector(".np-series") shouldBe null
         }
 
         test("the chapter line names where you are and how far in") {
-            val host = openPanel(chapterList = chapters(76), currentChapterIndex = 11)
+            val host = openPanel(kings(chapters = chapterRows(76), currentChapterIndex = 11))
 
             (host.querySelector(".np-ch-n") as HTMLElement).textContent shouldBe "Chapter 12 of 76"
             (host.querySelector(".np-ch-t") as HTMLElement).textContent shouldBe "Chapter 12"
@@ -222,33 +228,42 @@ class NowPlayingPanelTest :
 
         // "Chapter 1 of 1" states something about a structure the book does not have.
         test("a book with no marks renders no chapter line") {
-            val host = openPanel(chapterList = emptyList(), currentChapterIndex = null)
+            val host = openPanel(kings(chapters = emptyList()))
 
             host.querySelector(".np-ch") shouldBe null
         }
 
-        test("chapter steps move one chapter each way") {
-            val sought = mutableListOf<Int>()
-            val host = openPanel(chapterList = chapters(5), currentChapterIndex = 2, onSeekToChapter = { sought += it })
+        test("chapter steps ask the shared model for the previous and the next chapter") {
+            // Where they land (§3.3's three-second rule) is the shared model's, not this panel's.
+            var previous = 0
+            var next = 0
+            val host =
+                openPanel(
+                    kings(chapters = chapterRows(5), currentChapterIndex = 2),
+                    onPreviousChapter = { previous++ },
+                    onNextChapter = { next++ },
+                )
 
             val steps = host.querySelectorAll(".np-chstep")
             (steps.item(0) as HTMLElement).click()
             (steps.item(1) as HTMLElement).click()
 
-            sought shouldBe listOf(1, 3)
+            previous shouldBe 1
+            next shouldBe 1
         }
 
-        // Genuinely `disabled`, not merely inert: it is the only version a screen reader also hears.
-        test("previous is disabled in the first chapter") {
-            val host = openPanel(chapterList = chapters(5), currentChapterIndex = 0)
+        // §3.3: in chapter one, Previous restarts it, so it is offered; only a chapterless book has nowhere to step.
+        test("previous is offered in the first chapter, where it restarts it") {
+            val host = openPanel(kings(chapters = chapterRows(5), currentChapterIndex = 0))
 
             val steps = host.querySelectorAll(".np-chstep")
-            (steps.item(0) as HTMLElement).hasAttribute("disabled") shouldBe true
+            (steps.item(0) as HTMLElement).hasAttribute("disabled") shouldBe false
             (steps.item(1) as HTMLElement).hasAttribute("disabled") shouldBe false
         }
 
+        // Genuinely `disabled`, not merely inert: it is the only version a screen reader also hears.
         test("next is disabled in the last chapter") {
-            val host = openPanel(chapterList = chapters(5), currentChapterIndex = 4)
+            val host = openPanel(kings(chapters = chapterRows(5), currentChapterIndex = 4))
 
             val steps = host.querySelectorAll(".np-chstep")
             (steps.item(0) as HTMLElement).hasAttribute("disabled") shouldBe false
@@ -257,7 +272,7 @@ class NowPlayingPanelTest :
 
         test("Go to book opens the playing book") {
             val opened = mutableListOf<String>()
-            val host = openPanel(nowPlaying = book(bookId = "b42"), onOpenBook = { opened += it })
+            val host = openPanel(kings(bookId = "b42"), onOpenBook = { opened += it })
 
             (host.querySelector(".np-goto") as HTMLElement).click()
 
@@ -281,11 +296,7 @@ class NowPlayingPanelTest :
 
         test("the panel's play control reports a press and says which action it is") {
             var presses = 0
-            val host =
-                openPanel(
-                    state = playing(isPlaying = true),
-                    onPlayPause = { presses++ },
-                )
+            val host = openPanel(kings(phase = PlayerPhase.Playing), onPrimary = { presses++ })
 
             val play = host.querySelector(".np-play") as HTMLElement
             play.getAttribute("aria-label") shouldBe "Pause"
@@ -295,8 +306,8 @@ class NowPlayingPanelTest :
         }
 
         test("the boost chip reads the boost when there is one, and invites one when there is not") {
-            val off = openPanel(volumeBoostDb = 0f)
-            val on = openPanel(volumeBoostDb = 6f)
+            val off = openPanel(kings(boostDb = 0f))
+            val on = openPanel(kings(boostDb = 6f))
 
             off.textContent.orEmpty() shouldContain "Boost"
             off.textContent.orEmpty() shouldNotContain "+6 dB"
@@ -321,46 +332,16 @@ class NowPlayingPanelTest :
             // from the app being broken. The label matters as much as the spinner: a spinner is
             // invisible to a screen reader, and "Pause" while stalled lies about what the control
             // would do.
-            val host = plainBar(playing(isPlaying = true).copy(isBuffering = true))
+            val host = plainBar(kings(phase = PlayerPhase.Buffering))
 
             host.querySelector(".tport-wait").shouldNotBeNull()
             (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Loading"
         }
 
         test("a player that is merely playing shows no spinner") {
-            val host = plainBar(playing(isPlaying = true).copy(isBuffering = false))
+            val host = plainBar(kings(phase = PlayerPhase.Playing))
 
             host.querySelector(".tport-wait") shouldBe null
             (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Pause"
-        }
-    })
-
-/**
- * [stepTarget]'s own edges, without a player or a DOM.
- *
- * The disabled-button specs above prove the panel renders what this returns; these prove what it
- * returns is right at every boundary, including the ones a fixture would have to be contrived to
- * reach.
- */
-class ChapterStepTargetTest :
-    FunSpec({
-
-        test("a step from the middle moves one chapter each way") {
-            stepTarget(currentIndex = 3, chapterCount = 10, back = true) shouldBe 2
-            stepTarget(currentIndex = 3, chapterCount = 10, back = false) shouldBe 4
-        }
-
-        test("there is nothing before the first chapter or after the last") {
-            stepTarget(currentIndex = 0, chapterCount = 10, back = true) shouldBe null
-            stepTarget(currentIndex = 9, chapterCount = 10, back = false) shouldBe null
-        }
-
-        test("a book with no marks has nowhere to step") {
-            stepTarget(currentIndex = null, chapterCount = 0, back = true) shouldBe null
-            stepTarget(currentIndex = null, chapterCount = 0, back = false) shouldBe null
-        }
-
-        test("a position outside the book steps nowhere rather than to the nearest chapter") {
-            stepTarget(currentIndex = 40, chapterCount = 10, back = false) shouldBe null
         }
     })

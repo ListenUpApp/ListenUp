@@ -4,6 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.player.PlayerChapter
+import com.calypsan.listenup.client.presentation.player.PlayerContributor
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.presentation.player.isSameVolumeBoost
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.ButtonSize
@@ -31,11 +37,9 @@ import org.jetbrains.compose.web.dom.Text
  * that shows its recipient something different from what the sender saw — their session, not this
  * one. The URL-is-a-contract rule is about addressing *content*; a player is not content.
  *
- * ⛔ **[book] can be null while [state] is not.** They come from different places on purpose:
- * [state] is the player's own truth (a title captured at prepare, a live position), while [book]
- * is Room's. A book that is playing but has not reached this browser's mirror renders the panel
- * with its title and playhead and simply no links — which is what is actually known — rather than
- * withholding the whole panel or offering destinations that resolve to nothing.
+ * Previous and Next act through the shared model, so §3.3's rule holds here as on every platform: Previous
+ * restarts the chapter after its first three seconds, and in chapter one restarts it; Next is unavailable
+ * in the last chapter.
  *
  * The four session controls open their existing pickers ON TOP of this panel rather than replacing
  * it. Stacked `<dialog>`s are exactly what the top layer is for: the picker takes focus, Escape
@@ -46,17 +50,14 @@ import org.jetbrains.compose.web.dom.Text
 @Composable
 internal fun NowPlayingPanel(
     open: Boolean,
-    state: TransportState,
-    book: NowPlayingBook?,
-    chapters: List<TransportChapter>,
-    currentChapterIndex: Int?,
-    sleepTimer: SleepTimerState,
-    volumeBoostDb: Float,
-    onPlayPause: () -> Unit,
+    state: PlayerUiState.Loaded,
+    progress: PlayerProgress,
+    onPrimary: () -> Unit,
     onSeek: (Long) -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
-    onSeekToChapter: (Int) -> Unit,
+    onPreviousChapter: () -> Unit,
+    onNextChapter: () -> Unit,
     onOpenSpeed: () -> Unit,
     onOpenChapters: () -> Unit,
     onOpenBoost: () -> Unit,
@@ -67,21 +68,23 @@ internal fun NowPlayingPanel(
     onCloseBook: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val book = state.book
+    val settings = state.settings
     PlayerDialog(open = open, title = "Now playing", panelClass = "np-dlg", onDismiss = onDismiss) {
         Div(attrs = { classes("np-body") }) {
             Cover(
-                title = state.title,
-                imageUrl = book?.let { coverUrl(it.bookId, it.coverHash, COVER_RUNG) },
+                title = book.title,
+                imageUrl = coverUrl(book.id, book.coverHash, COVER_RUNG),
                 size = COVER_SIZE,
                 radius = COVER_RADIUS,
                 decorative = true,
                 eager = true,
             )
             Div(attrs = { classes("np-meta") }) {
-                Div(attrs = { classes("np-t") }) { Text(state.title) }
-                Byline(book, onOpenContributor)
-                SeriesLine(book, onOpenSeries)
-                ChapterLine(chapters, currentChapterIndex)
+                Div(attrs = { classes("np-t") }) { Text(book.title) }
+                Byline(book.authors, onOpenContributor)
+                SeriesLine(book.series, onOpenSeries)
+                ChapterLine(state.chapter)
             }
         }
 
@@ -89,31 +92,42 @@ internal fun NowPlayingPanel(
             ChapterStep(
                 icon = WebIcon.ChevronLeft,
                 label = "Previous chapter",
-                target = stepTarget(currentChapterIndex, chapters.size, back = true),
-                onSeekToChapter = onSeekToChapter,
+                enabled = !state.chapter.isWholeBook,
+                onClick = onPreviousChapter,
             )
-            PanelButton(WebIcon.SkipBack, "Back ${state.skipBackSec} seconds", onSkipBack)
+            if (state.showsSkipBack) {
+                PanelButton(WebIcon.SkipBack, "Back ${settings.skipBackSec} seconds", onSkipBack)
+            }
+            val label = primaryLabel(state.primary)
             Button(attrs = {
                 classes("np-play")
+                if (state.primary == PrimaryControl.TapToPlay) classes("ring")
                 attr("type", TYPE_BUTTON)
-                attr("aria-label", if (state.isPlaying) "Pause" else "Play")
-                onClick { onPlayPause() }
+                attr("aria-label", label)
+                onClick { onPrimary() }
             }) {
-                Icon(if (state.isPlaying) WebIcon.Pause else WebIcon.Play, size = PLAY_ICON_SIZE)
+                if (state.primary == PrimaryControl.Busy) {
+                    Div(attrs = {
+                        classes("tport-wait")
+                        attr("aria-hidden", "true")
+                    })
+                } else {
+                    Icon(primaryIcon(state.primary), size = PLAY_ICON_SIZE)
+                }
             }
-            PanelButton(WebIcon.SkipForward, "Forward ${state.skipForwardSec} seconds", onSkipForward)
+            PanelButton(WebIcon.SkipForward, "Forward ${settings.skipForwardSec} seconds", onSkipForward)
             ChapterStep(
                 icon = WebIcon.ChevronRight,
                 label = "Next chapter",
-                target = stepTarget(currentChapterIndex, chapters.size, back = false),
-                onSeekToChapter = onSeekToChapter,
+                enabled = state.canSkipToNextChapter,
+                onClick = onNextChapter,
             )
         }
 
         Div(attrs = { classes("np-scrub-row") }) {
             Playhead(
-                positionMs = state.positionMs,
-                durationMs = state.durationMs,
+                positionMs = progress.bookPositionMs,
+                durationMs = progress.bookDurationMs,
                 timeClass = "np-time",
                 scrubClass = "np-scrub",
                 onSeek = onSeek,
@@ -122,28 +136,25 @@ internal fun NowPlayingPanel(
 
         Div(attrs = { classes("np-actions") }) {
             ActionChip(
-                "${formatSpeed(state.speed)}×",
-                state.speed != PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
+                "${formatSpeed(settings.speed)}×",
+                settings.speed != PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
                 onOpenSpeed,
             )
-            if (chapters.isNotEmpty()) ActionChip("Chapters", false, onOpenChapters)
+            if (state.chapters.isNotEmpty()) ActionChip("Chapters", false, onOpenChapters)
             ActionChip(
-                label = boostLabel(volumeBoostDb),
-                on = !isSameVolumeBoost(volumeBoostDb, PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB),
+                label = boostLabel(settings.boostDb),
+                on = !isSameVolumeBoost(settings.boostDb, PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB),
                 onClick = onOpenBoost,
             )
-            ActionChip("Sleep", sleepTimer !is SleepTimerState.Inactive, onOpenSleep)
-            // Last, and only when there is a book to go to: this is the one control that takes
-            // the listener off the player and onto a page.
-            book?.let { known ->
-                Button(attrs = {
-                    classes("np-goto")
-                    attr("type", TYPE_BUTTON)
-                    onClick { onOpenBook(known.bookId) }
-                }) {
-                    Text("Go to book")
-                    Icon(WebIcon.ChevronRight, size = GOTO_ICON_SIZE)
-                }
+            ActionChip("Sleep", state.sleepTimer !is SleepTimerState.Inactive, onOpenSleep)
+            // Last: this is the one control that takes the listener off the player and onto a page.
+            Button(attrs = {
+                classes("np-goto")
+                attr("type", TYPE_BUTTON)
+                onClick { onOpenBook(book.id) }
+            }) {
+                Text("Go to book")
+                Icon(WebIcon.ChevronRight, size = GOTO_ICON_SIZE)
             }
         }
 
@@ -166,10 +177,9 @@ internal fun NowPlayingPanel(
 /** The book's authors, each a way to everything else they wrote. Absent when the book names none. */
 @Composable
 private fun Byline(
-    book: NowPlayingBook?,
+    authors: List<PlayerContributor>,
     onOpenContributor: (String) -> Unit,
 ) {
-    val authors = book?.authors.orEmpty()
     if (authors.isEmpty()) return
     Div(attrs = { classes("np-by") }) {
         authors.forEachIndexed { index, author ->
@@ -185,13 +195,12 @@ private fun Byline(
     }
 }
 
-/** Each series the book is in, with its place in that one. Absent for a standalone book. */
+/** Every series the book is in, in the book's order, each with its place in that one. Absent for a standalone book. */
 @Composable
 private fun SeriesLine(
-    book: NowPlayingBook?,
+    series: List<PlayerSeriesRef>,
     onOpenSeries: (String) -> Unit,
 ) {
-    val series = book?.series.orEmpty()
     if (series.isEmpty()) return
     Div(attrs = { classes("np-series") }) {
         series.forEach { membership ->
@@ -214,43 +223,39 @@ private fun SeriesLine(
 /**
  * "Chapter 12 of 76 · The Shattered Plains".
  *
- * Renders nothing when the book has no marks — every alternative ("Chapter 1 of 1", a bare dash)
+ * Renders nothing for a book with no marks — every alternative ("Chapter 1 of 1", a bare dash)
  * states something about a structure the book does not have.
  */
 @Composable
-private fun ChapterLine(
-    chapters: List<TransportChapter>,
-    currentChapterIndex: Int?,
-) {
-    val index = currentChapterIndex ?: return
-    val current = chapters.getOrNull(index) ?: return
+private fun ChapterLine(chapter: PlayerChapter) {
+    if (chapter.isWholeBook) return
     Div(attrs = { classes("np-ch") }) {
-        Span(attrs = { classes("np-ch-n") }) { Text("Chapter ${index + 1} of ${chapters.size}") }
-        Span(attrs = { classes("np-ch-t") }) { Text(current.title) }
+        Span(attrs = { classes("np-ch-n") }) { Text("Chapter ${chapter.number} of ${chapter.total}") }
+        Span(attrs = { classes("np-ch-t") }) { Text(chapter.title) }
     }
 }
 
 /**
  * Previous/next chapter.
  *
- * [target] is null at either end of the book, and the control is then genuinely `disabled` rather
- * than present-but-inert: a listener in chapter one should be able to feel that Previous is not
- * available, and a `disabled` button is the only version of that a screen reader also hears.
+ * Genuinely `disabled` rather than present-but-inert when there is nowhere to go: a listener should be
+ * able to feel that Next is not available in the last chapter, and a `disabled` button is the only version
+ * of that a screen reader also hears.
  */
 @Composable
 private fun ChapterStep(
     icon: WebIcon,
     label: String,
-    target: Int?,
-    onSeekToChapter: (Int) -> Unit,
+    enabled: Boolean,
+    onClick: () -> Unit,
 ) {
     Button(attrs = {
         classes("np-chstep")
         attr("type", TYPE_BUTTON)
         attr("aria-label", label)
         attr("title", label)
-        if (target == null) attr("disabled", "")
-        onClick { target?.let(onSeekToChapter) }
+        if (!enabled) attr("disabled", "")
+        onClick { if (enabled) onClick() }
     }) { Icon(icon, size = CHAPTER_STEP_ICON_SIZE) }
 }
 
@@ -281,22 +286,6 @@ private fun ActionChip(
         attr("type", TYPE_BUTTON)
         onClick { onClick() }
     }) { Text(label) }
-}
-
-/**
- * Which chapter a step lands on, or null when there is none that way.
- *
- * Pure, and separate from the seek it feeds, so the ends of a book are provable without a player —
- * the same split [chapterStartMs] makes for the same reason.
- */
-internal fun stepTarget(
-    currentIndex: Int?,
-    chapterCount: Int,
-    back: Boolean,
-): Int? {
-    if (currentIndex == null || chapterCount == 0) return null
-    val target = if (back) currentIndex - 1 else currentIndex + 1
-    return target.takeIf { it in 0 until chapterCount }
 }
 
 /** "Off" or "+6 dB" — the same vocabulary the boost picker reads it out in. */

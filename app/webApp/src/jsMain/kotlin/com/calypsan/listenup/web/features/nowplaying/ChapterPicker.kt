@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -15,7 +16,7 @@ import org.w3c.dom.HTMLElement
  * editing workbench — a proportional chapter map, a multi-select table, an inspector — and none of
  * that is what someone reaching for chapter 12 mid-book wants. Borrowing it would also tie the
  * player to a surface it otherwise has no reason to know about. A name and somewhere to land is the
- * whole requirement.
+ * whole requirement. The rows, and which one is current, are the shared model's.
  *
  * The modal shell — focus trap, inert page, Escape-to-close — comes from [PlayerDialog], shared
  * with every other player panel.
@@ -23,8 +24,7 @@ import org.w3c.dom.HTMLElement
 @Composable
 internal fun ChapterPicker(
     open: Boolean,
-    chapters: List<TransportChapter>,
-    currentIndex: Int?,
+    chapters: List<PlayerChapterRow>,
     onPick: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -35,9 +35,9 @@ internal fun ChapterPicker(
         onDismiss = onDismiss,
     ) {
         Div(attrs = { classes("chap-list") }) {
-            chapters.forEachIndexed { index, chapter ->
+            chapters.forEach { chapter ->
                 key(chapter.startMs) {
-                    val isCurrent = index == currentIndex
+                    val isCurrent = chapter.isCurrent
                     Button(attrs = {
                         classes("chap-row")
                         if (isCurrent) classes("on")
@@ -45,7 +45,7 @@ internal fun ChapterPicker(
                         // `aria-current`, not just a class: the highlight is information, and a class
                         // alone says nothing to a reader who cannot see it.
                         if (isCurrent) attr("aria-current", "true")
-                        onClick { onPick(index) }
+                        onClick { onPick(chapter.index) }
                         if (isCurrent) {
                             ref { element ->
                                 // A book can carry hundreds of marks. Opening at the top while the
@@ -56,7 +56,7 @@ internal fun ChapterPicker(
                             }
                         }
                     }) {
-                        Span(attrs = { classes("chap-n") }) { Text("${index + 1}") }
+                        Span(attrs = { classes("chap-n") }) { Text("${chapter.number}") }
                         Span(attrs = { classes("chap-t") }) { Text(chapter.title) }
                         Span(attrs = { classes("mono", "chap-at") }) { Text(formatElapsed(chapter.startMs)) }
                     }

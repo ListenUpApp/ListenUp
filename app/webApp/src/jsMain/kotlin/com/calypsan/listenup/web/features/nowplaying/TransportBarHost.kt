@@ -1,16 +1,24 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import com.calypsan.listenup.client.presentation.player.PlayerEvent
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 
 /**
- * The [TransportBar], collecting its own flows from [playback].
+ * The [TransportBar], collecting its own flows from [playback], and carrying out the navigation the
+ * main button asks for (Go to book, the Inbox).
  *
- * ⛔ A composable of its own so the playback tick stops at the bar. [PlaybackSession.state] carries
- * the position, and is rebuilt several times a second while a book plays; collected in the shell's
- * content lambda, every one of those ticks re-ran that lambda — the account menu, the route switch,
- * the dead-letter notice, the palette host — to move one scrubber thumb. Collected here, a tick
- * recomposes this scope and nothing above it.
+ * ⛔ A composable of its own so the playback tick stops at the bar. [PlaybackSession.progress] moves
+ * several times a second while a book plays; collected in the shell's content lambda, every one of those
+ * ticks re-ran that lambda — the account menu, the route switch, the dead-letter notice, the palette host —
+ * to move one scrubber thumb. Collected here, a tick recomposes this scope and nothing above it.
+ *
+ * [PlayerEvent.OpenSignIn] needs nothing here: a lapsed session already shows the shell's sign-in banner.
+ * [PlayerEvent.OpenDocumentViewer] never arrives on web, which opens documents from Book Detail.
  */
 @Composable
 fun TransportBarHost(
@@ -18,32 +26,54 @@ fun TransportBarHost(
     onOpenBook: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
     onOpenContributor: (String) -> Unit,
+    onOpenInbox: () -> Unit = {},
 ) {
+    val openBook by rememberUpdatedState(onOpenBook)
+    val openInbox by rememberUpdatedState(onOpenInbox)
+    LaunchedEffect(playback) {
+        playback.events.collect { event ->
+            when (event) {
+                is PlayerEvent.NavigateToBook -> openBook(event.bookId)
+                PlayerEvent.OpenInbox -> openInbox()
+                PlayerEvent.OpenSignIn, is PlayerEvent.OpenDocumentViewer -> Unit
+            }
+        }
+    }
+
+    val state = playback.state.collectAsState().value as? PlayerUiState.Loaded ?: return
     TransportBar(
-        state = playback.state.collectAsState().value,
-        onPlayPause = playback.onPlayPause,
+        state = state,
+        progress = playback.progress.collectAsState().value,
+        onPrimary = playback.onPrimary,
         onSeek = playback.onSeek,
         onSkipBack = playback.onSkipBack,
         onSkipForward = playback.onSkipForward,
         onSetSpeed = playback.onSetSpeed,
         onResetSpeed = playback.onResetSpeed,
-        defaultSpeed = playback.defaultSpeed.collectAsState().value,
-        chapters = playback.chapters.collectAsState().value,
-        currentChapterIndex = playback.currentChapterIndex.collectAsState().value,
         onSeekToChapter = playback.onSeekToChapter,
-        sleepTimer = playback.sleepTimer.collectAsState().value,
+        onPreviousChapter = playback.onPreviousChapter,
+        onNextChapter = playback.onNextChapter,
         onSetSleepTimer = playback.onSetSleepTimer,
         onCancelSleepTimer = playback.onCancelSleepTimer,
         onExtendSleepTimer = playback.onExtendSleepTimer,
-        volumeBoostDb = playback.volumeBoostDb.collectAsState().value,
-        defaultBoostDb = playback.defaultBoostDb.collectAsState().value,
         boostUnavailable = playback.boostUnavailable.collectAsState().value,
         onSetBoost = playback.onSetBoost,
         onResetBoost = playback.onResetBoost,
-        nowPlaying = playback.nowPlaying.collectAsState().value,
         onOpenBook = onOpenBook,
         onOpenSeries = onOpenSeries,
         onOpenContributor = onOpenContributor,
         onCloseBook = playback.onCloseBook,
+    )
+}
+
+/** The [PlaybackNotice] for [playback]'s loaded book: a failure or a known "can't play", with Retry when it would. */
+@Composable
+fun PlaybackNoticeHost(playback: PlaybackSession) {
+    val state = playback.state.collectAsState().value
+    PlaybackNotice(
+        error = noticeErrorOf(state),
+        primary = (state as? PlayerUiState.Loaded)?.primary,
+        onRetry = playback.onRetry,
+        onDismiss = playback.onDismissError,
     )
 }

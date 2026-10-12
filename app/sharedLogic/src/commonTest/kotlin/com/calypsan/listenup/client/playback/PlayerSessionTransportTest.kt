@@ -201,4 +201,72 @@ class PlayerSessionTransportTest :
                 }
             }
         }
+
+        test("a negative chapter index is ignored, never clamped to the first") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    playing(rig)
+                    val before = rig.engine.calls.size
+                    rig.session.seekToChapter(-1)
+                    rig.engine.calls.size shouldBe before
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a chapter index on a chapterless book is ignored") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1", chapters = emptyList())
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    val before = rig.engine.calls.size
+                    rig.session.seekToChapter(0)
+                    rig.engine.calls.size shouldBe before
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("the listener's own skip intervals size the skips, not the stock pair") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.preferences.skipBackwardSec.value = 15
+                    rig.preferences.skipForwardSec.value = 45
+                    playing(rig, at = 100_000)
+                    rig.session.skipBackwardSec.value shouldBe 15
+                    rig.session.skipForwardSec.value shouldBe 45
+                    rig.session.skipForward()
+                    rig.engine.calls.last() shouldBe "seekTo:145000"
+                    runCurrent()
+                    rig.session.skipBack()
+                    rig.engine.calls.last() shouldBe "seekTo:130000"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("reset boost goes back to the listener's default boost, not to off") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    playing(rig)
+                    rig.session.setBoost(6f)
+                    rig.preferences.defaultBoostDb.value = 3f
+                    rig.session.resetBoost()
+                    runCurrent()
+                    rig.engine.calls.last() shouldBe "resetBoost:3.0"
+                    rig.engine.boostDb.value shouldBe 3f
+                } finally {
+                    rig.close()
+                }
+            }
+        }
     })

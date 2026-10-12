@@ -4,14 +4,9 @@ import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
-import com.calypsan.listenup.web.playback.HtmlAudioPlayer
-import com.calypsan.listenup.web.playback.WebPlaybackController
-import com.calypsan.listenup.web.playback.silentSegment
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeout
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
@@ -212,39 +207,3 @@ class SpeedPickerTest :
             host.closeDialogs()
         }
     })
-
-class SpeedSessionTest :
-    FunSpec({
-
-        test("a reset goes back to the listener's default, not to 1x") {
-            // ⛔ The default is a synced setting. A reset that assumed 1 would quietly overrule a
-            // listener who reads everything at 1.25 — on the one control that promises not to.
-            val player = HtmlAudioPlayer()
-            val manager = fakePlaybackManager(silentSegment(SEGMENT_MS), title = "Dune")
-            val playback =
-                LivePlayback(
-                    manager,
-                    WebPlaybackController(player, manager),
-                    player,
-                    FakePlaybackPreferences(speed = CUSTOM_DEFAULT),
-                    FakeBookRepository(),
-                )
-
-            playback.setSpeed(FASTER)
-            manager.playbackSpeed.value shouldBe FASTER
-
-            playback.resetSpeed()
-            withTimeout(RESET_TIMEOUT_MS) { manager.playbackSpeed.first { it == CUSTOM_DEFAULT } }
-
-            playback.close()
-            player.releasePlayer()
-        }
-    })
-
-/** A listener who reads everything a little quick — not the stock 1x. */
-private const val CUSTOM_DEFAULT = 1.25f
-
-private const val SEGMENT_MS = 1_500L
-
-/** The reset reads the preference through a suspend call, so it lands a dispatch later. */
-private const val RESET_TIMEOUT_MS = 5_000L

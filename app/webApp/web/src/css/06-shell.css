@@ -87,6 +87,8 @@
 .tport { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:14px; margin:var(--sp-24) -28px -24px; padding:14px 22px; min-height:76px; background:var(--surface); border-top:1px solid var(--line); box-shadow:var(--shadow-up); }
 .tport-b { width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral-fill); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .tport-b:hover { background:var(--coral-fill-press); } }
+/* A browser that refused to start the audio: Play with a ring, because one more tap is all it needs. */
+.tport-b.ring, .np-play.ring { box-shadow:0 0 0 3px var(--coral-soft), 0 0 0 5px var(--coral-fill); }
 /* Shrinks before anything else does: on a tablet the rail leaves ~690px, and a title that refused
    to give way pushed the sleep timer out past the edge of the bar. */
 .tport-t { font-size:var(--fs-ui); font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:0 1 auto; min-width:0; }

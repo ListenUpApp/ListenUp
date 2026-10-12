@@ -58,7 +58,6 @@ import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesedit.OpenSeriesEdit
 import com.calypsan.listenup.web.features.library.OpenLibrary
-import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.shelf.OpenShelfDetail
