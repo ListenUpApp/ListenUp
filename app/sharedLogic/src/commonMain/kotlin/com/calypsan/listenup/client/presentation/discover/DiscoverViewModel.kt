@@ -6,19 +6,26 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.client.domain.model.ShelfCover
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
+import com.calypsan.listenup.client.domain.repository.DiscoveryPick
+import com.calypsan.listenup.client.domain.repository.Reachability
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -54,6 +61,8 @@ class DiscoverViewModel(
     activeSessionRepository: ActiveSessionRepository,
     private val authSession: AuthSession,
     private val shelfRepository: ShelfRepository,
+    serverReachability: ServerReachability,
+    userProfileRepository: UserProfileRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     // === Discover Shelves State (on-demand RPC) ===
@@ -69,6 +78,28 @@ class DiscoverViewModel(
         // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
         loadDiscoverShelves()
     }
+
+    /**
+     * How many people Discover's social sections can draw on: [CommunitySize.Unknown] until the roster
+     * has synced, then [CommunitySize.JustYou] or [CommunitySize.Others]. Read by Listening now, the
+     * leaderboard and Shelves by others to choose their only-you treatment.
+     */
+    val communitySize: StateFlow<CommunitySize> =
+        authSession.authState
+            .flatMapLatest { auth ->
+                if (auth is AuthState.Authenticated) {
+                    userProfileRepository.observeRosterUserIds().map { ids -> communitySizeOf(ids, auth.userId.value) }
+                } else {
+                    flowOf(CommunitySize.Unknown)
+                }
+            }.fallbackTo { e ->
+                logger.warn(e) { "Community size unavailable" }
+                CommunitySize.Unknown
+            }.stateIn(
+                scope = viewModelScope,
+                started = WhileSubscribedForUi,
+                initialValue = CommunitySize.Unknown,
+            )
 
     // === Currently Listening State (from SocialService RPC) ===
 
@@ -91,20 +122,24 @@ class DiscoverViewModel(
      * Bumped by [refresh] to re-run a failed currently-listening observation.
      *
      * ⛔ The fallback sits INSIDE the [flatMapLatest], so a failure ends one run rather than the flow
-     * the screen is subscribed to — see [discoverBooksRefreshTrigger].
+     * the screen is subscribed to — see [discoverBooksDraws].
      */
     private val currentlyListeningRuns = MutableStateFlow(0)
 
     val currentlyListeningState: StateFlow<CurrentlyListeningUiState> =
         currentlyListeningRuns
             .flatMapLatest {
-                currentlyListeningFlow
-                    .map<_, CurrentlyListeningUiState> { sessions ->
-                        CurrentlyListeningUiState.Ready(sessions = sessions.map { it.toUiModel() })
-                    }.onStart { emit(CurrentlyListeningUiState.Loading) }
+                combine(currentlyListeningFlow, serverReachability.state) { sessions, reachability ->
+                    CurrentlyListeningUiState.Ready(
+                        sessions = sessions.map { it.toUiModel() },
+                        observedAtMs = sessions.maxOfOrNull { it.observedAtMs },
+                        // Unknown (still connecting) is not stale: only a known-down server dates the roster.
+                        isStale = reachability is Reachability.Unreachable,
+                    ) as CurrentlyListeningUiState
+                }.onStart { emit(CurrentlyListeningUiState.Loading) }
                     .fallbackTo { e ->
                         logger.error(e) { "Error observing currently listening" }
-                        CurrentlyListeningUiState.Error("Failed to load currently listening")
+                        CurrentlyListeningUiState.Error(ErrorMapper.map(e))
                     }
             }.stateIn(
                 scope = viewModelScope,
@@ -142,19 +177,20 @@ class DiscoverViewModel(
      * flow the screen is subscribed to. Outside it, the Error was the flow's last word: every later
      * [refresh] bumped a trigger nothing was collecting any more. `LibraryViewModel` has the same
      * shape for the same reason.
+     *
+     * Bumped by [shuffle] and [refresh].
      */
-    private val discoverBooksRefreshTrigger = MutableStateFlow(0)
+    private val discoverBooksDraws = MutableStateFlow(0)
 
     val discoverBooksState: StateFlow<DiscoverBooksUiState> =
-        discoverBooksRefreshTrigger
+        discoverBooksDraws
             .flatMapLatest {
-                flow {
-                    emit(DiscoverBooksUiState.Loading as DiscoverBooksUiState)
+                flow<DiscoverBooksUiState> {
                     val books = bookRepository.observeRandomUnstartedBooks(limit = 10).first()
                     emit(DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() }))
                 }.fallbackTo { e ->
                     logger.error(e) { "Error loading discover books" }
-                    DiscoverBooksUiState.Error("Failed to load discover books")
+                    DiscoverBooksUiState.Error(ErrorMapper.map(e))
                 }
             }.stateIn(
                 scope = viewModelScope,
@@ -163,16 +199,26 @@ class DiscoverViewModel(
             )
 
     /**
-     * Convert DiscoveryBook domain model to DiscoverUiBook.
+     * Draw ten different books for "Something new". Only the picks change: shelves, listeners and
+     * recently added are left alone, so pressing Shuffle never costs a network call.
      */
-    private fun DiscoveryBook.toDiscoverUiBook(): DiscoverUiBook =
+    fun shuffle() {
+        discoverBooksDraws.update { it + 1 }
+    }
+
+    /**
+     * Convert a [DiscoveryPick] to its "Something new" card.
+     */
+    private fun DiscoveryPick.toDiscoverUiBook(): DiscoverUiBook =
         DiscoverUiBook(
             id = id,
             title = title,
             authorName = authorName,
             coverPath = coverPath,
             coverHash = coverHash,
-            seriesName = null, // Series comes from book_series relation
+            seriesName = seriesName,
+            sequenceLabel = sequenceLabel,
+            durationMs = durationMs,
         )
 
     // === Recently Added State (from Room) ===
@@ -195,7 +241,7 @@ class DiscoverViewModel(
                     }.onStart { emit(RecentlyAddedUiState.Loading) }
                     .fallbackTo { e ->
                         logger.error(e) { "Error observing recently added books" }
-                        RecentlyAddedUiState.Error("Failed to load recently added")
+                        RecentlyAddedUiState.Error(ErrorMapper.map(e))
                     }
             }.stateIn(
                 scope = viewModelScope,
@@ -226,6 +272,7 @@ class DiscoverViewModel(
             description = description,
             bookCount = bookCount,
             totalDurationSeconds = totalDurationSeconds,
+            covers = covers,
         )
 
     /**
@@ -267,7 +314,7 @@ class DiscoverViewModel(
                         errorBus.emit(result.error)
                         logger.error { "Failed to load discover shelves: ${result.error.message}" }
                     }
-                    discoverShelvesState.value = DiscoverShelvesUiState.Error("Failed to load discover shelves")
+                    discoverShelvesState.value = DiscoverShelvesUiState.Error(result.error)
                 }
             }
         }
@@ -276,12 +323,12 @@ class DiscoverViewModel(
     /**
      * Refresh all discovery content.
      * - Shelves: re-fetched via the discover RPC
-     * - Books: new RANDOM() selection via refresh trigger
+     * - Books: a new draw, as [shuffle]
      * - Sessions & recently added: live flows that update themselves, so only a FAILED one is
      *   restarted — re-subscribing a healthy one would say the same thing again
      */
     fun refresh() {
-        discoverBooksRefreshTrigger.update { it + 1 }
+        discoverBooksDraws.update { it + 1 }
         if (currentlyListeningState.value is CurrentlyListeningUiState.Error) currentlyListeningRuns.update { it + 1 }
         if (recentlyAddedState.value is RecentlyAddedUiState.Error) recentlyAddedRuns.update { it + 1 }
         loadDiscoverShelves()
@@ -306,9 +353,9 @@ sealed interface DiscoverShelvesUiState {
             get() = users.sumOf { it.shelves.size }
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : DiscoverShelvesUiState
 }
 
@@ -332,7 +379,16 @@ data class DiscoverShelfOwner(
 )
 
 /**
- * Shelf UI model for Discover screen.
+ * One of another reader's public shelves on Discover.
+ *
+ * @property id The shelf.
+ * @property name Its name.
+ * @property description Its description, when it has one.
+ * @property bookCount How many of its books the reader can access.
+ * @property totalDurationSeconds Always 0 for a discovered shelf: its books never enter this device's
+ *   mirror, so their lengths are unknown here.
+ * @property covers Up to four cover tiles for its 2×2 mosaic, in shelf order; fewer when this device
+ *   lacks some of the books.
  */
 data class DiscoverShelfUi(
     val id: String,
@@ -340,6 +396,7 @@ data class DiscoverShelfUi(
     val description: String?,
     val bookCount: Int,
     val totalDurationSeconds: Long,
+    val covers: List<ShelfCover>,
 )
 
 /**
@@ -349,17 +406,34 @@ sealed interface CurrentlyListeningUiState {
     /** Pre-first-emission placeholder. */
     data object Loading : CurrentlyListeningUiState
 
-    /** The roster loaded from Room: live listeners first, then the recent-listen fill. */
+    /**
+     * The roster from Room: live listeners first, then each other person's most recent book.
+     *
+     * @property sessions The rows, in display order.
+     * @property observedAtMs When the server last sent this roster (epoch ms); null when it is empty.
+     * @property isStale True while the server is unreachable, so the roster may be [observedAtMs] old.
+     */
     data class Ready(
         val sessions: List<CurrentlyListeningUiSession>,
+        val observedAtMs: Long?,
+        val isStale: Boolean,
     ) : CurrentlyListeningUiState {
+        /** Whether nobody is shown at all. */
         val isEmpty: Boolean
             get() = sessions.isEmpty()
+
+        /** People listening right now. */
+        val liveCount: Int
+            get() = sessions.count { it.isLive }
+
+        /** People shown on the book they last played, within the server's recent window. */
+        val recentCount: Int
+            get() = sessions.count { !it.isLive }
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : CurrentlyListeningUiState
 }
 
@@ -378,9 +452,9 @@ sealed interface DiscoverBooksUiState {
             get() = books.isEmpty()
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : DiscoverBooksUiState
 }
 
@@ -399,9 +473,9 @@ sealed interface RecentlyAddedUiState {
             get() = books.isEmpty()
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : RecentlyAddedUiState
 }
 
@@ -439,7 +513,16 @@ data class CurrentlyListeningUiSession(
 )
 
 /**
- * Book for "Discover Something New" with resolved local cover path.
+ * A "Something new" card: a book the reader has not started, first in its series or standalone.
+ *
+ * @property id The book.
+ * @property title Its title.
+ * @property authorName Its primary author, when known.
+ * @property coverPath The local cover file, or null when not downloaded here.
+ * @property coverHash The cover's content version.
+ * @property seriesName The series it starts; null when standalone (the card reads "Standalone").
+ * @property sequenceLabel Its place in [seriesName] ("1"); null when standalone or unnumbered.
+ * @property durationMs Its total length.
  */
 data class DiscoverUiBook(
     val id: String,
@@ -448,6 +531,8 @@ data class DiscoverUiBook(
     val coverPath: String?,
     val coverHash: String?,
     val seriesName: String?,
+    val sequenceLabel: String?,
+    val durationMs: Long,
 )
 
 /**

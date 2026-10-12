@@ -4,6 +4,7 @@ import androidx.room3.Dao
 import androidx.room3.Query
 import androidx.room3.Upsert
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.core.Timestamp
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -16,8 +17,8 @@ import kotlinx.coroutines.flow.Flow
 internal interface ActivityDao {
     /**
      * Observe the newest [limit] live activities, fully enriched at READ time by LEFT-JOINing the
-     * local `public_profiles` mirror (identity) and the `books` mirror (book card: title, cover,
-     * primary author). All enrichment is in SQL, so the Flow re-emits whenever `activities`,
+     * local `public_profiles` mirror (identity) and the `books` mirror (book card: title, cover
+     * hash + download stamp, primary author). All enrichment is in SQL, so the Flow re-emits whenever `activities`,
      * `public_profiles`, `books`, `book_contributors`, or `contributors` change — a rename of the
      * user OR the book/author reflects automatically, and there is no per-row N+1. A book that is
      * absent locally (inaccessible) or tombstoned yields a null card. Activity tombstones excluded.
@@ -27,7 +28,8 @@ internal interface ActivityDao {
         SELECT a.id, a.userId, a.type, a.occurredAt, a.bookId, a.isReread, a.durationMs,
                a.milestoneValue, a.milestoneUnit, a.shelfId, a.shelfName,
                pp.displayName AS displayName, pp.avatarType AS avatarType,
-               b.title AS bookTitle, NULL AS bookCoverPath,
+               b.title AS bookTitle, b.coverHash AS bookCoverHash,
+               b.coverDownloadedAt AS bookCoverDownloadedAt,
                (
                    SELECT c.name FROM book_contributors bc
                    INNER JOIN contributors c ON bc.contributorId = c.id
@@ -190,7 +192,8 @@ internal data class ActivityWithProfile(
     val displayName: String?,
     val avatarType: String?,
     val bookTitle: String?,
-    val bookCoverPath: String?,
+    val bookCoverHash: String?,
+    val bookCoverDownloadedAt: Timestamp?,
     val bookAuthorName: String?,
 )
 

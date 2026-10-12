@@ -553,17 +553,19 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverHash, b.coverDownloadedAt, b.createdAt,
+            b.id, b.title, b.coverHash, b.coverDownloadedAt, b.createdAt, b.totalDuration,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
                 WHERE bc.bookId = b.id AND bc.role = 'author'
                 LIMIT 1
             ) as authorName,
-            bs.sequence as sequence
+            bs.sequence as sequence,
+            s.name as seriesName
         FROM books b
         LEFT JOIN playback_positions p ON b.id = p.bookId
         LEFT JOIN book_series bs ON bs.bookId = b.id
+        LEFT JOIN series s ON s.id = bs.seriesId AND s.deletedAt IS NULL
         WHERE (p.bookId IS NULL OR p.positionMs = 0) AND b.deletedAt IS NULL
             AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
     """,
@@ -611,6 +613,9 @@ internal data class DiscoveryBookWithAuthor(
  * Standalone books (no series edge) produce a single row with [sequence] = `null`.
  * A book in N series produces N rows. The repository groups by [id] and applies the
  * series-starter filter before limiting.
+ *
+ * [totalDuration] is the book's length in milliseconds; [seriesName] names the series of this
+ * row's edge (null for a standalone book, or when that series is tombstoned locally).
  */
 internal data class DiscoveryBookWithSeries(
     val id: BookId,
@@ -618,6 +623,8 @@ internal data class DiscoveryBookWithSeries(
     val coverHash: String?,
     val coverDownloadedAt: Timestamp?,
     val createdAt: Timestamp,
+    val totalDuration: Long,
     val authorName: String?,
     val sequence: Double?,
+    val seriesName: String?,
 )

@@ -6,10 +6,12 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
+import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -40,9 +42,15 @@ class DiscoverSession(
     val currentlyListening: StateFlow<CurrentlyListeningUiState>,
     val shelves: StateFlow<DiscoverShelvesUiState>,
     val leaderboard: StateFlow<LeaderboardUiState>,
+    /** The leaderboard's period and category, live in every board state. */
+    val leaderboardSelection: StateFlow<LeaderboardSelection>,
     val activity: StateFlow<ActivityFeedUiState>,
+    /** Who else is on the server; PR 6's only-you states read it. */
+    val communitySize: StateFlow<CommunitySize>,
     val onSelectPeriod: (LeaderboardPeriod) -> Unit,
     val onSelectCategory: (LeaderboardCategory) -> Unit,
+    /** Draws ten different books for Something new (PR 5 renders its button). */
+    val onShuffle: () -> Unit,
     /**
      * A fresh load of the four sections [DiscoverViewModel] owns — books, shelves, listeners and
      * recently added — each restarted only if it failed. The page offers it only on a failed
@@ -89,9 +97,12 @@ fun graphDiscover(koin: Koin): OpenDiscover =
             currentlyListening = discover.currentlyListeningState,
             shelves = discover.discoverShelvesState,
             leaderboard = leaderboard.uiState,
+            leaderboardSelection = leaderboard.selection,
             activity = activity.state,
+            communitySize = discover.communitySize,
             onSelectPeriod = leaderboard::selectPeriod,
             onSelectCategory = leaderboard::selectCategory,
+            onShuffle = discover::shuffle,
             onRefresh = discover::refresh,
             onRefreshLeaderboard = leaderboard::refresh,
             onRefreshActivity = activity::refresh,
@@ -106,9 +117,12 @@ fun fixedDiscover(
     currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
     shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
+    leaderboardSelection: LeaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
     activity: ActivityFeedUiState = ActivityFeedUiState.Loading,
+    communitySize: CommunitySize = CommunitySize.Unknown,
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
+    onShuffle: () -> Unit = {},
     onRefresh: () -> Unit = {},
     onRefreshLeaderboard: () -> Unit = {},
     onRefreshActivity: () -> Unit = {},
@@ -120,9 +134,12 @@ fun fixedDiscover(
             currentlyListening = MutableStateFlow(currentlyListening),
             shelves = MutableStateFlow(shelves),
             leaderboard = MutableStateFlow(leaderboard),
+            leaderboardSelection = MutableStateFlow(leaderboardSelection),
             activity = MutableStateFlow(activity),
+            communitySize = MutableStateFlow(communitySize),
             onSelectPeriod = onSelectPeriod,
             onSelectCategory = onSelectCategory,
+            onShuffle = onShuffle,
             onRefresh = onRefresh,
             onRefreshLeaderboard = onRefreshLeaderboard,
             onRefreshActivity = onRefreshActivity,

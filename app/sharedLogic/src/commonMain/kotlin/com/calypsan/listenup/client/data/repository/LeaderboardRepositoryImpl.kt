@@ -30,12 +30,17 @@ internal class LeaderboardRepositoryImpl(
     override fun observeSnapshot(
         period: LeaderboardPeriod,
         limit: Int,
-    ): Flow<LeaderboardSnapshot> = publicProfileDao.observeAll().map { rows -> snapshot(rows, period, limit) }
+        currentUserId: String?,
+    ): Flow<LeaderboardSnapshot> =
+        publicProfileDao.observeAll().map { rows ->
+            snapshot(rows = rows, period = period, limit = limit, currentUserId = currentUserId)
+        }
 
     private fun snapshot(
         rows: List<PublicProfileEntity>,
         period: LeaderboardPeriod,
         limit: Int,
+        currentUserId: String?,
     ): LeaderboardSnapshot {
         val timeSelector: (PublicProfileEntity) -> Long =
             when (period) {
@@ -46,8 +51,10 @@ internal class LeaderboardRepositoryImpl(
             }
 
         val time =
-            rankDense(rows.sortedByDescending(timeSelector).take(limit), timeSelector)
-                .map { (rank, e) -> e.toEntry(rank).copy(totalSeconds = timeSelector(e)) }
+            rankDense(rows.sortedWith(rankOrder(timeSelector)).take(limit), timeSelector)
+                .map { (rank, e) ->
+                    e.toEntry(rank, isYou = e.id == currentUserId).copy(totalSeconds = timeSelector(e))
+                }
 
         val booksSelector: (PublicProfileEntity) -> Int =
             when (period) {
@@ -65,16 +72,36 @@ internal class LeaderboardRepositoryImpl(
             }
 
         val books =
-            rankDense(rows.sortedByDescending(booksSelector).take(limit)) { booksSelector(it).toLong() }
-                .map { (rank, e) -> e.toEntry(rank).copy(booksFinished = booksSelector(e)) }
+            rankDense(
+                rows.sortedWith(rankOrder { booksSelector(it).toLong() }).take(limit),
+            ) { booksSelector(it).toLong() }
+                .map { (rank, e) ->
+                    e.toEntry(rank, isYou = e.id == currentUserId).copy(booksFinished = booksSelector(e))
+                }
         val streak =
-            rankDense(rows.sortedByDescending(streakSelector).take(limit)) { streakSelector(it).toLong() }
-                .map { (rank, e) -> e.toEntry(rank).copy(longestStreakDays = streakSelector(e)) }
+            rankDense(
+                rows.sortedWith(rankOrder { streakSelector(it).toLong() }).take(limit),
+            ) { streakSelector(it).toLong() }
+                .map { (rank, e) ->
+                    e.toEntry(rank, isYou = e.id == currentUserId).copy(longestStreakDays = streakSelector(e))
+                }
 
         return LeaderboardSnapshot(time, books, streak)
     }
 
-    private fun PublicProfileEntity.toEntry(rank: Int): LeaderboardEntry =
+    /**
+     * Highest [value] first; within a tie, display name (case-insensitively) then user id — applied
+     * before the limit, so who survives the cut never depends on the database's row order.
+     */
+    private fun rankOrder(value: (PublicProfileEntity) -> Long): Comparator<PublicProfileEntity> =
+        compareByDescending<PublicProfileEntity> { value(it) }
+            .then(compareBy(String.CASE_INSENSITIVE_ORDER) { it.displayName })
+            .thenBy { it.id }
+
+    private fun PublicProfileEntity.toEntry(
+        rank: Int,
+        isYou: Boolean,
+    ): LeaderboardEntry =
         LeaderboardEntry(
             rank = rank,
             userId = id,
@@ -83,6 +110,7 @@ internal class LeaderboardRepositoryImpl(
             booksFinished = booksFinished,
             currentStreakDays = currentStreakDays,
             longestStreakDays = longestStreakDays,
+            isYou = isYou,
         )
 
     /**

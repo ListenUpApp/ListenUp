@@ -87,7 +87,7 @@ class PublicProfileSyncE2ETest :
                 // Assert LeaderboardRepositoryImpl surfaces the row with rank 1
                 val snapshot =
                     LeaderboardRepositoryImpl(clientDatabase.publicProfileDao())
-                        .observeSnapshot(LeaderboardPeriod.AllTime)
+                        .observeSnapshot(LeaderboardPeriod.AllTime, currentUserId = null)
                         .first()
                 snapshot.time.size shouldBe 1
                 snapshot.time.first().userId shouldBe "u1"

@@ -72,6 +72,10 @@ struct ActivityRowItem: Identifiable, Equatable {
     let book: String?
     /// The book id, for navigation; nil for book-less activities.
     let bookId: String?
+    /// The book's local cover file; nil when not downloaded or book-less.
+    let coverPath: String?
+    /// The book's cover content version; nil when it has none or the row is book-less.
+    let coverHash: String?
     let occurredAt: Date
 
     init(from model: ActivityUiModel) {
@@ -82,6 +86,8 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.action = ActivityRowItem.action(for: model)
         self.book = model.bookTitle
         self.bookId = model.bookId
+        self.coverPath = model.bookCoverPath
+        self.coverHash = model.bookCoverHash
         self.occurredAt = Date(timeIntervalSince1970: TimeInterval(model.occurredAt) / 1_000)
     }
 
@@ -93,7 +99,9 @@ struct ActivityRowItem: Identifiable, Equatable {
         action: String,
         book: String?,
         bookId: String?,
-        occurredAt: Date
+        occurredAt: Date,
+        coverPath: String? = nil,
+        coverHash: String? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -102,6 +110,8 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.action = action
         self.book = book
         self.bookId = bookId
+        self.coverPath = coverPath
+        self.coverHash = coverHash
         self.occurredAt = occurredAt
     }
 

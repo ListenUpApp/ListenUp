@@ -59,7 +59,7 @@ fun DiscoverBooksSection(
             modifier = Modifier.padding(horizontal = Spacing.screenMargin),
             trailing = {
                 IconButton(
-                    onClick = { viewModel.refresh() },
+                    onClick = { viewModel.shuffle() },
                     modifier = Modifier.compactTouchTarget(footprint = 32.dp),
                 ) {
                     Icon(

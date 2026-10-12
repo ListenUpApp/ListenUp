@@ -122,7 +122,7 @@ class CurrentlyListeningSectionTest {
         composeRule.setContent {
             WithAvatarDependencies {
                 CurrentlyListeningSection(
-                    state = CurrentlyListeningUiState.Ready(sessions = emptyList()),
+                    state = CurrentlyListeningUiState.Ready(sessions = emptyList(), observedAtMs = null, isStale = false),
                     onBookClick = {},
                     nowMs = nowMs,
                 )
@@ -139,6 +139,8 @@ class CurrentlyListeningSectionTest {
                     state =
                         CurrentlyListeningUiState.Ready(
                             sessions = listOf(session("live", "Wind and Truth", isLive = true, lastActiveAt = nowMs - 60_000L)),
+                            observedAtMs = null,
+                            isStale = false,
                         ),
                     onBookClick = {},
                     nowMs = nowMs,
@@ -166,6 +168,8 @@ class CurrentlyListeningSectionTest {
                                         lastActiveAt = nowMs - 3 * 24 * 60 * 60 * 1000L,
                                     ),
                                 ),
+                            observedAtMs = null,
+                            isStale = false,
                         ),
                     onBookClick = {},
                     nowMs = nowMs,

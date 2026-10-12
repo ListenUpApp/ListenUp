@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSe
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
+import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import com.calypsan.listenup.client.presentation.discover.activityParts
@@ -92,6 +93,7 @@ fun DiscoverPage(
     recentlyAdded: RecentlyAddedUiState,
     currentlyListening: CurrentlyListeningUiState,
     leaderboard: LeaderboardUiState,
+    leaderboardSelection: LeaderboardSelection,
     activity: ActivityFeedUiState,
     shelves: DiscoverShelvesUiState,
     nowMs: Long,
@@ -125,7 +127,14 @@ fun DiscoverPage(
         DiscoverBooksSection(books, onOpenBook, selection, onRefresh)
         RecentlyAddedSection(recentlyAdded, onOpenBook, selection, onRefresh)
         SharedShelvesSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
-        LeaderboardSection(leaderboard, onSelectPeriod, onSelectCategory, onOpenProfile, onRefreshLeaderboard)
+        LeaderboardSection(
+            leaderboard,
+            leaderboardSelection,
+            onSelectPeriod,
+            onSelectCategory,
+            onOpenProfile,
+            onRefreshLeaderboard,
+        )
         ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile, onRefreshActivity)
     }
 }
@@ -153,7 +162,7 @@ private fun CurrentlyListeningSection(
             }
 
             is CurrentlyListeningUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is CurrentlyListeningUiState.Ready -> {
@@ -225,7 +234,7 @@ private fun DiscoverBooksSection(
             }
 
             is DiscoverBooksUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is DiscoverBooksUiState.Ready -> {
@@ -260,7 +269,7 @@ private fun RecentlyAddedSection(
             }
 
             is RecentlyAddedUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is RecentlyAddedUiState.Ready -> {
@@ -313,16 +322,41 @@ private fun BookCard(
  * Both controls are cheap — all three categories arrive in one snapshot, so switching a tab is a
  * list pick rather than a query. The period genuinely re-queries, which is why it reads as the
  * outer control.
+ *
+ * The controls render in every state, from [selection], as on Android and iOS: a period nobody
+ * listened in is Empty, and the way out of it is another period.
  */
 @Composable
 private fun LeaderboardSection(
     state: LeaderboardUiState,
+    selection: LeaderboardSelection,
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
     onOpenProfile: (String) -> Unit,
     onRefresh: () -> Unit,
 ) {
     Section("Leaderboard") {
+        Div(attrs = { classes("disc-lb-controls") }) {
+            Div(attrs = { classes("disc-chips") }) {
+                PERIODS.forEach { tab ->
+                    Chip(
+                        tab.label,
+                        selected = tab.period == selection.period,
+                        accessibleLabel = tab.accessibleLabel,
+                    ) {
+                        onSelectPeriod(tab.period)
+                    }
+                }
+            }
+            Div(attrs = { classes("disc-chips") }) {
+                LeaderboardCategory.entries.forEach { category ->
+                    Chip(categoryLabel(category), selected = category == selection.category) {
+                        onSelectCategory(category)
+                    }
+                }
+            }
+        }
+
         when (state) {
             is LeaderboardUiState.Loading -> {
                 SectionSkeleton()
@@ -333,36 +367,12 @@ private fun LeaderboardSection(
             }
 
             is LeaderboardUiState.Error -> {
-                if (state.isRetryable) {
-                    SectionError("The leaderboard could not be loaded.", onRetry = onRefresh)
-                } else {
-                    SectionError("The leaderboard is unavailable.")
-                }
+                // Every section's failure offers the same way back: Try again, which always works.
+                SectionError("The leaderboard could not be loaded.", onRetry = onRefresh)
             }
 
             is LeaderboardUiState.Data -> {
-                Div(attrs = { classes("disc-lb-controls") }) {
-                    Div(attrs = { classes("disc-chips") }) {
-                        PERIODS.forEach { tab ->
-                            Chip(
-                                tab.label,
-                                selected = tab.period == state.period,
-                                accessibleLabel = tab.accessibleLabel,
-                            ) {
-                                onSelectPeriod(tab.period)
-                            }
-                        }
-                    }
-                    Div(attrs = { classes("disc-chips") }) {
-                        LeaderboardCategory.entries.forEach { category ->
-                            Chip(categoryLabel(category), selected = category == state.category) {
-                                onSelectCategory(category)
-                            }
-                        }
-                    }
-                }
-
-                val entries = leaderboardEntries(state.snapshot, state.category)
+                val entries = leaderboardEntries(state.snapshot, selection.category)
                 if (entries.isEmpty()) {
                     EmptyState(title = "Nothing in this category yet", body = "Try another period.")
                 } else {
@@ -373,7 +383,7 @@ private fun LeaderboardSection(
                                     Span(attrs = { classes("disc-lb-rank") }) { Text("${entry.rank}") }
                                     PersonLink(entry.displayName, entry.userId, onOpenProfile, "disc-lb-name")
                                     Span(attrs = { classes("disc-lb-stat", "mono") }) {
-                                        Text(leaderboardLabel(entry, state.category))
+                                        Text(leaderboardLabel(entry, selection.category))
                                     }
                                 }
                             }
@@ -401,7 +411,7 @@ private fun ActivityFeedSection(
             }
 
             is ActivityFeedUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is ActivityFeedUiState.Ready -> {
@@ -585,7 +595,7 @@ private fun SharedShelvesSection(
             }
 
             is DiscoverShelvesUiState.Error -> {
-                SectionError(state.message, onRetry = onRefresh)
+                SectionError(state.error.message, onRetry = onRefresh)
             }
 
             is DiscoverShelvesUiState.Ready -> {

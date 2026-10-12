@@ -7,9 +7,9 @@ import Shared
 /// snapshot already carries all three category rankings, so switching metric is a pure
 /// state transformation with no upstream re-fetch.
 ///
-/// The current-user "(You)" highlight is resolved here: `LeaderboardEntry` carries no
-/// `isCurrentUser` flag, only a `userId`, so the screen passes the signed-in user's id
-/// via `setCurrentUserId(_:)` and each row compares against it.
+/// The current-user "(You)" highlight comes from `LeaderboardEntry.isYou`, which the shared
+/// repository sets from the signed-in reader. The period and metric follow the shared
+/// `LeaderboardViewModel.selection`, which exists in every board state.
 ///
 /// Thin over `FlowBridge`; the `Data` mapping lives in a pure, testable helper.
 @Observable
@@ -18,17 +18,13 @@ final class LeaderboardObserver {
     // MARK: - State
 
     private(set) var phase: LeaderboardPhase = .loading
-    private(set) var selectedPeriod: LeaderboardSelection = .sevenDays
+    private(set) var selectedPeriod: LeaderboardPeriodOption = .sevenDays
     private(set) var selectedMetric: LeaderboardMetric = .time
 
     // MARK: - Dependencies
 
     private let viewModel: LeaderboardViewModel
     private let bridge = FlowBridge()
-
-    /// The signed-in user's id, used to tag the "(You)" row. Re-applied to the latest
-    /// snapshot whenever it changes so the highlight appears as soon as the user loads.
-    private var currentUserId: String?
     private var latestState: LeaderboardUiState = LeaderboardUiStateLoading.shared
 
     // MARK: - Init
@@ -37,6 +33,7 @@ final class LeaderboardObserver {
         self.viewModel = viewModel
         bridge.own(viewModel)
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
+        bridge.bind(viewModel.selection) { [weak self] in self?.applySelection($0) }
     }
 
     // MARK: - Actions
@@ -46,9 +43,10 @@ final class LeaderboardObserver {
         viewModel.refresh()
     }
 
-    func selectPeriod(_ selection: LeaderboardSelection) {
-        selectedPeriod = selection
-        viewModel.selectPeriod(p: selection.kmpPeriod)
+    /// Optimistic locally for an instant control; the shared selection then confirms it.
+    func selectPeriod(_ option: LeaderboardPeriodOption) {
+        selectedPeriod = option
+        viewModel.selectPeriod(p: option.kmpPeriod)
     }
 
     /// Switch the ranked metric (Time / Books / Streak). The snapshot already holds all three
@@ -61,14 +59,13 @@ final class LeaderboardObserver {
         apply(latestState)
     }
 
-    /// Update the id used for the "(You)" highlight, re-tagging the current snapshot.
-    func setCurrentUserId(_ id: String?) {
-        guard currentUserId != id else { return }
-        currentUserId = id
+    // MARK: - State mapping
+
+    private func applySelection(_ selection: LeaderboardSelection) {
+        selectedPeriod = LeaderboardPeriodOption(kmp: selection.period)
+        selectedMetric = LeaderboardMetric(kmp: selection.category)
         apply(latestState)
     }
-
-    // MARK: - State mapping
 
     private func apply(_ state: LeaderboardUiState) {
         latestState = state
@@ -81,23 +78,22 @@ final class LeaderboardObserver {
             let data = dataType.value
             // The KMP state is `.data` when ANY category has entries; the selected metric's list
             // can still be empty (e.g. Books/Streak for a bounded period), so fall to `.empty`.
-            let rows = Self.rows(from: data.snapshot, currentUserId: currentUserId, metric: selectedMetric)
+            let rows = Self.rows(from: data.snapshot, metric: selectedMetric)
             phase = rows.isEmpty ? .empty : .data(rows)
-        case .error(let errorType):
-            let error = errorType.value
-            phase = .error(isRetryable: error.isRetryable)
+        case .error:
+            phase = .error
         }
     }
 
-    /// Pure: map the ranking for `metric` to display rows, tagging the current user.
-    /// `nonisolated` because it touches no actor state — callable from tests off the main actor.
+    /// Pure: map the ranking for `metric` to display rows; the reader's own row is the entry
+    /// marked `isYou`. `nonisolated` because it touches no actor state — callable from tests off
+    /// the main actor.
     nonisolated static func rows(
         from snapshot: LeaderboardSnapshot,
-        currentUserId: String?,
         metric: LeaderboardMetric = .time
     ) -> [LeaderboardRow] {
         metric.entries(in: snapshot).map { entry in
-            LeaderboardRow(from: entry, isCurrentUser: entry.userId == currentUserId, metric: metric)
+            LeaderboardRow(from: entry, isCurrentUser: entry.isYou, metric: metric)
         }
     }
 }
@@ -111,6 +107,11 @@ enum LeaderboardMetric: CaseIterable, Identifiable {
     case streak
 
     var id: Self { self }
+
+    /// The metric a Kotlin category names; `.time` for one this client does not know.
+    init(kmp category: LeaderboardCategory) {
+        self = LeaderboardMetric.allCases.first { $0.kmpCategory == category } ?? .time
+    }
 
     var kmpCategory: LeaderboardCategory {
         switch self {
@@ -142,14 +143,25 @@ enum LeaderboardMetric: CaseIterable, Identifiable {
 
 /// The leaderboard's periods, in the order every platform shows them. They are trailing windows
 /// (today plus the days before it), so the labels name the window — "7 days", not "Week" — and
-/// VoiceOver hears the full "Last 7 days". Maps to the KMP `LeaderboardPeriod`.
-enum LeaderboardSelection: CaseIterable, Identifiable {
+/// VoiceOver hears the full "Last 7 days". Maps to the KMP `LeaderboardPeriod`. Named apart from
+/// the shared `LeaderboardSelection` (period + category), which it would otherwise shadow.
+enum LeaderboardPeriodOption: CaseIterable, Identifiable {
     case sevenDays
     case thirtyDays
     case twelveMonths
     case allTime
 
     var id: Self { self }
+
+    /// The option for a Kotlin period; `.sevenDays` for one this client does not know.
+    init(kmp period: LeaderboardPeriod) {
+        switch period {
+        case is LeaderboardPeriodMonth: self = .thirtyDays
+        case is LeaderboardPeriodYear: self = .twelveMonths
+        case is LeaderboardPeriodAllTime: self = .allTime
+        default: self = .sevenDays
+        }
+    }
 
     var kmpPeriod: LeaderboardPeriod {
         switch self {
@@ -186,7 +198,7 @@ enum LeaderboardPhase: Equatable {
     case loading
     case empty
     case data([LeaderboardRow])
-    case error(isRetryable: Bool)
+    case error
 }
 
 // MARK: - Row model

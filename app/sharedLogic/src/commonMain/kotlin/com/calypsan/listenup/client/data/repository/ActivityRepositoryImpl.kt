@@ -3,9 +3,12 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.ActivityWithProfile
+import com.calypsan.listenup.client.data.local.db.coverPathFor
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
+import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -19,12 +22,14 @@ import kotlinx.coroutines.flow.map
  * with no per-row N+1. The only read-time computation left here is the deterministic avatar colour.
  *
  * @property dao Room DAO for the local activity mirror (fully-enriched reads).
+ * @property imageStorage Resolves a book row's local cover path.
  */
 internal class ActivityRepositoryImpl(
     private val dao: ActivityDao,
+    private val imageStorage: ImageStorage,
 ) : ActivityRepository {
     override fun observeRecent(limit: Int): Flow<List<Activity>> =
-        dao.observeRecent(limit).map { rows -> rows.map { it.toDomain() } }
+        dao.observeRecent(limit).map { rows -> rows.map { it.toDomain(imageStorage) } }
 
     override fun observeRecentlyListened(
         userId: String,
@@ -41,7 +46,7 @@ internal class ActivityRepositoryImpl(
  * the avatar colour is derived locally; the book card comes from the joined `books` row and is null
  * when the activity has no book or the book is inaccessible/tombstoned locally.
  */
-private fun ActivityWithProfile.toDomain(): Activity =
+private fun ActivityWithProfile.toDomain(imageStorage: ImageStorage): Activity =
     Activity(
         id = id,
         type = type,
@@ -60,7 +65,8 @@ private fun ActivityWithProfile.toDomain(): Activity =
                     id = bookId,
                     title = bookTitle,
                     authorName = bookAuthorName,
-                    coverPath = bookCoverPath,
+                    coverPath = imageStorage.coverPathFor(BookId(bookId), bookCoverDownloadedAt),
+                    coverHash = bookCoverHash,
                 )
             } else {
                 null

@@ -29,6 +29,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Tests for the offline-first [ActiveSessionRepositoryImpl]. Room's `cached_active_sessions` mirror is
@@ -69,6 +71,7 @@ class ActiveSessionRepositoryImplTest :
             dao: FakeCachedActiveSessionDao,
             presence: PresenceRefreshSignal = PresenceRefreshSignal(),
             images: ImageStorage = imageStorage(),
+            clock: Clock = Clock.System,
         ): ActiveSessionRepositoryImpl {
             dao.library.value = library
             return ActiveSessionRepositoryImpl(
@@ -76,6 +79,7 @@ class ActiveSessionRepositoryImplTest :
                 imageStorage = images,
                 presence = presence,
                 cachedSessionDao = dao,
+                clock = clock,
             )
         }
 
@@ -350,6 +354,27 @@ class ActiveSessionRepositoryImplTest :
                     .observeActiveSessions("u1")
                     .test {
                         awaitItem().shouldBeEmpty()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("each session carries the time its snapshot was observed") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } returns AppResult.Success(listOf(session(userId = "u2", bookId = "bookA")))
+                    }
+                val library = libraryOf(LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null))
+                val fixed =
+                    object : Clock {
+                        override fun now(): Instant = Instant.fromEpochMilliseconds(42_000L)
+                    }
+
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao(), clock = fixed)
+                    .observeActiveSessions("u1")
+                    .test {
+                        awaitNonEmpty().single().observedAtMs shouldBe 42_000L
                         cancelAndIgnoreRemainingEvents()
                     }
             }

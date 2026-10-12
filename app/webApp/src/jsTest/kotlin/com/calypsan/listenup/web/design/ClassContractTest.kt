@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
@@ -120,6 +121,7 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSe
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
+import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -2143,6 +2145,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             booksFinished = 3,
             currentStreakDays = 2,
             longestStreakDays = 9,
+            isYou = false,
         )
     val snapshot = LeaderboardSnapshot(time = listOf(entry), books = listOf(entry), streak = listOf(entry))
     val listener =
@@ -2169,6 +2172,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             bookTitle = "The Institute",
             bookAuthorName = "Stephen King",
             bookCoverPath = null,
+            bookCoverHash = null,
             isReread = false,
             durationMs = 0L,
             milestoneValue = 0,
@@ -2184,6 +2188,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         recentlyAdded: RecentlyAddedUiState = RecentlyAddedUiState.Loading,
         currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
         leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
+        leaderboardSelection: LeaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
         activityState: ActivityFeedUiState = ActivityFeedUiState.Loading,
         shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     ): @Composable () -> Unit =
@@ -2193,6 +2198,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                 recentlyAdded = recentlyAdded,
                 currentlyListening = currentlyListening,
                 leaderboard = leaderboard,
+                leaderboardSelection = leaderboardSelection,
                 activity = activityState,
                 shelves = shelves,
                 nowMs = 0L,
@@ -2212,18 +2218,18 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         page(),
         // Every section in its error.
         page(
-            books = DiscoverBooksUiState.Error("nope"),
-            recentlyAdded = RecentlyAddedUiState.Error("nope"),
-            currentlyListening = CurrentlyListeningUiState.Error("nope"),
-            leaderboard = LeaderboardUiState.Error(isRetryable = true),
-            activityState = ActivityFeedUiState.Error("nope"),
-            shelves = DiscoverShelvesUiState.Error("nope"),
+            books = DiscoverBooksUiState.Error(UnexpectedClientError()),
+            recentlyAdded = RecentlyAddedUiState.Error(UnexpectedClientError()),
+            currentlyListening = CurrentlyListeningUiState.Error(UnexpectedClientError()),
+            leaderboard = LeaderboardUiState.Error(UnexpectedClientError()),
+            activityState = ActivityFeedUiState.Error(UnexpectedClientError()),
+            shelves = DiscoverShelvesUiState.Error(UnexpectedClientError()),
         ),
         // Every section empty.
         page(
             books = DiscoverBooksUiState.Ready(emptyList()),
             recentlyAdded = RecentlyAddedUiState.Ready(emptyList()),
-            currentlyListening = CurrentlyListeningUiState.Ready(emptyList()),
+            currentlyListening = CurrentlyListeningUiState.Ready(emptyList(), observedAtMs = null, isStale = false),
             leaderboard = LeaderboardUiState.Empty,
             activityState = ActivityFeedUiState.Ready(emptyList()),
             shelves = DiscoverShelvesUiState.Ready(emptyList()),
@@ -2232,13 +2238,14 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         page(
             books = DiscoverBooksUiState.Ready(listOf(discoverBook())),
             recentlyAdded = RecentlyAddedUiState.Ready(listOf(recentBook())),
-            currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener, listener.copy(sessionId = "s2", isLive = false))),
-            leaderboard =
-                LeaderboardUiState.Data(
-                    snapshot = snapshot,
-                    period = LeaderboardPeriod.Week,
-                    category = LeaderboardCategory.Time,
+            currentlyListening =
+                CurrentlyListeningUiState.Ready(
+                    listOf(listener, listener.copy(sessionId = "s2", isLive = false)),
+                    observedAtMs = null,
+                    isStale = false,
                 ),
+            leaderboard = LeaderboardUiState.Data(snapshot = snapshot),
+            leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
             activityState = ActivityFeedUiState.Ready(listOf(activity, joined)),
             shelves =
                 DiscoverShelvesUiState.Ready(
@@ -2253,6 +2260,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                                         description = null,
                                         bookCount = 4,
                                         totalDurationSeconds = 0,
+                                        covers = emptyList(),
                                     ),
                                 ),
                         ),
@@ -2270,6 +2278,8 @@ private fun discoverBook() =
         coverPath = null,
         coverHash = null,
         seriesName = null,
+        sequenceLabel = null,
+        durationMs = 0L,
     )
 
 private fun recentBook() =

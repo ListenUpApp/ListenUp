@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.ShelfBookMutation
 import io.kotest.matchers.string.shouldContain
@@ -334,5 +335,6 @@ private fun repo(
         channel = RpcChannel.forTest(service),
         offlineEditor = offlineEditor,
         collectionBookDao = db.collectionBookDao(),
+        imageStorage = stubImageStorage(),
     )
 }

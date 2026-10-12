@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.test.stubImageStorage
 import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.activity.ActivityType
@@ -156,7 +157,7 @@ class ActivityRepositoryRecentlyListenedTest :
 private fun withRepository(block: suspend (ListenUpDatabase, ActivityRepositoryImpl) -> Unit) {
     val db = createInMemoryTestDatabase()
     try {
-        runTest { block(db, ActivityRepositoryImpl(db.activityDao())) }
+        runTest { block(db, ActivityRepositoryImpl(db.activityDao(), stubImageStorage())) }
     } finally {
         db.close()
     }

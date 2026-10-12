@@ -574,11 +574,13 @@ internal val discoverPresentationModule =
                 activeSessionRepository = get(),
                 authSession = get(),
                 shelfRepository = get(),
+                serverReachability = get(),
+                userProfileRepository = get(),
                 errorBus = get(),
             )
         }
         // LeaderboardViewModel for discover screen leaderboard
-        factory { LeaderboardViewModel(repo = get()) }
+        factory { LeaderboardViewModel(repo = get(), authSession = get()) }
         // ActivityFeedViewModel for discover screen activity feed
         factory {
             ActivityFeedViewModel(

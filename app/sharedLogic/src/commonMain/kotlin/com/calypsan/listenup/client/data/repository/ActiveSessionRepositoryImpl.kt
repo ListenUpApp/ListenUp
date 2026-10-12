@@ -104,6 +104,7 @@ internal class ActiveSessionRepositoryImpl(
             bookId = bookId,
             lastActiveAtMs = session.lastActiveAtMs,
             isLive = session.isLive,
+            observedAtMs = session.observedAt,
             user =
                 ActiveSession.SessionUser(
                     displayName = session.displayName,

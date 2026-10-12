@@ -88,7 +88,7 @@ internal val socialModule: Module =
 
         // ActivityRepository for activity feed (SOLID: interface in domain, impl in data)
         single<ActivityRepository> {
-            ActivityRepositoryImpl(dao = get())
+            ActivityRepositoryImpl(dao = get(), imageStorage = get())
         }
 
         // ActiveSessionRepository for live sessions — SocialService RPC + a local-Room book join,

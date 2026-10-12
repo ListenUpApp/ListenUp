@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfBookCoverHash
 import com.calypsan.listenup.client.data.local.db.ShelfBookDao
+import com.calypsan.listenup.client.data.local.db.ShelfCoverRow
 import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
@@ -19,11 +20,14 @@ import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.domain.model.ShelfCover
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.MockMode
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.every
@@ -72,6 +76,7 @@ class ShelfRepositoryImplTest :
             userDao: UserDao = mock { everySuspend { getCurrentUser() } returns user() },
             service: ShelfService = mock(),
             collectionBookDao: CollectionBookDao = mock { everySuspend { heldBookIds() } returns emptyList() },
+            imageStorage: ImageStorage = mock { every { getCoverPath(any()) } calls { (id: BookId) -> "/covers/${id.value}.jpg" } },
         ): ShelfRepositoryImpl =
             ShelfRepositoryImpl(
                 shelfDao,
@@ -80,6 +85,7 @@ class ShelfRepositoryImplTest :
                 RpcChannel.forTest(service),
                 noopOfflineEditor(),
                 collectionBookDao,
+                imageStorage,
             )
 
         fun shelfEntity(
@@ -400,6 +406,41 @@ class ShelfRepositoryImplTest :
                 shouldThrow<CancellationException> {
                     repo(service = service).createShelf("New", null, isPrivate = false)
                 }
+            }
+        }
+
+        test("discoverShelves resolves each cover id locally, in server order, skipping ids this device lacks") {
+            runTest {
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { discoverShelves() } returns
+                            AppResult.Success(
+                                listOf(
+                                    DiscoveredShelf(
+                                        shelf = summary("s9", "Sam's picks"),
+                                        ownerId = "u2",
+                                        ownerDisplayName = "Sam",
+                                        coverBookIds = listOf("b2", "missing", "b1"),
+                                    ),
+                                ),
+                            )
+                    }
+                val dao =
+                    mock<ShelfDao>(MockMode.autofill) {
+                        everySuspend { coverRowsFor(any()) } returns
+                            listOf(
+                                ShelfCoverRow(bookId = "b1", coverHash = "h1", coverDownloadedAt = Timestamp(5L)),
+                                ShelfCoverRow(bookId = "b2", coverHash = "h2", coverDownloadedAt = null),
+                            )
+                    }
+
+                val shelf = (repo(shelfDao = dao, service = service).discoverShelves() as AppResult.Success).data.single()
+
+                shelf.covers shouldBe
+                    listOf(
+                        ShelfCover(bookId = "b2", coverPath = null, coverHash = "h2"),
+                        ShelfCover(bookId = "b1", coverPath = "/covers/b1.jpg", coverHash = "h1"),
+                    )
             }
         }
     })

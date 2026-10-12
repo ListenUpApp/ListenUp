@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room3.Dao
 import androidx.room3.Query
 import androidx.room3.Upsert
+import com.calypsan.listenup.core.Timestamp
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -137,6 +138,21 @@ internal interface ShelfDao {
     suspend fun coverHashesByBookFor(shelfId: String): List<ShelfBookCoverHash>
 
     /**
+     * Cover fields for the books another reader's shelf names, for those this device holds.
+     *
+     * Discovered shelves never enter Room, so their covers are resolved here from the ids the server
+     * sends. An id the local mirror lacks, a tombstoned book, and a book held for review yield no row.
+     */
+    @Query(
+        """
+        SELECT b.id AS bookId, b.coverHash AS coverHash, b.coverDownloadedAt AS coverDownloadedAt
+        FROM books b
+        WHERE b.id IN (:bookIds) AND b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
+    """,
+    )
+    suspend fun coverRowsFor(bookIds: List<String>): List<ShelfCoverRow>
+
+    /**
      * True live (non-tombstoned) book count for a single shelf.
      *
      * Used by the single-shelf mapping paths ([ShelfRepositoryImpl.observeById] /
@@ -191,3 +207,10 @@ internal interface ShelfDao {
     @Query("SELECT revision FROM shelves WHERE id = :id LIMIT 1")
     suspend fun revisionOf(id: String): Long?
 }
+
+/** One row of [ShelfDao.coverRowsFor]: a book's cover identity on this device. */
+internal data class ShelfCoverRow(
+    val bookId: String,
+    val coverHash: String?,
+    val coverDownloadedAt: Timestamp?,
+)

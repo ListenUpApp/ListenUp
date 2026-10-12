@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.discover
 
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
@@ -16,6 +17,7 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSt
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
+import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -71,6 +73,7 @@ private fun entry(
     booksFinished = booksFinished,
     currentStreakDays = currentStreakDays,
     longestStreakDays = longestStreakDays,
+    isYou = false,
 )
 
 private fun activity(
@@ -86,6 +89,7 @@ private fun activity(
     bookTitle = "The Institute",
     bookAuthorName = "Stephen King",
     bookCoverPath = null,
+    bookCoverHash = null,
     isReread = false,
     durationMs = 0L,
     milestoneValue = 7,
@@ -100,6 +104,7 @@ private fun page(
     recentlyAdded: RecentlyAddedUiState = RecentlyAddedUiState.Loading,
     currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
     leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
+    leaderboardSelection: LeaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
     activityState: ActivityFeedUiState = ActivityFeedUiState.Loading,
     shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     nowMs: Long = NOW_MS,
@@ -118,6 +123,7 @@ private fun page(
         recentlyAdded = recentlyAdded,
         currentlyListening = currentlyListening,
         leaderboard = leaderboard,
+        leaderboardSelection = leaderboardSelection,
         activity = activityState,
         shelves = shelves,
         nowMs = nowMs,
@@ -162,8 +168,13 @@ class DiscoverPageTest :
             val host =
                 mounts.mount {
                     page(
-                        leaderboard = LeaderboardUiState.Error(isRetryable = true),
-                        currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                        leaderboard = LeaderboardUiState.Error(UnexpectedClientError()),
+                        currentlyListening =
+                            CurrentlyListeningUiState.Ready(
+                                listOf(listener(isLive = true)),
+                                observedAtMs = null,
+                                isStale = false,
+                            ),
                     )
                 }
 
@@ -176,7 +187,7 @@ class DiscoverPageTest :
             var refreshes = 0
             val root =
                 mounts.mount {
-                    page(books = DiscoverBooksUiState.Error("Failed to load discover books"), onRefresh = { refreshes++ })
+                    page(books = DiscoverBooksUiState.Error(UnexpectedClientError()), onRefresh = { refreshes++ })
                 }
 
             val retry = root.querySelector(".disc-retry") as HTMLElement
@@ -190,7 +201,7 @@ class DiscoverPageTest :
             var refreshes = 0
             val root =
                 mounts.mount {
-                    page(shelves = DiscoverShelvesUiState.Error("Failed to load discover shelves"), onRefresh = { refreshes++ })
+                    page(shelves = DiscoverShelvesUiState.Error(UnexpectedClientError()), onRefresh = { refreshes++ })
                 }
 
             (root.querySelector(".disc-retry") as HTMLElement).click()
@@ -205,8 +216,8 @@ class DiscoverPageTest :
             val root =
                 mounts.mount {
                     page(
-                        currentlyListening = CurrentlyListeningUiState.Error("nope"),
-                        recentlyAdded = RecentlyAddedUiState.Error("nope"),
+                        currentlyListening = CurrentlyListeningUiState.Error(UnexpectedClientError()),
+                        recentlyAdded = RecentlyAddedUiState.Error(UnexpectedClientError()),
                         onRefresh = { refreshes++ },
                     )
                 }
@@ -225,7 +236,7 @@ class DiscoverPageTest :
             val root =
                 mounts.mount {
                     page(
-                        leaderboard = LeaderboardUiState.Error(isRetryable = true),
+                        leaderboard = LeaderboardUiState.Error(UnexpectedClientError()),
                         onRefresh = { discoverRefreshes++ },
                         onRefreshLeaderboard = { leaderboardRefreshes++ },
                     )
@@ -243,7 +254,7 @@ class DiscoverPageTest :
             val root =
                 mounts.mount {
                     page(
-                        activityState = ActivityFeedUiState.Error("nope"),
+                        activityState = ActivityFeedUiState.Error(UnexpectedClientError()),
                         onRefresh = { discoverRefreshes++ },
                         onRefreshActivity = { activityRefreshes++ },
                     )
@@ -255,15 +266,41 @@ class DiscoverPageTest :
             discoverRefreshes shouldBe 0
         }
 
-        test("a leaderboard that cannot be retried says so and offers nothing") {
-            val root = mounts.mount { page(leaderboard = LeaderboardUiState.Error(isRetryable = false)) }
+        test("a failed leaderboard always offers Try again, like every other section") {
+            val root = mounts.mount { page(leaderboard = LeaderboardUiState.Error(UnexpectedClientError())) }
 
-            root.querySelectorAll(".disc-retry").length shouldBe 0
+            root.querySelectorAll(".disc-retry").length shouldBe 1
+        }
+
+        test("a period nobody listened in keeps its period chips, so another period is one press away") {
+            var period: LeaderboardPeriod? = null
+            val host =
+                mounts.mount {
+                    page(
+                        leaderboard = LeaderboardUiState.Empty,
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
+                        onSelectPeriod = { period = it },
+                    )
+                }
+
+            val on = host.querySelectorAll(".disc-chip.is-on")
+            (on.item(0) as HTMLElement).textContent shouldBe "7 days"
+            (host.querySelectorAll(".disc-chip").item(3) as HTMLElement).click()
+            period shouldBe LeaderboardPeriod.AllTime
         }
 
         test("a live listener is marked as listening now, not as a stale timestamp") {
             val host =
-                mounts.mount { page(currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)))) }
+                mounts.mount {
+                    page(
+                        currentlyListening =
+                            CurrentlyListeningUiState.Ready(
+                                listOf(listener(isLive = true)),
+                                observedAtMs = null,
+                                isStale = false,
+                            ),
+                    )
+                }
 
             host.querySelector(".disc-live")!!.textContent shouldBe "Listening now"
             host.querySelector(".disc-when") shouldBe null
@@ -276,6 +313,8 @@ class DiscoverPageTest :
                         currentlyListening =
                             CurrentlyListeningUiState.Ready(
                                 listOf(listener(isLive = false, lastActiveAt = NOW_MS - TWO_DAYS_MS)),
+                                observedAtMs = null,
+                                isStale = false,
                             ),
                     )
                 }
@@ -291,9 +330,8 @@ class DiscoverPageTest :
                         leaderboard =
                             LeaderboardUiState.Data(
                                 snapshot = LeaderboardSnapshot(listOf(entry("Ada")), emptyList(), emptyList()),
-                                period = LeaderboardPeriod.Month,
-                                category = LeaderboardCategory.Time,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Month, LeaderboardCategory.Time),
                     )
                 }
 
@@ -312,9 +350,8 @@ class DiscoverPageTest :
                         leaderboard =
                             LeaderboardUiState.Data(
                                 snapshot = LeaderboardSnapshot(listOf(entry("Ada")), emptyList(), emptyList()),
-                                period = LeaderboardPeriod.Week,
-                                category = LeaderboardCategory.Time,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
                     )
                 }
 
@@ -334,9 +371,8 @@ class DiscoverPageTest :
                         leaderboard =
                             LeaderboardUiState.Data(
                                 snapshot = LeaderboardSnapshot(listOf(entry("Ada")), emptyList(), emptyList()),
-                                period = LeaderboardPeriod.Week,
-                                category = LeaderboardCategory.Time,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
                         onSelectPeriod = { period = it },
                         onSelectCategory = { category = it },
                     )
@@ -366,9 +402,8 @@ class DiscoverPageTest :
                                         books = listOf(entry("AlsoWrong", booksFinished = 5)),
                                         streak = listOf(entry("Ada", currentStreakDays = 3, longestStreakDays = 90)),
                                     ),
-                                period = LeaderboardPeriod.Week,
-                                category = LeaderboardCategory.Streak,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Streak),
                     )
                 }
 
@@ -409,8 +444,8 @@ class DiscoverPageTest :
                                         user = DiscoverShelfOwner(id = "u1", displayName = "Ada"),
                                         shelves =
                                             listOf(
-                                                DiscoverShelfUi("s1", "Comfort reads", null, SHELF_BOOK_COUNT, 0),
-                                                DiscoverShelfUi("s2", "Long haul", null, 1, 0),
+                                                DiscoverShelfUi("s1", "Comfort reads", null, SHELF_BOOK_COUNT, 0, emptyList()),
+                                                DiscoverShelfUi("s2", "Long haul", null, 1, 0, emptyList()),
                                             ),
                                     ),
                                 ),
@@ -433,7 +468,7 @@ class DiscoverPageTest :
                     page(
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b7", "Dune", "Frank Herbert", null, null, null)),
+                                listOf(DiscoverUiBook("b7", "Dune", "Frank Herbert", null, null, null, null, 0L)),
                             ),
                         onOpenBook = { opened = it },
                     )
@@ -451,7 +486,7 @@ class DiscoverPageTest :
                         recentlyAdded = RecentlyAddedUiState.Ready(emptyList()),
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b1", "Dune", null, null, null, null)),
+                                listOf(DiscoverUiBook("b1", "Dune", null, null, null, null, null, 0L)),
                             ),
                     )
                 }
@@ -484,13 +519,12 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         currentlyListening =
-                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false),
                         leaderboard =
                             LeaderboardUiState.Data(
                                 snapshot = LeaderboardSnapshot(listOf(entry("Grace")), emptyList(), emptyList()),
-                                period = LeaderboardPeriod.Month,
-                                category = LeaderboardCategory.Time,
                             ),
+                        leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Month, LeaderboardCategory.Time),
                         activityState = ActivityFeedUiState.Ready(listOf(activity("finished_book"))),
                         onOpenProfile = { opened += it },
                     )
@@ -516,7 +550,7 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         currentlyListening =
-                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false),
                         onOpenBook = { books += it },
                         onOpenProfile = { profiles += it },
                     )
@@ -534,7 +568,7 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         currentlyListening =
-                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false),
                     )
                 }
 
@@ -552,7 +586,7 @@ class DiscoverPageTest :
                     page(
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null)),
+                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null, null, 0L)),
                             ),
                         onOpenBook = { opened = it },
                         selection = idleSelection(onToggle = { picked += it }),
@@ -573,7 +607,7 @@ class DiscoverPageTest :
                     page(
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b7", "Dune", "Frank Herbert", null, null, null)),
+                                listOf(DiscoverUiBook("b7", "Dune", "Frank Herbert", null, null, null, null, 0L)),
                             ),
                         onOpenBook = { opened = it },
                         selection = selecting(onToggle = { picked += it }),
@@ -592,7 +626,7 @@ class DiscoverPageTest :
                     page(
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null)),
+                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null, null, 0L)),
                             ),
                         selection = selecting(selected = setOf("b7")),
                     )

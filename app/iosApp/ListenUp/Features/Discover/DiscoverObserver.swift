@@ -1,11 +1,11 @@
 import Foundation
 import Shared
 
-/// Observes `DiscoverViewModel` — flattens its three iOS-relevant sealed states into
-/// SwiftUI-native phases: `newForYou` (the "New for You" rail), `recentlyAdded`
-/// (the "Recently Added" rail), and `currentlyListening` (the "What Others Are Listening To"
-/// rail, from `SocialService.currentlyListening`). The Android-only `discoverShelvesState`
-/// stream is intentionally ignored; the iOS Discover design omits that section.
+/// Observes `DiscoverViewModel` — flattens its sealed states into SwiftUI-native phases:
+/// `newForYou` (the "New for You" rail), `recentlyAdded` (the "Recently Added" rail),
+/// `currentlyListening` (the "What Others Are Listening To" rail, from
+/// `SocialService.currentlyListening`) with its `listeningSummary`, `shelves` (Shelves by
+/// Others) and `communitySize` (who else is on the server, for the only-you treatments).
 ///
 /// Thin over `FlowBridge`; all mapping logic lives in pure, testable initializers/helpers.
 @Observable
@@ -16,6 +16,10 @@ final class DiscoverObserver {
     private(set) var newForYou: DiscoverBooksPhase = .loading
     private(set) var recentlyAdded: RecentlyAddedPhase = .loading
     private(set) var currentlyListening: CurrentlyListeningPhase = .loading
+    private(set) var shelves: DiscoverShelvesPhase = .loading
+    private(set) var communitySize: CommunityPhase = .unknown
+    /// Live/recent split, staleness and snapshot time of Listening now; `.empty` until it is Ready.
+    private(set) var listeningSummary: ListeningSummary = .empty
 
     // MARK: - Dependencies
 
@@ -30,12 +34,19 @@ final class DiscoverObserver {
         bridge.bind(viewModel.discoverBooksState) { [weak self] in self?.applyBooks($0) }
         bridge.bind(viewModel.recentlyAddedState) { [weak self] in self?.applyRecent($0) }
         bridge.bind(viewModel.currentlyListeningState) { [weak self] in self?.applyCurrentlyListening($0) }
+        bridge.bind(viewModel.discoverShelvesState) { [weak self] in self?.applyShelves($0) }
+        bridge.bind(viewModel.communitySize) { [weak self] in self?.applyCommunity($0) }
     }
 
     // MARK: - Actions
 
     func refresh() {
         viewModel.refresh()
+    }
+
+    /// Draws ten different books for Something New; leaves every other section alone.
+    func shuffle() {
+        viewModel.shuffle()
     }
 
     // MARK: - State mapping
@@ -71,8 +82,33 @@ final class DiscoverObserver {
         case .ready(let readyType):
             let ready = readyType.value
             currentlyListening = .ready(Self.currentlyListeningRows(from: ready.sessions))
+            listeningSummary = ListeningSummary(
+                liveCount: Int(ready.liveCount),
+                recentCount: Int(ready.recentCount),
+                isStale: ready.isStale,
+                observedAtMs: ready.observedAtMs
+            )
         case .error:
             currentlyListening = .error
+        }
+    }
+
+    private func applyShelves(_ state: DiscoverShelvesUiState) {
+        switch state.sealedType() {
+        case .loading:
+            shelves = .loading
+        case .ready(let readyType):
+            shelves = .ready(readyType.value.users.map(DiscoverShelfOwnerRow.init(from:)))
+        case .error:
+            shelves = .error
+        }
+    }
+
+    private func applyCommunity(_ size: CommunitySize) {
+        switch size.sealedType() {
+        case .unknown: communitySize = .unknown
+        case .justYou: communitySize = .justYou
+        case .others: communitySize = .others
         }
     }
 
@@ -133,6 +169,78 @@ enum CurrentlyListeningPhase: Equatable {
     case error
 }
 
+/// Flattened Shelves by Others state.
+enum DiscoverShelvesPhase: Equatable {
+    case loading
+    case ready([DiscoverShelfOwnerRow])
+    case error
+}
+
+/// Who else is on the server, for the only-you treatments.
+enum CommunityPhase: Equatable {
+    case unknown
+    case justYou
+    case others
+}
+
+/// The Listening Now heading's facts: "2 listening now · 3 more", and "As of …" when stale.
+struct ListeningSummary: Equatable {
+    let liveCount: Int
+    let recentCount: Int
+    let isStale: Bool
+    let observedAt: Date?
+
+    static let empty = ListeningSummary(liveCount: 0, recentCount: 0, isStale: false, observedAtMs: nil)
+
+    init(liveCount: Int, recentCount: Int, isStale: Bool, observedAtMs: Int64?) {
+        self.liveCount = liveCount
+        self.recentCount = recentCount
+        self.isStale = isStale
+        self.observedAt = observedAtMs.map { Date(timeIntervalSince1970: TimeInterval($0) / 1_000) }
+    }
+}
+
+/// One owner in Shelves by Others, with their shelves.
+struct DiscoverShelfOwnerRow: Identifiable, Equatable {
+    let id: String
+    let displayName: String
+    let shelves: [DiscoverShelfRow]
+
+    init(from owner: DiscoverUserShelves) {
+        self.id = owner.user.id
+        self.displayName = owner.user.displayName
+        self.shelves = owner.shelves.map(DiscoverShelfRow.init(from:))
+    }
+}
+
+/// One of another reader's shelves: its name, count and up to four cover tiles.
+struct DiscoverShelfRow: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let bookCount: Int
+    let covers: [DiscoverShelfCover]
+
+    init(from shelf: DiscoverShelfUi) {
+        self.id = shelf.id
+        self.name = shelf.name
+        self.bookCount = Int(shelf.bookCount)
+        self.covers = shelf.covers.map(DiscoverShelfCover.init(from:))
+    }
+}
+
+/// One mosaic tile.
+struct DiscoverShelfCover: Equatable {
+    let bookId: String
+    let coverPath: String?
+    let coverHash: String?
+
+    init(from cover: ShelfCover) {
+        self.bookId = cover.bookId
+        self.coverPath = cover.coverPath
+        self.coverHash = cover.coverHash
+    }
+}
+
 // MARK: - Item models
 
 /// One cover card in the "New for You" rail.
@@ -142,6 +250,11 @@ struct DiscoverBook: Identifiable, Equatable {
     let author: String?
     let coverPath: String?
     let coverHash: String?
+    /// The series this book starts; nil when standalone.
+    let seriesName: String?
+    /// Its place in that series ("1"); nil when standalone or unnumbered.
+    let sequenceLabel: String?
+    let durationMs: Int64
 
     init(from book: DiscoverUiBook) {
         self.id = book.id
@@ -149,14 +262,29 @@ struct DiscoverBook: Identifiable, Equatable {
         self.author = book.authorName
         self.coverPath = book.coverPath
         self.coverHash = book.coverHash
+        self.seriesName = book.seriesName
+        self.sequenceLabel = book.sequenceLabel
+        self.durationMs = book.durationMs
     }
 
-    init(id: String, title: String, author: String?, coverPath: String?, coverHash: String?) {
+    init(
+        id: String,
+        title: String,
+        author: String?,
+        coverPath: String?,
+        coverHash: String?,
+        seriesName: String? = nil,
+        sequenceLabel: String? = nil,
+        durationMs: Int64 = 0
+    ) {
         self.id = id
         self.title = title
         self.author = author
         self.coverPath = coverPath
         self.coverHash = coverHash
+        self.seriesName = seriesName
+        self.sequenceLabel = sequenceLabel
+        self.durationMs = durationMs
     }
 }
 
@@ -205,6 +333,10 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
     let author: String?
     let coverPath: String?
     let coverHash: String?
+    /// True when they are listening right now.
+    let isLive: Bool
+    /// When they were last active on this book.
+    let lastActiveAt: Date
 
     init(from session: CurrentlyListeningUiSession) {
         self.id = "\(session.userId):\(session.bookId)"
@@ -216,6 +348,8 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
         self.author = session.authorName
         self.coverPath = session.coverPath
         self.coverHash = session.coverHash
+        self.isLive = session.isLive
+        self.lastActiveAt = Date(timeIntervalSince1970: TimeInterval(session.lastActiveAt) / 1_000)
     }
 
     init(
@@ -227,7 +361,9 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
         title: String,
         author: String?,
         coverPath: String?,
-        coverHash: String?
+        coverHash: String?,
+        isLive: Bool = false,
+        lastActiveAt: Date = .distantPast
     ) {
         self.id = id
         self.userId = userId
@@ -238,5 +374,7 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
         self.author = author
         self.coverPath = coverPath
         self.coverHash = coverHash
+        self.isLive = isLive
+        self.lastActiveAt = lastActiveAt
     }
 }

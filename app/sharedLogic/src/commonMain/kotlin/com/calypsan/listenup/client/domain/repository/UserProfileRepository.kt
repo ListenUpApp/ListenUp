@@ -30,4 +30,10 @@ interface UserProfileRepository {
      * @return Flow emitting the cached profile or null if not yet cached
      */
     fun observeProfile(userId: String): Flow<CachedUserProfile?>
+
+    /**
+     * Observe the ids of everyone on the server's public roster (live rows only), the reader included.
+     * Empty until the roster has synced.
+     */
+    fun observeRosterUserIds(): Flow<List<String>>
 }

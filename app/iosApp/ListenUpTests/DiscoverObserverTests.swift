@@ -18,7 +18,9 @@ struct DiscoverObserverTests {
             authorName: "Andy Weir",
             coverPath: "/covers/phm.jpg",
             coverHash: nil,
-            seriesName: nil
+            seriesName: "Hail Mary",
+            sequenceLabel: "1",
+            durationMs: 58_000_000
         )
         let book = DiscoverBook(from: kmp)
 
@@ -26,6 +28,33 @@ struct DiscoverObserverTests {
         #expect(book.title == "Project Hail Mary")
         #expect(book.author == "Andy Weir")
         #expect(book.coverPath == "/covers/phm.jpg")
+        #expect(book.seriesName == "Hail Mary")
+        #expect(book.sequenceLabel == "1")
+        #expect(book.durationMs == 58_000_000)
+    }
+
+    @Test func summaryCarriesCountsStalenessAndObservedTime() {
+        let summary = ListeningSummary(liveCount: 2, recentCount: 3, isStale: true, observedAtMs: 7_200_000)
+        #expect(summary.liveCount == 2)
+        #expect(summary.recentCount == 3)
+        #expect(summary.isStale)
+        #expect(summary.observedAt == Date(timeIntervalSince1970: 7_200))
+    }
+
+    @Test func shelfOwnerRowsMapCovers() {
+        let owner = DiscoverUserShelves(
+            user: DiscoverShelfOwner(id: "u1", displayName: "Ada"),
+            shelves: [
+                DiscoverShelfUi(
+                    id: "s1", name: "Comfort reads", description: nil, bookCount: 4, totalDurationSeconds: 0,
+                    covers: [ShelfCover(bookId: "b1", coverPath: "/c/b1.jpg", coverHash: "h1")]
+                )
+            ]
+        )
+        let row = DiscoverShelfOwnerRow(from: owner)
+        #expect(row.id == "u1")
+        #expect(row.shelves.first?.covers.first?.bookId == "b1")
+        #expect(row.shelves.first?.bookCount == 4)
     }
 
     // MARK: - RecentlyAddedBook
@@ -54,7 +83,13 @@ struct DiscoverObserverTests {
 @Suite("Leaderboard mapping")
 struct LeaderboardObserverTests {
 
-    private func entry(rank: Int32, userId: String, name: String, seconds: Int64) -> LeaderboardEntry {
+    private func entry(
+        rank: Int32,
+        userId: String,
+        name: String,
+        seconds: Int64,
+        isYou: Bool = false
+    ) -> LeaderboardEntry {
         LeaderboardEntry(
             rank: rank,
             userId: userId,
@@ -62,36 +97,37 @@ struct LeaderboardObserverTests {
             totalSeconds: seconds,
             booksFinished: 0,
             currentStreakDays: 0,
-            longestStreakDays: 0
+            longestStreakDays: 0,
+            isYou: isYou
         )
     }
 
-    @Test func rowsTagCurrentUser() {
+    @Test func rowsTagTheEntryMarkedAsYou() {
         let snapshot = LeaderboardSnapshot(
             time: [
                 entry(rank: 1, userId: "u1", name: "Marcus Lee", seconds: 51_600),
-                entry(rank: 2, userId: "u2", name: "Simon Hull", seconds: 42_480)
+                entry(rank: 2, userId: "u2", name: "Simon Hull", seconds: 42_480, isYou: true)
             ],
             books: [],
             streak: []
         )
-        let rows = LeaderboardObserver.rows(from: snapshot, currentUserId: "u2")
+        let rows = LeaderboardObserver.rows(from: snapshot, metric: .time)
 
-        #expect(rows.count == 2)
-        #expect(rows[0].isCurrentUser == false)
-        #expect(rows[1].isCurrentUser == true)
+        #expect(rows.map(\.isCurrentUser) == [false, true])
         #expect(rows[1].displayName == "Simon Hull")
     }
 
-    @Test func rowsHaveNoCurrentUserWhenIdIsNil() {
-        let snapshot = LeaderboardSnapshot(
-            time: [entry(rank: 1, userId: "u1", name: "Marcus Lee", seconds: 51_600)],
-            books: [],
-            streak: []
-        )
-        let rows = LeaderboardObserver.rows(from: snapshot, currentUserId: nil)
+    @Test func periodOptionMapsEveryKotlinPeriod() {
+        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodWeek.shared) == .sevenDays)
+        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodMonth.shared) == .thirtyDays)
+        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodYear.shared) == .twelveMonths)
+        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodAllTime.shared) == .allTime)
+    }
 
-        #expect(rows.allSatisfy { !$0.isCurrentUser })
+    @Test func metricMapsEveryKotlinCategory() {
+        for metric in LeaderboardMetric.allCases {
+            #expect(LeaderboardMetric(kmp: metric.kmpCategory) == metric)
+        }
     }
 
     @Test func formatHoursRendersHoursAndMinutes() {
@@ -130,6 +166,7 @@ struct ActivityFeedObserverTests {
             bookTitle: book,
             bookAuthorName: "Frank Herbert",
             bookCoverPath: nil,
+            bookCoverHash: nil,
             isReread: isReread,
             durationMs: durationMs,
             milestoneValue: 30,
@@ -166,6 +203,20 @@ struct ActivityFeedObserverTests {
         #expect(item.book == "Dune")
         #expect(item.bookId == "b1")
         #expect(item.action == "finished")
+    }
+
+    @Test func rowItemCarriesTheBookCover() {
+        let base = model(type: "finished_book")
+        let withCover = ActivityUiModel(
+            id: base.id, userId: base.userId, type: base.type, occurredAt: base.occurredAt,
+            userDisplayName: base.userDisplayName, bookId: base.bookId, bookTitle: base.bookTitle,
+            bookAuthorName: base.bookAuthorName, bookCoverPath: "/c/b1.jpg", bookCoverHash: "h1",
+            isReread: base.isReread, durationMs: base.durationMs, milestoneValue: base.milestoneValue,
+            milestoneUnit: base.milestoneUnit, shelfId: base.shelfId, shelfName: base.shelfName
+        )
+        let row = ActivityRowItem(from: withCover)
+        #expect(row.coverPath == "/c/b1.jpg")
+        #expect(row.coverHash == "h1")
     }
 
     @Test func bookLessActivityHasNoBook() {
@@ -248,6 +299,8 @@ struct CurrentlyListeningMappingTests {
         #expect(row.author == "Frank Herbert")
         #expect(row.displayName == "Priya Nair")
         #expect(row.initials == "PN")
+        #expect(row.isLive == true)
+        #expect(row.lastActiveAt == Date(timeIntervalSince1970: 0.1))
     }
 
     @Test func dedupsToOneRowPerUserKeepingMostRecentBook() {

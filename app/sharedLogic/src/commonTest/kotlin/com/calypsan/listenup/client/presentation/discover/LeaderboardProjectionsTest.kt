@@ -20,6 +20,7 @@ private fun entry(
     booksFinished = booksFinished,
     currentStreakDays = currentStreakDays,
     longestStreakDays = longestStreakDays,
+    isYou = false,
 )
 
 /**

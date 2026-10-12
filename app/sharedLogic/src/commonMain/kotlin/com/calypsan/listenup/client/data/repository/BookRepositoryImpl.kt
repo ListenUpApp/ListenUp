@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.data.local.db.toAudioFile
 import com.calypsan.listenup.client.data.local.db.toDetail
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.core.formatSeriesSequence
 import com.calypsan.listenup.client.core.isFirstInSeries
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -29,6 +30,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.TierLabels
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
+import com.calypsan.listenup.client.domain.repository.DiscoveryPick
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.MoodRepository
@@ -192,19 +194,16 @@ internal class BookRepositoryImpl(
      * Discover surface never surfaces a book whose story has already begun.
      * The result is shuffled on every emission so pull-to-refresh reorders it.
      */
-    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryBook>> =
+    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryPick>> =
         bookDao.observeUnstartedCandidatesWithSeries().map { rows ->
             rows
                 .groupBy { it.id }
                 .values
                 .asSequence()
-                .filter { bookRows ->
-                    val sequences = bookRows.mapNotNull { it.sequence }
-                    sequences.isEmpty() || sequences.any { isFirstInSeries(it) }
-                }.map { bookRows -> bookRows.first() }
+                .mapNotNull(::seriesStarterRow)
                 .shuffled()
                 .take(limit)
-                .map { it.toDiscoveryBook(imageStorage) }
+                .map { it.toDiscoveryPick(imageStorage) }
                 .toList()
         }
 
@@ -426,16 +425,25 @@ private fun com.calypsan.listenup.client.data.local.db.DiscoveryBookWithAuthor.t
     )
 
 /**
- * Convert a [DiscoveryBookWithSeries] row to a domain [DiscoveryBook].
+ * The row a pick is labelled from: one of the series this book starts, or its only row when it has no
+ * numbered series edge. Null when every numbered series it is in has already begun — the same rule the
+ * filter applied before, now also choosing which series to name.
  */
-private fun com.calypsan.listenup.client.data.local.db.DiscoveryBookWithSeries.toDiscoveryBook(
+private fun seriesStarterRow(bookRows: List<com.calypsan.listenup.client.data.local.db.DiscoveryBookWithSeries>) =
+    bookRows.filter { it.sequence != null }.let { numbered ->
+        if (numbered.isEmpty()) bookRows.first() else numbered.firstOrNull { isFirstInSeries(it.sequence) }
+    }
+
+private fun com.calypsan.listenup.client.data.local.db.DiscoveryBookWithSeries.toDiscoveryPick(
     imageStorage: ImageStorage,
-): DiscoveryBook =
-    DiscoveryBook(
+): DiscoveryPick =
+    DiscoveryPick(
         id = id.value,
         title = title,
         authorName = authorName,
         coverPath = imageStorage.coverPathFor(id, coverDownloadedAt),
         coverHash = coverHash,
-        createdAt = createdAt.epochMillis,
+        seriesName = seriesName,
+        sequenceLabel = sequence?.let(::formatSeriesSequence),
+        durationMs = totalDuration,
     )

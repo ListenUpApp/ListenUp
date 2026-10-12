@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.TierLabels
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
+import com.calypsan.listenup.client.domain.repository.DiscoveryPick
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -157,7 +158,7 @@ class FakeBookRepository : BookRepository {
 
     override fun observeIsBookLive(id: String): Flow<Boolean> = MutableStateFlow(true)
 
-    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryBook>> = MutableStateFlow(emptyList())
+    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryPick>> = MutableStateFlow(emptyList())
 
     override fun observeRecentlyAddedBooks(limit: Int): Flow<List<DiscoveryBook>> = MutableStateFlow(emptyList())
 

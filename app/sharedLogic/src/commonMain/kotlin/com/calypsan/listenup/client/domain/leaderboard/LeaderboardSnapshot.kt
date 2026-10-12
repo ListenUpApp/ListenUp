@@ -27,6 +27,8 @@ data class LeaderboardSnapshot(
  *
  * Avatar resolution happens at the UI layer via `UserAvatar(userId = entry.userId)`;
  * the entry carries only identity and stats.
+ *
+ * @property isYou True on the signed-in reader's own row, which every platform labels "You"
  */
 data class LeaderboardEntry(
     val rank: Int,
@@ -36,6 +38,7 @@ data class LeaderboardEntry(
     val booksFinished: Int,
     val currentStreakDays: Int,
     val longestStreakDays: Int,
+    val isYou: Boolean,
 )
 
 /** Which category the user is currently viewing on the leaderboard tabs. */

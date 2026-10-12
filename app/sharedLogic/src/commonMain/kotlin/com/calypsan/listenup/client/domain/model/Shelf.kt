@@ -28,6 +28,8 @@ import kotlin.time.Duration.Companion.seconds
  * @property createdAtMs Creation timestamp
  * @property updatedAtMs Last update timestamp
  * @property coverPaths Cover hashes for the shelf's first few member books, in sort order
+ * @property covers The cover mosaic of a shelf discovered from another reader, resolved on this device
+ *   from the server's cover ids; empty for the reader's own shelves, whose covers are [coverPaths]
  */
 data class Shelf(
     val id: ShelfId,
@@ -41,6 +43,7 @@ data class Shelf(
     val createdAtMs: Long,
     val updatedAtMs: Long,
     val coverPaths: List<String> = emptyList(),
+    val covers: List<ShelfCover> = emptyList(),
 ) {
     /** The shelf id as a plain String for Swift, where the value class crosses as a wrapper object. */
     val idString: String get() = id.value
