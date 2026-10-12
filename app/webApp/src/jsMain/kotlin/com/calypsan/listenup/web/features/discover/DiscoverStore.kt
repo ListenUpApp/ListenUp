@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
@@ -41,6 +42,8 @@ class DiscoverSession(
     val shelves: StateFlow<DiscoverShelvesUiState>,
     val leaderboard: StateFlow<LeaderboardUiState>,
     val activity: StateFlow<ActivityFeedUiState>,
+    /** Who else is on the server; PR 6's only-you states read it. */
+    val communitySize: StateFlow<CommunitySize>,
     val onSelectPeriod: (LeaderboardPeriod) -> Unit,
     val onSelectCategory: (LeaderboardCategory) -> Unit,
     /**
@@ -90,6 +93,7 @@ fun graphDiscover(koin: Koin): OpenDiscover =
             shelves = discover.discoverShelvesState,
             leaderboard = leaderboard.uiState,
             activity = activity.state,
+            communitySize = discover.communitySize,
             onSelectPeriod = leaderboard::selectPeriod,
             onSelectCategory = leaderboard::selectCategory,
             onRefresh = discover::refresh,
@@ -107,6 +111,7 @@ fun fixedDiscover(
     shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
     activity: ActivityFeedUiState = ActivityFeedUiState.Loading,
+    communitySize: CommunitySize = CommunitySize.Unknown,
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
     onRefresh: () -> Unit = {},
@@ -121,6 +126,7 @@ fun fixedDiscover(
             shelves = MutableStateFlow(shelves),
             leaderboard = MutableStateFlow(leaderboard),
             activity = MutableStateFlow(activity),
+            communitySize = MutableStateFlow(communitySize),
             onSelectPeriod = onSelectPeriod,
             onSelectCategory = onSelectCategory,
             onRefresh = onRefresh,

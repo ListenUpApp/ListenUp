@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.domain.repository.DiscoveryPick
 import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +60,7 @@ class DiscoverViewModel(
     private val authSession: AuthSession,
     private val shelfRepository: ShelfRepository,
     serverReachability: ServerReachability,
+    userProfileRepository: UserProfileRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     // === Discover Shelves State (on-demand RPC) ===
@@ -74,6 +76,28 @@ class DiscoverViewModel(
         // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
         loadDiscoverShelves()
     }
+
+    /**
+     * How many people Discover's social sections can draw on: [CommunitySize.Unknown] until the roster
+     * has synced, then [CommunitySize.JustYou] or [CommunitySize.Others]. Read by Listening now, the
+     * leaderboard and Shelves by others to choose their only-you treatment.
+     */
+    val communitySize: StateFlow<CommunitySize> =
+        authSession.authState
+            .flatMapLatest { auth ->
+                if (auth is AuthState.Authenticated) {
+                    userProfileRepository.observeRosterUserIds().map { ids -> communitySizeOf(ids, auth.userId.value) }
+                } else {
+                    flowOf(CommunitySize.Unknown)
+                }
+            }.fallbackTo { e ->
+                logger.warn(e) { "Community size unavailable" }
+                CommunitySize.Unknown
+            }.stateIn(
+                scope = viewModelScope,
+                started = WhileSubscribedForUi,
+                initialValue = CommunitySize.Unknown,
+            )
 
     // === Currently Listening State (from SocialService RPC) ===
 

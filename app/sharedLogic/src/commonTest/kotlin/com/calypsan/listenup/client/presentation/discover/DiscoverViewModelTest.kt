@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.domain.repository.DiscoveryPick
 import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -153,6 +154,8 @@ class DiscoverViewModelTest :
             val activeSessionRepository: ActiveSessionRepository = mock()
             val authSession: AuthSession = mock()
             val shelfRepository: ShelfRepository = mock()
+            val userProfileRepository: UserProfileRepository = mock()
+            val rosterFlow = MutableStateFlow<List<String>>(emptyList())
 
             val authStateFlow = MutableStateFlow<AuthState>(AuthState.Initializing)
             val activeSessionsFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
@@ -172,6 +175,7 @@ class DiscoverViewModelTest :
 
                             override suspend fun retry() = Unit
                         },
+                    userProfileRepository = userProfileRepository,
                     errorBus = errorBus,
                 )
         }
@@ -189,6 +193,7 @@ class DiscoverViewModelTest :
             every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns fixture.recentlyAddedFlow
             every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } returns flowOf(randomBooks)
             everySuspend { fixture.shelfRepository.discoverShelves() } returns AppResult.Success(discoveredShelves)
+            every { fixture.userProfileRepository.observeRosterUserIds() } returns fixture.rosterFlow
 
             return fixture
         }
@@ -365,6 +370,34 @@ class DiscoverViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>().observedAtMs shouldBe null
+            }
+        }
+
+        test("communitySize goes Unknown, then JustYou, then Others as the roster syncs") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build().also { keepStateHot(it.communitySize) }
+                advanceUntilIdle()
+                viewModel.communitySize.value shouldBe CommunitySize.Unknown
+
+                fixture.rosterFlow.value = listOf(USER_ID)
+                advanceUntilIdle()
+                viewModel.communitySize.value shouldBe CommunitySize.JustYou
+
+                fixture.rosterFlow.value = listOf(USER_ID, OTHER_USER_ID)
+                advanceUntilIdle()
+                viewModel.communitySize.value shouldBe CommunitySize.Others
+            }
+        }
+
+        test("communitySize stays Unknown while signed out") {
+            runTest {
+                val fixture = createFixture(authState = AuthState.Initializing)
+                fixture.rosterFlow.value = listOf(USER_ID, OTHER_USER_ID)
+                val viewModel = fixture.build().also { keepStateHot(it.communitySize) }
+                advanceUntilIdle()
+
+                viewModel.communitySize.value shouldBe CommunitySize.Unknown
             }
         }
 

@@ -23,6 +23,8 @@ internal class UserProfileRepositoryImpl(
 
     override fun observeProfile(userId: String): Flow<CachedUserProfile?> =
         publicProfileDao.observeById(userId).map { it?.toDomain() }
+
+    override fun observeRosterUserIds(): Flow<List<String>> = publicProfileDao.observeAll().map { rows -> rows.map { it.id } }
 }
 
 /**

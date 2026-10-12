@@ -35,7 +35,7 @@ private fun publicProfile(
     deletedAt = deletedAt,
 )
 
-/** In-memory fake: only the two reads [UserProfileRepositoryImpl] uses are backed. */
+/** In-memory fake: only the reads [UserProfileRepositoryImpl] uses are backed. */
 private class StubReadPublicProfileDao(
     private val rows: MutableStateFlow<Map<String, PublicProfileEntity>>,
 ) : PublicProfileDao {
@@ -43,7 +43,7 @@ private class StubReadPublicProfileDao(
 
     override suspend fun findById(userId: String): PublicProfileEntity? = rows.value[userId]
 
-    override fun observeAll(): Flow<List<PublicProfileEntity>> = error("unused")
+    override fun observeAll(): Flow<List<PublicProfileEntity>> = rows.map { it.values.filter { row -> row.deletedAt == null } }
 
     override suspend fun upsert(entity: PublicProfileEntity) = error("unused")
 
@@ -117,6 +117,16 @@ class UserProfileRepositoryImplTest :
             val (repo, _) = repoWith(publicProfile(id = "gone", deletedAt = 99L))
             runTest {
                 repo.getById("gone").shouldBeNull()
+            }
+        }
+
+        test("observeRosterUserIds lists every live profile, and drops a tombstoned one") {
+            val (repo, rows) = repoWith(publicProfile(id = "me"), publicProfile(id = "ada"))
+            repo.observeRosterUserIds().test {
+                awaitItem().toSet() shouldBe setOf("me", "ada")
+                rows.value = rows.value + ("ada" to publicProfile(id = "ada", deletedAt = 1L))
+                awaitItem() shouldBe listOf("me")
+                cancelAndIgnoreRemainingEvents()
             }
         }
     })
