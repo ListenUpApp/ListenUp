@@ -18751,6 +18751,126 @@
         }
       }
     },
+    "player.cause_auth_session_expired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloaded books keep playing. Streaming needs you signed in."
+          }
+        }
+      }
+    },
+    "player.cause_book_held_for_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release it from the Inbox before anyone can play it."
+          }
+        }
+      }
+    },
+    "player.cause_playback_autoplay_blocked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your browser needs a tap before it plays sound."
+          }
+        }
+      }
+    },
+    "player.cause_playback_blocked_in_background": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android paused playback while the app was in the background."
+          }
+        }
+      }
+    },
+    "player.cause_playback_connection_lost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The connection to your server dropped."
+          }
+        }
+      }
+    },
+    "player.cause_playback_could_not_start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong starting this book."
+          }
+        }
+      }
+    },
+    "player.cause_playback_no_longer_available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The book was removed, or your access changed. A downloaded book you're partway through keeps playing."
+          }
+        }
+      }
+    },
+    "player.cause_playback_offline_not_downloaded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book isn't downloaded, so it can't play until you're back online. Downloaded books play as usual."
+          }
+        }
+      }
+    },
+    "player.cause_playback_server_unreachable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your server isn't answering. Downloaded books still play."
+          }
+        }
+      }
+    },
+    "player.cause_playback_server_unreachable_web": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books stream from your server in the browser."
+          }
+        }
+      }
+    },
+    "player.cause_playback_stalled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The connection to your server dropped."
+          }
+        }
+      }
+    },
+    "player.cause_playback_unsupported_format": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device can't decode the book's audio format."
+          }
+        }
+      }
+    },
     "player.chapter_number": {
       "localizations": {
         "en": {
@@ -19031,6 +19151,16 @@
         }
       }
     },
+    "player.place_saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your place is saved."
+          }
+        }
+      }
+    },
     "player.play": {
       "localizations": {
         "en": {
@@ -19077,6 +19207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Previous chapter"
+          }
+        }
+      }
+    },
+    "player.reference": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reference %1$@"
           }
         }
       }
@@ -19197,6 +19337,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "Timer active"
+          }
+        }
+      }
+    },
+    "player.title_auth_session_expired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your session expired. Please sign in again."
+          }
+        }
+      }
+    },
+    "player.title_book_held_for_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting in the Inbox."
+          }
+        }
+      }
+    },
+    "player.title_playback_autoplay_blocked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap Play to start."
+          }
+        }
+      }
+    },
+    "player.title_playback_blocked_in_background": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to keep listening."
+          }
+        }
+      }
+    },
+    "player.title_playback_connection_lost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't play this book."
+          }
+        }
+      }
+    },
+    "player.title_playback_could_not_start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't play this book."
+          }
+        }
+      }
+    },
+    "player.title_playback_no_longer_available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No longer in your library."
+          }
+        }
+      }
+    },
+    "player.title_playback_offline_not_downloaded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're offline."
+          }
+        }
+      }
+    },
+    "player.title_playback_server_unreachable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't reach your server."
+          }
+        }
+      }
+    },
+    "player.title_playback_stalled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't play this book."
+          }
+        }
+      }
+    },
+    "player.title_playback_unsupported_format": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't play this audio."
           }
         }
       }
