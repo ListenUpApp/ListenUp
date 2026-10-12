@@ -93,6 +93,17 @@ final class Dependencies: Sendable {
         return coordinator
     }
 
+    private let observerSlot = PlayerObserverSlot()
+
+    /// The app-wide SwiftUI model of the shared player. Built lazily, with the coordinator, so the shared
+    /// player's instructions are drained from the first read. App-lifetime, so its `PlayerViewModel` is not owned.
+    @MainActor var playerObserver: PlayerObserver {
+        if let observer = observerSlot.observer { return observer }
+        let observer = PlayerObserver(viewModel: KoinHelper.shared.getPlayerViewModel(), coordinator: playerCoordinator)
+        observerSlot.observer = observer
+        return observer
+    }
+
     // MARK: - Detail ViewModels (fresh instance per screen)
 
     /// Parametrized VM — a fresh instance per pending-approval session (carries userId/email + its SSE job).
@@ -230,6 +241,13 @@ final class Dependencies: Sendable {
 @MainActor
 private final class PlayerCoordinatorSlot {
     var coordinator: PlayerCoordinator?
+    nonisolated init() {}
+}
+
+/// Holds the app's one `PlayerObserver`, on the main actor, like `PlayerCoordinatorSlot`.
+@MainActor
+private final class PlayerObserverSlot {
+    var observer: PlayerObserver?
     nonisolated init() {}
 }
 
