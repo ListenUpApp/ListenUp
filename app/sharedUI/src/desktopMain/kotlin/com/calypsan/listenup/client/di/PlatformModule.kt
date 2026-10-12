@@ -123,7 +123,7 @@ val platformModule: Module =
 
         // Book detail platform actions (playback via FFmpeg, downloads stubbed)
         single<BookDetailPlatformActions> {
-            DesktopBookDetailPlatformActions(nowPlayingViewModel = get())
+            DesktopBookDetailPlatformActions(playerSession = get())
         }
 
         // Settings platform actions (reveal the on-device log directory)

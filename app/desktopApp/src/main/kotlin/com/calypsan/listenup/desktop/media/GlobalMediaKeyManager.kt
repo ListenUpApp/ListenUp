@@ -1,7 +1,7 @@
 package com.calypsan.listenup.desktop.media
 
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
-import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlayerSession
+import com.calypsan.listenup.client.playback.PlayerSessionState
 import com.github.kwhat.jnativehook.GlobalScreen
 import com.github.kwhat.jnativehook.NativeHookException
 import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent
@@ -21,35 +21,36 @@ private val logger = KotlinLogging.logger {}
  * Call [start] to begin listening and [stop] to clean up.
  */
 class GlobalMediaKeyManager(
-    nowPlayingViewModel: NowPlayingViewModel,
+    playerSession: PlayerSession,
 ) {
     private var isRegistered = false
 
     private val keyListener =
         object : NativeKeyListener {
             override fun nativeKeyPressed(event: NativeKeyEvent) {
-                // Only intercept global media keys when there's a book loaded.
-                if (nowPlayingViewModel.screenState.value.state is NowPlayingState.Idle) return
+                // Only intercept global media keys when there's a book loaded. The session's state is
+                // eagerly shared, so this reads the truth with no screen collecting it.
+                if (playerSession.state.value !is PlayerSessionState.Loaded) return
 
                 when (event.keyCode) {
                     NativeKeyEvent.VC_MEDIA_PLAY -> {
                         logger.debug { "Global media key: Play/Pause" }
-                        nowPlayingViewModel.playPause()
+                        playerSession.playPause()
                     }
 
                     NativeKeyEvent.VC_MEDIA_NEXT -> {
                         logger.debug { "Global media key: Next" }
-                        nowPlayingViewModel.skipForward()
+                        playerSession.skipForward()
                     }
 
                     NativeKeyEvent.VC_MEDIA_PREVIOUS -> {
                         logger.debug { "Global media key: Previous" }
-                        nowPlayingViewModel.skipBack()
+                        playerSession.skipBack()
                     }
 
                     NativeKeyEvent.VC_MEDIA_STOP -> {
                         logger.debug { "Global media key: Stop" }
-                        nowPlayingViewModel.closeBook()
+                        playerSession.closeBook()
                     }
                 }
             }
