@@ -1,9 +1,12 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.test.fake.positionFor
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runCurrent
@@ -91,11 +94,45 @@ class PlayerSessionLifecycleTest :
             }
         }
 
-        // Enabled in Task 14, which adds PlayerSession.playBook (the body lands with the member).
-        xtest("a revoke while streaming stops the engine but keeps the book loaded until Close") {}
+        test("a revoke while streaming stops the engine but keeps the book loaded until Close") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                    rig.books.setBooks(emptyList())
+                    runCurrent()
+                    rig.engine.calls shouldContain "stop"
+                    rig.loaded.phase shouldBe PlayerPhase.Unavailable(PlaybackError.NoLongerAvailable())
+                    rig.store.stored shouldBe "b1"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
 
-        // Enabled in Task 14, which adds PlayerSession.playBook (the body lands with the member).
-        xtest("a revoked book that is downloaded and in progress keeps playing") {}
+        test("a revoked book that is downloaded and in progress keeps playing") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.downloads.setStatus("b1", BookDownloadStatus.Completed(bookId = "b1", totalBytes = 1))
+                    rig.positions.setPosition(positionFor("b1", positionMs = 5_000))
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    rig.books.setBooks(emptyList())
+                    runCurrent()
+                    rig.engine.calls shouldNotContain "stop"
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                } finally {
+                    rig.close()
+                }
+            }
+        }
 
         test("the engine starting another book out of band (Android Auto, resumption) makes it the loaded book") {
             runTest {
@@ -117,8 +154,23 @@ class PlayerSessionLifecycleTest :
             }
         }
 
-        // Enabled in Task 14, which adds PlayerSession.playBook (the body lands with the member).
-        xtest("the engine dropping the book (service killed) falls back to Restored, not to nothing") {}
+        test("the engine dropping the book (service killed) falls back to Restored, not to nothing") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    rig.engine.loadedBookId.value = null
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Restored
+                    rig.loaded.isEngineBound shouldBe false
+                } finally {
+                    rig.close()
+                }
+            }
+        }
 
         // Enabled in Task 17, which adds PlayerSession.setSleepTimer (playBook arrives in Task 14).
         xtest("Close book stops, clears the key, cancels the timer and leaves nothing loaded") {}

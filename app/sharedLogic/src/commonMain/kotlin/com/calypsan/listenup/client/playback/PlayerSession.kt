@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
@@ -10,7 +12,9 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -55,6 +59,9 @@ class PlayerSession(
     /** The book a load is in flight for, set synchronously so a double tap is swallowed in the same tick. */
     val preparingBookId: StateFlow<BookId?>
         field = MutableStateFlow<BookId?>(null)
+
+    /** [preparingBookId] behind a 250 ms debounce, for buttons that must not flash on a fast prepare (Decision 11). */
+    val preparingBookIdUi: Flow<BookId?> = preparingBookIdUiFlow(preparingBookId)
 
     /** Where a not-prepared book will start when Play is pressed (Decision 5), or null for the saved position. */
     val pendingStartMs: StateFlow<Long?>
@@ -326,6 +333,90 @@ class PlayerSession(
         )
 
     // ── Load (Task 14) ───────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Play [bookId] (the play entry for every surface and Home, P-R5). [startAtMs] starts there (book ms);
+     * null resumes from the saved position.
+     *
+     * - A plain repeat tap for the book already preparing is swallowed (a double tap).
+     * - The book the engine already holds, not finished and not failed, is a resume: a seek when [startAtMs]
+     *   is given, then play. Never a re-prepare (the web rule, now everyone's).
+     * - Anything else starts a load, which supersedes any load in flight.
+     */
+    fun playBook(
+        bookId: BookId,
+        startAtMs: Long?,
+    ) {
+        if (startAtMs == null && preparingBookId.value == bookId) return
+        val loaded = loadedOrNull()
+        val resumable =
+            loaded != null &&
+                loaded.bookId == bookId &&
+                loaded.isEngineBound &&
+                loaded.phase !is PlayerPhase.Finished &&
+                loaded.phase !is PlayerPhase.Failed
+        if (resumable) {
+            if (startAtMs != null) engine.seekTo(startAtMs.coerceIn(0L, (durationMs.value - 1).coerceAtLeast(0L)))
+            engine.clearError()
+            engine.play()
+            return
+        }
+        startLoad(bookId, startAtMs)
+    }
+
+    /**
+     * Load [bookId] at [startAtMs]. Synchronous up to the engine's first suspension, so the bar names the new book
+     * (§3.6) and a browser's gesture is spent ([PlayerEngine.beginLoad]) inside the tap. Only the newest
+     * generation may finish: a superseded load's `finally` cannot touch its successor's state.
+     */
+    private fun startLoad(
+        bookId: BookId,
+        startAtMs: Long?,
+    ) {
+        cancelLoad()
+        // cancelLoad() moved the generation on, so this load's generation is read after it.
+        val myGeneration = generation
+        preparingBookId.value = bookId
+        stage.value = SessionStage.Preparing(bookId, myGeneration)
+        pendingStartMs.value = null
+        engine.beginLoad(bookId)
+        loadJob =
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                var handedOver = false
+                try {
+                    loadedBooks.setLoaded(bookId)
+                    val result = engine.load(bookId, startAtMs)
+                    if (myGeneration != generation) return@launch
+                    stage.value =
+                        when (result) {
+                            is AppResult.Success -> {
+                                handedOver = true
+                                SessionStage.Engine(bookId)
+                            }
+
+                            is AppResult.Failure -> {
+                                SessionStage.Failed(bookId, result.error)
+                            }
+                        }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.error(e) { "Load of ${bookId.value} threw" }
+                    if (myGeneration == generation) {
+                        stage.value = SessionStage.Failed(bookId, PlaybackError.CouldNotStart(debugInfo = e.toString()))
+                    }
+                } finally {
+                    if (myGeneration == generation) {
+                        if (!handedOver) engine.abandonLoad()
+                        preparingBookId.value = null
+                        loadJob = null
+                    }
+                }
+            }
+    }
+
+    private fun loadedOrNull(): PlayerSessionState.Loaded? = state.value as? PlayerSessionState.Loaded
+
     // ── Transport (Task 15) ──────────────────────────────────────────────────────────────────────────
     // ── Errors (Task 16) ─────────────────────────────────────────────────────────────────────────────
     // ── Sleep (Task 17) ──────────────────────────────────────────────────────────────────────────────
