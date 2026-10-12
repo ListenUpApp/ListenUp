@@ -172,8 +172,26 @@ class PlayerSessionLifecycleTest :
             }
         }
 
-        // Enabled in Task 17, which adds PlayerSession.setSleepTimer (playBook arrives in Task 14).
-        xtest("Close book stops, clears the key, cancels the timer and leaves nothing loaded") {}
+        test("Close book stops, clears the key, cancels the timer and leaves nothing loaded") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    rig.session.setSleepTimer(SleepTimerMode.Duration(30))
+                    runCurrent()
+                    rig.session.closeBook()
+                    runCurrent()
+                    rig.engine.calls shouldContain "stop"
+                    rig.store.stored.shouldBeNull()
+                    rig.sleep.state.value shouldBe SleepTimerState.Inactive
+                    rig.session.state.value shouldBe PlayerSessionState.NothingLoaded
+                } finally {
+                    rig.close()
+                }
+            }
+        }
 
         test("someone else clearing the key (sign-out) unloads") {
             runTest {

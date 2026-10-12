@@ -36,6 +36,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -43,6 +45,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+/** The longest custom sleep timer (spec §4.3, PT8). */
+internal const val MAX_SLEEP_MINUTES = 720
 
 /**
  * The one owner of this device's loaded book (spec §4; Architecture in the PR 1 plan).
@@ -76,6 +81,7 @@ class PlayerSession(
     private val restoring = MutableStateFlow(true)
     private var generation = 0
     private var loadJob: Job? = null
+    private var fadeJob: Job? = null
 
     /** The book a load is in flight for, set synchronously so a double tap is swallowed in the same tick. */
     val preparingBookId: StateFlow<BookId?>
@@ -193,16 +199,17 @@ class PlayerSession(
                 val engineFacts =
                     combine(engine.phase, engine.error, engine.loadedBookId) { p, e, b -> Triple(p, e, b) }
                 combine(
-                    engineFacts,
-                    positionRepository.observe(id).map { it?.isFinished == true },
-                    observeUnavailableReason(id),
-                ) { (phase, error, engineBook), finished, unavailable ->
+                    flow = engineFacts,
+                    flow2 = positionRepository.observe(id).map { it?.isFinished == true },
+                    flow3 = observeUnavailableReason(id),
+                    flow4 = sleepTimer.state.map { it is SleepTimerState.FadingOut },
+                ) { (phase, error, engineBook), finished, unavailable, fading ->
                     PhaseInputs(
                         forBookId = id,
                         enginePhase = phase,
                         engineError = error,
                         engineBookId = engineBook,
-                        isFading = false,
+                        isFading = fading,
                         isFinishedRow = finished,
                         unavailable = unavailable,
                     )
@@ -237,6 +244,14 @@ class PlayerSession(
         scope.launch { loadedBooks.observeLoadedBookId().collect(::onPersistedBookId) }
         scope.launch { engine.loadedBookId.collect(::onEngineBook) }
         scope.launch { watchLiveness() }
+        scope.launch { stageBookId.collect { sleepTimer.onBookChanged(it?.value) } }
+        scope.launch {
+            engine.currentChapter
+                .filterNotNull()
+                .distinctUntilChangedBy { it.index }
+                .collect { sleepTimer.onChapterChanged(it.index) }
+        }
+        scope.launch { sleepTimer.sleepEvent.collect { runFade() } }
     }
 
     // ── Lifecycle (Task 13) ──────────────────────────────────────────────────────────────────────────
@@ -322,6 +337,7 @@ class PlayerSession(
     /** Close book (F1): stop, cancel the timer, forget the book on this device. */
     fun closeBook() {
         cancelLoad()
+        fadeJob?.cancel()
         engine.stop()
         sleepTimer.cancelTimer()
         unloadInMemory()
@@ -418,6 +434,7 @@ class PlayerSession(
         preparingBookId.value = bookId
         stage.value = SessionStage.Preparing(bookId, myGeneration)
         pendingStartMs.value = null
+        sleepTimer.onBookChanged(bookId.value)
         engine.beginLoad(bookId)
         loadJob =
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -644,4 +661,46 @@ class PlayerSession(
             this is PlaybackError.OfflineNotDownloaded
 
     // ── Sleep (Task 17) ──────────────────────────────────────────────────────────────────────────────
+
+    /** Start a timer. A duration takes any whole minutes from 1 to 720 (the custom stepper, PT8). */
+    fun setSleepTimer(mode: SleepTimerMode) {
+        val bounded =
+            if (mode is SleepTimerMode.Duration) {
+                SleepTimerMode.Duration(mode.minutes.coerceIn(1, MAX_SLEEP_MINUTES))
+            } else {
+                mode
+            }
+        sleepTimer.setTimer(bounded)
+    }
+
+    /** +5 / +10 / +15 (and the notification's +10). */
+    fun extendSleepTimer(minutes: Int) {
+        sleepTimer.extendTimer(minutes)
+    }
+
+    /** Cancel the timer. During the fade this is "Keep listening": the fade stops and full volume returns (PT7). */
+    fun cancelSleepTimer() {
+        val wasFading = sleepTimer.state.value is SleepTimerState.FadingOut
+        fadeJob?.cancel()
+        sleepTimer.cancelTimer()
+        if (wasFading) engine.setVolume(1f)
+    }
+
+    private suspend fun runFade() {
+        val job =
+            scope.launch {
+                try {
+                    fadeOutAndPause(setVolume = engine::setVolume, pause = engine::pause)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Sleep fade failed; resetting the timer" }
+                } finally {
+                    // Never leave the timer stuck in FadingOut, even when the fade throws or is cancelled.
+                    sleepTimer.onFadeCompleted()
+                }
+            }
+        fadeJob = job
+        job.join()
+    }
 }

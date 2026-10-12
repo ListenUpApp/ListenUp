@@ -31,8 +31,8 @@ private val processStartMark = TimeSource.Monotonic.markNow()
  * - End of chapter mode (pauses when chapter ends)
  * - Extend timer while active
  *
- * The actual fade-out and pause is performed by the consumer (NowPlayingViewModel)
- * which has access to MediaController.
+ * The actual fade-out and pause is performed by the consumer (PlayerSession), which drives
+ * the engine.
  */
 class SleepTimerManager(
     private val scope: CoroutineScope,
@@ -144,7 +144,7 @@ class SleepTimerManager(
     }
 
     /**
-     * Called by NowPlayingViewModel when chapter changes.
+     * Called by PlayerSession when chapter changes.
      * Used for end-of-chapter mode detection.
      */
     @Suppress("CollapsibleIfStatements") // Nested if improves readability here
@@ -161,7 +161,7 @@ class SleepTimerManager(
     }
 
     /**
-     * Called by NowPlayingViewModel after fade completes.
+     * Called by PlayerSession after fade completes.
      * Resets state to Inactive.
      */
     fun onFadeCompleted() {

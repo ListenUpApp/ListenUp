@@ -35,6 +35,9 @@ class FakePlayerEngine : PlayerEngine {
     var preparedDurationMs: Long = 0L
     var preparedPositionMs: Long = 0L
 
+    /** When set, [setVolume] throws it (a fade that fails part-way). */
+    var volumeFailure: Exception? = null
+
     override fun beginLoad(bookId: BookId) {
         calls += "beginLoad:${bookId.value}"
     }
@@ -96,6 +99,7 @@ class FakePlayerEngine : PlayerEngine {
 
     override fun setVolume(volume: Float) {
         calls += "setVolume:$volume"
+        volumeFailure?.let { throw it }
     }
 
     override fun clearError() {
