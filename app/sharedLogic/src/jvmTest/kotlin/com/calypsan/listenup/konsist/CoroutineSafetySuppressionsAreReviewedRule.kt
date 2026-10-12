@@ -38,6 +38,8 @@ private val reviewedSuppressions: Map<String, Int> =
         "server/src/commonMain/kotlin/com/calypsan/listenup/server/routes/UploadRoutes.kt" to 1,
         // the DI root that provides the dispatcher
         "app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/di/AppCoreModule.kt" to 1,
+        // the DI root that chooses the player scope's dispatcher (main, like a viewModelScope)
+        "app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/di/PlayerModule.kt" to 1,
         // the actual dispatcher definitions
         "contract/src/androidMain/kotlin/com/calypsan/listenup/core/Dispatchers.android.kt" to 1,
         "contract/src/jvmMain/kotlin/com/calypsan/listenup/core/Dispatchers.jvm.kt" to 1,
