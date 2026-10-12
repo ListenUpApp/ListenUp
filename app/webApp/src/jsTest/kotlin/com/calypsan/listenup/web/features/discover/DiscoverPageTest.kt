@@ -434,7 +434,7 @@ class DiscoverPageTest :
                     page(
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b7", "Dune", "Frank Herbert", null, null, null)),
+                                listOf(DiscoverUiBook("b7", "Dune", "Frank Herbert", null, null, null, null, 0L)),
                             ),
                         onOpenBook = { opened = it },
                     )
@@ -452,7 +452,7 @@ class DiscoverPageTest :
                         recentlyAdded = RecentlyAddedUiState.Ready(emptyList()),
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b1", "Dune", null, null, null, null)),
+                                listOf(DiscoverUiBook("b1", "Dune", null, null, null, null, null, 0L)),
                             ),
                     )
                 }
@@ -553,7 +553,7 @@ class DiscoverPageTest :
                     page(
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null)),
+                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null, null, 0L)),
                             ),
                         onOpenBook = { opened = it },
                         selection = idleSelection(onToggle = { picked += it }),
@@ -574,7 +574,7 @@ class DiscoverPageTest :
                     page(
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b7", "Dune", "Frank Herbert", null, null, null)),
+                                listOf(DiscoverUiBook("b7", "Dune", "Frank Herbert", null, null, null, null, 0L)),
                             ),
                         onOpenBook = { opened = it },
                         selection = selecting(onToggle = { picked += it }),
@@ -593,7 +593,7 @@ class DiscoverPageTest :
                     page(
                         books =
                             DiscoverBooksUiState.Ready(
-                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null)),
+                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null, null, 0L)),
                             ),
                         selection = selecting(selected = setOf("b7")),
                     )

@@ -2271,6 +2271,8 @@ private fun discoverBook() =
         coverPath = null,
         coverHash = null,
         seriesName = null,
+        sequenceLabel = null,
+        durationMs = 0L,
     )
 
 private fun recentBook() =

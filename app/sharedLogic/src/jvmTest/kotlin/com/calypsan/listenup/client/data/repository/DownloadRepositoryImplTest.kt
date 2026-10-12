@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.TierLabels
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
+import com.calypsan.listenup.client.domain.repository.DiscoveryPick
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -492,7 +493,7 @@ private class FakeBookRepository : BookRepository {
 
     override fun observeIsBookLive(id: String): Flow<Boolean> = flowOf(true)
 
-    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryBook>> = flowOf(emptyList())
+    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryPick>> = flowOf(emptyList())
 
     override fun observeRecentlyAddedBooks(limit: Int): Flow<List<DiscoveryBook>> = flowOf(emptyList())
 

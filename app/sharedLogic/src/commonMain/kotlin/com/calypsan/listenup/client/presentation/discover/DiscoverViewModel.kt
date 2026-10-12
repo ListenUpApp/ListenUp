@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
+import com.calypsan.listenup.client.domain.repository.DiscoveryPick
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -163,16 +164,18 @@ class DiscoverViewModel(
             )
 
     /**
-     * Convert DiscoveryBook domain model to DiscoverUiBook.
+     * Convert a [DiscoveryPick] to its "Something new" card.
      */
-    private fun DiscoveryBook.toDiscoverUiBook(): DiscoverUiBook =
+    private fun DiscoveryPick.toDiscoverUiBook(): DiscoverUiBook =
         DiscoverUiBook(
             id = id,
             title = title,
             authorName = authorName,
             coverPath = coverPath,
             coverHash = coverHash,
-            seriesName = null, // Series comes from book_series relation
+            seriesName = seriesName,
+            sequenceLabel = sequenceLabel,
+            durationMs = durationMs,
         )
 
     // === Recently Added State (from Room) ===
@@ -439,7 +442,16 @@ data class CurrentlyListeningUiSession(
 )
 
 /**
- * Book for "Discover Something New" with resolved local cover path.
+ * A "Something new" card: a book the reader has not started, first in its series or standalone.
+ *
+ * @property id The book.
+ * @property title Its title.
+ * @property authorName Its primary author, when known.
+ * @property coverPath The local cover file, or null when not downloaded here.
+ * @property coverHash The cover's content version.
+ * @property seriesName The series it starts; null when standalone (the card reads "Standalone").
+ * @property sequenceLabel Its place in [seriesName] ("1"); null when standalone or unnumbered.
+ * @property durationMs Its total length.
  */
 data class DiscoverUiBook(
     val id: String,
@@ -448,6 +460,8 @@ data class DiscoverUiBook(
     val coverPath: String?,
     val coverHash: String?,
     val seriesName: String?,
+    val sequenceLabel: String?,
+    val durationMs: Long,
 )
 
 /**

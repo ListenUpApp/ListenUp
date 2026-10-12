@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.TierLabels
 import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
+import com.calypsan.listenup.client.domain.repository.DiscoveryPick
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,8 +65,8 @@ class FakeBookRepository(
     override fun observeIsBookLive(id: String): Flow<Boolean> =
         books.asStateFlow().map { list -> list.any { it.id == BookId(id) } }
 
-    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryBook>> =
-        books.asStateFlow().map { list -> list.take(limit).map(::toDiscoveryBook) }
+    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryPick>> =
+        books.asStateFlow().map { list -> list.take(limit).map(::toDiscoveryPick) }
 
     override fun observeRecentlyAddedBooks(limit: Int): Flow<List<DiscoveryBook>> =
         books.asStateFlow().map { list ->
@@ -115,6 +116,18 @@ class FakeBookRepository(
         chaptersByBookId[bookId] = chapters
     }
 
+
+    private fun toDiscoveryPick(book: BookListItem): DiscoveryPick =
+        DiscoveryPick(
+            id = book.id.value,
+            title = book.title,
+            authorName = book.authors.firstOrNull()?.name,
+            coverPath = book.coverPath,
+            coverHash = book.coverHash,
+            seriesName = book.seriesName,
+            sequenceLabel = book.seriesSequenceLabel,
+            durationMs = book.duration,
+        )
     private fun toDiscoveryBook(book: BookListItem): DiscoveryBook =
         DiscoveryBook(
             id = book.id.value,

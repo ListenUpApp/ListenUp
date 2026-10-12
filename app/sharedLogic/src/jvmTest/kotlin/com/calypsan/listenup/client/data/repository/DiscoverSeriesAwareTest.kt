@@ -31,6 +31,7 @@ import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.ints.shouldBeLessThanOrEqual
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -80,6 +81,43 @@ class DiscoverSeriesAwareTest :
 
                 val result = repo.observeRandomUnstartedBooks(limit = 3).first()
                 result.size shouldBeLessThanOrEqual 3
+            }
+        }
+
+        test("a pick that starts a series carries its series name, its place and its length") {
+            withDiscoverRepo { repo, db ->
+                seedBook(db, "first", totalDuration = 3_600_000L)
+                seedSeries(db, "s1", "Mistborn")
+                linkSeries(db, "first", "s1", 1.0)
+
+                val pick = repo.observeRandomUnstartedBooks(limit = 10).first().single()
+                pick.seriesName shouldBe "Mistborn"
+                pick.sequenceLabel shouldBe "1"
+                pick.durationMs shouldBe 3_600_000L
+            }
+        }
+
+        test("a standalone pick carries no series") {
+            withDiscoverRepo { repo, db ->
+                seedBook(db, "alone")
+
+                val pick = repo.observeRandomUnstartedBooks(limit = 10).first().single()
+                pick.seriesName shouldBe null
+                pick.sequenceLabel shouldBe null
+            }
+        }
+
+        test("a book mid-way through one series and first in another is labelled by the one it starts") {
+            withDiscoverRepo { repo, db ->
+                seedBook(db, "multi")
+                seedSeries(db, "s1", "Series One")
+                seedSeries(db, "s2", "Series Two")
+                linkSeries(db, "multi", "s1", 4.0)
+                linkSeries(db, "multi", "s2", 1.0)
+
+                val pick = repo.observeRandomUnstartedBooks(limit = 10).first().single()
+                pick.seriesName shouldBe "Series Two"
+                pick.sequenceLabel shouldBe "1"
             }
         }
     })
@@ -139,6 +177,7 @@ private fun withDiscoverRepo(block: suspend (BookRepositoryImpl, ListenUpDatabas
 private suspend fun seedBook(
     db: ListenUpDatabase,
     id: String,
+    totalDuration: Long = 0L,
 ) {
     db.bookDao().upsert(
         BookEntity(
@@ -149,7 +188,7 @@ private suspend fun seedBook(
             sortTitle = "Book $id",
             subtitle = null,
             coverHash = null,
-            totalDuration = 0L,
+            totalDuration = totalDuration,
             description = null,
             publishYear = null,
             publisher = null,

@@ -66,9 +66,9 @@ interface BookRepository {
      * Returns books with no playback position, randomly ordered.
      *
      * @param limit Maximum number of books to return
-     * @return Flow emitting list of discovery book summaries
+     * @return Flow emitting the picks, each labelled with the series it starts
      */
-    fun observeRandomUnstartedBooks(limit: Int = 10): Flow<List<DiscoveryBook>>
+    fun observeRandomUnstartedBooks(limit: Int = 10): Flow<List<DiscoveryPick>>
 
     /**
      * Observe recently added books for discovery.
@@ -212,4 +212,32 @@ data class DiscoveryBook(
     val coverPath: String?,
     val coverHash: String? = null,
     val createdAt: Long,
+)
+
+/**
+ * A book Discover offers under "Something new": unstarted, and either standalone or the first book
+ * of a series, so its story has not already begun.
+ *
+ * Its own type rather than more fields on [DiscoveryBook]: Recently added shares that type and has no
+ * series to report, so the fields would be meaningless for half its uses.
+ *
+ * @property id The book.
+ * @property title Its title.
+ * @property authorName Its primary author, when known.
+ * @property coverPath The local cover file, or null when not downloaded here.
+ * @property coverHash The cover's content version, or null when the book has no cover.
+ * @property seriesName The series this book starts, or null for a standalone book.
+ * @property sequenceLabel Its place in that series as a person writes it ("1", "0.5"), or null when
+ *   standalone or unnumbered.
+ * @property durationMs Its total length.
+ */
+data class DiscoveryPick(
+    val id: String,
+    val title: String,
+    val authorName: String?,
+    val coverPath: String?,
+    val coverHash: String?,
+    val seriesName: String?,
+    val sequenceLabel: String?,
+    val durationMs: Long,
 )

@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
+import com.calypsan.listenup.client.domain.repository.DiscoveryPick
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
@@ -106,6 +107,23 @@ class DiscoverViewModelTest :
                 createdAt = 0L,
             )
 
+        fun createDiscoveryPick(
+            id: String = "book-1",
+            seriesName: String? = null,
+            sequenceLabel: String? = null,
+            durationMs: Long = 0L,
+        ): DiscoveryPick =
+            DiscoveryPick(
+                id = id,
+                title = "A Book",
+                authorName = "An Author",
+                coverPath = null,
+                coverHash = null,
+                seriesName = seriesName,
+                sequenceLabel = sequenceLabel,
+                durationMs = durationMs,
+            )
+
         fun createShelf(
             id: String = "shelf-1",
             ownerId: String = OTHER_USER_ID,
@@ -150,7 +168,7 @@ class DiscoverViewModelTest :
         fun createFixture(
             authState: AuthState = AuthState.Authenticated(userId = UserId(USER_ID), sessionId = SessionId(SESSION_ID)),
             discoveredShelves: List<Shelf> = emptyList(),
-            randomBooks: List<DiscoveryBook> = emptyList(),
+            randomBooks: List<DiscoveryPick> = emptyList(),
         ): TestFixture {
             val fixture = TestFixture()
             fixture.authStateFlow.value = authState
@@ -506,7 +524,7 @@ class DiscoverViewModelTest :
         test("discoverBooksState becomes Ready with random books on initial load") {
             runTest {
                 // Given
-                val fixture = createFixture(randomBooks = listOf(createDiscoveryBook(id = "r-1")))
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryPick(id = "r-1")))
 
                 // When
                 val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
@@ -522,7 +540,7 @@ class DiscoverViewModelTest :
         test("discoverBooksState reloads when refresh is called") {
             runTest {
                 // Given
-                val fixture = createFixture(randomBooks = listOf(createDiscoveryBook(id = "r-1")))
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryPick(id = "r-1")))
                 val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
                 advanceUntilIdle()
 
@@ -546,13 +564,13 @@ class DiscoverViewModelTest :
             // so the Error it emitted was the flow's last word — every later refresh bumped a trigger
             // nothing was collecting any more, and the section stayed on Error for good.
             runTest {
-                val fixture = createFixture(randomBooks = listOf(createDiscoveryBook(id = "r-1")))
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryPick(id = "r-1")))
                 var collections = 0
                 every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } returns
                     flow {
                         collections++
                         if (collections == 1) throw SimulatedFailure("transient")
-                        emit(listOf(createDiscoveryBook(id = "r-1")))
+                        emit(listOf(createDiscoveryPick(id = "r-1")))
                     }
                 val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
                 advanceUntilIdle()
@@ -563,6 +581,22 @@ class DiscoverViewModelTest :
 
                 val ready = viewModel.discoverBooksState.value.shouldBeInstanceOf<DiscoverBooksUiState.Ready>()
                 ready.books.first().id shouldBe "r-1"
+            }
+        }
+
+        test("discoverBooksState carries each pick's series line and length") {
+            runTest {
+                val fixture =
+                    createFixture(
+                        randomBooks = listOf(createDiscoveryPick(id = "p1", seriesName = "Mistborn", sequenceLabel = "1", durationMs = 90_000L)),
+                    )
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+
+                val book = viewModel.discoverBooksState.value.shouldBeInstanceOf<DiscoverBooksUiState.Ready>().books.single()
+                book.seriesName shouldBe "Mistborn"
+                book.sequenceLabel shouldBe "1"
+                book.durationMs shouldBe 90_000L
             }
         }
 
