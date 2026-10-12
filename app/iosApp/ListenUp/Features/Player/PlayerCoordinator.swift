@@ -99,6 +99,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Seam (native protocols — see EngineSeam.swift, PlaybackSeam.swift)
 
+    /// Held for the coordinator's lifetime: production's `KotlinEngineInstructions` owns the FlowBridge that
+    /// collects `NativePlayerEngine.commands`, and nothing else references it. Dropped, it cancels on deinit
+    /// and every command from the shared player goes unread.
+    private let instructions: EngineInstructionSource
     private let facts: EngineFactReporting
     /// Internal, not private — see `engine` above.
     let progress: PlaybackProgressReporting
@@ -153,6 +157,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bandwidthCoordinator: PlaybackBandwidthCoordinator? = nil,
         notificationCenter: NotificationCenter = .default
     ) {
+        self.instructions = instructions
         self.facts = facts
         self.progress = progress
         self.engine = engine
