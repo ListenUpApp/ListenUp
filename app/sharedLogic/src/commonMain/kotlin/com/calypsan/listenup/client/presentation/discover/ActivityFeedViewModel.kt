@@ -111,6 +111,7 @@ private fun Activity.toUiModel(): ActivityUiModel =
         bookTitle = book?.title,
         bookAuthorName = book?.authorName,
         bookCoverPath = book?.coverPath,
+        bookCoverHash = book?.coverHash,
         isReread = isReread,
         durationMs = durationMs,
         milestoneValue = milestoneValue,
@@ -122,6 +123,9 @@ private fun Activity.toUiModel(): ActivityUiModel =
 /**
  * UI model for a single activity in the feed.
  * Flattened representation of Activity domain model for UI consumption.
+ *
+ * @property bookCoverPath The book's local cover file, or null when not downloaded on this device.
+ * @property bookCoverHash The book's cover content version, or null when it has no cover.
  */
 data class ActivityUiModel(
     val id: String,
@@ -133,6 +137,7 @@ data class ActivityUiModel(
     val bookTitle: String?,
     val bookAuthorName: String?,
     val bookCoverPath: String?,
+    val bookCoverHash: String?,
     val isReread: Boolean,
     val durationMs: Long,
     val milestoneValue: Int,

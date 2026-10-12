@@ -2169,6 +2169,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             bookTitle = "The Institute",
             bookAuthorName = "Stephen King",
             bookCoverPath = null,
+            bookCoverHash = null,
             isReread = false,
             durationMs = 0L,
             milestoneValue = 0,

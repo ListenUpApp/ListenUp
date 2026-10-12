@@ -46,11 +46,18 @@ data class Activity(
 
     /**
      * Book info for activity display.
+     *
+     * @property id The book.
+     * @property title Its title.
+     * @property authorName Its primary author, when known.
+     * @property coverPath The local cover file, or null when not downloaded on this device.
+     * @property coverHash The cover's content version, or null when the book has no cover.
      */
     data class ActivityBook(
         val id: String,
         val title: String,
         val authorName: String?,
         val coverPath: String?,
+        val coverHash: String?,
     )
 }

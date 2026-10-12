@@ -148,7 +148,7 @@ class ActivityFeedViewModelTest :
                 // One sitting, interrupted: 10 minutes ending at T, preceded by 30s just before it.
                 // The feed should read as a single 10:30 entry, not two lines.
                 val fixture = createFixture()
-                val book = Activity.ActivityBook("book-1", "Dungeon Crawler Carl", "Matt Dinniman", null)
+                val book = Activity.ActivityBook("book-1", "Dungeon Crawler Carl", "Matt Dinniman", null, null)
                 val tenMinutes = 600_000L
                 fixture.activitiesFlow.value =
                     listOf(
@@ -243,6 +243,32 @@ class ActivityFeedViewModelTest :
 
                 // Then - the manual reconcile is forwarded to the sync engine
                 fixture.syncRepository.refreshCalled.shouldBeTrue()
+            }
+        }
+
+        test("an activity's cover path and hash reach the UI model") {
+            runTest {
+                val fixture = createFixture()
+                fixture.activitiesFlow.value =
+                    listOf(
+                        createActivity(id = "a1", type = "finished_book").copy(
+                            book =
+                                Activity.ActivityBook(
+                                    id = "b1",
+                                    title = "Dune",
+                                    authorName = null,
+                                    coverPath = "/c/b1.jpg",
+                                    coverHash = "h1",
+                                ),
+                        ),
+                    )
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val row = viewModel.state.value.shouldBeInstanceOf<ActivityFeedUiState.Ready>().activities.single()
+                row.bookCoverPath shouldBe "/c/b1.jpg"
+                row.bookCoverHash shouldBe "h1"
             }
         }
     })

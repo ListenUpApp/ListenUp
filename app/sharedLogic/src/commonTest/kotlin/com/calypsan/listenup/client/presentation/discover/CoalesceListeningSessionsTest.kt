@@ -26,6 +26,7 @@ private fun session(
         bookTitle = "Dungeon Crawler Carl",
         bookAuthorName = "Matt Dinniman",
         bookCoverPath = null,
+        bookCoverHash = null,
         isReread = false,
         durationMs = durationMs,
         milestoneValue = 0,

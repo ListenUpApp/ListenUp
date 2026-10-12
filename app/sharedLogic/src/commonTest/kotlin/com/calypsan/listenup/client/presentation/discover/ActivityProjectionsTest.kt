@@ -21,6 +21,7 @@ private fun activity(
     bookTitle = bookTitle,
     bookAuthorName = bookAuthorName,
     bookCoverPath = null,
+    bookCoverHash = null,
     isReread = isReread,
     durationMs = durationMs,
     milestoneValue = milestoneValue,

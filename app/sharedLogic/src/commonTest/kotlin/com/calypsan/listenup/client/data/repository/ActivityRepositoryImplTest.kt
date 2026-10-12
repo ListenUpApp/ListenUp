@@ -3,6 +3,9 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.ActivityWithProfile
+import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.core.Timestamp
+import app.cash.turbine.test
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
@@ -24,7 +27,7 @@ import kotlinx.coroutines.test.runTest
  * [ActivityWithProfile] row into a domain `Activity`: identity (display name, avatar type) comes
  * from the joined `public_profiles` columns, `avatarColor` is derived locally via
  * [stableAvatarColorHex], `avatarValue` is always null (public profiles carry none), and the book
- * card is built entirely from the joined `books` columns (`bookTitle`/`bookCoverPath`/
+ * card is built entirely from the joined `books` columns (`bookTitle`/`bookCoverHash`/`bookCoverDownloadedAt`/
  * `bookAuthorName`) — present only when the row has a book that is accessible locally. There is no
  * per-row book lookup: the DAO join is the single enrichment seam.
  *
@@ -36,7 +39,10 @@ class ActivityRepositoryImplTest :
 
         fun createMockDao(): ActivityDao = mock<ActivityDao>()
 
-        fun createRepository(dao: ActivityDao = createMockDao()): ActivityRepositoryImpl = ActivityRepositoryImpl(dao = dao)
+        fun createRepository(
+            dao: ActivityDao = createMockDao(),
+            imageStorage: ImageStorage = mock { every { getCoverPath(any()) } returns "/covers/book-1.jpg" },
+        ): ActivityRepositoryImpl = ActivityRepositoryImpl(dao = dao, imageStorage = imageStorage)
 
         // ========== Test Data Factories ==========
 
@@ -47,7 +53,8 @@ class ActivityRepositoryImplTest :
             displayName: String? = "John Smith",
             avatarType: String? = "auto",
             bookTitle: String? = "The Way of Kings",
-            bookCoverPath: String? = "LKO2?U%2Tw=w]~RBVZRi};RPxuwH",
+            bookCoverHash: String? = "hash-1",
+            bookCoverDownloadedAt: Timestamp? = Timestamp(5L),
             bookAuthorName: String? = "Brandon Sanderson",
         ): ActivityWithProfile =
             ActivityWithProfile(
@@ -65,7 +72,8 @@ class ActivityRepositoryImplTest :
                 displayName = displayName,
                 avatarType = avatarType,
                 bookTitle = bookTitle,
-                bookCoverPath = bookCoverPath,
+                bookCoverHash = bookCoverHash,
+                bookCoverDownloadedAt = bookCoverDownloadedAt,
                 bookAuthorName = bookAuthorName,
             )
 
@@ -93,7 +101,7 @@ class ActivityRepositoryImplTest :
                 activity.book.id shouldBe "book-1"
                 activity.book.title shouldBe "The Way of Kings"
                 activity.book.authorName shouldBe "Brandon Sanderson"
-                activity.book.coverPath shouldBe "LKO2?U%2Tw=w]~RBVZRi};RPxuwH"
+                activity.book.coverHash shouldBe "hash-1"
                 // Raw activity fields carried through
                 activity.isReread shouldBe true
                 activity.durationMs shouldBe 3_600_000L
@@ -110,7 +118,7 @@ class ActivityRepositoryImplTest :
                         displayName = null,
                         avatarType = null,
                         bookTitle = null,
-                        bookCoverPath = null,
+                        bookCoverHash = null,
                         bookAuthorName = null,
                     )
                 every { dao.observeRecent(any()) } returns flowOf(listOf(row))
@@ -130,7 +138,7 @@ class ActivityRepositoryImplTest :
             runTest {
                 // Given - a row with a bookId but no joined book (deleted/inaccessible locally: title null)
                 val dao = createMockDao()
-                val row = activityRow(bookTitle = null, bookCoverPath = null, bookAuthorName = null)
+                val row = activityRow(bookTitle = null, bookCoverHash = null, bookAuthorName = null)
                 every { dao.observeRecent(any()) } returns flowOf(listOf(row))
                 val repository = createRepository(dao = dao)
 
@@ -160,6 +168,34 @@ class ActivityRepositoryImplTest :
                 val result = repository.observeRecent(10).first()
                 result.size shouldBe 1
                 result[0].id shouldBe "new-activity"
+            }
+        }
+
+        test("a book row resolves its cover path from local storage when the cover is downloaded") {
+            runTest {
+                val dao = createMockDao()
+                every { dao.observeRecent(10) } returns flowOf(listOf(activityRow()))
+
+                createRepository(dao = dao).observeRecent(10).test {
+                    val book = awaitItem().single().book!!
+                    book.coverPath shouldBe "/covers/book-1.jpg"
+                    book.coverHash shouldBe "hash-1"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a cover that is not downloaded yields no path but keeps its hash") {
+            runTest {
+                val dao = createMockDao()
+                every { dao.observeRecent(10) } returns flowOf(listOf(activityRow(bookCoverDownloadedAt = null)))
+
+                createRepository(dao = dao).observeRecent(10).test {
+                    val book = awaitItem().single().book!!
+                    book.coverPath shouldBe null
+                    book.coverHash shouldBe "hash-1"
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
     })
