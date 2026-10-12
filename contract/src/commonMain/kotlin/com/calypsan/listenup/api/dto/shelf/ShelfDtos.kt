@@ -86,6 +86,9 @@ data class ShelfDetail(
  * @property shelf The shelf summary (book count reflects only accessible books).
  * @property ownerId Stable user ID of the shelf owner.
  * @property ownerDisplayName Display name of the shelf owner for UI labeling.
+ * @property coverBookIds Up to four ids of the shelf's books the caller can access, in shelf order —
+ *   the cover mosaic. The client resolves each id against its own library and skips one it does not
+ *   hold. Empty from a server that predates the field.
  */
 @Serializable
 @SerialName("DiscoveredShelf")
@@ -93,4 +96,5 @@ data class DiscoveredShelf(
     @SerialName("shelf") val shelf: Shelf,
     @SerialName("ownerId") val ownerId: String,
     @SerialName("ownerDisplayName") val ownerDisplayName: String,
+    @SerialName("coverBookIds") val coverBookIds: List<String> = emptyList(),
 )

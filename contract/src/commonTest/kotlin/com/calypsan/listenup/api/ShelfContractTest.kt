@@ -11,6 +11,10 @@ import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.core.ShelfId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 
 class ShelfContractTest :
     FunSpec({
@@ -59,14 +63,28 @@ class ShelfContractTest :
             contractJson.decodeFromString<ShelfDetail>(contractJson.encodeToString(d)) shouldBe d
         }
 
-        test("DiscoveredShelf round-trips") {
+        test("DiscoveredShelf round-trips with its cover book ids, in order") {
             val ds =
                 DiscoveredShelf(
                     shelf = Shelf(ShelfId("s1"), "To Read", "", false, 1, 2),
                     ownerId = "u2",
                     ownerDisplayName = "Sam",
+                    coverBookIds = listOf("b3", "b1", "b2"),
                 )
             contractJson.decodeFromString<DiscoveredShelf>(contractJson.encodeToString(ds)) shouldBe ds
+        }
+
+        test("a DiscoveredShelf from a server that predates cover ids decodes with none") {
+            val current =
+                DiscoveredShelf(
+                    shelf = Shelf(ShelfId("s1"), "To Read", "", false, 1, 2),
+                    ownerId = "u2",
+                    ownerDisplayName = "Sam",
+                    coverBookIds = listOf("b1"),
+                )
+            val legacy = JsonObject(contractJson.encodeToJsonElement(current).jsonObject - "coverBookIds")
+
+            contractJson.decodeFromJsonElement<DiscoveredShelf>(legacy).coverBookIds shouldBe emptyList()
         }
 
         test("ShelfError round-trips polymorphically as AppError") {
