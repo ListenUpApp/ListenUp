@@ -31,6 +31,11 @@ class FakePlaybackPositionRepository(
 ) : PlaybackPositionRepository {
     private val state = MutableStateFlow(initialPositions)
 
+    /** Test helper: set (or replace) [position]'s row, emitting to every observer. */
+    fun setPosition(position: PlaybackPosition) {
+        state.value = state.value + (position.bookId to position)
+    }
+
     override suspend fun get(bookId: BookId): AppResult<PlaybackPosition?> =
         AppResult.Success(state.value[bookId.value])
 

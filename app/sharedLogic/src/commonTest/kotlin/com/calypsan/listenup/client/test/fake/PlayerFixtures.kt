@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.test.fake
 
 import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.PreparedPlayback
@@ -73,4 +74,30 @@ fun preparedPlaybackFor(
         resumeBoostDb = 0f,
         measuredGainDb = null,
         normalizationGainDb = null,
+    )
+
+/** A [PlaybackPosition] row for [bookId]; every field not named here takes its neutral value. */
+fun positionFor(
+    bookId: String,
+    positionMs: Long = 0L,
+    isFinished: Boolean = false,
+    finishedAtMs: Long? = null,
+    startedAtMs: Long? = null,
+    playbackSpeed: Float = 1.0f,
+    volumeBoostDb: Float = 0f,
+): PlaybackPosition =
+    PlaybackPosition(
+        bookId = bookId,
+        positionMs = positionMs,
+        playbackSpeed = playbackSpeed,
+        hasCustomSpeed = false,
+        volumeBoostDb = volumeBoostDb,
+        hasCustomBoost = false,
+        measuredGainDb = null,
+        updatedAtMs = 0L,
+        syncedAtMs = null,
+        lastPlayedAtMs = null,
+        isFinished = isFinished,
+        finishedAtMs = finishedAtMs,
+        startedAtMs = startedAtMs,
     )

@@ -100,6 +100,11 @@ class FakeBookRepository(
         details.value = details.value + (detail.id.value to detail)
     }
 
+    /** Test helper: remove [id]'s detail, as if its Room row were deleted. */
+    fun removeBookDetail(id: String) {
+        details.value = details.value - id
+    }
+
     /** Not exercised here — these fakes cover read paths, and a delete is a server-only write. */
     override suspend fun deleteBook(id: BookId): AppResult<Unit> = AppResult.Success(Unit)
 
