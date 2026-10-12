@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import io.kotest.matchers.types.shouldBeInstanceOf
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.SleepTimerMode
@@ -725,7 +727,7 @@ class TransportBarTest :
 
             val message = withTimeout(PLAYING_TIMEOUT_MS) { playback.error.first { it != null } }
             val host = mounts.mount { PlaybackNotice(message = message, onDismiss = playback::dismissError) }
-            host.querySelector(".tport-note")!!.textContent.orEmpty() shouldContain "Couldn't start this book"
+            host.querySelector(".tport-note")!!.textContent.orEmpty() shouldContain PlaybackError.CouldNotStart().playerTitle()
 
             playback.close()
             URL.revokeObjectURL(segment.url)
@@ -753,11 +755,11 @@ class TransportBarTest :
             val message = withTimeout(PLAYING_TIMEOUT_MS) { playback.error.first { it != null } }
             // The refusal's own words — "Release it first." — not the connection-failure notice,
             // which would send the listener checking a network that is fine.
-            message shouldBe BookError.HeldForReview().message
+            message shouldBe BookError.HeldForReview().playerTitle()
             message.shouldNotBeNull() shouldNotContain "try again"
             manager.playbackError.value
-                .shouldNotBeNull()
-                .isRecoverable shouldBe false
+                .shouldBeInstanceOf<BookError.HeldForReview>()
+                .isRetryable shouldBe false
             manager.currentBookId.value shouldBe null
 
             playback.close()

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -56,18 +57,13 @@ class NowPlayingStateMapperTest :
         test("mapToNowPlayingState returns Error with null bookId when book is null and error present") {
             val metadata =
                 emptyMetadata.copy(
-                    error =
-                        PlaybackManager.PlaybackErrorUiState(
-                            message = "Network failure",
-                            isRecoverable = true,
-                            timestampMs = 1_000L,
-                        ),
+                    error = PlaybackError.ConnectionLost(),
                 )
             val result = mapToNowPlayingState(book = null, dynamics = emptyDynamics, metadata = metadata)
             val error = result.shouldBeInstanceOf<NowPlayingState.Error>()
             error.bookId shouldBe null
             error.title shouldBe null
-            error.message shouldBe "Network failure"
+            error.message shouldBe PlaybackError.ConnectionLost().message
             error.isRecoverable shouldBe true
         }
 
@@ -75,18 +71,13 @@ class NowPlayingStateMapperTest :
             val book = sampleBook()
             val metadata =
                 emptyMetadata.copy(
-                    error =
-                        PlaybackManager.PlaybackErrorUiState(
-                            message = "Codec error",
-                            isRecoverable = false,
-                            timestampMs = 1_000L,
-                        ),
+                    error = PlaybackError.UnsupportedFormat(),
                 )
             val result = mapToNowPlayingState(book = book, dynamics = emptyDynamics, metadata = metadata)
             val error = result.shouldBeInstanceOf<NowPlayingState.Error>()
             error.bookId shouldBe "book-1"
             error.title shouldBe "Sample Book"
-            error.message shouldBe "Codec error"
+            error.message shouldBe PlaybackError.UnsupportedFormat().message
             error.isRecoverable shouldBe false
         }
 

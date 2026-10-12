@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -20,7 +21,6 @@ import com.calypsan.listenup.client.playback.NowPlayingOverlay
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
-import com.calypsan.listenup.client.playback.PlaybackManager.PlaybackErrorUiState
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.SleepTimerMode
@@ -38,6 +38,7 @@ import dev.mokkery.verifySuspend
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import app.cash.turbine.test
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -320,15 +321,9 @@ class NowPlayingViewModelTest :
                 vm.playBook(bookId)
                 advanceUntilIdle()
 
-                fixture.fakePm.reportedErrors.size shouldBe 1
-                withClue(
-                    "expected offline error message; got: ${fixture.fakePm.reportedErrors.first().message}",
-                ) {
-                    fixture.fakePm.reportedErrors
-                        .first()
-                        .message
-                        .contains("offline", ignoreCase = true) shouldBe true
-                }
+                fixture.fakePm.reportedErrors
+                    .single()
+                    .shouldBeInstanceOf<PlaybackError.OfflineNotDownloaded>()
                 withClue("must NOT activate when prepare fails") {
                     fixture.fakePm.activatedBookIds.isEmpty() shouldBe true
                 }
@@ -349,15 +344,9 @@ class NowPlayingViewModelTest :
                 vm.playBook(bookId)
                 advanceUntilIdle()
 
-                fixture.fakePm.reportedErrors.size shouldBe 1
-                withClue(
-                    "expected generic load-failure message; got: ${fixture.fakePm.reportedErrors.first().message}",
-                ) {
-                    fixture.fakePm.reportedErrors
-                        .first()
-                        .message
-                        .contains("Failed to load", ignoreCase = true) shouldBe true
-                }
+                fixture.fakePm.reportedErrors
+                    .single()
+                    .shouldBeInstanceOf<PlaybackError.CouldNotStart>()
                 withClue("must NOT activate when prepare fails") {
                     fixture.fakePm.activatedBookIds.isEmpty() shouldBe true
                 }
@@ -379,8 +368,8 @@ class NowPlayingViewModelTest :
                 advanceUntilIdle()
 
                 val reported = fixture.fakePm.reportedErrors.single()
-                reported.message shouldBe BookError.HeldForReview().message
-                reported.isRecoverable shouldBe false
+                reported.shouldBeInstanceOf<BookError.HeldForReview>()
+                reported.isRetryable shouldBe false
                 fixture.fakePm.activatedBookIds.isEmpty() shouldBe true
                 verifySuspend(VerifyMode.exactly(0)) { fixture.playbackController.startPlayback(any()) }
             }
@@ -655,8 +644,7 @@ class NowPlayingViewModelTest :
                 val fixture = TestFixture()
                 every { fixture.playbackController.play() } returns Unit
                 fixture.fakePm.playingFlow.value = false
-                fixture.fakePm.playbackErrorFlow.value =
-                    PlaybackErrorUiState(message = "Network unavailable", isRecoverable = true, timestampMs = 1_000L)
+                fixture.fakePm.playbackErrorFlow.value = PlaybackError.ConnectionLost()
 
                 val vm = fixture.newVm()
                 vm.playPause()
@@ -1007,12 +995,7 @@ class NowPlayingViewModelTest :
                 advanceUntilIdle()
 
                 // Drive an error.
-                fixture.fakePm.playbackErrorFlow.value =
-                    PlaybackErrorUiState(
-                        message = "Network unavailable",
-                        isRecoverable = true,
-                        timestampMs = 1_000L,
-                    )
+                fixture.fakePm.playbackErrorFlow.value = PlaybackError.ConnectionLost()
                 advanceUntilIdle()
 
                 // Per mapToNowPlayingState (NowPlayingStateMapper.kt:24-43), a non-null
@@ -1021,7 +1004,8 @@ class NowPlayingViewModelTest :
                 // we hit the book-null + error branch.
                 val errored = vm.screenState.value
                 withClue("expected state is NowPlayingState.Error; got: ${errored.state}") {
-                    (errored.state is NowPlayingState.Error) shouldBe true
+                    errored.state.shouldBeInstanceOf<NowPlayingState.Error>().message shouldBe
+                        PlaybackError.ConnectionLost().message
                 }
 
                 // Recover.

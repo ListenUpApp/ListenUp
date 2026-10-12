@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -91,14 +92,10 @@ sealed interface PlaybackState {
     data object Ended : PlaybackState
 
     /**
-     * An error occurred during playback.
-     *
-     * @property message Optional platform-specific diagnostic (e.g., "Check GStreamer installation.").
-     *                    PlaybackManager falls back to a generic string when null.
-     * @property isRecoverable Hint to UI whether retry might succeed.
+     * The engine failed. [error] is already typed at the engine edge (spec §4.6): nothing downstream
+     * re-derives a cause from text.
      */
     data class Error(
-        val message: String? = null,
-        val isRecoverable: Boolean = false,
+        val error: AppError,
     ) : PlaybackState
 }

@@ -1072,13 +1072,7 @@ class PlaybackService :
                         // Book-relative (sum of prior file durations + file offset); never the
                         // raw file-relative player.currentPosition read inside the handler.
                         bookPositionMs = getBookRelativePosition(),
-                        onShowError = { message ->
-                            // Report error to PlaybackManager for UI display
-                            playbackManager.reportError(
-                                message = message,
-                                isRecoverable = false,
-                            )
-                        },
+                        onShowError = { appError -> playbackManager.reportError(appError) },
                     )
 
                 if (!handled) {

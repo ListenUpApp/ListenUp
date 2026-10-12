@@ -1,6 +1,7 @@
 
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.api.error.PlaybackError
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.AppError
@@ -546,22 +547,17 @@ class NowPlayingViewModel internal constructor(
     }
 
     /**
-     * A held book's refusal says what unlocks it and offers no retry — tapping Play again cannot help
-     * until it is released. Every other prepare failure keeps the wording that tells an offline
-     * listener what to do.
+     * A held book's refusal is reported as is: it says what unlocks it and offers no retry. Offline, any
+     * other failure is the book not being downloaded; online, it is the typed failure the prepare returned.
      */
     private fun reportPrepareFailure(error: AppError) {
-        if (error is BookError.HeldForReview) {
-            playbackManager.reportError(error.message, isRecoverable = false)
-            return
-        }
-        val message =
-            if (networkMonitor.isOnline()) {
-                "Failed to load book"
-            } else {
-                "Can't play this book offline. Download it first."
+        val reported =
+            when {
+                error is BookError.HeldForReview -> error
+                !networkMonitor.isOnline() -> PlaybackError.OfflineNotDownloaded()
+                else -> error
             }
-        playbackManager.reportError(message, isRecoverable = true)
+        playbackManager.reportError(reported)
     }
 
     fun playPause() {

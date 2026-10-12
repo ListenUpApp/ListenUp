@@ -1,7 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.web.nav.RouteSession
-import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -240,7 +240,7 @@ fun fixedPlayback(
  * an RPC round-trip. A `play()` after it runs several suspension points away from the click that
  * caused it: Chrome's *sticky* activation survives that, iOS Safari's *transient* activation does
  * not — so the controller-side version would work in Chromium and be refused on a real iPhone,
- * with [HtmlAudioPlayer.playRefusalMessage] correctly reporting a failure nobody could act on.
+ * with [com.calypsan.listenup.web.playback.playRefusal] correctly reporting a failure nobody could act on.
  *
  * [playBook] therefore spends the activation inside the click's own task, via
  * [HtmlAudioPlayer.primeForPlayback], and lets the load that arrives later honour the intent it
@@ -280,7 +280,7 @@ internal class LivePlayback(
     private var playGeneration: Int = 0
 
     /**
-     * What went wrong, in words the listener can read, or null.
+     * What went wrong, as the player card's title, or null.
      *
      * [PlaybackManager.playbackError] is the one place both kinds of failure land: everything
      * [PlaybackManager.reportError] is told about (a prepare that returned nothing or threw), and
@@ -290,8 +290,8 @@ internal class LivePlayback(
      */
     val error: StateFlow<String?> =
         playbackManager.playbackError
-            .map { it?.message }
-            .stateIn(scope, SharingStarted.Eagerly, playbackManager.playbackError.value?.message)
+            .map { it?.playerTitle() }
+            .stateIn(scope, SharingStarted.Eagerly, playbackManager.playbackError.value?.playerTitle())
 
     /**
      * How far each skip control moves, straight from the listener's own settings.
@@ -614,12 +614,9 @@ internal class LivePlayback(
                 try {
                     when (val result = playbackManager.prepareForPlayback(bookId, startAtMs)) {
                         is AppResult.Failure -> {
-                            // A held book's refusal names what unlocks it, and a retry cannot help.
-                            val held = result.error is BookError.HeldForReview
-                            playbackManager.reportError(
-                                if (held) result.error.message else PREPARE_FAILED,
-                                isRecoverable = !held,
-                            )
+                            // Typed as the prepare returned it: a held book's refusal names what
+                            // unlocks it, and is not retryable.
+                            playbackManager.reportError(result.error)
                             return@launch
                         }
 
@@ -635,7 +632,7 @@ internal class LivePlayback(
                 } catch (e: Exception) {
                     // Without this the listener gets nothing at all: the handler on [scope] turns
                     // an escaping failure into a console line, which is not a place anyone looks.
-                    playbackManager.reportError(PREPARE_FAILED, isRecoverable = true)
+                    playbackManager.reportError(PlaybackError.CouldNotStart(debugInfo = e.toString()))
                     throw e
                 } finally {
                     if (generation == playGeneration) {
@@ -896,16 +893,6 @@ internal fun chapterStartMs(
     chapters: List<TransportChapter>,
     index: Int,
 ): Long? = chapters.getOrNull(index)?.startMs
-
-/**
- * What the listener is told when a book will not start.
- *
- * One string for both the "prepare returned nothing" and "prepare threw" paths: from where the
- * listener sits they are the same event, and `PlaybackPreparer` already folds every underlying
- * cause to `null` before either reaches here, so a more specific message would be invented rather
- * than reported.
- */
-private const val PREPARE_FAILED = "Couldn't start this book. Check your connection and try again."
 
 /**
  * Room's book, reduced to what the player panel draws.

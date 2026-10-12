@@ -1,6 +1,7 @@
 
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -135,8 +136,8 @@ internal class PlaybackManagerImpl(
 
     // Error state for displaying playback errors to the user
     // Null means no error, non-null means error to display
-    override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?>
-        field = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)
+    override val playbackError: StateFlow<AppError?>
+        field = MutableStateFlow<AppError?>(null)
 
     override val buffering: StateFlow<Boolean>
         field = MutableStateFlow(false)
@@ -374,24 +375,15 @@ internal class PlaybackManagerImpl(
                         setPlaying(playing)
 
                         // Error routing: AudioPlayer actuals emit
-                        // PlaybackState.Error(message?) for platform-native failures;
-                        // PlaybackManager turns that into PlaybackError on the public flow.
+                        // PlaybackState.Error(error), typed at the engine edge;
+                        // PlaybackManager publishes it as is on the public flow.
                         // (Android emits errors via [reportError] from MediaControllerHolder;
                         // setPlaybackState never carries Error on the Android path.)
                         // Playing/Paused → [reporter] (position + listening-event)
                         // routing lives in [setPlaybackState] so both Desktop (via this collect)
                         // and Android (via PlaybackStateWriter.setPlaybackState from
                         // MediaControllerHolder.Player.Listener) flow through one path.
-                        if (playbackState is PlaybackState.Error) {
-                            playbackError.value =
-                                PlaybackManager.PlaybackErrorUiState(
-                                    message = playbackState.message ?: "Playback failed.",
-                                    isRecoverable = playbackState.isRecoverable,
-                                    timestampMs =
-                                        com.calypsan.listenup.core
-                                            .currentEpochMilliseconds(),
-                                )
-                        }
+                        if (playbackState is PlaybackState.Error) playbackError.value = playbackState.error
 
                         if (playbackState == PlaybackState.Ended) {
                             // The near-end guard lives in the tracker, which every platform's
@@ -627,18 +619,8 @@ internal class PlaybackManagerImpl(
      * Report a playback error to be displayed to the user.
      * Called by platform-specific error handlers.
      */
-    override fun reportError(
-        message: String,
-        isRecoverable: Boolean,
-    ) {
-        playbackError.value =
-            PlaybackManager.PlaybackErrorUiState(
-                message = message,
-                isRecoverable = isRecoverable,
-                timestampMs =
-                    com.calypsan.listenup.core
-                        .currentEpochMilliseconds(),
-            )
+    override fun reportError(error: AppError) {
+        playbackError.value = error
     }
 
     /**

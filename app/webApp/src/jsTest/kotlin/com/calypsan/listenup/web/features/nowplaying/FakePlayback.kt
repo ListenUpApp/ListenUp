@@ -87,7 +87,7 @@ internal class FakePlaybackManager(
     override val playbackSpeed = MutableStateFlow(1.0f)
     override val volumeBoostDb = MutableStateFlow(0f)
     override val playbackState = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
-    override val playbackError = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)
+    override val playbackError = MutableStateFlow<AppError?>(null)
     override val chapters = MutableStateFlow<List<Chapter>>(emptyList())
     override val preparingBookId = MutableStateFlow<BookId?>(null)
     override val preparingBookIdUi: Flow<BookId?> = preparingBookId
@@ -132,12 +132,8 @@ internal class FakePlaybackManager(
         playbackSpeed.value = speed
     }
 
-    override fun reportError(
-        message: String,
-        isRecoverable: Boolean,
-    ) {
-        playbackError.value =
-            PlaybackManager.PlaybackErrorUiState(message = message, isRecoverable = isRecoverable, timestampMs = 0L)
+    override fun reportError(error: AppError) {
+        playbackError.value = error
     }
 
     override fun activateBook(bookId: BookId) {

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.playback
 
+import org.w3c.dom.MediaError
+import io.kotest.matchers.types.shouldBeInstanceOf
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.AudioSegment
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -67,5 +70,27 @@ class HtmlAudioPlayerTest :
             val direct = AudioSegment(url = "direct", hlsUrl = null, localPath = null, durationMs = 1, offsetMs = 0)
 
             sourceFor(direct) shouldBe SegmentSource.Direct("direct")
+        }
+
+        test("a play() refused for want of a gesture is AutoplayBlocked, an abort is nothing") {
+            playRefusal("NotAllowedError") shouldBe PlaybackError.AutoplayBlocked()
+            playRefusal("AbortError") shouldBe null
+            playRefusal("SecurityError").shouldBeInstanceOf<PlaybackError.CouldNotStart>()
+        }
+
+        test("an hls.js or element failure is typed by its cause, with the browser's words kept as debugInfo") {
+            hlsFailure("networkError", "fragLoadError") shouldBe
+                PlaybackError.ConnectionLost(debugInfo = "networkError: fragLoadError")
+            hlsFailure("mediaError", "bufferAppendError") shouldBe
+                PlaybackError.UnsupportedFormat(debugInfo = "mediaError: bufferAppendError")
+            hlsFailure("otherError", "internalException") shouldBe
+                PlaybackError.CouldNotStart(debugInfo = "otherError: internalException")
+
+            mediaElementFailure(MediaError.MEDIA_ERR_NETWORK, "dropped").shouldBeInstanceOf<PlaybackError.ConnectionLost>()
+            mediaElementFailure(MediaError.MEDIA_ERR_DECODE, "decode").shouldBeInstanceOf<PlaybackError.UnsupportedFormat>()
+            mediaElementFailure(MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED, "src")
+                .shouldBeInstanceOf<PlaybackError.UnsupportedFormat>()
+            mediaElementFailure(MediaError.MEDIA_ERR_ABORTED, "aborted").shouldBeInstanceOf<PlaybackError.CouldNotStart>()
+            mediaElementFailure(null, "why") shouldBe PlaybackError.CouldNotStart(debugInfo = "why")
         }
     })

@@ -40,13 +40,13 @@ class HlsAttachmentTest :
             // it takes the native branch — which is why the chunk failing is the only way there.
             val element = document.createElement("audio") as HTMLAudioElement
 
-            attachHls(library = null, element, "/kotest-absent.m3u8", onFatalError = {}).usesHlsJs shouldBe false
+            attachHls(library = null, element, "/kotest-absent.m3u8", onFatalError = { _, _ -> }).usesHlsJs shouldBe false
         }
 
         test("attaching a playlist yields a handle that can be destroyed") {
             val element = document.createElement("audio") as HTMLAudioElement
 
-            val handle = attachHls(loadHlsLibrary(), element, "/kotest-absent.m3u8", onFatalError = {})
+            val handle = attachHls(loadHlsLibrary(), element, "/kotest-absent.m3u8", onFatalError = { _, _ -> })
 
             handle shouldNotBe null
             // Destroying immediately is also the assertion: it aborts the in-flight manifest
@@ -67,7 +67,7 @@ class HlsAttachmentTest :
             library.isSupported() shouldBe true
 
             val element = document.createElement("audio") as HTMLAudioElement
-            val handle = attachHls(library, element, "/kotest-absent.m3u8", onFatalError = {})
+            val handle = attachHls(library, element, "/kotest-absent.m3u8", onFatalError = { _, _ -> })
 
             handle.usesHlsJs shouldBe true
             handle.destroy()

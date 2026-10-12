@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.AppError
 import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -149,7 +152,7 @@ class PlaybackErrorHandler(
         player: ExoPlayer,
         currentBookId: BookId?,
         bookPositionMs: Long,
-        onShowError: (String) -> Unit,
+        onShowError: (AppError) -> Unit,
     ): Boolean {
         // ALWAYS save position first - position is sacred.
         // The caller passes a BOOK-relative position (PlaybackService.getBookRelativePosition()).
@@ -184,7 +187,7 @@ class PlaybackErrorHandler(
 
                 if (refreshedToken == null || refreshedToken == rejectedToken) {
                     logger.warn { "Token refresh produced no new token; the listener must sign in" }
-                    onShowError("Session expired. Please sign in again.")
+                    onShowError(AuthError.SessionExpired(debugInfo = "audio token refresh failed"))
                     player.pause()
                     false
                 } else {
@@ -200,14 +203,15 @@ class PlaybackErrorHandler(
 
             is ClassifiedError.NotFound -> {
                 logger.error { "Audio file not found: ${error.message}" }
-                onShowError("This audio file is no longer available.")
+                // No §4.6 row for a vanished file: it cannot start (plan Decision 9).
+                onShowError(PlaybackError.CouldNotStart(debugInfo = "audio file 404"))
                 player.pause()
                 false
             }
 
             is ClassifiedError.Codec -> {
                 logger.error { "Codec error: ${error.message}" }
-                onShowError("Cannot play this audio file. Format may be unsupported.")
+                onShowError(PlaybackError.UnsupportedFormat(debugInfo = error.message))
                 player.pause()
                 false
             }
@@ -238,7 +242,7 @@ class PlaybackErrorHandler(
 
             is ClassifiedError.Unknown -> {
                 logger.error(error.cause) { "Unknown playback error" }
-                onShowError("Playback error. Please try again.")
+                onShowError(PlaybackError.CouldNotStart(debugInfo = error.cause.toString()))
                 player.pause()
                 false
             }
@@ -254,7 +258,7 @@ class PlaybackErrorHandler(
      */
     private suspend fun recoverOrGiveUp(
         player: ExoPlayer,
-        onShowError: (String) -> Unit,
+        onShowError: (AppError) -> Unit,
         reason: String,
         recover: (ExoPlayer) -> Unit,
     ): Boolean {
@@ -262,7 +266,7 @@ class PlaybackErrorHandler(
 
         if (attempt >= RECOVERY_BACKOFF_MS.size) {
             logger.warn { "Recovery budget spent after $attempt attempts ($reason); giving up" }
-            onShowError("Playback stopped and couldn't restart on its own. Tap play to try again.")
+            onShowError(PlaybackError.ConnectionLost(debugInfo = "recovery budget spent: $reason"))
             return false
         }
 

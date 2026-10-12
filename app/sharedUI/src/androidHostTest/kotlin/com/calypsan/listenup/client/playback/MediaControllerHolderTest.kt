@@ -1,11 +1,15 @@
 package com.calypsan.listenup.client.playback
 
 import android.content.ContextWrapper
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.PlaybackError
 import com.google.common.util.concurrent.SettableFuture
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -174,9 +178,27 @@ class MediaControllerHolderTest :
                 val controller = holder.awaitController()
 
                 controller shouldBe null
-                writer.errorHistory.size shouldBe 1
-                writer.errorHistory.first().isRecoverable shouldBe true
+                writer.errorHistory.single().shouldBeInstanceOf<PlaybackError.CouldNotStart>()
             }
+        }
+
+        test("a network failure is reported as a dropped connection, a decoder failure as an unsupported format") {
+            // Through the code, not the listener: PlaybackException's constructor reads SystemClock,
+            // which a plain JVM host test does not have.
+            val typed =
+                listOf(
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                    PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+                    PlaybackException.ERROR_CODE_DRM_UNSPECIFIED,
+                ).map { code -> playbackErrorFor(code, localizedMessage = "boom") }
+
+            typed.map { it::class } shouldBe
+                listOf(
+                    PlaybackError.ConnectionLost::class,
+                    PlaybackError.UnsupportedFormat::class,
+                    PlaybackError.CouldNotStart::class,
+                )
+            typed[0].debugInfo shouldBe "ERROR_CODE_IO_NETWORK_CONNECTION_FAILED"
         }
 
         // ---------------------------------------------------------------------------
@@ -245,12 +267,7 @@ private class FakePlaybackStateWriter : PlaybackStateWriter {
     val speedHistory = mutableListOf<Float>()
     val positionHistory = mutableListOf<Long>()
 
-    data class ErrorCall(
-        val message: String,
-        val isRecoverable: Boolean,
-    )
-
-    val errorHistory = mutableListOf<ErrorCall>()
+    val errorHistory = mutableListOf<AppError>()
 
     override fun setPlaying(playing: Boolean) {
         playingHistory += playing
@@ -281,10 +298,7 @@ private class FakePlaybackStateWriter : PlaybackStateWriter {
         speedHistory += speed
     }
 
-    override fun reportError(
-        message: String,
-        isRecoverable: Boolean,
-    ) {
-        errorHistory += ErrorCall(message, isRecoverable)
+    override fun reportError(error: AppError) {
+        errorHistory += error
     }
 }

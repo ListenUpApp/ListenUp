@@ -9,7 +9,6 @@ import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
-import com.calypsan.listenup.client.playback.PlaybackManager.PlaybackErrorUiState
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.PlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,8 +68,8 @@ class FakePlaybackManager : PlaybackManager {
     val playbackStateFlow = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
     override val playbackState: StateFlow<PlaybackState> = playbackStateFlow.asStateFlow()
 
-    val playbackErrorFlow = MutableStateFlow<PlaybackErrorUiState?>(null)
-    override val playbackError: StateFlow<PlaybackErrorUiState?> = playbackErrorFlow.asStateFlow()
+    val playbackErrorFlow = MutableStateFlow<AppError?>(null)
+    override val playbackError: StateFlow<AppError?> = playbackErrorFlow.asStateFlow()
 
     val effectiveGainDbFlow = MutableStateFlow(0f)
     override val effectiveGainDb: StateFlow<Float> = effectiveGainDbFlow.asStateFlow()
@@ -109,7 +108,7 @@ class FakePlaybackManager : PlaybackManager {
     val prepareForPlaybackCalls: MutableList<BookId> = mutableListOf()
     val prepareForPlaybackStartAts: MutableList<Long?> = mutableListOf()
     val startPlaybackCalls: MutableList<StartPlaybackCall> = mutableListOf()
-    val reportedErrors: MutableList<PlaybackErrorUiState> = mutableListOf()
+    val reportedErrors: MutableList<AppError> = mutableListOf()
     var clearPlaybackCalls: Int = 0
     var clearErrorCalls: Int = 0
     val setPlayingCalls: MutableList<Boolean> = mutableListOf()
@@ -237,11 +236,9 @@ class FakePlaybackManager : PlaybackManager {
         playbackSpeedFlow.value = speed
     }
 
-    override fun reportError(
-        message: String,
-        isRecoverable: Boolean,
-    ) {
-        reportedErrors += PlaybackErrorUiState(message = message, isRecoverable = isRecoverable, timestampMs = 0L)
+    override fun reportError(error: AppError) {
+        reportedErrors += error
+        playbackErrorFlow.value = error
     }
 
     override fun clearError() {

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -33,7 +34,6 @@ import com.calypsan.listenup.client.data.remote.forTest
 import dev.mokkery.mock
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -277,12 +277,10 @@ class PlaybackManagerBufferingStateTest :
 
                     sut.playbackError.value shouldBe null
 
-                    player.emitState(PlaybackState.Error(message = "GStreamer hosed", isRecoverable = false))
+                    player.emitState(PlaybackState.Error(PlaybackError.UnsupportedFormat()))
                     advanceUntilIdle()
 
-                    val error = sut.playbackError.value.shouldNotBeNull()
-                    error.message shouldBe "GStreamer hosed"
-                    error.isRecoverable shouldBe false
+                    sut.playbackError.value shouldBe PlaybackError.UnsupportedFormat()
 
                     managerScope.coroutineContext[Job]?.cancel()
                 }
@@ -308,10 +306,9 @@ class PlaybackManagerBufferingStateTest :
                     sut.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
                     advanceUntilIdle()
 
-                    player.emitState(PlaybackState.Error(message = "transient", isRecoverable = true))
+                    player.emitState(PlaybackState.Error(PlaybackError.ConnectionLost()))
                     advanceUntilIdle()
-                    val midError = sut.playbackError.value.shouldNotBeNull()
-                    midError.isRecoverable shouldBe true
+                    sut.playbackError.value shouldBe PlaybackError.ConnectionLost()
 
                     player.emitState(PlaybackState.Playing)
                     advanceUntilIdle()

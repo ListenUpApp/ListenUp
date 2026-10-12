@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioSegment
 import com.calypsan.listenup.client.playback.PlaybackState
@@ -65,18 +67,51 @@ internal fun sourceFor(segment: AudioSegment): SegmentSource =
     segment.hlsUrl?.let { SegmentSource.Hls(it) } ?: SegmentSource.Direct(segment.url)
 
 /**
- * The user-facing message for a rejected `play()`, or null when the rejection is benign.
+ * The typed failure for a rejected `play()`, or null when the rejection is benign.
  *
  * `AbortError` is the ordinary consequence of re-pointing the element while a play is pending —
  * exactly what a segment advance does — so surfacing it would paint an error over correct
- * playback. Every other rejection means the audio did not start, and silence the listener cannot
- * explain is the failure this player exists to prevent.
+ * playback. `NotAllowedError` is the browser wanting a gesture. Every other rejection means the
+ * audio did not start, and silence the listener cannot explain is the failure this player exists
+ * to prevent.
  */
-internal fun playRefusalMessage(errorName: String): String? =
+internal fun playRefusal(errorName: String): AppError? =
     when (errorName) {
         "AbortError" -> null
-        "NotAllowedError" -> "Playback needs a tap to start. This browser blocks audio nobody asked for."
-        else -> "Playback error. The browser refused to start audio ($errorName)."
+        "NotAllowedError" -> PlaybackError.AutoplayBlocked()
+        else -> PlaybackError.CouldNotStart(debugInfo = "play() refused: $errorName")
+    }
+
+/** A fatal hls.js failure, typed by its [type] (spec §4.6); hls.js's own words go to `debugInfo`. */
+internal fun hlsFailure(
+    type: String,
+    details: String,
+): AppError {
+    val debugInfo = "$type: $details"
+    return when (type) {
+        "networkError" -> PlaybackError.ConnectionLost(debugInfo = debugInfo)
+        "mediaError" -> PlaybackError.UnsupportedFormat(debugInfo = debugInfo)
+        else -> PlaybackError.CouldNotStart(debugInfo = debugInfo)
+    }
+}
+
+/** The element's `MediaError` [code] (null when it gave none), typed (spec §4.6). */
+internal fun mediaElementFailure(
+    code: Short?,
+    debugInfo: String,
+): AppError =
+    when (code) {
+        MediaError.MEDIA_ERR_NETWORK -> {
+            PlaybackError.ConnectionLost(debugInfo = debugInfo)
+        }
+
+        MediaError.MEDIA_ERR_DECODE, MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED -> {
+            PlaybackError.UnsupportedFormat(debugInfo = debugInfo)
+        }
+
+        else -> {
+            PlaybackError.CouldNotStart(debugInfo = debugInfo)
+        }
     }
 
 private const val MS_PER_SECOND = 1000.0
@@ -199,7 +234,7 @@ internal class HtmlAudioPlayer : AudioPlayer {
             // Forget the previous book as well as refusing this one: leaving its segments in place
             // would let a later play() or seekTo() operate on content the caller has replaced.
             forgetContent()
-            state.value = PlaybackState.Error(message = "Playback error. No audio segments were provided.")
+            state.value = PlaybackState.Error(PlaybackError.CouldNotStart(debugInfo = "no audio segments"))
             return
         }
         // Fetched before anything is re-pointed, and only for a book that has an HLS segment at all:
@@ -438,8 +473,9 @@ internal class HtmlAudioPlayer : AudioPlayer {
             is SegmentSource.Hls -> {
                 try {
                     hlsHandle = attachHls(hlsLibrary, element, source.url, ::reportHlsError)
-                } catch (unsupported: IllegalStateException) {
-                    state.value = PlaybackState.Error(message = unsupported.message, isRecoverable = false)
+                } catch (_: IllegalStateException) {
+                    state.value =
+                        PlaybackState.Error(PlaybackError.UnsupportedFormat(debugInfo = "no MSE and no native HLS"))
                     return
                 }
             }
@@ -489,9 +525,9 @@ internal class HtmlAudioPlayer : AudioPlayer {
         // retryable, which PlaybackManagerImpl turns into a Retry button that can only loop.
         if (state.value is PlaybackState.Error) return
         val name = reason.asDynamic().name as? String ?: ""
-        val message = playRefusalMessage(name) ?: return
+        val refusal = playRefusal(name) ?: return
         resumeOnReady = false
-        state.value = PlaybackState.Error(message = message, isRecoverable = true)
+        state.value = PlaybackState.Error(refusal)
     }
 
     private fun releaseHls() {
@@ -546,35 +582,27 @@ internal class HtmlAudioPlayer : AudioPlayer {
         attach(index = next, offsetInSegmentMs = 0)
     }
 
-    private fun reportHlsError(detail: String) {
+    private fun reportHlsError(
+        type: String,
+        details: String,
+    ) {
         if (released) return
         // Fatal means hls.js has stopped; its buffers, timers and retry loop have not. Nothing else
         // will destroy this instance — a fatal error is neither a segment change nor a teardown —
         // so without this it runs until the tab closes.
         releaseHls()
-        state.value =
-            PlaybackState.Error(
-                message = "Playback error. $detail",
-                // Not retryable, because this player offers no way to retry. Destroying the
-                // instance above makes hls.js detach the media, which strips `src` and reloads the
-                // element, so a later play() waits on a promise that never settles. Flipping this
-                // to true needs a re-attach path to exist first — advertising recovery that is not
-                // implemented is the same lie as reporting a spinner.
-                isRecoverable = false,
-            )
+        // Destroying the instance above makes hls.js detach the media, which strips `src` and
+        // reloads the element, so a later play() on this attachment waits on a promise that never
+        // settles: recovery is a fresh prepare, never a re-fire of this one.
+        state.value = PlaybackState.Error(hlsFailure(type, details))
     }
 
     private fun reportElementError() {
         if (released) return
         val error = element.error
-        state.value =
-            PlaybackState.Error(
-                message = "Playback error. ${describe(error)}",
-                // Only a network stall is worth re-firing blindly; a codec the browser cannot
-                // decode will fail identically every time, and telling the listener to retry
-                // would be a second lie on top of the first.
-                isRecoverable = error?.code == MediaError.MEDIA_ERR_NETWORK,
-            )
+        // Only a network stall is typed retryable; a codec the browser cannot decode will fail
+        // identically every time. describe() only ever feeds debugInfo.
+        state.value = PlaybackState.Error(mediaElementFailure(error?.code, describe(error)))
     }
 
     private fun describe(error: MediaError?): String =

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import kotlin.time.Duration
@@ -29,7 +30,7 @@ fun mapToNowPlayingState(
                 bookId = null,
                 title = null,
                 message = metadata.error.message,
-                isRecoverable = metadata.error.isRecoverable,
+                isRecoverable = metadata.error.isRetryable,
             )
         }
         return NowPlayingState.Idle
@@ -40,7 +41,7 @@ fun mapToNowPlayingState(
             bookId = book.id.value,
             title = book.title,
             message = metadata.error.message,
-            isRecoverable = metadata.error.isRecoverable,
+            isRecoverable = metadata.error.isRetryable,
         )
     }
 
@@ -88,7 +89,7 @@ data class PlaybackDynamics(
 data class SurfaceMetadata(
     val currentChapter: PlaybackManager.ChapterInfo?,
     val chapters: List<Chapter> = emptyList(),
-    val error: PlaybackManager.PlaybackErrorUiState?,
+    val error: AppError?,
     val defaultPlaybackSpeed: Float,
     val defaultVolumeBoostDb: Float,
 )

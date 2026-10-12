@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -59,8 +60,8 @@ interface PlaybackManager :
     /** Aggregate playback state (Idle/Buffering/Playing/Paused/Ended/Error). */
     val playbackState: StateFlow<PlaybackState>
 
-    /** Current playback error for display to the user (null when no error). */
-    val playbackError: StateFlow<PlaybackErrorUiState?>
+    /** The engine's current failure, typed, or null. */
+    val playbackError: StateFlow<AppError?>
 
     /** Chapter list for the current book. */
     val chapters: StateFlow<List<Chapter>>
@@ -190,9 +191,9 @@ interface PlaybackManager :
     /**
      * Clear a latched [playbackError] immediately.
      *
-     * Called by the VM when the user re-initiates play/resume, so the mini player reappears
-     * right away instead of waiting for the async Playing-state confirmation (which also clears
-     * it, in [PlaybackManagerImpl.setPlaybackState]) to arrive from the platform player.
+     * Called when the user re-initiates play/resume, so the failure clears at once instead of
+     * waiting for the async Playing-state confirmation (which also clears it, in
+     * [PlaybackManagerImpl.setPlaybackState]) to arrive from the platform player.
      */
     fun clearError()
 
@@ -200,7 +201,7 @@ interface PlaybackManager :
     // Nested types
     //
     // Kept nested (not promoted to top-level) because consumer code references
-    // them as `PlaybackManager.PrepareResult`, `PlaybackManager.PlaybackErrorUiState`,
+    // them as `PlaybackManager.PrepareResult`,
     // `PlaybackManager.ChapterInfo` across shared, composeApp/{android,desktop}Main,
     // and tests. Promoting to top-level would cause an avoidable churn through every
     // reference site.
@@ -222,13 +223,6 @@ interface PlaybackManager :
         val measuredGainDb: Float?,
         /** Server tag-read normalization gain (ReplayGain/iTunNORM), null when the file has no tag. */
         val normalizationGainDb: Float?,
-    )
-
-    /** Playback error for display to the user. */
-    data class PlaybackErrorUiState(
-        val message: String,
-        val isRecoverable: Boolean,
-        val timestampMs: Long,
     )
 
     /** Current chapter information for notification and UI. */

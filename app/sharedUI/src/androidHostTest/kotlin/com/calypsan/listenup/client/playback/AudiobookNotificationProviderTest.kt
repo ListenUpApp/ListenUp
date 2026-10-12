@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import android.content.Context
@@ -276,7 +277,7 @@ private class StubPlaybackManager : PlaybackManager {
     override val playbackSpeed: StateFlow<Float> = MutableStateFlow(1.0f)
     override val volumeBoostDb: StateFlow<Float> = MutableStateFlow(0f)
     override val playbackState: StateFlow<PlaybackState> = MutableStateFlow(PlaybackState.Idle)
-    override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?> = MutableStateFlow(null)
+    override val playbackError: StateFlow<AppError?> = MutableStateFlow(null)
     override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
     override val effectiveGainDb: StateFlow<Float> = MutableStateFlow(0f)
     override val preparingBookId: StateFlow<BookId?> = MutableStateFlow(null)
@@ -326,8 +327,5 @@ private class StubPlaybackManager : PlaybackManager {
 
     override fun updateSpeed(speed: Float) = Unit
 
-    override fun reportError(
-        message: String,
-        isRecoverable: Boolean,
-    ) = Unit
+    override fun reportError(error: AppError) = Unit
 }
