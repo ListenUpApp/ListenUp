@@ -205,6 +205,8 @@ CollectionRepository
 CollectionShare
 CollectionShareItem
 CombinedScore
+CommunitySize
+CommunitySize_SealedType
 ConnectionCoordinator
 ConnectionHealthUi
 ConnectionHealthUi_SealedType
@@ -292,6 +294,7 @@ DiscoverUserShelves
 DiscoverViewModel
 DiscoveredServer
 DiscoveryBook
+DiscoveryPick
 DocumentRepository
 Download
 DownloadError
@@ -492,6 +495,7 @@ LeaderboardEntry
 LeaderboardPeriod
 LeaderboardPeriod_SealedType
 LeaderboardRepository
+LeaderboardSelection
 LeaderboardSnapshot
 LeaderboardUiState
 LeaderboardUiState_SealedType
@@ -846,6 +850,7 @@ ShareTarget_SealedType
 Shelf
 ShelfBook
 ShelfBookSort
+ShelfCover
 ShelfDetail
 ShelfDetailUiState
 ShelfDetailUiState_SealedType
