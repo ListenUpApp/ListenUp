@@ -2238,7 +2238,12 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         page(
             books = DiscoverBooksUiState.Ready(listOf(discoverBook())),
             recentlyAdded = RecentlyAddedUiState.Ready(listOf(recentBook())),
-            currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener, listener.copy(sessionId = "s2", isLive = false)), observedAtMs = null, isStale = false),
+            currentlyListening =
+                CurrentlyListeningUiState.Ready(
+                    listOf(listener, listener.copy(sessionId = "s2", isLive = false)),
+                    observedAtMs = null,
+                    isStale = false,
+                ),
             leaderboard = LeaderboardUiState.Data(snapshot = snapshot),
             leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
             activityState = ActivityFeedUiState.Ready(listOf(activity, joined)),

@@ -91,7 +91,9 @@ class LeaderboardViewModel(
         field = MutableStateFlow(LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time))
 
     private val currentUserId =
-        authSession.authState.map { (it as? AuthState.Authenticated)?.userId?.value }.distinctUntilChanged()
+        authSession.authState
+            .map { auth -> if (auth is AuthState.Authenticated) auth.userId.value else null }
+            .distinctUntilChanged()
 
     private val pipelineRuns = MutableStateFlow(0)
 
@@ -106,10 +108,12 @@ class LeaderboardViewModel(
 
     private fun leaderboardPipeline(): Flow<LeaderboardUiState> =
         combine(selection.map { it.period }.distinctUntilChanged(), currentUserId) { period, me -> period to me }
-            .flatMapLatest { (period, me) -> repo.observeSnapshot(period, limit = LEADERBOARD_LIMIT, currentUserId = me) }
-            .map<_, LeaderboardUiState> { snapshot ->
+            .flatMapLatest { (period, me) ->
+                repo.observeSnapshot(period, limit = LEADERBOARD_LIMIT, currentUserId = me)
+            }.map<_, LeaderboardUiState> { snapshot ->
                 // Nobody listened in the window: the board has nothing to rank, even with people on it.
-                if (snapshot.time.none { it.totalSeconds > 0 }) LeaderboardUiState.Empty else LeaderboardUiState.Data(snapshot)
+                val nobodyListened = snapshot.time.none { it.totalSeconds > 0 }
+                if (nobodyListened) LeaderboardUiState.Empty else LeaderboardUiState.Data(snapshot)
             }.fallbackTo { e ->
                 logger.error(e) { "Error observing the leaderboard" }
                 LeaderboardUiState.Error(ErrorMapper.map(e))

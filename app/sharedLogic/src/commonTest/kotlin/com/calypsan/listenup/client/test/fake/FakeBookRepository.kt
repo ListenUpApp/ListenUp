@@ -116,7 +116,6 @@ class FakeBookRepository(
         chaptersByBookId[bookId] = chapters
     }
 
-
     private fun toDiscoveryPick(book: BookListItem): DiscoveryPick =
         DiscoveryPick(
             id = book.id.value,
@@ -128,6 +127,7 @@ class FakeBookRepository(
             sequenceLabel = book.seriesSequenceLabel,
             durationMs = book.duration,
         )
+
     private fun toDiscoveryBook(book: BookListItem): DiscoveryBook =
         DiscoveryBook(
             id = book.id.value,

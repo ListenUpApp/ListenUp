@@ -236,7 +236,10 @@ class LeaderboardViewModelTest :
                 backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }
                 advanceUntilIdle()
 
-                vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Error>().error.shouldBeInstanceOf<UnexpectedClientError>()
+                vm.uiState.value
+                    .shouldBeInstanceOf<LeaderboardUiState.Error>()
+                    .error
+                    .shouldBeInstanceOf<UnexpectedClientError>()
             }
         }
 
@@ -349,7 +352,7 @@ class LeaderboardViewModelTest :
 
         test("the signed-in reader's id reaches the repository, so their row can be marked") {
             runTest {
-                var askedFor: String? = "unset"
+                var askedFor: String? = null
                 val vm =
                     vm(
                         FakeLeaderboardRepository { _, me ->

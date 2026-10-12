@@ -127,7 +127,14 @@ fun DiscoverPage(
         DiscoverBooksSection(books, onOpenBook, selection, onRefresh)
         RecentlyAddedSection(recentlyAdded, onOpenBook, selection, onRefresh)
         SharedShelvesSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
-        LeaderboardSection(leaderboard, leaderboardSelection, onSelectPeriod, onSelectCategory, onOpenProfile, onRefreshLeaderboard)
+        LeaderboardSection(
+            leaderboard,
+            leaderboardSelection,
+            onSelectPeriod,
+            onSelectCategory,
+            onOpenProfile,
+            onRefreshLeaderboard,
+        )
         ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile, onRefreshActivity)
     }
 }

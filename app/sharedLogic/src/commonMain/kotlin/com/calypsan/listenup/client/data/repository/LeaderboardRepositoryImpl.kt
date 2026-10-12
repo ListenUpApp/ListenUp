@@ -31,7 +31,10 @@ internal class LeaderboardRepositoryImpl(
         period: LeaderboardPeriod,
         limit: Int,
         currentUserId: String?,
-    ): Flow<LeaderboardSnapshot> = publicProfileDao.observeAll().map { rows -> snapshot(rows, period, limit, currentUserId) }
+    ): Flow<LeaderboardSnapshot> =
+        publicProfileDao.observeAll().map { rows ->
+            snapshot(rows = rows, period = period, limit = limit, currentUserId = currentUserId)
+        }
 
     private fun snapshot(
         rows: List<PublicProfileEntity>,
@@ -49,7 +52,9 @@ internal class LeaderboardRepositoryImpl(
 
         val time =
             rankDense(rows.sortedWith(rankOrder(timeSelector)).take(limit), timeSelector)
-                .map { (rank, e) -> e.toEntry(rank, isYou = e.id == currentUserId).copy(totalSeconds = timeSelector(e)) }
+                .map { (rank, e) ->
+                    e.toEntry(rank, isYou = e.id == currentUserId).copy(totalSeconds = timeSelector(e))
+                }
 
         val booksSelector: (PublicProfileEntity) -> Int =
             when (period) {
@@ -67,11 +72,19 @@ internal class LeaderboardRepositoryImpl(
             }
 
         val books =
-            rankDense(rows.sortedWith(rankOrder { booksSelector(it).toLong() }).take(limit)) { booksSelector(it).toLong() }
-                .map { (rank, e) -> e.toEntry(rank, isYou = e.id == currentUserId).copy(booksFinished = booksSelector(e)) }
+            rankDense(
+                rows.sortedWith(rankOrder { booksSelector(it).toLong() }).take(limit),
+            ) { booksSelector(it).toLong() }
+                .map { (rank, e) ->
+                    e.toEntry(rank, isYou = e.id == currentUserId).copy(booksFinished = booksSelector(e))
+                }
         val streak =
-            rankDense(rows.sortedWith(rankOrder { streakSelector(it).toLong() }).take(limit)) { streakSelector(it).toLong() }
-                .map { (rank, e) -> e.toEntry(rank, isYou = e.id == currentUserId).copy(longestStreakDays = streakSelector(e)) }
+            rankDense(
+                rows.sortedWith(rankOrder { streakSelector(it).toLong() }).take(limit),
+            ) { streakSelector(it).toLong() }
+                .map { (rank, e) ->
+                    e.toEntry(rank, isYou = e.id == currentUserId).copy(longestStreakDays = streakSelector(e))
+                }
 
         return LeaderboardSnapshot(time, books, streak)
     }

@@ -169,7 +169,12 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         leaderboard = LeaderboardUiState.Error(UnexpectedClientError()),
-                        currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false),
+                        currentlyListening =
+                            CurrentlyListeningUiState.Ready(
+                                listOf(listener(isLive = true)),
+                                observedAtMs = null,
+                                isStale = false,
+                            ),
                     )
                 }
 
@@ -286,7 +291,16 @@ class DiscoverPageTest :
 
         test("a live listener is marked as listening now, not as a stale timestamp") {
             val host =
-                mounts.mount { page(currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)), observedAtMs = null, isStale = false)) }
+                mounts.mount {
+                    page(
+                        currentlyListening =
+                            CurrentlyListeningUiState.Ready(
+                                listOf(listener(isLive = true)),
+                                observedAtMs = null,
+                                isStale = false,
+                            ),
+                    )
+                }
 
             host.querySelector(".disc-live")!!.textContent shouldBe "Listening now"
             host.querySelector(".disc-when") shouldBe null

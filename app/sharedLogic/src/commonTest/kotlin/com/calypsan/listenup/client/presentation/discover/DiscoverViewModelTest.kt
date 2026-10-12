@@ -359,11 +359,15 @@ class DiscoverViewModelTest :
 
                 fixture.reachability.value = Reachability.Unreachable
                 advanceUntilIdle()
-                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>().isStale shouldBe true
+                viewModel.currentlyListeningState.value
+                    .shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                    .isStale shouldBe true
 
                 fixture.reachability.value = Reachability.Unknown
                 advanceUntilIdle()
-                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>().isStale shouldBe false
+                viewModel.currentlyListeningState.value
+                    .shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                    .isStale shouldBe false
             }
         }
 
@@ -373,7 +377,9 @@ class DiscoverViewModelTest :
                 val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
                 advanceUntilIdle()
 
-                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>().observedAtMs shouldBe null
+                viewModel.currentlyListeningState.value
+                    .shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                    .observedAtMs shouldBe null
             }
         }
 
@@ -622,7 +628,11 @@ class DiscoverViewModelTest :
                 advanceUntilIdle()
 
                 val ready = viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Ready>()
-                ready.users.single().shelves.single().covers shouldBe listOf(cover)
+                ready.users
+                    .single()
+                    .shelves
+                    .single()
+                    .covers shouldBe listOf(cover)
             }
         }
 
@@ -683,7 +693,8 @@ class DiscoverViewModelTest :
                 advanceUntilIdle()
                 viewModel.discoverBooksState.value
                     .shouldBeInstanceOf<DiscoverBooksUiState.Error>()
-                    .error.shouldBeInstanceOf<UnexpectedClientError>()
+                    .error
+                    .shouldBeInstanceOf<UnexpectedClientError>()
 
                 viewModel.refresh()
                 advanceUntilIdle()
@@ -697,12 +708,19 @@ class DiscoverViewModelTest :
             runTest {
                 val fixture =
                     createFixture(
-                        randomBooks = listOf(createDiscoveryPick(id = "p1", seriesName = "Mistborn", sequenceLabel = "1", durationMs = 90_000L)),
+                        randomBooks =
+                            listOf(
+                                createDiscoveryPick(id = "p1", seriesName = "Mistborn", sequenceLabel = "1", durationMs = 90_000L),
+                            ),
                     )
                 val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
                 advanceUntilIdle()
 
-                val book = viewModel.discoverBooksState.value.shouldBeInstanceOf<DiscoverBooksUiState.Ready>().books.single()
+                val book =
+                    viewModel.discoverBooksState.value
+                        .shouldBeInstanceOf<DiscoverBooksUiState.Ready>()
+                        .books
+                        .single()
                 book.seriesName shouldBe "Mistborn"
                 book.sequenceLabel shouldBe "1"
                 book.durationMs shouldBe 90_000L
@@ -718,11 +736,17 @@ class DiscoverViewModelTest :
                 viewModel.shuffle()
                 advanceUntilIdle()
 
-                verifySuspend(dev.mokkery.verify.VerifyMode.atLeast(2)) {
+                verifySuspend(
+                    dev.mokkery.verify.VerifyMode
+                        .atLeast(2),
+                ) {
                     fixture.bookRepository.observeRandomUnstartedBooks(any())
                 }
                 // Once, on init: Shuffle is about the books, and a shelf fetch is a network call.
-                verifySuspend(dev.mokkery.verify.VerifyMode.exactly(1)) { fixture.shelfRepository.discoverShelves() }
+                verifySuspend(
+                    dev.mokkery.verify.VerifyMode
+                        .exactly(1),
+                ) { fixture.shelfRepository.discoverShelves() }
             }
         }
 

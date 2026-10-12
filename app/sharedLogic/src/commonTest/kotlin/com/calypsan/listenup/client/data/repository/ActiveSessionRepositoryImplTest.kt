@@ -366,7 +366,10 @@ class ActiveSessionRepositoryImplTest :
                         everySuspend { currentlyListening() } returns AppResult.Success(listOf(session(userId = "u2", bookId = "bookA")))
                     }
                 val library = libraryOf(LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null))
-                val fixed = object : Clock { override fun now(): Instant = Instant.fromEpochMilliseconds(42_000L) }
+                val fixed =
+                    object : Clock {
+                        override fun now(): Instant = Instant.fromEpochMilliseconds(42_000L)
+                    }
 
                 repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao(), clock = fixed)
                     .observeActiveSessions("u1")

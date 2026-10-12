@@ -267,7 +267,11 @@ class ActivityFeedViewModelTest :
                 val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
 
-                val row = viewModel.state.value.shouldBeInstanceOf<ActivityFeedUiState.Ready>().activities.single()
+                val row =
+                    viewModel.state.value
+                        .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                        .activities
+                        .single()
                 row.bookCoverPath shouldBe "/c/b1.jpg"
                 row.bookCoverHash shouldBe "h1"
             }
