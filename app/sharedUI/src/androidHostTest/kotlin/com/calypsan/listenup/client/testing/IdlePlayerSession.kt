@@ -1,0 +1,57 @@
+package com.calypsan.listenup.client.testing
+
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.playback.NativePlayerEngine
+import com.calypsan.listenup.client.playback.PreparedPlayback
+import com.calypsan.listenup.client.playback.PlayerSession
+import com.calypsan.listenup.client.playback.SleepTimerManager
+import com.calypsan.listenup.core.BookId
+import dev.mokkery.MockMode
+import dev.mokkery.answering.returns
+import dev.mokkery.every
+import dev.mokkery.mock
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.flowOf
+
+/**
+ * A real [PlayerSession] with nothing loaded, for UI tests whose screen injects the session (Book Detail's busy
+ * button) but never plays. [PlayerSession] is a final class, so the screen gets the real thing over an engine
+ * that refuses to prepare and repositories that are never asked anything while nothing is loaded.
+ */
+internal fun idlePlayerSession(scope: CoroutineScope): PlayerSession =
+    PlayerSession(
+        engine = NativePlayerEngine(prepare = ::refuse, scope = scope),
+        loadedBooks =
+            mock<LoadedBookRepository>(MockMode.autoUnit) {
+                every { observeLoadedBookId() } returns
+                    flowOf(null)
+            },
+        bookRepository = mock(MockMode.autoUnit),
+        downloadRepository = mock(MockMode.autoUnit),
+        positionRepository = mock(MockMode.autoUnit),
+        availability = mock(MockMode.autoUnit),
+        inboxRepository = mock(MockMode.autoUnit),
+        networkMonitor = mock(MockMode.autoUnit),
+        serverReachability = mock(MockMode.autoUnit),
+        authSession = mock(MockMode.autoUnit),
+        sleepTimer = SleepTimerManager(scope = scope),
+        playbackPreferences =
+            mock<PlaybackPreferences>(MockMode.autoUnit) {
+                every { observeDefaultPlaybackSpeed() } returns flowOf(PlaybackPreferences.DEFAULT_PLAYBACK_SPEED)
+                every { observeDefaultVolumeBoostDb() } returns flowOf(PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB)
+                every { observeDefaultSkipForwardSec() } returns flowOf(PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC)
+                every { observeDefaultSkipBackwardSec() } returns flowOf(PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC)
+            },
+        offlineCopiesSupported = true,
+        scope = scope,
+    )
+
+/** Every prepare fails: these screens never play. */
+@Suppress("UnusedParameter") // the engine's prepare signature
+private fun refuse(
+    bookId: BookId,
+    startAtMs: Long?,
+): AppResult<PreparedPlayback> = AppResult.Failure(PlaybackError.CouldNotStart())

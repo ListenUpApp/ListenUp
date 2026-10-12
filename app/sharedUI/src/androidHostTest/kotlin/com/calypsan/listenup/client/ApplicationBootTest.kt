@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client
 
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.WorkManager
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -16,6 +16,7 @@ import org.koin.core.context.GlobalContext
 import org.koin.core.context.stopKoin
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import kotlin.time.Duration.Companion.seconds
 
@@ -77,12 +78,21 @@ class ApplicationBootTest {
         stopKoin()
     }
 
-    /** Cancels every Koin-held [CoroutineScope], waits for its children, and fails if any is still running. */
+    /**
+     * Cancels every Koin-held [CoroutineScope], waits for its children, and fails if any is still running.
+     *
+     * The player's scope runs on the main thread (`Dispatchers.Main.immediate`, the session's one-thread
+     * rule), and Robolectric's paused main looper only runs what is posted to it when idled. A coroutine
+     * already posted there finishes its cancellation only once the looper runs, and `runBlocking` here holds
+     * that very thread — so the looper is idled between the cancel and the join.
+     */
     private fun cancelEveryScopeTheApplicationStarted() {
         val koin = GlobalContext.getOrNull() ?: return
         val jobs = koin.getAll<CoroutineScope>().map { it.coroutineContext.job }
+        jobs.forEach { it.cancel() }
+        shadowOf(Looper.getMainLooper()).idle()
         runBlocking {
-            withTimeout(5.seconds) { jobs.forEach { it.cancelAndJoin() } }
+            withTimeout(5.seconds) { jobs.forEach { it.join() } }
         }
         val stillRunning = jobs.count { job -> job.children.any { it.isActive } }
         check(stillRunning == 0) { "$stillRunning application scope(s) still have running children after teardown" }

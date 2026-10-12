@@ -5,18 +5,18 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadManager
 import com.calypsan.listenup.client.handoff.ViewedBookTracker
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
+import com.calypsan.listenup.client.playback.PlayerSession
 import android.content.Context
 import android.content.Intent
 
 /**
  * Android implementation of BookDetailPlatformActions.
- * Delegates to DownloadManager (WorkManager) and NowPlayingViewModel (Media3).
+ * Delegates to DownloadManager (WorkManager) and the shared [PlayerSession] (Media3 through its engine).
  */
 class AndroidBookDetailPlatformActions(
     private val context: Context,
     private val downloadManager: DownloadManager,
-    private val nowPlayingViewModel: NowPlayingViewModel,
+    private val playerSession: PlayerSession,
     private val viewedBookTracker: ViewedBookTracker,
 ) : BookDetailPlatformActions {
     override suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome> = downloadManager.downloadBook(bookId)
@@ -30,14 +30,14 @@ class AndroidBookDetailPlatformActions(
     }
 
     override fun playBook(bookId: BookId) {
-        nowPlayingViewModel.playBook(bookId)
+        playerSession.playBook(bookId, startAtMs = null)
     }
 
     override fun playFromChapter(
         bookId: BookId,
         startMs: Long,
     ) {
-        nowPlayingViewModel.playBook(bookId, startAtMs = startMs)
+        playerSession.playBook(bookId, startAtMs = startMs)
     }
 
     override fun onBookScreenShown(bookId: BookId) {

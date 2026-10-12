@@ -346,7 +346,7 @@ val downloadModule =
             AndroidBookDetailPlatformActions(
                 context = androidContext(),
                 downloadManager = get(),
-                nowPlayingViewModel = get(),
+                playerSession = get(),
                 viewedBookTracker = get(),
             )
         }

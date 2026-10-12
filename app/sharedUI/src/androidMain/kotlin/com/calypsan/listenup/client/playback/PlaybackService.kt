@@ -32,7 +32,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.voice.VoiceIntentResolver
@@ -133,7 +133,7 @@ class PlaybackService :
     private val reporter: PlaybackProgressReporter by inject()
     private val progressTracker: ProgressTracker by inject()
     private val listeningEventRecorder: com.calypsan.listenup.client.playback.ListeningEventRecorder by inject()
-    private val positionRepository: PlaybackPositionRepository by inject()
+    private val loadedBookRepository: LoadedBookRepository by inject()
     private val errorHandler: PlaybackErrorHandler by inject()
     private val errorBus: ErrorBus by inject()
     private val tokenProvider: AndroidAudioTokenProvider by inject()
@@ -384,7 +384,7 @@ class PlaybackService :
                     voiceIntentResolver = voiceIntentResolver,
                     homeRepository = homeRepository,
                     authSession = authSession,
-                    positionRepository = positionRepository,
+                    loadedBookRepository = loadedBookRepository,
                     serviceScope = serviceScope,
                     transport = this,
                     uriPermissionGranter = uriPermissionGranter,

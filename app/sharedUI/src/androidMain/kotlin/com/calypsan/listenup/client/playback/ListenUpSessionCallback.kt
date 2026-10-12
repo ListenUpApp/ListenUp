@@ -23,15 +23,14 @@ import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.automotive.browseNeedsSignIn
 import com.calypsan.listenup.client.automotive.isLastPage
 import com.calypsan.listenup.client.automotive.paginate
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.client.localization.SystemStringsHolder
-import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.voice.MediaFocus
 import com.calypsan.listenup.client.voice.PlaybackIntent
 import com.calypsan.listenup.client.voice.VoiceHints
@@ -64,7 +63,7 @@ internal class ListenUpSessionCallback(
     private val voiceIntentResolver: VoiceIntentResolver,
     private val homeRepository: HomeRepository,
     private val authSession: AuthSession,
-    private val positionRepository: PlaybackPositionRepository,
+    private val loadedBookRepository: LoadedBookRepository,
     private val serviceScope: CoroutineScope,
     private val transport: PlaybackTransport,
     private val uriPermissionGranter: UriPermissionGranter,
@@ -687,7 +686,7 @@ internal class ListenUpSessionCallback(
      * distinguishes why the system is asking: `false` means it only wants the item/metadata to
      * populate a resumption notification (e.g. right after a reboot), with no immediate
      * intention to start audio; `true` means the user actually pressed play and playback should
-     * start once resolved. Our preparation work — reading the last-played book and resolving
+     * start once resolved. Our preparation work — reading this device's loaded book and resolving
      * its start position — is needed to answer either request, so this implementation is
      * identical for both flag values.
      */
@@ -701,29 +700,19 @@ internal class ListenUpSessionCallback(
         return CallbackToFutureAdapter.getFuture { completer ->
             serviceScope.launch {
                 try {
-                    // Get the last played book from the repository
-                    val lastPlayed =
-                        when (val r = positionRepository.getLastPlayedBook()) {
-                            is AppResult.Success -> {
-                                r.data
-                            }
-
-                            is AppResult.Failure -> {
-                                logger.warn { "Failed to read last played book: ${r.error.message}" }
-                                null
-                            }
-                        }
-
-                    if (lastPlayed == null) {
-                        logger.warn { "No last played book found for resumption" }
-                        completer.setException(IllegalStateException("No book to resume"))
+                    // The system resumes the LOADED book (spec §4.4): with nothing loaded, refuse, so a book the
+                    // reader closed is not resurrected by the resumption card after a reboot (spec R3).
+                    val bookId = loadedBookRepository.loadedBookId()
+                    if (bookId == null) {
+                        logger.info { "Nothing is loaded; refusing playback resumption" }
+                        completer.setException(IllegalStateException("Nothing is loaded"))
                         return@launch
                     }
 
-                    logger.info { "Resuming book: ${lastPlayed.bookId.value} at ${lastPlayed.positionMs}ms" }
+                    logger.info { "Resuming book: ${bookId.value}" }
 
                     // Prepare playback for the book
-                    val prepareResult = playbackManager.prepareForSilentStart(lastPlayed.bookId, "Resumption")
+                    val prepareResult = playbackManager.prepareForSilentStart(bookId, "Resumption")
 
                     if (prepareResult == null) {
                         logger.error { "Failed to prepare book for resumption" }
@@ -731,9 +720,9 @@ internal class ListenUpSessionCallback(
                         return@launch
                     }
 
-                    // Same reason as onSetMediaItems: resumption is a play path the VM
-                    // never sees, so nothing else sets the book progress is keyed on.
-                    playbackManager.activateBook(lastPlayed.bookId)
+                    // Same reason as onSetMediaItems: resumption is a play path no screen sees, so nothing
+                    // else sets the book progress is keyed on; it is also what PlayerSession adopts.
+                    playbackManager.activateBook(bookId)
 
                     // Build MediaItems from timeline
                     val resolvedMediaItems =

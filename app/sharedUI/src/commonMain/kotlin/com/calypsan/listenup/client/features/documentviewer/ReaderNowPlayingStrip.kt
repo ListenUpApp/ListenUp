@@ -25,8 +25,10 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.features.nowplaying.components.wayOut
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cover_a11y
@@ -38,7 +40,8 @@ import org.jetbrains.compose.resources.stringResource
  * Slim now-playing strip for the reader dock.
  *
  * Shows: small cover · chapter/title + time-left · filled play/pause button.
- * Renders only for [NowPlayingState.Active]; no-ops otherwise.
+ * Renders only while a book is loaded ([PlayerUiState.Loaded]); no-ops otherwise. The button is the shared
+ * primary: play/pause, or the way out of a failure (Retry, Sign in, …).
  *
  * Intentionally minimal — no transport skip, no speed pill, no expand button.
  * The reader dock pairs this above a [ReaderPageScrubber].
@@ -48,13 +51,14 @@ import org.jetbrains.compose.resources.stringResource
  */
 @Composable
 internal fun ReaderNowPlayingStrip(
-    state: NowPlayingState,
-    progress: () -> PlaybackProgress,
-    onPlayPause: () -> Unit,
+    state: PlayerUiState,
+    progress: () -> PlayerProgress,
+    onPrimary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
-    if (state !is NowPlayingState.Active) return
+    if (state !is PlayerUiState.Loaded) return
+    val book = state.book
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -68,12 +72,12 @@ internal fun ReaderNowPlayingStrip(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BookCoverImage(
-                bookId = state.bookId,
-                coverPath = state.coverPath,
-                coverHash = state.coverHash,
+                bookId = book.id,
+                coverPath = book.coverPath,
+                coverHash = book.coverHash,
                 contentDescription = stringResource(Res.string.player_cover_a11y),
-                title = state.title,
-                author = state.author,
+                title = book.title,
+                author = book.authors.joinToString(", ") { it.name },
                 modifier =
                     Modifier
                         .size(44.dp)
@@ -87,7 +91,10 @@ internal fun ReaderNowPlayingStrip(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = state.chapterTitle ?: state.title,
+                    text =
+                        state.chapter.title
+                            .takeUnless { state.chapter.isWholeBook }
+                            ?.takeIf { it.isNotBlank() } ?: book.title,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -101,17 +108,17 @@ internal fun ReaderNowPlayingStrip(
             IconButton(
                 onClick = {
                     haptics.press()
-                    onPlayPause()
+                    onPrimary()
                 },
             ) {
+                val isPause = state.primary == PrimaryControl.Pause
+                val way = state.primary.wayOut()
                 Icon(
-                    imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    imageVector = way?.first ?: if (isPause) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription =
-                        if (state.isPlaying) {
-                            stringResource(Res.string.player_pause)
-                        } else {
-                            stringResource(Res.string.player_play)
-                        },
+                        stringResource(
+                            way?.second ?: if (isPause) Res.string.player_pause else Res.string.player_play,
+                        ),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
@@ -121,11 +128,9 @@ internal fun ReaderNowPlayingStrip(
 
 /** The time left in the book: the only part of the strip that moves with the playhead. */
 @Composable
-private fun TimeLeft(progress: () -> PlaybackProgress) {
-    val current = progress()
-    val remainingMs = (current.bookDurationMs - current.bookPositionMs).coerceAtLeast(0L)
+private fun TimeLeft(progress: () -> PlayerProgress) {
     Text(
-        text = DurationFormatter.timeLeft(remainingMs.milliseconds),
+        text = DurationFormatter.timeLeft(progress().bookRemainingMs.milliseconds),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,

@@ -55,9 +55,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.core.IODispatcher
 import kotlinx.coroutines.CoroutineDispatcher
@@ -91,8 +91,8 @@ import org.koin.compose.viewmodel.koinViewModel
  * outer [Box], leaving [ZoomableBox]'s own [pointerInput] to handle transform gestures.
  *
  * The bottom dock shows a [ReaderNowPlayingStrip] (when playback is active) above a
- * [ReaderPageScrubber]. Playback state is sourced from the process-singleton
- * [NowPlayingViewModel], matching the shell's mini-player wiring.
+ * [ReaderPageScrubber]. Playback state is sourced from this entry's own [PlayerViewModel] — a projection
+ * of the one process-wide PlayerSession, so it agrees with the shell's mini player.
  *
  * @param path Absolute path to the local PDF file.
  * @param onBack Called when the user taps the navigation-icon back button.
@@ -111,9 +111,10 @@ internal fun DocumentViewerScreen(
     val firstVisible = listState.firstVisibleItemIndex
     val scope = rememberCoroutineScope()
 
-    // Playback state — reuse the process-singleton NowPlayingViewModel, same as the shell.
-    val nowPlayingViewModel: NowPlayingViewModel = koinViewModel()
-    val nowPlayingScreenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
+    // Playback state — this nav entry's own PlayerViewModel, a projection of the shared PlayerSession, so it
+    // shows exactly what the shell's mini player shows.
+    val nowPlayingViewModel: PlayerViewModel = koinViewModel()
+    val playerState by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
     // Held as a State and read only by the strip's time-left line, so the position tick does not
     // recompose the page list — the same deferral NowPlayingHost uses.
     val nowPlayingProgress = nowPlayingViewModel.progress.collectAsStateWithLifecycle()
@@ -133,9 +134,9 @@ internal fun DocumentViewerScreen(
         bottomBar = {
             ReaderBottomDock(
                 chromeVisible = chromeVisible,
-                nowPlayingState = nowPlayingScreenState.state,
+                nowPlayingState = playerState,
                 nowPlayingProgress = { nowPlayingProgress.value },
-                onPlayPause = nowPlayingViewModel::playPause,
+                onPrimary = nowPlayingViewModel::onPrimary,
                 wrapper = wrapper,
                 firstVisible = firstVisible,
                 onSeekToIndex = { index -> scope.launch { listState.scrollToItem(index) } },
@@ -340,9 +341,9 @@ private fun ReaderTopBar(
 @Composable
 private fun ReaderBottomDock(
     chromeVisible: Boolean,
-    nowPlayingState: NowPlayingState,
-    nowPlayingProgress: () -> PlaybackProgress,
-    onPlayPause: () -> Unit,
+    nowPlayingState: PlayerUiState,
+    nowPlayingProgress: () -> PlayerProgress,
+    onPrimary: () -> Unit,
     wrapper: PdfRendererWrapper?,
     firstVisible: Int,
     onSeekToIndex: (Int) -> Unit,
@@ -356,7 +357,7 @@ private fun ReaderBottomDock(
             ReaderNowPlayingStrip(
                 state = nowPlayingState,
                 progress = nowPlayingProgress,
-                onPlayPause = onPlayPause,
+                onPrimary = onPrimary,
             )
             if (wrapper != null && wrapper.pageCount > 0) {
                 ReaderPageScrubber(

@@ -91,7 +91,7 @@ import com.calypsan.listenup.client.features.bookdetail.components.RestartBookDi
 import com.calypsan.listenup.client.features.bookdetail.components.ResumeUnit
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
-import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
@@ -366,14 +366,14 @@ private fun BookDetailReadyContent(
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
-    val playbackManager: PlaybackManager = koinInject()
+    val playerSession: PlayerSession = koinInject()
     val scope = rememberCoroutineScope()
     val snackbarHostState = LocalSnackbarHostState.current
     val documents by viewModel.documents.collectAsStateWithLifecycle()
-    // Delayed against a fast prepare (see PlaybackManager.preparingBookIdUi) — never flashes on a
+    // Delayed against a fast prepare (see PlayerSession.preparingBookIdUi) — never flashes on a
     // book that starts playing quickly. Compared against this screen's own bookId so ONLY this
     // book's play button goes busy, not every open Book Detail screen at once.
-    val preparingBookId by playbackManager.preparingBookIdUi.collectAsStateWithLifecycle(initialValue = null)
+    val preparingBookId by playerSession.preparingBookIdUi.collectAsStateWithLifecycle(initialValue = null)
     val isPreparing = preparingBookId == BookId(bookId)
 
     var dialog by remember { mutableStateOf<BookDetailDialog?>(null) }

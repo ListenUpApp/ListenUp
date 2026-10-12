@@ -142,7 +142,7 @@ fun PrimaryControlFab(
 }
 
 /** The glyph and label for a primary that is a way out rather than play/pause, or null for play/pause/busy. */
-private fun PrimaryControl.wayOut(): Pair<ImageVector, StringResource>? =
+internal fun PrimaryControl.wayOut(): Pair<ImageVector, StringResource>? =
     when (this) {
         PrimaryControl.Retry -> Icons.Rounded.Refresh to Res.string.player_retry
 
