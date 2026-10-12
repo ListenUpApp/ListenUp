@@ -31,10 +31,10 @@ import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.shell.components.NavigationBarHeight
 import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingNavAction
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.player.PlayerEvent
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 
 /** Height of a standard snackbar for padding calculations */
 private val SnackbarHeight = 48.dp
@@ -56,26 +56,41 @@ fun NowPlayingHost(
     onNavigateToSeries: (String) -> Unit,
     onNavigateToContributor: (String) -> Unit,
     onNavigateToDocument: (localPath: String) -> Unit,
-    viewModel: NowPlayingViewModel,
+    onOpenSignIn: () -> Unit,
+    onOpenInbox: () -> Unit,
+    viewModel: PlayerViewModel,
     onBarFootprintChanged: (Dp) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val screenState by viewModel.screenState.collectAsStateWithLifecycle()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val overlay by viewModel.overlay.collectAsStateWithLifecycle()
+    val isExpanded by viewModel.expanded.collectAsStateWithLifecycle()
     val progressState = viewModel.progress.collectAsStateWithLifecycle()
     // Pass progress as a deferred lambda so the 4 Hz position tick only recomposes the leaf
     // scrubber + time labels that actually read it — never this host or the player chrome.
     val provideProgress = { progressState.value }
-    val firstPdfDocId by viewModel.firstPdfDocId.collectAsStateWithLifecycle()
-    // The user's configured transport skips — they drive the icon and the content description as
-    // well as the seek, so the button can never claim a number the press does not honour.
-    val skipForwardSec by viewModel.skipForwardSec.collectAsStateWithLifecycle()
-    val skipBackwardSec by viewModel.skipBackwardSec.collectAsStateWithLifecycle()
 
     // Consume one-shot navigation events from the ViewModel.
     LaunchedEffect(viewModel) {
-        viewModel.navActions.collect { action ->
-            when (action) {
-                is NowPlayingNavAction.OpenDocumentViewer -> onNavigateToDocument(action.localPath)
+        viewModel.events.collect { event ->
+            when (event) {
+                is PlayerEvent.OpenDocumentViewer -> {
+                    onNavigateToDocument(event.localPath)
+                }
+
+                is PlayerEvent.NavigateToBook -> {
+                    viewModel.collapse()
+                    onNavigateToBook(event.bookId)
+                }
+
+                PlayerEvent.OpenSignIn -> {
+                    onOpenSignIn()
+                }
+
+                PlayerEvent.OpenInbox -> {
+                    viewModel.collapse()
+                    onOpenInbox()
+                }
             }
         }
     }
@@ -92,15 +107,18 @@ fun NowPlayingHost(
                 .windowSizeClass
                 .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
-    val state = screenState.state
-    val activeState = state as? NowPlayingState.Active
+    val loaded = state as? PlayerUiState.Loaded
+    // The user's configured transport skips — they drive the icon and the content description as
+    // well as the seek, so the button can never claim a number the press does not honour.
+    val skipBackwardSec = loaded?.run { settings.skipBackSec } ?: 0
+    val skipForwardSec = loaded?.run { settings.skipForwardSec } ?: 0
     val motion = MaterialTheme.motionScheme
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Full screen (slides up when expanded). Only renders when we have an Active book —
-        // expanding into Idle/Error has no meaningful UI.
+        // Full screen (slides up when expanded). Only renders when a book is loaded — expanding
+        // into nothing has no meaningful UI.
         AnimatedVisibility(
-            visible = screenState.isExpanded && activeState != null,
+            visible = isExpanded && loaded != null,
             enter =
                 slideInVertically(
                     initialOffsetY = { it },
@@ -112,12 +130,12 @@ fun NowPlayingHost(
                     animationSpec = motion.fastSpatialSpec(),
                 ) + fadeOut(motion.fastEffectsSpec()),
         ) {
-            if (activeState != null) {
+            if (loaded != null) {
                 NowPlayingScreen(
-                    state = activeState,
+                    state = loaded,
                     progress = provideProgress,
                     onCollapse = viewModel::collapse,
-                    onPlayPause = viewModel::playPause,
+                    onPrimary = viewModel::onPrimary,
                     onSeek = viewModel::seekWithinChapter,
                     onSkipBack = { viewModel.skipBack() },
                     onSkipForward = { viewModel.skipForward() },
@@ -127,10 +145,7 @@ fun NowPlayingHost(
                     onBoostClick = viewModel::showBoostPicker,
                     onChaptersClick = viewModel::showChapterPicker,
                     onSleepTimerClick = viewModel::showSleepTimer,
-                    onGoToBook = {
-                        viewModel.collapse()
-                        onNavigateToBook(activeState.bookId)
-                    },
+                    onGoToBook = viewModel::goToBook,
                     onGoToSeries = { seriesId ->
                         viewModel.collapse()
                         onNavigateToSeries(seriesId)
@@ -144,8 +159,8 @@ fun NowPlayingHost(
                     onCloseBook = viewModel::closeBook,
                     skipBackwardSec = skipBackwardSec,
                     skipForwardSec = skipForwardSec,
-                    hasPdf = firstPdfDocId != null,
-                    onOpenPdf = viewModel::onOpenCurrentPdf,
+                    hasPdf = loaded.book.firstPdfDocId != null,
+                    onOpenPdf = viewModel::openCurrentPdf,
                     isTv = isTv,
                 )
             }
@@ -156,9 +171,9 @@ fun NowPlayingHost(
             DockedNowPlayingBar(
                 state = state,
                 progress = provideProgress,
-                isExpanded = screenState.isExpanded,
+                isExpanded = isExpanded,
                 onTap = viewModel::expand,
-                onPlayPause = viewModel::playPause,
+                onPrimary = viewModel::onPrimary,
                 onSkipBack = { viewModel.skipBack() },
                 onSkipForward = { viewModel.skipForward() },
                 onSeek = viewModel::seekWithinChapter,
@@ -166,7 +181,6 @@ fun NowPlayingHost(
                 skipBackwardSec = skipBackwardSec,
                 skipForwardSec = skipForwardSec,
                 modifier = Modifier.align(Alignment.BottomCenter),
-                isPlayPending = screenState.isPlayPending,
             )
         } else if (!hasBottomNav) {
             // Only render floating mini bar on detail screens (not Shell)
@@ -191,9 +205,9 @@ fun NowPlayingHost(
             NowPlayingBar(
                 state = state,
                 progress = provideProgress,
-                isExpanded = screenState.isExpanded,
+                isExpanded = isExpanded,
                 onTap = viewModel::expand,
-                onPlayPause = viewModel::playPause,
+                onPrimary = viewModel::onPrimary,
                 onSkipBack = { viewModel.skipBack() },
                 skipBackwardSec = skipBackwardSec,
                 modifier =
@@ -213,14 +227,13 @@ fun NowPlayingHost(
                                 onBarFootprintChanged(with(density) { size.height.toDp() })
                             }
                         }.padding(bottom = bottomPadding),
-                isPlayPending = screenState.isPlayPending,
             )
         }
 
         OverlayDispatch(
-            overlay = screenState.overlay,
-            sleepTimerState = screenState.sleepTimerState,
-            activeState = activeState,
+            overlay = overlay,
+            sleepTimerState = loaded?.sleepTimer ?: SleepTimerState.Inactive,
+            loaded = loaded,
             viewModel = viewModel,
             onNavigateToContributor = onNavigateToContributor,
         )
@@ -231,20 +244,19 @@ fun NowPlayingHost(
 private fun OverlayDispatch(
     overlay: PlayerOverlay,
     sleepTimerState: SleepTimerState,
-    activeState: NowPlayingState.Active?,
-    viewModel: NowPlayingViewModel,
+    loaded: PlayerUiState.Loaded?,
+    viewModel: PlayerViewModel,
     onNavigateToContributor: (String) -> Unit,
 ) {
     when (overlay) {
         PlayerOverlay.None -> { /* no overlay */ }
 
         PlayerOverlay.ChapterPicker -> {
-            if (activeState != null) {
+            if (loaded != null) {
                 ChapterPickerSheet(
-                    chapters = viewModel.chapters,
-                    currentChapterIndex = activeState.chapterIndex,
+                    chapters = loaded.chapters,
                     onChapterSelected = viewModel::seekToChapter,
-                    onDismiss = viewModel::hideChapterPicker,
+                    onDismiss = viewModel::hideOverlay,
                 )
             }
         }
@@ -255,12 +267,12 @@ private fun OverlayDispatch(
                 onSetTimer = viewModel::setSleepTimer,
                 onCancelTimer = viewModel::cancelSleepTimer,
                 onExtendTimer = viewModel::extendSleepTimer,
-                onDismiss = viewModel::hideSleepTimer,
+                onDismiss = viewModel::hideOverlay,
             )
         }
 
         is PlayerOverlay.ContributorPicker -> {
-            if (activeState != null) {
+            if (loaded != null) {
                 val role =
                     when (overlay.type) {
                         ContributorPickerType.AUTHORS -> CastRole.Authors
@@ -268,37 +280,37 @@ private fun OverlayDispatch(
                     }
                 FullCastSheetFor(
                     role = role,
-                    authors = activeState.authors,
-                    narrators = activeState.narrators,
+                    authors = loaded.book.authors.asBookContributors(),
+                    narrators = loaded.book.narrators.asBookContributors(),
                     onContributorClick = { contributorId ->
                         viewModel.collapse()
                         onNavigateToContributor(contributorId)
                     },
-                    onDismiss = viewModel::hideContributorPicker,
+                    onDismiss = viewModel::hideOverlay,
                 )
             }
         }
 
         PlayerOverlay.SpeedPicker -> {
-            if (activeState != null) {
+            if (loaded != null) {
                 PlaybackSpeedSheet(
-                    currentSpeed = activeState.playbackSpeed,
-                    defaultSpeed = activeState.defaultPlaybackSpeed,
+                    currentSpeed = loaded.settings.speed,
+                    defaultSpeed = loaded.settings.defaultSpeed,
                     onSpeedChange = viewModel::setSpeed,
-                    onResetToDefault = viewModel::resetSpeedToDefault,
-                    onDismiss = viewModel::hideSpeedPicker,
+                    onResetToDefault = viewModel::resetSpeed,
+                    onDismiss = viewModel::hideOverlay,
                 )
             }
         }
 
         PlayerOverlay.BoostPicker -> {
-            if (activeState != null) {
+            if (loaded != null) {
                 VolumeBoostSheet(
-                    currentBoostDb = activeState.volumeBoostDb,
-                    defaultBoostDb = activeState.defaultVolumeBoostDb,
+                    currentBoostDb = loaded.settings.boostDb,
+                    defaultBoostDb = loaded.settings.defaultBoostDb,
                     onBoostChange = viewModel::setBoost,
-                    onResetToDefault = viewModel::resetBoostToDefault,
-                    onDismiss = viewModel::hideBoostPicker,
+                    onResetToDefault = viewModel::resetBoost,
+                    onDismiss = viewModel::hideOverlay,
                 )
             }
         }

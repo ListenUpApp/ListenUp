@@ -3,8 +3,8 @@ package com.calypsan.listenup.client.features.nowplaying
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.testing.AtFontScale
 import org.junit.Rule
 import org.junit.Test
@@ -31,7 +31,7 @@ class MiniPlayerLargeTextTest {
                         progress = { PROGRESS },
                         isExpanded = false,
                         onTap = {},
-                        onPlayPause = {},
+                        onPrimary = {},
                         onSkipBack = {},
                         skipBackwardSec = 15,
                     )
@@ -53,37 +53,15 @@ class MiniPlayerLargeTextTest {
     }
 
     private companion object {
-        val PROGRESS =
-            PlaybackProgress(
-                bookProgress = 0.25f,
-                bookPositionMs = 60_000,
-                bookDurationMs = 240_000,
-                chapterProgress = 0.5f,
-                chapterPositionMs = 30_000,
-                chapterDurationMs = 60_000,
-            )
+        val PROGRESS = samplePlayerProgress
 
         val ACTIVE =
-            NowPlayingState.Active(
-                bookId = "book-1",
+            loadedPlayerState(
                 title = "The Kaiju Preservation Society",
-                author = "John Scalzi",
-                coverPath = "/nonexistent/cover.jpg",
-                coverHash = null,
-                authors = emptyList(),
-                narrators = emptyList(),
-                seriesId = null,
-                seriesName = null,
+                phase = PlayerPhase.Paused,
+                primary = PrimaryControl.Play,
                 chapterTitle = "Chapter One",
-                chapterIndex = 0,
-                totalChapters = 10,
-                chapters = emptyList(),
-                isPlaying = false,
-                isBuffering = false,
-                playbackSpeed = 1f,
-                defaultPlaybackSpeed = 1f,
-                volumeBoostDb = 0f,
-                defaultVolumeBoostDb = 0f,
+                coverPath = "/nonexistent/cover.jpg",
             )
     }
 }

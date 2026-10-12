@@ -19241,6 +19241,16 @@
         }
       }
     },
+    "player.retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
     "player.scrubber_a11y": {
       "localizations": {
         "en": {

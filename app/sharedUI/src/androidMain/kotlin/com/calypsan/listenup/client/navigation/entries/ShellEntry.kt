@@ -30,7 +30,8 @@ import com.calypsan.listenup.client.navigation.Shell
 import com.calypsan.listenup.client.navigation.ShelfDetail
 import com.calypsan.listenup.client.navigation.UserProfile
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -39,7 +40,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
     backStack: NavBackStack<NavKey>,
     currentShellDestination: () -> ShellDestination,
     onDestinationChange: (ShellDestination) -> Unit,
-    nowPlayingViewModel: NowPlayingViewModel,
+    nowPlayingViewModel: PlayerViewModel,
     readiness: () -> LibraryReadiness,
     onSignOut: () -> Unit,
     onContinueToPartialLibrary: () -> Unit,
@@ -78,24 +79,22 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                 onDestinationChange = onDestinationChange,
                 searchRequests = LocalShellSearchRequests.current,
                 nowPlayingContent = {
-                    val nowPlayingScreenState by nowPlayingViewModel
-                        .screenState
-                        .collectAsStateWithLifecycle()
+                    val playerState by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
+                    val playerExpanded by nowPlayingViewModel.expanded.collectAsStateWithLifecycle()
                     // Deferred read: the 4 Hz position tick recomposes only the scrubber leaf inside
                     // NowPlayingBar, not this shell content or the bar chrome.
                     val nowPlayingProgressState =
                         nowPlayingViewModel
                             .progress
                             .collectAsStateWithLifecycle()
-                    val skipBackwardSec by nowPlayingViewModel.skipBackwardSec.collectAsStateWithLifecycle()
                     NowPlayingBar(
-                        state = nowPlayingScreenState.state,
+                        state = playerState,
                         progress = { nowPlayingProgressState.value },
-                        isExpanded = nowPlayingScreenState.isExpanded,
+                        isExpanded = playerExpanded,
                         onTap = nowPlayingViewModel::expand,
-                        onPlayPause = nowPlayingViewModel::playPause,
+                        onPrimary = nowPlayingViewModel::onPrimary,
                         onSkipBack = { nowPlayingViewModel.skipBack() },
-                        skipBackwardSec = skipBackwardSec,
+                        skipBackwardSec = (playerState as? PlayerUiState.Loaded)?.run { settings.skipBackSec } ?: 0,
                     )
                 },
                 onBookClick = { bookId ->

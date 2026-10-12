@@ -32,8 +32,8 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubbe
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerSecondaryActions
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 
 /** Test tag on the player's cover, for layout tests that place it against the hinge. */
 internal const val NOW_PLAYING_COVER_TAG = "now_playing_cover"
@@ -67,11 +67,11 @@ private val CONTROLS_MAX_WIDTH = 560.dp
 @Suppress("LongParameterList", "LongMethod")
 @Composable
 internal fun TabletopNowPlaying(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
     hingeBounds: IntRect,
     onCollapse: () -> Unit,
-    onPlayPause: () -> Unit,
+    onPrimary: () -> Unit,
     onSeek: (Float) -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -131,12 +131,12 @@ internal fun TabletopNowPlaying(
                 contentAlignment = Alignment.Center,
             ) {
                 PlayerArtwork(
-                    coverPath = state.coverPath,
-                    bookId = state.bookId,
+                    coverPath = state.book.coverPath,
+                    bookId = state.book.id,
                     size = min(min(maxWidth, maxHeight), MAX_COVER_SIZE),
-                    title = state.title,
-                    author = state.author,
-                    coverHash = state.coverHash,
+                    title = state.book.title,
+                    author = state.book.authorLine,
+                    coverHash = state.book.coverHash,
                     modifier = Modifier.testTag(NOW_PLAYING_COVER_TAG),
                 )
             }
@@ -144,7 +144,7 @@ internal fun TabletopNowPlaying(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = state.title,
+                text = state.book.title,
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
@@ -156,11 +156,8 @@ internal fun TabletopNowPlaying(
 
             // The chapter's own title, falling back to "Chapter N" only when it's genuinely untitled
             // (the same line the stacked and side-by-side players show).
-            val chapterLine =
-                state.chapterTitle?.takeIf { it.isNotBlank() }
-                    ?: "Chapter ${state.chapterIndex + 1}"
             Text(
-                text = chapterLine,
+                text = state.chapterLine(),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -187,15 +184,14 @@ internal fun TabletopNowPlaying(
             val controlsWidth = Modifier.widthIn(max = CONTROLS_MAX_WIDTH).fillMaxWidth()
             PlayerScrubber(
                 progress = progress,
-                isPlaying = state.isPlaying,
-                isBuffering = state.isBuffering,
+                isPlaying = state.isAudible,
+                isBuffering = state.isBusy,
                 onSeek = onSeek,
                 modifier = controlsWidth,
             )
             PlayerTransport(
-                isPlaying = state.isPlaying,
-                isBuffering = state.isBuffering,
-                onPlayPause = onPlayPause,
+                primary = state.primary,
+                onPrimary = onPrimary,
                 onSkipBack = onSkipBack,
                 onSkipForward = onSkipForward,
                 onPreviousChapter = onPreviousChapter,
@@ -206,9 +202,9 @@ internal fun TabletopNowPlaying(
                 modifier = controlsWidth,
             )
             PlayerSecondaryActions(
-                playbackSpeed = state.playbackSpeed,
+                playbackSpeed = state.settings.speed,
                 onSpeedClick = onSpeedClick,
-                volumeBoostDb = state.volumeBoostDb,
+                volumeBoostDb = state.settings.boostDb,
                 onBoostClick = onBoostClick,
                 onSleepClick = onSleepClick,
                 onChaptersClick = onChaptersClick,

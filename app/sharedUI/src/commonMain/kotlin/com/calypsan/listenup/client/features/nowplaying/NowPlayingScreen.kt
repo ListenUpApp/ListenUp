@@ -27,8 +27,8 @@ import com.calypsan.listenup.client.design.motion.predictiveBackPreview
 import com.calypsan.listenup.client.design.util.BackGestureEdge
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.foldable.LocalFold
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,10 +51,10 @@ private const val TV_AMBIENT_DELAY_MS = 15_000L
 @Suppress("LongMethod", "LongParameterList")
 @Composable
 fun NowPlayingScreen(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
     onCollapse: () -> Unit,
-    onPlayPause: () -> Unit,
+    onPrimary: () -> Unit,
     onSeek: (Float) -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -116,7 +116,7 @@ fun NowPlayingScreen(
     }
 
     // Track chapter changes to exit ambient mode
-    val currentChapterTitle = state.chapterTitle
+    val currentChapterTitle = state.chapter.title
     LaunchedEffect(currentChapterTitle) {
         resetAmbient()
     }
@@ -228,7 +228,7 @@ fun NowPlayingScreen(
                     // nowPlayingLayout only answers Tabletop when the fold has bounds.
                     hingeBounds = requireNotNull(fold.hingeBounds),
                     onCollapse = onCollapse,
-                    onPlayPause = onPlayPause,
+                    onPrimary = onPrimary,
                     onSeek = onSeek,
                     onSkipBack = onSkipBack,
                     onSkipForward = onSkipForward,
@@ -256,7 +256,7 @@ fun NowPlayingScreen(
                     state = state,
                     progress = progress,
                     onCollapse = onCollapse,
-                    onPlayPause = onPlayPause,
+                    onPrimary = onPrimary,
                     onSeek = onSeek,
                     onSkipBack = onSkipBack,
                     onSkipForward = onSkipForward,
@@ -284,7 +284,7 @@ fun NowPlayingScreen(
                     state = state,
                     progress = progress,
                     onCollapse = onCollapse,
-                    onPlayPause = onPlayPause,
+                    onPrimary = onPrimary,
                     onSeek = onSeek,
                     onSkipBack = onSkipBack,
                     onSkipForward = onSkipForward,

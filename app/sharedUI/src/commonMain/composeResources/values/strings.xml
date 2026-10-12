@@ -1925,6 +1925,7 @@ One beautiful library.</string>
     <string name="player_reference">Reference %1$s</string>
     <string name="player_refusal_title">Couldn't start playback</string>
     <string name="player_reset_to_default">Reset to default (%1$s)</string>
+    <string name="player_retry">Retry</string>
     <string name="player_scrubber_a11y">Chapter position</string>
     <string name="player_scrubber_value_a11y">%1$s of %2$s</string>
     <string name="player_skip_backward">Skip backward %1$s seconds</string>

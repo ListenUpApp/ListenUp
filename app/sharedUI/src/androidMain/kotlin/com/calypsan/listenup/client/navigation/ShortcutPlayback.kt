@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.navigation
 
-import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.SleepTimerMode
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.map
  * timer, and know which book is current.
  *
  * Narrow on purpose — [handleShortcutAction] has to order "book is current" before "timer is set",
- * and that ordering is testable only against something smaller than a whole [NowPlayingViewModel].
+ * and that ordering is testable only against something smaller than a whole [PlayerViewModel].
  */
 internal interface ShortcutPlayback {
     /** The book the player has loaded right now, or null when nothing is loaded. */
@@ -32,10 +32,10 @@ internal interface ShortcutPlayback {
 }
 
 /** Adapts this view model to the [ShortcutPlayback] a shortcut drives. */
-internal fun NowPlayingViewModel.asShortcutPlayback(): ShortcutPlayback =
+internal fun PlayerViewModel.asShortcutPlayback(): ShortcutPlayback =
     object : ShortcutPlayback {
-        override val activeBookId: String? get() = screenState.value.state.activeBookIdOrNull()
-        override val activeBookIds: Flow<String?> = screenState.map { it.state.activeBookIdOrNull() }
+        override val activeBookId: String? get() = uiState.value.loadedBookIdOrNull()
+        override val activeBookIds: Flow<String?> = uiState.map { it.loadedBookIdOrNull() }
 
         override fun playBook(bookId: BookId) = this@asShortcutPlayback.playBook(bookId)
 
@@ -44,4 +44,4 @@ internal fun NowPlayingViewModel.asShortcutPlayback(): ShortcutPlayback =
         override fun setSleepTimer(mode: SleepTimerMode) = this@asShortcutPlayback.setSleepTimer(mode)
     }
 
-private fun NowPlayingState.activeBookIdOrNull(): String? = (this as? NowPlayingState.Active)?.bookId
+private fun PlayerUiState.loadedBookIdOrNull(): String? = (this as? PlayerUiState.Loaded)?.run { book.id }

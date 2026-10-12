@@ -38,10 +38,10 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
 import com.calypsan.listenup.client.features.nowplaying.components.LabelPill
-import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
+import com.calypsan.listenup.client.features.nowplaying.components.PrimaryControlFab
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cover_a11y
@@ -63,19 +63,18 @@ internal val DockedNowPlayingBarHeight = 72.dp
  * - inline seekable [WavySeekBar] with elapsed and remaining time labels (fills remaining width)
  * - speed pill + expand button
  *
- * Renders for [NowPlayingState.Active] only; animated in/out with slide + fade.
+ * Renders whenever a book is loaded, including when it failed or cannot play (the second line then says why,
+ * gap 6); animated in/out with slide + fade.
  *
- * @param isPlayPending True while a play request is in flight anywhere in the app — see
- *  [com.calypsan.listenup.client.playback.NowPlayingScreenState.isPlayPending]. Reuses
- *  [PlayPauseFab]'s buffering spinner rather than tearing this bar down.
+ * @param onPrimary The main button's action, decided by [PlayerUiState.Loaded.primary].
  */
 @Composable
 fun DockedNowPlayingBar(
-    state: NowPlayingState,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState,
+    progress: () -> PlayerProgress,
     isExpanded: Boolean,
     onTap: () -> Unit,
-    onPlayPause: () -> Unit,
+    onPrimary: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -83,9 +82,8 @@ fun DockedNowPlayingBar(
     skipBackwardSec: Int,
     skipForwardSec: Int,
     modifier: Modifier = Modifier,
-    isPlayPending: Boolean = false,
 ) {
-    val isVisible = state is NowPlayingState.Active && !isExpanded
+    val isVisible = state is PlayerUiState.Loaded && !isExpanded
 
     AnimatedVisibility(
         visible = isVisible,
@@ -128,11 +126,11 @@ fun DockedNowPlayingBar(
             // Tonal, not shadowed: chrome rises by container level (DESIGN.md, Books-Cast-Shadows).
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
-            if (state is NowPlayingState.Active) {
+            if (state is PlayerUiState.Loaded) {
                 ActiveDockedContent(
                     state = state,
                     progress = progress,
-                    onPlayPause = onPlayPause,
+                    onPrimary = onPrimary,
                     onSkipBack = onSkipBack,
                     onSkipForward = onSkipForward,
                     onSeek = onSeek,
@@ -140,7 +138,6 @@ fun DockedNowPlayingBar(
                     onExpand = onTap,
                     skipBackwardSec = skipBackwardSec,
                     skipForwardSec = skipForwardSec,
-                    isPlayPending = isPlayPending,
                 )
             }
         }
@@ -149,9 +146,9 @@ fun DockedNowPlayingBar(
 
 @Composable
 private fun ActiveDockedContent(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
-    onPlayPause: () -> Unit,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
+    onPrimary: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -159,7 +156,6 @@ private fun ActiveDockedContent(
     onExpand: () -> Unit,
     skipBackwardSec: Int,
     skipForwardSec: Int,
-    isPlayPending: Boolean,
 ) {
     Row(
         modifier =
@@ -172,12 +168,12 @@ private fun ActiveDockedContent(
     ) {
         // Cover + title / chapter — bounded so the inline scrubber gets the flexible width.
         BookCoverImage(
-            bookId = state.bookId,
-            coverPath = state.coverPath,
-            coverHash = state.coverHash,
+            bookId = state.book.id,
+            coverPath = state.book.coverPath,
+            coverHash = state.book.coverHash,
             contentDescription = stringResource(Res.string.player_cover_a11y),
-            title = state.title,
-            author = state.author,
+            title = state.book.title,
+            author = state.book.authorLine,
             modifier =
                 Modifier
                     .size(48.dp)
@@ -185,7 +181,7 @@ private fun ActiveDockedContent(
         )
         Column(modifier = Modifier.widthIn(max = 200.dp)) {
             Text(
-                text = state.title,
+                text = state.book.title,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
@@ -193,12 +189,10 @@ private fun ActiveDockedContent(
             )
             // Show the chapter's own title; no "Ch. N · " prefix — the title is often itself
             // "Chapter N", and chapterIndex counts front-matter tracks (Introduction, Epigraph),
-            // so the prefix produced confusing, offset labels like "Ch. 3 · Chapter 1".
-            val chapterLine =
-                state.chapterTitle?.takeIf { it.isNotBlank() }
-                    ?: "Chapter ${state.chapterIndex + 1}"
+            // so the prefix produced confusing, offset labels like "Ch. 3 · Chapter 1". When the book
+            // cannot play, this line says why instead (gap 6).
             Text(
-                text = chapterLine,
+                text = state.statusLine(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -206,20 +200,21 @@ private fun ActiveDockedContent(
             )
         }
 
-        // Transport.
-        Ctrl(
-            icon = SkipGlyphs.backward(skipBackwardSec),
-            contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
-            onClick = onSkipBack,
-            size = MinTouchTarget,
-            iconSize = MiniPlayerGlyphSize,
-        )
-        // isPlayPending piggybacks on the same buffering spinner: a play request in flight for
-        // another book is visual feedback the user asked for, without hiding this bar.
-        PlayPauseFab(
-            isPlaying = state.isPlaying,
-            isBuffering = state.isBuffering || isPlayPending,
-            onClick = onPlayPause,
+        // Transport. Back N only where there is a settled position to go back from (§3.5).
+        if (state.showsSkipBack) {
+            Ctrl(
+                icon = SkipGlyphs.backward(skipBackwardSec),
+                contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
+                onClick = onSkipBack,
+                size = MinTouchTarget,
+                iconSize = MiniPlayerGlyphSize,
+            )
+        }
+        // The main button, drawn from the shared primary: a play request in flight shows as Busy
+        // without hiding this bar; a failure offers its way out.
+        PrimaryControlFab(
+            primary = state.primary,
+            onClick = onPrimary,
             size = MinTouchTarget,
         )
         Ctrl(
@@ -234,14 +229,14 @@ private fun ActiveDockedContent(
         // position tick recomposes only the scrubber row, not this whole docked bar.
         ChapterScrubberRow(
             progress = progress,
-            isPlaying = state.isPlaying,
+            isPlaying = state.isAudible,
             onSeek = onSeek,
             modifier = Modifier.weight(1f),
         )
 
         // Speed + expand.
         LabelPill(
-            label = formatPlaybackSpeed(state.playbackSpeed),
+            label = formatPlaybackSpeed(state.settings.speed),
             onClick = onSpeedClick,
         )
         Ctrl(
@@ -259,7 +254,7 @@ private fun ActiveDockedContent(
 /** Elapsed label · [WavySeekBar] · -remaining label, filling available width. */
 @Composable
 private fun ChapterScrubberRow(
-    progress: () -> PlaybackProgress,
+    progress: () -> PlayerProgress,
     isPlaying: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
@@ -280,7 +275,7 @@ private fun ChapterScrubberRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         WavySeekBar(
-            progress = current.chapterProgress,
+            progress = current.chapterFraction,
             onSeek = onSeek,
             modifier = Modifier.weight(1f),
             enabled = true,

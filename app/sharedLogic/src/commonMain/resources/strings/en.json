@@ -1733,6 +1733,7 @@
     "view_all_chapters": "View all %1$d chapters",
     "play": "Play",
     "pause": "Pause",
+    "retry": "Retry",
     "chapter_of": "Chapter %1$s of %2$s",
     "skip_forward": "Skip forward %1$s seconds",
     "skip_backward": "Skip backward %1$s seconds",

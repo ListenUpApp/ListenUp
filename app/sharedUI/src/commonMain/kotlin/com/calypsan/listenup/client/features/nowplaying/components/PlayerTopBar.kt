@@ -41,7 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_close_book
 import listenup.composeapp.generated.resources.player_collapse
@@ -71,9 +71,9 @@ import org.jetbrains.compose.resources.stringResource
  * The overflow menu mirrors the items from the existing private [NowPlayingTopBar] in
  * [NowPlayingScreen]: go to book, series (conditional), author(s), narrator(s), and close book.
  *
- * @param state Current [NowPlayingState.Active] used to gate series/author/narrator menu items.
- *   In wide mode, [NowPlayingState.Active.seriesName] is used as the subtitle when present;
- *   otherwise [NowPlayingState.Active.title] is used.
+ * @param state The loaded book, used to gate series/author/narrator menu items.
+ *   In wide mode, the book's first series name is used as the subtitle when present;
+ *   otherwise the book's title is used.
  * @param onCollapse Called when the collapse (chevron-down) button is tapped.
  * @param onGoToBook Called when "Go to Book" is selected.
  * @param onGoToSeries Called with the series id when "Go to Series" is selected.
@@ -90,7 +90,7 @@ import org.jetbrains.compose.resources.stringResource
 @Suppress("LongParameterList", "CognitiveComplexMethod")
 @Composable
 fun PlayerTopBar(
-    state: NowPlayingState.Active,
+    state: PlayerUiState.Loaded,
     onCollapse: () -> Unit,
     onGoToBook: () -> Unit,
     onGoToSeries: (String) -> Unit,
@@ -155,7 +155,7 @@ fun PlayerTopBar(
 /** Desktop-style header: tonal collapse · "Now playing"/title column · cast · overflow. */
 @Composable
 private fun WideTopBar(
-    state: NowPlayingState.Active,
+    state: PlayerUiState.Loaded,
     onCollapse: () -> Unit,
     overflowAnchor: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -198,7 +198,10 @@ private fun WideTopBar(
                 maxLines = 1,
             )
             Text(
-                text = state.seriesName ?: state.title,
+                text =
+                    state.book.series
+                        .firstOrNull()
+                        ?.name ?: state.book.title,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
@@ -267,7 +270,7 @@ private fun CompactTopBar(
 @Suppress("LongParameterList", "CognitiveComplexMethod")
 @Composable
 private fun OverflowMenu(
-    state: NowPlayingState.Active,
+    state: PlayerUiState.Loaded,
     expanded: Boolean,
     onDismiss: () -> Unit,
     onGoToBook: () -> Unit,
@@ -309,35 +312,47 @@ private fun OverflowMenu(
         }
 
         // Go to Series — only when the book belongs to a series.
-        if (state.seriesId != null) {
+        val seriesId =
+            state.book.series
+                .firstOrNull()
+                ?.id
+        if (seriesId != null) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.player_go_to_series)) },
                 onClick = {
                     haptics.press()
                     onDismiss()
-                    state.seriesId?.let { onGoToSeries(it) }
+                    onGoToSeries(seriesId)
                 },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.LibraryBooks, contentDescription = null) },
             )
         }
 
         // Go to Author(s) — shows picker label when multiple authors exist.
-        if (state.authors.isNotEmpty()) {
+        if (state.book.authors.isNotEmpty()) {
             DropdownMenuItem(
                 text = {
                     Text(
                         stringResource(
-                            if (state.hasMultipleAuthors) Res.string.player_go_to_author_multiple else Res.string.player_go_to_author,
+                            if (state.book.authors.size >
+                                1
+                            ) {
+                                Res.string.player_go_to_author_multiple
+                            } else {
+                                Res.string.player_go_to_author
+                            },
                         ),
                     )
                 },
                 onClick = {
                     haptics.press()
                     onDismiss()
-                    if (state.hasMultipleAuthors) {
+                    if (state.book.authors.size > 1) {
                         onShowAuthorPicker()
                     } else {
-                        state.authors.firstOrNull()?.let { onGoToContributor(it.id) }
+                        state.book.authors
+                            .firstOrNull()
+                            ?.let { onGoToContributor(it.id) }
                     }
                 },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
@@ -345,12 +360,12 @@ private fun OverflowMenu(
         }
 
         // Go to Narrator(s) — shows picker label when multiple narrators exist.
-        if (state.narrators.isNotEmpty()) {
+        if (state.book.narrators.isNotEmpty()) {
             DropdownMenuItem(
                 text = {
                     Text(
                         stringResource(
-                            if (state.hasMultipleNarrators) {
+                            if (state.book.narrators.size > 1) {
                                 Res.string.player_go_to_narrator_multiple
                             } else {
                                 Res.string.player_go_to_narrator
@@ -361,10 +376,12 @@ private fun OverflowMenu(
                 onClick = {
                     haptics.press()
                     onDismiss()
-                    if (state.hasMultipleNarrators) {
+                    if (state.book.narrators.size > 1) {
                         onShowNarratorPicker()
                     } else {
-                        state.narrators.firstOrNull()?.let { onGoToContributor(it.id) }
+                        state.book.narrators
+                            .firstOrNull()
+                            ?.let { onGoToContributor(it.id) }
                     }
                 },
                 leadingIcon = { Icon(Icons.Default.RecordVoiceOver, contentDescription = null) },

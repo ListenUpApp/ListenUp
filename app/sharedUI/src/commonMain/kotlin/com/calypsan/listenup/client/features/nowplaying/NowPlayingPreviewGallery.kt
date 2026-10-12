@@ -25,12 +25,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.domain.model.BookContributor
-import com.calypsan.listenup.client.domain.model.Chapter
-import com.calypsan.listenup.client.playback.NowPlayingChapter
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.player.AudioSource
+import com.calypsan.listenup.client.presentation.player.PlayerBook
+import com.calypsan.listenup.client.presentation.player.PlayerChapter
+import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
+import com.calypsan.listenup.client.presentation.player.PlayerContributor
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
+import com.calypsan.listenup.client.presentation.player.PlayerSettings
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_chapters
@@ -45,91 +51,116 @@ private val WIDE_PREVIEW_WIDTH = 1100.dp
 private const val MOCK_BOOK_ID = "the-way-of-kings"
 private const val MOCK_TITLE = "The Way of Kings"
 
-private const val ROLE_AUTHOR = "Author"
-private const val ROLE_NARRATOR = "Narrator"
-
 private val mockAuthors =
-    listOf(BookContributor(id = "auth-sanderson", name = "Brandon Sanderson", roles = listOf(ROLE_AUTHOR)))
+    listOf(PlayerContributor(id = "auth-sanderson", name = "Brandon Sanderson", bookCount = 14))
 
 // Four narrators so the fold line ("{lead}, N other narrators") renders in both layouts.
 private val mockNarrators =
     listOf(
-        BookContributor(id = "narr-kramer", name = "Michael Kramer", roles = listOf(ROLE_NARRATOR)),
-        BookContributor(id = "narr-reading", name = "Kate Reading", roles = listOf(ROLE_NARRATOR)),
-        BookContributor(id = "narr-vance", name = "Simon Vance", roles = listOf(ROLE_NARRATOR)),
-        BookContributor(id = "narr-maarleveld", name = "Saskia Maarleveld", roles = listOf(ROLE_NARRATOR)),
+        PlayerContributor(id = "narr-kramer", name = "Michael Kramer", bookCount = 120),
+        PlayerContributor(id = "narr-reading", name = "Kate Reading", bookCount = 98),
+        PlayerContributor(id = "narr-vance", name = "Simon Vance", bookCount = 64),
+        PlayerContributor(id = "narr-maarleveld", name = "Saskia Maarleveld", bookCount = 41),
+    )
+
+private val mockChapterTitles =
+    listOf(
+        "Prologue: To Kill" to 1_122_000L,
+        "Honor Is Dead" to 2_469_000L,
+        "The Shattered Plains" to 3_331_000L,
+        "The Glory of Ignorance" to 2_238_000L,
+        "Bridge Four" to 3_775_000L,
+        "Assassin's Mark" to 1_980_000L,
     )
 
 // Six chapters so the UpNextQueue shows a real preview slice + "View all N chapters" footer.
-private val mockChapters =
-    listOf(
-        NowPlayingChapter(index = 0, title = "Prologue: To Kill", durationMs = 1_122_000L),
-        NowPlayingChapter(index = 1, title = "Honor Is Dead", durationMs = 2_469_000L),
-        NowPlayingChapter(index = 2, title = "The Shattered Plains", durationMs = 3_331_000L),
-        NowPlayingChapter(index = 3, title = "The Glory of Ignorance", durationMs = 2_238_000L),
-        NowPlayingChapter(index = 4, title = "Bridge Four", durationMs = 3_775_000L),
-        NowPlayingChapter(index = 5, title = "Assassin's Mark", durationMs = 1_980_000L),
-    )
-
-// Domain chapters for the Chapters panel preview (the panel consumes List<Chapter>, not NowPlayingChapter).
-private val mockDomainChapters =
-    mockChapters.map { chapter ->
-        Chapter(
-            id = "chapter-${chapter.index}",
-            title = chapter.title,
-            duration = chapter.durationMs,
-            startTime = 0L,
-        )
+private fun mockChapterRows(current: Int): List<PlayerChapterRow> {
+    var start = 0L
+    return mockChapterTitles.mapIndexed { index, (title, duration) ->
+        PlayerChapterRow(
+            index = index,
+            number = index + 1,
+            title = title,
+            startMs = start,
+            durationMs = duration,
+            isCurrent = index == current,
+        ).also {
+            start += duration
+        }
     }
+}
 
-// Primary fixture — playing, chapter 2, 4 narrators.
+private fun mockChapter(index: Int): PlayerChapter {
+    val row = mockChapterRows(index)[index]
+    return PlayerChapter(
+        index = index,
+        number = index + 1,
+        total = mockChapterTitles.size,
+        title = row.title,
+        isGenericTitle = false,
+        isWholeBook = false,
+        startMs = row.startMs,
+        durationMs = row.durationMs,
+    )
+}
+
+// Primary fixture — playing, chapter 3, 4 narrators.
 private val mockActiveState =
-    NowPlayingState.Active(
-        bookId = MOCK_BOOK_ID,
-        title = MOCK_TITLE,
-        author = "Brandon Sanderson",
-        coverPath = null,
-        coverHash = null,
-        authors = mockAuthors,
-        narrators = mockNarrators,
-        seriesId = "ser-stormlight",
-        seriesName = "The Stormlight Archive",
-        chapterTitle = "The Shattered Plains",
-        chapterIndex = 2,
-        totalChapters = mockChapters.size,
-        chapters = mockChapters,
-        isPlaying = true,
-        isBuffering = false,
-        playbackSpeed = 1.25f,
-        defaultPlaybackSpeed = 1.0f,
-        volumeBoostDb = 0f,
-        defaultVolumeBoostDb = 0f,
+    PlayerUiState.Loaded(
+        book =
+            PlayerBook(
+                id = MOCK_BOOK_ID,
+                title = MOCK_TITLE,
+                authors = mockAuthors,
+                narrators = mockNarrators,
+                coverPath = null,
+                coverHash = null,
+                series = listOf(PlayerSeriesRef("ser-stormlight", "The Stormlight Archive", "1")),
+                durationMs = 46_800_000L,
+                firstPdfDocId = null,
+            ),
+        phase = PlayerPhase.Playing,
+        chapter = mockChapter(2),
+        chapters = mockChapterRows(2),
+        source = AudioSource.Streaming,
+        settings =
+            PlayerSettings(
+                speed = 1.25f,
+                defaultSpeed = 1.0f,
+                boostDb = 0f,
+                defaultBoostDb = 0f,
+                skipBackSec = 10,
+                skipForwardSec = 30,
+            ),
+        sleepTimer = SleepTimerState.Inactive,
+        primary = PrimaryControl.Pause,
+        showsSkipBack = true,
+        canSkipToNextChapter = true,
+        finished = null,
     )
 
-// Fast-changing progress fixture matching the primary state's chapter 2 position.
+// Fast-changing progress fixture matching the primary state's chapter 3 position.
 private val mockProgress =
-    PlaybackProgress(
-        bookProgress = 0.38f,
-        bookPositionMs = 17_820_000L,
-        bookDurationMs = 46_800_000L,
-        chapterProgress = 0.61f,
+    PlayerProgress(
         chapterPositionMs = 2_031_000L,
         chapterDurationMs = 3_331_000L,
+        bookPositionMs = 17_820_000L,
+        bookDurationMs = 46_800_000L,
     )
 
 // Buffering fixture — shows the loading spinner inside the scrubber / transport.
 private val mockBufferingState =
     mockActiveState.copy(
-        chapterTitle = "Honor Is Dead",
-        chapterIndex = 1,
-        isPlaying = false,
-        isBuffering = true,
+        phase = PlayerPhase.Buffering,
+        chapter = mockChapter(1),
+        chapters = mockChapterRows(1),
+        primary = PrimaryControl.Busy,
+        showsSkipBack = false,
     )
 
-// Progress fixture for the buffering preview — early in chapter 1.
+// Progress fixture for the buffering preview — early in chapter 2.
 private val mockBufferingProgress =
     mockProgress.copy(
-        chapterProgress = 0.12f,
         chapterPositionMs = 296_000L,
         chapterDurationMs = 2_469_000L,
     )
@@ -162,7 +193,7 @@ fun NowPlayingPreviewGallery() {
                     state = mockBufferingState,
                     progress = { mockBufferingProgress },
                     onCollapse = {},
-                    onPlayPause = {},
+                    onPrimary = {},
                     onSeek = {},
                     onSkipBack = {},
                     onSkipForward = {},
@@ -212,7 +243,7 @@ private fun CompactSection() {
             state = mockActiveState,
             progress = { mockProgress },
             onCollapse = {},
-            onPlayPause = {},
+            onPrimary = {},
             onSeek = {},
             onSkipBack = {},
             onSkipForward = {},
@@ -242,7 +273,7 @@ private fun WideSection() {
             state = mockActiveState,
             progress = { mockProgress },
             onCollapse = {},
-            onPlayPause = {},
+            onPrimary = {},
             onSeek = {},
             onSkipBack = {},
             onSkipForward = {},
@@ -272,7 +303,7 @@ private fun MiniPlayerPhoneSection() {
         progress = { mockProgress },
         isExpanded = false,
         onTap = {},
-        onPlayPause = {},
+        onPrimary = {},
         onSkipBack = {},
         skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
@@ -284,7 +315,7 @@ private fun MiniPlayerPhoneSection() {
         progress = { mockBufferingProgress },
         isExpanded = false,
         onTap = {},
-        onPlayPause = {},
+        onPrimary = {},
         onSkipBack = {},
         skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
@@ -300,7 +331,7 @@ private fun MiniPlayerDesktopSection() {
             progress = { mockProgress },
             isExpanded = false,
             onTap = {},
-            onPlayPause = {},
+            onPrimary = {},
             onSkipBack = {},
             onSkipForward = {},
             onSeek = {},
@@ -347,8 +378,7 @@ private fun PanelsSection() {
 
         "chapters" -> {
             ChapterPickerSheet(
-                chapters = mockDomainChapters,
-                currentChapterIndex = 2,
+                chapters = mockActiveState.chapters,
                 onChapterSelected = {},
                 onDismiss = { open = null },
             )

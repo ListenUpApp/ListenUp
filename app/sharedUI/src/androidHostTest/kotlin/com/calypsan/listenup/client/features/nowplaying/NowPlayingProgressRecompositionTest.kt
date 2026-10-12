@@ -7,7 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -16,7 +16,7 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * Proves the structural fix for the 4 Hz now-playing recomposition storm: the fast-changing
- * playback progress is threaded as a deferred `() -> PlaybackProgress` lambda, so a position
+ * playback progress is threaded as a deferred `() -> PlayerProgress` lambda, so a position
  * tick recomposes only the leaf that reads it ([PlayerScrubber]) — never the surrounding player
  * chrome (cover, title, transport), which does not read the lambda.
  *
@@ -25,7 +25,7 @@ import org.robolectric.RobolectricTestRunner
  * must leave the chrome probe's recomposition count untouched while the scrubber re-reads the
  * new value.
  *
- * Without the deferred-lambda threading — i.e. passing `progress: PlaybackProgress` by value and
+ * Without the deferred-lambda threading — i.e. passing `progress: PlayerProgress` by value and
  * reading it in the parent scope — the chrome probe would recompose on every tick, which is the
  * regression this guards.
  *
@@ -39,10 +39,10 @@ class NowPlayingProgressRecompositionTest {
     @Test
     fun `progress tick recomposes the scrubber but not sibling chrome`() {
         var chromeRecompositions = 0
-        lateinit var setProgress: (PlaybackProgress) -> Unit
+        lateinit var setProgress: (PlayerProgress) -> Unit
 
         composeRule.setContent {
-            var progress by remember { mutableStateOf(PlaybackProgress.Zero) }
+            var progress by remember { mutableStateOf(PlayerProgress.Zero) }
             setProgress = { progress = it }
 
             Column {
@@ -63,11 +63,11 @@ class NowPlayingProgressRecompositionTest {
         val baseline = chromeRecompositions
 
         // Three position ticks, mimicking the 250 ms poll.
-        setProgress(PlaybackProgress.Zero.copy(chapterPositionMs = 10_000L, chapterProgress = 0.1f))
+        setProgress(samplePlayerProgress.copy(chapterPositionMs = 10_000L))
         composeRule.waitForIdle()
-        setProgress(PlaybackProgress.Zero.copy(chapterPositionMs = 20_000L, chapterProgress = 0.2f))
+        setProgress(samplePlayerProgress.copy(chapterPositionMs = 20_000L))
         composeRule.waitForIdle()
-        setProgress(PlaybackProgress.Zero.copy(chapterPositionMs = 30_000L, chapterProgress = 0.3f))
+        setProgress(samplePlayerProgress.copy(chapterPositionMs = 30_000L))
         composeRule.waitForIdle()
 
         // The chrome probe must not have recomposed on any tick.

@@ -21,7 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
-import com.calypsan.listenup.client.playback.NowPlayingChapter
+import com.calypsan.listenup.client.presentation.player.PlayerChapterRow as ChapterRowState
 import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_up_next
@@ -42,7 +42,7 @@ private const val QUEUE_PREVIEW_SIZE = 8
  * The card itself is layout-agnostic — callers constrain it via [Modifier.widthIn] and
  * [Modifier.weight] as appropriate for the two-pane wide layout.
  *
- * @param chapters Full chapter list from [NowPlayingState.Active]. Only the first
+ * @param chapters Full chapter list from the loaded player state. Only the first
  *   [QUEUE_PREVIEW_SIZE] entries are shown; all chapters are available via [onViewAllChapters].
  * @param currentChapterIndex Zero-based index of the currently playing chapter.
  * @param totalChapters Total number of chapters in the book, shown in the badge and footer label.
@@ -52,7 +52,7 @@ private const val QUEUE_PREVIEW_SIZE = 8
  */
 @Composable
 fun UpNextQueue(
-    chapters: List<NowPlayingChapter>,
+    chapters: List<ChapterRowState>,
     currentChapterIndex: Int,
     totalChapters: Int,
     onSeekToChapter: (Int) -> Unit,

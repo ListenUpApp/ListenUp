@@ -40,10 +40,10 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
-import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
+import com.calypsan.listenup.client.features.nowplaying.components.PrimaryControlFab
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.design.util.isLargeFontScale
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cover_a11y
@@ -61,28 +61,25 @@ internal val MiniPlayerGlyphSize = 20.dp
  * - Cover thumbnail · title + chapter line · skip-back · play/pause squircle
  * - Non-interactive wavy progress strip along the bottom (chapter progress)
  *
- * Visible only when [state] is [NowPlayingState.Active] and [isExpanded] is false.
- * Tapping anywhere expands to the full-screen player via [onTap].
+ * Visible whenever a book is loaded and [isExpanded] is false — including when it failed or cannot play: the
+ * second line then says why and the main button offers the way out (gap 6). Tapping anywhere expands to the
+ * full-screen player via [onTap].
  *
- * @param isPlayPending True while a play request is in flight anywhere in the app (e.g. the user
- *  tapped play on a different book from the library while this bar is still showing the
- *  previous one) — see [com.calypsan.listenup.client.playback.NowPlayingScreenState.isPlayPending].
- *  Reuses [PlayPauseFab]'s buffering spinner rather than tearing this bar down.
+ * @param onPrimary The main button's action, decided by [PlayerUiState.Loaded.primary].
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NowPlayingBar(
-    state: NowPlayingState,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState,
+    progress: () -> PlayerProgress,
     isExpanded: Boolean,
     onTap: () -> Unit,
-    onPlayPause: () -> Unit,
+    onPrimary: () -> Unit,
     onSkipBack: () -> Unit,
     skipBackwardSec: Int,
     modifier: Modifier = Modifier,
-    isPlayPending: Boolean = false,
 ) {
-    val isVisible = state is NowPlayingState.Active && !isExpanded
+    val isVisible = state is PlayerUiState.Loaded && !isExpanded
 
     AnimatedVisibility(
         visible = isVisible,
@@ -126,14 +123,13 @@ fun NowPlayingBar(
             // over; only covers cast shadows (DESIGN.md, Books-Cast-Shadows).
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
         ) {
-            if (state is NowPlayingState.Active) {
+            if (state is PlayerUiState.Loaded) {
                 MiniPlayerContent(
                     state = state,
                     progress = progress,
-                    onPlayPause = onPlayPause,
+                    onPrimary = onPrimary,
                     onSkipBack = onSkipBack,
                     skipBackwardSec = skipBackwardSec,
-                    isPlayPending = isPlayPending,
                 )
             }
         }
@@ -143,12 +139,11 @@ fun NowPlayingBar(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun MiniPlayerContent(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
-    onPlayPause: () -> Unit,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
+    onPrimary: () -> Unit,
     onSkipBack: () -> Unit,
     skipBackwardSec: Int,
-    isPlayPending: Boolean,
 ) {
     Column {
         Row(
@@ -162,12 +157,12 @@ private fun MiniPlayerContent(
             // names the book, and the title needs the width more than the bar needs the picture.
             if (!isLargeFontScale()) {
                 BookCoverImage(
-                    bookId = state.bookId,
-                    coverPath = state.coverPath,
-                    coverHash = state.coverHash,
+                    bookId = state.book.id,
+                    coverPath = state.book.coverPath,
+                    coverHash = state.book.coverHash,
                     contentDescription = stringResource(Res.string.player_cover_a11y),
-                    title = state.title,
-                    author = state.author,
+                    title = state.book.title,
+                    author = state.book.authorLine,
                     modifier =
                         Modifier
                             .size(48.dp)
@@ -180,19 +175,17 @@ private fun MiniPlayerContent(
             // Title + chapter info column — grows to fill available space
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = state.title,
+                    text = state.book.title,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 // Show the chapter's own title; no "Ch. N · " prefix — the title is often itself
                 // "Chapter N", and chapterIndex counts front-matter tracks (Introduction, Epigraph),
-                // so the prefix produced confusing, offset labels like "Ch. 3 · Chapter 1".
-                val chapterLine =
-                    state.chapterTitle?.takeIf { it.isNotBlank() }
-                        ?: "Chapter ${state.chapterIndex + 1}"
+                // so the prefix produced confusing, offset labels like "Ch. 3 · Chapter 1". When the book
+                // cannot play, this line says why instead (gap 6).
                 Text(
-                    text = chapterLine,
+                    text = state.statusLine(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -200,23 +193,24 @@ private fun MiniPlayerContent(
                 )
             }
 
-            // Skip-back control (single skip on the phone mini-player)
-            Ctrl(
-                icon = SkipGlyphs.backward(skipBackwardSec),
-                contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
-                onClick = onSkipBack,
-                size = MinTouchTarget,
-                iconSize = MiniPlayerGlyphSize,
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
+            // Skip-back control (single skip on the phone mini-player), only where there is a settled
+            // position to go back from (§3.5).
+            if (state.showsSkipBack) {
+                Ctrl(
+                    icon = SkipGlyphs.backward(skipBackwardSec),
+                    contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
+                    onClick = onSkipBack,
+                    size = MinTouchTarget,
+                    iconSize = MiniPlayerGlyphSize,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
 
-            // Play/pause squircle FAB. No drop shadow — the bar's rounded Surface would clip it.
-            // isPlayPending piggybacks on the same buffering spinner: a play request in flight
-            // for another book is visual feedback the user asked for, without hiding this bar.
-            PlayPauseFab(
-                isPlaying = state.isPlaying,
-                isBuffering = state.isBuffering || isPlayPending,
-                onClick = onPlayPause,
+            // The main button, drawn from the shared primary. No drop shadow — the bar's rounded
+            // Surface would clip it. A play request in flight shows as Busy without hiding this bar.
+            PrimaryControlFab(
+                primary = state.primary,
+                onClick = onPrimary,
                 size = 48.dp,
             )
         }
@@ -225,7 +219,7 @@ private fun MiniPlayerContent(
         // cleaner at the mini-player's small height — the expressive wave is reserved for the
         // full-screen player and the desktop bar, where it has the vertical room to register.
         LinearProgressIndicator(
-            progress = { progress().chapterProgress },
+            progress = { progress().chapterFraction },
             modifier =
                 Modifier
                     .fillMaxWidth()
