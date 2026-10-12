@@ -56,39 +56,39 @@ extension PlayerCoordinator {
         await engine.setGainDb(gain.effectiveDb)
     }
 
-    /// The user picked a boost for this book. Mirrors `setSpeed`: apply live, then persist.
+    /// The shared player set a boost for this book: apply live, then persist.
     func setBoost(_ db: Float) {
         applyBoost(db)
-        if let id = phase.playingState?.bookId {
+        if let id = engineBook?.bookId {
             progress.onVolumeBoostChanged(bookId: id, positionMs: bookPositionMs, newBoostDb: db)
         }
     }
 
-    /// The user cleared this book's override back to the global default. Reported as a reset
+    /// The shared player cleared this book's override back to the global default. Reported as a reset
     /// rather than a change so the per-book override is actually removed, not overwritten.
     func resetBoost(defaultDb: Float) {
         applyBoost(defaultDb)
-        if let id = phase.playingState?.bookId {
+        if let id = engineBook?.bookId {
             progress.onBoostReset(bookId: id, positionMs: bookPositionMs, defaultBoostDb: defaultDb)
         }
     }
 
-    /// Persist a refined R128 measurement once playback settles — driven by the `phase` didSet,
-    /// which makes `.paused` (a pause of any origin, and the book-finished transition) the single
-    /// trigger, so no pause path can forget it.
+    /// Persist a refined R128 measurement once playback settles — driven by the `enginePhase` didSet,
+    /// which makes `.paused` (a pause of any origin) and `.ended` the single trigger, so no pause path
+    /// can forget it.
     ///
     /// Deliberately does NOT re-apply the engine gain: the measurement refines continuously while
     /// a book plays, and reacting to it live would be an audible level jump mid-sentence. The new
     /// value takes effect at the next load, or the next time the user moves the boost.
     func saveRefinedMeasurement() {
-        guard case .paused(let loaded) = phase else { return }
+        guard enginePhase == .paused || enginePhase == .ended, let loaded = engineBook else { return }
         let positionMs = bookPositionMs
         Task {
             guard let measured = await engine.currentMeasuredGainDb() else { return }
             // Re-check the book on the way back in: a switch during that read cleared `gain` for
             // the incoming book, and writing the outgoing book's reading into it would suppress
             // the new book's own first save.
-            guard phase.playingState?.bookId == loaded.bookId else { return }
+            guard engineBook?.bookId == loaded.bookId else { return }
             // 0.1 dB is well below audibility — smaller movement is meter jitter, not a
             // refinement, and re-saving it would churn the sync queue for nothing.
             if let last = gain.lastSavedMeasuredGainDb, abs(measured - last) <= 0.1 { return }

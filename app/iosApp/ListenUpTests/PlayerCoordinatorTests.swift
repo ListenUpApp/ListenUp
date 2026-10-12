@@ -47,174 +47,58 @@ struct PlaybackEngineSeamTests {
 @Suite("PlayerCoordinator wiring")
 @MainActor
 struct PlayerCoordinatorWiringTests {
-    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let sleep = FakeSleepTiming()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
-            resumeSpeed: 1.5, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 2000,
-            chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)
-            ])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: sleep,
-            engine: engine
-        )
-        return (coordinator, engine, progress)
+    /// A seek then a play on the book the engine holds is a resume in place — the shared player's
+    /// "the book the engine already holds" path — never a second load.
+    @Test func seekThenPlayOnTheLoadedBookDoesNotReload() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(resumePositionMs: 2000))
+        await harness.run(.pause)
+        let loadsBefore = await harness.engine.commandLog.filter { $0 == "load" }.count
+
+        await harness.run(.seek(toMs: 30_000))
+        await harness.run(.play)
+        await harness.engine.waitUntilSeeked()
+
+        #expect(await harness.engine.lastSeekMs == 30_000)
+        #expect(await harness.engine.commandLog.filter { $0 == "load" }.count == loadsBefore)
+        #expect(harness.progress.seeks.last?.2 == 30_000)
     }
 
-    @Test func startPositionOnTheLoadedBookSeeksWithoutPreparing() async throws {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-        let loadsBefore = await engine.lastLoadStartMs
-
-        coordinator.play(bookId: "book1", startAtMs: 30_000)
-        // A seek in place reports the jump synchronously; a reload would not, and the await below
-        // would then never resume — so fail here, fast, instead of hanging.
-        try #require(progress.seeks.last?.2 == 30_000)
-        await engine.waitUntilSeeked()
-
-        #expect(await engine.lastSeekMs == 30_000)
-        #expect(await engine.lastLoadStartMs == loadsBefore) // no second load
+    /// The prepared book's resume position is where the engine starts (the shared preparer already
+    /// resolved any requested start position into it).
+    @Test func loadStartsTheEngineAtThePreparedPosition() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book2", .fixture(resumePositionMs: 12_000))
+        #expect(await harness.engine.lastLoadStartMs == 12_000)
     }
 
-    @Test func startPositionOnAnotherBookPreparesThere() async throws {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
-            resumeSpeed: 1.0, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 0,
-            chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)]))
-        preparer.honourStartAt = true
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(), engine: engine)
-
-        coordinator.play(bookId: "book2", startAtMs: 12_000)
-        await progress.waitForStarted(bookId: "book2")
-
-        #expect(preparer.startAtCalls == [12_000])
-        #expect(await engine.lastLoadStartMs == 12_000)
+    @Test func loadStartsEngineAtResumePositionAndSpeed() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(resumePositionMs: 2000, resumeSpeed: 1.5))
+        #expect(await harness.engine.didPlay)
+        #expect(await harness.engine.lastRate == 1.5)
+        #expect(harness.progress.startedCalls.first?.0 == "book1")
+        #expect(harness.progress.startedCalls.first?.1 == 2000)
     }
 
-    @Test func plainPlayStillPassesNoStartPosition() async throws {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
-            resumeSpeed: 1.0, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 2000,
-            chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)]))
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(), engine: engine)
-
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-
-        #expect(preparer.startAtCalls == [nil])
+    /// The load reports buffering at once, then playing when the engine says audio advances.
+    @Test func loadReportsBufferingThenPlaying() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        await awaitObservation { harness.coordinator.isPlaying }
+        #expect(harness.facts.phases.prefix(2) == [.buffering, .playing])
     }
 
-    @Test func surfacesOverflowMenuNavigationTargets() async throws {
-        let engine = FakePlaybackEngine()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A1, A2", bookNarrator: "N1", coverPath: nil,
-            resumeSpeed: 1.0, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 0,
-            chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)
-            ]),
-            seriesId: "series-1",
-            authors: [ContributorNavRef(id: "a1", name: "A1"), ContributorNavRef(id: "a2", name: "A2")],
-            narrators: [ContributorNavRef(id: "n1", name: "N1")]
-        )
-        let progress = FakeProgressReporting()
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(), engine: engine
-        )
-
-        coordinator.play(bookId: "book1")
-        // onPlaybackStarted fires only after the coordinator has applied the prepared snapshot,
-        // so awaiting it guarantees seriesId/authors/narrators are populated.
-        await progress.waitForStarted(bookId: "book1")
-
-        #expect(coordinator.seriesId == "series-1")
-        #expect(coordinator.authors.map(\.id) == ["a1", "a2"])
-        #expect(coordinator.narrators.map(\.id) == ["n1"])
-    }
-
-    /// "+10 min" in the sleep menu reaches the shared timer, which owns the arithmetic (and the
-    /// rule that only a countdown can grow) — so iOS cannot drift from Android and web on it.
-    @Test func extendingTheSleepTimerAsksTheSharedTimer() {
-        let sleep = FakeSleepTiming()
-        let coordinator = PlayerCoordinator(
-            preparer: FakePlaybackPreparing(), progress: FakeProgressReporting(), sleep: sleep,
-            engine: FakePlaybackEngine()
-        )
-        coordinator.extendSleepTimer(minutes: 10)
-        #expect(sleep.extensions == [10])
-    }
-
-    @Test func playLoadsAndStartsEngineAtResumePosition() async throws {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-        #expect(await engine.didPlay)
-        #expect(await engine.lastRate == 1.5)
-        #expect(progress.startedCalls.first?.0 == "book1")
-        #expect(progress.startedCalls.first?.1 == 2000)
-    }
-
-    /// `isPreparing` drives the Book Detail play button's busy variant and the mini player's
-    /// spinner — it must flip true the instant `play(bookId:)` returns (synchronous, before the
-    /// prepare task even runs) and clear once the book has actually started.
-    @Test func isPreparingIsTrueImmediatelyAfterPlayAndFalseOnceStarted() async throws {
-        let (coordinator, _, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        #expect(coordinator.isPreparing)
-        await progress.waitForStarted(bookId: "book1")
-        #expect(coordinator.isPreparing == false)
-    }
-}
-
-@Suite("Sleep timer firing")
-@MainActor
-struct SleepTimerFiringTests {
-    @Test func firedEventFadesPausesAndCompletes() async throws {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let sleep = FakeSleepTiming()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        // `.zero` fade delay: exercise the fade logic without its ~3 s of real wall-clock
-        // sleeps, which otherwise flake against the awaitUntil deadline under CI load.
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: sleep,
-            engine: engine, fadeStepDelay: .zero)
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-
-        sleep.emitFired()
-        await sleep.waitForFadeCompleted()
-
-        #expect(await engine.didPause)
-        #expect(sleep.fadeCompletedCount == 1)
-        #expect(coordinator.isPlaying == false)
+    /// A rate reset is persisted as a reset, so the book stops being an exception to the default.
+    @Test func rateResetIsReportedAsAReset() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        await harness.run(.setRate(1.25, isReset: false))
+        await harness.run(.setRate(1.0, isReset: true))
+        #expect(harness.progress.speedChanges.map(\.2) == [1.25])
+        #expect(harness.progress.speedResets.map(\.2) == [1.0])
+        await awaitUntil { await harness.engine.lastRate == 1.0 }
+        #expect(await harness.engine.lastRate == 1.0)
     }
 }
 
@@ -222,34 +106,18 @@ struct SleepTimerFiringTests {
 @MainActor
 struct SaveCurrentPositionTests {
     @Test func saveCurrentPositionPersistsImmediately() async throws {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 4321, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine)
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(resumePositionMs: 4321))
 
-        await coordinator.saveCurrentPosition()
+        await harness.coordinator.saveCurrentPosition()
 
-        #expect(progress.savedNow.contains { $0.0 == "book1" })
+        #expect(harness.progress.savedNow.contains { $0.0 == "book1" })
     }
 
     @Test func saveCurrentPositionNoopsWhenIdle() async {
-        let progress = FakeProgressReporting()
-        let coordinator = PlayerCoordinator(
-            preparer: FakePlaybackPreparing(), progress: progress,
-            sleep: FakeSleepTiming(), engine: FakePlaybackEngine())
-        await coordinator.saveCurrentPosition()
-        #expect(progress.savedNow.isEmpty)
+        let harness = PlayerHarness()
+        await harness.coordinator.saveCurrentPosition()
+        #expect(harness.progress.savedNow.isEmpty)
     }
 }
 
@@ -273,64 +141,30 @@ struct RouteChangeTests {
     /// `.default`, so this suite's route-change post can never leak into a concurrent suite's coordinator.
     private let center = NotificationCenter()
 
-    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, notificationCenter: center)
-        return (coordinator, engine, progress)
-    }
-
-    @Test func routeChangeOldDeviceUnavailablePauses() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+    @Test func routeChangeOldDeviceUnavailablePausesAndTellsTheSharedPlayer() async {
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
 
         center.post(
             name: AVAudioSession.routeChangeNotification, object: nil,
             userInfo: [AVAudioSessionRouteChangeReasonKey:
                 NSNumber(value: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue)])
 
-        await engine.waitUntilPaused()
-        #expect(await engine.didPause)
+        await harness.engine.waitUntilPaused()
+        #expect(await harness.engine.didPause)
+        await awaitObservation { harness.coordinator.enginePhase == .paused }
+        #expect(harness.facts.phases.last == .paused)
+        // Every route change re-reports the AirPlay route (none on the simulator).
+        #expect(!harness.facts.routes.isEmpty)
     }
-
 }
 
 // Each test instance owns a private `NotificationCenter` and injects it into its coordinator, so an
-// interruption post here reaches ONLY this test's coordinator — never a sibling test's, and never a
-// concurrently-running suite's (which was the `PlayerSwitchPathTests` cross-suite flake: a `.began`
-// post pausing a coordinator that was mid-`.buffering`). `.serialized` is kept as belt-and-suspenders.
+// interruption post here reaches ONLY this test's coordinator. `.serialized` is kept as belt-and-suspenders.
 @Suite("Audio-session interruption handling", .serialized)
 @MainActor
 struct AudioSessionInterruptionTests {
     private let center = NotificationCenter()
-
-    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, notificationCenter: center)
-        return (coordinator, engine, progress)
-    }
 
     private func postInterruptionBegan() {
         center.post(
@@ -353,95 +187,88 @@ struct AudioSessionInterruptionTests {
     }
 
     @Test func interruptionBeganPausesPlayback() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
 
         postInterruptionBegan()
-        await engine.waitUntilPaused()
+        await harness.engine.waitUntilPaused()
+        await awaitObservation { !harness.coordinator.isPlaybackActive }
 
-        #expect(await engine.didPause)
-        #expect(coordinator.isPlaying == false)
-        // `>= 1`, not `== 1`: every live coordinator observes `NotificationCenter.default`,
-        // so a sibling suite's route-change/interruption post can add a pause here. Our own
-        // code can't double-report one interruption — the `.pause` phase guard blocks the
-        // second — so `>= 1` verifies the interruption was reported to KMP without over-
-        // specifying a count the shared global center makes non-deterministic across suites.
-        #expect(progress.pausedCalls.count >= 1)
+        #expect(await harness.engine.didPause)
+        #expect(harness.coordinator.isPlaying == false)
+        #expect(harness.progress.pausedCalls.count >= 1)
     }
 
     @Test func interruptionEndedWithShouldResumeResumesAfterInterruptionPause() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
 
         postInterruptionBegan()
-        await engine.waitUntilPaused()
+        await harness.engine.waitUntilPaused()
         postInterruptionEnded(shouldResume: true)
-        await engine.waitForPlayCount(2)
+        await harness.engine.waitForPlayCount(2)
+        await awaitObservation { harness.coordinator.isPlaying }
 
-        #expect(coordinator.isPlaying)
-        let log = await engine.commandLog
+        #expect(harness.coordinator.isPlaying)
+        let log = await harness.engine.commandLog
         #expect(Array(log.suffix(2)) == ["activate", "play"])
-        #expect(await engine.didActivateSession)
+        #expect(await harness.engine.didActivateSession)
     }
 
     @Test func interruptionEndedWithoutShouldResumeStaysPaused() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
 
         postInterruptionBegan()
-        await engine.waitUntilPaused()
+        await harness.engine.waitUntilPaused()
         postInterruptionEnded(shouldResume: false)
 
-        await awaitUntil(timeout: .milliseconds(300)) { coordinator.isPlaying }
-        #expect(coordinator.isPlaying == false)
-        #expect(await engine.playCount == 1)
+        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.isPlaying }
+        #expect(harness.coordinator.isPlaying == false)
+        #expect(await harness.engine.playCount == 1)
     }
 
     @Test func interruptionEndedDoesNotResumeUserInitiatedPause() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
 
-        coordinator.togglePlayback()   // user pauses deliberately
-        await engine.waitUntilPaused()
+        await harness.run(.pause)   // the user pauses deliberately
+        await harness.engine.waitUntilPaused()
         postInterruptionEnded(shouldResume: true)
 
-        await awaitUntil(timeout: .milliseconds(300)) { coordinator.isPlaying }
-        #expect(coordinator.isPlaying == false)
-        #expect(await engine.playCount == 1)
+        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.isPlaying }
+        #expect(harness.coordinator.isPlaying == false)
+        #expect(await harness.engine.playCount == 1)
     }
 
     @Test func interruptionBeganWhileBufferingPauses() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
+        await awaitObservation { harness.coordinator.isPlaying }
 
-        engine.emit(.statusChanged(.buffering))
-        await awaitObservation { coordinator.isBuffering }
+        harness.engine.emit(.statusChanged(.buffering))
+        await awaitObservation { harness.coordinator.isBuffering }
 
         postInterruptionBegan()
-        await engine.waitUntilPaused()
+        await harness.engine.waitUntilPaused()
+        await awaitObservation { !harness.coordinator.isBuffering }
 
-        #expect(coordinator.isPlaying == false)
-        #expect(coordinator.isBuffering == false)
+        #expect(harness.coordinator.isPlaying == false)
+        #expect(harness.coordinator.isBuffering == false)
     }
 
     @Test func stopSeversInterruptionObservation() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
 
-        await coordinator.stop()
-        let pausesBefore = await engine.commandLog.filter { $0 == "pause" }.count
+        await harness.coordinator.stop()
+        let pausesBefore = await harness.engine.commandLog.filter { $0 == "pause" }.count
 
         postInterruptionBegan()
         await awaitUntil(timeout: .milliseconds(300)) {
-            await engine.commandLog.filter { $0 == "pause" }.count > pausesBefore
+            await harness.engine.commandLog.filter { $0 == "pause" }.count > pausesBefore
         }
-        #expect(await engine.commandLog.filter { $0 == "pause" }.count == pausesBefore)
+        #expect(await harness.engine.commandLog.filter { $0 == "pause" }.count == pausesBefore)
     }
 }
 
@@ -458,330 +285,152 @@ struct RouteChangePolicyTests {
     }
 }
 
-@Suite("End of chapter")
-@MainActor
-struct EndOfChapterTests {
-    @Test func chapterChangeNotifiesSleepTiming() async throws {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let sleep = FakeSleepTiming()
-        let preparer = FakePlaybackPreparing()
-        let chapters = [
-            Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0, partTitle: nil, bookTitle: nil),
-            Chapter(id: "c1", title: "c1", duration: 1000, startTime: 1000, partTitle: nil, bookTitle: nil)
-        ]
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: chapters,
-            timeline: PreparedTimeline(totalDurationMs: 2000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 2000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: sleep,
-            engine: engine)
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-
-        // Position now in chapter 1 → engine emits a position past the chapter boundary.
-        engine.emit(.position(ms: 1500, rate: 1.0))
-        await sleep.waitForChapterChange(to: 1)
-
-        #expect(sleep.chapterChanges.contains(1))
-    }
-}
-
 @Suite("Skip interval wiring")
 @MainActor
 struct SkipIntervalTests {
-    private func makeCoordinator(
-        skipIntervals: FakeSkipIntervalProviding? = nil
-    ) -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 600_000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 600_000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine,
-            skipIntervals: skipIntervals)
-        return (coordinator, engine, progress)
+    /// With no override, the lock screen's forward and backward skips use their *distinct* default
+    /// intervals (30 / 10). (The in-app skips are the shared player's, tested in Kotlin.)
+    @Test func defaultRemoteForwardAndBackwardUseDistinctIntervals() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(durationMs: 600_000))
+
+        // `rate: 0` (paused) holds the position exactly; a positive rate starts the display link.
+        harness.engine.emit(.position(ms: 60000, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 60000 }
+
+        harness.coordinator.remoteSkipForward()
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 90000)
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 90000 })
+
+        harness.coordinator.remoteSkipBackward()
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 50000)
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 50000 })
     }
 
-    /// With no override, forward and backward use their *distinct* default intervals
-    /// (30 / 10) — proving each direction reads its own setting-backed value rather
-    /// than the old shared hardcoded amount.
-    @Test func defaultForwardAndBackwardUseDistinctIntervals() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-
-        // Anchor the position tracker at 60 s so both skips land on a positive position.
-        // `rate: 0` (paused) is deliberate: a positive rate starts the `CADisplayLink`, whose
-        // per-frame interpolation advances `bookPositionMs` past 60000 on the next frame — the
-        // `== 60000` poll could then never settle and the test would hang. A paused sample holds
-        // the position exactly, which is all this skip-math anchor needs.
-        engine.emit(.position(ms: 60000, rate: 0.0))
-        await awaitObservation { coordinator.bookPositionMs == 60000 }
-
-        // 60 s + 30 s default forward = 90 s. A skip is a seek, so it splits the span (onSeek),
-        // not a plain position update.
-        coordinator.skipForward()
-        await progress.waitForSeek(bookId: "book1", afterMs: 90000)
-        #expect(progress.seeks.contains { $0.0 == "book1" && $0.2 == 90000 })
-
-        // 60 s − 10 s default backward = 50 s (distinct from the forward interval).
-        coordinator.skipBackward()
-        await progress.waitForSeek(bookId: "book1", afterMs: 50000)
-        #expect(progress.seeks.contains { $0.0 == "book1" && $0.2 == 50000 })
-    }
-
-    /// The provider's seeded values flow into the coordinator's observable surface.
-    @Test func seededIntervalsApplyToObservableSurface() async {
+    /// The provider's seeded values flow into the coordinator.
+    @Test func seededIntervalsApply() async {
         let skip = FakeSkipIntervalProviding(initialForward: 45, initialBackward: 15)
-        let (coordinator, _, _) = makeCoordinator(skipIntervals: skip)
-        await awaitObservation { coordinator.skipForwardSec == 45 && coordinator.skipBackwardSec == 15 }
-        #expect(coordinator.skipForwardSec == 45)
-        #expect(coordinator.skipBackwardSec == 15)
+        let harness = PlayerHarness(skipIntervals: skip)
+        await awaitObservation { harness.coordinator.skipForwardSec == 45 && harness.coordinator.skipBackwardSec == 15 }
+        #expect(harness.coordinator.skipForwardSec == 45)
+        #expect(harness.coordinator.skipBackwardSec == 15)
     }
 
-    /// A live change emitted by the provider (e.g. the user picks a new interval on the
-    /// Settings screen mid-session) propagates to the coordinator's interval *without* a
-    /// rebuild — write → Flow emits → coordinator updates. This is the regression the
-    /// repo-flow wiring exists to prevent. Kept playback-free so it only exercises the
-    /// observation seam, not the full app start path.
-    @Test func liveChangePropagatesToObservableSurface() async {
+    /// A live change emitted by the provider (the user picks a new interval mid-session) reaches the
+    /// coordinator without a rebuild.
+    @Test func liveChangePropagates() async {
         let skip = FakeSkipIntervalProviding(initialForward: 30, initialBackward: 10)
-        let (coordinator, _, _) = makeCoordinator(skipIntervals: skip)
-        await awaitObservation { coordinator.skipForwardSec == 30 && coordinator.skipBackwardSec == 10 }
+        let harness = PlayerHarness(skipIntervals: skip)
+        await awaitObservation { harness.coordinator.skipForwardSec == 30 && harness.coordinator.skipBackwardSec == 10 }
 
-        // User changes the intervals after construction (mid-session, no rebuild).
         skip.emitForward(45)
         skip.emitBackward(20)
-        await awaitObservation { coordinator.skipForwardSec == 45 && coordinator.skipBackwardSec == 20 }
-        #expect(coordinator.skipForwardSec == 45)
-        #expect(coordinator.skipBackwardSec == 20)
-    }
-
-    /// After a live change, the next skip honors the *new* interval. Together with
-    /// `liveChangePropagatesToObservableSurface` this proves the full chain: a Settings
-    /// write updates the interval and the very next skip uses it (45 s → 105 s, not 30 s → 90 s).
-    @Test func nextSkipAfterLiveChangeUsesNewInterval() async {
-        let skip = FakeSkipIntervalProviding(initialForward: 30, initialBackward: 10)
-        let (coordinator, engine, progress) = makeCoordinator(skipIntervals: skip)
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-        await awaitObservation { coordinator.skipForwardSec == 30 }
-
-        skip.emitForward(45)
-        await awaitObservation { coordinator.skipForwardSec == 45 }
-
-        // Anchor position at 60 s, then the next skip uses 45 s → 105 s.
-        // `rate: 0` (paused) holds the position exactly; a positive rate would start the
-        // `CADisplayLink` and interpolate past 60000, leaving the `== 60000` poll to hang.
-        engine.emit(.position(ms: 60000, rate: 0.0))
-        await awaitObservation { coordinator.bookPositionMs == 60000 }
-        coordinator.skipForward()
-        await progress.waitForSeek(bookId: "book1", afterMs: 105_000)
-        #expect(progress.seeks.contains { $0.0 == "book1" && $0.2 == 105_000 })
+        await awaitObservation { harness.coordinator.skipForwardSec == 45 && harness.coordinator.skipBackwardSec == 20 }
+        #expect(harness.coordinator.skipForwardSec == 45)
+        #expect(harness.coordinator.skipBackwardSec == 20)
     }
 }
 
 @Suite("Seek persistence")
 @MainActor
 struct SeekPersistenceTests {
-    @Test func seekReportsNewPosition() async throws {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine)
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+    @Test func seekReportsNewPositionToProgressAndTheSharedPlayer() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
 
         // A seek splits the listening span; the reporter's onSeek both persists the new position
         // and records the split (before → after).
-        coordinator.seekTo(positionMs: 30000)
-        await progress.waitForSeek(bookId: "book1", afterMs: 30000)
+        await harness.run(.seek(toMs: 30000))
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 30000)
 
-        #expect(progress.seeks.contains { $0.0 == "book1" && $0.2 == 30000 })
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 30000 })
+        #expect(harness.facts.positions.contains(30000))
     }
 }
 
 @Suite("Seam value types")
 struct SeamValueTypeTests {
     @Test func preparedPlaybackHoldsTimeline() {
-        let prepared = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
-            resumeSpeed: 1.0, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 0,
-            chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 1000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 1000, startOffsetMs: 0)
-            ])
-        )
-        #expect(prepared.timeline.files.count == 1)
+        #expect(PreparedPlayback.fixture().timeline.files.count == 1)
+    }
+
+    /// An item failure is typed once, at the engine edge, from its error domain and code — never its text.
+    @Test func itemFailuresAreClassifiedByDomainAndCode() {
+        let dropped = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost)
+        let format = NSError(domain: AVFoundationErrorDomain, code: AVError.Code.fileFormatNotRecognized.rawValue)
+        let posix = NSError(domain: NSPOSIXErrorDomain, code: 5)
+        if case .connectionLost = AudioEngine.failure(for: dropped) {} else {
+            Issue.record("a network error should be a lost connection")
+        }
+        if case .unsupportedFormat = AudioEngine.failure(for: format) {} else {
+            Issue.record("an unrecognised format should be an unsupported format")
+        }
+        if case .couldNotStart = AudioEngine.failure(for: posix) {} else {
+            Issue.record("anything else could not start")
+        }
+        #expect(AudioEngine.failure(for: nil) == .couldNotStart(detail: nil))
     }
 }
 
 @Suite("Stop deactivates session")
 @MainActor
 struct StopDeactivatesSessionTests {
-    private func makeCoordinator(_ engine: FakePlaybackEngine) -> PlayerCoordinator {
-        PlayerCoordinator(
-            preparer: FakePlaybackPreparing(), progress: FakeProgressReporting(),
-            sleep: FakeSleepTiming(), engine: engine)
-    }
-
     @Test func stopDeactivatesAudioSession() async throws {
-        let engine = FakePlaybackEngine()
-        let coordinator = makeCoordinator(engine)
-        await coordinator.stop()
-        #expect(await engine.didDeactivateSession)
+        let harness = PlayerHarness()
+        await harness.coordinator.stop()
+        #expect(await harness.engine.didDeactivateSession)
     }
 
-    /// The teardown invariant `stop()` exists to guarantee: the audio session is
-    /// deactivated *before* the engine is unloaded, and both complete before `stop()`
-    /// returns (so the coordinator can't drop with the session still active).
+    /// The teardown invariant: the audio session is deactivated *before* the engine is unloaded, and
+    /// both complete before `stop()` returns.
     @Test func stopDeactivatesSessionBeforeUnloadingEngine() async throws {
-        let engine = FakePlaybackEngine()
-        let coordinator = makeCoordinator(engine)
-        await coordinator.stop()
-        #expect(await engine.teardownOrder == ["deactivate", "unload"])
-        #expect(await engine.didUnload)
-    }
-}
-
-@Suite("Document provider wiring")
-@MainActor
-struct DocumentProviderTests {
-    private func makeCoordinator(documentProvider: FakeBookDocumentProviding) -> PlayerCoordinator {
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        return PlayerCoordinator(
-            preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
-            engine: FakePlaybackEngine(),
-            documentProvider: documentProvider
-        )
+        let harness = PlayerHarness()
+        await harness.coordinator.stop()
+        #expect(await harness.engine.teardownOrder == ["deactivate", "unload"])
+        #expect(await harness.engine.didUnload)
     }
 
-    @Test func firstPdfDocIdIsSetAfterPlayWhenFakeReturnsPdfId() async {
-        let docProvider = FakeBookDocumentProviding()
-        docProvider.pdfDocId = "doc-42"
-        let coordinator = makeCoordinator(documentProvider: docProvider)
-        coordinator.play(bookId: "book1")
-        await awaitObservation { coordinator.firstPdfDocId == "doc-42" }
-        #expect(coordinator.firstPdfDocId == "doc-42")
-    }
-
-    @Test func firstPdfDocIdRemainsNilWhenFakeReturnsNil() async {
-        let docProvider = FakeBookDocumentProviding()
-        docProvider.pdfDocId = nil
-        let coordinator = makeCoordinator(documentProvider: docProvider)
-        coordinator.play(bookId: "book1")
-        // Allow the async task to settle, then confirm nil.
-        try? await Task.sleep(for: .milliseconds(100))
-        #expect(coordinator.firstPdfDocId == nil)
-    }
-
-    @Test func openCurrentBookPdfSetsDocumentToOpenWithFakePath() async {
-        let docProvider = FakeBookDocumentProviding()
-        docProvider.pdfDocId = "doc-99"
-        docProvider.localPath = "/books/mybook.pdf"
-        let coordinator = makeCoordinator(documentProvider: docProvider)
-        coordinator.play(bookId: "book1")
-        await awaitObservation { coordinator.firstPdfDocId == "doc-99" }
-
-        coordinator.openCurrentBookPdf()
-        await awaitObservation { coordinator.documentToOpen != nil }
-
-        #expect(coordinator.documentToOpen?.url == URL(fileURLWithPath: "/books/mybook.pdf"))
+    /// Sign-out's stop starts in Swift, so it tells the shared player the engine is empty.
+    @Test func swiftInitiatedStopReportsUnloaded() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        await harness.coordinator.stop()
+        #expect(harness.facts.unloadedCount == 1)
+        #expect(harness.coordinator.engineBook == nil)
     }
 }
 
 @Suite("Playback lifecycle")
 @MainActor
 struct PlaybackLifecycleTests {
-    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine)
-        return (coordinator, engine, progress)
+    /// A full load → pause → stop journey leaves the engine and the reported phase consistent.
+    @Test func loadPauseStopLeavesConsistentState() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        await awaitObservation { harness.coordinator.isPlaying }
+        #expect(harness.coordinator.engineBook?.bookId == "book1")
+
+        await harness.run(.pause)
+        await harness.engine.waitUntilPaused()
+        #expect(harness.coordinator.isPlaying == false)
+        #expect(harness.facts.phases.last == .paused)
+
+        await harness.run(.stop)
+        #expect(await harness.engine.didDeactivateSession)
+        #expect(await harness.engine.didUnload)
+        #expect(harness.facts.phases.last == .idle)
     }
 
-    /// A full play → pause → stop journey leaves the engine and `phase` consistent:
-    /// playing after play, paused after toggle, torn down (and hidden) after stop.
-    @Test func playPauseStopLeavesConsistentState() async throws {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        // Anchor on the coordinator's own "started" callback, not `engine.play()`: the
-        // coordinator sets `phase = .playing` *then* reports started, so awaiting the engine
-        // command would race the phase write and read `isPlaying` before it flips.
-        await progress.waitForStarted(bookId: "book1")
-        // The coordinator starts in `.buffering` and is promoted to `.playing` by the engine's
-        // first "playing" status event (RC-3); await that promotion rather than asserting it
-        // the instant `onPlaybackStarted` lands.
-        await awaitObservation { coordinator.isPlaying }
-        #expect(coordinator.isPlaying)
-        #expect(coordinator.isVisible)
-
-        coordinator.togglePlayback()
-        await engine.waitUntilPaused()
-        #expect(coordinator.isPlaying == false)
-
-        await coordinator.stop()
-        #expect(await engine.didDeactivateSession)
-        #expect(await engine.didUnload)
-    }
-
-    /// `stop()` keeps the engine subscription bound (the coordinator is an app-lifetime singleton
-    /// that must play the next book), so a late engine event from the unloaded book must be
-    /// dropped by the `.idle` guard in `handleEngineEvent` rather than mutate `phase`. A missing
-    /// guard would flip it to `.error`; we poll briefly so a real leak is caught fast while a
-    /// healthy run pays only a small bounded cost.
+    /// `stop()` keeps the engine subscription bound (the coordinator is an app-lifetime singleton),
+    /// so a late engine event from the unloaded book must be dropped rather than reported.
     @Test func stopIgnoresLateEngineEvents() async throws {
-        let (coordinator, engine, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
 
-        await coordinator.stop()
-        engine.emit(.failed(message: "late event after stop"))
+        await harness.run(.stop)
+        harness.engine.emit(.failed(.couldNotStart(detail: "late event after stop")))
 
-        await awaitUntil(timeout: .milliseconds(300)) {
-            if case .error = coordinator.phase { return true }
-            return false
-        }
-        if case .error = coordinator.phase {
-            Issue.record("stop() left engine observation live — a late event mutated phase")
-        }
+        await awaitUntil(timeout: .milliseconds(300)) { !harness.facts.failures.isEmpty }
+        #expect(harness.facts.failures.isEmpty, "stop() left engine observation live — a late event was reported")
     }
 }

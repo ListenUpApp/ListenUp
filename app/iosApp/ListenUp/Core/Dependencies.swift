@@ -63,16 +63,15 @@ final class Dependencies: Sendable {
 
     // MARK: - Playback seam (consumed by PlayerCoordinator)
 
-    var playbackPreparer: PlaybackPreparer { resolve { KoinHelper.shared.getPlaybackPreparer() } }
+    /// The shared player's engine seam: `PlayerCoordinator` executes its commands and reports back into it.
+    var nativePlayerEngine: NativePlayerEngine { resolve { KoinHelper.shared.getNativePlayerEngine() } }
     var playbackProgressReporter: PlaybackProgressReporter { resolve { KoinHelper.shared.getPlaybackProgressReporter() } }
-    var sleepTimerManager: SleepTimerManager { resolve { KoinHelper.shared.getSleepTimerManager() } }
     var playbackPreferences: PlaybackPreferences { resolve { KoinHelper.shared.getPlaybackPreferences() } }
 
     // MARK: - Library services
 
     var bookRepository: BookRepository { resolve { KoinHelper.shared.getBookRepository() } }
     var homeRepository: HomeRepository { resolve { KoinHelper.shared.getHomeRepository() } }
-    var documentRepository: DocumentRepository { resolve { KoinHelper.shared.getDocumentRepository() } }
     var imageStorage: ImageStorage { resolve { KoinHelper.shared.getImageStorage() } }
     var imageRepository: ImageRepository { resolve { KoinHelper.shared.getImageRepository() } }
     var userProfileRepository: UserProfileRepository { resolve { KoinHelper.shared.getUserProfileRepository() } }
