@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.client.test.fake.prepareResultFor
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
@@ -21,7 +22,6 @@ import com.calypsan.listenup.client.playback.NowPlayingOverlay
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
-import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -145,39 +145,6 @@ class NowPlayingViewModelTest :
                 updatedAt = Timestamp(epochMillis = 1L),
             )
 
-        fun stubPrepareResult(bookId: BookId): PrepareResult =
-            PrepareResult(
-                timeline =
-                    PlaybackTimeline(
-                        bookId = bookId,
-                        totalDurationMs = 1_800_000L,
-                        files =
-                            listOf(
-                                PlaybackTimeline.FileSegment(
-                                    audioFileId = "af-stub",
-                                    filename = "stub.m4b",
-                                    format = "m4b",
-                                    startOffsetMs = 0L,
-                                    durationMs = 1_800_000L,
-                                    size = 1_000_000L,
-                                    streamingUrl = "https://example.test/stub.m4b",
-                                    localPath = null,
-                                    mediaItemIndex = 0,
-                                ),
-                            ),
-                    ),
-                bookTitle = "Stub Book",
-                bookAuthor = "Stub Author",
-                seriesName = null,
-                coverPath = null,
-                totalChapters = 1,
-                resumePositionMs = 0L,
-                resumeSpeed = 1.0f,
-                resumeBoostDb = 0f,
-                measuredGainDb = null,
-                normalizationGainDb = null,
-            )
-
         fun stubTimeline(): PlaybackTimeline =
             PlaybackTimeline(
                 bookId = BookId("book-1"),
@@ -284,7 +251,7 @@ class NowPlayingViewModelTest :
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 val bookId = BookId("book-1")
-                val prepareResult = stubPrepareResult(bookId)
+                val prepareResult = prepareResultFor(bookId.value, durationMs = 1_800_000L)
                 fixture.fakePm.stubbedPrepareResult = prepareResult
                 every { fixture.networkMonitor.isOnline() } returns true
                 everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
@@ -382,7 +349,7 @@ class NowPlayingViewModelTest :
                 // window and both proceed, defeating the swallow-repeat-taps guarantee below.
                 val fixture = TestFixture()
                 val bookId = BookId("book-1")
-                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                fixture.fakePm.stubbedPrepareResult = prepareResultFor(bookId.value, durationMs = 1_800_000L)
                 everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
 
                 val vm = fixture.newVm()
@@ -401,7 +368,7 @@ class NowPlayingViewModelTest :
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 val bookId = BookId("book-1")
-                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                fixture.fakePm.stubbedPrepareResult = prepareResultFor(bookId.value, durationMs = 1_800_000L)
                 everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
 
                 val vm = fixture.newVm()
@@ -485,7 +452,7 @@ class NowPlayingViewModelTest :
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 val bookId = BookId("book-2")
-                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                fixture.fakePm.stubbedPrepareResult = prepareResultFor(bookId.value, durationMs = 1_800_000L)
                 everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
                 val vm = fixture.newVm()
 
@@ -495,7 +462,9 @@ class NowPlayingViewModelTest :
                 fixture.fakePm.prepareForPlaybackCalls shouldBe listOf(bookId)
                 fixture.fakePm.prepareForPlaybackStartAts shouldBe listOf(600_000L)
                 verifySuspend(VerifyMode.exactly(1)) {
-                    fixture.playbackController.startPlayback(stubPrepareResult(bookId).copy(resumePositionMs = 600_000L))
+                    fixture.playbackController.startPlayback(
+                        prepareResultFor(bookId.value, durationMs = 1_800_000L).copy(resumePositionMs = 600_000L),
+                    )
                 }
             }
         }
@@ -543,7 +512,7 @@ class NowPlayingViewModelTest :
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 val bookId = BookId("book-1")
-                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                fixture.fakePm.stubbedPrepareResult = prepareResultFor(bookId.value, durationMs = 1_800_000L)
                 everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
 
                 val vm = fixture.newVm()
