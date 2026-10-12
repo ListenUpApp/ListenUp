@@ -83,6 +83,62 @@ class ManagedPlayerEngineTest :
             }
         }
 
+        test("Android: a pause flips only the playing flag, and the phase reads PAUSED") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    // MediaControllerHolder's real sequence: STATE_BUFFERING, then STATE_READY while
+                    // isPlaying, then onIsPlayingChanged(true).
+                    rig.manager.bufferingFlow.value = true
+                    rig.manager.playbackStateFlow.value = PlaybackState.Buffering
+                    runCurrent()
+                    rig.engine.phase.value shouldBe EnginePhase.BUFFERING
+                    rig.manager.bufferingFlow.value = false
+                    rig.manager.playbackStateFlow.value = PlaybackState.Playing
+                    rig.manager.playingFlow.value = true
+                    runCurrent()
+                    rig.engine.phase.value shouldBe EnginePhase.PLAYING
+                    // Pause: Media3 stays STATE_READY, so onPlaybackStateChanged never fires; only
+                    // onIsPlayingChanged(false) arrives and the manager's state stays Playing.
+                    rig.manager.playingFlow.value = false
+                    runCurrent()
+                    rig.engine.phase.value shouldBe EnginePhase.PAUSED
+                    rig.manager.playingFlow.value = true
+                    runCurrent()
+                    rig.engine.phase.value shouldBe EnginePhase.PLAYING
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("web and desktop: the manager moves state and the playing flag together") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    // PlaybackManagerImpl's AudioPlayer observation: state, buffering, then playing.
+                    rig.manager.playbackStateFlow.value = PlaybackState.Buffering
+                    rig.manager.bufferingFlow.value = true
+                    rig.manager.playingFlow.value = false
+                    runCurrent()
+                    rig.engine.phase.value shouldBe EnginePhase.BUFFERING
+                    rig.manager.playbackStateFlow.value = PlaybackState.Playing
+                    rig.manager.bufferingFlow.value = false
+                    rig.manager.playingFlow.value = true
+                    runCurrent()
+                    rig.engine.phase.value shouldBe EnginePhase.PLAYING
+                    rig.manager.playbackStateFlow.value = PlaybackState.Paused
+                    rig.manager.playingFlow.value = false
+                    runCurrent()
+                    rig.engine.phase.value shouldBe EnginePhase.PAUSED
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
         test("a load prepares, activates and starts the book, and lands the prime") {
             runTest {
                 val scope = CoroutineScope(StandardTestDispatcher(testScheduler))

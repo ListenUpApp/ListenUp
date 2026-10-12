@@ -105,17 +105,36 @@ internal class ManagedPlayerEngine(
     }
 }
 
-/** The manager's three flags as one engine phase. Pure. */
+/**
+ * The manager's three flags as one engine phase. Pure.
+ *
+ * [playing] is the one truth about whether audio is moving, as it was for the retired player ViewModel.
+ * On Android a pause leaves Media3 in STATE_READY, so [state] keeps reading Playing and only [playing]
+ * drops: a Playing state with the flag down is a pause.
+ */
 internal fun enginePhaseOf(
     state: PlaybackState,
     playing: Boolean,
     buffering: Boolean,
 ): EnginePhase =
     when {
-        playing -> EnginePhase.PLAYING
-        buffering || state == PlaybackState.Buffering -> EnginePhase.BUFFERING
-        state == PlaybackState.Ended -> EnginePhase.ENDED
-        state == PlaybackState.Paused || state is PlaybackState.Error -> EnginePhase.PAUSED
-        state == PlaybackState.Playing -> EnginePhase.PLAYING
-        else -> EnginePhase.IDLE
+        playing -> {
+            EnginePhase.PLAYING
+        }
+
+        buffering || state == PlaybackState.Buffering -> {
+            EnginePhase.BUFFERING
+        }
+
+        state == PlaybackState.Ended -> {
+            EnginePhase.ENDED
+        }
+
+        state == PlaybackState.Playing || state == PlaybackState.Paused || state is PlaybackState.Error -> {
+            EnginePhase.PAUSED
+        }
+
+        else -> {
+            EnginePhase.IDLE
+        }
     }
