@@ -134,6 +134,35 @@ struct EngineFailureTests {
         #expect(harness.facts.failures == [.connectionLost(detail: "NSURLErrorDomain -1005")])
     }
 
+    /// Position is sacred: a failure mid-play records the pause and saves the exact place before the book is
+    /// dropped, so a Retry (which resumes from the saved place) starts where the audio stopped, not up to 5 s back.
+    @Test func failureMidPlayRecordsThePlaceBeforeDroppingTheBook() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        harness.engine.emit(.position(ms: 15000, rate: 1.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 15000 }
+        #expect(harness.progress.positionUpdates.isEmpty, "the 5 s tick has not saved this place")
+
+        harness.engine.emit(.failed(.connectionLost(detail: nil)))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+
+        #expect(harness.progress.pausedCalls.last?.0 == "book1")
+        #expect(harness.progress.pausedCalls.last?.1 == 15000)
+        await awaitUntil { harness.progress.savedNow.contains { $0 == ("book1", 15000) } }
+        #expect(harness.progress.savedNow.contains { $0 == ("book1", 15000) })
+    }
+
+    /// A book that never started (its engine load failed) has no place of its own to save.
+    @Test func loadFailureRecordsNoPause() async {
+        let harness = PlayerHarness()
+        await harness.engine.setLoadShouldFail(true)
+        await harness.run(.load(bookId: "book1", prepared: .fixture(resumePositionMs: 9000)))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+        await awaitUntil(timeout: .milliseconds(300)) { !harness.progress.savedNow.isEmpty }
+        #expect(harness.progress.pausedCalls.isEmpty)
+        #expect(harness.progress.savedNow.isEmpty)
+    }
+
     /// A play after a failure must not replay the preparation that just failed (its URLs, local paths and token
     /// may be what broke): the coordinator holds nothing, and the shared player prepares the book afresh.
     @Test func playAfterAFailureDoesNotReplayTheFailedPreparation() async {

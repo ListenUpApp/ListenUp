@@ -57,6 +57,21 @@ struct EngineInstructionOrderTests {
         #expect(harness.coordinator.engineBook == nil)
     }
 
+    @Test("Stop records the pause and saves the place before it unloads the book")
+    func stopRecordsThePlace() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("b1")
+        harness.engine.emit(.position(ms: 15000, rate: 1.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 15000 }
+
+        await harness.run(.stop)
+
+        #expect(harness.progress.pausedCalls.last?.0 == "b1")
+        #expect(harness.progress.pausedCalls.last?.1 == 15000)
+        #expect(harness.progress.savedNow.last?.0 == "b1")
+        #expect(harness.progress.savedNow.last?.1 == 15000)
+    }
+
     @Test("The coordinator keeps its instruction source alive, so the shared player's commands keep flowing")
     func retainsInstructionSource() {
         // Production hands the coordinator a source nothing else holds (`KotlinEngineInstructions`, whose

@@ -489,6 +489,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// reports nothing back: an `unloaded` fact here could land after the next book's load and drop it.
     private func stopEngine() async {
         pausedByInterruption = false
+        // Record the place before forgetting the book (a Close mid-play must not lose up to 5 s).
+        let place = isEngineLoading ? nil : engineBook.map { (bookId: $0.bookId, positionMs: bookPositionMs) }
+        if let place, isPlaybackActive { reportPaused(place.bookId) }
         // Supersede any in-flight load: `Task.cancel()` alone does not interrupt its awaits, so bump
         // the epoch and it bails at its next `isSuperseded` check instead of resurrecting playback.
         loadTask?.cancel()
@@ -499,6 +502,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         enginePhase = .idle
         resetMetadataForSwitch()
         updateNowPlaying()
+        if let place { await progress.savePositionNow(bookId: place.bookId, positionMs: place.positionMs) }
         await engine.deactivateSession()
         await engine.unload()
     }
@@ -583,6 +587,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
             enginePhase = .ended
             updateNowPlaying()
         case .failed(let failure):
+            // The book played: record its place before letting go of it, as a pause would.
+            recordPlaceBeforeDropping(loaded.bookId)
             fail(failure)
         }
     }
@@ -613,6 +619,14 @@ final class PlayerCoordinator: RemoteCommandHandler {
             lastReportedPositionMs = positionMs
             progress.onPositionUpdate(bookId: id, positionMs: positionMs, speed: playbackSpeed)
         }
+    }
+
+    /// A book the engine is about to drop mid-play: record the pause (if it was playing) and save the exact place,
+    /// as `ManagedPlayerEngine.stop()` does, so a Retry resumes where the audio stopped.
+    private func recordPlaceBeforeDropping(_ bookId: String) {
+        if isPlaybackActive { reportPaused(bookId) }
+        let positionMs = bookPositionMs
+        Task { await progress.savePositionNow(bookId: bookId, positionMs: positionMs) }
     }
 
     // The shared tracker decides whether a pause or an end finishes the book: it needs both numbers.
