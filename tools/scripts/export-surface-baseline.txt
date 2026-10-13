@@ -668,6 +668,8 @@ PlaybackIntent
 PlaybackIntent_SealedType
 PlaybackManager
 PlaybackMediaItem
+PlaybackMove
+PlaybackMove_SealedType
 PlaybackNavRef
 PlaybackPosition
 PlaybackPositionRepository
@@ -675,7 +677,9 @@ PlaybackPreferences
 PlaybackPrepareRepository
 PlaybackPreparer
 PlaybackProgressReporter
+PlaybackStart
 PlaybackStartGate
+PlaybackStart_SealedType
 PlaybackState
 PlaybackStateProvider
 PlaybackStateWriter
