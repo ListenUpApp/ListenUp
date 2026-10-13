@@ -66,6 +66,14 @@ class NativePlayerEngine internal constructor(
         ) { position, marks, duration -> chapterInfoAt(position, marks, duration) }
             .stateIn(scope, SharingStarted.Eagerly, null)
 
+    /**
+     * The current load's tag, carried by its [EngineCommand.Load] and by every fact Swift reports about it. Moved on by
+     * each load and by [stop], so a fact Swift sends about a book it was told to drop is recognised and ignored.
+     */
+    private var generation = 0
+
+    private fun isCurrent(factGeneration: Int): Boolean = factGeneration == generation
+
     private fun send(command: EngineCommand) {
         commandChannel.trySend(command)
     }
@@ -96,7 +104,8 @@ class NativePlayerEngine internal constructor(
                 error.value = null
                 phase.value = EnginePhase.BUFFERING
                 loadedBookId.value = bookId
-                send(EngineCommand.Load(bookId = bookId.value, prepared = prepared))
+                generation++
+                send(EngineCommand.Load(bookId = bookId.value, prepared = prepared, generation = generation))
                 AppResult.Success(Unit)
             }
         }
@@ -147,53 +156,89 @@ class NativePlayerEngine internal constructor(
 
     override fun stop() {
         send(EngineCommand.Stop)
-        onUnloaded()
+        generation++
+        unload()
     }
 
     // ── Facts Swift pushes in (plain, non-suspend: callable from the main actor without a bridge await) ──
+    // Each carries the generation of the Load Swift was executing when it happened; one from any other load is
+    // about a book this engine no longer holds, and is dropped.
 
     /** The engine's phase changed (timeControlStatus, an interruption, a remote command, the end). */
-    fun onPhase(phase: EnginePhase) {
+    fun onPhase(
+        generation: Int,
+        phase: EnginePhase,
+    ) {
+        if (!isCurrent(generation)) return
         this.phase.value = phase
     }
 
     /** The engine's playhead, book-relative. */
-    fun onPosition(positionMs: Long) {
+    fun onPosition(
+        generation: Int,
+        positionMs: Long,
+    ) {
+        if (!isCurrent(generation)) return
         this.positionMs.value = positionMs
     }
 
     /** The engine's rate changed outside a command (the lock screen's rate control). */
-    fun onRate(speed: Float) {
+    fun onRate(
+        generation: Int,
+        speed: Float,
+    ) {
+        if (!isCurrent(generation)) return
         this.speed.value = speed
     }
 
     /** The boost changed outside a command. */
-    fun onBoost(boostDb: Float) {
+    fun onBoost(
+        generation: Int,
+        boostDb: Float,
+    ) {
+        if (!isCurrent(generation)) return
         this.boostDb.value = boostDb
     }
 
-    /** The AirPlay route's name, or null when audio plays on the device. */
+    /** The AirPlay route's name, or null when audio plays on the device. Not about a book, so never stale. */
     fun onRoute(deviceName: String?) {
         outputDeviceName.value = deviceName
     }
 
     /** A network-domain item failure. */
-    fun reportConnectionLost(debugInfo: String?) {
+    fun reportConnectionLost(
+        generation: Int,
+        debugInfo: String?,
+    ) {
+        if (!isCurrent(generation)) return
         error.value = PlaybackError.ConnectionLost(debugInfo = debugInfo)
     }
 
     /** A format/decoder failure. */
-    fun reportUnsupportedFormat(debugInfo: String?) {
+    fun reportUnsupportedFormat(
+        generation: Int,
+        debugInfo: String?,
+    ) {
+        if (!isCurrent(generation)) return
         error.value = PlaybackError.UnsupportedFormat(debugInfo = debugInfo)
     }
 
     /** Any other load or playback failure (no audio, a session that would not activate, a load timeout). */
-    fun reportCouldNotStart(debugInfo: String?) {
+    fun reportCouldNotStart(
+        generation: Int,
+        debugInfo: String?,
+    ) {
+        if (!isCurrent(generation)) return
         error.value = PlaybackError.CouldNotStart(debugInfo = debugInfo)
     }
 
     /** Swift unloaded the engine on its own (sign-out's awaited stop). */
-    fun onUnloaded() {
+    fun onUnloaded(generation: Int) {
+        if (!isCurrent(generation)) return
+        unload()
+    }
+
+    private fun unload() {
         loadedBookId.value = null
         phase.value = EnginePhase.IDLE
         positionMs.value = 0L

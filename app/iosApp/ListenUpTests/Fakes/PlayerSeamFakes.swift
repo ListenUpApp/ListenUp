@@ -268,13 +268,22 @@ final class FakeEngineFacts: EngineFactReporting {
     private(set) var routes: [String?] = []
     private(set) var failures: [EngineFailure] = []
     private(set) var unloadedCount = 0
-    func phase(_ phase: EnginePhaseFact) { phases.append(phase) }
-    func position(ms: Int64) { positions.append(ms) }
-    func rate(_ rate: Float) { rates.append(rate) }
-    func boost(_ db: Float) {}
+    /// The load generation each book fact carried, in report order (the route is not about a book).
+    private(set) var generations: [EngineLoadGeneration] = []
+    private(set) var failureGenerations: [EngineLoadGeneration] = []
+    func phase(_ phase: EnginePhaseFact, generation: EngineLoadGeneration) {
+        phases.append(phase); generations.append(generation)
+    }
+    func position(ms: Int64, generation: EngineLoadGeneration) {
+        positions.append(ms); generations.append(generation)
+    }
+    func rate(_ rate: Float, generation: EngineLoadGeneration) { rates.append(rate); generations.append(generation) }
+    func boost(_ db: Float, generation: EngineLoadGeneration) { generations.append(generation) }
     func route(_ deviceName: String?) { routes.append(deviceName) }
-    func failure(_ failure: EngineFailure) { failures.append(failure) }
-    func unloaded() { unloadedCount += 1 }
+    func failure(_ failure: EngineFailure, generation: EngineLoadGeneration) {
+        failures.append(failure); failureGenerations.append(generation); generations.append(generation)
+    }
+    func unloaded(generation: EngineLoadGeneration) { unloadedCount += 1; generations.append(generation) }
 }
 
 extension ListenUp.PreparedPlayback {
@@ -328,8 +337,12 @@ struct PlayerHarness {
     func run(_ instruction: EngineInstruction) async { await coordinator.execute(instruction) }
 
     /// Load `prepared` as `bookId` and wait until the coordinator has reported it started.
-    func loadAndStart(_ bookId: String = "book1", _ prepared: ListenUp.PreparedPlayback = .fixture()) async {
-        await run(.load(bookId: bookId, prepared: prepared))
+    func loadAndStart(
+        _ bookId: String = "book1",
+        _ prepared: ListenUp.PreparedPlayback = .fixture(),
+        generation: EngineLoadGeneration = 0
+    ) async {
+        await run(.load(bookId: bookId, prepared: prepared, generation: generation))
         await progress.waitForStarted(bookId: bookId)
     }
 }

@@ -18,7 +18,12 @@ final class KotlinEngineInstructions: EngineInstructionSource {
 
     static func map(_ command: any EngineCommand) -> EngineInstruction? {
         switch command.sealedType() {
-        case .load(let load): .load(bookId: load.value.bookId, prepared: PreparedPlayback(kotlin: load.value.prepared))
+        case .load(let load):
+            .load(
+                bookId: load.value.bookId,
+                prepared: PreparedPlayback(kotlin: load.value.prepared),
+                generation: load.value.generation
+            )
         case .play: .play
         case .pause: .pause
         case .seekTo(let seek): .seek(toMs: seek.value.positionMs)
@@ -35,7 +40,7 @@ final class KotlinEngineInstructions: EngineInstructionSource {
 struct KotlinEngineFacts: EngineFactReporting {
     let engine: NativePlayerEngine
 
-    func phase(_ phase: EnginePhaseFact) {
+    func phase(_ phase: EnginePhaseFact, generation: EngineLoadGeneration) {
         let kotlinPhase: EnginePhase = switch phase {
         case .idle: .idle
         case .buffering: .buffering
@@ -43,23 +48,25 @@ struct KotlinEngineFacts: EngineFactReporting {
         case .paused: .paused
         case .ended: .ended
         }
-        engine.onPhase(phase: kotlinPhase)
+        engine.onPhase(generation: generation, phase: kotlinPhase)
     }
 
-    func position(ms: Int64) { engine.onPosition(positionMs: ms) }
-    func rate(_ rate: Float) { engine.onRate(speed: rate) }
-    func boost(_ db: Float) { engine.onBoost(boostDb: db) }
+    func position(ms: Int64, generation: EngineLoadGeneration) {
+        engine.onPosition(generation: generation, positionMs: ms)
+    }
+    func rate(_ rate: Float, generation: EngineLoadGeneration) { engine.onRate(generation: generation, speed: rate) }
+    func boost(_ db: Float, generation: EngineLoadGeneration) { engine.onBoost(generation: generation, boostDb: db) }
     func route(_ deviceName: String?) { engine.onRoute(deviceName: deviceName) }
 
-    func failure(_ failure: EngineFailure) {
+    func failure(_ failure: EngineFailure, generation: EngineLoadGeneration) {
         switch failure {
-        case .connectionLost(let detail): engine.reportConnectionLost(debugInfo: detail)
-        case .unsupportedFormat(let detail): engine.reportUnsupportedFormat(debugInfo: detail)
-        case .couldNotStart(let detail): engine.reportCouldNotStart(debugInfo: detail)
+        case .connectionLost(let detail): engine.reportConnectionLost(generation: generation, debugInfo: detail)
+        case .unsupportedFormat(let detail): engine.reportUnsupportedFormat(generation: generation, debugInfo: detail)
+        case .couldNotStart(let detail): engine.reportCouldNotStart(generation: generation, debugInfo: detail)
         }
     }
 
-    func unloaded() { engine.onUnloaded() }
+    func unloaded(generation: EngineLoadGeneration) { engine.onUnloaded(generation: generation) }
 }
 
 /// The bridged Kotlin prepared book (the name collides with the native `PreparedPlayback` below).

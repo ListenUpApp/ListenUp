@@ -32,7 +32,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// What the engine is doing. Every change is reported to the shared player.
     private(set) var enginePhase: EnginePhaseFact = .idle {
         didSet {
-            facts.phase(enginePhase)
+            facts.phase(enginePhase, generation: factGeneration)
             updateBandwidthSignal()
             saveRefinedMeasurement()
         }
@@ -120,6 +120,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private var lastSyncedChapterIndex: Int = -1
     /// The in-flight engine load for the current `.load`, cancelled when another supersedes it.
     private var loadTask: Task<Void, Never>?
+    /// The shared player's tag for the `.load` being executed, carried by every fact reported about it, so a
+    /// fact that reaches Kotlin after its next load is recognised as stale and dropped there.
+    private var factGeneration: EngineLoadGeneration = 0
     /// Bumped on every `.load` and `.stop`. An in-flight load compares the generation it captured
     /// against this after each `await` and abandons if superseded.
     private var loadGeneration = 0
@@ -279,7 +282,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// returns, so a later `.load` supersedes it and a `.stop` cancels it.
     func execute(_ instruction: EngineInstruction) async {
         switch instruction {
-        case let .load(bookId, prepared): load(bookId: bookId, prepared: prepared)
+        case let .load(bookId, prepared, generation):
+            factGeneration = generation
+            load(bookId: bookId, prepared: prepared)
         case .play: await play()
         case .pause: await pause()
         case .seek(let positionMs): await seek(toMs: positionMs)
@@ -393,7 +398,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         isEngineLoading = false
         failedAtMs = resumeAtMs
         engineBook = nil
-        facts.failure(failure)
+        facts.failure(failure, generation: factGeneration)
         enginePhase = .paused
         updateNowPlaying()
     }
@@ -439,7 +444,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // jumped-over range isn't fabricated as listened content. This also persists the new position.
         progress.onSeek(bookId: loaded.bookId, beforeMs: beforeMs, afterMs: positionMs, speed: playbackSpeed)
         lastReportedPositionMs = positionMs
-        facts.position(ms: positionMs)
+        facts.position(ms: positionMs, generation: factGeneration)
         updateNowPlaying()
         // Awaited, so a play the shared player sends after the seek reaches the engine after it (R-4).
         await engine.seek(toMs: positionMs)
@@ -491,7 +496,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// is an app-lifetime singleton and plays the next book.
     func stop() async {
         await stopEngine()
-        facts.unloaded()
+        facts.unloaded(generation: factGeneration)
     }
 
     /// The `.stop` instruction's body. The shared player already knows (it issued the stop), so this
@@ -530,7 +535,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         Task { await seek(toMs: target) }
     }
     func remoteSetRate(_ rate: Float) {
-        facts.rate(rate)
+        facts.rate(rate, generation: factGeneration)
         Task { await setRate(rate, isReset: false) }
     }
     /// The lock-screen scrubber spans the CURRENT CHAPTER (see `updateNowPlaying`), so the position
@@ -570,7 +575,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
             }
             positionTracker.update(positionMs: ms, rate: rate)
             refreshChapterIndex()
-            facts.position(ms: ms)
+            facts.position(ms: ms, generation: factGeneration)
             reportPositionIfNeeded(ms)
             if chapterIndex != lastSyncedChapterIndex {
                 lastSyncedChapterIndex = chapterIndex

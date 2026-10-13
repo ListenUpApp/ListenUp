@@ -5,10 +5,15 @@ package com.calypsan.listenup.client.playback
  * Swift's `PlayerCoordinator` is the only collector, and it executes them one at a time.
  */
 sealed interface EngineCommand {
-    /** Load [prepared] for [bookId] and play it from [PreparedPlayback.resumePositionMs] (already resolved). */
+    /**
+     * Load [prepared] for [bookId] and play it from [PreparedPlayback.resumePositionMs] (already resolved).
+     * Swift tags every fact it reports about this load with [generation], so a fact from an earlier load
+     * that lands late is dropped instead of being applied to this one.
+     */
     data class Load(
         val bookId: String,
         val prepared: PreparedPlayback,
+        val generation: Int,
     ) : EngineCommand
 
     /** Resume. */

@@ -31,7 +31,7 @@ class NativePlayerEngineTest :
                     val engine = NativePlayerEngine(prepare = { _, _ -> AppResult.Success(prepared) }, scope = scope)
                     engine.commands.test {
                         engine.load(BookId("b1"), start = PlaybackStart.Resume) shouldBe AppResult.Success(Unit)
-                        awaitItem() shouldBe EngineCommand.Load(bookId = "b1", prepared = prepared)
+                        awaitItem() shouldBe EngineCommand.Load(bookId = "b1", prepared = prepared, generation = 1)
                     }
                     runCurrent()
                     engine.loadedBookId.value shouldBe BookId("b1")
@@ -124,10 +124,10 @@ class NativePlayerEngineTest :
                             AppResult.Success(preparedPlaybackFor("b1", chapters = chapters, durationMs = 200_000))
                         }, scope = scope)
                     engine.load(BookId("b1"), start = PlaybackStart.Resume)
-                    engine.onPhase(EnginePhase.PLAYING)
-                    engine.onPosition(120_000)
-                    engine.onRate(1.25f)
-                    engine.onBoost(3f)
+                    engine.onPhase(1, EnginePhase.PLAYING)
+                    engine.onPosition(1, 120_000)
+                    engine.onRate(1, 1.25f)
+                    engine.onBoost(1, 3f)
                     engine.onRoute("Kitchen HomePod")
                     runCurrent()
                     engine.phase.value shouldBe EnginePhase.PLAYING
@@ -135,15 +135,71 @@ class NativePlayerEngineTest :
                     engine.speed.value shouldBe 1.25f
                     engine.boostDb.value shouldBe 3f
                     engine.outputDeviceName.value shouldBe "Kitchen HomePod"
-                    engine.reportConnectionLost("NSURLErrorDomain -1005")
+                    engine.reportConnectionLost(1, "NSURLErrorDomain -1005")
                     engine.error.value shouldBe PlaybackError.ConnectionLost(debugInfo = "NSURLErrorDomain -1005")
-                    engine.reportUnsupportedFormat(null)
+                    engine.reportUnsupportedFormat(1, null)
                     engine.error.value shouldBe PlaybackError.UnsupportedFormat()
-                    engine.reportCouldNotStart("no audio")
+                    engine.reportCouldNotStart(1, "no audio")
                     engine.error.value shouldBe PlaybackError.CouldNotStart(debugInfo = "no audio")
-                    engine.onUnloaded()
+                    engine.onUnloaded(1)
                     engine.loadedBookId.value shouldBe null
                     engine.phase.value shouldBe EnginePhase.IDLE
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("a fact from an earlier load never lands on the book loaded after it") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val engine = NativePlayerEngine(prepare = { id, _ -> AppResult.Success(preparedPlaybackFor(id.value)) }, scope = scope)
+                    engine.commands.test {
+                        engine.load(BookId("a"), start = PlaybackStart.Resume)
+                        val first = (awaitItem() as EngineCommand.Load).generation
+                        engine.onPosition(first, 42_000)
+                        engine.positionMs.value shouldBe 42_000
+                        engine.load(BookId("b"), start = PlaybackStart.Resume)
+                        val second = (awaitItem() as EngineCommand.Load).generation
+                        (second == first) shouldBe false
+                        // Book a's engine is still winding down while Swift has not yet run b's Load.
+                        engine.reportCouldNotStart(first, "the old file is gone")
+                        engine.onPhase(first, EnginePhase.PAUSED)
+                        engine.onPosition(first, 43_000)
+                        engine.onRate(first, 2f)
+                        engine.onBoost(first, 6f)
+                        engine.onUnloaded(first)
+                        engine.error.value shouldBe null
+                        engine.phase.value shouldBe EnginePhase.BUFFERING
+                        engine.positionMs.value shouldBe 0
+                        engine.speed.value shouldBe 1f
+                        engine.boostDb.value shouldBe 0f
+                        engine.loadedBookId.value shouldBe BookId("b")
+                        engine.onPhase(second, EnginePhase.PLAYING)
+                        engine.phase.value shouldBe EnginePhase.PLAYING
+                    }
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("after a stop, the stopped load's late facts are dropped") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val engine = NativePlayerEngine(prepare = { id, _ -> AppResult.Success(preparedPlaybackFor(id.value)) }, scope = scope)
+                    engine.commands.test {
+                        engine.load(BookId("a"), start = PlaybackStart.Resume)
+                        val generation = (awaitItem() as EngineCommand.Load).generation
+                        engine.stop()
+                        awaitItem() shouldBe EngineCommand.Stop
+                        engine.onPhase(generation, EnginePhase.PAUSED)
+                        engine.reportConnectionLost(generation, null)
+                        engine.phase.value shouldBe EnginePhase.IDLE
+                        engine.error.value shouldBe null
+                    }
                 } finally {
                     scope.cancel()
                 }
