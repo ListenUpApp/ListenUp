@@ -138,7 +138,9 @@ struct EngineFailureTests {
     /// dropped, so a Retry (which resumes from the saved place) starts where the audio stopped, not up to 5 s back.
     @Test func failureMidPlayRecordsThePlaceBeforeDroppingTheBook() async {
         let harness = PlayerHarness()
-        await harness.loadAndStart()
+        // Start 3 s short of the place, so reaching it stays inside one 5 s position tick: only the failure path
+        // can record 15000 (from 0, the jump alone would cross the tick and save it, whatever the order).
+        await harness.loadAndStart("book1", .fixture(resumePositionMs: 12000))
         harness.engine.emit(.position(ms: 15000, rate: 1.0))
         await awaitObservation { harness.coordinator.bookPositionMs == 15000 }
         #expect(harness.progress.positionUpdates.isEmpty, "the 5 s tick has not saved this place")
