@@ -141,21 +141,18 @@ struct EngineFailureTests {
         // Start 3 s short of the place, so reaching it stays inside one 5 s position tick: only the failure path
         // can record 15000 (from 0, the jump alone would cross the tick and save it, whatever the order).
         await harness.loadAndStart("book1", .fixture(resumePositionMs: 12000))
-        harness.engine.emit(.position(ms: 15000, rate: 1.0))
+        // `rate: 0` holds the playhead exactly at 15000; a positive rate would interpolate past it.
+        harness.engine.emit(.position(ms: 15000, rate: 0.0))
         await awaitObservation { harness.coordinator.bookPositionMs == 15000 }
         #expect(harness.progress.positionUpdates.isEmpty, "the 5 s tick has not saved this place")
 
         harness.engine.emit(.failed(.connectionLost(detail: nil)))
         await awaitObservation { harness.coordinator.engineBook == nil }
 
-        // The place is where playback had reached: 15000 plus whatever the playhead ran on before the failure
-        // landed (a few ms on a loaded CI machine), never the 12000 the last tick saved.
-        let paused = harness.progress.pausedCalls.last
-        #expect(paused?.0 == "book1")
-        let place = paused?.1 ?? 0
-        #expect((15000..<16000).contains(place))
-        await awaitUntil { harness.progress.savedNow.contains { $0 == ("book1", place) } }
-        #expect(harness.progress.savedNow.contains { $0 == ("book1", place) })
+        #expect(harness.progress.pausedCalls.last?.0 == "book1")
+        #expect(harness.progress.pausedCalls.last?.1 == 15000)
+        await awaitUntil { harness.progress.savedNow.contains { $0 == ("book1", 15000) } }
+        #expect(harness.progress.savedNow.contains { $0 == ("book1", 15000) })
     }
 
     /// A book that never started (its engine load failed) has no place of its own to save.

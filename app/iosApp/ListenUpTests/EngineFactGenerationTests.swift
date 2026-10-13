@@ -11,7 +11,8 @@ struct EngineFactGenerationTests {
         let harness = PlayerHarness()
         await harness.run(.load(bookId: "a", prepared: .fixture(), generation: 7))
         await harness.progress.waitForStarted(bookId: "a")
-        harness.engine.emit(.position(ms: 1200, rate: 1.0))
+        // `rate: 0` holds the playhead exactly; a positive rate would interpolate past 1200.
+        harness.engine.emit(.position(ms: 1200, rate: 0.0))
         await awaitObservation { harness.coordinator.bookPositionMs == 1200 }
         #expect(!harness.facts.generations.isEmpty)
         #expect(harness.facts.generations.allSatisfy { $0 == 7 })

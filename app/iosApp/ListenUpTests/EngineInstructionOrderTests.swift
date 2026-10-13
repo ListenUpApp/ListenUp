@@ -61,7 +61,8 @@ struct EngineInstructionOrderTests {
     func stopRecordsThePlace() async throws {
         let harness = PlayerHarness()
         await harness.loadAndStart("b1")
-        harness.engine.emit(.position(ms: 15000, rate: 1.0))
+        // `rate: 0` holds the playhead exactly at 15000; a positive rate would interpolate past it.
+        harness.engine.emit(.position(ms: 15000, rate: 0.0))
         await awaitObservation { harness.coordinator.bookPositionMs == 15000 }
 
         await harness.run(.stop)
