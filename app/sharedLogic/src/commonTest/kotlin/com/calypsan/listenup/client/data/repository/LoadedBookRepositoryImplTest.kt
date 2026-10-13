@@ -37,6 +37,20 @@ class LoadedBookRepositoryImplTest :
             }
         }
 
+        test("a storage read that throws reads as NothingLoaded, never stuck Restoring") {
+            runTest {
+                val rig = Rig(stored = "b1")
+                rig.store.readFailure = IllegalStateException("keystore locked")
+                rig.repository.observe().test {
+                    awaitItem() shouldBe LoadedBook.Restoring
+                    awaitItem() shouldBe LoadedBook.NothingLoaded
+                }
+                rig.repository.observeLoadedBookId().test {
+                    awaitItem() shouldBe null
+                }
+            }
+        }
+
         test("a persisted id with a Room row restores as Loaded, paused, not finished") {
             runTest {
                 val rig = Rig(stored = "b1")

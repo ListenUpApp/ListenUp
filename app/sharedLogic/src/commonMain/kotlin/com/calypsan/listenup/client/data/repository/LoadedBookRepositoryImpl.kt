@@ -8,6 +8,8 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.playback.EnginePhase
 import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.core.BookId
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +24,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * [LoadedBookRepository] over a device-local [LoadedBookStore]. The persisted id is read once, lazily, under
@@ -53,9 +57,20 @@ internal class LoadedBookRepositoryImpl(
         (persisted.value as? Persisted.Read)?.let { return it.bookId }
         return readLock.withLock {
             (persisted.value as? Persisted.Read)?.bookId
-                ?: store.readLoadedBookId()?.let(::BookId).also { persisted.value = Persisted.Read(it) }
+                ?: readStoreOrNothing().also { persisted.value = Persisted.Read(it) }
         }
     }
+
+    /** A store that cannot be read (a locked keystore) means nothing is loaded, not Restoring forever. */
+    private suspend fun readStoreOrNothing(): BookId? =
+        try {
+            store.readLoadedBookId()?.let(::BookId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Could not read the loaded book; starting with nothing loaded" }
+            null
+        }
 
     override suspend fun loadedBookId(): BookId? = ensureRead()
 

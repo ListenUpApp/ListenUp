@@ -29,6 +29,24 @@ class PlayerSessionLifecycleTest :
             }
         }
 
+        test("a loaded-book read that throws settles on NothingLoaded, and a later Play still loads") {
+            runTest {
+                val rig = PlayerSessionRig(this, storedBookId = "b1")
+                rig.store.readFailure = IllegalStateException("keystore locked")
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.state.value shouldBe PlayerSessionState.NothingLoaded
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                    rig.store.stored shouldBe "b1"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("cold start restores the loaded book paused at its saved position, without touching the engine (S3)") {
             runTest {
                 val rig = PlayerSessionRig(this, storedBookId = "b1")
