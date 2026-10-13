@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.test.fake.positionFor
 import com.calypsan.listenup.core.BookId
@@ -149,6 +150,45 @@ class PlayerSessionLifecycleTest :
                     rig.loaded.isEngineBound shouldBe true
                     rig.loaded.phase shouldBe PlayerPhase.Playing
                     rig.store.stored shouldBe "b2"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("the engine starting the failed book itself (a headset Play, resumption) adopts it and clears the error") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.engine.loadResult = AppResult.Failure(PlaybackError.CouldNotStart())
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.CouldNotStart())
+                    rig.engine.loadedBookId.value = BookId("b1")
+                    rig.engine.phase.value = EnginePhase.PLAYING
+                    runCurrent()
+                    rig.loaded.isEngineBound shouldBe true
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("the engine starting the restored book itself adopts it") {
+            runTest {
+                val rig = PlayerSessionRig(this, storedBookId = "b1")
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Restored
+                    rig.engine.loadedBookId.value = BookId("b1")
+                    rig.engine.phase.value = EnginePhase.PLAYING
+                    runCurrent()
+                    rig.loaded.isEngineBound shouldBe true
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
                 } finally {
                     rig.close()
                 }

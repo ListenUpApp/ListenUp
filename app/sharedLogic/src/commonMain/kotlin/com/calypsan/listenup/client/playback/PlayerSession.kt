@@ -304,8 +304,11 @@ class PlayerSession(
                 scope.launch { loadedBooks.setLoaded(held) }
             }
 
-            current is SessionStage.Idle -> {
+            current is SessionStage.Idle || current is SessionStage.Failed -> {
+                // The engine started this book itself (a headset Play, Media3 resumption): it plays, so a failed
+                // prepare's error no longer stands.
                 stage.value = SessionStage.Engine(held)
+                pendingStartMs.value = null
             }
         }
     }
