@@ -8,7 +8,10 @@ import kotlinx.coroutines.test.advanceTimeBy
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.test.fake.FakePlaybackController
+import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
 import com.calypsan.listenup.client.test.fake.FakePlaybackManager
+import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.test.fake.positionFor
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
@@ -183,6 +186,45 @@ class PlayerSessionPlayTest :
             }
         }
 
+        test("Close while playing on Android and desktop records the exact place before the book is dropped") {
+            runTest {
+                val manager = FakePlaybackManager()
+                val controller = FakePlaybackController()
+                val positions = FakePlaybackPositionRepository()
+                val rig =
+                    PlayerSessionRig(this, storedBookId = "a") { scope ->
+                        ManagedPlayerEngine(
+                            playbackManager = manager,
+                            playbackController = controller,
+                            startGate = NoPlaybackStartGate,
+                            progressTracker =
+                                ProgressTracker(
+                                    downloadRepository = FakeDownloadRepository(),
+                                    positionRepository = positions,
+                                    scope = scope,
+                                    errorBus = ErrorBus(),
+                                ),
+                            outputRoute = NoOutputRoute,
+                            scope = scope,
+                        )
+                    }
+                try {
+                    rig.withBook("a")
+                    manager.currentBookIdFlow.value = BookId("a")
+                    manager.currentPositionMsFlow.value = 4_014_944
+                    manager.playbackStateFlow.value = PlaybackState.Playing
+                    manager.playingFlow.value = true
+                    runCurrent()
+                    rig.session.closeBook()
+                    runCurrent()
+                    manager.clearPlaybackCalls shouldBe 1
+                    positions.get(BookId("a")).let { (it as AppResult.Success).data?.positionMs } shouldBe 4_014_944
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("a failed supersede on Android and desktop: A stops playing at the tap, B shows Failed") {
             runTest {
                 val manager = FakePlaybackManager()
@@ -193,6 +235,13 @@ class PlayerSessionPlayTest :
                             playbackManager = manager,
                             playbackController = controller,
                             startGate = NoPlaybackStartGate,
+                            progressTracker =
+                                ProgressTracker(
+                                    downloadRepository = FakeDownloadRepository(),
+                                    positionRepository = FakePlaybackPositionRepository(),
+                                    scope = scope,
+                                    errorBus = ErrorBus(),
+                                ),
                             outputRoute = NoOutputRoute,
                             scope = scope,
                         )

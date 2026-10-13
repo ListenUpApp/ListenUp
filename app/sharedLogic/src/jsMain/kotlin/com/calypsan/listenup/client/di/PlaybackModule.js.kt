@@ -143,6 +143,7 @@ internal val browserPlaybackModule: Module =
                 playbackManager = get(),
                 playbackController = get(),
                 startGate = get(),
+                progressTracker = get(),
                 outputRoute = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )

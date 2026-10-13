@@ -3,16 +3,22 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.test.fake.FakePlaybackController
+import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
 import com.calypsan.listenup.client.test.fake.FakePlaybackManager
+import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.test.fake.prepareResultFor
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -44,11 +50,20 @@ class ManagedPlayerEngineTest :
             val controller = FakePlaybackController()
             val gate = RecordingGate()
             val route = MutableStateFlow<String?>(null)
+            val positions = FakePlaybackPositionRepository()
+            val tracker =
+                ProgressTracker(
+                    downloadRepository = FakeDownloadRepository(),
+                    positionRepository = positions,
+                    scope = scope,
+                    errorBus = ErrorBus(),
+                )
             val engine =
                 ManagedPlayerEngine(
                     playbackManager = manager,
                     playbackController = controller,
                     startGate = gate,
+                    progressTracker = tracker,
                     outputRoute =
                         object : OutputRoute {
                             override val deviceName = route
@@ -239,6 +254,109 @@ class ManagedPlayerEngineTest :
                     rig.controller.stopCount shouldBe 1
                     rig.manager.clearPlaybackCalls shouldBe 1
                     rig.manager.setPlaybackStateCalls.last() shouldBe PlaybackState.Paused
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("stop while playing records the exact place before the manager forgets the book") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    rig.manager.currentBookIdFlow.value = BookId("b1")
+                    rig.manager.currentPositionMsFlow.value = 4_014_944
+                    rig.manager.playingFlow.value = true
+                    rig.engine.stop()
+                    runCurrent()
+                    rig.manager.setPlaybackStateCalls.last() shouldBe PlaybackState.Paused
+                    rig.manager.clearPlaybackCalls shouldBe 1
+                    rig.positions
+                        .observe(BookId("b1"))
+                        .first()
+                        ?.positionMs shouldBe 4_014_944
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("stop while paused still records the place: a move made while paused is never lost") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    rig.manager.currentBookIdFlow.value = BookId("b1")
+                    rig.manager.currentPositionMsFlow.value = 2_000_000
+                    rig.engine.stop()
+                    runCurrent()
+                    rig.positions
+                        .observe(BookId("b1"))
+                        .first()
+                        ?.positionMs shouldBe 2_000_000
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("stop while another book prepares records the outgoing book's own place") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    rig.manager.currentBookIdFlow.value = BookId("a")
+                    rig.manager.currentPositionMsFlow.value = 50_000
+                    val held = CompletableDeferred<Unit>()
+                    rig.manager.prepareForPlaybackSuspension = { held.await() }
+                    val load = scope.launch { rig.engine.load(BookId("b"), PlaybackStart.Resume) }
+                    runCurrent()
+                    load.cancel()
+                    rig.engine.stop()
+                    runCurrent()
+                    rig.positions
+                        .observe(BookId("a"))
+                        .first()
+                        ?.positionMs shouldBe 50_000
+                    rig.positions.observe(BookId("b")).first() shouldBe null
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("stop between activating a book and starting it never files the old place under the new book") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    rig.manager.currentBookIdFlow.value = BookId("a")
+                    rig.manager.currentPositionMsFlow.value = 50_000
+                    rig.manager.stubbedPrepareResult = prepareResultFor("b")
+                    val held = CompletableDeferred<Unit>()
+                    rig.controller.startPlaybackSuspension = { held.await() }
+                    val load = scope.launch { rig.engine.load(BookId("b"), PlaybackStart.Resume) }
+                    runCurrent()
+                    rig.manager.currentBookId.value shouldBe BookId("b")
+                    load.cancel()
+                    rig.engine.stop()
+                    runCurrent()
+                    rig.positions.observeAll().first() shouldBe emptyMap()
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("stop with no book loaded records nothing") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    rig.engine.stop()
+                    runCurrent()
+                    rig.positions.observeAll().first() shouldBe emptyMap()
                 } finally {
                     scope.cancel()
                 }

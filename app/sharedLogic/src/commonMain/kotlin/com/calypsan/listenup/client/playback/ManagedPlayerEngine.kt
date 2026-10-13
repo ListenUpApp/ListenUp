@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * [PlayerEngine] over today's [PlaybackManager] (read side) and [PlaybackController] (commands): Android,
@@ -20,8 +21,9 @@ internal class ManagedPlayerEngine(
     private val playbackManager: PlaybackManager,
     private val playbackController: PlaybackController,
     private val startGate: PlaybackStartGate,
+    private val progressTracker: ProgressTracker,
     outputRoute: OutputRoute,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
 ) : PlayerEngine {
     override val loadedBookId: StateFlow<BookId?> get() = playbackManager.currentBookId
     override val positionMs: StateFlow<Long> get() = playbackManager.currentPositionMs
@@ -33,6 +35,9 @@ internal class ManagedPlayerEngine(
     override val timeline: StateFlow<PlaybackTimeline?> get() = playbackManager.currentTimeline
     override val error: StateFlow<AppError?> get() = playbackManager.playbackError
     override val outputDeviceName: StateFlow<String?> = outputRoute.deviceName
+
+    /** The book a [load] is bringing up, until it lands or is abandoned. Touched only on the player scope. */
+    private var loadingBookId: BookId? = null
 
     override val phase: StateFlow<EnginePhase> =
         combine(
@@ -56,18 +61,24 @@ internal class ManagedPlayerEngine(
     override suspend fun load(
         bookId: BookId,
         start: PlaybackStart,
-    ): AppResult<Unit> =
-        when (val prepared = playbackManager.prepareForPlayback(bookId, start)) {
-            is AppResult.Failure -> {
-                prepared
-            }
+    ): AppResult<Unit> {
+        loadingBookId = bookId
+        try {
+            return when (val prepared = playbackManager.prepareForPlayback(bookId, start)) {
+                is AppResult.Failure -> {
+                    prepared
+                }
 
-            is AppResult.Success -> {
-                playbackManager.activateBook(bookId)
-                playbackController.startPlayback(prepared.data)
-                AppResult.Success(Unit)
+                is AppResult.Success -> {
+                    playbackManager.activateBook(bookId)
+                    playbackController.startPlayback(prepared.data)
+                    AppResult.Success(Unit)
+                }
             }
+        } finally {
+            if (loadingBookId == bookId) loadingBookId = null
         }
+    }
 
     override fun abandonLoad() = startGate.withdraw()
 
@@ -101,16 +112,31 @@ internal class ManagedPlayerEngine(
     override fun clearError() = playbackManager.clearError()
 
     /**
-     * Stop and forget the book. The pause is recorded *before* the manager forgets the book: on web and
-     * desktop the manager's own observation persists a pause, and [PlaybackManager.clearPlayback] cancels it
-     * (the old web `closeBook` rule). On Android the flag that routes this through the reporter is off,
-     * so it only moves the state flow.
+     * Stop and forget the book, recording its place first (Close, sign-out's Close, the revoke teardown), as
+     * iOS's coordinator does. The pause is recorded *before* the manager forgets the book: on web and desktop
+     * the manager's own observation persists a pause, and [PlaybackManager.clearPlayback] cancels it (the old
+     * web `closeBook` rule). On Android that flag is off and the service's own listener hears the stop only
+     * after the manager has forgotten the book, so without the exact save below a Close lost everything since
+     * the last 30 s periodic save.
      */
     override fun stop() {
+        val place = placeBeingDropped()
         if (playbackManager.playing.value) playbackManager.setPlaybackState(PlaybackState.Paused)
         playbackController.stop()
         startGate.release()
         playbackManager.clearPlayback()
+        place?.let { (bookId, positionMs) -> scope.launch { progressTracker.savePositionNow(bookId, positionMs) } }
+    }
+
+    /**
+     * The held book and its exact place, or null when nothing is held or the held book is the one still
+     * loading: between [PlaybackManager.activateBook] and the start, the manager names the new book but still
+     * carries the old book's position, which must never be filed under the new one.
+     */
+    private fun placeBeingDropped(): Pair<BookId, Long>? {
+        val bookId = playbackManager.currentBookId.value ?: return null
+        if (bookId == loadingBookId) return null
+        return bookId to playbackManager.currentPositionMs.value
     }
 }
 
