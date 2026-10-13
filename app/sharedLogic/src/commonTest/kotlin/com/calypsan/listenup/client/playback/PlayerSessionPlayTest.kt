@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.test.fake.positionFor
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -120,6 +121,23 @@ class PlayerSessionPlayTest :
                     rig.session.playBook(BookId("b1"), 100_000)
                     runCurrent()
                     rig.engine.loads.map { it.second } shouldContainExactly listOf(PlaybackStart.Resume, PlaybackStart.At(100_000))
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("Play from Book Detail on the restored book keeps the place the listener moved it to") {
+            runTest {
+                val rig = PlayerSessionRig(this, storedBookId = "b1")
+                try {
+                    rig.withBook("b1")
+                    rig.positions.setPosition(positionFor("b1", positionMs = 42_000))
+                    runCurrent()
+                    rig.session.skipBack()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.engine.loads.single() shouldBe (BookId("b1") to PlaybackStart.Moved(listOf(PlaybackMove.Skip(-10_000))))
                 } finally {
                     rig.close()
                 }

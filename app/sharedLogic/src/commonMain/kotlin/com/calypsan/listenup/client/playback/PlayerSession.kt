@@ -370,7 +370,8 @@ class PlayerSession(
      * - A plain repeat tap for the book already preparing is swallowed (a double tap).
      * - The book the engine already holds, not finished and not failed, is a resume: a seek when [startAtMs]
      *   is given, then play. Never a re-prepare (the web rule, now everyone's).
-     * - Anything else starts a load, which supersedes any load in flight.
+     * - Anything else starts a load, which supersedes any load in flight. A plain Play of the loaded book starts
+     *   where the listener moved it before Play.
      */
     fun playBook(
         bookId: BookId,
@@ -390,7 +391,9 @@ class PlayerSession(
             engine.play()
             return
         }
-        startLoad(bookId, startAtMs?.let(PlaybackStart::At) ?: PlaybackStart.Resume)
+        // A plain Play of the loaded, not-prepared book honours where the listener moved it (Decision 5).
+        val pending = pendingStart.value.takeIf { stage.value?.bookId == bookId }
+        startLoad(bookId, startAtMs?.let(PlaybackStart::At) ?: pending ?: PlaybackStart.Resume)
     }
 
     /**
