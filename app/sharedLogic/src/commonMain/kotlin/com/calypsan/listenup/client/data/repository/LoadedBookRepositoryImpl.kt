@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
@@ -64,13 +65,40 @@ internal class LoadedBookRepositoryImpl(
     /** A store that cannot be read (a locked keystore) means nothing is loaded, not Restoring forever. */
     private suspend fun readStoreOrNothing(): BookId? =
         try {
-            store.readLoadedBookId()?.let(::BookId)
+            readOrSeed()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.warn(e) { "Could not read the loaded book; starting with nothing loaded" }
             null
         }
+
+    /**
+     * The persisted id, seeded once on the first read after the upgrade that introduced it: an install from
+     * before the key has none, and its listener expects the book they were on to still be there (the bar, the
+     * system's resume card). The flag is what keeps a later Close book closed — it is set whatever the seed
+     * finds, and never cleared. A history that cannot be read leaves the seed for the next launch.
+     */
+    private suspend fun readOrSeed(): BookId? {
+        val stored = store.readLoadedBookId()?.let(::BookId)
+        if (store.readLoadedBookMigrated()) return stored
+        val loaded =
+            stored ?: when (val lastPlayed = positionRepository.getLastPlayedBook()) {
+                is AppResult.Failure -> {
+                    logger.warn {
+                        "Could not read the last-played book to seed the loaded book: ${lastPlayed.error.code}"
+                    }
+                    return null
+                }
+
+                is AppResult.Success -> {
+                    lastPlayed.data?.bookId
+                }
+            }
+        if (stored == null && loaded != null) store.saveLoadedBookId(loaded.value)
+        store.saveLoadedBookMigrated()
+        return loaded
+    }
 
     override suspend fun loadedBookId(): BookId? = ensureRead()
 

@@ -488,6 +488,18 @@ class SettingsRepositoryTest :
             }
         }
 
+        test("the loaded-book seed flag is device-local storage: unset, then set for a fresh repository too") {
+            runTest {
+                val storage = InMemorySecureStorage()
+                val repository = createRepository(storage = storage)
+                repository.readLoadedBookMigrated() shouldBe false
+                repository.saveLoadedBookMigrated()
+                createRepository(storage = storage).readLoadedBookMigrated() shouldBe true
+                repository.saveLoadedBookId(null)
+                createRepository(storage = storage).readLoadedBookMigrated() shouldBe true
+            }
+        }
+
         test("a malformed persisted dismissal value hydrates to null (guard)") {
             runTest {
                 val storage = InMemorySecureStorage()

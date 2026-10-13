@@ -1,8 +1,12 @@
 package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.LoadedBook
+import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.playback.EnginePhase
 import com.calypsan.listenup.client.test.fake.FakeBookRepository
 import com.calypsan.listenup.client.test.fake.FakeLoadedBookStore
@@ -18,12 +22,14 @@ class LoadedBookRepositoryImplTest :
     FunSpec({
         class Rig(
             stored: String? = null,
+            migrated: Boolean = true,
+            val positions: FakePlaybackPositionRepository = FakePlaybackPositionRepository(),
+            positionReader: PlaybackPositionRepository = positions,
         ) {
-            val store = FakeLoadedBookStore(stored)
+            val store = FakeLoadedBookStore(stored, migrated)
             val books = FakeBookRepository()
-            val positions = FakePlaybackPositionRepository()
             val engine = FakePlayerEngine()
-            val repository = LoadedBookRepositoryImpl(store, books, positions, engine)
+            val repository = LoadedBookRepositoryImpl(store, books, positionReader, engine)
         }
 
         test("a fresh install is Restoring, then NothingLoaded, from local storage alone") {
@@ -117,6 +123,59 @@ class LoadedBookRepositoryImplTest :
                     awaitItem() shouldBe LoadedBook.Restoring
                     awaitItem() shouldBe LoadedBook.Loaded("b1", isPlaying = false, isFinished = false)
                 }
+            }
+        }
+
+        // ── The upgrade: an install from before the loaded-book key has none, so it is seeded once ──────────────
+
+        test("the first read after the upgrade seeds the last-played book and records that it did") {
+            runTest {
+                val rig = Rig(migrated = false)
+                rig.positions.setPosition(positionFor("b1", positionMs = 1_000))
+                rig.repository.loadedBookId() shouldBe BookId("b1")
+                rig.store.stored shouldBe "b1"
+                rig.store.migrated shouldBe true
+            }
+        }
+
+        test("once seeded, a book the listener closed stays closed: the last-played book is not brought back") {
+            runTest {
+                val rig = Rig(stored = null, migrated = true)
+                rig.positions.setPosition(positionFor("b1", positionMs = 1_000))
+                rig.repository.loadedBookId() shouldBe null
+                rig.store.stored shouldBe null
+            }
+        }
+
+        test("an upgrade with nothing ever played loads nothing, and records the seed so it never runs again") {
+            runTest {
+                val rig = Rig(migrated = false)
+                rig.repository.loadedBookId() shouldBe null
+                rig.store.stored shouldBe null
+                rig.store.migrated shouldBe true
+            }
+        }
+
+        test("a key already written is kept over the last-played book, and the seed is recorded") {
+            runTest {
+                val rig = Rig(stored = "b2", migrated = false)
+                rig.positions.setPosition(positionFor("b1", positionMs = 1_000))
+                rig.repository.loadedBookId() shouldBe BookId("b2")
+                rig.store.migrated shouldBe true
+            }
+        }
+
+        test("a history that cannot be read loads nothing now and leaves the seed for the next launch") {
+            runTest {
+                val positions = FakePlaybackPositionRepository()
+                val unreadable =
+                    object : PlaybackPositionRepository by positions {
+                        override suspend fun getLastPlayedBook(): AppResult<LastPlayedInfo?> =
+                            AppResult.Failure(PlaybackError.CouldNotStart())
+                    }
+                val rig = Rig(migrated = false, positions = positions, positionReader = unreadable)
+                rig.repository.loadedBookId() shouldBe null
+                rig.store.migrated shouldBe false
             }
         }
     })

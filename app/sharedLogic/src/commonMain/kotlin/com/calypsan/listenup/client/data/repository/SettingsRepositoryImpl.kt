@@ -107,6 +107,7 @@ internal class SettingsRepositoryImpl(
         private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
         private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
         private const val KEY_LOADED_BOOK = "loaded_book_id"
+        private const val KEY_LOADED_BOOK_MIGRATED = "loaded_book_migrated"
 
         // Connection health (peer version + outdated-hint dismissal)
         private const val KEY_PEER_SERVER_VERSION = "peer_server_version"
@@ -120,6 +121,13 @@ internal class SettingsRepositoryImpl(
 
     override suspend fun saveLoadedBookId(bookId: String?) {
         if (bookId == null) secureStorage.delete(KEY_LOADED_BOOK) else secureStorage.save(KEY_LOADED_BOOK, bookId)
+    }
+
+    override suspend fun readLoadedBookMigrated(): Boolean =
+        secureStorage.read(KEY_LOADED_BOOK_MIGRATED)?.toBooleanStrictOrNull() == true
+
+    override suspend fun saveLoadedBookMigrated() {
+        secureStorage.save(KEY_LOADED_BOOK_MIGRATED, true.toString())
     }
 
     // Server configuration
