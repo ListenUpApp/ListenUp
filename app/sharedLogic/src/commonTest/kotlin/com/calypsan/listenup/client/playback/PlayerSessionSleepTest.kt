@@ -180,6 +180,49 @@ class PlayerSessionSleepTest :
             }
         }
 
+        test("end of chapter fires at the next boundary after Close and reopening the book in the same chapter") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), 10_000)
+                    runCurrent()
+                    rig.session.closeBook()
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), 20_000)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.EndOfChapter)
+                    rig.engine.setPosition(100_500)
+                    runCurrent()
+                    rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("end of chapter fires at the next boundary after switching to another book in the same chapter") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("a")
+                    rig.withBook("b")
+                    runCurrent()
+                    rig.session.playBook(BookId("a"), 10_000)
+                    runCurrent()
+                    rig.session.playBook(BookId("b"), 20_000)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.EndOfChapter)
+                    rig.engine.setPosition(100_500)
+                    runCurrent()
+                    rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("extending a running timer adds to what is left, and cancelling disarms it") {
             runTest {
                 val rig = PlayerSessionRig(this)

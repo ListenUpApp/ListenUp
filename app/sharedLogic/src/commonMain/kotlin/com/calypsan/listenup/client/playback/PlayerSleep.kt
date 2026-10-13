@@ -4,10 +4,15 @@ import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -17,6 +22,7 @@ private val logger = KotlinLogging.logger {}
  * engine's chapter, runs the fade when the timer fires, and puts full volume back whenever a fade ends early.
  * Touched only on the session's scope, like the session itself.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class PlayerSleep(
     private val engine: PlayerEngine,
     private val sleepTimer: SleepTimerManager,
@@ -24,17 +30,34 @@ internal class PlayerSleep(
 ) {
     private var fadeJob: Job? = null
 
-    /** Start following [loadedBookId] and the engine's chapter, and fade when the timer fires. */
+    /**
+     * Start following [loadedBookId] and the engine's chapter, and fade when the timer fires.
+     *
+     * One chain, so a book change (Close and reopen included) always reaches the timer before that book's chapter,
+     * and the chapter is reported afresh for every book: the timer forgets its end-of-chapter baseline on a book
+     * change, and a chapter swallowed as "unchanged" would leave it to be relearned at the next boundary, firing a
+     * chapter late. Only the chapter of the book the engine holds is reported, never the previous book's.
+     */
     fun start(loadedBookId: Flow<BookId?>) {
-        scope.launch { loadedBookId.collect { sleepTimer.onBookChanged(it?.value) } }
         scope.launch {
-            engine.currentChapter
-                .filterNotNull()
-                .distinctUntilChangedBy { it.index }
-                .collect { sleepTimer.onChapterChanged(it.index) }
+            loadedBookId
+                .onEach { sleepTimer.onBookChanged(it?.value) }
+                .flatMapLatest { bookId -> chapterIndexOf(bookId) }
+                .collect { sleepTimer.onChapterChanged(it) }
         }
         scope.launch { sleepTimer.sleepEvent.collect { runFade() } }
     }
+
+    /** [bookId]'s chapter index while the engine holds it; re-reported each time the engine takes the book up again. */
+    private fun chapterIndexOf(bookId: BookId?): Flow<Int> =
+        if (bookId == null) {
+            emptyFlow()
+        } else {
+            combine(engine.loadedBookId, engine.currentChapter) { held, chapter ->
+                if (held == bookId) chapter?.index else null
+            }.distinctUntilChanged()
+                .filterNotNull()
+        }
 
     /** Start a timer. A duration takes any whole minutes from 1 to [MAX_SLEEP_MINUTES] (the custom stepper, PT8). */
     fun set(mode: SleepTimerMode) {
