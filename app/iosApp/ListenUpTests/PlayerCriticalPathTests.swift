@@ -134,20 +134,45 @@ struct EngineFailureTests {
         #expect(harness.facts.failures == [.connectionLost(detail: "NSURLErrorDomain -1005")])
     }
 
-    /// Never stranded: after a failure the shared player shows the book paused (a dismissed error);
-    /// a play from there reloads the book where it was, rather than doing nothing.
-    @Test func playAfterAFailureReloadsTheBookWhereItWas() async {
+    /// A play after a failure must not replay the preparation that just failed (its URLs, local paths and token
+    /// may be what broke): the coordinator holds nothing, and the shared player prepares the book afresh.
+    @Test func playAfterAFailureDoesNotReplayTheFailedPreparation() async {
         let harness = PlayerHarness()
         await harness.loadAndStart()
-        harness.engine.emit(.position(ms: 15000, rate: 0.0))
-        await awaitObservation { harness.coordinator.bookPositionMs == 15000 }
         harness.engine.emit(.failed(.connectionLost(detail: nil)))
         await awaitObservation { harness.coordinator.engineBook == nil }
 
+        await harness.run(.seek(toMs: 20000))
         await harness.run(.play)
-        await harness.engine.waitForPlayCount(2)
 
-        #expect(await harness.engine.lastLoadStartMs == 15000)
-        #expect(harness.coordinator.engineBook?.bookId == "book1")
+        let log = await harness.engine.commandLog
+        #expect(log.filter { $0 == "load" }.count == 1)
+        #expect(!log.contains("seek"))
+        #expect(harness.coordinator.engineBook == nil)
+    }
+
+    /// Never stranded from the lock screen, CarPlay or AirPods: a play there after a failure asks the shared
+    /// player to play, which prepares the book afresh, tagged with the failed load's generation.
+    @Test func remotePlayAfterAFailureAsksTheSharedPlayer() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(), generation: 4)
+        harness.engine.emit(.failed(.connectionLost(detail: nil)))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+
+        harness.coordinator.remotePlay()
+        harness.coordinator.remoteTogglePlayPause()
+
+        #expect(harness.facts.playRequests == [4, 4])
+        #expect(await harness.engine.commandLog.filter { $0 == "load" }.count == 1)
+    }
+
+    /// While the coordinator holds the book, a remote play resumes the engine; it does not bother the shared player.
+    @Test func remotePlayWhileHeldResumesTheEngine() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        await harness.run(.pause)
+        harness.coordinator.remotePlay()
+        await harness.engine.waitForPlayCount(2)
+        #expect(harness.facts.playRequests.isEmpty)
     }
 }

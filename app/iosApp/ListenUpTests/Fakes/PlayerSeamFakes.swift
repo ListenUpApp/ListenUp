@@ -284,6 +284,9 @@ final class FakeEngineFacts: EngineFactReporting {
         failures.append(failure); failureGenerations.append(generation); generations.append(generation)
     }
     func unloaded(generation: EngineLoadGeneration) { unloadedCount += 1; generations.append(generation) }
+    /// Each remote play the coordinator could not serve itself, by the generation it named.
+    private(set) var playRequests: [EngineLoadGeneration] = []
+    func playRequested(generation: EngineLoadGeneration) { playRequests.append(generation) }
 }
 
 extension ListenUp.PreparedPlayback {

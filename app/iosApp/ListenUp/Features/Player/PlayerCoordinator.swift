@@ -134,11 +134,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private var playWhenLoaded = true
     /// A `.seek` that arrived while the book was loading, applied once it has loaded.
     private var pendingSeekMs: Int64?
-    /// The last `.load`, kept so a play after an engine failure reloads the book (never stranded):
-    /// the shared player shows a dismissed failure as Paused and sends a plain `.play` from there.
-    private var lastLoad: (bookId: String, prepared: PreparedPlayback)?
-    /// Where a failed book resumes when it is played again.
-    private var failedAtMs: Int64?
     /// True only while playback is paused *because of* an audio-session interruption. Gates
     /// `.ended + .shouldResume`: a user's deliberate pause is never overridden.
     private var pausedByInterruption = false
@@ -307,8 +302,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         isEngineLoading = true
         playWhenLoaded = true
         pendingSeekMs = nil
-        failedAtMs = nil
-        lastLoad = (bookId, prepared)
         // Save the outgoing book's place — a switch must not lose it. A paused book already did.
         let hadLoadedBook = engineBook != nil
         if let outgoing = engineBook, isPlaybackActive { reportPaused(outgoing.bookId) }
@@ -319,7 +312,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         guard !segments.isEmpty else {
             engineBook = nil
             if hadLoadedBook { Task { await engine.pause() } }
-            fail(.couldNotStart(detail: "no audio"), resumeAtMs: prepared.resumePositionMs)
+            fail(.couldNotStart(detail: "no audio"))
             return
         }
         // A book streams if any file has no local path — set BEFORE the phase change so the
@@ -366,7 +359,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // The load is done — lift the event gate so the engine's real events drive the phase.
         isEngineLoading = false
         guard loaded else {
-            fail(.couldNotStart(detail: "engine load failed"), resumeAtMs: prepared.resumePositionMs)
+            fail(.couldNotStart(detail: "engine load failed"))
             return
         }
 
@@ -392,11 +385,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
             speed: prepared.resumeSpeed, durationMs: prepared.timeline.totalDurationMs)
     }
 
-    /// The engine could not load or play the book. The failure is reported typed; the book is no
-    /// longer held (nothing to save against), and a later `.play` reloads it from where it was.
-    private func fail(_ failure: EngineFailure, resumeAtMs: Int64) {
+    /// The engine could not load or play the book. The failure is reported typed and the book is no longer
+    /// held. Playing it again goes back through the shared player, which prepares it afresh: the preparation
+    /// that just failed (its URLs, local paths, token) is never replayed.
+    private func fail(_ failure: EngineFailure) {
         isEngineLoading = false
-        failedAtMs = resumeAtMs
         engineBook = nil
         facts.failure(failure, generation: factGeneration)
         enginePhase = .paused
@@ -406,13 +399,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private func play() async {
         pausedByInterruption = false
         if isEngineLoading { playWhenLoaded = true; return }
-        guard let loaded = engineBook else {
-            // A failed book played again: reload it where it was (never stranded).
-            if let lastLoad, let failedAtMs {
-                load(bookId: lastLoad.bookId, prepared: lastLoad.prepared.withResumePosition(failedAtMs))
-            }
-            return
-        }
+        // Nothing held (a failure dropped the book): the shared player prepares it afresh, never a `.play` here.
+        guard let loaded = engineBook else { return }
         guard !isPlaybackActive else { return }
         await engine.play()
         enginePhase = .playing
@@ -434,10 +422,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Seek to a whole-book position in milliseconds.
     private func seek(toMs positionMs: Int64) async {
         if isEngineLoading { pendingSeekMs = positionMs; return }
-        guard let loaded = engineBook else {
-            if failedAtMs != nil { failedAtMs = positionMs }
-            return
-        }
+        // Nothing held: the shared player keeps the place and starts the fresh prepare there.
+        guard let loaded = engineBook else { return }
         // Capture the pre-seek position BEFORE issuing the seek so the span split gets a correct edge.
         let beforeMs = bookPositionMs
         // Split the listening span (finalize pre-seek at `beforeMs`, reopen at `positionMs`) so the
@@ -508,8 +494,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         loadTask?.cancel()
         loadGeneration &+= 1
         isEngineLoading = false
-        lastLoad = nil
-        failedAtMs = nil
         engineBook = nil
         // Return to idle so the didSet releases the download-yield signal.
         enginePhase = .idle
@@ -522,9 +506,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - RemoteCommandHandler (Decision 12: engine-level, the session sees the resulting facts)
 
     func remoteTogglePlayPause() {
-        if isPlaybackActive { Task { await pause() } } else { Task { await play() } }
+        if isPlaybackActive { Task { await pause() } } else { remoteResume() }
     }
-    func remotePlay() { if !isPlaybackActive { Task { await play() } } }
+    func remotePlay() { if !isPlaybackActive { remoteResume() } }
+    /// A remote play. With no audio held (a failure dropped the book) the shared player is asked to play, and
+    /// prepares the book afresh; replaying the failed preparation here could reuse what broke it.
+    private func remoteResume() {
+        if engineBook == nil, !isEngineLoading {
+            facts.playRequested(generation: factGeneration)
+            return
+        }
+        Task { await play() }
+    }
     func remotePause() { if isPlaybackActive { Task { await pause() } } }
     func remoteSkipForward() {
         let target = min(bookPositionMs + Int64(skipForwardSec) * 1000, bookDurationMs)
@@ -590,7 +583,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
             enginePhase = .ended
             updateNowPlaying()
         case .failed(let failure):
-            fail(failure, resumeAtMs: bookPositionMs)
+            fail(failure)
         }
     }
 

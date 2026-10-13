@@ -82,18 +82,6 @@ struct PreparedPlayback: Sendable {
     var coverHash: String?
 }
 
-extension PreparedPlayback {
-    /// The same prepared book with only `resumePositionMs` replaced — what the Kotlin preparer returns for
-    /// a start position, and what a reload after an engine failure resumes from.
-    func withResumePosition(_ positionMs: Int64) -> PreparedPlayback {
-        PreparedPlayback(
-            bookTitle: bookTitle, bookAuthor: bookAuthor, bookNarrator: bookNarrator, coverPath: coverPath,
-            resumeSpeed: resumeSpeed, resumeBoostDb: resumeBoostDb, measuredGainDb: measuredGainDb,
-            normalizationGainDb: normalizationGainDb, resumePositionMs: positionMs, chapters: chapters,
-            timeline: timeline, seriesId: seriesId, authors: authors, narrators: narrators, coverHash: coverHash)
-    }
-}
-
 struct PreparedTimeline: Sendable {
     let totalDurationMs: Int64
     let files: [PreparedFile]

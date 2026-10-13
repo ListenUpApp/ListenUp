@@ -44,4 +44,7 @@ protocol EngineFactReporting {
     func route(_ deviceName: String?)
     func failure(_ failure: EngineFailure, generation: EngineLoadGeneration)
     func unloaded(generation: EngineLoadGeneration)
+    /// A remote play (lock screen, CarPlay, AirPods) while a failure has dropped the book: the shared player
+    /// prepares it afresh rather than the coordinator replaying the preparation that failed.
+    func playRequested(generation: EngineLoadGeneration)
 }

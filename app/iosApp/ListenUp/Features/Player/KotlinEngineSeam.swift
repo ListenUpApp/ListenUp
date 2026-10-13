@@ -67,6 +67,7 @@ struct KotlinEngineFacts: EngineFactReporting {
     }
 
     func unloaded(generation: EngineLoadGeneration) { engine.onUnloaded(generation: generation) }
+    func playRequested(generation: EngineLoadGeneration) { engine.onPlayRequested(generation: generation) }
 }
 
 /// The bridged Kotlin prepared book (the name collides with the native `PreparedPlayback` below).

@@ -6,7 +6,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.core.BookId
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +19,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * [PlayerEngine] for iOS (spec §4.1, S1). Kotlin prepares through the shared choke point and issues
@@ -30,7 +37,7 @@ import kotlinx.coroutines.flow.stateIn
  */
 class NativePlayerEngine internal constructor(
     private val prepare: suspend (BookId, PlaybackStart) -> AppResult<PreparedPlayback>,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
 ) : PlayerEngine {
     private val commandChannel = Channel<EngineCommand>(Channel.UNLIMITED)
 
@@ -74,12 +81,23 @@ class NativePlayerEngine internal constructor(
 
     private fun isCurrent(factGeneration: Int): Boolean = factGeneration == generation
 
+    /**
+     * Where the loaded book starts when it is played again, or null while Swift holds its audio. Swift drops a book
+     * whose engine failed; playing it again prepares it afresh here (fresh URLs, paths and tokens), never replays the
+     * preparation that just failed (never stranded).
+     */
+    private var restartFrom: PlaybackStart? = null
+
+    /** The fresh prepare for a dropped book, while it runs. */
+    private var reprepare: Job? = null
+
     private fun send(command: EngineCommand) {
         commandChannel.trySend(command)
     }
 
     /** Silence the outgoing book at once when another one is asked for (the old coordinator's switch rule). */
     override fun beginLoad(bookId: BookId) {
+        cancelReprepare()
         val current = loadedBookId.value
         if (current != null && current != bookId) send(EngineCommand.Pause)
     }
@@ -87,43 +105,117 @@ class NativePlayerEngine internal constructor(
     override suspend fun load(
         bookId: BookId,
         start: PlaybackStart,
-    ): AppResult<Unit> =
-        when (val result = prepare(bookId, start)) {
+    ): AppResult<Unit> {
+        // The session's load wins over a dropped book's fresh prepare.
+        cancelReprepare()
+        restartFrom = null
+        return when (val result = prepare(bookId, start)) {
             is AppResult.Failure -> {
                 result
             }
 
             is AppResult.Success -> {
-                val prepared = result.data
-                chapters.value = prepared.chapters
-                timeline.value = prepared.timeline
-                durationMs.value = prepared.timeline.totalDurationMs
-                positionMs.value = prepared.resumePositionMs
-                speed.value = prepared.resumeSpeed
-                boostDb.value = prepared.resumeBoostDb
-                error.value = null
-                phase.value = EnginePhase.BUFFERING
-                loadedBookId.value = bookId
-                generation++
-                send(EngineCommand.Load(bookId = bookId.value, prepared = prepared, generation = generation))
+                handOver(bookId, result.data)
                 AppResult.Success(Unit)
             }
         }
+    }
+
+    /** Adopt [prepared] as the loaded book and tell Swift to load it, under a new generation. */
+    private fun handOver(
+        bookId: BookId,
+        prepared: PreparedPlayback,
+    ) {
+        restartFrom = null
+        chapters.value = prepared.chapters
+        timeline.value = prepared.timeline
+        durationMs.value = prepared.timeline.totalDurationMs
+        positionMs.value = prepared.resumePositionMs
+        speed.value = prepared.resumeSpeed
+        boostDb.value = prepared.resumeBoostDb
+        error.value = null
+        phase.value = EnginePhase.BUFFERING
+        loadedBookId.value = bookId
+        generation++
+        send(EngineCommand.Load(bookId = bookId.value, prepared = prepared, generation = generation))
+    }
+
+    /** Prepare the dropped book again from [restartFrom] and hand it to Swift: a play after an engine failure. */
+    private fun prepareAgain(
+        bookId: BookId,
+        start: PlaybackStart,
+    ) {
+        if (reprepare?.isActive == true) return
+        error.value = null
+        phase.value = EnginePhase.BUFFERING
+        // Lazy, so the job is recorded before it runs: a prepare that returns at once still finds itself current.
+        val job =
+            scope.launch(start = CoroutineStart.LAZY) {
+                val result =
+                    try {
+                        prepare(bookId, start)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.error(e) { "Preparing ${bookId.value} again threw" }
+                        AppResult.Failure(PlaybackError.CouldNotStart(debugInfo = e.toString()))
+                    }
+                if (reprepare !== coroutineContext[Job]) return@launch
+                reprepare = null
+                when (result) {
+                    is AppResult.Success -> {
+                        handOver(bookId, result.data)
+                    }
+
+                    is AppResult.Failure -> {
+                        error.value = result.error
+                        phase.value = EnginePhase.PAUSED
+                    }
+                }
+            }
+        reprepare = job
+        job.start()
+    }
+
+    private fun cancelReprepare() {
+        reprepare?.cancel()
+        reprepare = null
+    }
 
     // Nothing is armed before the Load command, so there is nothing to take back.
     override fun abandonLoad() = Unit
 
     override fun play() {
-        send(EngineCommand.Play)
+        val start = restartFrom
+        val bookId = loadedBookId.value
+        if (start != null && bookId != null) {
+            prepareAgain(bookId, start)
+        } else {
+            send(EngineCommand.Play)
+        }
     }
 
     override fun pause() {
+        if (reprepare?.isActive == true) {
+            cancelReprepare()
+            phase.value = EnginePhase.PAUSED
+            return
+        }
         send(EngineCommand.Pause)
     }
 
     override fun seekTo(positionMs: Long) {
         this.positionMs.value = positionMs
-        send(EngineCommand.SeekTo(positionMs))
+        if (restartFrom == null) {
+            send(EngineCommand.SeekTo(positionMs))
+            return
+        }
+        // Swift holds no audio to seek: the fresh prepare starts here instead.
+        restartFrom = PlaybackStart.At(positionMs)
+        if (reprepare?.isActive == true) {
+            cancelReprepare()
+            play()
+        }
     }
 
     override fun setSpeed(speed: Float) {
@@ -155,6 +247,7 @@ class NativePlayerEngine internal constructor(
     }
 
     override fun stop() {
+        cancelReprepare()
         send(EngineCommand.Stop)
         generation++
         unload()
@@ -209,31 +302,50 @@ class NativePlayerEngine internal constructor(
         outputDeviceName.value = deviceName
     }
 
-    /** A network-domain item failure. */
+    /** A network-domain item failure. Swift has dropped the book's audio. */
     fun reportConnectionLost(
         generation: Int,
         debugInfo: String?,
     ) {
-        if (!isCurrent(generation)) return
-        error.value = PlaybackError.ConnectionLost(debugInfo = debugInfo)
+        onDropped(generation, PlaybackError.ConnectionLost(debugInfo = debugInfo))
     }
 
-    /** A format/decoder failure. */
+    /** A format/decoder failure. Swift has dropped the book's audio. */
     fun reportUnsupportedFormat(
         generation: Int,
         debugInfo: String?,
     ) {
-        if (!isCurrent(generation)) return
-        error.value = PlaybackError.UnsupportedFormat(debugInfo = debugInfo)
+        onDropped(generation, PlaybackError.UnsupportedFormat(debugInfo = debugInfo))
     }
 
-    /** Any other load or playback failure (no audio, a session that would not activate, a load timeout). */
+    /**
+     * Any other load or playback failure (no audio, a session that would not activate, a load timeout). Swift has
+     * dropped the book's audio.
+     */
     fun reportCouldNotStart(
         generation: Int,
         debugInfo: String?,
     ) {
+        onDropped(generation, PlaybackError.CouldNotStart(debugInfo = debugInfo))
+    }
+
+    /** Swift's engine failed and let go of the book: show [failure], and prepare afresh on the next play. */
+    private fun onDropped(
+        generation: Int,
+        failure: AppError,
+    ) {
         if (!isCurrent(generation)) return
-        error.value = PlaybackError.CouldNotStart(debugInfo = debugInfo)
+        error.value = failure
+        if (loadedBookId.value != null) restartFrom = PlaybackStart.Resume
+    }
+
+    /**
+     * Swift was asked to play (the lock screen, CarPlay, AirPods) while it holds no audio for the book, because a
+     * failure dropped it: play it here, which prepares it afresh.
+     */
+    fun onPlayRequested(generation: Int) {
+        if (!isCurrent(generation)) return
+        play()
     }
 
     /** Swift unloaded the engine on its own (sign-out's awaited stop). */
@@ -243,6 +355,8 @@ class NativePlayerEngine internal constructor(
     }
 
     private fun unload() {
+        cancelReprepare()
+        restartFrom = null
         loadedBookId.value = null
         phase.value = EnginePhase.IDLE
         positionMs.value = 0L

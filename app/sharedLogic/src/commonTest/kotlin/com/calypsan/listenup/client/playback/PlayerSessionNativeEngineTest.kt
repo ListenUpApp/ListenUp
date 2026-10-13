@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.test.fake.preparedPlaybackFor
 import com.calypsan.listenup.core.BookId
@@ -12,13 +13,18 @@ import kotlinx.coroutines.test.runTest
 /** The session over the iOS engine: Kotlin prepares, Swift's facts come back tagged with the load they belong to. */
 class PlayerSessionNativeEngineTest :
     FunSpec({
-        /** A rig whose engine is a real [NativePlayerEngine] that prepares every book successfully. */
-        fun TestScope.nativeRig(): Pair<PlayerSessionRig, () -> NativePlayerEngine> {
+        /** A rig whose engine is a real [NativePlayerEngine] that prepares every book successfully, into [prepared]. */
+        fun TestScope.nativeRig(
+            prepared: MutableList<Pair<BookId, PlaybackStart>> = mutableListOf(),
+        ): Pair<PlayerSessionRig, () -> NativePlayerEngine> {
             var engine: NativePlayerEngine? = null
             val rig =
                 PlayerSessionRig(this, playerEngine = { scope ->
                     NativePlayerEngine(
-                        prepare = { id, _ -> AppResult.Success(preparedPlaybackFor(id.value, durationMs = 300_000)) },
+                        prepare = { id, start ->
+                            prepared += id to start
+                            AppResult.Success(preparedPlaybackFor(id.value, durationMs = 300_000))
+                        },
                         scope = scope,
                     ).also { engine = it }
                 })
@@ -41,6 +47,57 @@ class PlayerSessionNativeEngineTest :
                     engine().reportCouldNotStart(1, "a's file is gone")
                     runCurrent()
                     rig.loaded.bookId shouldBe BookId("b")
+                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a mid-play failure dismissed to Paused plays again through a fresh prepare") {
+            runTest {
+                val prepared = mutableListOf<Pair<BookId, PlaybackStart>>()
+                val (rig, engine) = nativeRig(prepared)
+                try {
+                    rig.withBook("a")
+                    runCurrent()
+                    rig.session.playBook(BookId("a"), null)
+                    runCurrent()
+                    engine().onPhase(1, EnginePhase.PLAYING)
+                    engine().reportConnectionLost(1, "NSURLErrorDomain -1005")
+                    engine().onPhase(1, EnginePhase.PAUSED)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost(debugInfo = "NSURLErrorDomain -1005"))
+                    rig.session.dismissError()
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Paused
+                    rig.session.playPause()
+                    runCurrent()
+                    prepared shouldBe listOf(BookId("a") to PlaybackStart.Resume, BookId("a") to PlaybackStart.Resume)
+                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    engine().onPhase(2, EnginePhase.PLAYING)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("Retry on a mid-play failure re-prepares through the session") {
+            runTest {
+                val prepared = mutableListOf<Pair<BookId, PlaybackStart>>()
+                val (rig, engine) = nativeRig(prepared)
+                try {
+                    rig.withBook("a")
+                    runCurrent()
+                    rig.session.playBook(BookId("a"), null)
+                    runCurrent()
+                    engine().reportCouldNotStart(1, null)
+                    runCurrent()
+                    rig.session.playPause()
+                    runCurrent()
+                    prepared.size shouldBe 2
                     rig.loaded.phase shouldBe PlayerPhase.Buffering
                 } finally {
                     rig.close()

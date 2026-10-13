@@ -149,6 +149,8 @@ internal val iosPlaybackModule: Module =
         // The shared player's engine (playerModule): Kotlin issues EngineCommands, Swift's PlayerCoordinator
         // executes them on AVAudioEngine and reports back. The sleep timer is playerModule's shared one.
         single(named(OFFLINE_COPIES)) { true }
-        single { NativePlayerEngine(prepare = get<PlaybackPreparer>()::prepare, scope = get(named(PLAYBACK_SCOPE))) }
+        // On the player's scope (the main thread), like the session that drives it: its load generation and a dropped
+        // book's fresh prepare are touched only there, and Swift reports facts from the main actor.
+        single { NativePlayerEngine(prepare = get<PlaybackPreparer>()::prepare, scope = get(named(PLAYER_SCOPE))) }
         single<PlayerEngine> { get<NativePlayerEngine>() }
     }

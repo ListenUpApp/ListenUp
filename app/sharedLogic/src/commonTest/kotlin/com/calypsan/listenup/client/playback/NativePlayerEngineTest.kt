@@ -9,6 +9,7 @@ import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -217,6 +218,166 @@ class NativePlayerEngineTest :
                     engine.error.value shouldBe PlaybackError.ConnectionLost(debugInfo = "NSURLErrorDomain -1005")
                     engine.onPhase(1, EnginePhase.PLAYING)
                     engine.error.value shouldBe null
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("a play after Swift dropped a failed book prepares it afresh instead of replaying the old preparation") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val starts = mutableListOf<PlaybackStart>()
+                    val engine =
+                        NativePlayerEngine(prepare = { id, start ->
+                            starts += start
+                            AppResult.Success(preparedPlaybackFor(id.value, resumePositionMs = 61_000))
+                        }, scope = scope)
+                    engine.commands.test {
+                        engine.load(BookId("a"), start = PlaybackStart.Resume)
+                        awaitItem().shouldBeInstanceOf<EngineCommand.Load>()
+                        engine.onPosition(1, 64_000)
+                        engine.reportConnectionLost(1, "NSURLErrorDomain -1005")
+                        // The listener dismisses the error (the session clears it and pauses), then presses Play.
+                        engine.clearError()
+                        engine.pause()
+                        awaitItem() shouldBe EngineCommand.Pause
+                        engine.play()
+                        engine.phase.value shouldBe EnginePhase.BUFFERING
+                        runCurrent()
+                        val reload = awaitItem().shouldBeInstanceOf<EngineCommand.Load>()
+                        reload.bookId shouldBe "a"
+                        reload.generation shouldBe 2
+                        starts shouldBe listOf(PlaybackStart.Resume, PlaybackStart.Resume)
+                        engine.loadedBookId.value shouldBe BookId("a")
+                        // Held again: a later play is a plain resume.
+                        engine.play()
+                        awaitItem() shouldBe EngineCommand.Play
+                    }
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("a seek on a dropped book moves where its fresh prepare starts") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val starts = mutableListOf<PlaybackStart>()
+                    val engine =
+                        NativePlayerEngine(prepare = { id, start ->
+                            starts += start
+                            AppResult.Success(preparedPlaybackFor(id.value))
+                        }, scope = scope)
+                    engine.commands.test {
+                        engine.load(BookId("a"), start = PlaybackStart.Resume)
+                        awaitItem()
+                        engine.reportCouldNotStart(1, null)
+                        engine.seekTo(90_000)
+                        engine.positionMs.value shouldBe 90_000
+                        engine.play()
+                        runCurrent()
+                        awaitItem().shouldBeInstanceOf<EngineCommand.Load>()
+                        starts.last() shouldBe PlaybackStart.At(90_000)
+                    }
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("Swift asking to play a book it dropped (a lock-screen play) prepares it afresh") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    var prepares = 0
+                    val engine =
+                        NativePlayerEngine(prepare = { id, _ ->
+                            prepares++
+                            AppResult.Success(preparedPlaybackFor(id.value))
+                        }, scope = scope)
+                    engine.commands.test {
+                        engine.load(BookId("a"), start = PlaybackStart.Resume)
+                        awaitItem()
+                        engine.reportConnectionLost(1, null)
+                        engine.onPlayRequested(0) // about a load long gone
+                        runCurrent()
+                        prepares shouldBe 1
+                        engine.onPlayRequested(1)
+                        engine.error.value shouldBe null
+                        runCurrent()
+                        prepares shouldBe 2
+                        awaitItem().shouldBeInstanceOf<EngineCommand.Load>().generation shouldBe 2
+                    }
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("another book's load supersedes a fresh prepare still in flight") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val held = CompletableDeferred<Unit>()
+                    var prepares = 0
+                    val engine =
+                        NativePlayerEngine(prepare = { id, _ ->
+                            prepares++
+                            if (id.value == "a" && prepares > 1) held.await()
+                            AppResult.Success(preparedPlaybackFor(id.value))
+                        }, scope = scope)
+                    engine.commands.test {
+                        engine.load(BookId("a"), start = PlaybackStart.Resume)
+                        awaitItem()
+                        engine.reportConnectionLost(1, null)
+                        engine.play()
+                        runCurrent()
+                        engine.beginLoad(BookId("b"))
+                        engine.load(BookId("b"), start = PlaybackStart.Resume)
+                        awaitItem() shouldBe EngineCommand.Pause
+                        awaitItem().shouldBeInstanceOf<EngineCommand.Load>().bookId shouldBe "b"
+                        held.complete(Unit)
+                        runCurrent()
+                        expectNoEvents()
+                        engine.loadedBookId.value shouldBe BookId("b")
+                    }
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("a fresh prepare that fails says why and can be tried again") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    var prepares = 0
+                    val engine =
+                        NativePlayerEngine(prepare = { id, _ ->
+                            prepares++
+                            if (prepares == 2) {
+                                AppResult.Failure(PlaybackError.ServerUnreachable())
+                            } else {
+                                AppResult.Success(preparedPlaybackFor(id.value))
+                            }
+                        }, scope = scope)
+                    engine.commands.test {
+                        engine.load(BookId("a"), start = PlaybackStart.Resume)
+                        awaitItem()
+                        engine.reportConnectionLost(1, null)
+                        engine.play()
+                        runCurrent()
+                        engine.error.value shouldBe PlaybackError.ServerUnreachable()
+                        engine.phase.value shouldBe EnginePhase.PAUSED
+                        expectNoEvents()
+                        engine.play()
+                        runCurrent()
+                        awaitItem().shouldBeInstanceOf<EngineCommand.Load>()
+                        prepares shouldBe 3
+                    }
                 } finally {
                     scope.cancel()
                 }
