@@ -355,6 +355,35 @@ class PlayerSessionLifecycleTest :
             }
         }
 
+        test("Close book then a Play of another book that fails at once keeps that book loaded, with its error") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.withBook("b2")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    // Close's key clear is a slow storage write that lands only after B's prepare has failed.
+                    val clearLands = CompletableDeferred<Unit>()
+                    rig.store.clearSuspension = { clearLands.await() }
+                    rig.session.closeBook()
+                    runCurrent()
+                    rig.engine.loadResult = AppResult.Failure(PlaybackError.CouldNotStart())
+                    rig.session.playBook(BookId("b2"), startAtMs = null)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.CouldNotStart())
+                    clearLands.complete(Unit)
+                    runCurrent()
+                    rig.loaded.bookId shouldBe BookId("b2")
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.CouldNotStart())
+                    rig.store.stored shouldBe "b2"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("playing a second revoked book straight after a first still stops it") {
             runTest {
                 val rig = PlayerSessionRig(this)

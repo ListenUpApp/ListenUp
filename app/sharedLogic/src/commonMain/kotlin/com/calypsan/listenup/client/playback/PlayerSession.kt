@@ -38,8 +38,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -84,7 +82,7 @@ class PlayerSession(
     private val restoring = MutableStateFlow(true)
     private var generation = 0
     private var loadJob: Job? = null
-    private var fadeJob: Job? = null
+    private val sleep = PlayerSleep(engine = engine, sleepTimer = sleepTimer, scope = scope)
 
     /** The book a load is in flight for, set synchronously so a double tap is swallowed in the same tick. */
     val preparingBookId: StateFlow<BookId?>
@@ -203,21 +201,21 @@ class PlayerSession(
         scope.launch { loadedBooks.observeLoadedBookId().collect(::onPersistedBookId) }
         scope.launch { engine.loadedBookId.collect(::onEngineBook) }
         scope.launch { watchLiveness() }
-        scope.launch { stageBookId.collect { sleepTimer.onBookChanged(it?.value) } }
-        scope.launch {
-            engine.currentChapter
-                .filterNotNull()
-                .distinctUntilChangedBy { it.index }
-                .collect { sleepTimer.onChapterChanged(it.index) }
-        }
-        scope.launch { sleepTimer.sleepEvent.collect { runFade() } }
+        sleep.start(loadedBookId = stageBookId)
     }
 
     // ── Lifecycle (Task 13) ──────────────────────────────────────────────────────────────────────────
 
+    /** Key clears issued by [closeBook] that have not landed yet. Touched only on the player scope. */
+    private var closeClearsInFlight = 0
+
     private fun onPersistedBookId(persisted: BookId?) {
         val current = stage.value
         when {
+            persisted == null && closeClearsInFlight > 0 -> {
+                // Stale: Close already unloaded in memory, and its clear writes back any book loaded since.
+            }
+
             persisted == null && current != null && isHeldInMemory(current) -> {
                 // A cleared key that lands under a load in flight or a book the engine plays is stale: the cold
                 // start's first read, or Close's clear arriving after the next Play. Write the book back.
@@ -290,11 +288,20 @@ class PlayerSession(
     fun closeBook() {
         onPlayer {
             cancelLoad()
-            fadeJob?.cancel()
+            sleep.close()
             engine.stop()
-            sleepTimer.cancelTimer()
             unloadInMemory()
-            scope.launch { loadedBooks.clear() }
+            closeClearsInFlight++
+            scope.launch {
+                try {
+                    loadedBooks.clear()
+                    // A book loaded while the clear was being written (Close, then Play at once) is the loaded
+                    // book: the clear must not leave the device thinking nothing is loaded.
+                    stage.value?.let { loadedBooks.setLoaded(it.bookId) }
+                } finally {
+                    closeClearsInFlight--
+                }
+            }
         }
     }
 
@@ -389,13 +396,13 @@ class PlayerSession(
     ) {
         cancelLoad()
         // A fade belongs to the book it was started for: left running, it would pause this one.
-        if (stage.value?.bookId != bookId) fadeJob?.cancel()
+        if (stage.value?.bookId != bookId) sleep.cancelFade()
         // cancelLoad() moved the generation on, so this load's generation is read after it.
         val myGeneration = generation
         preparingBookId.value = bookId
         stage.value = SessionStage.Preparing(bookId, myGeneration)
         pendingStart.value = PlaybackStart.Resume
-        sleepTimer.onBookChanged(bookId.value)
+        sleep.onBookChanged(bookId)
         engine.beginLoad(bookId)
         loadJob =
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -722,61 +729,16 @@ class PlayerSession(
 
     /** Start a timer. A duration takes any whole minutes from 1 to 720 (the custom stepper, PT8). */
     fun setSleepTimer(mode: SleepTimerMode) {
-        onPlayer {
-            val bounded =
-                if (mode is SleepTimerMode.Duration) {
-                    SleepTimerMode.Duration(mode.minutes.coerceIn(1, MAX_SLEEP_MINUTES))
-                } else {
-                    mode
-                }
-            sleepTimer.setTimer(bounded)
-        }
+        onPlayer { sleep.set(mode) }
     }
 
     /** +5 / +10 / +15 (and the notification's +10). */
     fun extendSleepTimer(minutes: Int) {
-        onPlayer {
-            sleepTimer.extendTimer(minutes)
-        }
+        onPlayer { sleep.extend(minutes) }
     }
 
     /** Cancel the timer. During the fade this is "Keep listening": the fade stops and full volume returns (PT7). */
     fun cancelSleepTimer() {
-        onPlayer {
-            val wasFading = sleepTimer.state.value is SleepTimerState.FadingOut
-            fadeJob?.cancel()
-            sleepTimer.cancelTimer()
-            if (wasFading) engine.setVolume(1f)
-        }
-    }
-
-    private suspend fun runFade() {
-        val job =
-            scope.launch {
-                try {
-                    fadeOutAndPause(setVolume = engine::setVolume, pause = engine::pause)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) { "Sleep fade failed; resetting the timer" }
-                } finally {
-                    // Never leave the timer stuck in FadingOut, nor the output quiet, even when the fade throws or is
-                    // cancelled (Close, sign-out, another book): the engine outlives the fade.
-                    restoreFullVolume()
-                    sleepTimer.onFadeCompleted()
-                }
-            }
-        fadeJob = job
-        job.join()
-    }
-
-    private fun restoreFullVolume() {
-        try {
-            engine.setVolume(1f)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Could not restore full volume after the sleep fade" }
-        }
+        onPlayer { sleep.cancel() }
     }
 }
