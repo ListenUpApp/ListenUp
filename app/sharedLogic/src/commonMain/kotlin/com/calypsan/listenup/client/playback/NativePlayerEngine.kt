@@ -164,12 +164,16 @@ class NativePlayerEngine internal constructor(
     // Each carries the generation of the Load Swift was executing when it happened; one from any other load is
     // about a book this engine no longer holds, and is dropped.
 
-    /** The engine's phase changed (timeControlStatus, an interruption, a remote command, the end). */
+    /**
+     * The engine's phase changed (timeControlStatus, an interruption, a remote command, the end). Audio playing is
+     * proof the engine recovered, so it clears a standing failure: a recovered engine never stays Failed.
+     */
     fun onPhase(
         generation: Int,
         phase: EnginePhase,
     ) {
         if (!isCurrent(generation)) return
+        if (phase == EnginePhase.PLAYING) error.value = null
         this.phase.value = phase
     }
 

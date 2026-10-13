@@ -205,4 +205,21 @@ class NativePlayerEngineTest :
                 }
             }
         }
+
+        test("audio playing again clears the engine's failure") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val engine = NativePlayerEngine(prepare = { id, _ -> AppResult.Success(preparedPlaybackFor(id.value)) }, scope = scope)
+                    engine.load(BookId("a"), start = PlaybackStart.Resume)
+                    engine.reportConnectionLost(1, "NSURLErrorDomain -1005")
+                    engine.onPhase(1, EnginePhase.BUFFERING)
+                    engine.error.value shouldBe PlaybackError.ConnectionLost(debugInfo = "NSURLErrorDomain -1005")
+                    engine.onPhase(1, EnginePhase.PLAYING)
+                    engine.error.value shouldBe null
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
     })
