@@ -75,6 +75,58 @@ class PlayerSessionErrorsTest :
             }
         }
 
+        test("Retry after an engine failure starts where the listener moved the failed book, not the saved place") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.engine.preparedPositionMs = 40_000
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.session.playPause()
+                    runCurrent()
+                    rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+                    rig.session.nextChapter()
+                    runCurrent()
+                    rig.session.nextChapter()
+                    runCurrent()
+                    rig.session.positionMs.value shouldBe 200_000
+                    rig.session.retry()
+                    runCurrent()
+                    rig.engine.loads.last() shouldBe (BookId("b1") to PlaybackStart.At(200_000))
+                    rig.session.positionMs.value shouldBe 200_000
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("Retry after a failed prepare starts where the listener moved the book while it was failed") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.engine.loadResult = AppResult.Failure(PlaybackError.CouldNotStart())
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.CouldNotStart())
+                    rig.session.seekTo(150_000)
+                    runCurrent()
+                    rig.engine.loadResult = AppResult.Success(Unit)
+                    rig.session.retry()
+                    runCurrent()
+                    rig.engine.loads.last() shouldBe (BookId("b1") to PlaybackStart.At(150_000))
+                    rig.session.positionMs.value shouldBe 150_000
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("offline with nothing downloaded is proactive OfflineNotDownloaded, and clears when the network returns") {
             runTest {
                 val rig = PlayerSessionRig(this, storedBookId = "b1")

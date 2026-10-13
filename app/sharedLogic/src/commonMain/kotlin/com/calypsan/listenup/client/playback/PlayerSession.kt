@@ -678,8 +678,8 @@ class PlayerSession(
 
     /**
      * Retry a failed or unavailable book (§4.3): re-probe the server when the cause is transport, then
-     * re-prepare at the saved position and play. Held, revoked and session-expired books are not retried here:
-     * their primary control leads elsewhere (Open Inbox, Close, Sign in).
+     * re-prepare and play from where the listener sees the book ([retryStart]). Held, revoked and session-expired
+     * books are not retried here: their primary control leads elsewhere (Open Inbox, Close, Sign in).
      */
     fun retry() {
         onPlayer {
@@ -694,10 +694,25 @@ class PlayerSession(
                 return@onPlayer
             }
             if (cause.isTransport()) scope.launch { serverReachability.retry() }
+            val start = retryStart(loaded)
             engine.clearError()
-            startLoad(loaded.bookId, PlaybackStart.Resume)
+            startLoad(loaded.bookId, start)
         }
     }
+
+    /**
+     * Where a Retry starts: the place the listener sees, including any move made while the book was failed. A
+     * failed engine may not hold that place itself (the web tears hls.js down) and the move was never saved, so
+     * a re-prepare at the saved position would throw it away. An engine-bound failure starts at the engine's
+     * position, unless that is 0 (a reset player, never a reason to lose the saved place); a failed prepare
+     * replays its pending start, like Play.
+     */
+    private fun retryStart(loaded: PlayerSessionState.Loaded): PlaybackStart =
+        if (loaded.isEngineBound) {
+            positionMs.value.takeIf { it > 0 }?.let(PlaybackStart::At) ?: PlaybackStart.Resume
+        } else {
+            pendingStart.value
+        }
 
     /**
      * Dismiss the error card (gap 6): the bar never hides. A failed prepare returns to Restored (Decision 6);
