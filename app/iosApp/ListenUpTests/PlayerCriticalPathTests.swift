@@ -148,10 +148,14 @@ struct EngineFailureTests {
         harness.engine.emit(.failed(.connectionLost(detail: nil)))
         await awaitObservation { harness.coordinator.engineBook == nil }
 
-        #expect(harness.progress.pausedCalls.last?.0 == "book1")
-        #expect(harness.progress.pausedCalls.last?.1 == 15000)
-        await awaitUntil { harness.progress.savedNow.contains { $0 == ("book1", 15000) } }
-        #expect(harness.progress.savedNow.contains { $0 == ("book1", 15000) })
+        // The place is where playback had reached: 15000 plus whatever the playhead ran on before the failure
+        // landed (a few ms on a loaded CI machine), never the 12000 the last tick saved.
+        let paused = harness.progress.pausedCalls.last
+        #expect(paused?.0 == "book1")
+        let place = paused?.1 ?? 0
+        #expect((15000..<16000).contains(place))
+        await awaitUntil { harness.progress.savedNow.contains { $0 == ("book1", place) } }
+        #expect(harness.progress.savedNow.contains { $0 == ("book1", place) })
     }
 
     /// A book that never started (its engine load failed) has no place of its own to save.
