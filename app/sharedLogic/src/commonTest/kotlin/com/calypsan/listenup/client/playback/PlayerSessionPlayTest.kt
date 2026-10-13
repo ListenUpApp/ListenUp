@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.test.fake.FakePlaybackController
+import com.calypsan.listenup.client.test.fake.FakePlaybackManager
 import com.calypsan.listenup.client.test.fake.positionFor
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
@@ -175,6 +177,39 @@ class PlayerSessionPlayTest :
                     rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.CouldNotStart())
                     rig.store.stored shouldBe "b1"
                     rig.engine.calls.last() shouldBe "abandonLoad"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a failed supersede on Android and desktop: A stops playing at the tap, B shows Failed") {
+            runTest {
+                val manager = FakePlaybackManager()
+                val controller = FakePlaybackController()
+                val rig =
+                    PlayerSessionRig(this, storedBookId = "a") { scope ->
+                        ManagedPlayerEngine(
+                            playbackManager = manager,
+                            playbackController = controller,
+                            startGate = NoPlaybackStartGate,
+                            outputRoute = NoOutputRoute,
+                            scope = scope,
+                        )
+                    }
+                try {
+                    rig.withBook("a")
+                    rig.withBook("b")
+                    manager.currentBookIdFlow.value = BookId("a")
+                    manager.playbackStateFlow.value = PlaybackState.Playing
+                    manager.playingFlow.value = true
+                    runCurrent()
+                    manager.stubbedPrepareError = PlaybackError.CouldNotStart()
+                    rig.session.playBook(BookId("b"), null)
+                    controller.pauseCount shouldBe 1
+                    runCurrent()
+                    rig.loaded.bookId shouldBe BookId("b")
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.CouldNotStart())
                 } finally {
                     rig.close()
                 }

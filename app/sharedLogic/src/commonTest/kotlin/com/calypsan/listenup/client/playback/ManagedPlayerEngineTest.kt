@@ -21,8 +21,10 @@ class ManagedPlayerEngineTest :
     FunSpec({
         class RecordingGate : PlaybackStartGate {
             val calls = mutableListOf<String>()
+            var onPrime: () -> Unit = {}
 
             override fun prime() {
+                onPrime()
                 calls += "prime"
             }
 
@@ -151,6 +153,43 @@ class ManagedPlayerEngineTest :
                     rig.manager.activatedBookIds shouldContainExactly listOf(BookId("b1"))
                     rig.controller.startPlaybackCalls.size shouldBe 1
                     rig.gate.calls shouldContainExactly listOf("prime")
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("another book pauses the playing one before the prime: a failed load leaves silence") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    rig.manager.currentBookIdFlow.value = BookId("a")
+                    rig.manager.playingFlow.value = true
+                    var pausesWhenPrimed = -1
+                    rig.gate.onPrime = { pausesWhenPrimed = rig.controller.pauseCount }
+                    rig.engine.beginLoad(BookId("b"))
+                    rig.controller.pauseCount shouldBe 1
+                    pausesWhenPrimed shouldBe 1
+                    rig.gate.calls shouldContainExactly listOf("prime")
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("beginLoad pauses nothing for the same book, a paused book, or no book") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    rig.engine.beginLoad(BookId("a"))
+                    rig.manager.currentBookIdFlow.value = BookId("a")
+                    rig.engine.beginLoad(BookId("b"))
+                    rig.manager.playingFlow.value = true
+                    rig.engine.beginLoad(BookId("a"))
+                    rig.controller.pauseCount shouldBe 0
+                    rig.gate.calls shouldContainExactly listOf("prime", "prime", "prime")
                 } finally {
                     scope.cancel()
                 }

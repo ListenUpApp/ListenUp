@@ -124,6 +124,32 @@ class LivePlaybackWiringTest :
             }
         }
 
+        test("switching books pauses the playing one at the tap without spending the tap: the next book plays") {
+            // The engine pauses the outgoing book before it primes. A pause after the prime would cancel the tap's
+            // standing "play what loads next", and the new book would sit silently on Paused.
+            val segment = silentSegment(SEGMENT_MS)
+            val manager = fakePlaybackManager(segment, title = DUNE)
+            val koin = bootBrowserGraph(manager)
+            val player = koin.get<HtmlAudioPlayer>()
+            val session = graphPlayback(koin)()
+            try {
+                session.onPlayBook(BookId(BOOK_ID), null)
+                // The manager's flag, not the element's state: it is what the engine reads to decide on a pause.
+                withTimeout(TIMEOUT_MS) { manager.playing.first { it } }
+
+                session.onPlayBook(BookId(OTHER_BOOK_ID), null)
+
+                // Read before anything could suspend: the prime survived the pause that preceded it.
+                player.state.value shouldBe PlaybackState.Buffering
+                withTimeout(TIMEOUT_MS) { manager.currentBookId.first { it == BookId(OTHER_BOOK_ID) } }
+                player.awaitState(PlaybackState.Playing)
+            } finally {
+                session.onCloseBook()
+                session.close()
+                URL.revokeObjectURL(segment.url)
+            }
+        }
+
         test("closing the session (sign-out) stops the audio it owns") {
             // Sign-out unmounts the shell, which closes the session. Without the release the book would narrate
             // on over the login screen with no bar left to stop it.
@@ -214,7 +240,11 @@ private fun bootBrowserGraph(manager: FakePlaybackManager): Koin =
         module { single<Worker> { createSqliteWorker() } },
         module {
             single<PlaybackManager> { manager }
-            single<BookRepository> { FakeBookRepository(mapOf(BOOK_ID to duneDetail())) }
+            single<BookRepository> {
+                FakeBookRepository(
+                    mapOf(BOOK_ID to duneDetail(), OTHER_BOOK_ID to duneDetail().copy(id = BookId(OTHER_BOOK_ID))),
+                )
+            }
         },
     ).koin
 
@@ -240,6 +270,8 @@ private suspend fun HtmlAudioPlayer.awaitAppliedGain(target: Double) {
 }
 
 private const val BOOK_ID = "book-1"
+
+private const val OTHER_BOOK_ID = "book-2"
 
 private const val DUNE = "Dune"
 

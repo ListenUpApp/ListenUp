@@ -42,7 +42,16 @@ internal class ManagedPlayerEngine(
             transform = ::enginePhaseOf,
         ).stateIn(scope, SharingStarted.Eagerly, EnginePhase.IDLE)
 
-    override fun beginLoad(bookId: BookId) = startGate.prime()
+    /**
+     * Silence the outgoing book at once when another one is asked for, so a load that fails does not leave it
+     * playing behind the new book's error (what [NativePlayerEngine] does too). The pause comes before the
+     * prime: on the web a pause after it would cancel the tap's standing "play what loads next".
+     */
+    override fun beginLoad(bookId: BookId) {
+        val current = playbackManager.currentBookId.value
+        if (current != null && current != bookId && playbackManager.playing.value) playbackController.pause()
+        startGate.prime()
+    }
 
     override suspend fun load(
         bookId: BookId,

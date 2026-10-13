@@ -35,6 +35,8 @@ internal class PlayerSessionRig(
     offlineCopiesSupported: Boolean = true,
     /** A real dispatcher for the session instead of the test scheduler (a JVM thread-confinement spec). */
     playerContext: CoroutineContext? = null,
+    /** A real engine (say a [ManagedPlayerEngine] over fakes) in place of [engine], built on the rig's scope. */
+    playerEngine: ((CoroutineScope) -> PlayerEngine)? = null,
 ) {
     /** Simulates a caller off the player's thread (sign-out's background scope); the test body is on it otherwise. */
     var offPlayerThread = false
@@ -44,6 +46,7 @@ internal class PlayerSessionRig(
             playerContext ?: (StandardTestDispatcher(testScope.testScheduler) + PlayerThreadCheck { !offPlayerThread }),
         )
     val engine = FakePlayerEngine()
+    private val activeEngine: PlayerEngine = playerEngine?.invoke(scope) ?: engine
     val store = FakeLoadedBookStore(storedBookId)
     val books = FakeBookRepository()
     val positions = FakePlaybackPositionRepository()
@@ -55,10 +58,10 @@ internal class PlayerSessionRig(
     val auth = FakeAuthSession()
     val preferences = FakePlaybackPreferences()
     val sleep = SleepTimerManager(scope, nowMillis = { 0L }, elapsedMillis = { testScope.testScheduler.currentTime })
-    val loadedBooks = LoadedBookRepositoryImpl(store, books, positions, engine)
+    val loadedBooks = LoadedBookRepositoryImpl(store, books, positions, activeEngine)
     val session =
         PlayerSession(
-            engine = engine,
+            engine = activeEngine,
             loadedBooks = loadedBooks,
             bookRepository = books,
             downloadRepository = downloads,
