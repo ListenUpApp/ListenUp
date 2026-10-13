@@ -73,6 +73,56 @@ class PlayerSessionSleepTest :
             }
         }
 
+        test("closing the book during the fade puts the volume back") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.Duration(1))
+                    advanceTimeBy(61_500)
+                    runCurrent()
+                    rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                    rig.session.closeBook()
+                    runCurrent()
+                    rig.engine.calls.last { it.startsWith("setVolume") } shouldBe "setVolume:1.0"
+                    rig.sleep.state.value shouldBe SleepTimerState.Inactive
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("playing another book during the fade stops the fade, which never pauses the new book") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("a")
+                    rig.withBook("b")
+                    runCurrent()
+                    rig.session.playBook(BookId("a"), null)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.Duration(1))
+                    advanceTimeBy(61_500)
+                    runCurrent()
+                    rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                    rig.session.playBook(BookId("b"), null)
+                    runCurrent()
+                    val sinceSwitch = rig.engine.calls.size
+                    advanceTimeBy(SLEEP_FADE_DURATION_MS + 500)
+                    runCurrent()
+                    rig.engine.calls.drop(sinceSwitch) shouldNotContain "pause"
+                    rig.engine.calls.last { it.startsWith("setVolume") } shouldBe "setVolume:1.0"
+                    rig.loaded.bookId shouldBe BookId("b")
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("a throwing fade still resets the timer, so it is never stuck fading") {
             runTest {
                 val rig = PlayerSessionRig(this)

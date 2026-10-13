@@ -449,6 +449,8 @@ class PlayerSession(
         startAtMs: Long?,
     ) {
         cancelLoad()
+        // A fade belongs to the book it was started for: left running, it would pause this one.
+        if (stage.value?.bookId != bookId) fadeJob?.cancel()
         // cancelLoad() moved the generation on, so this load's generation is read after it.
         val myGeneration = generation
         preparingBookId.value = bookId
@@ -725,11 +727,23 @@ class PlayerSession(
                 } catch (e: Exception) {
                     logger.warn(e) { "Sleep fade failed; resetting the timer" }
                 } finally {
-                    // Never leave the timer stuck in FadingOut, even when the fade throws or is cancelled.
+                    // Never leave the timer stuck in FadingOut, nor the output quiet, even when the fade throws or is
+                    // cancelled (Close, sign-out, another book): the engine outlives the fade.
+                    restoreFullVolume()
                     sleepTimer.onFadeCompleted()
                 }
             }
         fadeJob = job
         job.join()
+    }
+
+    private fun restoreFullVolume() {
+        try {
+            engine.setVolume(1f)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Could not restore full volume after the sleep fade" }
+        }
     }
 }
