@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.core.BookId
@@ -28,6 +30,7 @@ internal class PlayerReadout(
     stage: StateFlow<SessionStage?>,
     pendingStart: StateFlow<PlaybackStart>,
     bookRepository: BookRepository,
+    downloadRepository: DownloadRepository,
     positionRepository: PlaybackPositionRepository,
     playbackPreferences: PlaybackPreferences,
     scope: CoroutineScope,
@@ -144,4 +147,33 @@ internal class PlayerReadout(
         ) { bound, engineBoost, saved, default ->
             if (bound) engineBoost else saved?.volumeBoostDb ?: default
         }.stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB)
+
+    /**
+     * The loaded book's standing in the local mirror (§3.4), keyed on the book too: one revoked book straight after
+     * another must still tear the second down.
+     */
+    val liveness: Flow<Pair<BookId?, Liveness>> =
+        stageBookId
+            .flatMapLatest { id ->
+                val verdicts =
+                    if (id == null) {
+                        flowOf(Liveness.Live)
+                    } else {
+                        combine(
+                            flow = bookRepository.observeBookDetail(id.value).map { it != null },
+                            flow2 = bookRepository.observeIsBookLive(id.value),
+                            flow3 = downloadRepository.observeBookStatus(id),
+                            flow4 = positionRepository.observe(id),
+                        ) { exists, live, download, position ->
+                            livenessOf(
+                                rowExists = exists,
+                                isLive = live,
+                                isDownloaded = download is BookDownloadStatus.Completed,
+                                positionMs = position?.positionMs ?: 0L,
+                                isFinished = position?.isFinished == true,
+                            )
+                        }
+                    }
+                verdicts.map { verdict -> id to verdict }
+            }.distinctUntilChanged()
 }

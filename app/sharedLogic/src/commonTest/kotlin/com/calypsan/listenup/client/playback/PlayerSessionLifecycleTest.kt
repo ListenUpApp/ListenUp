@@ -252,6 +252,43 @@ class PlayerSessionLifecycleTest :
             }
         }
 
+        test("Close from off the player's thread (sign-out) hops onto the player scope, then unloads") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    rig.offPlayerThread = true
+                    rig.session.closeBook()
+                    rig.engine.calls shouldNotContain "stop"
+                    runCurrent()
+                    rig.engine.calls shouldContain "stop"
+                    rig.session.state.value shouldBe PlayerSessionState.NothingLoaded
+                    rig.store.stored.shouldBeNull()
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a command from the player's own thread still runs inside the call") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    rig.session.closeBook()
+                    rig.engine.calls shouldContain "stop"
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("a Play tapped before the first read of the loaded key finishes is not lost") {
             runTest {
                 val rig = PlayerSessionRig(this)

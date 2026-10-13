@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
 import com.calypsan.listenup.client.test.fake.FakePlaybackPreferences
 import com.calypsan.listenup.client.test.fake.FakePlayerEngine
 import com.calypsan.listenup.client.test.fake.FakeServerReachability
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -32,8 +33,16 @@ internal class PlayerSessionRig(
     testScope: TestScope,
     storedBookId: String? = null,
     offlineCopiesSupported: Boolean = true,
+    /** A real dispatcher for the session instead of the test scheduler (a JVM thread-confinement spec). */
+    playerContext: CoroutineContext? = null,
 ) {
-    val scope = CoroutineScope(StandardTestDispatcher(testScope.testScheduler))
+    /** Simulates a caller off the player's thread (sign-out's background scope); the test body is on it otherwise. */
+    var offPlayerThread = false
+
+    val scope =
+        CoroutineScope(
+            playerContext ?: (StandardTestDispatcher(testScope.testScheduler) + PlayerThreadCheck { !offPlayerThread }),
+        )
     val engine = FakePlayerEngine()
     val store = FakeLoadedBookStore(storedBookId)
     val books = FakeBookRepository()

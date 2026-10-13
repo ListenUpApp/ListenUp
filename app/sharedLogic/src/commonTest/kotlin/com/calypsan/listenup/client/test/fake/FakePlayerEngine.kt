@@ -28,6 +28,9 @@ class FakePlayerEngine : PlayerEngine {
     override val error = MutableStateFlow<AppError?>(null)
 
     val calls = mutableListOf<String>()
+
+    /** Runs on every recorded call, on the calling thread (a JVM spec reads which thread that was). */
+    var onCall: (String) -> Unit = {}
     val loads = mutableListOf<Pair<BookId, PlaybackStart>>()
     var loadResult: AppResult<Unit> = AppResult.Success(Unit)
     var loadSuspension: suspend () -> Unit = {}
@@ -41,7 +44,7 @@ class FakePlayerEngine : PlayerEngine {
     var volumeFailure: Exception? = null
 
     override fun beginLoad(bookId: BookId) {
-        calls += "beginLoad:${bookId.value}"
+        record("beginLoad:${bookId.value}")
     }
 
     override suspend fun load(
@@ -81,58 +84,63 @@ class FakePlayerEngine : PlayerEngine {
     }
 
     override fun abandonLoad() {
-        calls += "abandonLoad"
+        record("abandonLoad")
     }
 
     override fun play() {
-        calls += "play"
+        record("play")
         if (loadedBookId.value != null) phase.value = EnginePhase.PLAYING
     }
 
     override fun pause() {
-        calls += "pause"
+        record("pause")
         if (loadedBookId.value != null) phase.value = EnginePhase.PAUSED
     }
 
     override fun seekTo(positionMs: Long) {
-        calls += "seekTo:$positionMs"
+        record("seekTo:$positionMs")
         setPosition(positionMs)
     }
 
     override fun setSpeed(speed: Float) {
-        calls += "setSpeed:$speed"
+        record("setSpeed:$speed")
         this.speed.value = speed
     }
 
     override fun resetSpeed(defaultSpeed: Float) {
-        calls += "resetSpeed:$defaultSpeed"
+        record("resetSpeed:$defaultSpeed")
         speed.value = defaultSpeed
     }
 
     override fun setBoost(boostDb: Float) {
-        calls += "setBoost:$boostDb"
+        record("setBoost:$boostDb")
         this.boostDb.value = boostDb
     }
 
     override fun resetBoost(defaultBoostDb: Float) {
-        calls += "resetBoost:$defaultBoostDb"
+        record("resetBoost:$defaultBoostDb")
         boostDb.value = defaultBoostDb
     }
 
     override fun setVolume(volume: Float) {
-        calls += "setVolume:$volume"
+        record("setVolume:$volume")
         volumeFailure?.let { throw it }
     }
 
     override fun clearError() {
-        calls += "clearError"
+        record("clearError")
         error.value = null
     }
 
     override fun stop() {
-        calls += "stop"
+        record("stop")
         loadedBookId.value = null
         phase.value = EnginePhase.IDLE
+    }
+
+    private fun record(call: String) {
+        calls += call
+        onCall(call)
     }
 
     /** Move the playhead the way a real engine reports it, keeping [currentChapter] derived the one way. */

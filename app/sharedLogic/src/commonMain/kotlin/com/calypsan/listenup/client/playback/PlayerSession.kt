@@ -25,7 +25,9 @@ import com.calypsan.listenup.client.presentation.player.skipTargetMs
 import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.coroutines.ContinuationInterceptor
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -64,8 +66,8 @@ internal const val MAX_SLEEP_MINUTES = 720
 class PlayerSession(
     private val engine: PlayerEngine,
     private val loadedBooks: LoadedBookRepository,
-    private val bookRepository: BookRepository,
-    private val downloadRepository: DownloadRepository,
+    bookRepository: BookRepository,
+    downloadRepository: DownloadRepository,
     private val positionRepository: PlaybackPositionRepository,
     private val availability: BookAvailability,
     private val inboxRepository: InboxRepository,
@@ -100,6 +102,7 @@ class PlayerSession(
             stage = stage,
             pendingStart = pendingStart,
             bookRepository = bookRepository,
+            downloadRepository = downloadRepository,
             positionRepository = positionRepository,
             playbackPreferences = playbackPreferences,
             scope = scope,
@@ -265,38 +268,13 @@ class PlayerSession(
     }
 
     private suspend fun watchLiveness() {
-        stageBookId
-            .flatMapLatest { id ->
-                val verdicts =
-                    if (id == null) {
-                        flowOf(Liveness.Live)
-                    } else {
-                        combine(
-                            flow = bookRepository.observeBookDetail(id.value).map { it != null },
-                            flow2 = bookRepository.observeIsBookLive(id.value),
-                            flow3 = downloadRepository.observeBookStatus(id),
-                            flow4 = positionRepository.observe(id),
-                        ) { exists, live, download, position ->
-                            livenessOf(
-                                rowExists = exists,
-                                isLive = live,
-                                isDownloaded = download is BookDownloadStatus.Completed,
-                                positionMs = position?.positionMs ?: 0L,
-                                isFinished = position?.isFinished == true,
-                            )
-                        }
-                    }
-                verdicts.map { verdict -> id to verdict }
+        readout.liveness.collect { (_, verdict) ->
+            when (verdict) {
+                Liveness.Live -> Unit
+                Liveness.RowGone -> closeBook()
+                Liveness.Revoked -> tearDownRevoked()
             }
-            // Keyed on the book too: one revoked book straight after another must still tear the second down.
-            .distinctUntilChanged()
-            .collect { (_, verdict) ->
-                when (verdict) {
-                    Liveness.Live -> Unit
-                    Liveness.RowGone -> closeBook()
-                    Liveness.Revoked -> tearDownRevoked()
-                }
-            }
+        }
     }
 
     /** Stop a revoked or deleted book but keep it loaded, so the bar can say why (§3.4). */
@@ -310,12 +288,14 @@ class PlayerSession(
 
     /** Close book (F1): stop, cancel the timer, forget the book on this device. */
     fun closeBook() {
-        cancelLoad()
-        fadeJob?.cancel()
-        engine.stop()
-        sleepTimer.cancelTimer()
-        unloadInMemory()
-        scope.launch { loadedBooks.clear() }
+        onPlayer {
+            cancelLoad()
+            fadeJob?.cancel()
+            engine.stop()
+            sleepTimer.cancelTimer()
+            unloadInMemory()
+            scope.launch { loadedBooks.clear() }
+        }
     }
 
     private fun unloadInMemory() {
@@ -377,23 +357,25 @@ class PlayerSession(
         bookId: BookId,
         startAtMs: Long?,
     ) {
-        if (startAtMs == null && preparingBookId.value == bookId) return
-        val loaded = loadedOrNull()
-        val resumable =
-            loaded != null &&
-                loaded.bookId == bookId &&
-                loaded.isEngineBound &&
-                loaded.phase !is PlayerPhase.Finished &&
-                loaded.phase !is PlayerPhase.Failed
-        if (resumable) {
-            if (startAtMs != null) engine.seekTo(startAtMs.coerceIn(0L, (durationMs.value - 1).coerceAtLeast(0L)))
-            engine.clearError()
-            engine.play()
-            return
+        onPlayer {
+            if (startAtMs == null && preparingBookId.value == bookId) return@onPlayer
+            val loaded = loadedOrNull()
+            val resumable =
+                loaded != null &&
+                    loaded.bookId == bookId &&
+                    loaded.isEngineBound &&
+                    loaded.phase !is PlayerPhase.Finished &&
+                    loaded.phase !is PlayerPhase.Failed
+            if (resumable) {
+                if (startAtMs != null) engine.seekTo(startAtMs.coerceIn(0L, (durationMs.value - 1).coerceAtLeast(0L)))
+                engine.clearError()
+                engine.play()
+                return@onPlayer
+            }
+            // A plain Play of the loaded, not-prepared book honours where the listener moved it (Decision 5).
+            val pending = pendingStart.value.takeIf { stage.value?.bookId == bookId }
+            startLoad(bookId, startAtMs?.let(PlaybackStart::At) ?: pending ?: PlaybackStart.Resume)
         }
-        // A plain Play of the loaded, not-prepared book honours where the listener moved it (Decision 5).
-        val pending = pendingStart.value.takeIf { stage.value?.bookId == bookId }
-        startLoad(bookId, startAtMs?.let(PlaybackStart::At) ?: pending ?: PlaybackStart.Resume)
     }
 
     /**
@@ -468,58 +450,82 @@ class PlayerSession(
         engine.seekTo(if (lastMs > 0) queued.positionMs.coerceIn(0L, lastMs) else queued.positionMs)
     }
 
+    /**
+     * Run [command] confined to the player scope: inline when the caller is already on its thread, so a tap's
+     * synchronous work (a browser's gesture, a double tap swallowed in the same tick) happens inside the call;
+     * otherwise hopped onto the scope. Sign-out, for one, calls Close from a background scope.
+     */
+    private inline fun onPlayer(crossinline command: () -> Unit) {
+        if (isOnPlayerThread()) command() else scope.launch { command() }
+    }
+
+    private fun isOnPlayerThread(): Boolean {
+        val context = scope.coroutineContext
+        context[PlayerThreadCheck]?.let { return it.isCurrent() }
+        val dispatcher = context[ContinuationInterceptor] as? CoroutineDispatcher ?: return true
+        return !dispatcher.isDispatchNeeded(context)
+    }
+
     private fun loadedOrNull(): PlayerSessionState.Loaded? = state.value as? PlayerSessionState.Loaded
 
     // ── Transport (Task 15) ──────────────────────────────────────────────────────────────────────────
 
     /** The one play/pause intent (§4.3): resume, pause, prepare a restored book, re-listen, or retry. */
     fun playPause() {
-        val loaded = loadedOrNull() ?: return
-        when (val phase = loaded.phase) {
-            PlayerPhase.Playing, PlayerPhase.Buffering, PlayerPhase.SleepFading -> {
-                engine.pause()
-            }
+        onPlayer {
+            val loaded = loadedOrNull() ?: return@onPlayer
+            when (val phase = loaded.phase) {
+                PlayerPhase.Playing, PlayerPhase.Buffering, PlayerPhase.SleepFading -> {
+                    engine.pause()
+                }
 
-            PlayerPhase.Paused -> {
-                engine.clearError()
-                engine.play()
-            }
-
-            PlayerPhase.Restored -> {
-                startLoad(loaded.bookId, pendingStart.value)
-            }
-
-            PlayerPhase.Finished -> {
-                startLoad(loaded.bookId, PlaybackStart.Resume)
-            }
-
-            is PlayerPhase.Failed -> {
-                if (phase.error is PlaybackError.AutoplayBlocked || phase.error is PlaybackError.BlockedInBackground) {
+                PlayerPhase.Paused -> {
                     engine.clearError()
                     engine.play()
-                } else {
+                }
+
+                PlayerPhase.Restored -> {
+                    startLoad(loaded.bookId, pendingStart.value)
+                }
+
+                PlayerPhase.Finished -> {
+                    startLoad(loaded.bookId, PlaybackStart.Resume)
+                }
+
+                is PlayerPhase.Failed -> {
+                    if (phase.error is PlaybackError.AutoplayBlocked ||
+                        phase.error is PlaybackError.BlockedInBackground
+                    ) {
+                        engine.clearError()
+                        engine.play()
+                    } else {
+                        retry()
+                    }
+                }
+
+                is PlayerPhase.Unavailable -> {
                     retry()
                 }
-            }
 
-            is PlayerPhase.Unavailable -> {
-                retry()
-            }
-
-            PlayerPhase.Preparing -> {
-                // A load is in flight; its result decides.
+                PlayerPhase.Preparing -> {
+                    // A load is in flight; its result decides.
+                }
             }
         }
     }
 
     /** Back by the user's interval × speed, clamped (§3.3). */
     fun skipBack() {
-        skipBy(skipBackwardSec.value, forward = false)
+        onPlayer {
+            skipBy(skipBackwardSec.value, forward = false)
+        }
     }
 
     /** Forward by the user's interval × speed, clamped. */
     fun skipForward() {
-        skipBy(skipForwardSec.value, forward = true)
+        onPlayer {
+            skipBy(skipForwardSec.value, forward = true)
+        }
     }
 
     private fun skipBy(
@@ -548,19 +554,23 @@ class PlayerSession(
 
     /** §3.3: restart the chapter after 3 s, else the previous one; chapter 1 restarts. */
     fun previousChapter() {
-        if (movesThePlayhead()) {
-            seekTo(previousChapterTargetMs(positionMs.value, chapters.value))
-        } else {
-            carry(PlaybackMove.PreviousChapter)
+        onPlayer {
+            if (movesThePlayhead()) {
+                seekTo(previousChapterTargetMs(positionMs.value, chapters.value))
+            } else {
+                carry(PlaybackMove.PreviousChapter)
+            }
         }
     }
 
     /** §3.3: the next chapter's start; a no-op at the last chapter. */
     fun nextChapter() {
-        if (movesThePlayhead()) {
-            nextChapterTargetMs(positionMs.value, chapters.value)?.let(::seekTo)
-        } else {
-            carry(PlaybackMove.NextChapter)
+        onPlayer {
+            if (movesThePlayhead()) {
+                nextChapterTargetMs(positionMs.value, chapters.value)?.let(::seekTo)
+            } else {
+                carry(PlaybackMove.NextChapter)
+            }
         }
     }
 
@@ -583,20 +593,24 @@ class PlayerSession(
 
     /** The start of chapter [index]; an index the list no longer has is ignored, never clamped. */
     fun seekToChapter(index: Int) {
-        chapters.value.getOrNull(index)?.let { seekTo(it.startTime) }
+        onPlayer {
+            chapters.value.getOrNull(index)?.let { seekTo(it.startTime) }
+        }
     }
 
     /** [fraction] of the current chapter (the whole book when it has no chapters). */
     fun seekWithinChapter(fraction: Float) {
-        val clamped = fraction.coerceIn(0f, 1f)
-        val chapter = currentChapter.value
-        val target =
-            if (chapter == null) {
-                (durationMs.value * clamped).toLong()
-            } else {
-                chapter.startMs + ((chapter.endMs - chapter.startMs) * clamped).toLong()
-            }
-        seekTo(target)
+        onPlayer {
+            val clamped = fraction.coerceIn(0f, 1f)
+            val chapter = currentChapter.value
+            val target =
+                if (chapter == null) {
+                    (durationMs.value * clamped).toLong()
+                } else {
+                    chapter.startMs + ((chapter.endMs - chapter.startMs) * clamped).toLong()
+                }
+            seekTo(target)
+        }
     }
 
     /**
@@ -605,40 +619,52 @@ class PlayerSession(
      * again from there, like Listen again (§4.5, Book Detail §2.5).
      */
     fun seekTo(positionMs: Long) {
-        val loaded = loadedOrNull() ?: return
-        val target = positionMs.coerceAtLeast(0L)
-        when {
-            loaded.phase is PlayerPhase.Finished -> startLoad(loaded.bookId, PlaybackStart.At(target))
-            loaded.isEngineBound -> engine.seekTo(target)
-            else -> pendingStart.value = PlaybackStart.At(target)
+        onPlayer {
+            val loaded = loadedOrNull() ?: return@onPlayer
+            val target = positionMs.coerceAtLeast(0L)
+            when {
+                loaded.phase is PlayerPhase.Finished -> startLoad(loaded.bookId, PlaybackStart.At(target))
+                loaded.isEngineBound -> engine.seekTo(target)
+                else -> pendingStart.value = PlaybackStart.At(target)
+            }
         }
     }
 
     /** Play at [speed], clamped to 0.5–3.0, as this book's own rate. Only while the engine holds the book. */
     fun setSpeed(speed: Float) {
-        if (engineBound.value) engine.setSpeed(speed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX))
+        onPlayer {
+            if (engineBound.value) engine.setSpeed(speed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX))
+        }
     }
 
     /** ±0.05 within 0.5–3.0, with no float drift (§4.3, Q3). */
     fun stepSpeed(up: Boolean) {
-        setSpeed(stepPlaybackSpeed(speed.value, up))
+        onPlayer {
+            setSpeed(stepPlaybackSpeed(speed.value, up))
+        }
     }
 
     /** Back to the user's default rate; this book stops being an exception. */
     fun resetSpeed() {
-        if (!engineBound.value) return
-        scope.launch { engine.resetSpeed(playbackPreferences.getDefaultPlaybackSpeed()) }
+        onPlayer {
+            if (!engineBound.value) return@onPlayer
+            scope.launch { engine.resetSpeed(playbackPreferences.getDefaultPlaybackSpeed()) }
+        }
     }
 
     /** Boost by [boostDb] as this book's own. */
     fun setBoost(boostDb: Float) {
-        if (engineBound.value) engine.setBoost(boostDb)
+        onPlayer {
+            if (engineBound.value) engine.setBoost(boostDb)
+        }
     }
 
     /** Back to the user's default boost. */
     fun resetBoost() {
-        if (!engineBound.value) return
-        scope.launch { engine.resetBoost(playbackPreferences.getDefaultVolumeBoostDb()) }
+        onPlayer {
+            if (!engineBound.value) return@onPlayer
+            scope.launch { engine.resetBoost(playbackPreferences.getDefaultVolumeBoostDb()) }
+        }
     }
 
     // ── Errors (Task 16) ─────────────────────────────────────────────────────────────────────────────
@@ -649,19 +675,21 @@ class PlayerSession(
      * their primary control leads elsewhere (Open Inbox, Close, Sign in).
      */
     fun retry() {
-        val loaded = loadedOrNull() ?: return
-        val cause =
-            (loaded.phase as? PlayerPhase.Failed)?.error
-                ?: (loaded.phase as? PlayerPhase.Unavailable)?.reason
-                ?: return
-        if (cause is BookError.HeldForReview || cause is PlaybackError.NoLongerAvailable ||
-            cause is AuthError.SessionExpired
-        ) {
-            return
+        onPlayer {
+            val loaded = loadedOrNull() ?: return@onPlayer
+            val cause =
+                (loaded.phase as? PlayerPhase.Failed)?.error
+                    ?: (loaded.phase as? PlayerPhase.Unavailable)?.reason
+                    ?: return@onPlayer
+            if (cause is BookError.HeldForReview || cause is PlaybackError.NoLongerAvailable ||
+                cause is AuthError.SessionExpired
+            ) {
+                return@onPlayer
+            }
+            if (cause.isTransport()) scope.launch { serverReachability.retry() }
+            engine.clearError()
+            startLoad(loaded.bookId, PlaybackStart.Resume)
         }
-        if (cause.isTransport()) scope.launch { serverReachability.retry() }
-        engine.clearError()
-        startLoad(loaded.bookId, PlaybackStart.Resume)
     }
 
     /**
@@ -669,15 +697,17 @@ class PlayerSession(
      * an engine failure mid-play clears and pauses.
      */
     fun dismissError() {
-        val current = stage.value ?: return
-        when {
-            current is SessionStage.Failed -> {
-                stage.value = SessionStage.Idle(current.bookId)
-            }
+        onPlayer {
+            val current = stage.value ?: return@onPlayer
+            when {
+                current is SessionStage.Failed -> {
+                    stage.value = SessionStage.Idle(current.bookId)
+                }
 
-            engine.error.value != null -> {
-                engine.clearError()
-                engine.pause()
+                engine.error.value != null -> {
+                    engine.clearError()
+                    engine.pause()
+                }
             }
         }
     }
@@ -692,26 +722,32 @@ class PlayerSession(
 
     /** Start a timer. A duration takes any whole minutes from 1 to 720 (the custom stepper, PT8). */
     fun setSleepTimer(mode: SleepTimerMode) {
-        val bounded =
-            if (mode is SleepTimerMode.Duration) {
-                SleepTimerMode.Duration(mode.minutes.coerceIn(1, MAX_SLEEP_MINUTES))
-            } else {
-                mode
-            }
-        sleepTimer.setTimer(bounded)
+        onPlayer {
+            val bounded =
+                if (mode is SleepTimerMode.Duration) {
+                    SleepTimerMode.Duration(mode.minutes.coerceIn(1, MAX_SLEEP_MINUTES))
+                } else {
+                    mode
+                }
+            sleepTimer.setTimer(bounded)
+        }
     }
 
     /** +5 / +10 / +15 (and the notification's +10). */
     fun extendSleepTimer(minutes: Int) {
-        sleepTimer.extendTimer(minutes)
+        onPlayer {
+            sleepTimer.extendTimer(minutes)
+        }
     }
 
     /** Cancel the timer. During the fade this is "Keep listening": the fade stops and full volume returns (PT7). */
     fun cancelSleepTimer() {
-        val wasFading = sleepTimer.state.value is SleepTimerState.FadingOut
-        fadeJob?.cancel()
-        sleepTimer.cancelTimer()
-        if (wasFading) engine.setVolume(1f)
+        onPlayer {
+            val wasFading = sleepTimer.state.value is SleepTimerState.FadingOut
+            fadeJob?.cancel()
+            sleepTimer.cancelTimer()
+            if (wasFading) engine.setVolume(1f)
+        }
     }
 
     private suspend fun runFade() {
