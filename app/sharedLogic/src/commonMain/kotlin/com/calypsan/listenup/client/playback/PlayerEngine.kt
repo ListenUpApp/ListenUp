@@ -70,12 +70,12 @@ interface PlayerEngine {
     fun beginLoad(bookId: BookId)
 
     /**
-     * Prepare [bookId] through the playback choke point and hand it to the engine, which starts playing.
-     * [startAtMs] starts there (book ms); null resumes from the saved position.
+     * Prepare [bookId] through the playback choke point and hand it to the engine, which starts playing at
+     * [start]. The choke point resolves [start] against the reconciled saved position.
      */
     suspend fun load(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<Unit>
 
     /** A [beginLoad] whose [load] did not complete (failed, superseded, cancelled): undo what it armed. */

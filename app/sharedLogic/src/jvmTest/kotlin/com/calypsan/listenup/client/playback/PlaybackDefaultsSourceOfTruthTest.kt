@@ -193,7 +193,7 @@ class PlaybackDefaultsSourceOfTruthTest :
             runTest {
                 val result =
                     buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition())
-                        .prepare(bookId, startAtMs = null)
+                        .prepare(bookId, start = PlaybackStart.Resume)
                         .getOrNull()
 
                 result.shouldNotBeNull()
@@ -206,7 +206,7 @@ class PlaybackDefaultsSourceOfTruthTest :
             runTest {
                 val result =
                     buildPreparer(FakeUserPreferencesRepository(syncedTwoX), savedPosition = null)
-                        .prepare(bookId, startAtMs = null)
+                        .prepare(bookId, start = PlaybackStart.Resume)
                         .getOrNull()
 
                 result.shouldNotBeNull()
@@ -225,7 +225,11 @@ class PlaybackDefaultsSourceOfTruthTest :
                         hasCustomBoost = true,
                     )
 
-                val result = buildPreparer(FakeUserPreferencesRepository(syncedTwoX), custom).prepare(bookId, startAtMs = null).getOrNull()
+                val result =
+                    buildPreparer(
+                        FakeUserPreferencesRepository(syncedTwoX),
+                        custom,
+                    ).prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeSpeed shouldBe 1.25f
@@ -238,7 +242,7 @@ class PlaybackDefaultsSourceOfTruthTest :
                 val synced = FakeUserPreferencesRepository(syncedTwoX)
                 synced.failGetPreferences = InternalError(debugInfo = "server unreachable")
 
-                val result = buildPreparer(synced, savedPosition()).prepare(bookId, startAtMs = null).getOrNull()
+                val result = buildPreparer(synced, savedPosition()).prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeSpeed shouldBe 2.0f

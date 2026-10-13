@@ -99,11 +99,11 @@ interface PlaybackManager :
      *   [com.calypsan.listenup.api.error.BookError.HeldForReview] for a book held for review,
      *   [com.calypsan.listenup.api.error.PlaybackError.CouldNotStart] for anything else.
      *
-     * [startAtMs]: start here (book ms) instead of the saved position; null resumes. See [PlaybackPreparer.prepare].
+     * [start]: where to start, resolved against the reconciled saved position. See [PlaybackPreparer.prepare].
      */
     suspend fun prepareForPlayback(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<PrepareResult>
 
     /**

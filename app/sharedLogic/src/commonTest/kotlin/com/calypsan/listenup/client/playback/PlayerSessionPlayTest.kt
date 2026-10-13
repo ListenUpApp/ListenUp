@@ -119,7 +119,7 @@ class PlayerSessionPlayTest :
                     rig.engine.loads.size shouldBe 1
                     rig.session.playBook(BookId("b1"), 100_000)
                     runCurrent()
-                    rig.engine.loads.map { it.second } shouldContainExactly listOf(null, 100_000L)
+                    rig.engine.loads.map { it.second } shouldContainExactly listOf(PlaybackStart.Resume, PlaybackStart.At(100_000))
                 } finally {
                     rig.close()
                 }
@@ -239,7 +239,7 @@ class PlayerSessionPlayTest :
                     runCurrent()
                     rig.session.playBook(BookId("b2"), 50_000)
                     runCurrent()
-                    rig.engine.loads.last() shouldBe (BookId("b2") to 50_000L)
+                    rig.engine.loads.last() shouldBe (BookId("b2") to PlaybackStart.At(50_000))
                     rig.loaded.bookId shouldBe BookId("b2")
                 } finally {
                     rig.close()

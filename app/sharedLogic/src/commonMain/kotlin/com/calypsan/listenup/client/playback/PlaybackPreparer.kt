@@ -162,13 +162,14 @@ class PlaybackPreparer internal constructor(
      * entirely and local paths are used. Otherwise, a single call to [PlaybackService.prepare] fetches
      * signed streaming URLs for all files.
      *
-     * [startAtMs] is where the listener asked to start (a chapter's start), in book milliseconds, or
-     * null to resume from the saved position. A start position skips auto-rewind and the finished→0
-     * reset; a finished book still begins a new listen-through.
+     * [start] is where the listener asked to start: the saved position ([PlaybackStart.Resume]), a place they
+     * picked ([PlaybackStart.At], e.g. a chapter's start), or moves they made before Play
+     * ([PlaybackStart.Moved]), replayed from the reconciled position. A picked place or a move skips
+     * auto-rewind and the finished→0 reset; a finished book still begins a new listen-through.
      */
     suspend fun prepare(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<PreparedPlayback> =
         try {
             val refusal = bookDao.heldRefusal(bookId)
@@ -176,7 +177,7 @@ class PlaybackPreparer internal constructor(
                 logger.info { "Refusing to play ${bookId.value}: held for review" }
                 AppResult.Failure(refusal)
             } else {
-                prepareInternal(bookId, startAtMs)?.let { AppResult.Success(it) }
+                prepareInternal(bookId, start)?.let { AppResult.Success(it) }
                     ?: AppResult.Failure(PlaybackError.CouldNotStart(debugInfo = "bookId=${bookId.value}"))
             }
         } catch (e: CancellationException) {
@@ -197,11 +198,13 @@ class PlaybackPreparer internal constructor(
         bookId: BookId,
         startAtMs: Long?,
     ): PreparedPlayback? =
-        prepare(bookId, startAtMs).valueOrNull { logger.warn { "prepareOrNull(${bookId.value}): ${it.code} ${it.debugInfo.orEmpty()}" } }
+        prepare(bookId, startAtMs?.let(PlaybackStart::At) ?: PlaybackStart.Resume).valueOrNull {
+            logger.warn { "prepareOrNull(${bookId.value}): ${it.code} ${it.debugInfo.orEmpty()}" }
+        }
 
     private suspend fun prepareInternal(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): PreparedPlayback? {
         logger.info { "Preparing playback for book: ${bookId.value}" }
 
@@ -297,10 +300,8 @@ class PlaybackPreparer internal constructor(
                 ?: if (timeline.isFullyDownloaded) fetchAuthoritativePosition(bookId) else null
         val resolved = resolveResumePosition(savedPosition, serverPosition)
 
-        // A position the listener named (a chapter tap) is exact: no auto-rewind, no finished→0 reset.
         val resumePositionMs =
-            startAtMs?.coerceIn(0L, (timeline.totalDurationMs - 1).coerceAtLeast(0L))
-                ?: resumeStartPositionMs(resolved)
+            startPositionMs(start = start, resolved = resolved, chapters = chapters, totalDurationMs = timeline.totalDurationMs)
         // Starting a finished book over is a new listen-through: clear the flag now, or every later
         // open would take the re-read branch again and throw away how far the listener got.
         if (resolved?.isFinished == true) progressTracker.startRelisten(bookId)
@@ -450,6 +451,37 @@ class PlaybackPreparer internal constructor(
                         "resuming from the local Room row"
                 }
                 null
+            }
+        }
+
+    /**
+     * Where [start] begins, given the reconciled [resolved] row. A position the listener named (a chapter tap) is
+     * exact: no auto-rewind, no finished→0 reset. Moves made before Play (a restored book's skips) replay from the
+     * reconciled position, never from the stale local row they were shown against, so a skip cannot resume there
+     * and overwrite another device's newer progress.
+     */
+    private fun startPositionMs(
+        start: PlaybackStart,
+        resolved: ResolvedResumePosition?,
+        chapters: List<Chapter>,
+        totalDurationMs: Long,
+    ): Long =
+        when (start) {
+            PlaybackStart.Resume -> {
+                resumeStartPositionMs(resolved)
+            }
+
+            is PlaybackStart.At -> {
+                start.positionMs.coerceIn(0L, (totalDurationMs - 1).coerceAtLeast(0L))
+            }
+
+            is PlaybackStart.Moved -> {
+                landingMs(
+                    fromMs = if (resolved == null || resolved.isFinished) 0L else resolved.positionMs,
+                    moves = start.moves,
+                    chapters = chapters,
+                    durationMs = totalDurationMs,
+                )
             }
         }
 

@@ -6,8 +6,10 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.EnginePhase
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.chapterInfoAt
+import com.calypsan.listenup.client.playback.landingMs
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -26,7 +28,7 @@ class FakePlayerEngine : PlayerEngine {
     override val error = MutableStateFlow<AppError?>(null)
 
     val calls = mutableListOf<String>()
-    val loads = mutableListOf<Pair<BookId, Long?>>()
+    val loads = mutableListOf<Pair<BookId, PlaybackStart>>()
     var loadResult: AppResult<Unit> = AppResult.Success(Unit)
     var loadSuspension: suspend () -> Unit = {}
 
@@ -44,14 +46,34 @@ class FakePlayerEngine : PlayerEngine {
 
     override suspend fun load(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<Unit> {
-        loads += bookId to startAtMs
+        loads += bookId to start
         loadSuspension()
         if (loadResult is AppResult.Success) {
             chapters.value = preparedChapters
             durationMs.value = preparedDurationMs
-            setPosition(startAtMs ?: preparedPositionMs)
+            // preparedPositionMs stands for where the preparer's reconcile lands; moves replay from it.
+            setPosition(
+                when (start) {
+                    PlaybackStart.Resume -> {
+                        preparedPositionMs
+                    }
+
+                    is PlaybackStart.At -> {
+                        start.positionMs
+                    }
+
+                    is PlaybackStart.Moved -> {
+                        landingMs(
+                            preparedPositionMs,
+                            start.moves,
+                            preparedChapters,
+                            preparedDurationMs,
+                        )
+                    }
+                },
+            )
             loadedBookId.value = bookId
             phase.value = EnginePhase.PLAYING
         }

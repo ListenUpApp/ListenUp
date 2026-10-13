@@ -214,7 +214,7 @@ class PlaybackPreparerBackgroundDownloadGateTest :
 
                 val preparer = buildPreparer(downloadService, this)
 
-                preparer.prepare(bookId, startAtMs = null).getOrNull().shouldNotBeNull()
+                preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull().shouldNotBeNull()
 
                 // The gate is checked synchronously, before the fire-and-forget scope.launch that
                 // would otherwise call downloadBook(). Settling the scheduler anyway is what makes
@@ -237,7 +237,7 @@ class PlaybackPreparerBackgroundDownloadGateTest :
 
                 val preparer = buildPreparer(downloadService, this)
 
-                preparer.prepare(bookId, startAtMs = null).getOrNull().shouldNotBeNull()
+                preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull().shouldNotBeNull()
 
                 // The download is launched, not awaited, so `prepare` returning proves nothing
                 // about it yet. Settle the scheduler first; asserting straight after the call was

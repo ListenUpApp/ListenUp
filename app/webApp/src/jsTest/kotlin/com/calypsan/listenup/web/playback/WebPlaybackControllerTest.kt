@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
@@ -107,7 +108,7 @@ private val neverCalledPlaybackManager: PlaybackManager =
 
         override suspend fun prepareForPlayback(
             bookId: BookId,
-            startAtMs: Long?,
+            start: PlaybackStart,
         ): AppResult<PlaybackManager.PrepareResult> = unexpected()
 
         override suspend fun startPlayback(

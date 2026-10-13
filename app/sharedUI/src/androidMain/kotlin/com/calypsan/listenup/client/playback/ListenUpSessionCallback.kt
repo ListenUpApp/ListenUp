@@ -909,7 +909,7 @@ private suspend fun PlaybackManager.prepareForSilentStart(
     bookId: BookId,
     startedBy: String,
 ): PlaybackManager.PrepareResult? =
-    prepareForPlayback(bookId, startAtMs = null).valueOrNull {
+    prepareForPlayback(bookId, PlaybackStart.Resume).valueOrNull {
         logger.warn { "$startedBy not started for ${bookId.value}: ${it.code}" }
     }
 

@@ -30,7 +30,7 @@ class NativePlayerEngineTest :
                     val prepared = preparedPlaybackFor("b1", durationMs = 200_000, chapters = chapters, resumePositionMs = 150_000)
                     val engine = NativePlayerEngine(prepare = { _, _ -> AppResult.Success(prepared) }, scope = scope)
                     engine.commands.test {
-                        engine.load(BookId("b1"), startAtMs = null) shouldBe AppResult.Success(Unit)
+                        engine.load(BookId("b1"), start = PlaybackStart.Resume) shouldBe AppResult.Success(Unit)
                         awaitItem() shouldBe EngineCommand.Load(bookId = "b1", prepared = prepared)
                     }
                     runCurrent()
@@ -52,7 +52,7 @@ class NativePlayerEngineTest :
                     val engine =
                         NativePlayerEngine(prepare = { _, _ -> AppResult.Failure(PlaybackError.CouldNotStart()) }, scope = scope)
                     engine.commands.test {
-                        engine.load(BookId("b1"), startAtMs = null).shouldBeInstanceOf<AppResult.Failure>()
+                        engine.load(BookId("b1"), start = PlaybackStart.Resume).shouldBeInstanceOf<AppResult.Failure>()
                         expectNoEvents()
                     }
                     engine.loadedBookId.value shouldBe null
@@ -69,7 +69,7 @@ class NativePlayerEngineTest :
                     val prepared = preparedPlaybackFor("b1")
                     val engine = NativePlayerEngine(prepare = { _, _ -> AppResult.Success(prepared) }, scope = scope)
                     engine.commands.test {
-                        engine.load(BookId("b1"), startAtMs = null)
+                        engine.load(BookId("b1"), start = PlaybackStart.Resume)
                         engine.seekTo(30_000)
                         engine.play()
                         engine.setSpeed(1.5f)
@@ -99,7 +99,7 @@ class NativePlayerEngineTest :
                 try {
                     val engine = NativePlayerEngine(prepare = { id, _ -> AppResult.Success(preparedPlaybackFor(id.value)) }, scope = scope)
                     engine.commands.test {
-                        engine.load(BookId("a"), startAtMs = null)
+                        engine.load(BookId("a"), start = PlaybackStart.Resume)
                         awaitItem()
                         engine.beginLoad(BookId("b"))
                         awaitItem() shouldBe EngineCommand.Pause
@@ -123,7 +123,7 @@ class NativePlayerEngineTest :
                             ->
                             AppResult.Success(preparedPlaybackFor("b1", chapters = chapters, durationMs = 200_000))
                         }, scope = scope)
-                    engine.load(BookId("b1"), startAtMs = null)
+                    engine.load(BookId("b1"), start = PlaybackStart.Resume)
                     engine.onPhase(EnginePhase.PLAYING)
                     engine.onPosition(120_000)
                     engine.onRate(1.25f)

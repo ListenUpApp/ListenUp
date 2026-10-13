@@ -146,11 +146,26 @@ class ManagedPlayerEngineTest :
                     val rig = Rig(scope)
                     rig.manager.stubbedPrepareResult = prepareResultFor("b1")
                     rig.engine.beginLoad(BookId("b1"))
-                    rig.engine.load(BookId("b1"), startAtMs = 5_000) shouldBe AppResult.Success(Unit)
-                    rig.manager.prepareForPlaybackStartAts shouldContainExactly listOf(5_000L)
+                    rig.engine.load(BookId("b1"), start = PlaybackStart.At(5_000)) shouldBe AppResult.Success(Unit)
+                    rig.manager.prepareForPlaybackStarts shouldContainExactly listOf(PlaybackStart.At(5_000))
                     rig.manager.activatedBookIds shouldContainExactly listOf(BookId("b1"))
                     rig.controller.startPlaybackCalls.size shouldBe 1
                     rig.gate.calls shouldContainExactly listOf("prime")
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("a move made before Play reaches the preparer as a move, for it to replay from the reconciled place") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    rig.manager.stubbedPrepareResult = prepareResultFor("b1")
+                    val moved = PlaybackStart.Moved(listOf(PlaybackMove.Skip(-10_000)))
+                    rig.engine.load(BookId("b1"), start = moved) shouldBe AppResult.Success(Unit)
+                    rig.manager.prepareForPlaybackStarts shouldContainExactly listOf(moved)
                 } finally {
                     scope.cancel()
                 }
@@ -163,7 +178,7 @@ class ManagedPlayerEngineTest :
                 try {
                     val rig = Rig(scope)
                     rig.manager.stubbedPrepareError = PlaybackError.CouldNotStart()
-                    val result = rig.engine.load(BookId("b1"), startAtMs = null)
+                    val result = rig.engine.load(BookId("b1"), start = PlaybackStart.Resume)
                     result.shouldBeInstanceOf<AppResult.Failure>().error shouldBe PlaybackError.CouldNotStart()
                     rig.manager.activatedBookIds shouldBe emptyList()
                 } finally {

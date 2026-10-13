@@ -251,7 +251,7 @@ class PlaybackManagerSpeedTest :
                             scope = CoroutineScope(Job()),
                         )
 
-                    val result = manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    val result = manager.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
                     checkNotNull(result) { "prepareForPlayback must succeed" }
                     manager.activateBook(BookId("book-1"))
 

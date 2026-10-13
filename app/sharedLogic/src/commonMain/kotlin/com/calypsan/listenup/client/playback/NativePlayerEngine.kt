@@ -29,7 +29,7 @@ import kotlinx.coroutines.flow.stateIn
  * function type (an `AppResult<PreparedPlayback>` return), so exposing it would break the iOS framework.
  */
 class NativePlayerEngine internal constructor(
-    private val prepare: suspend (BookId, Long?) -> AppResult<PreparedPlayback>,
+    private val prepare: suspend (BookId, PlaybackStart) -> AppResult<PreparedPlayback>,
     scope: CoroutineScope,
 ) : PlayerEngine {
     private val commandChannel = Channel<EngineCommand>(Channel.UNLIMITED)
@@ -78,9 +78,9 @@ class NativePlayerEngine internal constructor(
 
     override suspend fun load(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<Unit> =
-        when (val result = prepare(bookId, startAtMs)) {
+        when (val result = prepare(bookId, start)) {
             is AppResult.Failure -> {
                 result
             }

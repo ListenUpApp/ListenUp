@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioSegment
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.loudness.VolumeGain
 import com.calypsan.listenup.core.BookId
@@ -121,7 +122,7 @@ internal class FakePlaybackManager(
 
     override suspend fun prepareForPlayback(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<PlaybackManager.PrepareResult> {
         // A real prepare is an RPC round-trip, so it always suspends. Without this the fake returns
         // inline — and because the shared session's load launches UNDISPATCHED, the whole
@@ -167,7 +168,7 @@ internal class FakePlaybackManager(
                 seriesName = null,
                 coverPath = null,
                 totalChapters = 1,
-                resumePositionMs = startAtMs ?: 0L,
+                resumePositionMs = (start as? PlaybackStart.At)?.positionMs ?: 0L,
                 resumeSpeed = 1.0f,
                 resumeBoostDb = resumeBoostDb,
                 measuredGainDb = null,

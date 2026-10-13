@@ -72,13 +72,19 @@ fun skipTargetMs(
     totalDurationMs: Long,
     forward: Boolean,
 ): Long {
-    val distanceMs = (seconds * speed * 1000).toLong()
+    val distanceMs = skipDistanceMs(seconds, speed)
     return if (forward) {
         (currentPositionMs + distanceMs).coerceAtMost(totalDurationMs)
     } else {
         (currentPositionMs - distanceMs).coerceAtLeast(0L)
     }
 }
+
+/** How much book a skip of [seconds] covers at [speed]: seconds of listening, so it scales with the rate. */
+internal fun skipDistanceMs(
+    seconds: Int,
+    speed: Float,
+): Long = (seconds * speed * 1000).toLong()
 
 /**
  * One [PLAYBACK_SPEED_INCREMENT] up or down from [speed], clamped to [PLAYBACK_SPEED_MIN]..[PLAYBACK_SPEED_MAX].

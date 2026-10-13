@@ -46,9 +46,9 @@ internal class ManagedPlayerEngine(
 
     override suspend fun load(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<Unit> =
-        when (val prepared = playbackManager.prepareForPlayback(bookId, startAtMs)) {
+        when (val prepared = playbackManager.prepareForPlayback(bookId, start)) {
             is AppResult.Failure -> {
                 prepared
             }

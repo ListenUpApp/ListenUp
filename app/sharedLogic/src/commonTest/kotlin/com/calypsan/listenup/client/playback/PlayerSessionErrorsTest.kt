@@ -67,7 +67,7 @@ class PlayerSessionErrorsTest :
                     rig.session.retry()
                     runCurrent()
                     rig.reachability.retryCalls shouldBe 1
-                    rig.engine.loads.last() shouldBe (BookId("b1") to null)
+                    rig.engine.loads.last() shouldBe (BookId("b1") to PlaybackStart.Resume)
                     rig.loaded.phase shouldBe PlayerPhase.Playing
                 } finally {
                     rig.close()
@@ -112,7 +112,7 @@ class PlayerSessionErrorsTest :
                     rig.loaded.phase shouldBe PlayerPhase.Unavailable(PlaybackError.OfflineNotDownloaded())
                     rig.session.retry()
                     runCurrent()
-                    rig.engine.loads.last() shouldBe (BookId("b1") to null)
+                    rig.engine.loads.last() shouldBe (BookId("b1") to PlaybackStart.Resume)
                     rig.loaded.phase shouldBe PlayerPhase.Unavailable(PlaybackError.OfflineNotDownloaded())
                     rig.network.onlineFlow.value = true
                     rig.availability.stateFlow.value =

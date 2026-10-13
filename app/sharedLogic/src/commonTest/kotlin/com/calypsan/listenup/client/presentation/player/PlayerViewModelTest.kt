@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.playback.PREPARING_UI_DELAY
+import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.PlayerSessionState
 import com.calypsan.listenup.client.test.fake.positionFor
@@ -185,7 +186,7 @@ class PlayerViewModelTest :
                         rig.vm.listenAgain()
                         runCurrent()
                         rig.s.engine.loads
-                            .single() shouldBe (BookId("b1") to null)
+                            .single() shouldBe (BookId("b1") to PlaybackStart.Resume)
                         cancelAndIgnoreRemainingEvents()
                     }
                 } finally {

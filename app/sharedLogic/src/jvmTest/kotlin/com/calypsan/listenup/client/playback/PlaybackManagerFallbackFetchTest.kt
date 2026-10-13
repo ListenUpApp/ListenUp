@@ -225,7 +225,7 @@ class PlaybackManagerFallbackFetchTest :
 
                     val playbackManager = createPlaybackManager(db = db, channel = RpcChannel.forTest(bookService))
 
-                    playbackManager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    playbackManager.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
 
                     // After fallback fetch, the junction should be populated...
                     val rows = db.audioFileDao().getForBook("book-1")

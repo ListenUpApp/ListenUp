@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.presentation.auth.LoginViewModel
 import com.calypsan.listenup.client.presentation.auth.SetupViewModel
@@ -307,7 +308,7 @@ private suspend fun bootSignedInGraph(): KoinApplication {
 private suspend fun KoinApplication.startListening(title: String): PlaybackManager.PrepareResult {
     val bookId = awaitBookId(title)
     val manager = koin.get<PlaybackManager>()
-    val prepared = manager.prepareForPlayback(bookId, startAtMs = null).getOrNull()
+    val prepared = manager.prepareForPlayback(bookId, start = PlaybackStart.Resume).getOrNull()
     checkNotNull(prepared) { "prepare() returned nothing for '$title'" }
     manager.activateBook(bookId)
     koin.get<PlaybackController>().startPlayback(prepared)

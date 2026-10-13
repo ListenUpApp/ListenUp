@@ -8,6 +8,8 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackStart
+import com.calypsan.listenup.client.playback.landingMs
 import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.PlaybackState
@@ -96,7 +98,7 @@ class FakePlaybackManager : PlaybackManager {
 
     val activatedBookIds: MutableList<BookId> = mutableListOf()
     val prepareForPlaybackCalls: MutableList<BookId> = mutableListOf()
-    val prepareForPlaybackStartAts: MutableList<Long?> = mutableListOf()
+    val prepareForPlaybackStarts: MutableList<PlaybackStart> = mutableListOf()
     val startPlaybackCalls: MutableList<StartPlaybackCall> = mutableListOf()
     val reportedErrors: MutableList<AppError> = mutableListOf()
     var clearPlaybackCalls: Int = 0
@@ -126,15 +128,34 @@ class FakePlaybackManager : PlaybackManager {
 
     override suspend fun prepareForPlayback(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<PrepareResult> {
         prepareForPlaybackCalls += bookId
-        prepareForPlaybackStartAts += startAtMs
+        prepareForPlaybackStarts += start
         prepareForPlaybackSuspension()
         stubbedPrepareError?.let { return AppResult.Failure(it) }
         val prepared = stubbedPrepareResult ?: return AppResult.Failure(PlaybackError.CouldNotStart())
-        // A start position replaces the resume position, as the real preparer does.
-        return AppResult.Success(if (startAtMs == null) prepared else prepared.copy(resumePositionMs = startAtMs))
+        // A picked place replaces the resume position; moves replay from it, as the real preparer does.
+        val resumeAt =
+            when (start) {
+                PlaybackStart.Resume -> {
+                    prepared.resumePositionMs
+                }
+
+                is PlaybackStart.At -> {
+                    start.positionMs
+                }
+
+                is PlaybackStart.Moved -> {
+                    landingMs(
+                        prepared.resumePositionMs,
+                        start.moves,
+                        chapters.value,
+                        Long.MAX_VALUE,
+                    )
+                }
+            }
+        return AppResult.Success(prepared.copy(resumePositionMs = resumeAt))
     }
 
     override suspend fun startPlayback(

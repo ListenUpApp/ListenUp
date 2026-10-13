@@ -315,7 +315,7 @@ class PlaybackPreparerTest :
                         progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 // Pre-fix this is 16_200_000 (the stale local row) — the crown-jewel data-loss bug.
@@ -332,7 +332,7 @@ class PlaybackPreparerTest :
                         progressTracker = trackerWithLocalPosition(localPosition(pos600, laterTime)),
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe pos600
@@ -349,7 +349,7 @@ class PlaybackPreparerTest :
                         progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe 0L
@@ -376,7 +376,7 @@ class PlaybackPreparerTest :
                     )
 
                 preparer
-                    .prepare(bookId, startAtMs = null)
+                    .prepare(bookId, start = PlaybackStart.Resume)
                     .getOrNull()
                     .shouldNotBeNull()
                     .resumePositionMs shouldBe 0L
@@ -384,7 +384,7 @@ class PlaybackPreparerTest :
                 advanceUntilIdle()
 
                 preparer
-                    .prepare(bookId, startAtMs = null)
+                    .prepare(bookId, start = PlaybackStart.Resume)
                     .getOrNull()
                     .shouldNotBeNull()
                     .resumePositionMs shouldBe pos430
@@ -418,7 +418,7 @@ class PlaybackPreparerTest :
                 advanceUntilIdle()
 
                 preparer
-                    .prepare(bookId, startAtMs = null)
+                    .prepare(bookId, start = PlaybackStart.Resume)
                     .getOrNull()
                     .shouldNotBeNull()
                     .resumePositionMs shouldBe 70_102L
@@ -440,7 +440,7 @@ class PlaybackPreparerTest :
                         nowMillis = { baseTime + 2 * 86_400_000L },
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe pos600 - 30_000L
@@ -458,7 +458,7 @@ class PlaybackPreparerTest :
                         nowMillis = { baseTime + 5_000L },
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe pos600
@@ -476,7 +476,7 @@ class PlaybackPreparerTest :
                         nowMillis = { baseTime + 2 * 86_400_000L },
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe pos600
@@ -494,7 +494,7 @@ class PlaybackPreparerTest :
                         nowMillis = { baseTime + 2 * 86_400_000L },
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe 0L
@@ -515,7 +515,7 @@ class PlaybackPreparerTest :
                         nowMillis = { baseTime + 2 * 86_400_000L },
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe 0L
@@ -537,8 +537,8 @@ class PlaybackPreparerTest :
                         nowMillis = { baseTime + 2 * 86_400_000L },
                     )
 
-                val first = preparer.prepare(bookId, startAtMs = null).getOrNull()
-                val second = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val first = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
+                val second = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 first.shouldNotBeNull()
                 second.shouldNotBeNull()
@@ -556,7 +556,7 @@ class PlaybackPreparerTest :
                         progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe pos430
@@ -579,7 +579,7 @@ class PlaybackPreparerTest :
                         progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 svc.prepareCallCount shouldBe 0 // offline-first: never touches prepare() when downloaded
@@ -599,7 +599,7 @@ class PlaybackPreparerTest :
                         progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 svc.prepareCallCount shouldBe 0
@@ -623,7 +623,7 @@ class PlaybackPreparerTest :
                         defaultBoostDb = 3f,
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeBoostDb shouldBe 6f
@@ -643,7 +643,7 @@ class PlaybackPreparerTest :
                         defaultBoostDb = 3f,
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.resumeBoostDb shouldBe 3f
@@ -661,7 +661,7 @@ class PlaybackPreparerTest :
                             trackerWithLocalPosition(localPosition(pos600, baseTime, measuredGainDb = -1.5f)),
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.measuredGainDb shouldBe -1.5f
@@ -678,7 +678,7 @@ class PlaybackPreparerTest :
                         progressTracker = trackerWithLocalPosition(localPosition(pos600, baseTime)),
                     )
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 result.measuredGainDb.shouldBeNull()
@@ -733,7 +733,7 @@ class PlaybackPreparerTest :
                         .Success(DownloadOutcome.AlreadyDownloaded)
 
                 val preparer = buildPreparer(downloadService, fakeFactory)
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 fakePlaybackService.prepareCallCount shouldBe 0
@@ -773,7 +773,7 @@ class PlaybackPreparerTest :
                     AppResult.Success(DownloadOutcome.AlreadyDownloaded)
 
                 val preparer = buildPreparer(downloadService, fakeFactory)
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 // Pre-fix: buildTimeline returned null on the prepare() Failure → whole book unplayable.
                 result.shouldNotBeNull()
@@ -824,7 +824,7 @@ class PlaybackPreparerTest :
                         .Success(DownloadOutcome.AlreadyDownloaded)
 
                 val preparer = buildPreparer(downloadService, fakeFactory)
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 fakePlaybackService.prepareCallCount shouldBe 1
@@ -867,7 +867,7 @@ class PlaybackPreparerTest :
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
 
                 val preparer = buildPreparer(downloadService, fakeFactory)
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldBeNull()
                 // The RPC path was definitely reached — null is because prepare() returned Failure,
@@ -898,7 +898,7 @@ class PlaybackPreparerTest :
                 // — exactly the "started book A (downloaded), played book B (streaming), it failed" case.
                 // prepare() must fold it to null per its contract, NOT let it escape across the Swift
                 // Export seam as an opaque KotlinError. Pre-fix this line threw; post-fix it returns null.
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldBeNull()
                 fakePlaybackService.prepareCallCount shouldBe 1
@@ -942,7 +942,11 @@ class PlaybackPreparerTest :
                 try {
                     // Strict mocks: a call to either would throw, which the choke point folds to
                     // CouldNotStart — so a HeldForReview result proves neither was touched.
-                    val result = buildPreparer(mock<DownloadService>(), mock<PlaybackPrepareRepository>()).prepare(bookId, startAtMs = null)
+                    val result =
+                        buildPreparer(
+                            mock<DownloadService>(),
+                            mock<PlaybackPrepareRepository>(),
+                        ).prepare(bookId, start = PlaybackStart.Resume)
 
                     result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<BookError.HeldForReview>()
                 } finally {
@@ -962,7 +966,7 @@ class PlaybackPreparerTest :
                 holdTheBook()
                 try {
                     preparer
-                        .prepare(bookId, startAtMs = null)
+                        .prepare(bookId, start = PlaybackStart.Resume)
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<BookError.HeldForReview>()
@@ -970,7 +974,7 @@ class PlaybackPreparerTest :
                     releaseTheBook()
                 }
                 // The same book plays from disk the moment it is released.
-                preparer.prepare(bookId, startAtMs = null).shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
+                preparer.prepare(bookId, start = PlaybackStart.Resume).shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
             }
         }
 
@@ -1007,7 +1011,7 @@ class PlaybackPreparerTest :
                     )
 
                 preparer
-                    .prepare(bookId, startAtMs = 1_234L)
+                    .prepare(bookId, start = PlaybackStart.At(1_234L))
                     .getOrNull()
                     .shouldNotBeNull()
                     .resumePositionMs shouldBe 1_234L
@@ -1019,10 +1023,10 @@ class PlaybackPreparerTest :
                 val preparer =
                     buildPreparer(downloadService = streamingDownloadService(), prepareRepository = preparedWith(resumePosition = null))
 
-                val past = preparer.prepare(bookId, startAtMs = Long.MAX_VALUE).getOrNull().shouldNotBeNull()
+                val past = preparer.prepare(bookId, start = PlaybackStart.At(Long.MAX_VALUE)).getOrNull().shouldNotBeNull()
                 past.resumePositionMs shouldBe past.timeline.totalDurationMs - 1
                 preparer
-                    .prepare(bookId, startAtMs = -5L)
+                    .prepare(bookId, start = PlaybackStart.At(-5L))
                     .getOrNull()
                     .shouldNotBeNull()
                     .resumePositionMs shouldBe 0L
@@ -1045,7 +1049,7 @@ class PlaybackPreparerTest :
                     )
 
                 preparer
-                    .prepare(bookId, startAtMs = 1_500L)
+                    .prepare(bookId, start = PlaybackStart.At(1_500L))
                     .getOrNull()
                     .shouldNotBeNull()
                     .resumePositionMs shouldBe 1_500L
@@ -1059,13 +1063,118 @@ class PlaybackPreparerTest :
                 holdTheBook()
                 try {
                     buildPreparer(mock<DownloadService>(), mock<PlaybackPrepareRepository>())
-                        .prepare(bookId, startAtMs = 1_000L)
+                        .prepare(bookId, start = PlaybackStart.At(1_000L))
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<BookError.HeldForReview>()
                 } finally {
                     releaseTheBook()
                 }
+            }
+        }
+
+        // ── moves made before Play (a restored book's skips and chapter steps) ─────────
+
+        test("a skip made before Play is replayed from the reconciled position: local 2 h, server 5 h, back 10 s → 5 h − 10 s") {
+            runTest {
+                val hour = 3_600_000L
+                // A six-hour book: two three-hour files, in Room and in the server's prepare.
+                db.audioFileDao().upsertAll(
+                    listOf(
+                        AudioFileEntity(
+                            bookId = bookId,
+                            index = 0,
+                            id = audioFile1,
+                            filename = "01.mp3",
+                            format = "mp3",
+                            codec = "mp3",
+                            duration =
+                                3 * hour,
+                            size = 1_000L,
+                        ),
+                        AudioFileEntity(
+                            bookId = bookId,
+                            index = 1,
+                            id = audioFile2,
+                            filename = "02.mp3",
+                            format = "mp3",
+                            codec = "mp3",
+                            duration =
+                                3 * hour,
+                            size = 2_000L,
+                        ),
+                    ),
+                )
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository =
+                            FakePlaybackPrepareRepository(
+                                FakePlaybackService(
+                                    prepareResult =
+                                        AppResult.Success(
+                                            ContractPreparedPlayback(
+                                                bookId = bookId.value,
+                                                audioFiles =
+                                                    listOf(
+                                                        PreparedAudioFile(
+                                                            audioFile1,
+                                                            0,
+                                                            "/api/v1/audio/x/$audioFile1?sig=a",
+                                                            "mp3",
+                                                            3 * hour,
+                                                            1_000L,
+                                                        ),
+                                                        PreparedAudioFile(
+                                                            audioFile2,
+                                                            1,
+                                                            "/api/v1/audio/x/$audioFile2?sig=b",
+                                                            "mp3",
+                                                            3 * hour,
+                                                            2_000L,
+                                                        ),
+                                                    ),
+                                                resumePosition = serverPosition(5 * hour, laterTime),
+                                            ),
+                                        ),
+                                ),
+                            ),
+                        progressTracker = trackerWithLocalPosition(localPosition(2 * hour, baseTime)),
+                        // A long gap would rewind a plain resume; a skip is a place the listener named, so it must not.
+                        autoRewindEnabled = true,
+                        nowMillis = { laterTime + 2 * 86_400_000L },
+                    )
+
+                preparer
+                    .prepare(bookId, start = PlaybackStart.Moved(listOf(PlaybackMove.Skip(-10_000))))
+                    .getOrNull()
+                    .shouldNotBeNull()
+                    .resumePositionMs shouldBe 5 * hour - 10_000
+            }
+        }
+
+        test("a move replayed from the reconciled position is clamped into the book") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(serverPosition(2_500L, laterTime)),
+                        progressTracker = trackerWithLocalPosition(localPosition(1_000L, baseTime)),
+                    )
+
+                val past =
+                    preparer
+                        .prepare(
+                            bookId,
+                            start = PlaybackStart.Moved(listOf(PlaybackMove.Skip(30_000))),
+                        ).getOrNull()
+                        .shouldNotBeNull()
+                past.resumePositionMs shouldBe past.timeline.totalDurationMs - 1
+                preparer
+                    .prepare(bookId, start = PlaybackStart.Moved(listOf(PlaybackMove.Skip(-30_000))))
+                    .getOrNull()
+                    .shouldNotBeNull()
+                    .resumePositionMs shouldBe 0L
             }
         }
 

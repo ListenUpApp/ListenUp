@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
-import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -21,6 +20,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
 import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
+import com.calypsan.listenup.client.presentation.player.skipDistanceMs
 import com.calypsan.listenup.client.presentation.player.skipTargetMs
 import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
 import com.calypsan.listenup.core.BookId
@@ -91,91 +91,42 @@ class PlayerSession(
     /** [preparingBookId] behind a 250 ms debounce, for buttons that must not flash on a fast prepare (Decision 11). */
     val preparingBookIdUi: Flow<BookId?> = preparingBookIdUiFlow(preparingBookId)
 
-    /** Where a not-prepared book will start when Play is pressed (Decision 5), or null for the saved position. */
-    val pendingStartMs: StateFlow<Long?>
-        field = MutableStateFlow<Long?>(null)
+    /** Where a not-prepared book will start when Play is pressed (Decision 5): picked, moved from, or the saved place. */
+    private val pendingStart = MutableStateFlow<PlaybackStart>(PlaybackStart.Resume)
 
-    private val stageBookId: Flow<BookId?> = stage.map { it?.bookId }.distinctUntilChanged()
+    private val readout =
+        PlayerReadout(
+            engine = engine,
+            stage = stage,
+            pendingStart = pendingStart,
+            bookRepository = bookRepository,
+            positionRepository = positionRepository,
+            playbackPreferences = playbackPreferences,
+            scope = scope,
+        )
+    private val stageBookId: Flow<BookId?> get() = readout.stageBookId
+    private val engineBound: StateFlow<Boolean> get() = readout.engineBound
 
-    private val engineBound: StateFlow<Boolean> =
-        combine(stage, engine.loadedBookId) { s, held -> s is SessionStage.Engine && held == s.bookId }
-            .stateIn(scope, SharingStarted.Eagerly, false)
-
-    private val savedPosition: StateFlow<PlaybackPosition?> =
-        stageBookId
-            .flatMapLatest { id -> id?.let(positionRepository::observe) ?: flowOf(null) }
-            .stateIn(scope, SharingStarted.Eagerly, null)
-
-    private val roomChapters: StateFlow<List<Chapter>> =
-        stageBookId
-            .flatMapLatest { id -> id?.let { bookRepository.observeChapters(it.value) } ?: flowOf(emptyList()) }
-            .stateIn(scope, SharingStarted.Eagerly, emptyList())
-
-    private val roomDurationMs: StateFlow<Long> =
-        stageBookId
-            .flatMapLatest { id ->
-                id?.let { bookRepository.observeBookDetail(it.value).map { detail -> detail?.duration ?: 0L } }
-                    ?: flowOf(0L)
-            }.stateIn(scope, SharingStarted.Eagerly, 0L)
+    /** Where a not-prepared book shows it will start (Decision 5), or null for the saved position. */
+    val pendingStartMs: StateFlow<Long?> get() = readout.pendingStartMs
 
     /** Book-relative playhead: the engine's while it holds the book, else the pending start or the saved position. Ticks. */
-    val positionMs: StateFlow<Long> =
-        combine(
-            flow = engineBound,
-            flow2 = engine.positionMs,
-            flow3 = pendingStartMs,
-            flow4 = savedPosition,
-        ) { bound, enginePosition, pending, saved ->
-            if (bound) enginePosition else pending ?: saved?.positionMs ?: 0L
-        }.stateIn(scope, SharingStarted.Eagerly, 0L)
+    val positionMs: StateFlow<Long> get() = readout.positionMs
 
     /** The loaded book's chapters: the engine's prepared list, or Room's before a prepare. */
-    val chapters: StateFlow<List<Chapter>> =
-        combine(engineBound, engine.chapters, roomChapters) { bound, prepared, room -> if (bound) prepared else room }
-            .stateIn(scope, SharingStarted.Eagerly, emptyList())
+    val chapters: StateFlow<List<Chapter>> get() = readout.chapters
 
     /** The loaded book's duration, in ms. */
-    val durationMs: StateFlow<Long> =
-        combine(
-            engineBound,
-            engine.durationMs,
-            roomDurationMs,
-        ) { bound, prepared, room -> if (bound) prepared else room }
-            .stateIn(scope, SharingStarted.Eagerly, 0L)
+    val durationMs: StateFlow<Long> get() = readout.durationMs
 
     /** The current chapter, from the one derivation ([chapterInfoAt]) whichever side holds the book. */
-    val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> =
-        combine(
-            flow = engineBound,
-            flow2 = engine.currentChapter,
-            flow3 = positionMs,
-            flow4 = roomChapters,
-            flow5 = roomDurationMs,
-        ) { bound, engineChapter, position, room, duration ->
-            if (bound) engineChapter else chapterInfoAt(position, room, duration)
-        }.stateIn(scope, SharingStarted.Eagerly, null)
+    val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> get() = readout.currentChapter
 
     /** The rate: the engine's, else this book's saved rate, else the default. */
-    val speed: StateFlow<Float> =
-        combine(
-            flow = engineBound,
-            flow2 = engine.speed,
-            flow3 = savedPosition,
-            flow4 = playbackPreferences.observeDefaultPlaybackSpeed(),
-        ) { bound, engineSpeed, saved, default ->
-            if (bound) engineSpeed else saved?.playbackSpeed ?: default
-        }.stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_PLAYBACK_SPEED)
+    val speed: StateFlow<Float> get() = readout.speed
 
     /** The boost in dB: the engine's, else this book's saved boost, else the default. */
-    val boostDb: StateFlow<Float> =
-        combine(
-            flow = engineBound,
-            flow2 = engine.boostDb,
-            flow3 = savedPosition,
-            flow4 = playbackPreferences.observeDefaultVolumeBoostDb(),
-        ) { bound, engineBoost, saved, default ->
-            if (bound) engineBoost else saved?.volumeBoostDb ?: default
-        }.stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB)
+    val boostDb: StateFlow<Float> get() = readout.boostDb
 
     /** Forward skip, in seconds. `Eagerly`: a command reads `.value` whether or not anything is collecting. */
     val skipForwardSec: StateFlow<Int> =
@@ -276,7 +227,7 @@ class PlayerSession(
 
             current == null || (current.bookId != persisted && current !is SessionStage.Preparing) -> {
                 stage.value = SessionStage.Idle(persisted)
-                pendingStartMs.value = null
+                pendingStart.value = PlaybackStart.Resume
             }
         }
         restoring.value = false
@@ -300,7 +251,7 @@ class PlayerSession(
 
             current == null || current.bookId != held -> {
                 stage.value = SessionStage.Engine(held)
-                pendingStartMs.value = null
+                pendingStart.value = PlaybackStart.Resume
                 scope.launch { loadedBooks.setLoaded(held) }
             }
 
@@ -308,7 +259,7 @@ class PlayerSession(
                 // The engine started this book itself (a headset Play, Media3 resumption): it plays, so a failed
                 // prepare's error no longer stands.
                 stage.value = SessionStage.Engine(held)
-                pendingStartMs.value = null
+                pendingStart.value = PlaybackStart.Resume
             }
         }
     }
@@ -370,7 +321,7 @@ class PlayerSession(
     private fun unloadInMemory() {
         cancelLoad()
         stage.value = null
-        pendingStartMs.value = null
+        pendingStart.value = PlaybackStart.Resume
     }
 
     private fun cancelLoad() {
@@ -439,17 +390,17 @@ class PlayerSession(
             engine.play()
             return
         }
-        startLoad(bookId, startAtMs)
+        startLoad(bookId, startAtMs?.let(PlaybackStart::At) ?: PlaybackStart.Resume)
     }
 
     /**
-     * Load [bookId] at [startAtMs]. Synchronous up to the engine's first suspension, so the bar names the new book
+     * Load [bookId] at [start]. Synchronous up to the engine's first suspension, so the bar names the new book
      * (§3.6) and a browser's gesture is spent ([PlayerEngine.beginLoad]) inside the tap. Only the newest
      * generation may finish: a superseded load's `finally` cannot touch its successor's state.
      */
     private fun startLoad(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ) {
         cancelLoad()
         // A fade belongs to the book it was started for: left running, it would pause this one.
@@ -458,7 +409,7 @@ class PlayerSession(
         val myGeneration = generation
         preparingBookId.value = bookId
         stage.value = SessionStage.Preparing(bookId, myGeneration)
-        pendingStartMs.value = null
+        pendingStart.value = PlaybackStart.Resume
         sleepTimer.onBookChanged(bookId.value)
         engine.beginLoad(bookId)
         loadJob =
@@ -466,7 +417,7 @@ class PlayerSession(
                 var handedOver = false
                 try {
                     loadedBooks.setLoaded(bookId)
-                    val result = engine.load(bookId, startAtMs)
+                    val result = engine.load(bookId, start)
                     // A failure while the book still has a proactive reason (offline and not downloaded, server
                     // unreachable, session lapsed) is that reason, not a generic one: back to Idle, which shows it
                     // and clears it when the cause does.
@@ -523,11 +474,11 @@ class PlayerSession(
             }
 
             PlayerPhase.Restored -> {
-                startLoad(loaded.bookId, pendingStartMs.value)
+                startLoad(loaded.bookId, pendingStart.value)
             }
 
             PlayerPhase.Finished -> {
-                startLoad(loaded.bookId, null)
+                startLoad(loaded.bookId, PlaybackStart.Resume)
             }
 
             is PlayerPhase.Failed -> {
@@ -563,29 +514,59 @@ class PlayerSession(
         seconds: Int,
         forward: Boolean,
     ) {
-        val phase = loadedOrNull()?.phase ?: return
-        if (phase is PlayerPhase.Finished || phase is PlayerPhase.Preparing) return
+        val loaded = loadedOrNull() ?: return
+        if (loaded.phase is PlayerPhase.Finished || loaded.phase is PlayerPhase.Preparing) return
         val duration = durationMs.value
         if (duration <= 0) return
-        seekTo(
-            skipTargetMs(
-                currentPositionMs = positionMs.value,
-                seconds = seconds,
-                speed = speed.value,
-                totalDurationMs = duration,
-                forward = forward,
-            ),
-        )
+        if (loaded.isEngineBound) {
+            seekTo(
+                skipTargetMs(
+                    currentPositionMs = positionMs.value,
+                    seconds = seconds,
+                    speed = speed.value,
+                    totalDurationMs = duration,
+                    forward = forward,
+                ),
+            )
+        } else {
+            val distanceMs = skipDistanceMs(seconds, speed.value)
+            carry(PlaybackMove.Skip(if (forward) distanceMs else -distanceMs))
+        }
     }
 
     /** §3.3: restart the chapter after 3 s, else the previous one; chapter 1 restarts. */
     fun previousChapter() {
-        seekTo(previousChapterTargetMs(positionMs.value, chapters.value))
+        if (movesThePlayhead()) {
+            seekTo(previousChapterTargetMs(positionMs.value, chapters.value))
+        } else {
+            carry(PlaybackMove.PreviousChapter)
+        }
     }
 
     /** §3.3: the next chapter's start; a no-op at the last chapter. */
     fun nextChapter() {
-        nextChapterTargetMs(positionMs.value, chapters.value)?.let(::seekTo)
+        if (movesThePlayhead()) {
+            nextChapterTargetMs(positionMs.value, chapters.value)?.let(::seekTo)
+        } else {
+            carry(PlaybackMove.NextChapter)
+        }
+    }
+
+    /** Whether a relative move seeks now: the engine holds the book, or it is finished (a move re-listens from there). */
+    private fun movesThePlayhead(): Boolean {
+        val loaded = loadedOrNull() ?: return false
+        return loaded.isEngineBound || loaded.phase is PlayerPhase.Finished
+    }
+
+    /**
+     * A relative move on a book that is not prepared: carried to Play, which replays it from the reconciled saved
+     * position. Measured from this device's row alone it could resume from a stale place and overwrite another
+     * device's newer progress (position is sacred).
+     */
+    private fun carry(move: PlaybackMove) {
+        val loaded = loadedOrNull() ?: return
+        if (loaded.phase is PlayerPhase.Preparing) return
+        pendingStart.value = pendingStart.value.then(move, readout.roomChapters.value, readout.roomDurationMs.value)
     }
 
     /** The start of chapter [index]; an index the list no longer has is ignored, never clamped. */
@@ -614,9 +595,9 @@ class PlayerSession(
         val loaded = loadedOrNull() ?: return
         val target = positionMs.coerceAtLeast(0L)
         when {
-            loaded.phase is PlayerPhase.Finished -> startLoad(loaded.bookId, target)
+            loaded.phase is PlayerPhase.Finished -> startLoad(loaded.bookId, PlaybackStart.At(target))
             loaded.isEngineBound -> engine.seekTo(target)
-            loaded.phase !is PlayerPhase.Preparing -> pendingStartMs.value = target
+            loaded.phase !is PlayerPhase.Preparing -> pendingStart.value = PlaybackStart.At(target)
         }
     }
 
@@ -667,7 +648,7 @@ class PlayerSession(
         }
         if (cause.isTransport()) scope.launch { serverReachability.retry() }
         engine.clearError()
-        startLoad(loaded.bookId, null)
+        startLoad(loaded.bookId, PlaybackStart.Resume)
     }
 
     /**

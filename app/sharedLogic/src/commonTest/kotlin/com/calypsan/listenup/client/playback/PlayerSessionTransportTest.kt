@@ -47,7 +47,7 @@ class PlayerSessionTransportTest :
                     runCurrent()
                     rig.session.playPause()
                     runCurrent()
-                    rig.engine.loads shouldContainExactly listOf(BookId("b1") to null)
+                    rig.engine.loads shouldContainExactly listOf(BookId("b1") to PlaybackStart.Resume)
                     rig.loaded.phase shouldBe PlayerPhase.Playing
                 } finally {
                     rig.close()
@@ -61,6 +61,7 @@ class PlayerSessionTransportTest :
                 try {
                     rig.withBook("b1")
                     rig.positions.setPosition(positionFor("b1", positionMs = 42_000))
+                    rig.engine.preparedPositionMs = 42_000
                     runCurrent()
                     rig.session.skipBack()
                     runCurrent()
@@ -68,7 +69,81 @@ class PlayerSessionTransportTest :
                     rig.engine.loads shouldBe emptyList()
                     rig.session.playPause()
                     runCurrent()
-                    rig.engine.loads shouldContainExactly listOf(BookId("b1") to 32_000L)
+                    rig.engine.loads shouldContainExactly
+                        listOf(BookId("b1") to PlaybackStart.Moved(listOf(PlaybackMove.Skip(-10_000))))
+                    rig.session.positionMs.value shouldBe 32_000
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a skip on a restored book is replayed from the reconciled place: local 2 h, server 5 h, back 10 s → 5 h − 10 s") {
+            runTest {
+                val hour = 3_600_000L
+                val rig = PlayerSessionRig(this, storedBookId = "b1")
+                try {
+                    rig.withBook("b1", durationMs = 6 * hour)
+                    rig.positions.setPosition(positionFor("b1", positionMs = 2 * hour))
+                    // The preparer's reconcile finds the server's newer 5 h.
+                    rig.engine.preparedPositionMs = 5 * hour
+                    runCurrent()
+                    rig.session.skipBack()
+                    runCurrent()
+                    rig.session.positionMs.value shouldBe 2 * hour - 10_000
+                    rig.session.playPause()
+                    runCurrent()
+                    rig.engine.loads
+                        .single()
+                        .second shouldBe PlaybackStart.Moved(listOf(PlaybackMove.Skip(-10_000)))
+                    rig.session.positionMs.value shouldBe 5 * hour - 10_000
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("chapter steps on a restored book are moves too; a chapter tap is a picked place") {
+            runTest {
+                val rig = PlayerSessionRig(this, storedBookId = "b1")
+                try {
+                    rig.withBook("b1")
+                    rig.positions.setPosition(positionFor("b1", positionMs = 42_000))
+                    runCurrent()
+                    rig.session.nextChapter()
+                    runCurrent()
+                    rig.session.positionMs.value shouldBe 100_000
+                    rig.session.previousChapter()
+                    runCurrent()
+                    rig.session.positionMs.value shouldBe 0
+                    rig.session.playPause()
+                    runCurrent()
+                    rig.engine.loads
+                        .last()
+                        .second shouldBe
+                        PlaybackStart.Moved(listOf(PlaybackMove.NextChapter, PlaybackMove.PreviousChapter))
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a chapter tap on a restored book starts exactly there") {
+            runTest {
+                val rig = PlayerSessionRig(this, storedBookId = "b1")
+                try {
+                    rig.withBook("b1")
+                    rig.positions.setPosition(positionFor("b1", positionMs = 42_000))
+                    runCurrent()
+                    rig.session.seekToChapter(2)
+                    rig.session.skipBack()
+                    runCurrent()
+                    rig.session.positionMs.value shouldBe 190_000
+                    rig.session.playPause()
+                    runCurrent()
+                    rig.engine.loads
+                        .single()
+                        .second shouldBe PlaybackStart.At(190_000)
                 } finally {
                     rig.close()
                 }
@@ -158,7 +233,7 @@ class PlayerSessionTransportTest :
                     runCurrent()
                     rig.session.seekToChapter(1)
                     runCurrent()
-                    rig.engine.loads.last() shouldBe (BookId("b1") to 100_000L)
+                    rig.engine.loads.last() shouldBe (BookId("b1") to PlaybackStart.At(100_000))
                 } finally {
                     rig.close()
                 }
