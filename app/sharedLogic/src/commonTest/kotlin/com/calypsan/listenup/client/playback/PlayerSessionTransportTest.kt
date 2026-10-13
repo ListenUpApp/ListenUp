@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.client.test.fake.positionFor
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
+import kotlinx.coroutines.CompletableDeferred
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.TestScope
@@ -234,6 +235,31 @@ class PlayerSessionTransportTest :
                     rig.session.seekToChapter(1)
                     runCurrent()
                     rig.engine.loads.last() shouldBe (BookId("b1") to PlaybackStart.At(100_000))
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a seek while the book prepares is kept and applied when the load lands") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    val prepared = CompletableDeferred<Unit>()
+                    rig.engine.loadSuspension = { prepared.await() }
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Preparing
+                    rig.session.seekTo(150_000)
+                    runCurrent()
+                    rig.session.positionMs.value shouldBe 150_000
+                    prepared.complete(Unit)
+                    runCurrent()
+                    rig.engine.calls.last() shouldBe "seekTo:150000"
+                    rig.session.positionMs.value shouldBe 150_000
+                    rig.session.pendingStartMs.value shouldBe null
                 } finally {
                     rig.close()
                 }

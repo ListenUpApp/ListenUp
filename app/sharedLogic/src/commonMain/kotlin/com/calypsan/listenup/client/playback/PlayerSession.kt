@@ -431,6 +431,7 @@ class PlayerSession(
                         when (result) {
                             is AppResult.Success -> {
                                 handedOver = true
+                                applySeekQueuedWhilePreparing()
                                 SessionStage.Engine(bookId)
                             }
 
@@ -457,6 +458,14 @@ class PlayerSession(
                     }
                 }
             }
+    }
+
+    /** A scrub made while the book prepared ([seekTo]) lands on the engine now that it holds the book. */
+    private fun applySeekQueuedWhilePreparing() {
+        val queued = pendingStart.value as? PlaybackStart.At ?: return
+        pendingStart.value = PlaybackStart.Resume
+        val lastMs = engine.durationMs.value - 1
+        engine.seekTo(if (lastMs > 0) queued.positionMs.coerceIn(0L, lastMs) else queued.positionMs)
     }
 
     private fun loadedOrNull(): PlayerSessionState.Loaded? = state.value as? PlayerSessionState.Loaded
@@ -592,7 +601,8 @@ class PlayerSession(
 
     /**
      * Move the playhead. The engine seeks when it holds the book. A not-prepared book moves its pending start
-     * (Decision 5). A finished book plays again from there, like Listen again (§4.5, Book Detail §2.5).
+     * (Decision 5); a book still preparing keeps it and seeks there when the load lands. A finished book plays
+     * again from there, like Listen again (§4.5, Book Detail §2.5).
      */
     fun seekTo(positionMs: Long) {
         val loaded = loadedOrNull() ?: return
@@ -600,7 +610,7 @@ class PlayerSession(
         when {
             loaded.phase is PlayerPhase.Finished -> startLoad(loaded.bookId, PlaybackStart.At(target))
             loaded.isEngineBound -> engine.seekTo(target)
-            loaded.phase !is PlayerPhase.Preparing -> pendingStart.value = PlaybackStart.At(target)
+            else -> pendingStart.value = PlaybackStart.At(target)
         }
     }
 
