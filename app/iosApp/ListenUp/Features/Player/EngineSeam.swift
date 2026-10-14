@@ -27,10 +27,15 @@ enum EngineFailure: Sendable, Equatable {
     case couldNotStart(detail: String?)
 }
 
-/// The ordered instruction stream. One consumer: `PlayerCoordinator`'s drain task.
+/// The shared player's instructions, handed over the moment each arrives. One receiver: `PlayerCoordinator`.
+///
+/// Pushed, not pulled: the coordinator queues a load's start behind every instruction it has already received.
+/// A stream it drained left issued instructions unread in the stream's buffer, so a load could finish and play
+/// before the `.seek` sent right after it had even been seen.
 @MainActor
 protocol EngineInstructionSource {
-    var instructions: AsyncStream<EngineInstruction> { get }
+    /// Start delivering. `receive` runs on the main actor, once per instruction, in the order they were issued.
+    func deliver(to receive: @escaping @MainActor (EngineInstruction) -> Void)
 }
 
 /// Where the coordinator reports engine facts. `@MainActor`, like `PlaybackProgressReporting`. Every fact about a

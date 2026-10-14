@@ -113,7 +113,23 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Tests inject a private center so a post from one test can't reach another test's coordinator.
     private let notificationCenter: NotificationCenter
     private let bridge = FlowBridge()
-    /// The one task draining the shared player's instructions, in order (spec R2).
+    /// One step of the coordinator's ordered work: an instruction from the shared player, or a load's start once
+    /// the engine holds the book.
+    private enum Step: Sendable {
+        case instruction(EngineInstruction)
+        case loadResolved(LoadedBook)
+    }
+    /// A book `engine.load` has resolved, waiting its turn to start behind the instructions received before it.
+    private struct LoadedBook: Sendable {
+        let bookId: String
+        let prepared: PreparedPlayback
+        let generation: Int
+        let didLoad: Bool
+    }
+    /// Instructions join this queue the moment they arrive, and a load's start joins it when `engine.load`
+    /// resolves — so everything received while the book loaded (a seek, a pause) runs before the book starts.
+    private let steps: AsyncStream<Step>.Continuation
+    /// The one task running `steps`, in order (spec R2).
     private var drainTask: Task<Void, Never>?
 
     private var lastReportedPositionMs: Int64 = 0
@@ -126,7 +142,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Bumped on every `.load` and `.stop`. An in-flight load compares the generation it captured
     /// against this after each `await` and abandons if superseded.
     private var loadGeneration = 0
-    /// True from a `.load` until its `engine.load` resolves. While set, engine events are dropped —
+    /// True from a `.load` until its start runs, after `engine.load` resolves. While set, engine events are dropped —
     /// they belong to the outgoing book or the muted preroll — and transport instructions are
     /// recorded (`playWhenLoaded`, `pendingSeekMs`) and applied once the book has loaded.
     private var isEngineLoading = false
@@ -163,21 +179,27 @@ final class PlayerCoordinator: RemoteCommandHandler {
         self.skipIntervals = skipIntervals
         self.bandwidthCoordinator = bandwidthCoordinator
         self.notificationCenter = notificationCenter
+        let (stream, steps) = AsyncStream<Step>.makeStream(bufferingPolicy: .unbounded)
+        self.steps = steps
         system.attach(handler: self)
         system.updateSkipIntervals(forwardSeconds: skipForwardSec, backwardSeconds: skipBackwardSec)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
         observeSkipIntervals()
         observeInterruptions()
         observeRouteChanges()
-        let stream = instructions.instructions
+        instructions.deliver { steps.yield(.instruction($0)) }
         drainTask = Task { [weak self] in
-            for await instruction in stream {
-                await self?.execute(instruction)
+            for await step in stream {
+                switch step {
+                case .instruction(let instruction): await self?.execute(instruction)
+                case .loadResolved(let book): await self?.startLoaded(book)
+                }
             }
         }
     }
 
     isolated deinit {
+        steps.finish()
         drainTask?.cancel()
     }
 
@@ -274,7 +296,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     /// Execute one instruction from the shared player. Awaited by the drain task, so instructions
     /// reach the engine in the order they were issued; a `.load` only starts its load task and
-    /// returns, so a later `.load` supersedes it and a `.stop` cancels it.
+    /// returns, so a later `.load` supersedes it and a `.stop` cancels it. The book starts later, as
+    /// its own step in the same queue (`startLoaded`).
     func execute(_ instruction: EngineInstruction) async {
         switch instruction {
         case let .load(bookId, prepared, generation):
@@ -328,7 +351,12 @@ final class PlayerCoordinator: RemoteCommandHandler {
         loadTask = Task {
             // Silence the outgoing book immediately, before the (possibly slow) load.
             if hadLoadedBook { await engine.pause() }
-            await startLoaded(bookId: bookId, prepared: prepared, segments: segments, generation: generation)
+            // `load` awaits readiness and seeks to the resume position before returning.
+            let didLoad = await engine.load(segments: segments, startPositionMs: prepared.resumePositionMs)
+            // Not started here: the start queues behind the instructions already received, so a seek or pause
+            // sent while the book loaded is applied before it plays, however late the drain reaches them.
+            steps.yield(.loadResolved(LoadedBook(
+                bookId: bookId, prepared: prepared, generation: generation, didLoad: didLoad)))
         }
     }
 
@@ -350,15 +378,13 @@ final class PlayerCoordinator: RemoteCommandHandler {
         lastReportedPositionMs = prepared.resumePositionMs
     }
 
-    private func startLoaded(
-        bookId: String, prepared: PreparedPlayback, segments: [AudioSegment], generation: Int
-    ) async {
-        // `load` awaits readiness and seeks to the resume position before returning.
-        let loaded = await engine.load(segments: segments, startPositionMs: prepared.resumePositionMs)
+    /// Start a book whose engine load has resolved, in its turn among the instructions.
+    private func startLoaded(_ book: LoadedBook) async {
+        let (bookId, prepared, generation) = (book.bookId, book.prepared, book.generation)
         guard !isSuperseded(generation) else { return }
         // The load is done — lift the event gate so the engine's real events drive the phase.
         isEngineLoading = false
-        guard loaded else {
+        guard book.didLoad else {
             fail(.couldNotStart(detail: "engine load failed"))
             return
         }

@@ -250,13 +250,23 @@ final class FakeSkipIntervalProviding: SkipIntervalProviding {
 
 // MARK: - Engine seam fakes (the shared player's side of the coordinator)
 
-/// The shared player's ordered instruction stream, driven by the test.
+/// The shared player's instructions, driven by the test: each `send` reaches the coordinator before it returns,
+/// as the production bridge hands each collected command over.
 @MainActor
 final class FakeEngineInstructions: EngineInstructionSource {
-    let instructions: AsyncStream<EngineInstruction>
-    private let continuation: AsyncStream<EngineInstruction>.Continuation
-    init() { (instructions, continuation) = AsyncStream.makeStream(bufferingPolicy: .unbounded) }
-    func send(_ instruction: EngineInstruction) { continuation.yield(instruction) }
+    private var receive: (@MainActor (EngineInstruction) -> Void)?
+    /// Instructions sent before the coordinator started listening, handed over when it does.
+    private var undelivered: [EngineInstruction] = []
+
+    func deliver(to receive: @escaping @MainActor (EngineInstruction) -> Void) {
+        self.receive = receive
+        undelivered.forEach(receive)
+        undelivered.removeAll()
+    }
+
+    func send(_ instruction: EngineInstruction) {
+        if let receive { receive(instruction) } else { undelivered.append(instruction) }
+    }
 }
 
 /// Records every fact the coordinator reports to the shared player.

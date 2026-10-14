@@ -2,7 +2,7 @@ import Testing
 @testable import ListenUp
 
 /// The shared player's instructions reach AVAudioEngine in the order it issued them (spec risk R2):
-/// one bridge collector feeds one stream that one coordinator task drains.
+/// one bridge collector hands each to the coordinator, whose one task runs them, and each load's start, in order.
 @Suite("Engine instructions run in order")
 @MainActor
 struct EngineInstructionOrderTests {

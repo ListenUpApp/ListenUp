@@ -1,18 +1,20 @@
 import Foundation
 @preconcurrency import Shared
 
-/// `NativePlayerEngine.commands` as one ordered native stream: one `FlowBridge` binding (one task, so
-/// order holds, rule 7) yields each mapped instruction into an `AsyncStream` the coordinator drains.
+/// `NativePlayerEngine.commands`, in order: one `FlowBridge` binding (one task, so order holds, rule 7) hands
+/// each mapped instruction straight to the coordinator as it is collected.
 @MainActor
 final class KotlinEngineInstructions: EngineInstructionSource {
-    let instructions: AsyncStream<EngineInstruction>
+    private let engine: NativePlayerEngine
     private let bridge = FlowBridge()
 
     init(engine: NativePlayerEngine) {
-        let (stream, continuation) = AsyncStream<EngineInstruction>.makeStream(bufferingPolicy: .unbounded)
-        instructions = stream
+        self.engine = engine
+    }
+
+    func deliver(to receive: @escaping @MainActor (EngineInstruction) -> Void) {
         bridge.bind(engine.commands) { command in
-            if let instruction = Self.map(command) { continuation.yield(instruction) }
+            if let instruction = Self.map(command) { receive(instruction) }
         }
     }
 
