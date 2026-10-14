@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import androidx.room3.ColumnTypeConverter
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.dto.match.LastMatch
@@ -201,6 +202,26 @@ internal class LastMatchConverter {
         value?.takeIf { it.isNotBlank() }?.let { json ->
             try {
                 appJson.decodeFromString(LastMatch.serializer(), json)
+            } catch (_: kotlinx.serialization.SerializationException) {
+                null
+            }
+        }
+}
+
+/**
+ * Room type converter for a photo's frame ([ContributorEntity.imageFrame], [PublicProfileEntity.avatarFrame]): JSON via
+ * [appJson], the codec the wire uses. Null is a null column. A value this build cannot read decodes as null — the photo
+ * shows centred — rather than making the whole row unreadable.
+ */
+internal class ImageFramingConverter {
+    @ColumnTypeConverter
+    fun fromFraming(value: ImageFraming?): String? = value?.let { appJson.encodeToString(ImageFraming.serializer(), it) }
+
+    @ColumnTypeConverter
+    fun toFraming(value: String?): ImageFraming? =
+        value?.takeIf { it.isNotBlank() }?.let { json ->
+            try {
+                appJson.decodeFromString(ImageFraming.serializer(), json)
             } catch (_: kotlinx.serialization.SerializationException) {
                 null
             }

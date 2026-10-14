@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import androidx.room3.Dao
 import androidx.room3.Insert
 import androidx.room3.OnConflictStrategy
@@ -196,6 +197,16 @@ internal interface ContributorDao {
 
     @Query("SELECT * FROM contributors WHERE id = :id")
     suspend fun getById(id: String): ContributorEntity?
+
+    /**
+     * Sets the photo's frame on this device only: a new photo's frame before its upload, or a frame-only edit's
+     * optimistic write. Both are owned by [com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl].
+     */
+    @Query("UPDATE contributors SET imageFrame = :frame WHERE id = :id")
+    suspend fun updateImageFrame(
+        id: String,
+        frame: ImageFraming?,
+    )
 
     @Upsert
     suspend fun upsert(contributor: ContributorEntity)

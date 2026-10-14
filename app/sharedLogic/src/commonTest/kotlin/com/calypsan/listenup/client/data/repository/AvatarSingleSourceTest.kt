@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import app.cash.turbine.test
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -190,6 +191,13 @@ private class RecordingPublicProfileDao(
     override fun observeById(userId: String): Flow<PublicProfileEntity?> = rows.map { it[userId]?.takeIf { row -> row.deletedAt == null } }
 
     override suspend fun findById(userId: String): PublicProfileEntity? = rows.value[userId]
+
+    override suspend fun updateAvatarFrame(
+        userId: String,
+        frame: ImageFraming?,
+    ) {
+        rows.value[userId]?.let { rows.value = rows.value + (userId to it.copy(avatarFrame = frame)) }
+    }
 
     override suspend fun upsert(entity: PublicProfileEntity) {
         rows.value = rows.value + (entity.id to entity)

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import app.cash.turbine.test
 import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -620,6 +621,11 @@ private class FakeReaderPublicProfileDao : PublicProfileDao {
     }
 
     override suspend fun findById(userId: String): PublicProfileEntity? = error("unused")
+
+    override suspend fun updateAvatarFrame(
+        userId: String,
+        frame: ImageFraming?,
+    ) = error("unused")
 
     override suspend fun softDelete(
         id: String,

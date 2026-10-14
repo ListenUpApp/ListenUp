@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.presentation.discover
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import com.calypsan.listenup.client.data.local.db.IdRevision
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
@@ -252,6 +253,11 @@ private class FakePublicProfileDao(
     override suspend fun upsert(entity: PublicProfileEntity) = error("unused in VM test")
 
     override suspend fun findById(userId: String): PublicProfileEntity? = error("unused in VM test")
+
+    override suspend fun updateAvatarFrame(
+        userId: String,
+        frame: ImageFraming?,
+    ) = error("unused")
 
     override suspend fun softDelete(
         id: String,
