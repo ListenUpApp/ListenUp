@@ -255,6 +255,11 @@ class PlaybackErrorHandler(
      * Backs off before acting: an immediate re-prepare against a network that has not returned
      * just burns the budget in a few hundred milliseconds. Returns `true` while attempts remain
      * (playback is being recovered), `false` once the budget is spent.
+     *
+     * Nothing plays while the listener is told it is broken. A player paused by the time the
+     * backoff ends (the shared player stops it the moment a failure surfaces, or the listener
+     * paused) is not recovered: only Retry or an explicit Play starts it again. A spent budget
+     * pauses the player for the same reason, so no later Media3 retry can resume it.
      */
     private suspend fun recoverOrGiveUp(
         player: ExoPlayer,
@@ -267,12 +272,17 @@ class PlaybackErrorHandler(
         if (attempt >= RECOVERY_BACKOFF_MS.size) {
             logger.warn { "Recovery budget spent after $attempt attempts ($reason); giving up" }
             onShowError(PlaybackError.ConnectionLost(debugInfo = "recovery budget spent: $reason"))
+            player.pause()
             return false
         }
 
         val backoff = RECOVERY_BACKOFF_MS[attempt]
         logger.info { "Recovering playback ($reason), attempt ${attempt + 1} in ${backoff}ms" }
         delay(backoff)
+        if (!player.playWhenReady) {
+            logger.info { "Playback was stopped while recovering ($reason); not resuming it" }
+            return false
+        }
         recover(player)
         return true
     }
