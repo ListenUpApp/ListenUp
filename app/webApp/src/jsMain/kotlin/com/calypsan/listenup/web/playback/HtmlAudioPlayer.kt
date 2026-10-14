@@ -4,8 +4,11 @@ import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioSegment
+import com.calypsan.listenup.client.playback.PLAYBACK_DROP_GRACE
 import com.calypsan.listenup.client.playback.PlaybackState
 import kotlinx.browser.document
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.w3c.dom.HTMLAudioElement
@@ -126,8 +129,13 @@ private const val MS_PER_SECOND = 1000.0
  * `Buffering`, an admission of not-knowing-yet that one of those events then resolves. Every such
  * optimistic write needs an event that will correct it; one without is how a book ends up
  * spinning forever.
+ *
+ * The one stall nothing in the browser corrects in time is a network that silently drops every packet, so a
+ * [PlaybackStallWatch] on [stallScope] fails a listen that stalls with no progress at the shared drop grace.
  */
-internal class HtmlAudioPlayer : AudioPlayer {
+internal class HtmlAudioPlayer(
+    stallScope: CoroutineScope = MainScope(),
+) : AudioPlayer {
     override val state: StateFlow<PlaybackState>
         field = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
 
@@ -214,15 +222,31 @@ internal class HtmlAudioPlayer : AudioPlayer {
      */
     private var released: Boolean = false
 
+    /**
+     * Audio has played since the listener last asked for it, and they have not paused since: a stall now interrupts
+     * a listen, which is the only stall [stallWatch] judges. A start or a fresh load is not one.
+     */
+    private var listening: Boolean = false
+
+    /** The element's playhead when progress was last noted, in seconds. */
+    private var lastProgressTime: Double = 0.0
+
+    private val stallWatch = PlaybackStallWatch(stallScope) { onNoProgress() }
+
     init {
         element.preload = "auto"
         element.addEventListener("loadedmetadata", { applyPendingOffset() })
         element.addEventListener("canplay", { onReady() })
-        element.addEventListener("timeupdate", { publishPosition() })
+        element.addEventListener("timeupdate", {
+            publishPosition()
+            notePlayheadProgress()
+        })
+        // Bytes arriving for a directly played file; hls.js reports its fragments through [attachHls].
+        element.addEventListener("progress", { stallWatch.progressed() })
         // A seek while paused produces no `timeupdate`, so without this the reported position
         // would be the one that was *asked* for rather than the one the element actually took.
         element.addEventListener("seeked", { publishPosition() })
-        element.addEventListener("playing", { state.value = PlaybackState.Playing })
+        element.addEventListener("playing", { onPlaying() })
         element.addEventListener("waiting", { onWaiting() })
         element.addEventListener("pause", { onPaused() })
         element.addEventListener("ended", { onSegmentEnded() })
@@ -231,6 +255,7 @@ internal class HtmlAudioPlayer : AudioPlayer {
 
     override suspend fun load(segments: List<AudioSegment>) {
         released = false
+        endListen()
         if (segments.isEmpty()) {
             // Forget the previous book as well as refusing this one: leaving its segments in place
             // would let a later play() or seekTo() operate on content the caller has replaced.
@@ -298,6 +323,7 @@ internal class HtmlAudioPlayer : AudioPlayer {
 
     override fun pause() {
         resumeOnReady = false
+        endListen()
         element.pause()
     }
 
@@ -434,6 +460,7 @@ internal class HtmlAudioPlayer : AudioPlayer {
     /** Detach whatever is loaded and zero everything that described it. Leaves [state] to the caller. */
     private fun forgetContent() {
         resumeOnReady = false
+        endListen()
         pendingOffsetMs = null
         releaseHls()
         element.pause()
@@ -466,6 +493,8 @@ internal class HtmlAudioPlayer : AudioPlayer {
         releaseHls()
         currentIndex = index
         state.value = PlaybackState.Buffering
+        // A segment change or a seek into another file mid-listen stalls the listen like any other wait.
+        watchStall()
         when (val source = sourceFor(segments[index])) {
             is SegmentSource.Direct -> {
                 element.src = source.url
@@ -473,7 +502,14 @@ internal class HtmlAudioPlayer : AudioPlayer {
 
             is SegmentSource.Hls -> {
                 try {
-                    hlsHandle = attachHls(hlsLibrary, element, source.url, ::reportHlsError)
+                    hlsHandle =
+                        attachHls(
+                            library = hlsLibrary,
+                            element = element,
+                            url = source.url,
+                            onFatalError = ::reportHlsError,
+                            onFragmentLoaded = stallWatch::progressed,
+                        )
                 } catch (_: IllegalStateException) {
                     state.value =
                         PlaybackState.Error(PlaybackError.UnsupportedFormat(debugInfo = "no MSE and no native HLS"))
@@ -563,12 +599,61 @@ internal class HtmlAudioPlayer : AudioPlayer {
     private fun onWaiting() {
         // A buffer draining after a fatal hls.js error must not be dressed up as ordinary
         // buffering: that swaps a real diagnosis for a spinner nothing will ever clear.
-        if (state.value !is PlaybackState.Error) state.value = PlaybackState.Buffering
+        if (state.value !is PlaybackState.Error) {
+            state.value = PlaybackState.Buffering
+            watchStall()
+        }
+    }
+
+    private fun onPlaying() {
+        stallWatch.stop()
+        listening = true
+        state.value = PlaybackState.Playing
+    }
+
+    /** Start judging this stall, if it interrupts a listen the listener still wants. */
+    private fun watchStall() {
+        if (listening && resumeOnReady) {
+            lastProgressTime = element.currentTime
+            stallWatch.stalled()
+        }
+    }
+
+    /** The playhead moving is progress; a `timeupdate` that repeats the same time is not. */
+    private fun notePlayheadProgress() {
+        val now = element.currentTime
+        if (now != lastProgressTime) {
+            lastProgressTime = now
+            stallWatch.progressed()
+        }
+    }
+
+    private fun endListen() {
+        listening = false
+        stallWatch.stop()
+    }
+
+    /**
+     * A whole drop grace stalled with nothing arriving: the connection is dead, though the browser has not said so.
+     * Report it as the dropped connection it is, the failure Android's engine reports for the same network, and stop
+     * hls.js's retry loop (recovery is a fresh prepare, as after any fatal hls.js error).
+     */
+    private fun onNoProgress() {
+        if (released || state.value != PlaybackState.Buffering) return
+        resumeOnReady = false
+        listening = false
+        releaseHls()
+        state.value =
+            PlaybackState.Error(
+                PlaybackError.ConnectionLost(debugInfo = "No audio arrived for $PLAYBACK_DROP_GRACE while buffering."),
+            )
+        element.pause()
     }
 
     private fun onPaused() {
         // The element fires `pause` on its way to `ended` too; `ended` owns that transition.
         if (!element.ended && state.value !is PlaybackState.Error) {
+            endListen()
             state.value = PlaybackState.Paused
         }
     }
@@ -577,6 +662,7 @@ internal class HtmlAudioPlayer : AudioPlayer {
         val next = currentIndex + 1
         if (next > segments.lastIndex) {
             resumeOnReady = false
+            endListen()
             state.value = PlaybackState.Ended
             return
         }
@@ -588,6 +674,7 @@ internal class HtmlAudioPlayer : AudioPlayer {
         details: String,
     ) {
         if (released) return
+        endListen()
         // Fatal means hls.js has stopped; its buffers, timers and retry loop have not. Nothing else
         // will destroy this instance — a fatal error is neither a segment change nor a teardown —
         // so without this it runs until the tab closes.
@@ -600,6 +687,7 @@ internal class HtmlAudioPlayer : AudioPlayer {
 
     private fun reportElementError() {
         if (released) return
+        endListen()
         val error = element.error
         // Only a network stall is typed retryable; a codec the browser cannot decode will fail
         // identically every time. describe() only ever feeds debugInfo.
