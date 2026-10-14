@@ -8,9 +8,16 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
+import com.calypsan.listenup.client.test.fake.FakePlaybackController
+import com.calypsan.listenup.client.test.fake.FakePlaybackManager
+import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
+import com.calypsan.listenup.client.test.fake.prepareResultFor
+import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -95,8 +102,88 @@ class PlayerSessionErrorsTest :
                     rig.loaded.phase shouldBe PlayerPhase.Paused
                     rig.session.playPause()
                     runCurrent()
-                    rig.engine.calls.takeLast(2) shouldContainExactly listOf("clearError", "play")
+                    // The failure halted the engine: Play prepares the book again rather than resuming it.
+                    rig.engine.loads.size shouldBe 2
                     rig.loaded.phase shouldBe PlayerPhase.Playing
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        /** A session over the Android/desktop/web engine, whose manager prepares [prepared] every time. */
+        fun TestScope.managedRig(
+            manager: FakePlaybackManager,
+            controller: FakePlaybackController,
+        ) = PlayerSessionRig(this) { scope ->
+            ManagedPlayerEngine(
+                playbackManager = manager,
+                playbackController = controller,
+                startGate = NoPlaybackStartGate,
+                progressTracker =
+                    ProgressTracker(
+                        downloadRepository = FakeDownloadRepository(),
+                        positionRepository = FakePlaybackPositionRepository(),
+                        scope = scope,
+                        errorBus = ErrorBus(),
+                    ),
+                outputRoute = NoOutputRoute,
+                scope = scope,
+            )
+        }
+
+        /** b1 plays, then its stream dies (the browser tears hls.js down) and the listener dismisses the card. */
+        fun TestScope.dismissedStreamFailure(
+            manager: FakePlaybackManager,
+            rig: PlayerSessionRig,
+        ) {
+            rig.withBook("b1")
+            manager.stubbedPrepareResult = prepareResultFor("b1")
+            runCurrent()
+            rig.session.playBook(BookId("b1"), null)
+            runCurrent()
+            manager.playbackStateFlow.value = PlaybackState.Playing
+            manager.playingFlow.value = true
+            runCurrent()
+            val failure = PlaybackError.ConnectionLost()
+            manager.playingFlow.value = false
+            manager.playbackStateFlow.value = PlaybackState.Error(failure)
+            manager.playbackErrorFlow.value = failure
+            runCurrent()
+            rig.loaded.phase shouldBe PlayerPhase.Failed(failure)
+            rig.session.dismissError()
+            runCurrent()
+            rig.loaded.phase shouldBe PlayerPhase.Paused
+        }
+
+        test("web: Play after dismissing a stream failure prepares the book again, never resumes the dead element") {
+            runTest {
+                val manager = FakePlaybackManager()
+                val controller = FakePlaybackController()
+                val rig = managedRig(manager, controller)
+                try {
+                    dismissedStreamFailure(manager, rig)
+                    rig.session.playPause()
+                    runCurrent()
+                    manager.prepareForPlaybackCalls shouldBe listOf(BookId("b1"), BookId("b1"))
+                    controller.startPlaybackCalls.size shouldBe 2
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("web: Book Detail's Play on a dismissed stream failure prepares the book again too") {
+            runTest {
+                val manager = FakePlaybackManager()
+                val controller = FakePlaybackController()
+                val rig = managedRig(manager, controller)
+                try {
+                    dismissedStreamFailure(manager, rig)
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    manager.prepareForPlaybackCalls shouldBe listOf(BookId("b1"), BookId("b1"))
+                    controller.startPlaybackCalls.size shouldBe 2
                 } finally {
                     rig.close()
                 }

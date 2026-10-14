@@ -293,8 +293,8 @@ class PlayerSession(
      * null resumes from the saved position.
      *
      * - A plain repeat tap for the book already preparing is swallowed (a double tap).
-     * - The book the engine already holds, not finished and not failed, is a resume: a seek when [startAtMs]
-     *   is given, then play. Never a re-prepare (the web rule, now everyone's).
+     * - The book the engine already holds, not finished, not failed and not halted by a failure, is a resume: a
+     *   seek when [startAtMs] is given, then play. Never a re-prepare (the web rule, now everyone's).
      * - Anything else starts a load, which supersedes any load in flight. A plain Play of the loaded book starts
      *   where the listener moved it before Play.
      */
@@ -310,7 +310,8 @@ class PlayerSession(
                     loaded.bookId == bookId &&
                     loaded.isEngineBound &&
                     loaded.phase !is PlayerPhase.Finished &&
-                    loaded.phase !is PlayerPhase.Failed
+                    loaded.phase !is PlayerPhase.Failed &&
+                    (stage.value as? SessionStage.Engine)?.halted != true
             if (resumable) {
                 if (startAtMs != null) engine.seekTo(startAtMs.coerceIn(0L, (durationMs.value - 1).coerceAtLeast(0L)))
                 engine.clearError()
@@ -415,7 +416,11 @@ class PlayerSession(
 
     // ── Transport (Task 15) ──────────────────────────────────────────────────────────────────────────
 
-    /** The one play/pause intent (§4.3): resume, pause, prepare a restored book, re-listen, or retry. */
+    /**
+     * The one play/pause intent (§4.3): resume, pause, prepare a restored book, re-listen, or retry. A pause left by
+     * a dismissed failure prepares the book again: the failure halted the engine, and on the web it tore the element's
+     * source down, so resuming it would play nothing.
+     */
     fun playPause() {
         onPlayer {
             val loaded = loadedOrNull() ?: return@onPlayer
@@ -426,7 +431,11 @@ class PlayerSession(
 
                 PlayerPhase.Paused -> {
                     engine.clearError()
-                    engine.play()
+                    if ((stage.value as? SessionStage.Engine)?.halted == true) {
+                        startLoad(loaded.bookId, retryStart(loaded))
+                    } else {
+                        engine.play()
+                    }
                 }
 
                 PlayerPhase.Restored -> {
@@ -675,20 +684,24 @@ class PlayerSession(
     /**
      * Nothing plays while the bar says it's broken. Once an engine failure surfaces, the engine is told to stop
      * trying: a pause, which every engine treats as the end of its own recovery (Media3's re-prepare, a resumable
-     * stalled item). Only Retry or an explicit Play starts it again. A brief drop still recovers quietly before
-     * this, while the engine reports Buffering rather than a failure.
+     * stalled item). Only Retry or an explicit Play starts it again; a Play from the pause a Dismiss leaves
+     * prepares the book again. A brief drop still recovers quietly before this, while the engine reports
+     * Buffering rather than a failure. An engine heard playing again (an autoplay block lifted) is no longer
+     * halted.
      */
     private suspend fun haltSurfacedFailures() {
         state
-            .map { current ->
-                (current as? PlayerSessionState.Loaded)?.takeIf { it.isEngineBound && it.phase is PlayerPhase.Failed }
-            }.distinctUntilChanged()
-            .collect { failed ->
-                if (failed == null) return@collect
-                engine.pause()
+            .map { current -> (current as? PlayerSessionState.Loaded)?.takeIf { it.isEngineBound } }
+            .distinctUntilChanged()
+            .collect { bound ->
                 val current = stage.value
-                if (current is SessionStage.Engine && current.bookId == failed.bookId) {
+                if (bound == null || current !is SessionStage.Engine || current.bookId != bound.bookId) return@collect
+                val playing = bound.phase == PlayerPhase.Playing || bound.phase == PlayerPhase.SleepFading
+                if (bound.phase is PlayerPhase.Failed) {
+                    engine.pause()
                     stage.value = current.copy(halted = true)
+                } else if (playing && current.halted) {
+                    stage.value = current.copy(halted = false)
                 }
             }
     }
