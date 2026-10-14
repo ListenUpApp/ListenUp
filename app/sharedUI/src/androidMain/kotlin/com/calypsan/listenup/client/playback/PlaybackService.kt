@@ -150,9 +150,18 @@ class PlaybackService :
     /** Offers a way back in when the platform refuses a background start. */
     private val refusalNotifier by lazy { PlaybackRefusalNotifier(this, systemStrings) }
 
-    // Current book ID is read from PlaybackManager (single source of truth)
+    /**
+     * The book every position this service saves is filed under: PlaybackManager's, but only while the
+     * transport holds that book's media ([positionOwner]). Null in the moment after a switch when the player
+     * still holds the previous book, so its place is never saved as the new one's.
+     */
     private val currentBookId: BookId?
-        get() = playbackManager.currentBookId.value
+        get() =
+            positionOwner(
+                activeBookId = playbackManager.currentBookId.value,
+                timeline = playbackManager.currentTimeline.value,
+                transportMediaId = activeTransportPlayer()?.currentMediaItem?.mediaId,
+            )
 
     /**
      * Get the current book-relative position.
@@ -821,7 +830,8 @@ class PlaybackService :
                     // getBookRelativePosition() already reads the transport player, so only the
                     // gate had to follow it here.
                     val transportPlayer = activeTransportPlayer() ?: break
-                    val bookId = currentBookId ?: break
+                    // Not this book's media yet (a switch still landing): skip the tick, keep the loop.
+                    val bookId = currentBookId ?: continue
 
                     if (transportPlayer.isPlaying) {
                         val positionMs = getBookRelativePosition()
