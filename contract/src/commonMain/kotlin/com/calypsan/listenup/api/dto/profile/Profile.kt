@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api.dto.profile
 
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -25,12 +26,14 @@ data class Profile(
  * [avatarUpdatedAt] is the server's epoch-ms stamp for the freshly stored bytes — the exact value
  * the `public_profiles` projection now carries. The client writes it verbatim into its own observed
  * row so the optimistic pre-sync render and the eventual sync echo agree on the avatar version,
- * busting the cached bitmap without a redundant re-download.
+ * busting the cached bitmap without a redundant re-download. It carries [avatarFrame] too: the frame the server
+ * stored with the new bytes (null when the upload carried none).
  */
 @Serializable
 @SerialName("AvatarUploadResponse")
 data class AvatarUploadResponse(
     val avatarUpdatedAt: Long,
+    @SerialName("avatarFrame") val avatarFrame: ImageFraming? = null,
 )
 
 /** A password change: current password is verified before the new one is stored. */
@@ -63,6 +66,8 @@ data class UpdateProfileRequest(
     val tagline: String? = null,
     val avatarType: String? = null,
     val password: PasswordChange? = null,
+    /** Frames the caller's current image avatar; ignored unless its version is the stored avatar's. Null: unchanged. */
+    @SerialName("avatarFrame") val avatarFrame: ImageFraming? = null,
 ) {
     init {
         displayName?.let { require(it.isNotBlank() && it.length <= MAX_DISPLAY_NAME) { "invalid displayName" } }
