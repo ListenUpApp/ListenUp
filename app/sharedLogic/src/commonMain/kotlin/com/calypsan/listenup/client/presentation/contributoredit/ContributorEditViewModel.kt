@@ -629,7 +629,7 @@ class ContributorEditViewModel internal constructor(
         }
 
         // Then upload to the server; the local image is already saved either way.
-        val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename)
+        val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename, frame = null)
         when (result) {
             is AppResult.Success -> logger.info { "Contributor image uploaded to server" }
             is AppResult.Failure -> logger.error { "Failed to upload contributor image: ${result.message}" }

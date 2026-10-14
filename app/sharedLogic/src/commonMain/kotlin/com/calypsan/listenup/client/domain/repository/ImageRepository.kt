@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.AppResult
 
@@ -155,6 +156,7 @@ interface ImageRepository {
      *
      * @param contributorId Unique identifier for the contributor
      * @param imageData Raw image bytes
+     * @param frame the user's frame for these bytes, sent as the `frame` form field; null sends none
      * @param filename Original filename
      * @return Result containing the server image URL or error
      */
@@ -162,6 +164,7 @@ interface ImageRepository {
         contributorId: String,
         imageData: ByteArray,
         filename: String,
+        frame: ImageFrame?,
     ): AppResult<String>
 
     // ========== Contributor Image Path Operations ==========

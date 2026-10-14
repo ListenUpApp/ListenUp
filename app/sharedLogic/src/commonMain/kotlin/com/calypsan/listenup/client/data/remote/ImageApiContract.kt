@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 
@@ -46,12 +47,14 @@ interface ImageApiContract {
      * @param contributorId Unique identifier for the contributor
      * @param imageData Raw image bytes (JPEG, PNG, WebP, or GIF)
      * @param filename Original filename for the image
+     * @param frame the user's frame for these bytes, sent as the `frame` form field; null sends none
      * @return Result containing the image URL or error
      */
     suspend fun uploadContributorImage(
         contributorId: String,
         imageData: ByteArray,
         filename: String,
+        frame: ImageFrame?,
     ): AppResult<ImageUploadResponse>
 
     /**

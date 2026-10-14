@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -65,6 +66,7 @@ private class RecordingImageApi : ImageApiContract {
         contributorId: String,
         imageData: ByteArray,
         filename: String,
+        frame: ImageFrame?,
     ) = error("not used")
 
     override suspend fun downloadCover(bookId: BookId): AppResult<ByteArray> = error("not used")
@@ -106,6 +108,7 @@ class PendingImageUploadSchedulerTest :
                     imageStorage = storage,
                     imageApi = api,
                     authSession = auth,
+                    contributorDao = database.contributorDao(),
                 )
             val scheduler =
                 PendingImageUploadScheduler(

@@ -84,6 +84,7 @@ internal val mediaModule: Module =
                 imageStorage = get(),
                 imageApi = get(),
                 authSession = get(),
+                contributorDao = get(),
             )
         }
         single<PendingImageUploads> { get<PendingImageUploadsImpl>() }

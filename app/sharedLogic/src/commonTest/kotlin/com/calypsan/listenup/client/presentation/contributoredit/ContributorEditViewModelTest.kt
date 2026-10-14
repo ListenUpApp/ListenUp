@@ -363,7 +363,7 @@ class ContributorEditViewModelTest :
                 state.pendingImageFilename shouldBe "avatar.jpg"
                 state.hasChanges shouldBe true
                 verifySuspend(VerifyMode.not) {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 }
             }
         }
@@ -385,7 +385,7 @@ class ContributorEditViewModelTest :
                     fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                 } returns AppResult.Success(Unit)
                 everySuspend {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 } returns AppResult.Success("https://example/photo.jpg")
 
                 val viewModel = fixture.build()
@@ -404,7 +404,7 @@ class ContributorEditViewModelTest :
                         fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                     }
                     verifySuspend(VerifyMode.exactly(1)) {
-                        fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                        fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                     }
                     awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
                 }
@@ -429,7 +429,7 @@ class ContributorEditViewModelTest :
                     fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                 } returns AppResult.Success(Unit)
                 everySuspend {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 } returns AppResult.Failure(TransportError.NetworkUnavailable())
 
                 val viewModel = fixture.build()
@@ -467,7 +467,7 @@ class ContributorEditViewModelTest :
                     fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                 } returns AppResult.Success(Unit)
                 everySuspend {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 } returns AppResult.Failure(AuthError.PermissionDenied())
 
                 val viewModel = fixture.build()
@@ -500,7 +500,7 @@ class ContributorEditViewModelTest :
                     fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                 } returns AppResult.Success(Unit)
                 everySuspend {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 } returns AppResult.Success("https://example/photo.jpg")
 
                 val viewModel = fixture.build()
