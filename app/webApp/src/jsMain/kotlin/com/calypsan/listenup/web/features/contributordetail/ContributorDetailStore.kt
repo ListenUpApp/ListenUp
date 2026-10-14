@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
@@ -35,6 +36,8 @@ class ContributorDetailSession(
     val onConfirmDelete: () -> Unit,
     /** Clear a failed delete's message so the page can be used again. */
     val onDismissDeleteError: () -> Unit,
+    /** Frame this contributor's photo, committed at once (the detail page's "Adjust photo"; the editor is drawn later). */
+    val onAdjustPhoto: (ImageFrame) -> Unit,
     /**
      * Where the ViewModel says to go once the contributor is gone.
      *
@@ -70,6 +73,7 @@ fun graphContributorDetail(koin: Koin): OpenContributorDetail =
             state = viewModel.state,
             onConfirmDelete = viewModel::confirmDelete,
             onDismissDeleteError = viewModel::dismissDeleteError,
+            onAdjustPhoto = viewModel::adjustPhoto,
             navActions = viewModel.navActions,
             close = store::clear,
         )
@@ -80,6 +84,7 @@ fun fixedContributorDetail(
     state: ContributorDetailUiState,
     onConfirmDelete: () -> Unit = {},
     onDismissDeleteError: () -> Unit = {},
+    onAdjustPhoto: (ImageFrame) -> Unit = {},
     navActions: Flow<ContributorDetailNavAction> = emptyFlow(),
 ): OpenContributorDetail =
     {
@@ -87,6 +92,7 @@ fun fixedContributorDetail(
             state = MutableStateFlow(state),
             onConfirmDelete = onConfirmDelete,
             onDismissDeleteError = onDismissDeleteError,
+            onAdjustPhoto = onAdjustPhoto,
             navActions = navActions,
             close = {},
         )

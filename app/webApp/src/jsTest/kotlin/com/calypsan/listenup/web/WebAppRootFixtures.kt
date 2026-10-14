@@ -623,6 +623,7 @@ internal class RecordingContributorDetail {
             state = MutableStateFlow(readyContributor(name = "Contributor $id")),
             onConfirmDelete = {},
             onDismissDeleteError = {},
+            onAdjustPhoto = {},
             navActions = emptyFlow(),
             close = {},
         )
