@@ -201,7 +201,7 @@ kotlin {
             implementation(libs.ktor.client.mock)
             implementation(libs.kotest.framework.engine)
             implementation(libs.kotest.assertions.core)
-            // ExternalRatingTest's checkAll property tests only; every other spec stays example-based.
+            // Property tests: ExternalRatingTest and the image-framing maths (core/image).
             implementation(libs.kotest.property)
         }
     }
