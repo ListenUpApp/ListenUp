@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -407,6 +408,11 @@ class ManagedPlayerEngineTest :
                     rig.manager.playingFlow.value = false
                     rig.manager.playbackStateFlow.value = PlaybackState.Buffering
                     rig.manager.reportError(PlaybackError.ConnectionLost())
+                    runCurrent()
+                    // Inside the drop's grace Media3 keeps recovering: nothing shows and nothing is stopped.
+                    session.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.controller.pauseCount shouldBe pausesBefore
+                    advanceTimeBy(PLAYBACK_DROP_GRACE)
                     runCurrent()
                     session.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
                     rig.controller.pauseCount shouldBe pausesBefore + 1

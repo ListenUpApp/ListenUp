@@ -18,6 +18,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -31,7 +32,11 @@ class PlayerSessionErrorsTest :
                     runCurrent()
                     rig.session.playBook(BookId("b1"), null)
                     runCurrent()
+                    // The stream dies: the audio stops and the engine reports why.
+                    rig.engine.phase.value = EnginePhase.IDLE
                     rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    advanceTimeBy(PLAYBACK_DROP_GRACE)
                     runCurrent()
                     rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
                     rig.session.dismissError()
@@ -59,6 +64,8 @@ class PlayerSessionErrorsTest :
                     val callsBeforeFailure = rig.engine.calls.size
                     rig.engine.phase.value = EnginePhase.BUFFERING
                     rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    advanceTimeBy(PLAYBACK_DROP_GRACE)
                     runCurrent()
                     rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
 
@@ -97,6 +104,9 @@ class PlayerSessionErrorsTest :
                     // Media3 drops to IDLE on a fatal error, and a pause leaves an idle player idle.
                     rig.engine.phase.value = EnginePhase.IDLE
                     runCurrent()
+                    advanceTimeBy(PLAYBACK_DROP_GRACE)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
                     rig.session.dismissError()
                     runCurrent()
                     rig.loaded.phase shouldBe PlayerPhase.Paused
@@ -150,6 +160,8 @@ class PlayerSessionErrorsTest :
             manager.playbackStateFlow.value = PlaybackState.Error(failure)
             manager.playbackErrorFlow.value = failure
             runCurrent()
+            advanceTimeBy(PLAYBACK_DROP_GRACE)
+            runCurrent()
             rig.loaded.phase shouldBe PlayerPhase.Failed(failure)
             rig.session.dismissError()
             runCurrent()
@@ -201,7 +213,11 @@ class PlayerSessionErrorsTest :
                     rig.availability.stateFlow.value =
                         rig.availability.stateFlow.value
                             .copy(canPlay = false)
+                    // The stream dies: the audio stops and the engine reports why.
+                    rig.engine.phase.value = EnginePhase.IDLE
                     rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    advanceTimeBy(PLAYBACK_DROP_GRACE)
                     runCurrent()
                     rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ServerUnreachable())
                     rig.network.onlineFlow.value = false
@@ -239,7 +255,11 @@ class PlayerSessionErrorsTest :
                     runCurrent()
                     rig.session.playBook(BookId("b1"), null)
                     runCurrent()
+                    // The stream dies: the audio stops and the engine reports why.
+                    rig.engine.phase.value = EnginePhase.IDLE
                     rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    advanceTimeBy(PLAYBACK_DROP_GRACE)
                     runCurrent()
                     rig.session.retry()
                     runCurrent()

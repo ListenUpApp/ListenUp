@@ -425,8 +425,12 @@ class PlayerSession(
         onPlayer {
             val loaded = loadedOrNull() ?: return@onPlayer
             when (val phase = loaded.phase) {
-                PlayerPhase.Playing, PlayerPhase.Buffering, PlayerPhase.SleepFading -> {
+                PlayerPhase.Playing, PlayerPhase.SleepFading -> {
                     engine.pause()
+                }
+
+                PlayerPhase.Buffering -> {
+                    pauseBuffering()
                 }
 
                 PlayerPhase.Paused -> {
@@ -465,6 +469,22 @@ class PlayerSession(
                     // A load is in flight; its result decides.
                 }
             }
+        }
+    }
+
+    /**
+     * Pause a buffering book. Inside a drop's grace the engine is recovering from a failure it reported; a pause
+     * there ends the drop as a pause, never an error later. The engine is told to stop recovering and forget the
+     * failure, and Play prepares the book again (the engine may have let go of its audio, as the web and iOS do).
+     */
+    private fun pauseBuffering() {
+        val current = stage.value
+        if (engine.error.value != null && current is SessionStage.Engine) {
+            engine.clearError()
+            engine.pause()
+            stage.value = current.copy(halted = true, failure = null)
+        } else {
+            engine.pause()
         }
     }
 
@@ -673,6 +693,12 @@ class PlayerSession(
                     stage.value = SessionStage.Idle(current.bookId)
                 }
 
+                current is SessionStage.Engine && current.failure != null -> {
+                    stage.value = current.copy(failure = null)
+                    engine.clearError()
+                    engine.pause()
+                }
+
                 engine.error.value != null -> {
                     engine.clearError()
                     engine.pause()
@@ -682,12 +708,13 @@ class PlayerSession(
     }
 
     /**
-     * Nothing plays while the bar says it's broken. Once an engine failure surfaces, the engine is told to stop
-     * trying: a pause, which every engine treats as the end of its own recovery (Media3's re-prepare, a resumable
-     * stalled item). Only Retry or an explicit Play starts it again; a Play from the pause a Dismiss leaves
-     * prepares the book again. A brief drop still recovers quietly before this, while the engine reports
-     * Buffering rather than a failure. An engine heard playing again (an autoplay block lifted) is no longer
-     * halted.
+     * Nothing plays while the bar says it's broken. Once a failure surfaces, the engine is told to stop trying: a
+     * pause, which every engine treats as the end of its own recovery (Media3's re-prepare, hls.js's retries, the
+     * iOS engine's fresh prepare). Only Retry or an explicit Play starts it again; a Play from the pause a Dismiss
+     * leaves prepares the book again. A network drop that interrupts a listen surfaces only after
+     * [PLAYBACK_DROP_GRACE] (the derivation shows Buffering until then), so a short one recovers without a word. A
+     * failure the session surfaced with no engine error behind it is kept on the stage, so the halt goes on saying
+     * why. An engine heard playing again (an autoplay block lifted) is no longer halted.
      */
     private suspend fun haltSurfacedFailures() {
         state
@@ -699,9 +726,10 @@ class PlayerSession(
                 val playing = bound.phase == PlayerPhase.Playing || bound.phase == PlayerPhase.SleepFading
                 if (bound.phase is PlayerPhase.Failed) {
                     engine.pause()
-                    stage.value = current.copy(halted = true)
+                    val ownFailure = bound.phase.error.takeIf { engine.error.value == null }
+                    stage.value = current.copy(halted = true, failure = ownFailure ?: current.failure)
                 } else if (playing && current.halted) {
-                    stage.value = current.copy(halted = false)
+                    stage.value = current.copy(halted = false, failure = null)
                 }
             }
     }
