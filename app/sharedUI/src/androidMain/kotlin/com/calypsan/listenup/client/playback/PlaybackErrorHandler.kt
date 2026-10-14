@@ -158,7 +158,10 @@ class PlaybackErrorHandler(
         // The caller passes a BOOK-relative position (PlaybackService.getBookRelativePosition()).
         // Reading player.currentPosition here would save a FILE-relative offset — for a
         // multi-file book in a late file that persists a ~9h regression as the newest position.
-        currentBookId?.let { bookId ->
+        // Only a place reached by listening is saved: a book that has not sounded since it was started (a switch
+        // whose stream died before its first byte) has no new place, and saving its untouched start would create
+        // a row that syncs as "started".
+        currentBookId?.takeIf { progressTracker.sessionState.value.bookIdOrNull == it }?.let { bookId ->
             progressTracker.savePositionNow(bookId, bookPositionMs)
             logger.debug { "Position saved before error handling: $bookPositionMs" }
         }
@@ -300,3 +303,12 @@ class PlaybackErrorHandler(
             is ClassifiedError.Unknown -> "Playback error."
         }
 }
+
+/** The book this listening session belongs to: the one that last sounded, or null before anything has. */
+private val SessionState.bookIdOrNull: BookId?
+    get() =
+        when (this) {
+            SessionState.Idle -> null
+            is SessionState.Active -> bookId
+            is SessionState.Paused -> bookId
+        }

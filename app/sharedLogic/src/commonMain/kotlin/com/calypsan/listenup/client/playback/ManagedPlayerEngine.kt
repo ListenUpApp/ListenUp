@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.core.BookId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -71,12 +72,32 @@ internal class ManagedPlayerEngine(
 
                 is AppResult.Success -> {
                     playbackManager.activateBook(bookId)
-                    playbackController.startPlayback(prepared.data)
+                    startOrLetGo(bookId, prepared.data)
                     AppResult.Success(Unit)
                 }
             }
         } finally {
             if (loadingBookId == bookId) loadingBookId = null
+        }
+    }
+
+    /**
+     * Start [bookId], already activated, or let go of it if the start throws (the browser cannot fetch hls.js from a
+     * server that just died). An engine that kept naming a book it never started would read as holding it, and the
+     * session would take that for the engine playing it by itself and drop the error for a silent Paused, as the
+     * iOS engine never adopts a book whose start failed.
+     */
+    private suspend fun startOrLetGo(
+        bookId: BookId,
+        prepared: PlaybackManager.PrepareResult,
+    ) {
+        try {
+            playbackController.startPlayback(prepared)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (playbackManager.currentBookId.value == bookId) playbackManager.clearPlayback()
+            throw e
         }
     }
 

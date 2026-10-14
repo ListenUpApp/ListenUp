@@ -231,7 +231,7 @@ class PlayerSessionFailedSwitchTest :
             }
         }
 
-        test("web and desktop: a switch whose load throws leaves the playhead the tab-hide flush saves at B's own place") {
+        test("web and desktop: a switch whose load throws leaves nothing for the tab-hide flush to save as B's") {
             runTest {
                 val rig = BrowserRig(this)
                 try {
@@ -251,8 +251,36 @@ class PlayerSessionFailedSwitchTest :
                     rig.session.session.playBook(bookB, null)
                     runCurrent()
 
-                    rig.manager.currentBookId.value shouldBe bookB
+                    // The engine let go of the book it could not start: the flush pairs nothing with B, least of
+                    // all A's place.
+                    rig.manager.currentBookId.value shouldBe null
                     rig.manager.currentPositionMs.value shouldBe 0L
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("web and desktop: a load that throws after the book was activated stays Failed and shows its error") {
+            runTest {
+                val rig = BrowserRig(this)
+                try {
+                    seed(rig.db, bookA, "af-a")
+                    seed(rig.db, bookB, "af-b")
+                    rig.session.withBook(bookA.value, durationMs = 7_200_000L)
+                    rig.session.withBook(bookB.value, durationMs = 7_200_000L)
+                    runCurrent()
+                    rig.session.session.playBook(bookA, null)
+                    runCurrent()
+
+                    rig.player.failNextLoad = true
+                    rig.session.session.playBook(bookB, null)
+                    runCurrent()
+
+                    rig.session.loaded.bookId shouldBe bookB
+                    rig.session.loaded.phase
+                        .shouldBeInstanceOf<PlayerPhase.Failed>()
+                    (rig.session.loaded.phase as PlayerPhase.Failed).error.shouldBeInstanceOf<PlaybackError.CouldNotStart>()
                 } finally {
                     rig.close()
                 }

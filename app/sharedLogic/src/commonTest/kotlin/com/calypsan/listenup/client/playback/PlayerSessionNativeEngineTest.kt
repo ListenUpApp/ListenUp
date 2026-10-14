@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.test.fake.preparedPlaybackFor
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -107,6 +108,36 @@ class PlayerSessionNativeEngineTest :
                     rig.session.retry()
                     runCurrent()
                     prepared.last() shouldBe (BookId("b") to PlaybackStart.Resume)
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a prepare that throws on iOS stays Failed: the engine never adopted the book") {
+            runTest {
+                var engine: NativePlayerEngine? = null
+                val rig =
+                    PlayerSessionRig(this, playerEngine = { scope ->
+                        NativePlayerEngine(
+                            prepare = { id, _ ->
+                                if (id == BookId("b")) error("the stream could not be prepared")
+                                AppResult.Success(preparedPlaybackFor(id.value, durationMs = 300_000))
+                            },
+                            scope = scope,
+                        ).also { engine = it }
+                    })
+                try {
+                    rig.withBook("a")
+                    rig.withBook("b")
+                    runCurrent()
+                    rig.session.playBook(BookId("a"), null)
+                    runCurrent()
+                    engine!!.onPhase(1, EnginePhase.PLAYING)
+                    rig.session.playBook(BookId("b"), null)
+                    runCurrent()
+                    rig.loaded.bookId shouldBe BookId("b")
+                    rig.loaded.phase.shouldBeInstanceOf<PlayerPhase.Failed>()
                 } finally {
                     rig.close()
                 }

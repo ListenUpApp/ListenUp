@@ -213,7 +213,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `handle Network returns true and does not pause player`() {
         runTest {
-            val tracker = FakeProgressTracker()
+            val tracker = FakeProgressTracker(listenedTo = BookId("book1"))
             val player = FakeExoPlayer(playWhenReady = true, stubbedPosition = 8_000L)
             val errors = mutableListOf<AppError>()
 
@@ -433,7 +433,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `handle NotFound returns false, pauses player, shows user error`() {
         runBlocking {
-            val tracker = FakeProgressTracker()
+            val tracker = FakeProgressTracker(listenedTo = BookId("book2"))
             val player = FakeExoPlayer(stubbedPosition = 4_500L)
             val errors = mutableListOf<AppError>()
 
@@ -590,7 +590,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `handle Stuck returns true and performs stop-prepare-seekTo-play recovery`() {
         runTest {
-            val tracker = FakeProgressTracker()
+            val tracker = FakeProgressTracker(listenedTo = BookId("book3"))
             val player = FakeExoPlayer(playWhenReady = true, stubbedPosition = 12_000L, stubbedMediaItemIndex = 2)
             val errors = mutableListOf<AppError>()
 
@@ -646,7 +646,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `handle Unknown returns false, pauses player, shows user error`() {
         runBlocking {
-            val tracker = FakeProgressTracker()
+            val tracker = FakeProgressTracker(listenedTo = BookId("book4"))
             val player = FakeExoPlayer(stubbedPosition = 3_000L)
             val errors = mutableListOf<AppError>()
 
@@ -687,6 +687,43 @@ class PlaybackErrorHandlerTest {
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `handle never creates a position for a book that has not played (failed switch)`() {
+        runTest {
+            // A played and was paused by the switch; B's stream died before its first byte.
+            val tracker = FakeProgressTracker(listenedTo = BookId("book-a"))
+
+            makeHandler(tracker = tracker).handle(
+                error = PlaybackErrorHandler.ClassifiedError.Network("net"),
+                player = FakeExoPlayer(playWhenReady = false),
+                currentBookId = BookId("book-b"),
+                bookPositionMs = 0L,
+                onShowError = {},
+            )
+
+            withClue("Saving B's untouched start would create a row that syncs as 'started'") {
+                tracker.savePlaybackStateCalls.size shouldBe 0
+            }
+        }
+    }
+
+    @Test
+    fun `handle saves nothing when nothing has played since launch`() {
+        runTest {
+            val tracker = FakeProgressTracker()
+
+            makeHandler(tracker = tracker).handle(
+                error = PlaybackErrorHandler.ClassifiedError.Codec("codec"),
+                player = FakeExoPlayer(playWhenReady = true),
+                currentBookId = BookId("book-b"),
+                bookPositionMs = 0L,
+                onShowError = {},
+            )
+
+            tracker.savePlaybackStateCalls.size shouldBe 0
+        }
+    }
 
     /**
      * Constructs a [PlaybackErrorHandler] backed by the given [tracker] and [tokens]
@@ -771,7 +808,9 @@ private class FakeAudioTokenRecovery(
  * The remaining stub repositories throw on any call — none should be reached in
  * [PlaybackErrorHandler] tests because those code paths are not exercised.
  */
-private class FakeProgressTracker {
+private class FakeProgressTracker(
+    listenedTo: BookId? = null,
+) {
     private val repo = RecordingPositionRepository()
 
     /** All `savePlaybackState` calls routed through [savePositionNow], keyed by bookId. */
@@ -785,6 +824,13 @@ private class FakeProgressTracker {
             scope = CoroutineScope(Dispatchers.Unconfined),
             errorBus = ErrorBus(),
         ) {}
+
+    init {
+        // [listenedTo] has sounded in this session, as the service's play transition records it. Its own save is
+        // not one the handler made, so the record starts empty.
+        listenedTo?.let { tracker.onPlaybackStarted(it, positionMs = 0L, speed = 1f, durationMs = 0L) }
+        repo.clear()
+    }
 }
 
 /**
@@ -794,6 +840,8 @@ private class FakeProgressTracker {
 private class RecordingPositionRepository : PlaybackPositionRepository {
     private val _calls = mutableListOf<Pair<BookId, PlaybackUpdate>>()
     val calls: List<Pair<BookId, PlaybackUpdate>> get() = _calls.toList()
+
+    fun clear() = _calls.clear()
 
     override suspend fun savePlaybackState(
         bookId: BookId,
