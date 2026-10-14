@@ -19,6 +19,7 @@ class PlayerProjectionsTest :
                 Triple(PlayerPhase.SleepFading, PrimaryControl.Pause, true),
                 Triple(PlayerPhase.Preparing, PrimaryControl.Busy, false),
                 Triple(PlayerPhase.Buffering, PrimaryControl.Busy, false),
+                Triple(PlayerPhase.Reconnecting, PrimaryControl.Busy, false),
                 Triple(PlayerPhase.Finished, PrimaryControl.ListenAgain, false),
                 Triple(PlayerPhase.Failed(PlaybackError.ConnectionLost()), PrimaryControl.Retry, false),
                 Triple(PlayerPhase.Failed(PlaybackError.Stalled()), PrimaryControl.Retry, false),

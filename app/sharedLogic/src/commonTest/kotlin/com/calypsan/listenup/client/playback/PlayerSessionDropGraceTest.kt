@@ -15,8 +15,9 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 /**
- * A network drop mid-play recovers quietly for [PLAYBACK_DROP_GRACE]; only then does the error show, and once it
- * shows the engine is halted (Simon, 2026-10-14). Driven on virtual time: every boundary is exact.
+ * A network drop mid-play recovers for [PLAYBACK_DROP_GRACE] while the player says Reconnecting; only then does the
+ * error show, and once it shows the engine is halted (Simon, 2026-10-14). A stall with no sign of the network behind
+ * it (a start, a seek, a slow stream) stays Buffering. Driven on virtual time: every boundary is exact.
  */
 class PlayerSessionDropGraceTest :
     FunSpec({
@@ -64,10 +65,10 @@ class PlayerSessionDropGraceTest :
                     runCurrent()
                     rig.engine.error.value = PlaybackError.ConnectionLost()
                     runCurrent()
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     advanceTimeBy(2_000)
                     runCurrent()
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     recover(rig)
                     rig.loaded.phase shouldBe PlayerPhase.Playing
                     advanceTimeBy(graceMs * 3)
@@ -87,11 +88,11 @@ class PlayerSessionDropGraceTest :
                     playing(rig)
                     val callsBeforeDrop = rig.engine.calls.size
                     drop(rig, failsAfterMs = 6_000)
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     // 6 s already passed since the audio stalled; one millisecond short of the grace is still quiet.
                     advanceTimeBy(graceMs - 6_000 - 1)
                     runCurrent()
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     rig.engine.calls.drop(callsBeforeDrop) shouldNotContain "pause"
                     advanceTimeBy(1)
                     runCurrent()
@@ -208,7 +209,7 @@ class PlayerSessionDropGraceTest :
                     drop(rig, failsAfterMs = 6_000)
                     advanceTimeBy(graceMs - 6_000 - 1)
                     runCurrent()
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     advanceTimeBy(1)
                     runCurrent()
                     rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
@@ -229,9 +230,11 @@ class PlayerSessionDropGraceTest :
                         rig.availability.stateFlow.value
                             .copy(canPlay = false)
                     runCurrent()
+                    // The server is known to be out of reach: that is a network drop, not a slow stream.
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     advanceTimeBy(graceMs - 1)
                     runCurrent()
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     advanceTimeBy(1)
                     runCurrent()
                     rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ServerUnreachable())
@@ -246,6 +249,87 @@ class PlayerSessionDropGraceTest :
                     rig.session.dismissError()
                     runCurrent()
                     rig.loaded.phase shouldBe PlayerPhase.Paused
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a network drop says Reconnecting from the moment the engine reports it until the audio returns") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    playing(rig)
+                    rig.engine.phase.value = EnginePhase.BUFFERING
+                    runCurrent()
+                    // Nothing yet says the network went away: an ordinary stall.
+                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    advanceTimeBy(2_000)
+                    rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
+                    // The engine retries: it clears its failure and buffers again. Still the same drop.
+                    advanceTimeBy(2_000)
+                    rig.engine.error.value = null
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
+                    recover(rig)
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                    // The next stall is a fresh one, with nothing yet to say it is the network.
+                    rig.engine.phase.value = EnginePhase.BUFFERING
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a start or a seek buffers as Buffering, never Reconnecting") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    playing(rig)
+                    rig.session.playPause()
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Paused
+                    // Play from a pause: the engine buffers before the first audio.
+                    rig.engine.phase.value = EnginePhase.BUFFERING
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.engine.phase.value = EnginePhase.PLAYING
+                    runCurrent()
+                    // A seek mid-listen: the engine buffers the new position.
+                    rig.session.seekTo(120_000)
+                    rig.engine.phase.value = EnginePhase.BUFFERING
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    advanceTimeBy(graceMs * 2)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a stall the engine finds no progress in fails at the grace, and not before") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    playing(rig)
+                    // The web engine's own watch: a silently dead network moves no bytes and no clock, so the
+                    // engine names the dropped connection once a whole grace has passed without progress.
+                    rig.engine.phase.value = EnginePhase.BUFFERING
+                    runCurrent()
+                    advanceTimeBy(graceMs - 1)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    advanceTimeBy(1)
+                    rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+                    rig.engine.calls.last() shouldBe "pause"
                 } finally {
                     rig.close()
                 }
@@ -298,13 +382,13 @@ class PlayerSessionDropGraceTest :
             }
         }
 
-        test("pausing during a quiet drop is a pause: no error later, and Play prepares the book again") {
+        test("pausing while Reconnecting is a pause: no error later, and Play prepares the book again") {
             runTest {
                 val rig = PlayerSessionRig(this)
                 try {
                     playing(rig)
                     drop(rig, failsAfterMs = 2_000)
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     rig.session.playPause()
                     runCurrent()
                     rig.loaded.phase shouldBe PlayerPhase.Paused
@@ -352,14 +436,16 @@ class PlayerSessionDropGraceTest :
                     engine().reportConnectionLost(1, "NSURLErrorDomain -1004")
                     engine().onPhase(1, EnginePhase.PAUSED)
                     runCurrent()
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
-                    // The first reload, a second later, fails under a server still down.
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
+                    // The first reload, a second later, fails under a server still down. While Swift loads it
+                    // the engine reports no failure, and the player still says Reconnecting.
                     advanceTimeBy(1_000)
                     runCurrent()
                     prepares.size shouldBe 2
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     engine().reportCouldNotStart(2, "engine load failed")
                     runCurrent()
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     // The server is back for the second reload, two seconds on.
                     advanceTimeBy(2_000)
                     runCurrent()
@@ -398,12 +484,12 @@ class PlayerSessionDropGraceTest :
                         generation++
                         engine().reportCouldNotStart(generation, "engine load failed")
                         runCurrent()
-                        rig.loaded.phase shouldBe PlayerPhase.Buffering
+                        rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     }
                     // 7 s in. One millisecond short of the grace is still quiet.
                     advanceTimeBy(graceMs - 7_000 - 1)
                     runCurrent()
-                    rig.loaded.phase shouldBe PlayerPhase.Buffering
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
                     advanceTimeBy(1)
                     runCurrent()
                     rig.loaded.phase

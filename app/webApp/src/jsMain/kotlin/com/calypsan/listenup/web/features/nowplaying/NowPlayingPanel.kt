@@ -98,7 +98,7 @@ internal fun NowPlayingPanel(
             if (state.showsSkipBack) {
                 PanelButton(WebIcon.SkipBack, "Back ${settings.skipBackSec} seconds", onSkipBack)
             }
-            val label = primaryLabel(state.primary)
+            val label = primaryLabel(state.primary, state.phase)
             Button(attrs = {
                 classes("np-play")
                 if (state.primary == PrimaryControl.TapToPlay) classes("ring")

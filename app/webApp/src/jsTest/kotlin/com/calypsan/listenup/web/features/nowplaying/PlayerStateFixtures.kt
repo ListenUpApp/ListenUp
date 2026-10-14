@@ -119,7 +119,7 @@ private fun primaryFor(phase: PlayerPhase): PrimaryControl =
     when (phase) {
         PlayerPhase.Playing, PlayerPhase.SleepFading -> PrimaryControl.Pause
         PlayerPhase.Paused, PlayerPhase.Restored -> PrimaryControl.Play
-        PlayerPhase.Preparing, PlayerPhase.Buffering -> PrimaryControl.Busy
+        PlayerPhase.Preparing, PlayerPhase.Buffering, PlayerPhase.Reconnecting -> PrimaryControl.Busy
         PlayerPhase.Finished -> PrimaryControl.ListenAgain
         is PlayerPhase.Failed, is PlayerPhase.Unavailable -> PrimaryControl.Retry
     }

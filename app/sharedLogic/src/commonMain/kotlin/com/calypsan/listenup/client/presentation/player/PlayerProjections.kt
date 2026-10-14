@@ -16,7 +16,7 @@ internal fun primaryControlFor(
     when (phase) {
         PlayerPhase.Playing, PlayerPhase.SleepFading -> PrimaryControl.Pause
         PlayerPhase.Paused, PlayerPhase.Restored -> PrimaryControl.Play
-        PlayerPhase.Preparing, PlayerPhase.Buffering -> PrimaryControl.Busy
+        PlayerPhase.Preparing, PlayerPhase.Buffering, PlayerPhase.Reconnecting -> PrimaryControl.Busy
         PlayerPhase.Finished -> PrimaryControl.ListenAgain
         is PlayerPhase.Failed -> controlFor(phase.error, isAdmin)
         is PlayerPhase.Unavailable -> controlFor(phase.reason, isAdmin)
@@ -35,7 +35,7 @@ private fun controlFor(
         else -> PrimaryControl.Retry
     }
 
-/** §3.5: back N shows only where there is a settled position to go back from. Buffering hides it (S12). */
+/** §3.5: back N shows only where there is a settled position to go back from. neither stall shows it (S12). */
 internal fun showsSkipBackFor(phase: PlayerPhase): Boolean =
     phase == PlayerPhase.Playing ||
         phase == PlayerPhase.Paused ||

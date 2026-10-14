@@ -141,7 +141,8 @@ struct PlayerSnapshot: Equatable {
     private mutating func applyPhase(_ phase: any PlayerPhase) {
         switch phase.sealedType() {
         case .playing, .sleepFading: isPlaying = true
-        case .buffering: isBuffering = true
+        // A network drop inside its grace draws as buffering until the player redesign gives it its own look.
+        case .buffering, .reconnecting: isBuffering = true
         case .preparing: isPreparing = true
         case .failed(let failed): applyError(failed.value.error)
         case .unavailable(let unavailable): applyError(unavailable.value.reason)

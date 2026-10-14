@@ -21,14 +21,12 @@ internal external interface HlsPlayer {
     fun attachMedia(element: HTMLMediaElement)
 
     /**
-     * Subscribe to an hls.js event.
-     *
-     * Narrowed on purpose: [HlsErrorEvent] describes the payload of `"hlsError"`, which is the
-     * only event this codebase subscribes to. Widen the type before subscribing to another.
+     * Subscribe to an hls.js event. The payload's shape depends on the event, so each listener
+     * casts it to the one it subscribed for ([HlsErrorEvent] for `"hlsError"`).
      */
     fun on(
         event: String,
-        listener: (event: String, data: HlsErrorEvent) -> Unit,
+        listener: (event: String, data: dynamic) -> Unit,
     )
 
     /** Tear down the instance's buffers, timers and network loop. */
@@ -108,6 +106,9 @@ internal external interface HlsErrorEvent {
 /** hls.js's own event name for a playback error. */
 private const val HLS_ERROR_EVENT = "hlsError"
 
+/** hls.js's own event name for a media fragment that finished downloading: the stream is alive. */
+private const val HLS_FRAG_LOADED_EVENT = "hlsFragLoaded"
+
 /**
  * The lifetime of one attachment. An abandoned [HlsPlayer] instance keeps its buffers, timers and
  * network loop alive; one per segment across a forty-hour book is a leak that surfaces as a
@@ -162,6 +163,8 @@ private const val HLS_MIME = "application/vnd.apple.mpegurl"
  * advance fires from a media event, where there is nothing to suspend).
  *
  * @param onFatalError invoked when hls.js gives up, with hls.js's error `type` and `details`.
+ * @param onFragmentLoaded invoked each time hls.js lands a media fragment, however slowly: the progress a
+ *   [PlaybackStallWatch] needs to tell a slow stream from a dead one.
  * @throws IllegalStateException when the browser has neither MSE nor native HLS — a state the
  *   caller must surface, because nothing else can make this segment audible.
  */
@@ -170,12 +173,15 @@ internal fun attachHls(
     element: HTMLMediaElement,
     url: String,
     onFatalError: (type: String, details: String) -> Unit,
+    onFragmentLoaded: () -> Unit = {},
 ): HlsHandle {
     if (library != null && library.isSupported()) {
         val hls = library.create()
         hls.on(HLS_ERROR_EVENT) { _, data ->
-            if (data.fatal) onFatalError(data.type, data.details)
+            val error = data.unsafeCast<HlsErrorEvent>()
+            if (error.fatal) onFatalError(error.type, error.details)
         }
+        hls.on(HLS_FRAG_LOADED_EVENT) { _, _ -> onFragmentLoaded() }
         hls.loadSource(url)
         hls.attachMedia(element)
         return HlsHandle(hls)

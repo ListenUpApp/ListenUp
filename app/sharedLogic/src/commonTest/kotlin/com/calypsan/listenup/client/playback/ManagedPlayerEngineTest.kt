@@ -409,8 +409,8 @@ class ManagedPlayerEngineTest :
                     rig.manager.playbackStateFlow.value = PlaybackState.Buffering
                     rig.manager.reportError(PlaybackError.ConnectionLost())
                     runCurrent()
-                    // Inside the drop's grace Media3 keeps recovering: nothing shows and nothing is stopped.
-                    session.loaded.phase shouldBe PlayerPhase.Buffering
+                    // Inside the drop's grace Media3 keeps recovering: Reconnecting shows and nothing is stopped.
+                    session.loaded.phase shouldBe PlayerPhase.Reconnecting
                     rig.controller.pauseCount shouldBe pausesBefore
                     advanceTimeBy(PLAYBACK_DROP_GRACE)
                     runCurrent()
