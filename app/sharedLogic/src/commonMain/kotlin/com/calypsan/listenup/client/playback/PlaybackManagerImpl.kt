@@ -168,10 +168,24 @@ internal class PlaybackManagerImpl(
     // Callback for chapter changes - used by PlaybackService to update notification
     override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
 
-    /** Set the current book ID — call this only when playback is confirmed to proceed. */
+    /** Where the last prepared book will start, so [activateBook] can move the playhead there. */
+    private var preparedStart: Pair<BookId, Long>? = null
+
+    /**
+     * Set the current book ID — call this only when playback is confirmed to proceed.
+     *
+     * The playhead moves with the book, to where the engine is about to start it. On Android nothing else
+     * moves it until the new book actually plays (the service polls only while audio sounds), so a book whose
+     * stream then fails would otherwise keep the previous book's place: shown as its own, replayed by Retry
+     * and saved under it by Close.
+     */
     override fun activateBook(bookId: BookId) {
+        val startMs =
+            preparedStart?.takeIf { it.first == bookId }?.second
+                ?: if (currentBookId.value == bookId) currentPositionMs.value else 0L
         currentBookId.value = bookId
         currentBookIdString.value = bookId.value
+        updatePosition(startMs)
         // A pause window left open by the PREVIOUS book must never leak a transition rewind
         // onto this one's first play, stacking on top of the prepare-time offset already
         // applied for THIS book — see PlaybackProgressReporter.resetAutoRewindWindow KDoc.
@@ -201,6 +215,7 @@ internal class PlaybackManagerImpl(
             }
 
         currentTimeline.value = prepared.timeline
+        preparedStart = bookId to prepared.resumePositionMs
         // Note: currentBookId is set by caller after reachability checks pass
         totalDurationMs.value = prepared.timeline.totalDurationMs
         chapters.value = prepared.chapters
@@ -576,6 +591,7 @@ internal class PlaybackManagerImpl(
         currentChapter.value = null
         playing.value = false
         currentPositionMs.value = 0L
+        preparedStart = null
         totalDurationMs.value = 0L
         playbackSpeed.value = 1.0f
         volumeBoostDb.value = 0f
