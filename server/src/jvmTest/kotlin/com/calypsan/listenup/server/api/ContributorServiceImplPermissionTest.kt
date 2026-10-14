@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
@@ -132,6 +134,23 @@ class ContributorServiceImplPermissionTest :
                         .copyWith(memberPrincipal("curator"))
                         .updateContributor(id, ContributorUpdate(name = "Renamed"))
                         .shouldBeDeniedPermission()
+                }
+            }
+        }
+
+        test("framing a contributor's photo is denied for a MEMBER without canEdit") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                db.sql.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
+                val deps = makeContributorPermService(db)
+                runTest {
+                    val id = deps.contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    val service = deps.service.copyWith(memberPrincipal("member"))
+
+                    val result = service.updateContributor(id, ContributorUpdate(imageFrame = ImageFraming("abc", ImageFrame.Centered)))
+
+                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }
