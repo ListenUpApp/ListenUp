@@ -83,18 +83,19 @@ class MultipartUploadNativeTest :
             }
         }
 
-        test("native server reads the first file part into memory") {
-            // The avatar route needs the first file part's bytes in memory (magic-number validation),
-            // not a stream to disk. The Kotlin/Native CIO server can't use `receiveMultipart`
-            // (KTOR-7361), so this exercises the raw-channel path over a real embeddedServer(CIO).
+        test("native server reads an image upload's file and frame field into memory") {
+            // The Kotlin/Native CIO server can't use `receiveMultipart` (KTOR-7361), so this exercises the raw-channel
+            // decoder over a real embeddedServer(CIO), with the frame field after the file.
             val payload = ByteArray(40_000) { (it * 13).toByte() }
-            var received: ByteArray? = null
+            val frameJson = """{"focusX":0.5,"focusY":0.2,"zoom":1.5}"""
+            var received: ImageUploadParts? = null
             val server =
                 embeddedServer(CIO, port = 0) {
                     routing {
                         post("/avatar") {
-                            received = receiveFirstFilePartBytes(call, formFieldLimit = 1L shl 20)
-                            call.respondText(if (received != null) RECEIVED else EMPTY)
+                            val parts = receiveImageUploadParts(call, fileLimit = 1L shl 20)
+                            received = parts
+                            call.respondText(if (parts.file != null) RECEIVED else EMPTY)
                         }
                     }
                 }
@@ -118,13 +119,15 @@ class MultipartUploadNativeTest :
                                             append(HttpHeaders.ContentDisposition, "filename=\"avatar.png\"")
                                         },
                                     )
+                                    append("frame", frameJson)
                                 },
                             ),
                         )
                     }
                 response.status shouldBe HttpStatusCode.OK
                 response.bodyAsText() shouldBe RECEIVED
-                received shouldBe payload
+                received?.file shouldBe payload
+                received?.frameField shouldBe frameJson
             } finally {
                 client.close()
                 server.stop(0, 0)

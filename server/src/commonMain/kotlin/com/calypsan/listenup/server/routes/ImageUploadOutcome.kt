@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.server.io.MultipartPartTooLargeException
 import com.calypsan.listenup.server.io.hashBytesSha256
-import com.calypsan.listenup.server.io.receiveFirstFilePartBytes
+import com.calypsan.listenup.server.io.receiveImageUploadParts
 import com.calypsan.listenup.server.media.ImageKind
 import com.calypsan.listenup.server.metadata.ImageStorage
 import io.ktor.http.HttpStatusCode
@@ -54,7 +54,7 @@ internal suspend fun storeMultipartImage(
 ): ImageUploadOutcome {
     val data =
         try {
-            receiveFirstFilePartBytes(call, IMAGE_MAX_BYTES)
+            receiveImageUploadParts(call, IMAGE_MAX_BYTES).file
         } catch (e: MultipartPartTooLargeException) {
             return ImageUploadOutcome.Rejected(HttpStatusCode.PayloadTooLarge, "file exceeds ${e.limit} bytes")
         } ?: return ImageUploadOutcome.Rejected(HttpStatusCode.BadRequest, "missing file part")

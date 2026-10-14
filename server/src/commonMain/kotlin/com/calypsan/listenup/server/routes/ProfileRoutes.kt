@@ -5,7 +5,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.io.MultipartPartTooLargeException
 import com.calypsan.listenup.server.io.readBytes
-import com.calypsan.listenup.server.io.receiveFirstFilePartBytes
+import com.calypsan.listenup.server.io.receiveImageUploadParts
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -48,7 +48,7 @@ fun Route.profileRoutes(
 
         val data =
             try {
-                receiveFirstFilePartBytes(call, AVATAR_MAX_BYTES)
+                receiveImageUploadParts(call, AVATAR_MAX_BYTES).file
             } catch (e: MultipartPartTooLargeException) {
                 return@post call.respond(HttpStatusCode.PayloadTooLarge, "image exceeds ${e.limit} bytes")
             } ?: return@post call.respond(HttpStatusCode.BadRequest, "missing file part")

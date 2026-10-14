@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.io
 
+import io.kotest.matchers.nulls.shouldBeNull
+import com.calypsan.listenup.api.dto.image.IMAGE_UPLOAD_FRAME_PART
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -166,6 +168,58 @@ class MultipartFormDataTest :
                 val part = CraftedPart(filePart("backup", longName, body).headers + extras, body)
 
                 extractFilePart(buildMultipart(BOUNDARY, listOf(part)), capacity = capacity) shouldBe body
+            }
+        }
+
+        test("an image upload yields its file and its frame field, whichever comes first") {
+            val body = byteArrayOf(1, 2, 3)
+            val frame = """{"focusX":0.5,"focusY":0.2,"zoom":1.5}"""
+            listOf(
+                listOf(fieldPart(IMAGE_UPLOAD_FRAME_PART, frame.encodeToByteArray()), filePart("file", "a.jpg", body)),
+                listOf(filePart("file", "a.jpg", body), fieldPart(IMAGE_UPLOAD_FRAME_PART, frame.encodeToByteArray())),
+            ).forEach { parts ->
+                val read = readImageUploadParts(ByteReadChannel(buildMultipart(BOUNDARY, parts)), BOUNDARY, LIMIT)
+                read.file shouldBe body
+                read.frameField shouldBe frame
+            }
+        }
+
+        test("an unquoted field name counts, other fields are skipped, and a later file part is ignored") {
+            // Ktor's client writes `name=frame` unquoted when the name needs no quoting.
+            val unquoted = CraftedPart(listOf("Content-Disposition: form-data; name=frame"), "{}".encodeToByteArray())
+            val multipart =
+                buildMultipart(
+                    BOUNDARY,
+                    listOf(
+                        fieldPart("kind", "x".encodeToByteArray()),
+                        unquoted,
+                        filePart("file", "a.jpg", byteArrayOf(9)),
+                        filePart("other", "b.jpg", byteArrayOf(8)),
+                    ),
+                )
+
+            val read = readImageUploadParts(ByteReadChannel(multipart), BOUNDARY, LIMIT)
+
+            read.frameField shouldBe "{}"
+            read.file shouldBe byteArrayOf(9)
+        }
+
+        test("an upload without a frame field has none, and one without a file has no file") {
+            readImageUploadParts(ByteReadChannel(buildMultipart(BOUNDARY, listOf(filePart("file", "a.jpg", byteArrayOf(1))))), BOUNDARY, LIMIT)
+                .frameField
+                .shouldBeNull()
+            readImageUploadParts(ByteReadChannel(buildMultipart(BOUNDARY, listOf(fieldPart("frame", "{}".encodeToByteArray())))), BOUNDARY, LIMIT)
+                .file
+                .shouldBeNull()
+        }
+
+        test("a frame field over 1 KiB is refused, and the file limit still holds") {
+            val huge = ByteArray(1_025) { 'a'.code.toByte() }
+            shouldThrow<MultipartFieldTooLargeException> {
+                readImageUploadParts(ByteReadChannel(buildMultipart(BOUNDARY, listOf(fieldPart("frame", huge)))), BOUNDARY, LIMIT)
+            }
+            shouldThrow<MultipartPartTooLargeException> {
+                readImageUploadParts(ByteReadChannel(buildMultipart(BOUNDARY, listOf(filePart("file", "a.jpg", ByteArray(1_000))))), BOUNDARY, 999)
             }
         }
     })
