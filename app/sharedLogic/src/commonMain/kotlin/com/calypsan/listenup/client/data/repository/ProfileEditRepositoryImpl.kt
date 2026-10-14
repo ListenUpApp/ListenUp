@@ -73,7 +73,12 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
                     url = AVATAR_UPLOAD_PATH,
                     formData =
                         formData {
-                            frame?.let { append(IMAGE_UPLOAD_FRAME_PART, appJson.encodeToString(ImageFrame.serializer(), it)) }
+                            frame?.let {
+                                append(
+                                    IMAGE_UPLOAD_FRAME_PART,
+                                    appJson.encodeToString(ImageFrame.serializer(), it),
+                                )
+                            }
                             append(
                                 "file",
                                 imageData,

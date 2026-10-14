@@ -428,7 +428,14 @@ class PendingImageUploadsTest :
                 try {
                     val photo = bytesOf(1, 2, 3)
                     f.database.contributorDao().upsert(
-                        ContributorEntity(ContributorId("c1"), name = "Ray", description = null, imagePath = null, createdAt = Timestamp(0), updatedAt = Timestamp(0)),
+                        ContributorEntity(
+                            ContributorId("c1"),
+                            name = "Ray",
+                            description = null,
+                            imagePath = null,
+                            createdAt = Timestamp(0),
+                            updatedAt = Timestamp(0),
+                        ),
                     )
                     f.storage.saveContributorImage("c1", photo)
                     val frame = ImageFrame(0.5, 0.2, 1.5)
@@ -436,13 +443,17 @@ class PendingImageUploadsTest :
                     f.uploads.record(PendingImageKind.ContributorImage, "c1")
 
                     f.uploads.drain().uploaded shouldBe 1
-                    f.api.sent.single().frame shouldBe frame
+                    f.api.sent
+                        .single()
+                        .frame shouldBe frame
 
                     // A frame stamped for other bytes never rides along.
                     f.database.contributorDao().updateImageFrame("c1", ImageFraming("someone-else", frame))
                     f.uploads.record(PendingImageKind.ContributorImage, "c1")
                     f.uploads.drain()
-                    f.api.sent.last().frame shouldBe null
+                    f.api.sent
+                        .last()
+                        .frame shouldBe null
                 } finally {
                     f.close()
                 }

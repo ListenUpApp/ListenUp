@@ -307,7 +307,11 @@ class ContributorServiceImplTest :
                     deps.contributorRepo.upsert(deps.contributorRepo.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg"))
                     val framing = ImageFraming("abc", ImageFrame(0.5, 0.2, 1.5))
 
-                    deps.service.updateContributor(id, ContributorUpdate(imageFrame = framing)).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    deps.service
+                        .updateContributor(
+                            id,
+                            ContributorUpdate(imageFrame = framing),
+                        ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     val stored = deps.contributorRepo.findById(id.value)!!
                     stored.imageFrame shouldBe framing
@@ -324,10 +328,21 @@ class ContributorServiceImplTest :
                     val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
                     deps.contributorRepo.upsert(deps.contributorRepo.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg"))
 
-                    val result = deps.service.updateContributor(id, ContributorUpdate(imageFrame = ImageFraming("abc", ImageFrame(0.5, 0.5, 5.0))))
+                    val result =
+                        deps.service.updateContributor(
+                            id,
+                            ContributorUpdate(imageFrame = ImageFraming("abc", ImageFrame(0.5, 0.5, 5.0))),
+                        )
 
-                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>().field shouldBe "imageFrame"
-                    deps.contributorRepo.findById(id.value)!!.imageFrame.shouldBeNull()
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                        .field shouldBe "imageFrame"
+                    deps.contributorRepo
+                        .findById(id.value)!!
+                        .imageFrame
+                        .shouldBeNull()
                 }
             }
         }
@@ -339,7 +354,9 @@ class ContributorServiceImplTest :
                 runTest {
                     val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
                     val own = ImageFraming("abc", ImageFrame(0.5, 0.2, 1.5))
-                    deps.contributorRepo.upsert(deps.contributorRepo.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg", imageFrame = own))
+                    deps.contributorRepo.upsert(
+                        deps.contributorRepo.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg", imageFrame = own),
+                    )
 
                     deps.service
                         .updateContributor(id, ContributorUpdate(imageFrame = ImageFraming("stale", ImageFrame(0.1, 0.1, 2.0))))
@@ -357,12 +374,23 @@ class ContributorServiceImplTest :
                 runTest {
                     val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
                     deps.contributorRepo.upsert(
-                        deps.contributorRepo.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg", imageFrame = ImageFraming("abc", ImageFrame.Centered)),
+                        deps.contributorRepo
+                            .findById(
+                                id.value,
+                            )!!
+                            .copy(imagePath = "contributors/abc.jpg", imageFrame = ImageFraming("abc", ImageFrame.Centered)),
                     )
 
-                    deps.service.updateContributor(id, ContributorUpdate(imagePath = "contributors/def.jpg")).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    deps.service
+                        .updateContributor(
+                            id,
+                            ContributorUpdate(imagePath = "contributors/def.jpg"),
+                        ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    deps.contributorRepo.findById(id.value)!!.imageFrame.shouldBeNull()
+                    deps.contributorRepo
+                        .findById(id.value)!!
+                        .imageFrame
+                        .shouldBeNull()
                 }
             }
         }

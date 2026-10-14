@@ -426,7 +426,10 @@ class ProfileServiceImplTest :
                         .updateMyProfile(UpdateProfileRequest(avatarFrame = ImageFraming("1", ImageFrame(0.1, 0.1, 3.0))))
                         .shouldBeInstanceOf<AppResult.Success<Profile>>()
 
-                    sql.usersQueries.selectById("u1").executeAsOne().avatar_frame shouldBe
+                    sql.usersQueries
+                        .selectById("u1")
+                        .executeAsOne()
+                        .avatar_frame shouldBe
                         contractJson.encodeToString(ImageFraming.serializer(), own)
                 }
             }
@@ -439,7 +442,11 @@ class ProfileServiceImplTest :
                 runTest {
                     svc("u1").updateMyProfile(UpdateProfileRequest(avatarType = "auto")).shouldBeInstanceOf<AppResult.Success<Profile>>()
 
-                    sql.usersQueries.selectById("u1").executeAsOne().avatar_frame.shouldBeNull()
+                    sql.usersQueries
+                        .selectById("u1")
+                        .executeAsOne()
+                        .avatar_frame
+                        .shouldBeNull()
                 }
             }
         }
@@ -449,9 +456,16 @@ class ProfileServiceImplTest :
                 val t1 = 1_700_000_000_000L
                 imageAvatar("u1", t1)
                 runTest {
-                    val result = svc("u1").updateMyProfile(UpdateProfileRequest(avatarFrame = ImageFraming(t1.toString(), ImageFrame(0.5, 0.5, 0.5))))
+                    val result =
+                        svc(
+                            "u1",
+                        ).updateMyProfile(UpdateProfileRequest(avatarFrame = ImageFraming(t1.toString(), ImageFrame(0.5, 0.5, 0.5))))
 
-                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>().field shouldBe "imageFrame"
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                        .field shouldBe "imageFrame"
                 }
             }
         }

@@ -45,7 +45,15 @@ fun panFrame(
 ): FrameEdit {
     if (!editable(imageWidth, imageHeight, viewport) || !dx.isFinite() || !dy.isFinite()) return unchanged(frame)
     val layout = frameLayout(imageWidth, imageHeight, viewport, viewport, frame)
-    return place(layout.offsetX + dx, layout.offsetY + dy, layout.width, layout.height, viewport, frame.sanitisedZoom(), false)
+    return place(
+        layout.offsetX + dx,
+        layout.offsetY + dy,
+        layout.width,
+        layout.height,
+        viewport,
+        frame.sanitisedZoom(),
+        false,
+    )
 }
 
 /**

@@ -205,11 +205,17 @@ class MultipartFormDataTest :
         }
 
         test("an upload without a frame field has none, and one without a file has no file") {
-            readImageUploadParts(ByteReadChannel(buildMultipart(BOUNDARY, listOf(filePart("file", "a.jpg", byteArrayOf(1))))), BOUNDARY, LIMIT)
-                .frameField
+            readImageUploadParts(
+                ByteReadChannel(buildMultipart(BOUNDARY, listOf(filePart("file", "a.jpg", byteArrayOf(1))))),
+                BOUNDARY,
+                LIMIT,
+            ).frameField
                 .shouldBeNull()
-            readImageUploadParts(ByteReadChannel(buildMultipart(BOUNDARY, listOf(fieldPart("frame", "{}".encodeToByteArray())))), BOUNDARY, LIMIT)
-                .file
+            readImageUploadParts(
+                ByteReadChannel(buildMultipart(BOUNDARY, listOf(fieldPart("frame", "{}".encodeToByteArray())))),
+                BOUNDARY,
+                LIMIT,
+            ).file
                 .shouldBeNull()
         }
 
@@ -219,7 +225,11 @@ class MultipartFormDataTest :
                 readImageUploadParts(ByteReadChannel(buildMultipart(BOUNDARY, listOf(fieldPart("frame", huge)))), BOUNDARY, LIMIT)
             }
             shouldThrow<MultipartPartTooLargeException> {
-                readImageUploadParts(ByteReadChannel(buildMultipart(BOUNDARY, listOf(filePart("file", "a.jpg", ByteArray(1_000))))), BOUNDARY, 999)
+                readImageUploadParts(
+                    ByteReadChannel(buildMultipart(BOUNDARY, listOf(filePart("file", "a.jpg", ByteArray(1_000))))),
+                    BOUNDARY,
+                    999,
+                )
             }
         }
     })

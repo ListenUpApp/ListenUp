@@ -35,9 +35,12 @@ import kotlinx.io.files.Path as IoPath
 private class ContributorFrameRig {
     val db: ListenUpDatabase = createInMemoryTestDatabase()
     val filesDir = Files.createTempDirectory("contributor-frame")
-    val storage = CommonImageStorage(object : StoragePaths {
-        override val filesDir: IoPath = IoPath(this@ContributorFrameRig.filesDir.toString())
-    })
+    val storage =
+        CommonImageStorage(
+            object : StoragePaths {
+                override val filesDir: IoPath = IoPath(this@ContributorFrameRig.filesDir.toString())
+            },
+        )
     val repo =
         ContributorEditRepositoryImpl(
             channel = RpcChannel.forTest(mock<ContributorService>()),
@@ -87,7 +90,10 @@ class ContributorImageFrameOfflineTest :
 
                     rig.repo.setImageFrame(ContributorId("c1"), frame) shouldBe AppResult.Success(Unit)
 
-                    rig.db.contributorDao().getById("c1")!!.imageFrame shouldBe ImageFraming("abc", frame)
+                    rig.db
+                        .contributorDao()
+                        .getById("c1")!!
+                        .imageFrame shouldBe ImageFraming("abc", frame)
                     rig.queuedPayloads().single() shouldContain "\"imageVersion\":\"abc\""
                 } finally {
                     rig.close()
@@ -103,7 +109,11 @@ class ContributorImageFrameOfflineTest :
 
                     val result = rig.repo.setImageFrame(ContributorId("c1"), frame)
 
-                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>().field shouldBe "imageFrame"
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                        .field shouldBe "imageFrame"
                     rig.queuedPayloads().shouldBeEmpty()
                 } finally {
                     rig.close()
@@ -122,7 +132,10 @@ class ContributorImageFrameOfflineTest :
 
                     rig.repo.setImageFrame(ContributorId("c1"), frame)
 
-                    rig.db.contributorDao().getById("c1")!!.imageFrame shouldBe ImageFraming(photoVersionOf(newPhoto), frame)
+                    rig.db
+                        .contributorDao()
+                        .getById("c1")!!
+                        .imageFrame shouldBe ImageFraming(photoVersionOf(newPhoto), frame)
                 } finally {
                     rig.close()
                 }
@@ -137,11 +150,18 @@ class ContributorImageFrameOfflineTest :
                     val newPhoto = byteArrayOf(1, 2, 3)
 
                     rig.repo.recordNewPhotoFrame(ContributorId("c1"), newPhoto, frame)
-                    rig.db.contributorDao().getById("c1")!!.imageFrame shouldBe ImageFraming(photoVersionOf(newPhoto), frame)
+                    rig.db
+                        .contributorDao()
+                        .getById("c1")!!
+                        .imageFrame shouldBe ImageFraming(photoVersionOf(newPhoto), frame)
                     rig.queuedPayloads().shouldBeEmpty() // the frame travels with the upload, not the outbox
 
                     rig.repo.recordNewPhotoFrame(ContributorId("c1"), newPhoto, frame = null)
-                    rig.db.contributorDao().getById("c1")!!.imageFrame.shouldBeNull()
+                    rig.db
+                        .contributorDao()
+                        .getById("c1")!!
+                        .imageFrame
+                        .shouldBeNull()
                 } finally {
                     rig.close()
                 }
@@ -157,7 +177,13 @@ class ContributorImageFrameOfflineTest :
 
                     rig.repo.setImageFrame(ContributorId("c1"), frame)
 
-                    rig.db.contributorDao().getById("c1").shouldNotBeNull().imageFrame?.imageVersion shouldBe photoVersionOf(byteArrayOf(4, 5))
+                    rig.db
+                        .contributorDao()
+                        .getById("c1")
+                        .shouldNotBeNull()
+                        .imageFrame
+                        ?.imageVersion shouldBe
+                        photoVersionOf(byteArrayOf(4, 5))
                 } finally {
                     rig.close()
                 }

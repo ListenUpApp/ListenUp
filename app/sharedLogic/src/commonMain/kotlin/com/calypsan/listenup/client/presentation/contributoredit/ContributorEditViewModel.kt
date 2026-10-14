@@ -646,7 +646,11 @@ class ContributorEditViewModel internal constructor(
         // shows at once and a retried upload carries it (PendingImageUploads attaches it by hash).
         when (
             val stamped =
-                contributorEditRepository.recordNewPhotoFrame(ContributorId(contributorId), pendingData, current.pendingImageFrame)
+                contributorEditRepository.recordNewPhotoFrame(
+                    ContributorId(contributorId),
+                    pendingData,
+                    current.pendingImageFrame,
+                )
         ) {
             is AppResult.Success -> Unit
             is AppResult.Failure -> logger.error { "Failed to record the new photo's frame: ${stamped.message}" }
@@ -659,7 +663,13 @@ class ContributorEditViewModel internal constructor(
         }
 
         // Then upload to the server; the local image is already saved either way.
-        val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename, current.pendingImageFrame)
+        val result =
+            imageRepository.uploadContributorImage(
+                contributorId,
+                pendingData,
+                pendingFilename,
+                current.pendingImageFrame,
+            )
         when (result) {
             is AppResult.Success -> logger.info { "Contributor image uploaded to server" }
             is AppResult.Failure -> logger.error { "Failed to upload contributor image: ${result.message}" }
@@ -751,8 +761,12 @@ class ContributorEditViewModel internal constructor(
                 // A re-frame of the saved photo (no new photo staged) is its own offline-first edit.
                 if (current.pendingImageData == null) {
                     current.pendingImageFrame?.let { frame ->
-                        (contributorEditRepository.setImageFrame(ContributorId(current.contributorId), frame) as? AppResult.Failure)
-                            ?.let { errorBus.emit(it.error) }
+                        (
+                            contributorEditRepository.setImageFrame(
+                                ContributorId(current.contributorId),
+                                frame,
+                            ) as? AppResult.Failure
+                        )?.let { errorBus.emit(it.error) }
                     }
                 }
                 state.update { editState ->

@@ -23,7 +23,9 @@ class ImageFrameE2ETest :
         test("a frame set here reaches the server and survives the echo; another device's new photo clears it here") {
             withClientSyncEngineAgainstServer {
                 val id = serverContributorRepository.resolveOrCreate("Ray Porter", sortName = null)
-                serverContributorRepository.upsert(serverContributorRepository.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg"))
+                serverContributorRepository.upsert(
+                    serverContributorRepository.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg"),
+                )
                 engine.start(currentUserId = "u1")
                 withTimeout(ROUND_TRIP) {
                     while (clientDatabase.contributorDao().getById(id.value)?.imagePath != "contributors/abc.jpg") {
@@ -32,7 +34,11 @@ class ImageFrameE2ETest :
                 }
 
                 val framing = ImageFraming("abc", ImageFrame(0.5, 0.2, 1.5))
-                contributorEditRepository.setImageFrame(ContributorId(id.value), framing.frame).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                contributorEditRepository
+                    .setImageFrame(
+                        ContributorId(id.value),
+                        framing.frame,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 clientDatabase.contributorDao().getById(id.value)!!.imageFrame shouldBe framing // Room first
 
                 withTimeout(ROUND_TRIP) {
@@ -51,10 +57,16 @@ class ImageFrameE2ETest :
                 clientDatabase.contributorDao().getById(id.value)!!.imageFrame shouldBe framing
 
                 // Another device replaces the photo: the server keeps no frame for it, and this device follows.
-                serverContributorRepository.upsert(serverContributorRepository.findById(id.value)!!.copy(imagePath = "contributors/def.jpg"))
+                serverContributorRepository.upsert(
+                    serverContributorRepository.findById(id.value)!!.copy(imagePath = "contributors/def.jpg"),
+                )
                 withTimeout(ROUND_TRIP) {
                     while (
-                        clientDatabase.contributorDao().getById(id.value)?.let { it.imagePath == "contributors/def.jpg" && it.imageFrame == null } != true
+                        clientDatabase.contributorDao().getById(id.value)?.let {
+                            it.imagePath == "contributors/def.jpg" &&
+                                it.imageFrame == null
+                        } !=
+                        true
                     ) {
                         // The echo carries the cleared frame.
                     }

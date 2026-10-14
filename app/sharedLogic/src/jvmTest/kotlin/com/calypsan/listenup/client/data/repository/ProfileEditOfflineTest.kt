@@ -178,7 +178,11 @@ class ProfileEditOfflineTest :
 
                 val result = offlineRepo(db).setAvatarFrame(ImageFrame.Centered)
 
-                result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>().field shouldBe "imageFrame"
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<ValidationError>()
+                    .field shouldBe "imageFrame"
                 db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).shouldBeEmpty()
                 db.close()
             }

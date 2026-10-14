@@ -176,7 +176,13 @@ class MetadataImageUploadRouteTest :
                     }
 
                     contributorRepo.findById(id.value)!!.imagePath.shouldBeNull()
-                    homeDir.resolve("contributors").toFile().listFiles().orEmpty().toList().shouldBeEmpty()
+                    homeDir
+                        .resolve("contributors")
+                        .toFile()
+                        .listFiles()
+                        .orEmpty()
+                        .toList()
+                        .shouldBeEmpty()
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()

@@ -286,7 +286,11 @@ class ContributorsDomainTest :
                 db.contributorDao().getById("c1")!!.imageFrame shouldBe framing
 
                 handler.onEvent(updated(photo("c1", "def", revision = 2)))
-                db.contributorDao().getById("c1")!!.imageFrame.shouldBeNull()
+                db
+                    .contributorDao()
+                    .getById("c1")!!
+                    .imageFrame
+                    .shouldBeNull()
             }
         }
 

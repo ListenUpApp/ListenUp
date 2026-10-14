@@ -85,7 +85,11 @@ class ImageFrameFieldsContractTest :
             without(ContributorSyncPayload.serializer(), contributor, "imageFrame").imageFrame.shouldBeNull()
             without(PublicProfileSyncPayload.serializer(), profile, "avatarFrame").avatarFrame.shouldBeNull()
             without(ContributorUpdate.serializer(), ContributorUpdate(imageFrame = framing), "imageFrame").imageFrame.shouldBeNull()
-            without(UpdateProfileRequest.serializer(), UpdateProfileRequest(avatarFrame = framing), "avatarFrame").avatarFrame.shouldBeNull()
+            without(
+                UpdateProfileRequest.serializer(),
+                UpdateProfileRequest(avatarFrame = framing),
+                "avatarFrame",
+            ).avatarFrame.shouldBeNull()
             without(AvatarUploadResponse.serializer(), AvatarUploadResponse(7, framing), "avatarFrame").avatarFrame.shouldBeNull()
         }
 

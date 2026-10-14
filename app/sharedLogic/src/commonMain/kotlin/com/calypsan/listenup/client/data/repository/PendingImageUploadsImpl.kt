@@ -175,8 +175,14 @@ internal class PendingImageUploadsImpl(
         bytes: ByteArray,
     ): AppResult<*> =
         when (kind) {
-            PendingImageKind.BookCover -> imageApi.uploadBookCover(entityId, bytes, "$entityId.jpg")
-            PendingImageKind.SeriesCover -> imageApi.uploadSeriesCover(entityId, bytes, "$entityId.jpg")
+            PendingImageKind.BookCover -> {
+                imageApi.uploadBookCover(entityId, bytes, "$entityId.jpg")
+            }
+
+            PendingImageKind.SeriesCover -> {
+                imageApi.uploadSeriesCover(entityId, bytes, "$entityId.jpg")
+            }
+
             PendingImageKind.ContributorImage -> {
                 imageApi.uploadContributorImage(entityId, bytes, "$entityId.jpg", frameFor(entityId, bytes))
             }

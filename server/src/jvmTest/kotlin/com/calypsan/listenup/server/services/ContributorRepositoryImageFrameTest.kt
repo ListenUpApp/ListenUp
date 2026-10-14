@@ -38,7 +38,11 @@ class ContributorRepositoryImageFrameTest :
                     val id = repo.resolveOrCreate("Ray Porter", sortName = null)
                     repo.upsert(repo.findById(id.value)!!.copy(imagePath = "contributors/def.jpg", imageFrame = framing))
 
-                    repo.findById(id.value).shouldNotBeNull().imageFrame.shouldBeNull()
+                    repo
+                        .findById(id.value)
+                        .shouldNotBeNull()
+                        .imageFrame
+                        .shouldBeNull()
                 }
             }
         }
@@ -66,7 +70,11 @@ class ContributorRepositoryImageFrameTest :
                     val id = repo.resolveOrCreate("Ray Porter", sortName = null)
                     sql.contributorsQueries.updateImageFrame(image_frame = "not json", id = id.value)
 
-                    repo.findById(id.value).shouldNotBeNull().imageFrame.shouldBeNull()
+                    repo
+                        .findById(id.value)
+                        .shouldNotBeNull()
+                        .imageFrame
+                        .shouldBeNull()
                 }
             }
         }

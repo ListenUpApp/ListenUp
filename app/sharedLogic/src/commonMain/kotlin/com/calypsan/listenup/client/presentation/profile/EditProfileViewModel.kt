@@ -45,7 +45,8 @@ sealed interface AvatarChange {
     ) : AvatarChange {
         // ByteArray identity semantics — equals/hashCode on content, not reference.
         override fun equals(other: Any?): Boolean =
-            other is Upload && bytes.contentEquals(other.bytes) && contentType == other.contentType && frame == other.frame
+            other is Upload && bytes.contentEquals(other.bytes) && contentType == other.contentType &&
+                frame == other.frame
 
         override fun hashCode(): Int = (31 * bytes.contentHashCode() + contentType.hashCode()) * 31 + frame.hashCode()
     }
@@ -258,7 +259,16 @@ class EditProfileViewModel(
     fun stageAvatarReframe(frame: ImageFrame) {
         formFlow.update { form ->
             val change = form.avatarChange
-            form.copy(avatarChange = if (change is AvatarChange.Upload) change.copy(frame = frame) else AvatarChange.Reframe(frame))
+            form.copy(
+                avatarChange =
+                    if (change is AvatarChange.Upload) {
+                        change.copy(
+                            frame = frame,
+                        )
+                    } else {
+                        AvatarChange.Reframe(frame)
+                    },
+            )
         }
     }
 
@@ -338,15 +348,31 @@ class EditProfileViewModel(
     private suspend fun applyAvatarChange(change: AvatarChange): Boolean {
         val result =
             when (change) {
-                is AvatarChange.Upload -> profileEditRepository.uploadAvatar(change.bytes, change.contentType, change.frame)
-                is AvatarChange.Reframe -> profileEditRepository.setAvatarFrame(change.frame)
-                AvatarChange.RevertToAuto -> profileEditRepository.revertToAutoAvatar()
-                AvatarChange.None -> return true
+                is AvatarChange.Upload -> {
+                    profileEditRepository.uploadAvatar(
+                        change.bytes,
+                        change.contentType,
+                        change.frame,
+                    )
+                }
+
+                is AvatarChange.Reframe -> {
+                    profileEditRepository.setAvatarFrame(change.frame)
+                }
+
+                AvatarChange.RevertToAuto -> {
+                    profileEditRepository.revertToAutoAvatar()
+                }
+
+                AvatarChange.None -> {
+                    return true
+                }
             }
         return when (result) {
             is AppResult.Success -> {
                 true
             }
+
             is AppResult.Failure -> {
                 logger.error { "Avatar change failed: ${result.error}" }
                 val message =
@@ -395,6 +421,7 @@ class EditProfileViewModel(
             is AppResult.Success -> {
                 true
             }
+
             is AppResult.Failure -> {
                 logger.error { "Profile update failed: ${result.error}" }
                 eventChannel.trySend(EditProfileEvent.SaveFailed("Failed to save profile."))
@@ -406,6 +433,5 @@ class EditProfileViewModel(
     companion object {
         /** Maximum characters allowed in the tagline field. */
         const val MAX_TAGLINE_LENGTH = 60
-
     }
 }

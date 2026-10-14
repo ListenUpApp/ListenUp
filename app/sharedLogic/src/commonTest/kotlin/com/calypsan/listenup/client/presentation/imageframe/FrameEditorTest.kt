@@ -15,7 +15,8 @@ class FrameEditorTest :
             FrameEditor(300, 400, null, FrameShape.Circle).state.value shouldBe
                 FrameEditorState.Ready(300, 400, ImageFrame.Centered, FrameShape.Circle)
             // Focus at the very top of a portrait: the top edge is flush, so what shows is 0.375 down.
-            FrameEditor(300, 400, ImageFrame(0.5, 0.0, 1.0), FrameShape.Circle).state.value.frame.focusY shouldBe
+            FrameEditor(300, 400, ImageFrame(0.5, 0.0, 1.0), FrameShape.Circle)
+                .state.value.frame.focusY shouldBe
                 (0.375 plusOrMinus 1e-12)
         }
 

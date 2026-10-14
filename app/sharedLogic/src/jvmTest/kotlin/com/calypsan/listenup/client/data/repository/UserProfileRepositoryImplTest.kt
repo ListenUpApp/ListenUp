@@ -145,8 +145,20 @@ class UserProfileRepositoryImplTest :
                 val rows =
                     MutableStateFlow(
                         mapOf(
-                            "fresh" to publicProfile(id = "fresh", avatarType = "image", avatarUpdatedAt = 7, avatarFrame = ImageFraming("7", frame)),
-                            "stale" to publicProfile(id = "stale", avatarType = "image", avatarUpdatedAt = 9, avatarFrame = ImageFraming("7", frame)),
+                            "fresh" to
+                                publicProfile(
+                                    id = "fresh",
+                                    avatarType = "image",
+                                    avatarUpdatedAt = 7,
+                                    avatarFrame = ImageFraming("7", frame),
+                                ),
+                            "stale" to
+                                publicProfile(
+                                    id = "stale",
+                                    avatarType = "image",
+                                    avatarUpdatedAt = 9,
+                                    avatarFrame = ImageFraming("7", frame),
+                                ),
                         ),
                     )
                 val repo = UserProfileRepositoryImpl(StubReadPublicProfileDao(rows))

@@ -349,7 +349,11 @@ class PublicProfileMaintainerTest :
                 runTest {
                     maintainer.refresh("uf")
 
-                    repo.pullSince(userId = null, cursor = 0, limit = 10).items.single().avatarFrame shouldBe framing
+                    repo
+                        .pullSince(userId = null, cursor = 0, limit = 10)
+                        .items
+                        .single()
+                        .avatarFrame shouldBe framing
                 }
             }
         }

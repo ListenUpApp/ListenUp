@@ -252,7 +252,10 @@ class ProfileRoutesTest :
                     val body = response.body<AvatarUploadResponse>()
                     val expected = ImageFraming(body.avatarUpdatedAt.toString(), ImageFrame(0.5, 0.3, 2.0))
                     body.avatarFrame shouldBe expected
-                    sql.usersQueries.selectById(userId).executeAsOne().avatar_frame shouldBe
+                    sql.usersQueries
+                        .selectById(userId)
+                        .executeAsOne()
+                        .avatar_frame shouldBe
                         contractJson.encodeToString(ImageFraming.serializer(), expected)
                 }
             } finally {
@@ -280,7 +283,11 @@ class ProfileRoutesTest :
                             setBody(avatarPart(png, frameJson = null))
                         }
                     plain.body<AvatarUploadResponse>().avatarFrame.shouldBeNull()
-                    sql.usersQueries.selectById(userId).executeAsOne().avatar_frame.shouldBeNull()
+                    sql.usersQueries
+                        .selectById(userId)
+                        .executeAsOne()
+                        .avatar_frame
+                        .shouldBeNull()
 
                     client
                         .post("/api/v1/profile/avatar") {

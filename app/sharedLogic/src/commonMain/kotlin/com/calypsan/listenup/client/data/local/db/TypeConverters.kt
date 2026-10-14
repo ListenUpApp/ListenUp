@@ -215,7 +215,8 @@ internal class LastMatchConverter {
  */
 internal class ImageFramingConverter {
     @ColumnTypeConverter
-    fun fromFraming(value: ImageFraming?): String? = value?.let { appJson.encodeToString(ImageFraming.serializer(), it) }
+    fun fromFraming(value: ImageFraming?): String? =
+        value?.let { appJson.encodeToString(ImageFraming.serializer(), it) }
 
     @ColumnTypeConverter
     fun toFraming(value: String?): ImageFraming? =
