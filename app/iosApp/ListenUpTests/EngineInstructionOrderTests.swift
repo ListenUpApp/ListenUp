@@ -41,7 +41,7 @@ struct EngineInstructionOrderTests {
         harness.instructions.send(.load(bookId: "b1", prepared: .fixture()))
         harness.instructions.send(.setVolume(0.2))
         harness.instructions.send(.setVolume(1.0))
-        await awaitUntil { await harness.engine.commandLog.filter { $0 == "volume" }.count == 2 }
+        await harness.engine.waitForVolumeCount(2)
         #expect(await harness.engine.lastVolume == 1.0)
     }
 
