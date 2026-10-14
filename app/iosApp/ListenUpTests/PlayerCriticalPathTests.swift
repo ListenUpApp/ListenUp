@@ -182,6 +182,26 @@ struct EngineFailureTests {
         #expect(harness.progress.savedNow.isEmpty)
     }
 
+    /// A failed switch (6c): A plays, then B's engine load fails before B ever sounds. A's place is recorded under
+    /// A; B gets no position of any kind, so nothing syncs as though it had been started.
+    @Test func failedSwitchRecordsNothingForTheBookThatNeverPlayed() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("bookA", .fixture(resumePositionMs: 12000))
+        harness.engine.emit(.position(ms: 15000, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 15000 }
+
+        await harness.engine.setLoadShouldFail(true)
+        await harness.run(.load(bookId: "bookB", prepared: .fixture()))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+        await awaitUntil(timeout: .milliseconds(300)) { harness.progress.savedNow.contains { $0.0 == "bookB" } }
+
+        #expect(harness.progress.pausedCalls.contains { $0.0 == "bookA" && $0.1 == 15000 })
+        #expect(!harness.progress.startedCalls.contains { $0.0 == "bookB" })
+        #expect(!harness.progress.pausedCalls.contains { $0.0 == "bookB" })
+        #expect(!harness.progress.positionUpdates.contains { $0.0 == "bookB" })
+        #expect(!harness.progress.savedNow.contains { $0.0 == "bookB" })
+    }
+
     /// A play after a failure must not replay the preparation that just failed (its URLs, local paths and token
     /// may be what broke): the coordinator holds nothing, and the shared player prepares the book afresh.
     @Test func playAfterAFailureDoesNotReplayTheFailedPreparation() async {
