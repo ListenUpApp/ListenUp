@@ -69,7 +69,7 @@ final class EditProfileObserver {
 
     func stageAvatarUpload(_ data: Data) {
         pickedImage = data
-        viewModel.stageAvatarUpload(bytes: data.toKotlinByteArray(), contentType: "image/jpeg")
+        viewModel.stageAvatarUpload(bytes: data.toKotlinByteArray(), contentType: "image/jpeg", frame: nil)
     }
 
     func stageAvatarRevert() {
@@ -132,6 +132,9 @@ final class EditProfileObserver {
             return .reverted
         case .upload:
             return pickedImage.map(StagedAvatar.image) ?? .none
+        case .reframe:
+            // A re-frame keeps the stored avatar; it shows as stored until framing-aware rendering lands.
+            return .none
         }
     }
 }

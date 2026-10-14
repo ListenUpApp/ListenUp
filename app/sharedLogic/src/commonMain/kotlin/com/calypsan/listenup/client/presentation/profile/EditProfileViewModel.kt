@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.profile
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
@@ -36,17 +37,23 @@ sealed interface AvatarChange {
     /** Revert to auto-generated initials avatar. */
     data object RevertToAuto : AvatarChange
 
-    /** Upload [bytes] as the new avatar with the given [contentType]. */
+    /** Upload [bytes] as the new avatar with the given [contentType], framed by [frame] (null: the centre crop). */
     data class Upload(
         val bytes: ByteArray,
         val contentType: String,
+        val frame: ImageFrame? = null,
     ) : AvatarChange {
         // ByteArray identity semantics — equals/hashCode on content, not reference.
         override fun equals(other: Any?): Boolean =
-            other is Upload && bytes.contentEquals(other.bytes) && contentType == other.contentType
+            other is Upload && bytes.contentEquals(other.bytes) && contentType == other.contentType && frame == other.frame
 
-        override fun hashCode(): Int = 31 * bytes.contentHashCode() + contentType.hashCode()
+        override fun hashCode(): Int = (31 * bytes.contentHashCode() + contentType.hashCode()) * 31 + frame.hashCode()
     }
+
+    /** Keep the current image avatar, re-framed by [frame]. */
+    data class Reframe(
+        val frame: ImageFrame,
+    ) : AvatarChange
 }
 
 /** UI state for the Edit Profile screen. */
@@ -238,11 +245,21 @@ class EditProfileViewModel(
         formFlow.update { it.copy(confirmPassword = value) }
     }
 
+    /** Stage a picked avatar; [frame] is how the user framed it, or null when they did not. */
     fun stageAvatarUpload(
         bytes: ByteArray,
         contentType: String,
+        frame: ImageFrame?,
     ) {
-        formFlow.update { it.copy(avatarChange = AvatarChange.Upload(bytes, contentType)) }
+        formFlow.update { it.copy(avatarChange = AvatarChange.Upload(bytes, contentType, frame)) }
+    }
+
+    /** Re-frame the avatar: a staged upload takes [frame]; otherwise the current image avatar is re-framed on Save. */
+    fun stageAvatarReframe(frame: ImageFrame) {
+        formFlow.update { form ->
+            val change = form.avatarChange
+            form.copy(avatarChange = if (change is AvatarChange.Upload) change.copy(frame = frame) else AvatarChange.Reframe(frame))
+        }
     }
 
     fun stageAvatarRevert() {
@@ -321,7 +338,8 @@ class EditProfileViewModel(
     private suspend fun applyAvatarChange(change: AvatarChange): Boolean {
         val result =
             when (change) {
-                is AvatarChange.Upload -> profileEditRepository.uploadAvatar(change.bytes, change.contentType, frame = null)
+                is AvatarChange.Upload -> profileEditRepository.uploadAvatar(change.bytes, change.contentType, change.frame)
+                is AvatarChange.Reframe -> profileEditRepository.setAvatarFrame(change.frame)
                 AvatarChange.RevertToAuto -> profileEditRepository.revertToAutoAvatar()
                 AvatarChange.None -> return true
             }
@@ -331,7 +349,12 @@ class EditProfileViewModel(
             }
             is AppResult.Failure -> {
                 logger.error { "Avatar change failed: ${result.error}" }
-                val message = if (change is AvatarChange.Upload) "Failed to upload avatar." else "Failed to revert avatar."
+                val message =
+                    when (change) {
+                        is AvatarChange.Upload -> "Failed to upload avatar."
+                        is AvatarChange.Reframe -> "Failed to save the photo position."
+                        else -> "Failed to revert avatar."
+                    }
                 eventChannel.trySend(EditProfileEvent.SaveFailed(message))
                 false
             }

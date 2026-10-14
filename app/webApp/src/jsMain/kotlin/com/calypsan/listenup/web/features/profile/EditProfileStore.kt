@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.profile
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
@@ -29,6 +30,7 @@ class EditProfileSession(
     val onNewPassword: (String) -> Unit,
     val onConfirmPassword: (String) -> Unit,
     val onPickAvatar: (ByteArray, String) -> Unit,
+    val onReframeAvatar: (ImageFrame) -> Unit,
     val onRemoveAvatar: () -> Unit,
     val onSave: () -> Unit,
     override val close: () -> Unit,
@@ -57,7 +59,8 @@ fun graphEditProfile(koin: Koin): OpenEditProfile =
             onCurrentPassword = viewModel::setCurrentPassword,
             onNewPassword = viewModel::setNewPassword,
             onConfirmPassword = viewModel::setConfirmPassword,
-            onPickAvatar = viewModel::stageAvatarUpload,
+            onPickAvatar = { bytes, type -> viewModel.stageAvatarUpload(bytes, type, frame = null) },
+            onReframeAvatar = viewModel::stageAvatarReframe,
             onRemoveAvatar = viewModel::stageAvatarRevert,
             onSave = viewModel::save,
             close = store::clear,
@@ -75,6 +78,7 @@ fun fixedEditProfile(
     onNewPassword: (String) -> Unit = {},
     onConfirmPassword: (String) -> Unit = {},
     onPickAvatar: (ByteArray, String) -> Unit = { _, _ -> },
+    onReframeAvatar: (ImageFrame) -> Unit = {},
     onRemoveAvatar: () -> Unit = {},
     onSave: () -> Unit = {},
 ): OpenEditProfile =
@@ -89,6 +93,7 @@ fun fixedEditProfile(
             onNewPassword = onNewPassword,
             onConfirmPassword = onConfirmPassword,
             onPickAvatar = onPickAvatar,
+            onReframeAvatar = onReframeAvatar,
             onRemoveAvatar = onRemoveAvatar,
             onSave = onSave,
             close = {},

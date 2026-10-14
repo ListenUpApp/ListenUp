@@ -41,6 +41,11 @@ struct EditProfileObserverTests {
         #expect(StagedAvatar.reverted != .image(Data([0x01])))
     }
 
+    @Test func reframeKeepsShowingTheStoredAvatar() {
+        let change = AvatarChangeReframe(frame: ImageFrame(focusX: 0.5, focusY: 0.2, zoom: 1.5))
+        #expect(EditProfileObserver.stagedAvatar(for: change, pickedImage: nil) == .none)
+    }
+
     // MARK: - State mapping
 
     private func makeObserver() -> EditProfileObserver {
