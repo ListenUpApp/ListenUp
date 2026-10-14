@@ -296,7 +296,7 @@ class EditProfileViewModelTest :
                 val fixture =
                     createFixture().apply {
                         configure(currentUser = user)
-                        everySuspend { profileEditRepository.uploadAvatar(any(), any()) } returns
+                        everySuspend { profileEditRepository.uploadAvatar(any(), any(), any()) } returns
                             AppResult.Success(Unit)
                         everySuspend {
                             profileEditRepository.updateProfile(any(), any(), any(), any())
@@ -312,7 +312,7 @@ class EditProfileViewModelTest :
                 viewModel.save()
                 advanceUntilIdle()
 
-                verifySuspend { fixture.profileEditRepository.uploadAvatar(any(), "image/jpeg") }
+                verifySuspend { fixture.profileEditRepository.uploadAvatar(any(), "image/jpeg", any()) }
                 verifySuspend {
                     fixture.profileEditRepository.updateProfile(
                         firstName = "Bob",
@@ -402,7 +402,7 @@ class EditProfileViewModelTest :
                 viewModel.stageAvatarUpload(byteArrayOf(1), "image/jpeg")
 
                 // Avatar must be mocked too since we staged one.
-                everySuspend { fixture.profileEditRepository.uploadAvatar(any(), any()) } returns
+                everySuspend { fixture.profileEditRepository.uploadAvatar(any(), any(), any()) } returns
                     AppResult.Success(Unit)
 
                 advanceUntilIdle()

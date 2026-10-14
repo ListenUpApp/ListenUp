@@ -321,7 +321,7 @@ class EditProfileViewModel(
     private suspend fun applyAvatarChange(change: AvatarChange): Boolean {
         val result =
             when (change) {
-                is AvatarChange.Upload -> profileEditRepository.uploadAvatar(change.bytes, change.contentType)
+                is AvatarChange.Upload -> profileEditRepository.uploadAvatar(change.bytes, change.contentType, frame = null)
                 AvatarChange.RevertToAuto -> profileEditRepository.revertToAutoAvatar()
                 AvatarChange.None -> return true
             }

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.dto.image.ImageFraming
 import app.cash.turbine.test
 import com.calypsan.listenup.api.ProfileService
@@ -82,7 +84,7 @@ class AvatarSingleSourceTest :
 
         fun repoWith(
             dao: PublicProfileDao,
-            uploadResult: AppResult<Long> = AppResult.Success(0L),
+            uploadResult: AppResult<AvatarUploadResponse> = AppResult.Success(AvatarUploadResponse(0L)),
             service: ProfileService = mock(),
             imageStorage: ImageStorage =
                 mock {
@@ -95,7 +97,7 @@ class AvatarSingleSourceTest :
                 userDao = userDao,
                 publicProfileDao = dao,
                 channel = RpcChannel.forTest(service),
-                avatarUploader = { _, _ -> uploadResult },
+                avatarUploader = { _, _, _ -> uploadResult },
                 imageStorage = imageStorage,
                 offlineEditor = unusedOfflineEditor(),
             )
@@ -105,9 +107,9 @@ class AvatarSingleSourceTest :
             runTest {
                 val dao = RecordingPublicProfileDao()
                 val serverTs = 5_000L
-                val repo = repoWith(dao, uploadResult = AppResult.Success(serverTs))
+                val repo = repoWith(dao, uploadResult = AppResult.Success(AvatarUploadResponse(serverTs)))
 
-                repo.uploadAvatar(byteArrayOf(1, 2, 3), "image/png").shouldBeInstanceOf<AppResult.Success<Unit>>()
+                repo.uploadAvatar(byteArrayOf(1, 2, 3), "image/png", frame = null).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 UserProfileRepositoryImpl(dao).observeProfile(selfId).test {
                     val profile = awaitItem()
@@ -151,9 +153,9 @@ class AvatarSingleSourceTest :
                         MutableStateFlow(mapOf(selfId to publicRow(avatarType = "auto", avatarUpdatedAt = 0L, revision = 1))),
                     )
                 val serverTs = 5_000L
-                val repo = repoWith(dao, uploadResult = AppResult.Success(serverTs))
+                val repo = repoWith(dao, uploadResult = AppResult.Success(AvatarUploadResponse(serverTs)))
 
-                repo.uploadAvatar(byteArrayOf(1, 2, 3), "image/png").shouldBeInstanceOf<AppResult.Success<Unit>>()
+                repo.uploadAvatar(byteArrayOf(1, 2, 3), "image/png", frame = null).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 // The server rebuilt the projection and the SSE echo lands (higher revision, richer
                 // stats, SAME avatar version the client already wrote).
@@ -164,6 +166,43 @@ class AvatarSingleSourceTest :
                     profile.avatarType shouldBe "image"
                     // Converged to server truth, never regressed to the pre-upload version (0).
                     profile.updatedAt shouldBe serverTs
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("uploadAvatar writes the server's frame into the observed row before any sync") {
+            runTest {
+                val dao = RecordingPublicProfileDao()
+                val framing = ImageFraming("5000", ImageFrame(0.5, 0.3, 2.0))
+                val repo = repoWith(dao, uploadResult = AppResult.Success(AvatarUploadResponse(5_000L, framing)))
+
+                repo.uploadAvatar(byteArrayOf(1, 2, 3), "image/png", framing.frame).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                UserProfileRepositoryImpl(dao).observeProfile(selfId).test {
+                    awaitItem()!!.avatarFrame shouldBe framing.frame
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("revertToAutoAvatar after a framed upload leaves the observed avatar unframed") {
+            runTest {
+                val dao = RecordingPublicProfileDao()
+                val framing = ImageFraming("5000", ImageFrame(0.5, 0.3, 2.0))
+                val service =
+                    mock<ProfileService> {
+                        everySuspend { updateMyProfile(any()) } returns
+                            WireAppResult.Success(Profile(UserId(selfId), "Self User", null, "auto", 9_000L))
+                    }
+                val repo = repoWith(dao, uploadResult = AppResult.Success(AvatarUploadResponse(5_000L, framing)), service = service)
+                repo.uploadAvatar(byteArrayOf(1, 2, 3), "image/png", framing.frame).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                repo.revertToAutoAvatar().shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                dao.findById(selfId)!!.avatarFrame shouldBe null
+                UserProfileRepositoryImpl(dao).observeProfile(selfId).test {
+                    awaitItem()!!.avatarFrame shouldBe null
                     cancelAndIgnoreRemainingEvents()
                 }
             }
