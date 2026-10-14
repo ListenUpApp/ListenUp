@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.data.sync
 
+import io.kotest.matchers.nulls.shouldBeNull
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.result.AppResult
@@ -273,6 +276,30 @@ class ContributorsDomainTest :
                 } finally {
                     db.close()
                 }
+            }
+        }
+
+        test("the server's frame lands verbatim, and its null means the frame was cleared") {
+            withHandler { handler, db ->
+                val framing = ImageFraming("abc", ImageFrame(0.5, 0.2, 1.5))
+                handler.onEvent(created(photo("c1", "abc").copy(imageFrame = framing)))
+                db.contributorDao().getById("c1")!!.imageFrame shouldBe framing
+
+                handler.onEvent(updated(photo("c1", "def", revision = 2)))
+                db.contributorDao().getById("c1")!!.imageFrame.shouldBeNull()
+            }
+        }
+
+        test("while this device's own new photo waits to upload, its stamped frame is kept") {
+            withHandler { handler, db ->
+                handler.onEvent(created(photo("c1", "abc")))
+                val stamped = ImageFraming("new", ImageFrame(0.3, 0.3, 2.0))
+                db.contributorDao().updateImageFrame("c1", stamped)
+                db.pendingImageUploadDao().record("ContributorImage", "c1", "u1", 1L)
+
+                handler.onEvent(updated(photo("c1", "abc", revision = 2)))
+
+                db.contributorDao().getById("c1")!!.imageFrame shouldBe stamped
             }
         }
     })

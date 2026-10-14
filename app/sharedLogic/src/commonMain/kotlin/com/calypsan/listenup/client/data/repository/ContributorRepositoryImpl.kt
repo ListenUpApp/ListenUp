@@ -266,6 +266,7 @@ private fun ContributorEntity.toDomain(): Contributor =
         aliases = emptyList(),
         sortName = sortName,
         asin = asin,
+        imageFrame = imageFrame?.frame,
     )
 
 private fun ContributorWithAliases.toDomain(): Contributor =
@@ -280,6 +281,7 @@ private fun ContributorWithAliases.toDomain(): Contributor =
         aliases = aliases.sortedWith(String.CASE_INSENSITIVE_ORDER),
         sortName = contributor.sortName,
         asin = contributor.asin,
+        imageFrame = contributor.imageFrame?.frame,
     )
 
 private fun ContributorEntity.toSearchResult(): ContributorSearchResult =

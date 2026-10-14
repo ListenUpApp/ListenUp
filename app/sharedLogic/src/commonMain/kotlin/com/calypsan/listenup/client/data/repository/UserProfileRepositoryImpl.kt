@@ -42,4 +42,6 @@ private fun PublicProfileEntity.toDomain(): CachedUserProfile =
         displayName = displayName,
         avatarType = avatarType,
         updatedAt = avatarUpdatedAt,
+        // Belt and braces: a frame made for an avatar since replaced is ignored. Both values are in this one row.
+        avatarFrame = avatarFrame?.takeIf { it.imageVersion == avatarUpdatedAt.toString() }?.frame,
     )

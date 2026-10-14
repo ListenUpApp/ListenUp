@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
+
 /**
  * Cached profile data for displaying user avatars.
  *
@@ -18,4 +20,6 @@ data class CachedUserProfile(
      * rendering the old one.
      */
     val updatedAt: Long,
+    /** How the avatar image is framed; null shows the centre crop. Already checked against the stored avatar's version. */
+    val avatarFrame: ImageFrame? = null,
 )
