@@ -11,20 +11,28 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * [PlayerSession]'s one state, derived from its [stage] and everything around the loaded book: the engine's facts,
  * the book's position row, the reasons it can't play before Play is pressed (§4.6 proactive causes) and the sleep
- * fade. The session owns the lifecycle and the commands; this owns only the derivation, and writes nothing.
+ * fade. The session owns the lifecycle and the commands; this owns only the derivation, and writes nothing. It also
+ * keeps the time a network drop has been interrupting a listen ([PLAYBACK_DROP_GRACE]): the one grace every platform
+ * shares, whichever engine is recovering behind it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Suppress("LongParameterList") // Each param is one input to the derivation, handed over by the session.
@@ -68,28 +76,83 @@ internal class PlayerStateDerivation(
             }
         }
 
-    /** The session's one state. Never re-emits on a position tick. */
+    /** The drop whose [PLAYBACK_DROP_GRACE] has run out, by [DropTrack.dropId]; null while none has. */
+    private val graceSpentFor = MutableStateFlow<Int?>(null)
+
+    /** The current drop, as the derivation last saw it: what the grace timer runs against. */
+    private val currentDrop = MutableStateFlow(DropTrack())
+
+    /**
+     * The session's one state. Never re-emits on a position tick. The drop bookkeeping rides the same fold as the
+     * phase, so the emission that first carries a network failure already carries its grace: a drop is never shown
+     * as Failed for a moment, which would halt the engine before it could recover.
+     */
     val state: StateFlow<PlayerSessionState> =
-        combine(restoring, stage, phaseInputs) { isRestoring, s, inputs ->
+        combine(
+            flow = restoring,
+            flow2 = stage,
+            flow3 = phaseInputs,
+            flow4 = graceSpentFor,
+            transform = ::DerivationInputs,
+        ).scan(Derived(PlayerSessionState.Restoring, DropTrack())) { previous, inputs ->
+            derive(previous.drop, inputs)
+        }.onEach { currentDrop.value = it.drop }
+            .map { it.state }
+            .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, PlayerSessionState.Restoring)
+
+    init {
+        // One timer per drop: a drop that lasts the whole grace is marked spent, and the next fold surfaces it.
+        scope.launch {
+            currentDrop
+                .map { if (it.isDropping) it.dropId else null }
+                .distinctUntilChanged()
+                .collectLatest { droppingId ->
+                    if (droppingId != null) {
+                        delay(PLAYBACK_DROP_GRACE)
+                        graceSpentFor.value = droppingId
+                    }
+                }
+        }
+    }
+
+    private fun derive(
+        drop: DropTrack,
+        inputs: DerivationInputs,
+    ): Derived {
+        val s = inputs.stage
+        // The engine's facts are read as they stand now, not as the inputs last carried them: a command that moves
+        // the stage and the engine together (a pause out of a drop clears the failure and halts) must never be
+        // folded as the new stage over the old failure, which would show it, and halt on it, for a moment.
+        val current =
+            s?.let { stage ->
+                (
+                    inputs.phase?.takeIf { it.forBookId == stage.bookId } ?: neutralInputs(
+                        stage.bookId,
+                    )
+                ).withLiveEngineFacts()
+            }
+        val nextDrop = drop.next(s, current)
+        val state =
             when {
-                isRestoring -> {
+                inputs.isRestoring -> {
                     PlayerSessionState.Restoring
                 }
 
-                s == null -> {
+                s == null || current == null -> {
                     PlayerSessionState.NothingLoaded
                 }
 
                 else -> {
-                    val current = inputs?.takeIf { it.forBookId == s.bookId } ?: neutralInputs(s.bookId)
                     PlayerSessionState.Loaded(
                         bookId = s.bookId,
-                        phase = playerPhaseOf(s, current),
+                        phase = playerPhaseOf(s, current.copy(drop = nextDrop.status(inputs.graceSpentFor))),
                         isEngineBound = s is SessionStage.Engine && current.engineBookId == s.bookId,
                     )
                 }
             }
-        }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, PlayerSessionState.Restoring)
+        return Derived(state, nextDrop)
+    }
 
     /** Why [bookId] can't play right now, before Play is pressed, or null (§4.6 proactive causes). */
     fun unavailableReason(bookId: BookId): Flow<AppError?> =
@@ -109,6 +172,13 @@ internal class PlayerStateDerivation(
             )
         }.distinctUntilChanged()
 
+    private fun PhaseInputs.withLiveEngineFacts() =
+        copy(
+            enginePhase = engine.phase.value,
+            engineError = engine.error.value,
+            engineBookId = engine.loadedBookId.value,
+        )
+
     private fun neutralInputs(bookId: BookId) =
         PhaseInputs(
             forBookId = bookId,
@@ -120,3 +190,17 @@ internal class PlayerStateDerivation(
             unavailable = null,
         )
 }
+
+/** Everything the session's state folds over, in one emission. */
+private data class DerivationInputs(
+    val isRestoring: Boolean,
+    val stage: SessionStage?,
+    val phase: PhaseInputs?,
+    val graceSpentFor: Int?,
+)
+
+/** One fold step's output: the state, and the drop bookkeeping the next step continues from. */
+private data class Derived(
+    val state: PlayerSessionState,
+    val drop: DropTrack,
+)

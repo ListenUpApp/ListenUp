@@ -23,11 +23,14 @@ internal sealed interface SessionStage {
 
     /**
      * The engine holds it; the engine's facts decide the phase. [halted]: a surfaced failure stopped the engine, so
-     * an engine left idle by it is waiting for Play, not preparing.
+     * an engine left idle by it is waiting for Play, not preparing. [failure]: the failure the session surfaced and
+     * halted on when the engine itself reported none (a drop that outlasted its grace while the server was known to
+     * be unreachable), kept so the halt goes on saying why until Retry or Dismiss.
      */
     data class Engine(
         override val bookId: BookId,
         val halted: Boolean = false,
+        val failure: AppError? = null,
     ) : SessionStage
 
     /** The prepare failed with [error]. */
@@ -51,6 +54,7 @@ internal data class PhaseInputs(
     val isFading: Boolean,
     val isFinishedRow: Boolean,
     val unavailable: AppError?,
+    val drop: DropStatus = DropStatus.None,
 )
 
 /** The phase for [stage]. Pure; the full table is pinned by `PlayerPhaseDerivationTest`. */
@@ -77,27 +81,57 @@ internal fun playerPhaseOf(
         }
 
         is SessionStage.Engine -> {
-            when {
-                inputs.engineBookId != stage.bookId -> {
-                    PlayerPhase.Preparing
-                }
-
-                inputs.engineError != null -> {
-                    PlayerPhase.Failed(inputs.engineError.explainedBy(inputs.unavailable))
-                }
-
-                else -> {
-                    when (inputs.enginePhase) {
-                        EnginePhase.IDLE -> if (stage.halted) PlayerPhase.Paused else PlayerPhase.Preparing
-                        EnginePhase.BUFFERING -> PlayerPhase.Buffering
-                        EnginePhase.PLAYING -> if (inputs.isFading) PlayerPhase.SleepFading else PlayerPhase.Playing
-                        EnginePhase.PAUSED -> if (inputs.isFinishedRow) PlayerPhase.Finished else PlayerPhase.Paused
-                        EnginePhase.ENDED -> PlayerPhase.Finished
-                    }
-                }
-            }
+            engineFailureOf(stage, inputs) ?: enginePhaseOf(stage, inputs)
         }
     }
+
+/**
+ * The failure an engine-bound book shows, or null. A network drop inside its grace shows nothing (the engine is
+ * recovering); one that outlasted it shows the engine's failure, or, while the engine is still retrying in silence,
+ * the reason the server can't be reached. A halt keeps showing the failure it stopped on.
+ */
+private fun engineFailureOf(
+    stage: SessionStage.Engine,
+    inputs: PhaseInputs,
+): PlayerPhase.Failed? {
+    val stalledOutOfReach =
+        inputs.drop == DropStatus.Surfaced &&
+            inputs.enginePhase == EnginePhase.BUFFERING &&
+            inputs.unavailable.isServerOutOfReach()
+    val failure =
+        when {
+            inputs.engineBookId != stage.bookId -> null
+            inputs.engineError != null && !stage.halted && inputs.isRecoveredFrom(inputs.engineError) -> null
+            inputs.engineError != null && inputs.drop == DropStatus.Quiet -> null
+            inputs.engineError != null -> inputs.engineError.explainedBy(inputs.unavailable)
+            inputs.enginePhase == EnginePhase.PLAYING -> null
+            stage.failure != null -> stage.failure
+            stalledOutOfReach -> inputs.unavailable
+            else -> null
+        }
+    return failure?.let(PlayerPhase::Failed)
+}
+
+/** The phase an engine-bound book with nothing to show for a failure is in. */
+private fun enginePhaseOf(
+    stage: SessionStage.Engine,
+    inputs: PhaseInputs,
+): PlayerPhase {
+    if (inputs.engineBookId != stage.bookId) return PlayerPhase.Preparing
+    // A drop inside its grace: the engine reported a failure it is recovering from. The audio has stopped.
+    if (inputs.engineError != null && inputs.enginePhase != EnginePhase.PLAYING) return PlayerPhase.Buffering
+    return when (inputs.enginePhase) {
+        EnginePhase.IDLE -> if (stage.halted) PlayerPhase.Paused else PlayerPhase.Preparing
+        EnginePhase.BUFFERING -> PlayerPhase.Buffering
+        EnginePhase.PLAYING -> if (inputs.isFading) PlayerPhase.SleepFading else PlayerPhase.Playing
+        EnginePhase.PAUSED -> if (inputs.isFinishedRow) PlayerPhase.Finished else PlayerPhase.Paused
+        EnginePhase.ENDED -> PlayerPhase.Finished
+    }
+}
+
+/** The server can't be reached right now: the proactive reasons a stalled stream is waiting on. */
+private fun AppError?.isServerOutOfReach(): Boolean =
+    this is PlaybackError.ServerUnreachable || this is PlaybackError.OfflineNotDownloaded
 
 /**
  * A stream that dropped while the book can't be reached for a known reason (the server is unreachable, the device

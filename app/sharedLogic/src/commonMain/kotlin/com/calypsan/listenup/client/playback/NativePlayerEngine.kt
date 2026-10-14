@@ -7,11 +7,13 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,6 +24,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+/** Waits before each fresh prepare of a book a network drop took away; Android's service backs off the same way. */
+private val DROP_RECOVERY_BACKOFF = listOf(1.seconds, 2.seconds, 4.seconds, 8.seconds)
 
 /**
  * [PlayerEngine] for iOS (spec §4.1, S1). Kotlin prepares through the shared choke point and issues
@@ -91,6 +96,18 @@ class NativePlayerEngine internal constructor(
     /** The fresh prepare for a dropped book, while it runs. */
     private var reprepare: Job? = null
 
+    /** Audio has moved for this load and the listener has not paused it since: a drop now interrupts a listen. */
+    private var isListening = false
+
+    /** The wait before the next fresh prepare of a book a network drop took away, while one is scheduled. */
+    private var dropRecovery: Job? = null
+
+    /** Fresh prepares spent on the current drop; back to zero once audio moves again. */
+    private var dropRecoveryAttempts = 0
+
+    /** The load a drop's recovery handed Swift, while it is the current one: its failures are the same drop. */
+    private var dropRecoveryGeneration: Int? = null
+
     private fun send(command: EngineCommand) {
         commandChannel.trySend(command)
     }
@@ -98,6 +115,7 @@ class NativePlayerEngine internal constructor(
     /** Silence the outgoing book at once when another one is asked for (the old coordinator's switch rule). */
     override fun beginLoad(bookId: BookId) {
         cancelReprepare()
+        cancelDropRecovery()
         val current = loadedBookId.value
         if (current != null && current != bookId) send(EngineCommand.Pause)
     }
@@ -108,6 +126,7 @@ class NativePlayerEngine internal constructor(
     ): AppResult<Unit> {
         // The session's load wins over a dropped book's fresh prepare.
         cancelReprepare()
+        cancelDropRecovery()
         restartFrom = null
         return when (val result = prepare(bookId, start)) {
             is AppResult.Failure -> {
@@ -127,6 +146,8 @@ class NativePlayerEngine internal constructor(
         prepared: PreparedPlayback,
     ) {
         restartFrom = null
+        isListening = false
+        dropRecoveryGeneration = null
         chapters.value = prepared.chapters
         timeline.value = prepared.timeline
         durationMs.value = prepared.timeline.totalDurationMs
@@ -140,10 +161,14 @@ class NativePlayerEngine internal constructor(
         send(EngineCommand.Load(bookId = bookId.value, prepared = prepared, generation = generation))
     }
 
-    /** Prepare the dropped book again from [restartFrom] and hand it to Swift: a play after an engine failure. */
+    /**
+     * Prepare the dropped book again from [restartFrom] and hand it to Swift: a play after an engine failure, or
+     * a step of a drop's recovery ([isDropRecovery]), which backs off and tries again when the network is still out.
+     */
     private fun prepareAgain(
         bookId: BookId,
         start: PlaybackStart,
+        isDropRecovery: Boolean = false,
     ) {
         if (reprepare?.isActive == true) return
         error.value = null
@@ -165,11 +190,13 @@ class NativePlayerEngine internal constructor(
                 when (result) {
                     is AppResult.Success -> {
                         handOver(bookId, result.data)
+                        if (isDropRecovery) dropRecoveryGeneration = generation
                     }
 
                     is AppResult.Failure -> {
                         error.value = result.error
                         phase.value = EnginePhase.PAUSED
+                        if (isDropRecovery && result.error.isNetworkDrop()) scheduleDropRecovery()
                     }
                 }
             }
@@ -182,10 +209,36 @@ class NativePlayerEngine internal constructor(
         reprepare = null
     }
 
+    /**
+     * Prepare the dropped book afresh after the next backoff, as Media3 re-prepares and hls.js retries: the session
+     * shows nothing for [PLAYBACK_DROP_GRACE], and its halt (a pause) ends this. A spent backoff stops trying.
+     */
+    private fun scheduleDropRecovery() {
+        val backoff = DROP_RECOVERY_BACKOFF.getOrNull(dropRecoveryAttempts) ?: return
+        dropRecoveryAttempts++
+        dropRecovery?.cancel()
+        dropRecovery =
+            scope.launch {
+                delay(backoff)
+                dropRecovery = null
+                val bookId = loadedBookId.value ?: return@launch
+                val start = restartFrom ?: return@launch
+                prepareAgain(bookId, start, isDropRecovery = true)
+            }
+    }
+
+    private fun cancelDropRecovery() {
+        dropRecovery?.cancel()
+        dropRecovery = null
+        dropRecoveryAttempts = 0
+        dropRecoveryGeneration = null
+    }
+
     // Nothing is armed before the Load command, so there is nothing to take back.
     override fun abandonLoad() = Unit
 
     override fun play() {
+        cancelDropRecovery()
         val start = restartFrom
         val bookId = loadedBookId.value
         if (start != null && bookId != null) {
@@ -196,6 +249,8 @@ class NativePlayerEngine internal constructor(
     }
 
     override fun pause() {
+        isListening = false
+        cancelDropRecovery()
         if (reprepare?.isActive == true) {
             cancelReprepare()
             phase.value = EnginePhase.PAUSED
@@ -248,6 +303,7 @@ class NativePlayerEngine internal constructor(
 
     override fun stop() {
         cancelReprepare()
+        cancelDropRecovery()
         send(EngineCommand.Stop)
         generation++
         unload()
@@ -266,7 +322,23 @@ class NativePlayerEngine internal constructor(
         phase: EnginePhase,
     ) {
         if (!isCurrent(generation)) return
-        if (phase == EnginePhase.PLAYING) error.value = null
+        when (phase) {
+            EnginePhase.PLAYING -> {
+                error.value = null
+                isListening = true
+                // Through: the next drop's backoff starts from the beginning.
+                dropRecoveryAttempts = 0
+                dropRecoveryGeneration = null
+            }
+
+            EnginePhase.ENDED -> {
+                isListening = false
+            }
+
+            // Not read here: Swift reports PAUSED right after it drops a failed book, mid-listen, and IDLE and
+            // BUFFERING are where a drop passes through.
+            EnginePhase.PAUSED, EnginePhase.IDLE, EnginePhase.BUFFERING -> {}
+        }
         this.phase.value = phase
     }
 
@@ -329,14 +401,31 @@ class NativePlayerEngine internal constructor(
         onDropped(generation, PlaybackError.CouldNotStart(debugInfo = debugInfo))
     }
 
-    /** Swift's engine failed and let go of the book: show [failure], and prepare afresh on the next play. */
+    /**
+     * Swift's engine failed and let go of the book: show [failure], and prepare afresh on the next play. A network
+     * drop that interrupts a listen also recovers by itself ([scheduleDropRecovery]); any other failure ends that.
+     * A reload the recovery handed Swift that could not start is the same drop: Swift's load reports "could not
+     * start" whatever stopped it.
+     */
     private fun onDropped(
         generation: Int,
         failure: AppError,
     ) {
         if (!isCurrent(generation)) return
-        error.value = failure
+        val isRecoveryReload = generation == dropRecoveryGeneration
+        val dropped =
+            if (isRecoveryReload && failure is PlaybackError.CouldNotStart) {
+                PlaybackError.ConnectionLost(debugInfo = failure.debugInfo)
+            } else {
+                failure
+            }
+        error.value = dropped
         if (loadedBookId.value != null) restartFrom = PlaybackStart.Resume
+        if (dropped is PlaybackError.ConnectionLost && (isListening || isRecoveryReload)) {
+            scheduleDropRecovery()
+        } else {
+            cancelDropRecovery()
+        }
     }
 
     /**
@@ -356,6 +445,8 @@ class NativePlayerEngine internal constructor(
 
     private fun unload() {
         cancelReprepare()
+        cancelDropRecovery()
+        isListening = false
         restartFrom = null
         loadedBookId.value = null
         phase.value = EnginePhase.IDLE

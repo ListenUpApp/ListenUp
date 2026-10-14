@@ -10,6 +10,8 @@ import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.playback.EnginePhase
+import com.calypsan.listenup.client.playback.PLAYBACK_DROP_GRACE
 import com.calypsan.listenup.client.playback.PREPARING_UI_DELAY
 import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlayerPhase
@@ -203,7 +205,10 @@ class PlayerViewModelTest :
                     rig.vm.uiState.test {
                         rig.vm.playBook(BookId("b1"), null)
                         runCurrent()
+                        rig.s.engine.phase.value = EnginePhase.IDLE
                         rig.s.engine.error.value = PlaybackError.ConnectionLost()
+                        runCurrent()
+                        advanceTimeBy(PLAYBACK_DROP_GRACE)
                         runCurrent()
                         val failed = expectMostRecentLoaded()
                         failed.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())

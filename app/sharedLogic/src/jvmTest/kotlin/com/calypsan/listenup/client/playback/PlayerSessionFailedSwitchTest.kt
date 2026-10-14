@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -176,7 +177,10 @@ class PlayerSessionFailedSwitchTest :
                 }
 
             /** A plays and the service's 250 ms poll has put the playhead [PLACE_IN_A_MS] in; then B is asked for and its stream fails. */
-            suspend fun switchFromPlayingAToFailedB(testScope: TestScope) {
+            suspend fun switchFromPlayingAToFailedB(
+                testScope: TestScope,
+                throughGrace: Boolean = true,
+            ) {
                 seed(db, bookA, "af-a")
                 seed(db, bookB, "af-b")
                 session.withBook(bookA.value, durationMs = 7_200_000L)
@@ -195,6 +199,10 @@ class PlayerSessionFailedSwitchTest :
                 manager.setPlaying(false)
                 manager.reportError(PlaybackError.ConnectionLost())
                 testScope.runCurrent()
+                if (throughGrace) {
+                    testScope.advanceTimeBy(PLAYBACK_DROP_GRACE)
+                    testScope.runCurrent()
+                }
             }
 
             fun close() {
@@ -315,6 +323,25 @@ class PlayerSessionFailedSwitchTest :
                     val restart = rig.controller.startPlaybackCalls.last()
                     restart.timeline.bookId shouldBe bookB
                     restart.resumePositionMs shouldBe 0L
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("inside the drop's grace B still shows its own place, and Close files nothing of A's under B") {
+            runTest {
+                val rig = Rig(this)
+                try {
+                    rig.switchFromPlayingAToFailedB(this, throughGrace = false)
+                    rig.session.loaded.bookId shouldBe bookB
+                    rig.session.session.positionMs.value shouldBe 0L
+
+                    rig.session.session.closeBook()
+                    runCurrent()
+
+                    val savedB = (rig.positions.get(bookB) as AppResult.Success).data?.positionMs
+                    (savedB ?: 0L) shouldBe 0L
                 } finally {
                     rig.close()
                 }
