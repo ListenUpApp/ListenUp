@@ -669,6 +669,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     channel = contributorChannel,
                     contributorDao = clientDb.contributorDao(),
                     offlineEditor = offlineEditor,
+                    pendingImageUploadDao = clientDb.pendingImageUploadDao(),
+                    imageStorage = stubImageStorage(),
                 )
 
             // An always-online NetworkMonitor for the read repos' cache-miss RPC fallback (observeById).

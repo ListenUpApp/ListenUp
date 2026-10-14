@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.result.AppResult
@@ -65,6 +66,8 @@ class ContributorEditRepositoryOfflineTest :
                         channel = RpcChannel.forTest(mock<ContributorService>()),
                         contributorDao = db.contributorDao(),
                         offlineEditor = offlineEditor,
+                        pendingImageUploadDao = db.pendingImageUploadDao(),
+                        imageStorage = stubImageStorage(),
                     )
 
                 val result = repo.updateContributor(contributorId, ContributorUpdate(name = "New Name"))
@@ -120,6 +123,8 @@ class ContributorEditRepositoryOfflineTest :
                         channel = RpcChannel.forTest(mock<ContributorService>()),
                         contributorDao = db.contributorDao(),
                         offlineEditor = offlineEditor,
+                        pendingImageUploadDao = db.pendingImageUploadDao(),
+                        imageStorage = stubImageStorage(),
                     )
 
                 val result = repo.deleteContributor(contributorId)
