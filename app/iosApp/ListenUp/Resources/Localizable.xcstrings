@@ -19211,6 +19211,16 @@
         }
       }
     },
+    "player.reconnecting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnecting…"
+          }
+        }
+      }
+    },
     "player.reference": {
       "localizations": {
         "en": {

@@ -44,6 +44,16 @@ class PlayerPhaseDerivationTest :
                 playerPhaseOf(s, inputs(EnginePhase.PAUSED, book, isFinishedRow = true)) shouldBe PlayerPhase.Finished
                 playerPhaseOf(s, inputs(EnginePhase.ENDED, book)) shouldBe PlayerPhase.Finished
             }
+            test("a stall reads Reconnecting only inside a drop the network caused") {
+                val s = SessionStage.Engine(book)
+                val stalled = inputs(EnginePhase.BUFFERING, book)
+                playerPhaseOf(s, stalled.copy(drop = DropStatus.Quiet)) shouldBe PlayerPhase.Buffering
+                playerPhaseOf(s, stalled.copy(drop = DropStatus.Reconnecting)) shouldBe PlayerPhase.Reconnecting
+                val failing = inputs(EnginePhase.PAUSED, book, engineError = PlaybackError.ConnectionLost())
+                playerPhaseOf(s, failing.copy(drop = DropStatus.Reconnecting)) shouldBe PlayerPhase.Reconnecting
+                playerPhaseOf(s, failing.copy(drop = DropStatus.Surfaced)) shouldBe
+                    PlayerPhase.Failed(PlaybackError.ConnectionLost())
+            }
             test("an engine a surfaced failure stopped, left idle, waits for Play") {
                 playerPhaseOf(SessionStage.Engine(book, halted = true), inputs(EnginePhase.IDLE, book)) shouldBe
                     PlayerPhase.Paused

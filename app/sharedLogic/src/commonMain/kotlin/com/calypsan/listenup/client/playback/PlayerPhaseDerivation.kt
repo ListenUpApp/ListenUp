@@ -86,9 +86,10 @@ internal fun playerPhaseOf(
     }
 
 /**
- * The failure an engine-bound book shows, or null. A network drop inside its grace shows nothing (the engine is
- * recovering); one that outlasted it shows the engine's failure, or, while the engine is still retrying in silence,
- * the reason the server can't be reached. A halt keeps showing the failure it stopped on.
+ * The failure an engine-bound book shows, or null. A network drop inside its grace shows no failure (the engine is
+ * recovering, and the player says Reconnecting); one that outlasted it shows the engine's failure, or, while the
+ * engine is still retrying in silence, the reason the server can't be reached. A halt keeps showing the failure it
+ * stopped on.
  */
 private fun engineFailureOf(
     stage: SessionStage.Engine,
@@ -102,7 +103,7 @@ private fun engineFailureOf(
         when {
             inputs.engineBookId != stage.bookId -> null
             inputs.engineError != null && !stage.halted && inputs.isRecoveredFrom(inputs.engineError) -> null
-            inputs.engineError != null && inputs.drop == DropStatus.Quiet -> null
+            inputs.engineError != null && inputs.drop.isInGrace -> null
             inputs.engineError != null -> inputs.engineError.explainedBy(inputs.unavailable)
             inputs.enginePhase == EnginePhase.PLAYING -> null
             stage.failure != null -> stage.failure
@@ -112,14 +113,20 @@ private fun engineFailureOf(
     return failure?.let(PlayerPhase::Failed)
 }
 
-/** The phase an engine-bound book with nothing to show for a failure is in. */
+/**
+ * The phase an engine-bound book with nothing to show for a failure is in. A network drop inside its grace is
+ * Reconnecting whatever the engine reports while it recovers (a failure, a retry's buffering, a fresh prepare); a
+ * stall nothing ties to the network is plain Buffering.
+ */
 private fun enginePhaseOf(
     stage: SessionStage.Engine,
     inputs: PhaseInputs,
 ): PlayerPhase {
     if (inputs.engineBookId != stage.bookId) return PlayerPhase.Preparing
-    // A drop inside its grace: the engine reported a failure it is recovering from. The audio has stopped.
-    if (inputs.engineError != null && inputs.enginePhase != EnginePhase.PLAYING) return PlayerPhase.Buffering
+    if (inputs.drop == DropStatus.Reconnecting && inputs.enginePhase != EnginePhase.PLAYING) {
+        return PlayerPhase.Reconnecting
+    }
+    // A failure the engine is recovering from inside its grace is always a network drop, so Reconnecting above.
     return when (inputs.enginePhase) {
         EnginePhase.IDLE -> if (stage.halted) PlayerPhase.Paused else PlayerPhase.Preparing
         EnginePhase.BUFFERING -> PlayerPhase.Buffering
@@ -130,7 +137,7 @@ private fun enginePhaseOf(
 }
 
 /** The server can't be reached right now: the proactive reasons a stalled stream is waiting on. */
-private fun AppError?.isServerOutOfReach(): Boolean =
+internal fun AppError?.isServerOutOfReach(): Boolean =
     this is PlaybackError.ServerUnreachable || this is PlaybackError.OfflineNotDownloaded
 
 /**

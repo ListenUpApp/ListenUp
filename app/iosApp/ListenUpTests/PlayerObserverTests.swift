@@ -46,6 +46,17 @@ struct PlayerObserverTests {
         #expect(!snapshot.isPlaying)
     }
 
+    @Test("a book reconnecting after a network drop shows the buffering presentation, not an error")
+    func reconnecting() {
+        let snapshot = PlayerSnapshot.from(
+            PlayerUiStateLoaded.fixture(phase: PlayerPhaseReconnecting.shared, primary: PrimaryControlBusy.shared)
+        )
+        #expect(snapshot.isBuffering)
+        #expect(!snapshot.isPlaying)
+        #expect(!snapshot.isErrored)
+        #expect(snapshot.primary == .busy)
+    }
+
     @Test("a known reason the book can't play reads as an error with its reason")
     func unavailable() {
         let reason = PlaybackErrorOfflineNotDownloaded(correlationId: nil, debugInfo: nil)

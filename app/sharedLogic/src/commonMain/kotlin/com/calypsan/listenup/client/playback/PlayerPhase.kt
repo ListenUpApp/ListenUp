@@ -10,8 +10,14 @@ sealed interface PlayerPhase {
     /** A book is being prepared; the bar already shows it (§3.6). */
     data object Preparing : PlayerPhase
 
-    /** Loaded and stalled. */
+    /** Loaded and stalled: starting, seeking, or a stream that is slow but still arriving. */
     data object Buffering : PlayerPhase
+
+    /**
+     * Stalled because the network dropped under a listen, inside [PLAYBACK_DROP_GRACE]: the engine is recovering by
+     * itself, and the listener is told so. It ends in [Playing] when the audio comes back, or [Failed] at the grace.
+     */
+    data object Reconnecting : PlayerPhase
 
     /** Audio is advancing. */
     data object Playing : PlayerPhase
