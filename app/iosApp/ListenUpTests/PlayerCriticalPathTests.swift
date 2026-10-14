@@ -134,6 +134,22 @@ struct EngineFailureTests {
         #expect(harness.facts.failures == [.connectionLost(detail: "NSURLErrorDomain -1005")])
     }
 
+    /// Nothing plays behind an error (6c): a failed item stops the player, so AVPlayer cannot resume the stalled
+    /// queue, or move on to the next segment, by itself once the server is back. Only a fresh prepare plays again.
+    @Test func failureMidPlayStopsThePlayer() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        let pausesBefore = await harness.engine.commandLog.filter { $0 == "pause" }.count
+
+        harness.engine.emit(.failed(.connectionLost(detail: nil)))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+
+        await awaitUntil(timeout: .seconds(5)) {
+            await harness.engine.commandLog.filter { $0 == "pause" }.count > pausesBefore
+        }
+        #expect(await harness.engine.commandLog.filter { $0 == "pause" }.count == pausesBefore + 1)
+    }
+
     /// Position is sacred: a failure mid-play records the pause and saves the exact place before the book is
     /// dropped, so a Retry (which resumes from the saved place) starts where the audio stopped, not up to 5 s back.
     @Test func failureMidPlayRecordsThePlaceBeforeDroppingTheBook() async {

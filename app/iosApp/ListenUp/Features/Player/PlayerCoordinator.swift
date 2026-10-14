@@ -590,6 +590,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
             // The book played: record its place before letting go of it, as a pause would.
             recordPlaceBeforeDropping(loaded.bookId)
             fail(failure)
+            stopPlayerBehindFailure()
+        }
+    }
+
+    /// Nothing plays behind an error. A failed item leaves the player's rate up, and AVPlayer resumes a stalled
+    /// queue, or moves on to the next segment, by itself once the network returns. Stop it, unless a newer load
+    /// already owns the player: only Retry or an explicit Play, which prepare the book afresh, start it again.
+    private func stopPlayerBehindFailure() {
+        let generation = loadGeneration
+        Task {
+            guard !isSuperseded(generation) else { return }
+            await engine.pause()
         }
     }
 
