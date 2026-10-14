@@ -1,11 +1,16 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.dto.image.IMAGE_UPLOAD_FRAME_PART
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.invalidImageFrame
 import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
@@ -45,20 +50,22 @@ private val logger = KotlinLogging.logger {}
  */
 internal fun interface AvatarUploader {
     /**
-     * POST [imageData] to the avatar endpoint; on success return the server's `avatarUpdatedAt`
-     * (epoch-ms) — the exact avatar version to write into the observed `public_profiles` row.
+     * POST [imageData] — and [frame], as the `frame` form field, when the user framed it — to the avatar endpoint; on
+     * success the server's [AvatarUploadResponse]: the avatar version and the frame it stored, exactly what the observed
+     * row must carry.
      */
     suspend fun upload(
         imageData: ByteArray,
         contentType: String,
-    ): AppResult<Long>
+        frame: ImageFrame?,
+    ): AppResult<AvatarUploadResponse>
 }
 
 /**
  * Production [AvatarUploader] backed by [ApiClientFactory].
  */
 internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
-    AvatarUploader { imageData, contentType ->
+    AvatarUploader { imageData, contentType, frame ->
         try {
             val client = clientFactory.getClient()
             val response =
@@ -66,6 +73,12 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
                     url = AVATAR_UPLOAD_PATH,
                     formData =
                         formData {
+                            frame?.let { chosen ->
+                                append(
+                                    IMAGE_UPLOAD_FRAME_PART,
+                                    appJson.encodeToString(ImageFrame.serializer(), chosen),
+                                )
+                            }
                             append(
                                 "file",
                                 imageData,
@@ -76,9 +89,9 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
                             )
                         },
                 )
-            // The server returns 200 with { avatarUpdatedAt } — the authoritative avatar version.
+            // The server returns 200 with { avatarUpdatedAt, avatarFrame } — the authoritative avatar version and frame.
             if (response.status.isSuccess()) {
-                AppResult.Success(response.body<AvatarUploadResponse>().avatarUpdatedAt)
+                AppResult.Success(response.body<AvatarUploadResponse>())
             } else {
                 AppResult.Failure(
                     ErrorMapper.map(IllegalStateException("avatar upload failed: ${response.status}")),
@@ -105,7 +118,8 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
  * [PublicProfileEntity.avatarType] to `"image"` and stamping the server-returned
  * [PublicProfileEntity.avatarUpdatedAt]. This is the one local write to the otherwise
  * server-synced `public_profiles` table; the eventual firehose echo (higher revision, ServerWins)
- * replaces it without regressing the version. Avatar methods stay online-only.
+ * replaces it without regressing the version. Avatar uploads and revert stay online-only; a frame-only edit,
+ * [setAvatarFrame], is offline-first through the profile outbox (the second local write to that row).
  *
  * Mixed transport: profile text edits and the auto-avatar revert ride the [RpcChannel]; only the
  * binary avatar upload (delegated to [AvatarUploader]/[avatarUploaderOf]) goes raw over REST — the
@@ -254,6 +268,7 @@ internal class ProfileEditRepositoryImpl(
     override suspend fun uploadAvatar(
         imageData: ByteArray,
         contentType: String,
+        frame: ImageFrame?,
     ): AppResult<Unit> =
         withContext(IODispatcher) {
             val user =
@@ -263,13 +278,14 @@ internal class ProfileEditRepositoryImpl(
                         ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
                     )
                 }
-            when (val uploadResult = avatarUploader.upload(imageData, contentType)) {
+            when (val uploadResult = avatarUploader.upload(imageData, contentType, frame)) {
                 is AppResult.Success -> {
                     writeSelfAvatar(
                         userId = user.id.value,
                         displayName = user.displayName,
                         avatarType = IMAGE_VALUE,
-                        avatarUpdatedAt = uploadResult.data,
+                        avatarUpdatedAt = uploadResult.data.avatarUpdatedAt,
+                        avatarFrame = uploadResult.data.avatarFrame,
                     )
                     when (val cached = imageStorage.saveUserAvatar(user.id.value, imageData)) {
                         is AppResult.Failure -> logger.warn { "Avatar local cache write failed: ${cached.error}" }
@@ -312,6 +328,7 @@ internal class ProfileEditRepositoryImpl(
                         displayName = user.displayName,
                         avatarType = AUTO_VALUE,
                         avatarUpdatedAt = result.data.updatedAt,
+                        avatarFrame = null,
                     )
                     when (val deleted = imageStorage.deleteUserAvatar(user.id.value)) {
                         is AppResult.Failure -> logger.warn { "Avatar local delete failed: ${deleted.error}" }
@@ -326,6 +343,24 @@ internal class ProfileEditRepositoryImpl(
                 }
             }
         }
+
+    override suspend fun setAvatarFrame(frame: ImageFrame): AppResult<Unit> {
+        val user =
+            userDao.getCurrentUser() ?: run {
+                logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
+                return AppResult.Failure(ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)))
+            }
+        val own = publicProfileDao.findById(user.id.value)
+        if (own?.avatarType != IMAGE_VALUE) return AppResult.Failure(invalidImageFrame("no image avatar to frame"))
+        val framing = ImageFraming(own.avatarUpdatedAt.toString(), frame)
+        return offlineEditor.edit(
+            OutboxChannels.Profile,
+            entityId = user.id.value,
+            patch = UpdateProfileRequest(avatarFrame = framing),
+        ) {
+            publicProfileDao.updateAvatarFrame(user.id.value, framing)
+        }
+    }
 
     // ── Plumbing ────────────────────────────────────────────────────────────────
 
@@ -342,10 +377,11 @@ internal class ProfileEditRepositoryImpl(
         displayName: String,
         avatarType: String,
         avatarUpdatedAt: Long,
+        avatarFrame: ImageFraming?,
     ) {
         val existing = publicProfileDao.findById(userId)
         val row =
-            existing?.copy(avatarType = avatarType, avatarUpdatedAt = avatarUpdatedAt)
+            existing?.copy(avatarType = avatarType, avatarUpdatedAt = avatarUpdatedAt, avatarFrame = avatarFrame)
                 ?: PublicProfileEntity(
                     id = userId,
                     displayName = displayName,
@@ -360,6 +396,7 @@ internal class ProfileEditRepositoryImpl(
                     avatarUpdatedAt = avatarUpdatedAt,
                     revision = 0,
                     deletedAt = null,
+                    avatarFrame = avatarFrame,
                 )
         publicProfileDao.upsert(row)
     }

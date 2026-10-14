@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.Index
@@ -237,6 +238,11 @@ internal data class ContributorEntity(
     val deletedAt: Long? = null,
     val createdAt: Timestamp,
     val updatedAt: Timestamp,
+    /**
+     * How this device shows the photo framed, bound to that photo's version: the server's frame verbatim, or — while the
+     * user's own new photo waits to upload — the frame stamped for those bytes. Null: the centre crop.
+     */
+    val imageFrame: ImageFraming? = null,
 )
 
 /**

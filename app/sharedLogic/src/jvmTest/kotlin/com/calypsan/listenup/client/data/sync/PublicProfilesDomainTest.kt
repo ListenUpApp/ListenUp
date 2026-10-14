@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PublicProfileSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -229,6 +231,15 @@ class PublicProfilesDomainTest :
                 val p = payload("user-auto-avatar", avatarType = "auto", avatarUpdatedAt = 100L)
                 handler.onEvent(created(p))
                 fakeRepo.forceRefreshCalls shouldBe emptyList<String>()
+            }
+        }
+
+        test("the avatar frame lands verbatim") {
+            withHandler { handler, db ->
+                val framing = ImageFraming("7", ImageFrame(0.5, 0.3, 2.0))
+                handler.onEvent(created(payload("user-1").copy(avatarType = "image", avatarUpdatedAt = 7, avatarFrame = framing)))
+
+                db.publicProfileDao().findById("user-1")!!.avatarFrame shouldBe framing
             }
         }
     })

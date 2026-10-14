@@ -1,6 +1,9 @@
 
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.core.appJson
+import com.calypsan.listenup.api.dto.image.IMAGE_UPLOAD_FRAME_PART
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.core.suspendRunCatching
@@ -15,11 +18,13 @@ import io.ktor.http.HttpHeaders
 
 private const val COVER_REQUEST_TIMEOUT_MS = 60_000L
 
-/** Builds the multipart form-data body for a binary image upload (single `file` part). */
+/** Builds the multipart form-data body for a binary image upload: the `file` part, and the `frame` field when given. */
 private fun imageFormData(
     imageData: ByteArray,
     filename: String,
+    frame: ImageFrame? = null,
 ) = formData {
+    frame?.let { append(IMAGE_UPLOAD_FRAME_PART, appJson.encodeToString(ImageFrame.serializer(), it)) }
     append(
         "file",
         imageData,
@@ -161,12 +166,13 @@ internal class ImageApi(
         contributorId: String,
         imageData: ByteArray,
         filename: String,
+        frame: ImageFrame?,
     ): AppResult<ImageUploadResponse> =
         suspendRunCatching {
             val client = clientFactory.getClient()
             client.submitFormWithBinaryData(
                 url = "/api/v1/contributors/$contributorId/image",
-                formData = imageFormData(imageData, filename),
+                formData = imageFormData(imageData, filename, frame),
             ) {
                 method = io.ktor.http.HttpMethod.Put
             }

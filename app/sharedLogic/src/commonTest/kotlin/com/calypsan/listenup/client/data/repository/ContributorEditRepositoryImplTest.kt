@@ -63,6 +63,8 @@ class ContributorEditRepositoryImplTest :
                                     },
                                 authSession = FakeAuthSession(userId = "u1"),
                             ),
+                        pendingImageUploadDao = mock(),
+                        imageStorage = mock(),
                     )
                 val result =
                     repo.mergeContributor(ContributorId("source"), ContributorId("target"))

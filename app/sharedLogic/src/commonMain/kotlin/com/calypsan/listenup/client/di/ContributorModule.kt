@@ -57,6 +57,8 @@ internal val contributorModule: Module =
                 channel = rpcChannel(),
                 contributorDao = get(),
                 offlineEditor = get(),
+                pendingImageUploadDao = get(),
+                imageStorage = get(),
             )
         }
 

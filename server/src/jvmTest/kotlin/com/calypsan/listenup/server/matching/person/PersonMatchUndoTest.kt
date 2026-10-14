@@ -1,5 +1,8 @@
 package com.calypsan.listenup.server.matching.person
 
+import io.kotest.matchers.nulls.shouldBeNull
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.FieldProvenance
@@ -42,6 +45,25 @@ class PersonMatchUndoTest :
                     val after = rig.person()
                     (after.revision > applied.revision) shouldBe true
                     after.copy(revision = before.revision, updatedAt = before.updatedAt) shouldBe before
+                }
+            }
+        }
+
+        test("a match's new photo clears the frame, and undo brings back the old photo with its frame") {
+            withSqlDatabase {
+                runTest {
+                    val rig = PersonRig(this@withSqlDatabase)
+                    rig.seedRay() // photo "contributors/old.jpg", version "old"
+                    val framing = ImageFraming("old", ImageFrame(0.4, 0.2, 2.0))
+                    rig.contributors.upsert(rig.person().copy(imageFrame = framing)).shouldSucceed()
+
+                    val receipt = rig.apply(rig.mixedRequest()).shouldSucceed() // Hardcover's photo
+                    rig.person().imageFrame.shouldBeNull()
+
+                    rig.undoer.undo(receipt.receiptId).shouldSucceed()
+                    val after = rig.person()
+                    after.imagePath shouldBe "contributors/old.jpg"
+                    after.imageFrame shouldBe framing
                 }
             }
         }

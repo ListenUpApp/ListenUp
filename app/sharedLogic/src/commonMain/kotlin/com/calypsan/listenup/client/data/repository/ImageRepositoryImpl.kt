@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -129,7 +130,15 @@ internal class ImageRepositoryImpl(
         contributorId: String,
         imageData: ByteArray,
         filename: String,
-    ): AppResult<String> = imageApi.uploadContributorImage(contributorId, imageData, filename).map { it.imageUrl }
+        frame: ImageFrame?,
+    ): AppResult<String> =
+        imageApi
+            .uploadContributorImage(
+                contributorId = contributorId,
+                imageData = imageData,
+                filename = filename,
+                frame = frame,
+            ).map { it.imageUrl }
 
     override suspend fun saveContributorImageStaging(
         contributorId: String,

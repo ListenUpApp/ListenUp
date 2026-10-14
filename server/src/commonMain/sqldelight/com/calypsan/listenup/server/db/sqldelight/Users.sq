@@ -14,6 +14,7 @@
 --   V92__curate_library_permission.sql (can_curate_library DEFAULT 0, backfilled from can_edit)
 --   V93__story_world_entities.sql    (can_contribute_story_world DEFAULT 1, can_curate_story_world DEFAULT 0)
 --   V96__reading_orders.sql          (can_make_reading_orders DEFAULT 1 — additive, undoable work defaults on)
+--   V99__image_frames.sql            (avatar_frame — ImageFraming JSON, the avatar's frame)
 --
 -- SECURITY-RELEVANT CONSTRAINTS preserved verbatim:
 --   * email_normalized UNIQUE — the single structural guarantee that one email maps to one
@@ -51,7 +52,8 @@ CREATE TABLE users (
     can_curate_library INTEGER NOT NULL DEFAULT 0,
     can_contribute_story_world INTEGER NOT NULL DEFAULT 1,
     can_curate_story_world     INTEGER NOT NULL DEFAULT 0,
-    can_make_reading_orders    INTEGER NOT NULL DEFAULT 1
+    can_make_reading_orders    INTEGER NOT NULL DEFAULT 1,
+    avatar_frame               TEXT
 );
 
 -- Single-row lookup by normalized email — the login / registration uniqueness probe. Indexed
@@ -117,7 +119,7 @@ SELECT timezone FROM users WHERE id = :id;
 -- Display identity for a LIVE (non-tombstoned) user — drives the public_profiles projection
 -- (PublicProfileMaintainer). A tombstoned or absent user yields no row → the projection no-ops.
 selectIdentityLiveById:
-SELECT display_name, avatar_type, tagline, avatar_updated_at FROM users WHERE id = :id AND deleted_at IS NULL;
+SELECT display_name, avatar_type, tagline, avatar_updated_at, avatar_frame FROM users WHERE id = :id AND deleted_at IS NULL;
 
 -- Ids of every LIVE (non-tombstoned) user — drives the one-time public_profiles backfill.
 selectLiveUserIds:
@@ -246,9 +248,17 @@ UPDATE users SET can_edit = :can_edit WHERE id = :id;
 setCanMakeReadingOrders:
 UPDATE users SET can_make_reading_orders = :can_make_reading_orders WHERE id = :id;
 
--- Flip avatar_type to 'image', stamp avatar_updated_at + updated_at after a successful avatar upload (ProfileRoutes).
-updateAvatarType:
-UPDATE users SET avatar_type = :avatar_type, avatar_updated_at = :avatar_updated_at, updated_at = :updated_at WHERE id = :id;
+-- The avatar's frame (ImageFraming JSON), written in updateMyProfile's transaction beside updateProfileFields:
+-- kept, replaced by a frame for the stored image, or cleared for the auto avatar. Never moves avatar_updated_at.
+updateAvatarFrame:
+UPDATE users SET avatar_frame = :avatar_frame WHERE id = :id;
+
+-- After a successful avatar upload (ProfileRoutes): flip avatar_type to 'image', stamp avatar_updated_at + updated_at,
+-- and set the new image's frame — NULL when the upload carried none, so a new image never inherits the old one's.
+updateAvatarTypeAndFrame:
+UPDATE users
+SET avatar_type = :avatar_type, avatar_updated_at = :avatar_updated_at, avatar_frame = :avatar_frame, updated_at = :updated_at
+WHERE id = :id;
 
 -- Count of LIVE (non-tombstoned) users — used by BackupArchive to embed a snapshot
 -- count in the backup manifest.

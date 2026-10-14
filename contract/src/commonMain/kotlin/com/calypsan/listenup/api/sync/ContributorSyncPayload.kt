@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.sync
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.ContributorFieldProvenanceMapSerializer
@@ -63,4 +64,11 @@ data class ContributorSyncPayload(
     @SerialName("fieldProvenance")
     @Serializable(with = ContributorFieldProvenanceMapSerializer::class)
     val fieldProvenance: Map<ContributorField, FieldProvenance> = emptyMap(),
+    /**
+     * How the photo is framed, bound to the photo it was made for. The server keeps it only while [imagePath] is that
+     * photo, so — unlike the enrichment fields above — null means "no frame", never "not sent": a client takes it
+     * verbatim. Null from a server that predates framing.
+     */
+    @SerialName("imageFrame")
+    val imageFrame: ImageFraming? = null,
 ) : SyncPayload

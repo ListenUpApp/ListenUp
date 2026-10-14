@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.nulls.shouldBeNull
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.server.testing.publicAuthService
 
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -72,6 +76,119 @@ class MetadataImageUploadRouteTest :
                     )
                 },
             )
+
+        fun jpegPart(
+            bytes: ByteArray,
+            frameJson: String?,
+        ) = MultiPartFormDataContent(
+            formData {
+                frameJson?.let { append("frame", it) }
+                append(
+                    "file",
+                    bytes,
+                    Headers.build {
+                        append(HttpHeaders.ContentType, "image/jpeg")
+                        append(HttpHeaders.ContentDisposition, "filename=\"image.jpg\"")
+                    },
+                )
+            },
+        )
+
+        test("PUT /api/v1/contributors/{id}/image with a frame stores it, stamped with the new photo's hash") {
+            val libraryRoot = Files.createTempDirectory("listenup-frame-upload-")
+            val homeDir = Files.createTempDirectory("listenup-frame-upload-home-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = mintRootToken()
+                    val contributorRepo by application.inject<ContributorRepository>()
+                    val id = contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+
+                    client
+                        .put("/api/v1/contributors/${id.value}/image") {
+                            bearerAuth(token)
+                            setBody(jpegPart(jpeg, """{"focusX":0.5,"focusY":0.2,"zoom":1.5}"""))
+                        }.status shouldBe HttpStatusCode.NoContent
+
+                    val stored = contributorRepo.findById(id.value)!!
+                    stored.imagePath shouldBe "contributors/${hashBytesSha256(jpeg)}.jpg"
+                    stored.imageFrame shouldBe ImageFraming(hashBytesSha256(jpeg), ImageFrame(0.5, 0.2, 1.5))
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("a new photo uploaded without a frame clears the previous photo's frame") {
+            val libraryRoot = Files.createTempDirectory("listenup-frame-clear-")
+            val homeDir = Files.createTempDirectory("listenup-frame-clear-home-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = mintRootToken()
+                    val contributorRepo by application.inject<ContributorRepository>()
+                    val id = contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+                    client.put("/api/v1/contributors/${id.value}/image") {
+                        bearerAuth(token)
+                        setBody(jpegPart(jpeg, """{"focusX":0.5,"focusY":0.2,"zoom":1.5}"""))
+                    }
+
+                    val newPhoto = jpeg + byteArrayOf(7)
+                    client
+                        .put("/api/v1/contributors/${id.value}/image") {
+                            bearerAuth(token)
+                            setBody(jpegPart(newPhoto, frameJson = null))
+                        }.status shouldBe HttpStatusCode.NoContent
+
+                    val stored = contributorRepo.findById(id.value)!!
+                    stored.imagePath shouldBe "contributors/${hashBytesSha256(newPhoto)}.jpg"
+                    stored.imageFrame.shouldBeNull()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("an out-of-range or unreadable frame answers 400 and stores nothing") {
+            val libraryRoot = Files.createTempDirectory("listenup-frame-bad-")
+            val homeDir = Files.createTempDirectory("listenup-frame-bad-home-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = mintRootToken()
+                    val contributorRepo by application.inject<ContributorRepository>()
+                    val id = contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+
+                    listOf("""{"focusX":0.5,"focusY":0.5,"zoom":5.0}""", "not json").forEach { bad ->
+                        client
+                            .put("/api/v1/contributors/${id.value}/image") {
+                                bearerAuth(token)
+                                setBody(jpegPart(jpeg, bad))
+                            }.status shouldBe HttpStatusCode.BadRequest
+                    }
+
+                    contributorRepo.findById(id.value)!!.imagePath.shouldBeNull()
+                    homeDir
+                        .resolve("contributors")
+                        .toFile()
+                        .listFiles()
+                        .orEmpty()
+                        .toList()
+                        .shouldBeEmpty()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeDir.toFile().deleteRecursively()
+            }
+        }
 
         test("PUT /api/v1/contributors/{id}/image as ROOT → 204, imagePath set, file served back") {
             val libraryRoot = Files.createTempDirectory("listenup-img-upload-contrib-")

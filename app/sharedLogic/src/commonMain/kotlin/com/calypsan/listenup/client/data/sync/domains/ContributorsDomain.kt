@@ -17,7 +17,8 @@ import com.calypsan.listenup.core.Timestamp
  *
  * **Enrichment preservation.** Enrichment columns (`description`, `imagePath`,
  * `birthDate`, …) fall back to the existing row when the payload's value is null —
- * a B1-era event must never null Books-B2 data.
+ * a B1-era event must never null Books-B2 data. The photo's `imageFrame` is the exception: it is taken verbatim
+ * (see `upsert`).
  *
  * **Aliases (Books-C2).** The wire list is server-authoritative (merge/unmerge);
  * mirrored with delete-then-insert replace inside the surrounding transaction.
@@ -74,6 +75,10 @@ internal class ContributorMirrorApply(
                 deletedAt = payload.deletedAt,
                 createdAt = Timestamp(payload.createdAt),
                 updatedAt = Timestamp(payload.updatedAt),
+                // Not copied forward like the enrichment fields: the server already kept the frame only for its photo, so
+                // null means cleared. While this device's own new photo waits to upload, keep the frame stamped for it —
+                // exactly as the local file is kept above.
+                imageFrame = if (photoUploadPending) existing?.imageFrame else payload.imageFrame,
             ),
         )
         replaceAliases(payload.id, payload.aliases)

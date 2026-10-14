@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.IdRevision
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
@@ -19,6 +21,7 @@ private fun publicProfile(
     avatarType: String = "auto",
     avatarUpdatedAt: Long = 0,
     deletedAt: Long? = null,
+    avatarFrame: ImageFraming? = null,
 ) = PublicProfileEntity(
     id = id,
     displayName = displayName,
@@ -33,6 +36,7 @@ private fun publicProfile(
     avatarUpdatedAt = avatarUpdatedAt,
     revision = 1,
     deletedAt = deletedAt,
+    avatarFrame = avatarFrame,
 )
 
 /** In-memory fake: only the reads [UserProfileRepositoryImpl] uses are backed. */
@@ -42,6 +46,11 @@ private class StubReadPublicProfileDao(
     override fun observeById(userId: String): Flow<PublicProfileEntity?> = rows.map { it[userId]?.takeIf { row -> row.deletedAt == null } }
 
     override suspend fun findById(userId: String): PublicProfileEntity? = rows.value[userId]
+
+    override suspend fun updateAvatarFrame(
+        userId: String,
+        frame: ImageFraming?,
+    ) = error("unused")
 
     override fun observeAll(): Flow<List<PublicProfileEntity>> = rows.map { it.values.filter { row -> row.deletedAt == null } }
 
@@ -127,6 +136,35 @@ class UserProfileRepositoryImplTest :
                 rows.value = rows.value + ("ada" to publicProfile(id = "ada", deletedAt = 1L))
                 awaitItem() shouldBe listOf("me")
                 cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        test("the avatar frame reaches the domain only when it was made for the stored avatar") {
+            runTest {
+                val frame = ImageFrame(0.5, 0.3, 2.0)
+                val rows =
+                    MutableStateFlow(
+                        mapOf(
+                            "fresh" to
+                                publicProfile(
+                                    id = "fresh",
+                                    avatarType = "image",
+                                    avatarUpdatedAt = 7,
+                                    avatarFrame = ImageFraming("7", frame),
+                                ),
+                            "stale" to
+                                publicProfile(
+                                    id = "stale",
+                                    avatarType = "image",
+                                    avatarUpdatedAt = 9,
+                                    avatarFrame = ImageFraming("7", frame),
+                                ),
+                        ),
+                    )
+                val repo = UserProfileRepositoryImpl(StubReadPublicProfileDao(rows))
+
+                repo.getById("fresh")!!.avatarFrame shouldBe frame
+                repo.getById("stale")!!.avatarFrame.shouldBeNull()
             }
         }
     })

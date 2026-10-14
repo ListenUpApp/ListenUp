@@ -3,6 +3,9 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.dto.auth.Permission
+import com.calypsan.listenup.api.dto.image.contentVersionOf
+import com.calypsan.listenup.api.dto.image.isFor
+import com.calypsan.listenup.api.dto.image.validate
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.FieldProvenance
@@ -17,10 +20,13 @@ import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.auth.requirePermission
+
+private val log = loggerFor<ContributorServiceImpl>()
 
 /**
  * Thin [ContributorService] implementation.
@@ -139,11 +145,13 @@ internal class ContributorServiceImpl(
         patch: ContributorUpdate,
     ): AppResult<Unit> {
         principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        patch.imageFrame?.validate()?.let { return AppResult.Failure(it) }
         val editorId = principal.current()?.run { userId.value }
         return when (
             val patched =
                 contributorRepo.patchLive(id) { current ->
                     current.applyPatch(patch).let { applied ->
+                        logDroppedFrame(id, patch, applied)
                         applied.copy(
                             fieldProvenance = applied.fieldProvenance.stampUser(patch.touchedFields(), editorId),
                         )
@@ -434,7 +442,8 @@ private fun ContributorUpdate.touchedFields(): Set<ContributorField> =
         if (name != null) add(ContributorField.NAME)
         if (sortName != null) add(ContributorField.SORT_NAME)
         if (description != null) add(ContributorField.BIOGRAPHY)
-        if (imagePath != null) add(ContributorField.PHOTO)
+        // Framing is a hand edit of the photo: it protects the photo from a later match, as a hand upload does.
+        if (imagePath != null || imageFrame != null) add(ContributorField.PHOTO)
     }
 
 /**
@@ -450,14 +459,36 @@ private fun Map<ContributorField, FieldProvenance>.stampUser(
     return this + fields.associateWith { FieldProvenance(FieldSourceKind.USER, at = now, by = by) }
 }
 
-private fun ContributorSyncPayload.applyPatch(patch: ContributorUpdate): ContributorSyncPayload =
-    copy(
+/**
+ * Logs, at INFO, a [patch] frame the write did not keep because it was made for another photo: never an error, since
+ * the client converges on the echo.
+ */
+private fun logDroppedFrame(
+    id: ContributorId,
+    patch: ContributorUpdate,
+    applied: ContributorSyncPayload,
+) {
+    val dropped = patch.imageFrame ?: return
+    if (dropped == applied.imageFrame) return
+    val shown = applied.imagePath?.let(::contentVersionOf) ?: "none"
+    log.info {
+        "Dropped a photo frame for contributor ${id.value}: made for ${dropped.imageVersion}, the photo is $shown"
+    }
+}
+
+private fun ContributorSyncPayload.applyPatch(patch: ContributorUpdate): ContributorSyncPayload {
+    val photo = patch.imagePath ?: imagePath
+    return copy(
         name = patch.name ?: name,
         sortName = patch.sortName ?: sortName,
         asin = patch.asin ?: asin,
         description = patch.description ?: description,
-        imagePath = patch.imagePath ?: imagePath,
+        imagePath = photo,
         birthDate = patch.birthDate ?: birthDate,
         deathDate = patch.deathDate ?: deathDate,
         website = patch.website ?: website,
+        // A frame made for another photo (the photo changed before this patch landed) is dropped and the photo keeps
+        // its own. A new photo with no frame is cleared by the repository, which keeps a frame only for its photo.
+        imageFrame = patch.imageFrame?.takeIf { it.isFor(photo) } ?: imageFrame,
     )
+}

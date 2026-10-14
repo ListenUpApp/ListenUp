@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.profile
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -242,7 +243,7 @@ class EditProfileViewModelTest :
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
-                viewModel.stageAvatarUpload(byteArrayOf(1, 2, 3), "image/jpeg")
+                viewModel.stageAvatarUpload(byteArrayOf(1, 2, 3), "image/jpeg", frame = null)
                 advanceUntilIdle()
 
                 viewModel.state.value
@@ -296,7 +297,7 @@ class EditProfileViewModelTest :
                 val fixture =
                     createFixture().apply {
                         configure(currentUser = user)
-                        everySuspend { profileEditRepository.uploadAvatar(any(), any()) } returns
+                        everySuspend { profileEditRepository.uploadAvatar(any(), any(), any()) } returns
                             AppResult.Success(Unit)
                         everySuspend {
                             profileEditRepository.updateProfile(any(), any(), any(), any())
@@ -306,13 +307,13 @@ class EditProfileViewModelTest :
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
-                viewModel.stageAvatarUpload(byteArrayOf(9, 8, 7), "image/jpeg")
+                viewModel.stageAvatarUpload(byteArrayOf(9, 8, 7), "image/jpeg", frame = null)
                 viewModel.setFirstName("Bob")
                 advanceUntilIdle()
                 viewModel.save()
                 advanceUntilIdle()
 
-                verifySuspend { fixture.profileEditRepository.uploadAvatar(any(), "image/jpeg") }
+                verifySuspend { fixture.profileEditRepository.uploadAvatar(any(), "image/jpeg", any()) }
                 verifySuspend {
                     fixture.profileEditRepository.updateProfile(
                         firstName = "Bob",
@@ -399,10 +400,10 @@ class EditProfileViewModelTest :
                 viewModel.setCurrentPassword("currentpass1")
                 viewModel.setNewPassword("newstrongpass1")
                 viewModel.setConfirmPassword("newstrongpass1")
-                viewModel.stageAvatarUpload(byteArrayOf(1), "image/jpeg")
+                viewModel.stageAvatarUpload(byteArrayOf(1), "image/jpeg", frame = null)
 
                 // Avatar must be mocked too since we staged one.
-                everySuspend { fixture.profileEditRepository.uploadAvatar(any(), any()) } returns
+                everySuspend { fixture.profileEditRepository.uploadAvatar(any(), any(), any()) } returns
                     AppResult.Success(Unit)
 
                 advanceUntilIdle()
@@ -495,6 +496,65 @@ class EditProfileViewModelTest :
                 viewModel.state.value
                     .shouldBeInstanceOf<EditProfileUiState.Ready>()
                     .isSaving shouldBe false
+            }
+        }
+
+        test("a staged upload carries its frame to the repository") {
+            runTest {
+                val fixture =
+                    createFixture().apply {
+                        configure(currentUser = createUser(firstName = "Alice", lastName = "Smith"))
+                        everySuspend { profileEditRepository.uploadAvatar(any(), any(), any()) } returns AppResult.Success(Unit)
+                    }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+                val frame = ImageFrame(0.5, 0.3, 2.0)
+
+                viewModel.stageAvatarUpload(byteArrayOf(9, 8, 7), "image/jpeg", frame)
+                viewModel.save()
+                advanceUntilIdle()
+
+                verifySuspend { fixture.profileEditRepository.uploadAvatar(any(), "image/jpeg", frame) }
+            }
+        }
+
+        test("re-framing a staged upload keeps the upload, with the new frame") {
+            runTest {
+                val fixture = createFixture().apply { configure(currentUser = createUser(firstName = "Alice", lastName = "Smith")) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+                val frame = ImageFrame(0.4, 0.4, 1.5)
+
+                viewModel.stageAvatarUpload(byteArrayOf(1), "image/jpeg", frame = null)
+                viewModel.stageAvatarReframe(frame)
+                advanceUntilIdle()
+
+                (viewModel.state.value as EditProfileUiState.Ready).avatarChange shouldBe
+                    AvatarChange.Upload(byteArrayOf(1), "image/jpeg", frame)
+            }
+        }
+
+        test("re-framing the current avatar marks the form dirty and saves through setAvatarFrame") {
+            runTest {
+                val fixture =
+                    createFixture().apply {
+                        configure(currentUser = createUser(firstName = "Alice", lastName = "Smith"))
+                        everySuspend { profileEditRepository.setAvatarFrame(any()) } returns AppResult.Success(Unit)
+                    }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+                val frame = ImageFrame(0.5, 0.2, 2.5)
+
+                viewModel.stageAvatarReframe(frame)
+                advanceUntilIdle()
+                (viewModel.state.value as EditProfileUiState.Ready).isDirty shouldBe true
+                viewModel.save()
+                advanceUntilIdle()
+
+                verifySuspend { fixture.profileEditRepository.setAvatarFrame(frame) }
             }
         }
     })

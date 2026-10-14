@@ -610,3 +610,16 @@ internal val MIGRATION_24_25 =
             )
         }
     }
+
+/**
+ * v25 → v26: each photo's frame — `contributors.imageFrame` and `public_profiles.avatarFrame`, ImageFraming JSON.
+ * Non-destructive by construction: two nullable columns, so every existing row reads as "no frame", the centre crop it
+ * shows today. The outbox and the sync cursors are untouched.
+ */
+internal val MIGRATION_25_26 =
+    object : Migration(25, 26) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `contributors` ADD COLUMN `imageFrame` TEXT")
+            connection.executeDdl("ALTER TABLE `public_profiles` ADD COLUMN `avatarFrame` TEXT")
+        }
+    }

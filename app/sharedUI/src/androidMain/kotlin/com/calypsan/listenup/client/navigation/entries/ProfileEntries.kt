@@ -61,7 +61,7 @@ internal fun EntryProviderScope<NavKey>.profileEntries(
                     scope.launch {
                         val bytes = decodePickedImageAsJpeg(context, selectedUri, AVATAR_QUALITY)
                         if (bytes != null) {
-                            viewModel.stageAvatarUpload(bytes, "image/jpeg")
+                            viewModel.stageAvatarUpload(bytes, "image/jpeg", frame = null)
                         }
                         // Silently drop failed compressions — user can retry by picking again.
                     }

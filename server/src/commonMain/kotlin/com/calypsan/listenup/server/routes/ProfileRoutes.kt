@@ -1,14 +1,19 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.invalidImageFrame
 import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.io.MultipartFieldTooLargeException
 import com.calypsan.listenup.server.io.MultipartPartTooLargeException
 import com.calypsan.listenup.server.io.readBytes
-import com.calypsan.listenup.server.io.receiveFirstFilePartBytes
+import com.calypsan.listenup.server.io.receiveImageUploadParts
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import com.calypsan.listenup.server.services.toImageFrameColumn
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -29,7 +34,8 @@ const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
 
 /**
  * Avatar upload (the JSON profile lives on ProfileService RPC):
- *  - POST /api/v1/profile/avatar  — own avatar, multipart; validates+stores via [imageStore], flips avatar_type=image.
+ *  - POST /api/v1/profile/avatar  — own avatar, multipart; validates+stores via [imageStore], flips avatar_type=image,
+ *    and stores the optional `frame` field stamped with the new version (an out-of-range one answers 400 first).
  *
  * Mount inside `authenticate(JWT_PROVIDER)`. The matching read is [avatarImageRoutes], which is
  * mounted under the DOM-fetch provider instead — an `<img src>` displays an avatar, nothing but the
@@ -46,12 +52,21 @@ fun Route.profileRoutes(
         val principal = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
         val userId = principal.userId.value
 
-        val data =
+        val parts =
             try {
-                receiveFirstFilePartBytes(call, AVATAR_MAX_BYTES)
+                receiveImageUploadParts(call, AVATAR_MAX_BYTES)
             } catch (e: MultipartPartTooLargeException) {
                 return@post call.respond(HttpStatusCode.PayloadTooLarge, "image exceeds ${e.limit} bytes")
-            } ?: return@post call.respond(HttpStatusCode.BadRequest, "missing file part")
+            } catch (e: MultipartFieldTooLargeException) {
+                return@post respondAppError(call, invalidImageFrame(e.message))
+            }
+        val data = parts.file ?: return@post call.respond(HttpStatusCode.BadRequest, "missing file part")
+        val frame =
+            when (val part = framePartOf(parts.frameField)) {
+                FramePart.Absent -> null
+                is FramePart.Valid -> part.frame
+                is FramePart.Invalid -> return@post respondAppError(call, part.error)
+            }
 
         // ImageStore validates by magic number, not the declared content type — the octet-stream
         // default only surfaces in its invalid-image error text, so no per-part content type is read.
@@ -61,10 +76,13 @@ fun Route.profileRoutes(
             return@post call.respond(HttpStatusCode.UnprocessableEntity, e.message ?: "invalid image")
         }
         val now = clock.now().toEpochMilliseconds()
+        // The new bytes' version is `now`, so a frame that came with them is stamped with it; none means none.
+        val framing = frame?.let { ImageFraming(now.toString(), it) }
         suspendTransaction(sql) {
-            sql.usersQueries.updateAvatarType(
+            sql.usersQueries.updateAvatarTypeAndFrame(
                 avatar_type = AVATAR_TYPE_IMAGE,
                 avatar_updated_at = now,
+                avatar_frame = framing?.toImageFrameColumn(),
                 updated_at = now,
                 id = userId,
             )
@@ -75,7 +93,7 @@ fun Route.profileRoutes(
         publicProfileMaintainer.refreshBestEffort(userId)
         // Return the server's avatar version so the client writes exact server truth into its
         // observed public_profiles row (no client-clock guess, no redundant re-download).
-        call.respond(AvatarUploadResponse(avatarUpdatedAt = now))
+        call.respond(AvatarUploadResponse(avatarUpdatedAt = now, avatarFrame = framing))
     }
 }
 

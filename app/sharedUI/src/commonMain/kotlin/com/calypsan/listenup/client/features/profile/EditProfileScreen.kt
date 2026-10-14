@@ -429,9 +429,10 @@ private fun AvatarPreview(
             InitialsScallop(user = user, size = size)
         }
 
-        // No staged change → resolve the persisted avatar the same reactive way as every other
-        // avatar: a synced change or a completed download flips it to the photo in real time.
-        AvatarChange.None -> {
+        // No staged change (or only a re-frame, which framing-aware rendering will draw) → resolve the
+        // persisted avatar the same reactive way as every other avatar: a synced change or a completed
+        // download flips it to the photo in real time.
+        AvatarChange.None, is AvatarChange.Reframe -> {
             val avatarImage = rememberUserAvatarImage(user.id.value)
             if (avatarImage != null) {
                 AsyncImage(

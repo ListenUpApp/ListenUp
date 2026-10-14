@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.image.photoVersionOf
+import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.client.data.local.db.ContributorEntity
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import androidx.room3.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -35,6 +41,7 @@ private data class SentImage(
     val kind: PendingImageKind,
     val entityId: String,
     val bytes: List<Byte>,
+    val frame: ImageFrame? = null,
 )
 
 /**
@@ -51,10 +58,11 @@ private class FakeImageApi : ImageApiContract {
         kind: PendingImageKind,
         entityId: String,
         bytes: ByteArray,
+        frame: ImageFrame? = null,
     ): AppResult<ImageUploadResponse> {
         started.complete(Unit)
         gate?.await()
-        sent += SentImage(kind, entityId, bytes.toList())
+        sent += SentImage(kind, entityId, bytes.toList(), frame)
         return answer
     }
 
@@ -74,7 +82,8 @@ private class FakeImageApi : ImageApiContract {
         contributorId: String,
         imageData: ByteArray,
         filename: String,
-    ) = upload(PendingImageKind.ContributorImage, contributorId, imageData)
+        frame: ImageFrame?,
+    ) = upload(PendingImageKind.ContributorImage, contributorId, imageData, frame)
 
     override suspend fun downloadCover(bookId: BookId): AppResult<ByteArray> = error("not used")
 
@@ -112,6 +121,7 @@ class PendingImageUploadsTest :
                     imageStorage = storage,
                     imageApi = api,
                     authSession = auth,
+                    contributorDao = database.contributorDao(),
                     now = { clock },
                 )
 
@@ -149,6 +159,7 @@ class PendingImageUploadsTest :
                         imageStorage = noFiles,
                         imageApi = f.api,
                         authSession = f.auth,
+                        contributorDao = f.database.contributorDao(),
                     )
 
                 uploads.record(PendingImageKind.BookCover, "b1") shouldBe false
@@ -394,6 +405,7 @@ class PendingImageUploadsTest :
                         imageStorage = imageStorageIn(dir),
                         imageApi = FakeImageApi(),
                         authSession = FakeAuthSession(userId = "u1"),
+                        contributorDao = first.contributorDao(),
                     ).record(PendingImageKind.ContributorImage, "c1")
                     first.close()
 
@@ -406,6 +418,44 @@ class PendingImageUploadsTest :
                     }
                 } finally {
                     dir.toFile().deleteRecursively()
+                }
+            }
+        }
+
+        test("a retried photo upload carries the frame stamped for exactly those bytes, and no other") {
+            runTest {
+                val f = Fixture()
+                try {
+                    val photo = bytesOf(1, 2, 3)
+                    f.database.contributorDao().upsert(
+                        ContributorEntity(
+                            ContributorId("c1"),
+                            name = "Ray",
+                            description = null,
+                            imagePath = null,
+                            createdAt = Timestamp(0),
+                            updatedAt = Timestamp(0),
+                        ),
+                    )
+                    f.storage.saveContributorImage("c1", photo)
+                    val frame = ImageFrame(0.5, 0.2, 1.5)
+                    f.database.contributorDao().updateImageFrame("c1", ImageFraming(photoVersionOf(photo), frame))
+                    f.uploads.record(PendingImageKind.ContributorImage, "c1")
+
+                    f.uploads.drain().uploaded shouldBe 1
+                    f.api.sent
+                        .single()
+                        .frame shouldBe frame
+
+                    // A frame stamped for other bytes never rides along.
+                    f.database.contributorDao().updateImageFrame("c1", ImageFraming("someone-else", frame))
+                    f.uploads.record(PendingImageKind.ContributorImage, "c1")
+                    f.uploads.drain()
+                    f.api.sent
+                        .last()
+                        .frame shouldBe null
+                } finally {
+                    f.close()
                 }
             }
         }

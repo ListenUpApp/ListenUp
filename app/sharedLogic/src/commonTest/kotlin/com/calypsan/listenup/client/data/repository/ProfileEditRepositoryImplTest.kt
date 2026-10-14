@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -77,7 +78,7 @@ class ProfileEditRepositoryImplTest :
             )
 
         /** No-op [AvatarUploader] — avatar upload is not exercised in these unit tests. */
-        val noOpUploader = AvatarUploader { _, _ -> AppResult.Success(0L) }
+        val noOpUploader = AvatarUploader { _, _, _ -> AppResult.Success(AvatarUploadResponse(0L)) }
 
         /**
          * Builds a real [OfflineEditor] over a mocked [PendingOperationV2Dao] — no Room needed,
@@ -289,10 +290,10 @@ class ProfileEditRepositoryImplTest :
                         everySuspend { getClient() } returns fakeClient
                     }
 
-                val result = avatarUploaderOf(fakeFactory).upload(ByteArray(4), "image/jpeg")
+                val result = avatarUploaderOf(fakeFactory).upload(ByteArray(4), "image/jpeg", frame = null)
 
-                result.shouldBeInstanceOf<AppResult.Success<Long>>()
-                (result as AppResult.Success).data shouldBe 4242L
+                result.shouldBeInstanceOf<AppResult.Success<AvatarUploadResponse>>()
+                (result as AppResult.Success).data.avatarUpdatedAt shouldBe 4242L
             }
         }
 
@@ -308,7 +309,7 @@ class ProfileEditRepositoryImplTest :
                 everySuspend { userDao.getCurrentUser() } returns userEntity
                 everySuspend { publicProfileDao.findById(userId) } returns null
                 everySuspend { publicProfileDao.upsert(any()) } returns Unit
-                everySuspend { avatarUploader.upload(bytes, "image/jpeg") } returns AppResult.Success(serverTs)
+                everySuspend { avatarUploader.upload(bytes, "image/jpeg", null) } returns AppResult.Success(AvatarUploadResponse(serverTs))
                 everySuspend { imageStorage.saveUserAvatar(userId, bytes) } returns AppResult.Success(Unit)
 
                 val result =
@@ -317,7 +318,7 @@ class ProfileEditRepositoryImplTest :
                         publicProfileDao = publicProfileDao,
                         avatarUploader = avatarUploader,
                         imageStorage = imageStorage,
-                    ).uploadAvatar(bytes, "image/jpeg")
+                    ).uploadAvatar(bytes, "image/jpeg", frame = null)
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend { publicProfileDao.upsert(any()) }

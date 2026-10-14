@@ -3,6 +3,7 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.dto.ContributorUpdate
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
 
@@ -35,6 +36,26 @@ interface ContributorEditRepository {
      * the affected books and the contributor; clients update Room reactively.
      */
     suspend fun deleteContributor(id: ContributorId): AppResult<Unit>
+
+    /**
+     * Frames the contributor's current photo. Offline-first: written to Room and queued like any edit, and bound to the
+     * version of the photo this device shows. Fails with a `ValidationError` naming `imageFrame` when there is no photo.
+     */
+    suspend fun setImageFrame(
+        id: ContributorId,
+        frame: ImageFrame,
+    ): AppResult<Unit>
+
+    /**
+     * Records on this device how a newly picked photo ([imageData]) is framed — or, when [frame] is null, that it has no
+     * frame — before it is uploaded, so the frame shows at once and the upload can carry it. Never queued: the frame
+     * travels in the same request as its bytes.
+     */
+    suspend fun recordNewPhotoFrame(
+        id: ContributorId,
+        imageData: ByteArray,
+        frame: ImageFrame?,
+    ): AppResult<Unit>
 
     /**
      * Merges [source] into [target]. After the firehose round trip:

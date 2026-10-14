@@ -7,6 +7,7 @@
 --   V53__drop_blurhash_columns.sql (drops the dormant image_blur_hash column)
 --   V61__contributor_merged_into.sql (merged_into)
 --   V91__contributor_refs_and_provenance.sql (field_provenance)
+--   V99__image_frames.sql (image_frame)
 --
 -- revision / created_at / updated_at are declared NOT NULL here so the generated
 -- column types are non-null `Long` — every live row carries them (V13 backfills the
@@ -36,7 +37,8 @@ CREATE TABLE contributors (
     death_date      TEXT,
     website         TEXT,
     merged_into     TEXT,
-    field_provenance TEXT   NOT NULL DEFAULT '{}'
+    field_provenance TEXT   NOT NULL DEFAULT '{}',
+    image_frame      TEXT
 );
 
 CREATE UNIQUE INDEX idx_contributor_normalized ON contributors(normalized_name);
@@ -111,6 +113,11 @@ WHERE id = :id;
 -- transaction, so insert/update and their callers stay as they were.
 updateFieldProvenance:
 UPDATE contributors SET field_provenance = :field_provenance WHERE id = :id;
+
+-- The photo's frame (ImageFraming JSON), written beside every payload write in the same transaction —
+-- like updateFieldProvenance — so insert/update and their callers stay as they were.
+updateImageFrame:
+UPDATE contributors SET image_frame = :image_frame WHERE id = :id;
 
 -- ── substrate queries ──────────────────────────────────────────────────────────
 

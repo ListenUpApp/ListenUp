@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.result.AppResult
 
@@ -11,8 +12,8 @@ import com.calypsan.listenup.api.result.AppResult
  * [updateProfile] splits by whether a password change is present: name/tagline changes are
  * offline-first (written to Room and queued for durable replay on reconnect); a password-bearing
  * change stays online (immediate server-side current-password validation, never queued). Avatar
- * binary transport ([uploadAvatar], [revertToAutoAvatar]) also stays online, unaffected by the
- * offline-first split.
+ * binary transport ([uploadAvatar], [revertToAutoAvatar]) stays online; a frame-only edit
+ * ([setAvatarFrame]) is offline-first.
  */
 interface ProfileEditRepository {
     /**
@@ -48,12 +49,21 @@ interface ProfileEditRepository {
      *
      * @param imageData The compressed image bytes.
      * @param contentType The MIME type of the image (e.g., `"image/jpeg"`).
+     * @param frame how the new image is framed, carried in the same request; null: the centre crop.
      * @return [AppResult.Success] on success, or a typed [AppResult.Failure].
      */
     suspend fun uploadAvatar(
         imageData: ByteArray,
         contentType: String,
+        frame: ImageFrame?,
     ): AppResult<Unit>
+
+    /**
+     * Frames the caller's current image avatar. Offline-first: the own `public_profiles` row is written first and the
+     * patch queued on the profile outbox, bound to the stored avatar's version. Fails with a `ValidationError` naming
+     * `imageFrame` when the avatar is not an image.
+     */
+    suspend fun setAvatarFrame(frame: ImageFrame): AppResult<Unit>
 
     /**
      * Revert to the auto-generated avatar.

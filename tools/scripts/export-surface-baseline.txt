@@ -372,6 +372,13 @@ ForgotPasswordUiState
 ForgotPasswordUiState_SealedType
 ForgotPasswordViewModel
 FoundIn
+FrameEdit
+FrameEditor
+FrameEditorState
+FrameEditorState_SealedType
+FrameFeedback
+FrameLayout
+FrameShape
 Genre
 GenreCrumb
 GenreDestinationUiState
@@ -442,6 +449,8 @@ IdentifierKind
 ImageApiContract
 ImageChoice
 ImageChoice_SealedType
+ImageFrame
+ImageFraming
 ImagePickerResult
 ImagePickerResult_SealedType
 ImageRepository
@@ -600,6 +609,7 @@ NotificationTarget_SealedType
 NotificationsUiState
 NotificationsUiState_SealedType
 NotificationsViewModel
+NudgeDirection
 ObserveNextInSeriesUseCase
 OrganizeAuthorForm
 OrganizePreset

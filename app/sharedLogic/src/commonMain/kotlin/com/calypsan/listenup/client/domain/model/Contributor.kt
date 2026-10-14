@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.core.ContributorId
 
 /**
@@ -26,6 +27,8 @@ data class Contributor(
     val sortName: String? = null,
     /** Audible ASIN for this contributor, set when metadata has been applied. */
     val asin: String? = null,
+    /** How the photo is framed; null shows the centre crop. Room has already matched it to the photo. */
+    val imageFrame: ImageFrame? = null,
 ) {
     /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
     val descriptionText: String? get() = description

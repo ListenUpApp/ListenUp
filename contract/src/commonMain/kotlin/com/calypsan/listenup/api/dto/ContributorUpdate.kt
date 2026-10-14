@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -9,6 +10,8 @@ import kotlinx.serialization.Serializable
  * Every field is nullable — `null` means "don't touch." Aliases are **not**
  * present because contributor aliases are not yet a server-side concept; a
  * future `contributor_aliases` server substrate will introduce them.
+ *
+ * `imageFrame` frames the current photo; a frame made for another photo is ignored.
  */
 @Serializable
 @SerialName("ContributorUpdate")
@@ -21,6 +24,7 @@ data class ContributorUpdate(
     @SerialName("birthDate") val birthDate: String? = null,
     @SerialName("deathDate") val deathDate: String? = null,
     @SerialName("website") val website: String? = null,
+    @SerialName("imageFrame") val imageFrame: ImageFraming? = null,
 ) {
     init {
         name?.let { require(it.isNotBlank() && it.length <= MAX_NAME) { "name must be 1..$MAX_NAME chars" } }

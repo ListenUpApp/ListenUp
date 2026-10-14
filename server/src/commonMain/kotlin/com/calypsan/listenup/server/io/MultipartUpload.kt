@@ -23,21 +23,17 @@ internal expect suspend fun streamFirstFilePartTo(
 ): Boolean
 
 /**
- * Receives a multipart request and returns the bytes of the first file part, or null when no file part
- * is present. Non-file parts and any parts after the first are released and ignored. [formFieldLimit]
- * caps the accepted size; a file part larger than it raises [MultipartPartTooLargeException] before it
- * fully lands in memory. For small uploads (avatars) that must be buffered for magic-number validation
- * — large streaming uploads use [streamFirstFilePartTo] instead.
+ * Receives an image upload: the first file part's bytes, capped at [fileLimit] during the read, and the optional
+ * [com.calypsan.listenup.api.dto.image.IMAGE_UPLOAD_FRAME_PART] form field, capped at [FRAME_FIELD_MAX_BYTES]. Every
+ * other part is released. For small uploads (photos, avatars) that must be buffered for magic-number validation.
  *
- * Platform note: the JVM runtime delegates to Ktor's `receiveMultipart`. Kotlin/Native's Ktor CIO
- * server cannot parse multipart through that transform (JetBrains
- * [KTOR-7361](https://youtrack.jetbrains.com/issue/KTOR-7361)), so the native actual reads the raw
- * body channel and decodes the wire format itself via [streamFirstFilePart]. Both runtimes serve
- * uploads with identical behaviour.
+ * Platform note: the JVM runtime delegates to Ktor's `receiveMultipart`; Kotlin/Native's Ktor CIO server cannot parse
+ * multipart through that transform (KTOR-7361), so the native actual decodes the raw body with [readImageUploadParts].
  *
- * @throws MultipartPartTooLargeException if the file part exceeds [formFieldLimit].
+ * @throws MultipartPartTooLargeException if the file part exceeds [fileLimit].
+ * @throws MultipartFieldTooLargeException if the frame field exceeds its cap.
  */
-internal expect suspend fun receiveFirstFilePartBytes(
+internal expect suspend fun receiveImageUploadParts(
     call: ApplicationCall,
-    formFieldLimit: Long,
-): ByteArray?
+    fileLimit: Long,
+): ImageUploadParts

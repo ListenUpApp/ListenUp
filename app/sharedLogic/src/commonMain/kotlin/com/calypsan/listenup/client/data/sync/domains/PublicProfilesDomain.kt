@@ -62,6 +62,7 @@ internal class PublicProfileMirrorApply(
                 longestStreakLast30Days = payload.longestStreakLast30Days,
                 longestStreakLast365Days = payload.longestStreakLast365Days,
                 avatarUpdatedAt = payload.avatarUpdatedAt,
+                avatarFrame = payload.avatarFrame,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
             ),

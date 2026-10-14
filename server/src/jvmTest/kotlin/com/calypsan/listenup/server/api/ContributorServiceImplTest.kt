@@ -2,6 +2,12 @@
 
 package com.calypsan.listenup.server.api
 
+import io.kotest.matchers.nulls.shouldBeNull
+import com.calypsan.listenup.api.metadata.FieldSourceKind
+import com.calypsan.listenup.api.metadata.ContributorField
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
@@ -288,6 +294,103 @@ class ContributorServiceImplTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<ContributorError.NotFound>()
+                }
+            }
+        }
+
+        test("updateContributor frames the current photo and marks the photo hand-edited") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(this)
+                runTest {
+                    val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+                    deps.contributorRepo.upsert(deps.contributorRepo.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg"))
+                    val framing = ImageFraming("abc", ImageFrame(0.5, 0.2, 1.5))
+
+                    deps.service
+                        .updateContributor(
+                            id,
+                            ContributorUpdate(imageFrame = framing),
+                        ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val stored = deps.contributorRepo.findById(id.value)!!
+                    stored.imageFrame shouldBe framing
+                    stored.fieldProvenance.getValue(ContributorField.PHOTO).kind shouldBe FieldSourceKind.USER
+                }
+            }
+        }
+
+        test("updateContributor refuses an out-of-range frame with a ValidationError naming imageFrame") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(this)
+                runTest {
+                    val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+                    deps.contributorRepo.upsert(deps.contributorRepo.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg"))
+
+                    val result =
+                        deps.service.updateContributor(
+                            id,
+                            ContributorUpdate(imageFrame = ImageFraming("abc", ImageFrame(0.5, 0.5, 5.0))),
+                        )
+
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                        .field shouldBe "imageFrame"
+                    deps.contributorRepo
+                        .findById(id.value)!!
+                        .imageFrame
+                        .shouldBeNull()
+                }
+            }
+        }
+
+        test("updateContributor drops a frame made for another photo and keeps the photo's own frame") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(this)
+                runTest {
+                    val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+                    val own = ImageFraming("abc", ImageFrame(0.5, 0.2, 1.5))
+                    deps.contributorRepo.upsert(
+                        deps.contributorRepo.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg", imageFrame = own),
+                    )
+
+                    deps.service
+                        .updateContributor(id, ContributorUpdate(imageFrame = ImageFraming("stale", ImageFrame(0.1, 0.1, 2.0))))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    deps.contributorRepo.findById(id.value)!!.imageFrame shouldBe own
+                }
+            }
+        }
+
+        test("a new photo patched without a frame clears the old photo's frame") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(this)
+                runTest {
+                    val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+                    deps.contributorRepo.upsert(
+                        deps.contributorRepo
+                            .findById(
+                                id.value,
+                            )!!
+                            .copy(imagePath = "contributors/abc.jpg", imageFrame = ImageFraming("abc", ImageFrame.Centered)),
+                    )
+
+                    deps.service
+                        .updateContributor(
+                            id,
+                            ContributorUpdate(imagePath = "contributors/def.jpg"),
+                        ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    deps.contributorRepo
+                        .findById(id.value)!!
+                        .imageFrame
+                        .shouldBeNull()
                 }
             }
         }

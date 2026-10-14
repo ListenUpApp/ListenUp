@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import androidx.room3.ColumnInfo
 import androidx.room3.Dao
 import androidx.room3.Entity
@@ -12,11 +13,11 @@ import kotlinx.coroutines.flow.Flow
  * Room mirror of the server `public_profiles` global sync domain — the book-agnostic
  * social roster that powers the Discover leaderboard, and the SINGLE source every avatar
  * render resolves from. Server-maintained: the client applies synced rows and does not
- * originate changes — with ONE carve-out. On the caller's OWN avatar upload / revert-to-auto,
- * [com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl] optimistically writes
- * this user's own row ([avatarType] + [avatarUpdatedAt]) so the observed avatar re-emits before
- * the sync round-trip. The eventual firehose echo (higher [revision], ServerWins) replaces it without
- * regressing the version — the server stamped the same [avatarUpdatedAt].
+ * originate changes — with TWO carve-outs, both on the caller's OWN row, both written by
+ * [com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl]: an avatar upload / revert-to-auto
+ * writes [avatarType] + [avatarUpdatedAt] + [avatarFrame], and a frame-only edit writes [avatarFrame]. Each lets
+ * the observed avatar re-emit before the sync round-trip; the firehose echo (higher [revision], ServerWins) then
+ * replaces it without regressing the version — the server stamped the same [avatarUpdatedAt].
  *
  * Carries the canonical sync substrate ([revision], [deletedAt]) consumed by the
  * public-profile sync handler for catch-up and firehose event application.
@@ -63,6 +64,8 @@ internal data class PublicProfileEntity(
     val revision: Long = 0,
     /** Epoch-ms tombstone; null while the row is live. */
     val deletedAt: Long? = null,
+    /** How the avatar image is framed, bound to [avatarUpdatedAt] as its version. Null: the centre crop. */
+    val avatarFrame: ImageFraming? = null,
 )
 
 /**
@@ -97,6 +100,13 @@ internal interface PublicProfileDao {
     /** One-shot fetch by id (incl. tombstoned), for reading the prior row inside a sync transaction. */
     @Query("SELECT * FROM public_profiles WHERE id = :userId")
     suspend fun findById(userId: String): PublicProfileEntity?
+
+    /** The caller's own avatar frame, written before the echo (the entity's second carve-out). */
+    @Query("UPDATE public_profiles SET avatarFrame = :frame WHERE id = :userId")
+    suspend fun updateAvatarFrame(
+        userId: String,
+        frame: ImageFraming?,
+    )
 
     /**
      * Apply a server tombstone: set the soft-delete timestamp and revision.

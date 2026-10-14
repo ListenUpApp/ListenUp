@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.sync
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -50,4 +51,7 @@ data class PublicProfileSyncPayload(
     override val deletedAt: Long?,
     /** Epoch-ms the avatar bytes last changed server-side; the avatar re-download signal + Coil cache-buster. 0 = never. */
     val avatarUpdatedAt: Long = 0,
+    /** How the avatar image is framed, bound to [avatarUpdatedAt] as its version. Null: the centre crop. */
+    @SerialName("avatarFrame")
+    val avatarFrame: ImageFraming? = null,
 ) : SyncPayload

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.contributoredit
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.client.domain.repository.PendingImageKind
@@ -70,7 +71,11 @@ class ContributorEditViewModelTest :
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
             val pendingImageUploads = FakePendingImageUploads()
-            val contributorEditRepository: ContributorEditRepository = mock()
+            val contributorEditRepository: ContributorEditRepository =
+                mock {
+                    everySuspend { recordNewPhotoFrame(any(), any(), any()) } returns AppResult.Success(Unit)
+                    everySuspend { setImageFrame(any(), any()) } returns AppResult.Success(Unit)
+                }
             val contributorAliasDao: ContributorAliasDao =
                 mock {
                     every { observeForContributor(any()) } returns flowOf(emptyList())
@@ -353,7 +358,7 @@ class ContributorEditViewModelTest :
                 advanceUntilIdle()
 
                 // When
-                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg", null))
                 advanceUntilIdle()
 
                 // Then - staged for preview, marked changed, and NOT uploaded yet
@@ -363,7 +368,7 @@ class ContributorEditViewModelTest :
                 state.pendingImageFilename shouldBe "avatar.jpg"
                 state.hasChanges shouldBe true
                 verifySuspend(VerifyMode.not) {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 }
             }
         }
@@ -385,13 +390,13 @@ class ContributorEditViewModelTest :
                     fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                 } returns AppResult.Success(Unit)
                 everySuspend {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 } returns AppResult.Success("https://example/photo.jpg")
 
                 val viewModel = fixture.build()
                 viewModel.loadContributor("contributor-1")
                 advanceUntilIdle()
-                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg", null))
                 advanceUntilIdle()
 
                 // When
@@ -404,7 +409,7 @@ class ContributorEditViewModelTest :
                         fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                     }
                     verifySuspend(VerifyMode.exactly(1)) {
-                        fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                        fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                     }
                     awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
                 }
@@ -429,13 +434,13 @@ class ContributorEditViewModelTest :
                     fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                 } returns AppResult.Success(Unit)
                 everySuspend {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 } returns AppResult.Failure(TransportError.NetworkUnavailable())
 
                 val viewModel = fixture.build()
                 viewModel.loadContributor("contributor-1")
                 advanceUntilIdle()
-                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg", null))
                 advanceUntilIdle()
 
                 fixture.errorBus.errors.test {
@@ -467,13 +472,13 @@ class ContributorEditViewModelTest :
                     fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                 } returns AppResult.Success(Unit)
                 everySuspend {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 } returns AppResult.Failure(AuthError.PermissionDenied())
 
                 val viewModel = fixture.build()
                 viewModel.loadContributor("contributor-1")
                 advanceUntilIdle()
-                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg", null))
                 advanceUntilIdle()
 
                 fixture.errorBus.errors.test {
@@ -500,13 +505,13 @@ class ContributorEditViewModelTest :
                     fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
                 } returns AppResult.Success(Unit)
                 everySuspend {
-                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 } returns AppResult.Success("https://example/photo.jpg")
 
                 val viewModel = fixture.build()
                 viewModel.loadContributor("contributor-1")
                 advanceUntilIdle()
-                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg", null))
                 advanceUntilIdle()
 
                 fixture.errorBus.errors.test {
@@ -999,6 +1004,76 @@ class ContributorEditViewModelTest :
                 fixture.permissions.granted.value = emptySet()
                 advanceUntilIdle()
                 viewModel.state.value.canCurateLibrary shouldBe false
+            }
+        }
+
+        /** The stubs a staged-image save needs: load, stage, persist, commit and upload all succeed. */
+        fun TestFixture.withStagedImageStubs(): TestFixture =
+            apply {
+                everySuspend { contributorRepository.getById("contributor-1") } returns createContributor()
+                everySuspend { imageStagingRepository.saveContributorImageStaging(any(), any()) } returns AppResult.Success(Unit)
+                every { imageStagingRepository.getContributorImageStagingPath("contributor-1") } returns
+                    "/staging/contributor-1_staging.jpg"
+                everySuspend { updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend { imageStagingRepository.commitContributorImageStaging("contributor-1") } returns AppResult.Success(Unit)
+                everySuspend { imageRepository.uploadContributorImage(any(), any(), any(), any()) } returns
+                    AppResult.Success("https://example/photo.jpg")
+            }
+
+        test("loading a contributor shows its saved frame") {
+            runTest {
+                val fixture = createFixture()
+                val frame = ImageFrame(0.4, 0.3, 2.0)
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns
+                    createContributor().copy(imagePath = "contributors/abc.jpg", imageFrame = frame)
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.state.value.imageFrame shouldBe frame
+                viewModel.state.value.hasChanges shouldBe false
+            }
+        }
+
+        test("a picked photo's frame is staged with it, and Save records it then uploads it with the bytes") {
+            runTest {
+                val fixture = createFixture().withStagedImageStubs()
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                val frame = ImageFrame(0.5, 0.2, 1.5)
+
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg", frame))
+                advanceUntilIdle()
+                viewModel.state.value.pendingImageFrame shouldBe frame
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                verifySuspend { fixture.contributorEditRepository.recordNewPhotoFrame(ContributorId("contributor-1"), any(), frame) }
+                verifySuspend { fixture.imageRepository.uploadContributorImage("contributor-1", any(), "avatar.jpg", frame) }
+            }
+        }
+
+        test("re-framing the saved photo marks the form changed, and Save sets the frame") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns
+                    createContributor().copy(imagePath = "contributors/abc.jpg")
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                val frame = ImageFrame(0.6, 0.4, 2.0)
+
+                viewModel.onEvent(ContributorEditUiEvent.StageFrame(frame))
+                advanceUntilIdle()
+                viewModel.state.value.hasChanges shouldBe true
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                verifySuspend { fixture.contributorEditRepository.setImageFrame(ContributorId("contributor-1"), frame) }
+                viewModel.state.value.pendingImageFrame shouldBe null
             }
         }
     })

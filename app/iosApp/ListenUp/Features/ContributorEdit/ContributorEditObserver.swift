@@ -68,7 +68,8 @@ final class ContributorEditObserver {
     func onImagePicked(_ data: Data) {
         viewModel.onEvent(event: ContributorEditUiEventUploadImage(
             imageData: data.toKotlinByteArray(),
-            filename: "avatar.jpg"
+            filename: "avatar.jpg",
+            frame: nil
         ))
     }
     func onSave() { viewModel.onEvent(event: ContributorEditUiEventSave.shared) }

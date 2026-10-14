@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import io.kotest.matchers.string.shouldContain
+import io.ktor.client.engine.mock.toByteArray
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.ServerUrl
@@ -90,7 +93,7 @@ class ImageApiTest :
                 var requestedPath: String? = null
                 val api = uploadApi { requestedPath = it }
 
-                val result = api.uploadContributorImage("c-1", byteArrayOf(1, 2, 3), "photo.jpg")
+                val result = api.uploadContributorImage("c-1", byteArrayOf(1, 2, 3), "photo.jpg", frame = null)
 
                 result.shouldBeInstanceOf<AppResult.Success<ImageUploadResponse>>()
                 requestedPath shouldBe "/api/v1/contributors/c-1/image"
@@ -106,6 +109,28 @@ class ImageApiTest :
 
                 result.shouldBeInstanceOf<AppResult.Success<ImageUploadResponse>>()
                 requestedPath shouldBe "/api/v1/series/s-1/cover"
+            }
+        }
+
+        test("uploadContributorImage sends the frame as a form field beside the file") {
+            runTest {
+                var body = ""
+                val engine =
+                    MockEngine { request ->
+                        body = request.body.toByteArray().decodeToString()
+                        respond(content = byteArrayOf(), status = HttpStatusCode.NoContent)
+                    }
+                val factory = mock<ApiClientFactory>()
+                everySuspend { factory.getClient() } returns HttpClient(engine)
+                val serverConfig = mock<ServerConfig>()
+                everySuspend { serverConfig.getActiveUrl() } returns ServerUrl("http://server.test")
+
+                ImageApi(clientFactory = factory, serverConfig = serverConfig)
+                    .uploadContributorImage("c-1", byteArrayOf(1, 2, 3), "photo.jpg", ImageFrame(0.5, 0.25, 2.0))
+                    .shouldBeInstanceOf<AppResult.Success<ImageUploadResponse>>()
+
+                Regex("""name="?frame"?""").containsMatchIn(body) shouldBe true
+                body shouldContain "\"focusY\":0.25"
             }
         }
     })

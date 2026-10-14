@@ -1,5 +1,8 @@
 package com.calypsan.listenup.server.api
 
+import io.kotest.matchers.nulls.shouldBeNull
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.FieldProvenance
@@ -97,6 +100,42 @@ class ContributorMetadataApplierTest :
                     val bio = provenance.getValue(ContributorField.BIOGRAPHY)
                     bio.kind shouldBe FieldSourceKind.ENRICHMENT
                     bio.provider shouldBe "audnexus"
+                }
+            }
+        }
+
+        test("a new photo from enrichment clears the old photo's frame") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.upsert(existingPayload.copy(imageFrame = ImageFraming("existing", ImageFrame(0.5, 0.2, 1.5))))
+                    val imageHome = Path(Files.createTempDirectory("applier-frame-").toString())
+
+                    applier(repo, photoProfile(), imageHome = imageHome)
+                        .apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val updated = repo.findById("c-1").shouldNotBeNull()
+                    updated.imagePath shouldBe "contributors/${hashBytesSha256(ONE_PX_PNG)}.png"
+                    updated.imageFrame.shouldBeNull()
+                }
+            }
+        }
+
+        test("enrichment that keeps the photo keeps its frame") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val framing = ImageFraming("existing", ImageFrame(0.5, 0.2, 1.5))
+                    repo.upsert(existingPayload.copy(imageFrame = framing))
+                    val profile =
+                        ContributorMeta(key = "B0ASIN", name = "Brandon Sanderson", description = "New bio.", imageUrl = "   ")
+
+                    applier(repo, profile)
+                        .apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo.findById("c-1").shouldNotBeNull().imageFrame shouldBe framing
                 }
             }
         }

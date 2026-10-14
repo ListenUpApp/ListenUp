@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.local.db.PendingImageUploadDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
@@ -45,6 +46,7 @@ class ContributorModuleVerifyTest :
                         SyncDomainHandler::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
+                        PendingImageUploadDao::class,
                     ),
             )
         }

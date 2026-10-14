@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.io
 
+import com.calypsan.listenup.api.dto.image.IMAGE_UPLOAD_FRAME_PART
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
 import io.ktor.server.application.ApplicationCall
@@ -31,21 +32,34 @@ internal actual suspend fun streamFirstFilePartTo(
     return received
 }
 
-internal actual suspend fun receiveFirstFilePartBytes(
+internal actual suspend fun receiveImageUploadParts(
     call: ApplicationCall,
-    formFieldLimit: Long,
-): ByteArray? {
-    var bytes: ByteArray? = null
-    // Ktor's default formFieldLimit (50 MiB) governs the transform; our own cap is enforced by
-    // readCappedBytes so it fires deterministically as MultipartPartTooLargeException regardless of
-    // how the engine treats file-part limits (matching the native decoder's contract).
+    fileLimit: Long,
+): ImageUploadParts {
+    var file: ByteArray? = null
+    var frameField: String? = null
+    // Ktor's default formFieldLimit (50 MiB) governs the transform; our caps fire deterministically below, matching
+    // the native decoder's contract.
     call.receiveMultipart().forEachPart { part ->
-        if (part is PartData.FileItem && bytes == null) {
-            bytes = part.provider().readCappedBytes(formFieldLimit)
+        try {
+            when {
+                part is PartData.FileItem && file == null -> {
+                    file = part.provider().readCappedBytes(fileLimit)
+                }
+
+                part is PartData.FormItem && part.name == IMAGE_UPLOAD_FRAME_PART && frameField == null -> {
+                    val text = part.value
+                    if (text.encodeToByteArray().size > FRAME_FIELD_MAX_BYTES) {
+                        throw MultipartFieldTooLargeException(IMAGE_UPLOAD_FRAME_PART, FRAME_FIELD_MAX_BYTES)
+                    }
+                    frameField = text
+                }
+            }
+        } finally {
+            part.release()
         }
-        part.release()
     }
-    return bytes
+    return ImageUploadParts(file, frameField)
 }
 
 /** Reads this channel fully into memory, raising [MultipartPartTooLargeException] past [limit]. */

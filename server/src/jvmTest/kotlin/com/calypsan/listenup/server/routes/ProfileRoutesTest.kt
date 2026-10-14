@@ -1,5 +1,8 @@
 package com.calypsan.listenup.server.routes
 
+import io.kotest.matchers.nulls.shouldBeNull
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.server.testing.publicAuthService
 
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -228,7 +231,93 @@ class ProfileRoutesTest :
                 homeDir.toFile().deleteRecursively()
             }
         }
+
+        test("an avatar upload with a frame stores it under the new avatar version, and answers it") {
+            val homeDir = Files.createTempDirectory("listenup-avatar-frame-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, userId) = setupRoot()
+                    val sql by application.inject<ListenUpDatabase>()
+
+                    val response =
+                        client.post("/api/v1/profile/avatar") {
+                            bearerAuth(token)
+                            setBody(avatarPart(png, """{"focusX":0.5,"focusY":0.3,"zoom":2.0}"""))
+                        }
+
+                    response.status shouldBe HttpStatusCode.OK
+                    val body = response.body<AvatarUploadResponse>()
+                    val expected = ImageFraming(body.avatarUpdatedAt.toString(), ImageFrame(0.5, 0.3, 2.0))
+                    body.avatarFrame shouldBe expected
+                    sql.usersQueries
+                        .selectById(userId)
+                        .executeAsOne()
+                        .avatar_frame shouldBe
+                        contractJson.encodeToString(ImageFraming.serializer(), expected)
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("a new avatar uploaded without a frame has none, and a bad frame answers 400") {
+            val homeDir = Files.createTempDirectory("listenup-avatar-noframe-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, userId) = setupRoot()
+                    val sql by application.inject<ListenUpDatabase>()
+                    client.post("/api/v1/profile/avatar") {
+                        bearerAuth(token)
+                        setBody(avatarPart(png, """{"focusX":0.5,"focusY":0.3,"zoom":2.0}"""))
+                    }
+
+                    val plain =
+                        client.post("/api/v1/profile/avatar") {
+                            bearerAuth(token)
+                            setBody(avatarPart(png, frameJson = null))
+                        }
+                    plain.body<AvatarUploadResponse>().avatarFrame.shouldBeNull()
+                    sql.usersQueries
+                        .selectById(userId)
+                        .executeAsOne()
+                        .avatar_frame
+                        .shouldBeNull()
+
+                    client
+                        .post("/api/v1/profile/avatar") {
+                            bearerAuth(token)
+                            setBody(avatarPart(png, """{"focusX":2.0,"focusY":0.3,"zoom":2.0}"""))
+                        }.status shouldBe HttpStatusCode.BadRequest
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
     })
+
+/** A multipart avatar upload of [bytes], with a `frame` field when [frameJson] is given. */
+private fun avatarPart(
+    bytes: ByteArray,
+    frameJson: String?,
+) = MultiPartFormDataContent(
+    formData {
+        append(
+            "file",
+            bytes,
+            Headers.build {
+                append(HttpHeaders.ContentType, "image/png")
+                append(HttpHeaders.ContentDisposition, "filename=\"avatar.png\"")
+            },
+        )
+        frameJson?.let { append("frame", it) }
+    },
+)
 
 /** Runs first-user setup and returns (accessToken, userId). */
 private suspend fun ApplicationTestBuilder.setupRoot(): Pair<String, String> {

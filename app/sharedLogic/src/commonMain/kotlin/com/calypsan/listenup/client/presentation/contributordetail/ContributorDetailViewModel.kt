@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.presentation.contributordetail
 
+import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
@@ -56,6 +60,8 @@ class ContributorDetailViewModel(
     private val seriesRepository: SeriesRepository,
     private val deleteContributorUseCase: DeleteContributorUseCase,
     permissionsRepository: PermissionsRepository,
+    private val contributorEditRepository: ContributorEditRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val contributorIdFlow = MutableStateFlow<String?>(null)
     private val deleteOverlay = MutableStateFlow<DeleteOverlay>(DeleteOverlay.None)
@@ -190,6 +196,18 @@ class ContributorDetailViewModel(
     /** Set the contributor to observe. Safe to call repeatedly with the same id. */
     fun loadContributor(contributorId: String) {
         contributorIdFlow.value = contributorId
+    }
+
+    /**
+     * Frames the loaded contributor's photo from the detail page's "Adjust photo" — committed at once, offline-first. A
+     * failure (no photo; no user) goes to the error bus; success needs no reply, since Room already shows the new frame.
+     */
+    fun adjustPhoto(frame: ImageFrame) {
+        val contributorId = contributorIdFlow.value ?: return
+        viewModelScope.launch {
+            val result = contributorEditRepository.setImageFrame(ContributorId(contributorId), frame)
+            if (result is AppResult.Failure) errorBus.emit(result.error)
+        }
     }
 
     /** Confirm deletion of the currently-loaded contributor. */

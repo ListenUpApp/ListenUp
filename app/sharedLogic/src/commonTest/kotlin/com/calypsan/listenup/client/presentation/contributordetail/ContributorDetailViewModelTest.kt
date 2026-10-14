@@ -1,5 +1,12 @@
 package com.calypsan.listenup.client.presentation.contributordetail
 
+import dev.mokkery.verifySuspend
+import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.api.dto.image.invalidImageFrame
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import com.calypsan.listenup.api.result.AppResult
@@ -64,6 +71,8 @@ class ContributorDetailViewModelTest :
             val seriesRepository: SeriesRepository = mock()
             val deleteContributorUseCase: DeleteContributorUseCase = mock()
             val permissions = FakePermissionsRepository(Permission.EDIT_METADATA, Permission.CURATE_LIBRARY)
+            val contributorEditRepository: ContributorEditRepository = mock()
+            val errorBus = ErrorBus()
 
             val contributorFlow = MutableStateFlow<Contributor?>(null)
             val rolesFlow = MutableStateFlow<List<RoleWithBookCount>>(emptyList())
@@ -75,6 +84,8 @@ class ContributorDetailViewModelTest :
                     seriesRepository = seriesRepository,
                     deleteContributorUseCase = deleteContributorUseCase,
                     permissionsRepository = permissions,
+                    contributorEditRepository = contributorEditRepository,
+                    errorBus = errorBus,
                 )
         }
 
@@ -720,6 +731,38 @@ class ContributorDetailViewModelTest :
                 advanceUntilIdle()
                 ready().canEditMetadata shouldBe false
                 ready().canCurateLibrary shouldBe true
+            }
+        }
+
+        test("adjustPhoto frames the loaded contributor's photo offline-first") {
+            runTest {
+                val fixture = createFixture()
+                val frame = ImageFrame(0.5, 0.2, 1.5)
+                everySuspend { fixture.contributorEditRepository.setImageFrame(any(), any()) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+
+                viewModel.adjustPhoto(frame)
+                advanceUntilIdle()
+
+                verifySuspend { fixture.contributorEditRepository.setImageFrame(ContributorId("contributor-1"), frame) }
+            }
+        }
+
+        test("a failed adjustment goes to the error bus") {
+            runTest {
+                val fixture = createFixture()
+                val failure = invalidImageFrame("no photo")
+                everySuspend { fixture.contributorEditRepository.setImageFrame(any(), any()) } returns AppResult.Failure(failure)
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+
+                fixture.errorBus.errors.test {
+                    viewModel.adjustPhoto(ImageFrame.Centered)
+                    advanceUntilIdle()
+                    awaitItem() shouldBe failure
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
     })

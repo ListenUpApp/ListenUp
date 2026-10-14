@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.data.local.db.ContributorDao
+import com.calypsan.listenup.client.core.image.photoVersionOf
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -62,6 +65,7 @@ internal class PendingImageUploadsImpl(
     private val imageStorage: ImageStorage,
     private val imageApi: ImageApiContract,
     private val authSession: AuthSession,
+    private val contributorDao: ContributorDao,
     private val now: () -> Long = ::currentEpochMilliseconds,
 ) : PendingImageUploads {
     private val drainMutex = Mutex()
@@ -171,10 +175,37 @@ internal class PendingImageUploadsImpl(
         bytes: ByteArray,
     ): AppResult<*> =
         when (kind) {
-            PendingImageKind.BookCover -> imageApi.uploadBookCover(entityId, bytes, "$entityId.jpg")
-            PendingImageKind.SeriesCover -> imageApi.uploadSeriesCover(entityId, bytes, "$entityId.jpg")
-            PendingImageKind.ContributorImage -> imageApi.uploadContributorImage(entityId, bytes, "$entityId.jpg")
+            PendingImageKind.BookCover -> {
+                imageApi.uploadBookCover(entityId, bytes, "$entityId.jpg")
+            }
+
+            PendingImageKind.SeriesCover -> {
+                imageApi.uploadSeriesCover(entityId, bytes, "$entityId.jpg")
+            }
+
+            PendingImageKind.ContributorImage -> {
+                imageApi.uploadContributorImage(
+                    contributorId = entityId,
+                    imageData = bytes,
+                    filename = "$entityId.jpg",
+                    frame = frameFor(entityId, bytes),
+                )
+            }
         }
+
+    /**
+     * The frame this device stamped for exactly these bytes, or null. A frame and its photo therefore always reach the
+     * server in one request and can never land out of order; a frame stamped for other bytes never rides along.
+     */
+    private suspend fun frameFor(
+        contributorId: String,
+        bytes: ByteArray,
+    ): ImageFrame? =
+        contributorDao
+            .getById(contributorId)
+            ?.imageFrame
+            ?.takeIf { it.imageVersion == photoVersionOf(bytes) }
+            ?.frame
 
     /** The committed local file for the image, or null when there is none. Read off the main dispatcher. */
     private suspend fun readLocalImage(

@@ -1,7 +1,9 @@
 package com.calypsan.listenup.server.io
 
+import com.calypsan.listenup.api.dto.image.IMAGE_UPLOAD_FRAME_PART
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readBuffer
+import kotlinx.io.Buffer
 import kotlinx.io.Sink
 import kotlinx.io.readByteArray
 
@@ -80,6 +82,84 @@ internal suspend fun streamFirstFilePart(
         }
         reader.streamPartBodyTo(sink = null, limit = Long.MAX_VALUE)
     }
+}
+
+/** Largest accepted `frame` field. An ImageFrame's JSON is under 100 bytes, so 1 KiB is generous. */
+internal const val FRAME_FIELD_MAX_BYTES: Long = 1024
+
+/** A named form field exceeded its cap ([limit] bytes). */
+internal class MultipartFieldTooLargeException(
+    val field: String,
+    val limit: Long,
+) : RuntimeException("Multipart field '$field' exceeded the $limit-byte limit.")
+
+/**
+ * What an image upload carried: the first file part's bytes ([file], null when absent) and the text of the
+ * [IMAGE_UPLOAD_FRAME_PART] form field ([frameField], null when absent).
+ */
+@Suppress("UseDataClass") // Holds a ByteArray, which a data class would compare by reference.
+internal class ImageUploadParts(
+    val file: ByteArray?,
+    val frameField: String?,
+)
+
+/**
+ * Reads a whole image-upload body: the first file part (capped at [fileLimit]) and the first
+ * [IMAGE_UPLOAD_FRAME_PART] field (capped at [FRAME_FIELD_MAX_BYTES]), in either order. Every other part is read
+ * and discarded. Unlike [streamFirstFilePart] it reads to the closing boundary, because the frame may follow the file.
+ *
+ * @throws MultipartPartTooLargeException if the file part exceeds [fileLimit].
+ * @throws MultipartFieldTooLargeException if the frame field exceeds [FRAME_FIELD_MAX_BYTES].
+ * @throws MalformedMultipartException if the body is not well-formed multipart/form-data.
+ */
+internal suspend fun readImageUploadParts(
+    channel: ByteReadChannel,
+    boundary: String,
+    fileLimit: Long,
+    bufferCapacity: Int = DEFAULT_BUFFER_BYTES,
+): ImageUploadParts {
+    val reader = MultipartBodyReader(channel, boundary, bufferCapacity)
+    reader.skipToFirstBoundary()
+    var file: ByteArray? = null
+    var frameField: String? = null
+    while (reader.readBoundaryTrailer() == BoundaryTrailer.More) {
+        val headers = reader.readHeaderBlock()
+        when {
+            file == null && headers.any(::isFilePartDisposition) -> {
+                file = Buffer().also { reader.streamPartBodyTo(it, fileLimit) }.readByteArray()
+            }
+
+            frameField == null && headers.fieldName() == IMAGE_UPLOAD_FRAME_PART -> {
+                frameField = reader.readFieldText(IMAGE_UPLOAD_FRAME_PART, FRAME_FIELD_MAX_BYTES)
+            }
+
+            else -> {
+                reader.streamPartBodyTo(sink = null, limit = Long.MAX_VALUE)
+            }
+        }
+    }
+    return ImageUploadParts(file, frameField)
+}
+
+private suspend fun MultipartBodyReader.readFieldText(
+    name: String,
+    limit: Long,
+): String {
+    val buffer = Buffer()
+    try {
+        streamPartBodyTo(buffer, limit)
+    } catch (_: MultipartPartTooLargeException) {
+        throw MultipartFieldTooLargeException(name, limit)
+    }
+    return buffer.readByteArray().decodeToString()
+}
+
+private val NAME_PARAMETER = Regex("""(?:^|;)\s*name\s*=\s*"?([^";]*)"?""", RegexOption.IGNORE_CASE)
+
+/** The `name` parameter of a part's Content-Disposition, quoted or not; `filename=` never matches. */
+private fun List<String>.fieldName(): String? {
+    val disposition = firstOrNull { it.lowercase().startsWith("content-disposition:") } ?: return null
+    return NAME_PARAMETER.find(disposition)?.run { groupValues[1] }
 }
 
 /** A part is a file part when its Content-Disposition carries a `filename` parameter (mirrors Ktor). */

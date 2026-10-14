@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -217,9 +221,10 @@ class PublicProfileMaintainerTest :
                         avatar_type = "image",
                         timezone = "UTC",
                     )
-                    sql.usersQueries.updateAvatarType(
+                    sql.usersQueries.updateAvatarTypeAndFrame(
                         avatar_type = "image",
                         avatar_updated_at = avatarTs,
+                        avatar_frame = null,
                         updated_at = avatarTs,
                         id = "uav",
                     )
@@ -323,6 +328,32 @@ class PublicProfileMaintainerTest :
                     saved.longestStreakLast7Days shouldBe 2
                     saved.longestStreakLast30Days shouldBe 3
                     saved.longestStreakLast365Days shouldBe 4
+                }
+            }
+        }
+
+        test("refresh projects the avatar frame") {
+            withSqlDatabase {
+                val framing = ImageFraming("1700", ImageFrame(0.5, 0.3, 2.0))
+                sql.seedTestUser("uf")
+                sql.usersQueries.updateAvatarTypeAndFrame(
+                    avatar_type = "image",
+                    avatar_updated_at = 1700L,
+                    avatar_frame = contractJson.encodeToString(ImageFraming.serializer(), framing),
+                    updated_at = 1700L,
+                    id = "uf",
+                )
+                val repo = PublicProfileRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                val maintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = repo)
+
+                runTest {
+                    maintainer.refresh("uf")
+
+                    repo
+                        .pullSince(userId = null, cursor = 0, limit = 10)
+                        .items
+                        .single()
+                        .avatarFrame shouldBe framing
                 }
             }
         }

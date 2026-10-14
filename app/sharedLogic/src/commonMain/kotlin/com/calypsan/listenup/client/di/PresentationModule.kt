@@ -529,6 +529,8 @@ internal val contributorPresentationModule =
                 seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
                 deleteContributorUseCase = get(),
                 permissionsRepository = get(),
+                contributorEditRepository = get(),
+                errorBus = get(),
             )
         }
         factory {

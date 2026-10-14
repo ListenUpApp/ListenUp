@@ -3,12 +3,20 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorMutation
 import com.calypsan.listenup.api.dto.ContributorUpdate
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.contentVersionOf
+import com.calypsan.listenup.api.dto.image.invalidImageFrame
+import com.calypsan.listenup.client.core.image.photoVersionOf
 import com.calypsan.listenup.client.data.local.db.ContributorDao
+import com.calypsan.listenup.client.data.local.db.PendingImageUploadDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.PendingImageKind
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.currentEpochMilliseconds
@@ -42,11 +50,15 @@ private val MERGE_TIMEOUT = 30.seconds
  * mint identities server-side, so they can't be mirrored optimistically. Both route through the
  * [channel], which bounds the call, self-heals the transport, and folds any fault to a typed
  * [AppResult.Failure], following the same pattern as [BookEditRepositoryImpl].
+ *
+ * [setImageFrame] rides the same `contributors` outbox; [recordNewPhotoFrame] is local only.
  */
 internal class ContributorEditRepositoryImpl(
     private val channel: RpcChannel<ContributorService>,
     private val contributorDao: ContributorDao,
     private val offlineEditor: OfflineEditor,
+    private val pendingImageUploadDao: PendingImageUploadDao,
+    private val imageStorage: ImageStorage,
 ) : ContributorEditRepository {
     override suspend fun updateContributor(
         id: ContributorId,
@@ -64,6 +76,7 @@ internal class ContributorEditRepositoryImpl(
                         birthDate = patch.birthDate ?: existing.birthDate,
                         deathDate = patch.deathDate ?: existing.deathDate,
                         website = patch.website ?: existing.website,
+                        imageFrame = patch.imageFrame ?: existing.imageFrame,
                         // revision + updatedAt deliberately untouched.
                     ),
                 )
@@ -88,6 +101,38 @@ internal class ContributorEditRepositoryImpl(
                 ?.let { contributorDao.softDelete(id = id, deletedAt = now, revision = it.revision) }
             contributorDao.deleteAllBookContributorsForContributor(id.value)
         }
+    }
+
+    override suspend fun setImageFrame(
+        id: ContributorId,
+        frame: ImageFrame,
+    ): AppResult<Unit> {
+        val version =
+            photoVersionOnThisDevice(id.value)
+                ?: return AppResult.Failure(invalidImageFrame("contributor ${id.value} has no photo"))
+        return updateContributor(id, ContributorUpdate(imageFrame = ImageFraming(version, frame)))
+    }
+
+    override suspend fun recordNewPhotoFrame(
+        id: ContributorId,
+        imageData: ByteArray,
+        frame: ImageFrame?,
+    ): AppResult<Unit> {
+        contributorDao.updateImageFrame(id.value, frame?.let { ImageFraming(photoVersionOf(imageData), it) })
+        return AppResult.Success(Unit)
+    }
+
+    /**
+     * The version of the photo this device shows: a stamped frame's (Room only ever holds a frame for the photo it
+     * shows), else — while the user's own new photo waits to upload — that file's hash, else the server path's stem.
+     */
+    private suspend fun photoVersionOnThisDevice(contributorId: String): String? {
+        val row = contributorDao.getById(contributorId) ?: return null
+        row.imageFrame?.let { return it.imageVersion }
+        if (pendingImageUploadDao.exists(PendingImageKind.ContributorImage.name, contributorId)) {
+            imageStorage.readContributorImageBytes(contributorId)?.let { return photoVersionOf(it) }
+        }
+        return row.imagePath?.let(::contentVersionOf)
     }
 
     override suspend fun mergeContributor(

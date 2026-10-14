@@ -2,6 +2,8 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.contentVersionOf
 import com.calypsan.listenup.server.routes.resources.ContributorResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
@@ -27,7 +29,8 @@ import kotlinx.io.files.Path
  *    a [ContributorUpdate] patch through the scoped service (so `canEdit`,
  *    revision bump, and sync-event publication all fire). HTTP 204 on
  *    success. The edit permission is checked before the body is read, so a
- *    refused caller writes nothing. A stored file is never deleted here: it is
+ *    refused caller writes nothing. An optional `frame` field (ImageFrame JSON) is stamped with
+ *    the new photo's hash; an out-of-range one answers 400 before anything is stored. A stored file is never deleted here: it is
  *    content-addressed, so another row may already name it, and
  *    [OrphanImageCleanupTask] reclaims any file no row names.
  *
@@ -64,10 +67,18 @@ fun Route.contributorRoutes(
                 call.respond(outcome.status, outcome.message)
             }
 
+            is ImageUploadOutcome.InvalidFrame -> {
+                respondAppError(call, outcome.error)
+            }
+
             is ImageUploadOutcome.Stored -> {
+                val framing = outcome.frame?.let { ImageFraming(contentVersionOf(outcome.relPath), it) }
                 when (
                     val result =
-                        service.updateContributor(ContributorId(res.id), ContributorUpdate(imagePath = outcome.relPath))
+                        service.updateContributor(
+                            ContributorId(res.id),
+                            ContributorUpdate(imagePath = outcome.relPath, imageFrame = framing),
+                        )
                 ) {
                     is AppResult.Success -> {
                         call.respond(HttpStatusCode.NoContent)

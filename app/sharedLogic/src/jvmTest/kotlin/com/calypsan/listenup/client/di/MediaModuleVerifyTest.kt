@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.PendingImageUploadDao
@@ -42,6 +43,7 @@ class MediaModuleVerifyTest :
                         CoroutineScope::class,
                         DownloadDao::class,
                         PendingImageUploadDao::class,
+                        ContributorDao::class,
                         AuthSession::class,
                         BookDao::class,
                         BookRepository::class,
