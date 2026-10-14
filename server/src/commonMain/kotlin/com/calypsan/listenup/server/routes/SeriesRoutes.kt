@@ -64,6 +64,12 @@ fun Route.seriesRoutes(
                 call.respond(outcome.status, outcome.message)
             }
 
+            // Covers are never framed (out of scope); a series client never sends a frame, so a valid one is
+            // ignored and only an unreadable one is refused.
+            is ImageUploadOutcome.InvalidFrame -> {
+                respondAppError(call, outcome.error)
+            }
+
             is ImageUploadOutcome.Stored -> {
                 when (
                     val result =
