@@ -114,6 +114,11 @@ WHERE id = :id;
 updateFieldProvenance:
 UPDATE contributors SET field_provenance = :field_provenance WHERE id = :id;
 
+-- The photo's frame (ImageFraming JSON), written beside every payload write in the same transaction —
+-- like updateFieldProvenance — so insert/update and their callers stay as they were.
+updateImageFrame:
+UPDATE contributors SET image_frame = :image_frame WHERE id = :id;
+
 -- ── substrate queries ──────────────────────────────────────────────────────────
 
 existsById:

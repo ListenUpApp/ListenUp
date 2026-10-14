@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.image.isFor
 import com.calypsan.listenup.api.dto.match.ExternalRef
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
@@ -193,6 +194,12 @@ class ContributorRepository(
         // Refs and provenance ride this write's transaction and revision, reconciled to the asin column so an
         // older client's ASIN edit and the legacy apply's key keep the refs in step.
         db.contributorsQueries.updateFieldProvenance(value.fieldProvenance.toContributorProvenanceColumn(), value.id)
+        // A frame survives a write only while it was made for the photo being written, so every path that changes the
+        // photo (upload, patch, enrichment, person match, undo) clears or restores it without knowing frames exist.
+        db.contributorsQueries.updateImageFrame(
+            image_frame = value.imageFrame?.takeIf { it.isFor(value.imagePath) }?.toImageFrameColumn(),
+            id = value.id,
+        )
         db.replaceExternalRefs(
             ExternalRefKind.CONTRIBUTOR,
             value.id,
@@ -596,6 +603,7 @@ class ContributorRepository(
             aliases = aliases,
             externalRefs = refs,
             fieldProvenance = field_provenance.toContributorProvenance(),
+            imageFrame = image_frame.toImageFramingOrNull(),
         )
 
     private companion object {
