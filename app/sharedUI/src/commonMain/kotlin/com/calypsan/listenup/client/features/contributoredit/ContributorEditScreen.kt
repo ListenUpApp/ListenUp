@@ -311,7 +311,7 @@ private fun ArtistStudioContent(
         rememberImagePicker { result ->
             when (result) {
                 is ImagePickerResult.Success -> {
-                    onEvent(ContributorEditUiEvent.UploadImage(result.data, result.filename))
+                    onEvent(ContributorEditUiEvent.UploadImage(result.data, result.filename, frame = null))
                 }
 
                 is ImagePickerResult.Error -> {

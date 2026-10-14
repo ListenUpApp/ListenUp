@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.contributoredit
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
@@ -78,9 +79,13 @@ data class ContributorEditUiState(
     // Contributor identity
     val contributorId: String = "",
     val imagePath: String? = null,
+    /** How the saved photo is framed; null: the centre crop. */
+    val imageFrame: ImageFrame? = null,
     // Pending image upload (staged locally until Save)
     val pendingImageData: ByteArray? = null,
     val pendingImageFilename: String? = null,
+    /** The frame staged for Save: for the picked photo when one is staged, else for the saved photo. */
+    val pendingImageFrame: ImageFrame? = null,
     // Staging image path for preview (separate from the main image)
     val stagingImagePath: String? = null,
     // Editable fields
@@ -152,10 +157,16 @@ sealed interface ContributorEditUiEvent {
 
     // Image upload
 
-    /** User chose an image for the contributor; bytes are staged for preview until Save. */
+    /** User chose an image for the contributor, framed by [frame] (null when not framed); staged for preview until Save. */
     data class UploadImage(
         val imageData: ByteArray,
         val filename: String,
+        val frame: ImageFrame?,
+    ) : ContributorEditUiEvent
+
+    /** User re-framed the photo: a staged pick when there is one, else the saved photo. Applied on Save. */
+    data class StageFrame(
+        val frame: ImageFrame,
     ) : ContributorEditUiEvent
 
     // Actions
@@ -359,6 +370,7 @@ class ContributorEditViewModel internal constructor(
                     editState.copy(
                         isLoading = false,
                         imagePath = contributor.imagePath,
+                        imageFrame = contributor.imageFrame,
                         name = contributor.name,
                         description = contributor.description.orEmpty(),
                         website = contributor.website.orEmpty(),
@@ -419,7 +431,12 @@ class ContributorEditViewModel internal constructor(
             }
 
             is ContributorEditUiEvent.UploadImage -> {
-                stageImage(event.imageData, event.filename)
+                stageImage(event.imageData, event.filename, event.frame)
+            }
+
+            is ContributorEditUiEvent.StageFrame -> {
+                state.update { it.copy(pendingImageFrame = event.frame) }
+                updateHasChanges()
             }
 
             is ContributorEditUiEvent.Save -> {
@@ -568,6 +585,7 @@ class ContributorEditViewModel internal constructor(
     private fun stageImage(
         imageData: ByteArray,
         filename: String,
+        frame: ImageFrame?,
     ) {
         val contributorId = state.value.contributorId
         if (contributorId.isBlank()) {
@@ -591,6 +609,8 @@ class ContributorEditViewModel internal constructor(
                             stagingImagePath = stagingPath,
                             pendingImageData = imageData,
                             pendingImageFilename = filename,
+                            // A new pick replaces any staged frame.
+                            pendingImageFrame = frame,
                         )
                     }
                     updateHasChanges()
@@ -622,14 +642,24 @@ class ContributorEditViewModel internal constructor(
         val pendingFilename = current.pendingImageFilename ?: return SaveOutcome.Saved
         val contributorId = current.contributorId
 
-        // First, commit staging to the main image location (offline-first).
+        // Room first: the new photo's frame (or its absence) is recorded for these exact bytes before any upload, so it
+        // shows at once and a retried upload carries it (PendingImageUploads attaches it by hash).
+        when (
+            val stamped =
+                contributorEditRepository.recordNewPhotoFrame(ContributorId(contributorId), pendingData, current.pendingImageFrame)
+        ) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> logger.error { "Failed to record the new photo's frame: ${stamped.message}" }
+        }
+
+        // Then commit staging to the main image location (offline-first).
         when (val commitResult = imageStagingRepository.commitContributorImageStaging(contributorId)) {
             is AppResult.Success -> logger.info { "Staging image committed to main location" }
             is AppResult.Failure -> logger.error { "Failed to commit staging image: ${commitResult.message}" }
         }
 
         // Then upload to the server; the local image is already saved either way.
-        val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename, frame = null)
+        val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename, current.pendingImageFrame)
         when (result) {
             is AppResult.Success -> logger.info { "Contributor image uploaded to server" }
             is AppResult.Failure -> logger.error { "Failed to upload contributor image: ${result.message}" }
@@ -645,7 +675,8 @@ class ContributorEditViewModel internal constructor(
                 current.website != originalWebsite ||
                 current.birthDate != originalBirthDate ||
                 current.deathDate != originalDeathDate ||
-                current.pendingImageData != null // Image changed if we have pending staged data
+                current.pendingImageData != null || // Image changed if we have pending staged data
+                current.pendingImageFrame != null
 
         state.update { it.copy(hasChanges = hasChanges) }
     }
@@ -717,12 +748,20 @@ class ContributorEditViewModel internal constructor(
                 // Metadata persisted — commit + upload the staged image if the user picked one.
                 (commitAndUploadImageIfPending(current) as? SaveOutcome.SavedImageNotUploaded)
                     ?.let { errorBus.emit(it.toNotice()) }
+                // A re-frame of the saved photo (no new photo staged) is its own offline-first edit.
+                if (current.pendingImageData == null) {
+                    current.pendingImageFrame?.let { frame ->
+                        (contributorEditRepository.setImageFrame(ContributorId(current.contributorId), frame) as? AppResult.Failure)
+                            ?.let { errorBus.emit(it.error) }
+                    }
+                }
                 state.update { editState ->
                     editState.copy(
                         isSaving = false,
                         hasChanges = false,
                         pendingImageData = null,
                         pendingImageFilename = null,
+                        pendingImageFrame = null,
                         stagingImagePath = null,
                     )
                 }

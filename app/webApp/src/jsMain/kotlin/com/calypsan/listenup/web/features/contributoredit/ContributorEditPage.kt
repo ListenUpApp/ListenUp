@@ -474,7 +474,7 @@ private fun stagePhoto(
 ) {
     scope.launch {
         val bytes = file.readByteArray() ?: return@launch
-        onEvent(ContributorEditUiEvent.UploadImage(imageData = bytes, filename = file.name))
+        onEvent(ContributorEditUiEvent.UploadImage(imageData = bytes, filename = file.name, frame = null))
     }
 }
 
