@@ -119,7 +119,7 @@ SELECT timezone FROM users WHERE id = :id;
 -- Display identity for a LIVE (non-tombstoned) user — drives the public_profiles projection
 -- (PublicProfileMaintainer). A tombstoned or absent user yields no row → the projection no-ops.
 selectIdentityLiveById:
-SELECT display_name, avatar_type, tagline, avatar_updated_at FROM users WHERE id = :id AND deleted_at IS NULL;
+SELECT display_name, avatar_type, tagline, avatar_updated_at, avatar_frame FROM users WHERE id = :id AND deleted_at IS NULL;
 
 -- Ids of every LIVE (non-tombstoned) user — drives the one-time public_profiles backfill.
 selectLiveUserIds:
@@ -247,6 +247,11 @@ UPDATE users SET can_edit = :can_edit WHERE id = :id;
 -- Flips only can_make_reading_orders. Used by seeding and tests to grant or revoke the permission.
 setCanMakeReadingOrders:
 UPDATE users SET can_make_reading_orders = :can_make_reading_orders WHERE id = :id;
+
+-- The avatar's frame (ImageFraming JSON), written in updateMyProfile's transaction beside updateProfileFields:
+-- kept, replaced by a frame for the stored image, or cleared for the auto avatar. Never moves avatar_updated_at.
+updateAvatarFrame:
+UPDATE users SET avatar_frame = :avatar_frame WHERE id = :id;
 
 -- After a successful avatar upload (ProfileRoutes): flip avatar_type to 'image', stamp avatar_updated_at + updated_at,
 -- and set the new image's frame — NULL when the upload carried none, so a new image never inherits the old one's.

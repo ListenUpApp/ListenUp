@@ -76,7 +76,7 @@ INSERT INTO public_profiles (
     longest_streak_days, revision, created_at, updated_at, deleted_at, client_op_id,
     books_finished_last_7_days, books_finished_last_30_days, books_finished_last_365_days,
     longest_streak_last_7_days, longest_streak_last_30_days, longest_streak_last_365_days,
-    avatar_updated_at
+    avatar_updated_at, avatar_frame
 )
 VALUES (
     :id, :display_name, :avatar_type, :tagline, :total_seconds_all_time, :total_seconds_last_7_days,
@@ -84,7 +84,7 @@ VALUES (
     :longest_streak_days, :revision, :created_at, :updated_at, :deleted_at, :client_op_id,
     :books_finished_last_7_days, :books_finished_last_30_days, :books_finished_last_365_days,
     :longest_streak_last_7_days, :longest_streak_last_30_days, :longest_streak_last_365_days,
-    :avatar_updated_at
+    :avatar_updated_at, :avatar_frame
 );
 
 update:
@@ -103,6 +103,7 @@ SET display_name = :display_name, avatar_type = :avatar_type, tagline = :tagline
     longest_streak_last_30_days = :longest_streak_last_30_days,
     longest_streak_last_365_days = :longest_streak_last_365_days,
     avatar_updated_at = :avatar_updated_at,
+    avatar_frame = :avatar_frame,
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;

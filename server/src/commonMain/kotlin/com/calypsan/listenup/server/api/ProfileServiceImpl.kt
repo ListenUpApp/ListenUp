@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.image.validate
 import com.calypsan.listenup.api.dto.profile.Profile
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.error.AuthError
@@ -15,11 +16,15 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Users
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import com.calypsan.listenup.server.services.toImageFrameColumn
 import kotlin.time.Clock
 
 private const val AVATAR_TYPE_AUTO = "auto"
+
+private val log = loggerFor<ProfileServiceImpl>()
 
 /**
  * Server-side implementation of [ProfileService].
@@ -63,6 +68,7 @@ internal class ProfileServiceImpl(
     override suspend fun updateMyProfile(request: UpdateProfileRequest): AppResult<Profile> {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
         val userId = caller.userId.value
+        request.avatarFrame?.validate()?.let { return AppResult.Failure(it) }
         request.password?.let { pc ->
             when (val policyCheck = PasswordPolicy.validate(pc.newPassword)) {
                 is AppResult.Failure -> return policyCheck
@@ -97,6 +103,7 @@ internal class ProfileServiceImpl(
         // would silently never propagate (the bug this closes).
         val avatarChanged = mergedAvatarType != current.avatar_type
         val mergedAvatarUpdatedAt = if (avatarChanged) now else current.avatar_updated_at
+        val mergedAvatarFrame = mergedAvatarFrame(request, current, mergedAvatarType, avatarChanged)
         suspendTransaction(sql) {
             sql.usersQueries.updateProfileFields(
                 display_name = mergedDisplayName,
@@ -107,6 +114,7 @@ internal class ProfileServiceImpl(
                 updated_at = now,
                 id = userId,
             )
+            sql.usersQueries.updateAvatarFrame(avatar_frame = mergedAvatarFrame, id = userId)
         }
         // Reverting to the auto avatar orphans the stored bytes — delete them so GET /avatars/{id}
         // 404s and no stale image lingers on disk. Idempotent; runs outside the transaction.
@@ -143,6 +151,29 @@ internal class ProfileServiceImpl(
             clock = clock,
             principal = principal,
         )
+
+    /**
+     * The avatar frame to keep, as its column value: none for the auto avatar; the request's when it was made for the
+     * stored image (whose version is `avatar_updated_at`); otherwise the current one. A frame for an image that has since
+     * been replaced is dropped and logged, never an error — the client converges on the projection.
+     */
+    private fun mergedAvatarFrame(
+        request: UpdateProfileRequest,
+        current: Users,
+        mergedAvatarType: String,
+        avatarChanged: Boolean,
+    ): String? {
+        if (mergedAvatarType == AVATAR_TYPE_AUTO) return null
+        val requested = request.avatarFrame ?: return current.avatar_frame
+        if (!avatarChanged && requested.imageVersion == current.avatar_updated_at.toString()) {
+            return requested.toImageFrameColumn()
+        }
+        log.info {
+            "Dropped an avatar frame for ${current.id}: made for ${requested.imageVersion}, " +
+                "the avatar is ${current.avatar_updated_at}"
+        }
+        return current.avatar_frame
+    }
 
     private fun Users.toProfile(): Profile =
         Profile(

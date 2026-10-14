@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Public_profiles
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.services.toImageFrameColumn
+import com.calypsan.listenup.server.services.toImageFramingOrNull
 import kotlin.time.Clock
 
 /**
@@ -128,6 +130,7 @@ class PublicProfileRepository(
                 longest_streak_last_30_days = value.longestStreakLast30Days.toLong(),
                 longest_streak_last_365_days = value.longestStreakLast365Days.toLong(),
                 avatar_updated_at = value.avatarUpdatedAt,
+                avatar_frame = value.avatarFrame?.toImageFrameColumn(),
                 revision = rev,
                 updated_at = now,
                 deleted_at = null,
@@ -154,6 +157,7 @@ class PublicProfileRepository(
                 longest_streak_last_30_days = value.longestStreakLast30Days.toLong(),
                 longest_streak_last_365_days = value.longestStreakLast365Days.toLong(),
                 avatar_updated_at = value.avatarUpdatedAt,
+                avatar_frame = value.avatarFrame?.toImageFrameColumn(),
                 revision = rev,
                 created_at = now,
                 updated_at = now,
@@ -202,6 +206,7 @@ class PublicProfileRepository(
             longestStreakLast30Days = longest_streak_last_30_days.toInt(),
             longestStreakLast365Days = longest_streak_last_365_days.toInt(),
             avatarUpdatedAt = avatar_updated_at,
+            avatarFrame = avatar_frame.toImageFramingOrNull(),
             revision = revision,
             updatedAt = updated_at,
             createdAt = created_at,

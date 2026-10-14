@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import com.calypsan.listenup.api.sync.PublicProfileSyncPayload
 import com.calypsan.listenup.domain.stats.StatsWindow
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -85,6 +86,7 @@ class PublicProfileMaintainer(
                     avatarType = row.avatar_type,
                     tagline = row.tagline,
                     avatarUpdatedAt = row.avatar_updated_at,
+                    avatarFrame = row.avatar_frame.toImageFramingOrNull(),
                 )
             } ?: return null
 
@@ -127,6 +129,7 @@ class PublicProfileMaintainer(
                 avatarType = identity.avatarType,
                 tagline = identity.tagline,
                 avatarUpdatedAt = identity.avatarUpdatedAt,
+                avatarFrame = identity.avatarFrame,
                 totalSecondsAllTime = stats?.total_seconds_all_time ?: 0L,
                 totalSecondsLast7Days = stats?.total_seconds_last_7_days ?: 0L,
                 totalSecondsLast30Days = stats?.total_seconds_last_30_days ?: 0L,
@@ -209,5 +212,6 @@ class PublicProfileMaintainer(
         val avatarType: String,
         val tagline: String?,
         val avatarUpdatedAt: Long,
+        val avatarFrame: ImageFraming?,
     )
 }

@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.dto.image.ImageFraming
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -377,6 +381,77 @@ class ProfileServiceImplTest :
 
                     sessions.isLive(current.sessionId) shouldBe true
                     sessions.isLive(other.sessionId) shouldBe true
+                }
+            }
+        }
+
+        fun SqlTestDatabases.imageAvatar(
+            userId: String,
+            at: Long,
+            frame: ImageFraming? = null,
+        ) {
+            sql.seedTestUser(userId)
+            sql.usersQueries.updateAvatarTypeAndFrame(
+                avatar_type = "image",
+                avatar_updated_at = at,
+                avatar_frame = frame?.let { contractJson.encodeToString(ImageFraming.serializer(), it) },
+                updated_at = at,
+                id = userId,
+            )
+        }
+
+        test("a frame for the stored avatar is kept, and the avatar version does not move") {
+            withSqlDatabase {
+                val t1 = 1_700_000_000_000L
+                imageAvatar("u1", t1)
+                runTest {
+                    val framing = ImageFraming(t1.toString(), ImageFrame(0.5, 0.3, 2.0))
+
+                    svc("u1").updateMyProfile(UpdateProfileRequest(avatarFrame = framing)).shouldBeInstanceOf<AppResult.Success<Profile>>()
+
+                    val row = sql.usersQueries.selectById("u1").executeAsOne()
+                    row.avatar_updated_at shouldBe t1
+                    row.avatar_frame shouldBe contractJson.encodeToString(ImageFraming.serializer(), framing)
+                }
+            }
+        }
+
+        test("a frame made for a replaced avatar is dropped, keeping the current one") {
+            withSqlDatabase {
+                val t1 = 1_700_000_000_000L
+                val own = ImageFraming(t1.toString(), ImageFrame.Centered)
+                imageAvatar("u1", t1, own)
+                runTest {
+                    svc("u1")
+                        .updateMyProfile(UpdateProfileRequest(avatarFrame = ImageFraming("1", ImageFrame(0.1, 0.1, 3.0))))
+                        .shouldBeInstanceOf<AppResult.Success<Profile>>()
+
+                    sql.usersQueries.selectById("u1").executeAsOne().avatar_frame shouldBe
+                        contractJson.encodeToString(ImageFraming.serializer(), own)
+                }
+            }
+        }
+
+        test("reverting to the auto avatar clears its frame") {
+            withSqlDatabase {
+                val t1 = 1_700_000_000_000L
+                imageAvatar("u1", t1, ImageFraming(t1.toString(), ImageFrame.Centered))
+                runTest {
+                    svc("u1").updateMyProfile(UpdateProfileRequest(avatarType = "auto")).shouldBeInstanceOf<AppResult.Success<Profile>>()
+
+                    sql.usersQueries.selectById("u1").executeAsOne().avatar_frame.shouldBeNull()
+                }
+            }
+        }
+
+        test("an out-of-range avatar frame is refused with a ValidationError naming imageFrame") {
+            withSqlDatabase {
+                val t1 = 1_700_000_000_000L
+                imageAvatar("u1", t1)
+                runTest {
+                    val result = svc("u1").updateMyProfile(UpdateProfileRequest(avatarFrame = ImageFraming(t1.toString(), ImageFrame(0.5, 0.5, 0.5))))
+
+                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<ValidationError>().field shouldBe "imageFrame"
                 }
             }
         }

@@ -221,6 +221,7 @@ class SocialServiceTest :
                 longest_streak_last_30_days = 0L,
                 longest_streak_last_365_days = 0L,
                 avatar_updated_at = 0L,
+                avatar_frame = null,
                 revision = 0L,
                 created_at = 1L,
                 updated_at = 1L,
