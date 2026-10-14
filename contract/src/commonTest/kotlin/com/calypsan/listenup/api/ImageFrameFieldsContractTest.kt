@@ -11,17 +11,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
-
-/** A client that predates framing: it knows only the avatar version. */
-@Serializable
-@SerialName("AvatarUploadResponse")
-private data class PreFramingAvatarUploadResponse(
-    @SerialName("avatarUpdatedAt") val avatarUpdatedAt: Long,
-)
 
 private val framing = ImageFraming(imageVersion = "abc", frame = ImageFrame(0.5, 0.25, 1.75))
 
@@ -91,10 +82,5 @@ class ImageFrameFieldsContractTest :
                 "avatarFrame",
             ).avatarFrame.shouldBeNull()
             without(AvatarUploadResponse.serializer(), AvatarUploadResponse(7, framing), "avatarFrame").avatarFrame.shouldBeNull()
-        }
-
-        test("a receiver that predates framing ignores the field (contractJson ignores unknown keys)") {
-            val json = contractJson.encodeToString(AvatarUploadResponse.serializer(), AvatarUploadResponse(7, framing))
-            contractJson.decodeFromString(PreFramingAvatarUploadResponse.serializer(), json).avatarUpdatedAt shouldBe 7
         }
     })

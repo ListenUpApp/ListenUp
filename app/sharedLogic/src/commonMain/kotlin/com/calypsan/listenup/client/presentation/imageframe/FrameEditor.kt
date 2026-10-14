@@ -12,7 +12,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 
@@ -41,7 +40,9 @@ class FrameEditor(
     private var atZoomLimit = false
     private val feedbackChannel = Channel<FrameFeedback>(Channel.BUFFERED)
 
-    private val mutableState =
+    /** The frame being edited, always canonical, so it is exactly what Save stores. */
+    val state: StateFlow<FrameEditorState.Ready>
+        field =
         MutableStateFlow(
             FrameEditorState.Ready(
                 imageWidth = width,
@@ -51,13 +52,10 @@ class FrameEditor(
             ),
         )
 
-    /** The frame being edited, always canonical, so it is exactly what Save stores. */
-    val state: StateFlow<FrameEditorState.Ready> = mutableState.asStateFlow()
-
     /** One-shot limit events, on rising edges only. */
     val feedback: Flow<FrameFeedback> = feedbackChannel.receiveAsFlow()
 
-    private val frame: ImageFrame get() = mutableState.value.frame
+    private val frame: ImageFrame get() = state.value.frame
     private val imageWidthUnits: Double get() = width.toDouble()
     private val imageHeightUnits: Double get() = height.toDouble()
 
@@ -136,7 +134,7 @@ class FrameEditor(
     fun reset() {
         atEdge = false
         atZoomLimit = false
-        mutableState.update { it.copy(frame = ImageFrame.Centered) }
+        state.update { it.copy(frame = ImageFrame.Centered) }
     }
 
     private fun settle(edit: FrameEdit) {
@@ -144,6 +142,6 @@ class FrameEditor(
         if (edit.hitZoomLimit && !atZoomLimit) feedbackChannel.trySend(FrameFeedback.ZoomLimitReached)
         atEdge = edit.hitEdge
         atZoomLimit = edit.hitZoomLimit
-        mutableState.update { it.copy(frame = edit.frame) }
+        state.update { it.copy(frame = edit.frame) }
     }
 }
