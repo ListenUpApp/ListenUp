@@ -324,8 +324,7 @@ private fun PrimaryButton(
 internal fun primaryLabel(
     primary: PrimaryControl,
     phase: PlayerPhase,
-): String =
-    if (phase == PlayerPhase.Reconnecting) "Reconnecting…" else primaryActionLabel(primary)
+): String = if (phase == PlayerPhase.Reconnecting) "Reconnecting…" else primaryActionLabel(primary)
 
 private fun primaryActionLabel(primary: PrimaryControl): String =
     when (primary) {
