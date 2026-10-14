@@ -14,6 +14,7 @@
 --   V92__curate_library_permission.sql (can_curate_library DEFAULT 0, backfilled from can_edit)
 --   V93__story_world_entities.sql    (can_contribute_story_world DEFAULT 1, can_curate_story_world DEFAULT 0)
 --   V96__reading_orders.sql          (can_make_reading_orders DEFAULT 1 — additive, undoable work defaults on)
+--   V99__image_frames.sql            (avatar_frame — ImageFraming JSON, the avatar's frame)
 --
 -- SECURITY-RELEVANT CONSTRAINTS preserved verbatim:
 --   * email_normalized UNIQUE — the single structural guarantee that one email maps to one
@@ -51,7 +52,8 @@ CREATE TABLE users (
     can_curate_library INTEGER NOT NULL DEFAULT 0,
     can_contribute_story_world INTEGER NOT NULL DEFAULT 1,
     can_curate_story_world     INTEGER NOT NULL DEFAULT 0,
-    can_make_reading_orders    INTEGER NOT NULL DEFAULT 1
+    can_make_reading_orders    INTEGER NOT NULL DEFAULT 1,
+    avatar_frame               TEXT
 );
 
 -- Single-row lookup by normalized email — the login / registration uniqueness probe. Indexed

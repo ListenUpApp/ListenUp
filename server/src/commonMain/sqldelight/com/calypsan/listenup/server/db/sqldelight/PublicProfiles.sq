@@ -5,7 +5,8 @@
 -- by PublicProfileMaintainer; clients never write it.
 -- Column set matches V31__public_profiles.sql + V32__public_profiles_tagline.sql
 -- (`tagline` added by V32) + V45__windowed_books_and_streak.sql (the six windowed
--- books/streak columns, appended last to mirror the ALTER order) exactly.
+-- books/streak columns, appended last to mirror the ALTER order) + V99__image_frames.sql
+-- (`avatar_frame`, appended last) exactly.
 CREATE TABLE public_profiles (
     id                           TEXT    NOT NULL PRIMARY KEY,
     display_name                 TEXT    NOT NULL,
@@ -29,7 +30,8 @@ CREATE TABLE public_profiles (
     longest_streak_last_7_days   INTEGER NOT NULL DEFAULT 0,
     longest_streak_last_30_days  INTEGER NOT NULL DEFAULT 0,
     longest_streak_last_365_days INTEGER NOT NULL DEFAULT 0,
-    avatar_updated_at            INTEGER NOT NULL DEFAULT 0
+    avatar_updated_at            INTEGER NOT NULL DEFAULT 0,
+    avatar_frame                 TEXT
 );
 
 CREATE INDEX idx_public_profiles_revision ON public_profiles(revision);
