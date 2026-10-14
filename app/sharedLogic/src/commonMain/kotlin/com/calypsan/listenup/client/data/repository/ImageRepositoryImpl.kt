@@ -132,7 +132,13 @@ internal class ImageRepositoryImpl(
         filename: String,
         frame: ImageFrame?,
     ): AppResult<String> =
-        imageApi.uploadContributorImage(contributorId, imageData, filename, frame).map { it.imageUrl }
+        imageApi
+            .uploadContributorImage(
+                contributorId = contributorId,
+                imageData = imageData,
+                filename = filename,
+                frame = frame,
+            ).map { it.imageUrl }
 
     override suspend fun saveContributorImageStaging(
         contributorId: String,

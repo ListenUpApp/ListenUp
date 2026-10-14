@@ -44,7 +44,7 @@ fun frameLayout(
     // min(…, 0) keeps the range valid when floating point leaves the drawn size a hair under the viewport.
     val offsetX = (viewportWidth / 2 - focusX * width).coerceIn(min(viewportWidth - width, 0.0), 0.0)
     val offsetY = (viewportHeight / 2 - focusY * height).coerceIn(min(viewportHeight - height, 0.0), 0.0)
-    return FrameLayout(scale, offsetX, offsetY, width, height)
+    return FrameLayout(scale = scale, offsetX = offsetX, offsetY = offsetY, width = width, height = height)
 }
 
 /**
@@ -58,7 +58,14 @@ fun ImageFrame.canonical(
     imageHeight: Double,
 ): ImageFrame {
     if (!allDrawable(imageWidth, imageHeight, 1.0, 1.0)) return ImageFrame.Centered
-    val layout = frameLayout(imageWidth, imageHeight, 1.0, 1.0, this)
+    val layout =
+        frameLayout(
+            imageWidth = imageWidth,
+            imageHeight = imageHeight,
+            viewportWidth = 1.0,
+            viewportHeight = 1.0,
+            frame = this,
+        )
     return ImageFrame(
         focusX = (0.5 - layout.offsetX) / layout.width,
         focusY = (0.5 - layout.offsetY) / layout.height,

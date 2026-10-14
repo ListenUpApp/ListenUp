@@ -57,6 +57,10 @@ class FrameEditor(
     /** One-shot limit events, on rising edges only. */
     val feedback: Flow<FrameFeedback> = feedbackChannel.receiveAsFlow()
 
+    private val frame: ImageFrame get() = mutableState.value.frame
+    private val imageWidthUnits: Double get() = width.toDouble()
+    private val imageHeightUnits: Double get() = height.toDouble()
+
     /** The editor's square side, in the units every gesture is given in. Call on first layout and every resize. */
     fun setViewport(size: Double) {
         viewport = size
@@ -66,23 +70,67 @@ class FrameEditor(
     fun pan(
         dx: Double,
         dy: Double,
-    ) = settle(panFrame(frame, width.toDouble(), height.toDouble(), viewport, dx, dy))
+    ) {
+        settle(
+            panFrame(
+                frame = frame,
+                imageWidth = imageWidthUnits,
+                imageHeight = imageHeightUnits,
+                viewport = viewport,
+                dx = dx,
+                dy = dy,
+            ),
+        )
+    }
 
     /** Pinch or wheel by [factor] about ([anchorX], [anchorY]). */
     fun zoomBy(
         factor: Double,
         anchorX: Double,
         anchorY: Double,
-    ) = settle(zoomFrameBy(frame, width.toDouble(), height.toDouble(), viewport, factor, anchorX, anchorY))
+    ) {
+        settle(
+            zoomFrameBy(
+                frame = frame,
+                imageWidth = imageWidthUnits,
+                imageHeight = imageHeightUnits,
+                viewport = viewport,
+                factor = factor,
+                anchorX = anchorX,
+                anchorY = anchorY,
+            ),
+        )
+    }
 
     /** Zoom to [zoom] about the centre: the slider (through PR 2's log mapping) and the `+`/`-` keys. */
-    fun zoomTo(zoom: Double) = settle(zoomFrameTo(frame, width.toDouble(), height.toDouble(), viewport, zoom))
+    fun zoomTo(zoom: Double) {
+        settle(
+            zoomFrameTo(
+                frame = frame,
+                imageWidth = imageWidthUnits,
+                imageHeight = imageHeightUnits,
+                viewport = viewport,
+                zoom = zoom,
+            ),
+        )
+    }
 
     /** One arrow-key or accessibility step; [NudgeDirection.Up] shows more of the photo's top. */
     fun nudge(
         direction: NudgeDirection,
         large: Boolean,
-    ) = settle(nudgeFrame(frame, width.toDouble(), height.toDouble(), viewport, direction, large))
+    ) {
+        settle(
+            nudgeFrame(
+                frame = frame,
+                imageWidth = imageWidthUnits,
+                imageHeight = imageHeightUnits,
+                viewport = viewport,
+                direction = direction,
+                large = large,
+            ),
+        )
+    }
 
     /** Back to the centre crop. */
     fun reset() {
@@ -90,8 +138,6 @@ class FrameEditor(
         atZoomLimit = false
         mutableState.update { it.copy(frame = ImageFrame.Centered) }
     }
-
-    private val frame: ImageFrame get() = mutableState.value.frame
 
     private fun settle(edit: FrameEdit) {
         if (edit.hitEdge && !atEdge) feedbackChannel.trySend(FrameFeedback.EdgeReached)

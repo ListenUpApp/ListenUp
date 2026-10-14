@@ -95,8 +95,9 @@ internal class MultipartFieldTooLargeException(
 
 /**
  * What an image upload carried: the first file part's bytes ([file], null when absent) and the text of the
- * [IMAGE_UPLOAD_FRAME_PART] form field ([frameField], null when absent). Not a data class: it holds a ByteArray.
+ * [IMAGE_UPLOAD_FRAME_PART] form field ([frameField], null when absent).
  */
+@Suppress("UseDataClass") // Holds a ByteArray, which a data class would compare by reference.
 internal class ImageUploadParts(
     val file: ByteArray?,
     val frameField: String?,
@@ -156,9 +157,10 @@ private suspend fun MultipartBodyReader.readFieldText(
 private val NAME_PARAMETER = Regex("""(?:^|;)\s*name\s*=\s*"?([^";]*)"?""", RegexOption.IGNORE_CASE)
 
 /** The `name` parameter of a part's Content-Disposition, quoted or not; `filename=` never matches. */
-private fun List<String>.fieldName(): String? =
-    firstOrNull { it.lowercase().startsWith("content-disposition:") }
-        ?.let { NAME_PARAMETER.find(it)?.groupValues?.get(1) }
+private fun List<String>.fieldName(): String? {
+    val disposition = firstOrNull { it.lowercase().startsWith("content-disposition:") } ?: return null
+    return NAME_PARAMETER.find(disposition)?.run { groupValues[1] }
+}
 
 /** A part is a file part when its Content-Disposition carries a `filename` parameter (mirrors Ktor). */
 private fun isFilePartDisposition(headerLine: String): Boolean {

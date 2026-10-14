@@ -151,12 +151,7 @@ internal class ContributorServiceImpl(
             val patched =
                 contributorRepo.patchLive(id) { current ->
                     current.applyPatch(patch).let { applied ->
-                        patch.imageFrame?.takeIf { it != applied.imageFrame }?.let { dropped ->
-                            log.info {
-                                "Dropped a photo frame for contributor ${id.value}: made for ${dropped.imageVersion}, " +
-                                    "the photo is ${applied.imagePath?.let(::contentVersionOf)}"
-                            }
-                        }
+                        logDroppedFrame(id, patch, applied)
                         applied.copy(
                             fieldProvenance = applied.fieldProvenance.stampUser(patch.touchedFields(), editorId),
                         )
@@ -462,6 +457,23 @@ private fun Map<ContributorField, FieldProvenance>.stampUser(
     if (fields.isEmpty()) return this
     val now = currentEpochMilliseconds()
     return this + fields.associateWith { FieldProvenance(FieldSourceKind.USER, at = now, by = by) }
+}
+
+/**
+ * Logs, at INFO, a [patch] frame the write did not keep because it was made for another photo: never an error, since
+ * the client converges on the echo.
+ */
+private fun logDroppedFrame(
+    id: ContributorId,
+    patch: ContributorUpdate,
+    applied: ContributorSyncPayload,
+) {
+    val dropped = patch.imageFrame ?: return
+    if (dropped == applied.imageFrame) return
+    val shown = applied.imagePath?.let(::contentVersionOf) ?: "none"
+    log.info {
+        "Dropped a photo frame for contributor ${id.value}: made for ${dropped.imageVersion}, the photo is $shown"
+    }
 }
 
 private fun ContributorSyncPayload.applyPatch(patch: ContributorUpdate): ContributorSyncPayload {

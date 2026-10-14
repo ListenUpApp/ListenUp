@@ -103,7 +103,13 @@ internal class ProfileServiceImpl(
         // would silently never propagate (the bug this closes).
         val avatarChanged = mergedAvatarType != current.avatar_type
         val mergedAvatarUpdatedAt = if (avatarChanged) now else current.avatar_updated_at
-        val mergedAvatarFrame = mergedAvatarFrame(request, current, mergedAvatarType, avatarChanged)
+        val mergedAvatarFrame =
+            mergedAvatarFrame(
+                request = request,
+                current = current,
+                mergedAvatarType = mergedAvatarType,
+                avatarChanged = avatarChanged,
+            )
         suspendTransaction(sql) {
             sql.usersQueries.updateProfileFields(
                 display_name = mergedDisplayName,

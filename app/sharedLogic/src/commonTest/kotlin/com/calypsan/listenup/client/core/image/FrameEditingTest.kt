@@ -48,8 +48,8 @@ class FrameEditingTest :
                 val edit = zoomFrameBy(start, iw, ih, v, factor, ax * v, ay * v)
                 if (!edit.hitEdge && !edit.hitZoomLimit) {
                     val after = frameLayout(iw, ih, v, v, edit.frame)
-                    ((ax * v - after.offsetX) / after.width) shouldBe ((ax * v - before.offsetX) / before.width plusOrMinus 1e-8)
-                    ((ay * v - after.offsetY) / after.height) shouldBe ((ay * v - before.offsetY) / before.height plusOrMinus 1e-8)
+                    (ax * v - after.offsetX) / after.width shouldBe ((ax * v - before.offsetX) / before.width plusOrMinus 1e-8)
+                    (ay * v - after.offsetY) / after.height shouldBe ((ay * v - before.offsetY) / before.height plusOrMinus 1e-8)
                 }
             }
         }

@@ -43,8 +43,8 @@ class FrameLayoutTest :
                 val e = tol(max(l.width, l.height))
                 l.offsetX shouldBeLessThanOrEqual e
                 l.offsetY shouldBeLessThanOrEqual e
-                (l.offsetX + l.width) shouldBeGreaterThanOrEqual vw - e
-                (l.offsetY + l.height) shouldBeGreaterThanOrEqual vh - e
+                l.offsetX + l.width shouldBeGreaterThanOrEqual vw - e
+                l.offsetY + l.height shouldBeGreaterThanOrEqual vh - e
             }
         }
 
@@ -56,12 +56,12 @@ class FrameLayoutTest :
                 val px = f.focusX.sanitisedFocus() * l.width
                 val py = f.focusY.sanitisedFocus() * l.height
                 if (px >= vw / 2 && px <= l.width - vw / 2) {
-                    (l.offsetX + px) shouldBe (vw / 2 plusOrMinus ex)
+                    l.offsetX + px shouldBe (vw / 2 plusOrMinus ex)
                 } else {
                     (abs(l.offsetX) <= ex || abs(l.offsetX - (vw - l.width)) <= ex) shouldBe true
                 }
                 if (py >= vh / 2 && py <= l.height - vh / 2) {
-                    (l.offsetY + py) shouldBe (vh / 2 plusOrMinus ey)
+                    l.offsetY + py shouldBe (vh / 2 plusOrMinus ey)
                 } else {
                     (abs(l.offsetY) <= ey || abs(l.offsetY - (vh - l.height)) <= ey) shouldBe true
                 }

@@ -62,9 +62,9 @@ class ImageFrameE2ETest :
                 )
                 withTimeout(ROUND_TRIP) {
                     while (
-                        clientDatabase.contributorDao().getById(id.value)?.let {
-                            it.imagePath == "contributors/def.jpg" &&
-                                it.imageFrame == null
+                        clientDatabase.contributorDao().getById(id.value)?.let { row ->
+                            row.imagePath == "contributors/def.jpg" &&
+                                row.imageFrame == null
                         } !=
                         true
                     ) {

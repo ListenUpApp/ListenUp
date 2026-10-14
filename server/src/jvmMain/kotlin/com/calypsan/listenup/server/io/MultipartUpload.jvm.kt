@@ -54,10 +54,6 @@ internal actual suspend fun receiveImageUploadParts(
                     }
                     frameField = text
                 }
-
-                else -> {
-                    Unit
-                }
             }
         } finally {
             part.release()

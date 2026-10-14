@@ -165,7 +165,7 @@ class ProfileEditOfflineTest :
                 db.publicProfileDao().findById("u1")!!.avatarFrame shouldBe ImageFraming("7", frame)
                 val op = db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).single()
                 op.domainName shouldBe "profile"
-                op.payload shouldContain "\"imageVersion\":\"7\""
+                op.payload shouldContain """"imageVersion":"7""""
                 db.close()
             }
         }

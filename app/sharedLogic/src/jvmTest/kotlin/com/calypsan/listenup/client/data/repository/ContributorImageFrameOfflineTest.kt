@@ -34,7 +34,7 @@ import kotlinx.io.files.Path as IoPath
 
 private class ContributorFrameRig {
     val db: ListenUpDatabase = createInMemoryTestDatabase()
-    val filesDir = Files.createTempDirectory("contributor-frame")
+    val filesDir: java.nio.file.Path = Files.createTempDirectory("contributor-frame")
     val storage =
         CommonImageStorage(
             object : StoragePaths {
@@ -94,7 +94,7 @@ class ContributorImageFrameOfflineTest :
                         .contributorDao()
                         .getById("c1")!!
                         .imageFrame shouldBe ImageFraming("abc", frame)
-                    rig.queuedPayloads().single() shouldContain "\"imageVersion\":\"abc\""
+                    rig.queuedPayloads().single() shouldContain """"imageVersion":"abc""""
                 } finally {
                     rig.close()
                 }

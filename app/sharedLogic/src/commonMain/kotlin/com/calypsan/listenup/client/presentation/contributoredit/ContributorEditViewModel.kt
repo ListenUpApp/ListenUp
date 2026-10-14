@@ -665,10 +665,10 @@ class ContributorEditViewModel internal constructor(
         // Then upload to the server; the local image is already saved either way.
         val result =
             imageRepository.uploadContributorImage(
-                contributorId,
-                pendingData,
-                pendingFilename,
-                current.pendingImageFrame,
+                contributorId = contributorId,
+                imageData = pendingData,
+                filename = pendingFilename,
+                frame = current.pendingImageFrame,
             )
         when (result) {
             is AppResult.Success -> logger.info { "Contributor image uploaded to server" }
@@ -759,15 +759,14 @@ class ContributorEditViewModel internal constructor(
                 (commitAndUploadImageIfPending(current) as? SaveOutcome.SavedImageNotUploaded)
                     ?.let { errorBus.emit(it.toNotice()) }
                 // A re-frame of the saved photo (no new photo staged) is its own offline-first edit.
-                if (current.pendingImageData == null) {
-                    current.pendingImageFrame?.let { frame ->
-                        (
-                            contributorEditRepository.setImageFrame(
-                                ContributorId(current.contributorId),
-                                frame,
-                            ) as? AppResult.Failure
-                        )?.let { errorBus.emit(it.error) }
-                    }
+                val reframe = current.pendingImageFrame
+                if (current.pendingImageData == null && reframe != null) {
+                    val reframed =
+                        contributorEditRepository.setImageFrame(
+                            ContributorId(current.contributorId),
+                            reframe,
+                        )
+                    if (reframed is AppResult.Failure) errorBus.emit(reframed.error)
                 }
                 state.update { editState ->
                     editState.copy(

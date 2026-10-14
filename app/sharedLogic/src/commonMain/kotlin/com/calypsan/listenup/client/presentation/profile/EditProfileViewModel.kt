@@ -379,7 +379,7 @@ class EditProfileViewModel(
                     when (change) {
                         is AvatarChange.Upload -> "Failed to upload avatar."
                         is AvatarChange.Reframe -> "Failed to save the photo position."
-                        else -> "Failed to revert avatar."
+                        AvatarChange.RevertToAuto, AvatarChange.None -> "Failed to revert avatar."
                     }
                 eventChannel.trySend(EditProfileEvent.SaveFailed(message))
                 false

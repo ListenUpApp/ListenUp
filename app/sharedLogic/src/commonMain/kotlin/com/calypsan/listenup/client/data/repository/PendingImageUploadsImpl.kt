@@ -184,7 +184,12 @@ internal class PendingImageUploadsImpl(
             }
 
             PendingImageKind.ContributorImage -> {
-                imageApi.uploadContributorImage(entityId, bytes, "$entityId.jpg", frameFor(entityId, bytes))
+                imageApi.uploadContributorImage(
+                    contributorId = entityId,
+                    imageData = bytes,
+                    filename = "$entityId.jpg",
+                    frame = frameFor(entityId, bytes),
+                )
             }
         }
 

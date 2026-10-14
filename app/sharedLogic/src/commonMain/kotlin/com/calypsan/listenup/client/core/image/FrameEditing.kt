@@ -44,15 +44,22 @@ fun panFrame(
     dy: Double,
 ): FrameEdit {
     if (!editable(imageWidth, imageHeight, viewport) || !dx.isFinite() || !dy.isFinite()) return unchanged(frame)
-    val layout = frameLayout(imageWidth, imageHeight, viewport, viewport, frame)
+    val layout =
+        frameLayout(
+            imageWidth = imageWidth,
+            imageHeight = imageHeight,
+            viewportWidth = viewport,
+            viewportHeight = viewport,
+            frame = frame,
+        )
     return place(
-        layout.offsetX + dx,
-        layout.offsetY + dy,
-        layout.width,
-        layout.height,
-        viewport,
-        frame.sanitisedZoom(),
-        false,
+        offsetX = layout.offsetX + dx,
+        offsetY = layout.offsetY + dy,
+        width = layout.width,
+        height = layout.height,
+        viewport = viewport,
+        zoom = frame.sanitisedZoom(),
+        hitZoomLimit = false,
     )
 }
 
@@ -71,7 +78,14 @@ fun zoomFrameBy(
 ): FrameEdit {
     val gestureIsReal = factor > 0.0 && factor.isFinite() && anchorX.isFinite() && anchorY.isFinite()
     if (!editable(imageWidth, imageHeight, viewport) || !gestureIsReal) return unchanged(frame)
-    val layout = frameLayout(imageWidth, imageHeight, viewport, viewport, frame)
+    val layout =
+        frameLayout(
+            imageWidth = imageWidth,
+            imageHeight = imageHeight,
+            viewportWidth = viewport,
+            viewportHeight = viewport,
+            frame = frame,
+        )
     val target = frame.sanitisedZoom() * factor
     val zoom = target.coerceIn(ImageFrame.MIN_ZOOM, ImageFrame.MAX_ZOOM)
     val hitZoomLimit = target < ImageFrame.MIN_ZOOM - ZOOM_SLACK || target > ImageFrame.MAX_ZOOM + ZOOM_SLACK
@@ -80,7 +94,15 @@ fun zoomFrameBy(
     val cover = max(viewport / imageWidth, viewport / imageHeight)
     val width = imageWidth * cover * zoom
     val height = imageHeight * cover * zoom
-    return place(anchorX - pointX * width, anchorY - pointY * height, width, height, viewport, zoom, hitZoomLimit)
+    return place(
+        offsetX = anchorX - pointX * width,
+        offsetY = anchorY - pointY * height,
+        width = width,
+        height = height,
+        viewport = viewport,
+        zoom = zoom,
+        hitZoomLimit = hitZoomLimit,
+    )
 }
 
 /** Zooms to [zoom] about the editor's centre — the slider and the `+`/`-` keys. */
@@ -94,7 +116,15 @@ fun zoomFrameTo(
     if (!zoom.isFinite()) {
         unchanged(frame)
     } else {
-        zoomFrameBy(frame, imageWidth, imageHeight, viewport, zoom / frame.sanitisedZoom(), viewport / 2, viewport / 2)
+        zoomFrameBy(
+            frame = frame,
+            imageWidth = imageWidth,
+            imageHeight = imageHeight,
+            viewport = viewport,
+            factor = zoom / frame.sanitisedZoom(),
+            anchorX = viewport / 2,
+            anchorY = viewport / 2,
+        )
     }
 
 /** One arrow-key or accessibility step: 5% of the [viewport], or 20% when [large]. */
@@ -114,7 +144,14 @@ fun nudgeFrame(
             NudgeDirection.Left -> step to 0.0
             NudgeDirection.Right -> -step to 0.0
         }
-    return panFrame(frame, imageWidth, imageHeight, viewport, dx, dy)
+    return panFrame(
+        frame = frame,
+        imageWidth = imageWidth,
+        imageHeight = imageHeight,
+        viewport = viewport,
+        dx = dx,
+        dy = dy,
+    )
 }
 
 /** The zoom factor for one wheel event: a negative [deltaY] (scrolling up) zooms in. */
