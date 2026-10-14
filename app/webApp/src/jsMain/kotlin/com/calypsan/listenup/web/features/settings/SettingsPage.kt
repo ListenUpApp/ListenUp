@@ -4,7 +4,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
-import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.domain.VolumeBoostLimits

@@ -22,7 +22,7 @@ import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
-import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
+import com.calypsan.listenup.client.presentation.player.isSameVolumeBoost
 import com.calypsan.listenup.domain.VolumeBoostLimits
 import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res

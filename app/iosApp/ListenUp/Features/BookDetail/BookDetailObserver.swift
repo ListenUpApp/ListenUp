@@ -143,25 +143,23 @@ final class BookDetailObserver {
     }
 
     /// True while a play request for THIS book is in flight — drives the Resume/Play button's busy variant
-    /// (spinner + "Preparing…" label, including to VoiceOver). Sourced directly from `PlayerCoordinator`'s
-    /// native `PlayerPhase.preparing`, not a bridged Kotlin flow: iOS never binds the shared `PlaybackManager`
-    /// (see `PlaybackModule.ios.kt`), so this is the platform-native equivalent of
-    /// `PlaybackManager.preparingBookIdUi`. `@Observable` composes across the two objects, so this recomputes
-    /// and republishes whenever `playerCoordinator.phase` changes — no separate subscription needed.
+    /// (spinner + "Preparing…" label, including to VoiceOver). Sourced from the shared player's debounced
+    /// `preparingBookId` (Decision 11: a fast prepare doesn't flash the button). `@Observable` composes
+    /// across the two objects, so this recomputes whenever `playerObserver.preparingBookId` changes.
     var isPlayPending: Bool {
-        Self.isPlayPending(phase: playerCoordinator.phase, bookId: book?.idString)
+        Self.isPlayPending(preparingBookId: playerObserver.preparingBookId, bookId: book?.idString)
     }
 
-    /// Pure: `phase` is `.preparing` for exactly `bookId`.
-    nonisolated static func isPlayPending(phase: PlayerPhase, bookId: String?) -> Bool {
-        guard let bookId, case .preparing(let state) = phase else { return false }
-        return state.bookId == bookId
+    /// Pure: a play is in flight for exactly `bookId`.
+    nonisolated static func isPlayPending(preparingBookId: String?, bookId: String?) -> Bool {
+        guard let bookId else { return false }
+        return preparingBookId == bookId
     }
 
     // MARK: - Dependencies
 
     private let viewModel: BookDetailViewModel
-    private let playerCoordinator: PlayerCoordinator
+    private let playerObserver: PlayerObserver
     private let downloadService: DownloadService
     private let bridge = FlowBridge()
     private var observingDownloadForBookId: String?
@@ -172,12 +170,12 @@ final class BookDetailObserver {
 
     init(
         viewModel: BookDetailViewModel,
-        playerCoordinator: PlayerCoordinator,
+        playerObserver: PlayerObserver,
         downloadService: DownloadService
     ) {
         self.viewModel = viewModel
         bridge.own(viewModel)
-        self.playerCoordinator = playerCoordinator
+        self.playerObserver = playerObserver
         self.downloadService = downloadService
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.myShelves) { [weak self] shelves in
@@ -223,13 +221,13 @@ final class BookDetailObserver {
 
     func play() {
         guard let book else { return }
-        playerCoordinator.play(bookId: book.idString)
+        playerObserver.play(bookId: book.idString)
     }
 
     /// Plays this book from a chapter's start (`startMs`, book milliseconds).
     func play(fromChapterStartMs startMs: Int64) {
         guard let book else { return }
-        playerCoordinator.play(bookId: book.idString, startAtMs: startMs)
+        playerObserver.play(bookId: book.idString, startAtMs: startMs)
     }
 
     /// Retry the server connection (re-opens the SSE firehose) — the offline banner's Retry.

@@ -39,8 +39,8 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerSeconda
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
@@ -90,10 +90,10 @@ private val CONTROLS_MAX_WIDTH = 520.dp
  * transport still fits without scrolling. Should a window be shorter still, the controls column
  * scrolls rather than clipping the transport.
  *
- * @param state Current [NowPlayingState.Active] snapshot.
+ * @param state Current [PlayerUiState.Loaded] snapshot.
  * @param progress Fast-changing playback progress driving the scrubber and time labels.
  * @param onCollapse Called when the collapse button is tapped.
- * @param onPlayPause Called when the play/pause FAB is tapped.
+ * @param onPrimary Called when the main button is tapped; it acts on the shared primary.
  * @param onSeek Called with a 0f–1f fractional position when the user seeks.
  * @param onSkipBack Called when skip-back is tapped.
  * @param onSkipForward Called when skip-forward is tapped.
@@ -116,10 +116,10 @@ private val CONTROLS_MAX_WIDTH = 520.dp
 @Suppress("LongParameterList", "LongMethod")
 @Composable
 fun WideNowPlaying(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
     onCollapse: () -> Unit,
-    onPlayPause: () -> Unit,
+    onPrimary: () -> Unit,
     onSeek: (Float) -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -189,9 +189,9 @@ fun WideNowPlaying(
                 val secondaryActions: @Composable () -> Unit = {
                     // Speed pill, boost pill, sleep pill, chapters pill.
                     PlayerSecondaryActions(
-                        playbackSpeed = state.playbackSpeed,
+                        playbackSpeed = state.settings.speed,
                         onSpeedClick = onSpeedClick,
-                        volumeBoostDb = state.volumeBoostDb,
+                        volumeBoostDb = state.settings.boostDb,
                         onBoostClick = onBoostClick,
                         onSleepClick = onSleepClick,
                         onChaptersClick = onChaptersClick,
@@ -211,12 +211,12 @@ fun WideNowPlaying(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         PlayerArtwork(
-                            coverPath = state.coverPath,
-                            bookId = state.bookId,
+                            coverPath = state.book.coverPath,
+                            bookId = state.book.id,
                             size = coverSize,
-                            title = state.title,
-                            author = state.author,
-                            coverHash = state.coverHash,
+                            title = state.book.title,
+                            author = state.book.authorLine,
+                            coverHash = state.book.coverHash,
                         )
                         if (isShort) {
                             Spacer(Modifier.height(8.dp))
@@ -249,7 +249,7 @@ fun WideNowPlaying(
                                 state = state,
                                 progress = progress,
                                 isShort = isShort,
-                                onPlayPause = onPlayPause,
+                                onPrimary = onPrimary,
                                 onSeek = onSeek,
                                 onSkipBack = onSkipBack,
                                 onSkipForward = onSkipForward,
@@ -280,10 +280,10 @@ fun WideNowPlaying(
 @Suppress("LongParameterList", "LongMethod")
 @Composable
 private fun WideControls(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
     isShort: Boolean,
-    onPlayPause: () -> Unit,
+    onPrimary: () -> Unit,
     onSeek: (Float) -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -296,7 +296,7 @@ private fun WideControls(
 ) {
     // Book title — headlineMedium, bold; one titleLarge line when short.
     Text(
-        text = state.title,
+        text = state.book.title,
         style =
             (if (isShort) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium)
                 .copy(fontWeight = FontWeight.Bold),
@@ -310,11 +310,8 @@ private fun WideControls(
     // The chapter's own title, falling back to "Chapter N" only when it's genuinely untitled. No
     // "Chapter N · " prefix — the title is often itself "Chapter N", which produced confusing
     // duplicates like "Chapter 3 · Chapter 1".
-    val chapterLine =
-        state.chapterTitle?.takeIf { it.isNotBlank() }
-            ?: "Chapter ${state.chapterIndex + 1}"
     Text(
-        text = chapterLine,
+        text = state.chapterLine(),
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
@@ -322,11 +319,11 @@ private fun WideControls(
     )
 
     // Narrator line — only when narrators are present, and when there's room.
-    if (state.narrators.isNotEmpty() && !isShort) {
+    if (state.book.narrators.isNotEmpty() && !isShort) {
         Spacer(Modifier.height(8.dp))
 
         ClickableContributorLine(
-            contributors = state.narrators,
+            contributors = state.book.narrators.asBookContributors(),
             onContributorClick = onGoToContributor,
             style = MaterialTheme.typography.bodyMedium,
             nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -352,8 +349,8 @@ private fun WideControls(
     // Scrubber: wavy seek bar + elapsed / remaining labels.
     PlayerScrubber(
         progress = progress,
-        isPlaying = state.isPlaying,
-        isBuffering = state.isBuffering,
+        isPlaying = state.isAudible,
+        isBuffering = state.isBusy,
         onSeek = onSeek,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -362,9 +359,8 @@ private fun WideControls(
 
     // Transport row with the 96 dp FAB from the design reference (64 dp when short).
     PlayerTransport(
-        isPlaying = state.isPlaying,
-        isBuffering = state.isBuffering,
-        onPlayPause = onPlayPause,
+        primary = state.primary,
+        onPrimary = onPrimary,
         onSkipBack = onSkipBack,
         onSkipForward = onSkipForward,
         onPreviousChapter = onPreviousChapter,

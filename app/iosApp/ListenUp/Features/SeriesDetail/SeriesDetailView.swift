@@ -96,7 +96,7 @@ struct SeriesDetailView: View {
         }
         .task(id: activeSeriesId) {
             let vm = deps.createSeriesDetailViewModel()
-            let obs = SeriesDetailObserver(viewModel: vm, playerCoordinator: deps.playerCoordinator)
+            let obs = SeriesDetailObserver(viewModel: vm, playerObserver: deps.playerObserver)
             observer = obs
             obs.loadSeries(seriesId: activeSeriesId)
         }

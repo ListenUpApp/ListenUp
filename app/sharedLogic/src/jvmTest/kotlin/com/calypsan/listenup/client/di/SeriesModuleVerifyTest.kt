@@ -6,10 +6,12 @@ import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.PendingImageUploads
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.kotest.core.spec.style.FunSpec
@@ -33,6 +35,8 @@ import org.koin.test.verify.verify
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
  *  - [PendingImageUploads] — owned by `mediaModule`.
+ *  - [BookRepository] — owned by `bookModule`.
+ *  - [InboxRepository] — owned by `collectionModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class SeriesModuleVerifyTest :
@@ -54,6 +58,8 @@ class SeriesModuleVerifyTest :
                         PendingImageUploads::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
+                        BookRepository::class,
+                        InboxRepository::class,
                     ),
             )
         }

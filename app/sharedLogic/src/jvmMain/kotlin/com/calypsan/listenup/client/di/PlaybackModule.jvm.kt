@@ -5,9 +5,15 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.playback.ManagedPlayerEngine
+import com.calypsan.listenup.client.playback.NoOutputRoute
+import com.calypsan.listenup.client.playback.NoPlaybackStartGate
+import com.calypsan.listenup.client.playback.OutputRoute
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
+import com.calypsan.listenup.client.playback.PlaybackStartGate
+import com.calypsan.listenup.client.playback.PlayerEngine
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -50,6 +56,21 @@ val desktopPlaybackModule: Module =
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
                 playbackBandwidthCoordinator = get(),
                 localPreferences = get(),
+            )
+        }
+
+        // The shared player's engine (playerModule): today's PlaybackManager + PlaybackController behind one seam.
+        single(named(OFFLINE_COPIES)) { true }
+        single<PlaybackStartGate> { NoPlaybackStartGate }
+        single<OutputRoute> { NoOutputRoute }
+        single<PlayerEngine> {
+            ManagedPlayerEngine(
+                playbackManager = get(),
+                playbackController = get(),
+                startGate = get(),
+                progressTracker = get(),
+                outputRoute = get(),
+                scope = get(qualifier = named("playbackScope")),
             )
         }
     }

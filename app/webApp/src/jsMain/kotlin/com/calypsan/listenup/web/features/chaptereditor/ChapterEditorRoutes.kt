@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.rememberSession
@@ -35,11 +36,12 @@ internal fun ChapterEditorRoute(
     val session = rememberSession(bookId) { openChapterEditor(bookId) }
 
     val state = session.state.collectAsState().value
-    val transport = playback.state.collectAsState().value
-    val nowPlaying = playback.nowPlaying.collectAsState().value
-    // Only this book's transport counts. Anything else and the playhead is not about what is on
+    val player = playback.state.collectAsState().value
+    val progress = playback.progress.collectAsState().value
+    // Only this book's playhead counts. Anything else and the playhead is not about what is on
     // screen, so it is absent rather than misleading.
-    val playheadMs = if (nowPlaying?.bookId == bookId) transport?.positionMs else null
+    val playheadMs =
+        (player as? PlayerUiState.Loaded)?.takeIf { it.book.id == bookId }?.let { progress.bookPositionMs }
 
     var problem by remember(bookId) { mutableStateOf<String?>(null) }
     val isDirty = (state as? ChapterEditorUiState.Editing)?.isDirty == true

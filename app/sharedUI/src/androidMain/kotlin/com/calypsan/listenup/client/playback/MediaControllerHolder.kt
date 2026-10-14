@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.AppError
 import android.content.ComponentName
 import android.content.Context
 import androidx.media3.common.PlaybackException
@@ -22,6 +24,45 @@ private val logger = KotlinLogging.logger {}
 /** Bound on [MediaControllerHolder.awaitController]'s wait for a Media3 service bind. */
 private const val CONTROLLER_CONNECT_TIMEOUT_MS = 10_000L
 
+/** Media3's failure, typed once here (spec §4.6). */
+internal fun PlaybackException.toPlaybackError(): AppError = playbackErrorFor(errorCode, localizedMessage)
+
+/**
+ * The typed failure for a Media3 [errorCode]. Split from [toPlaybackError] because a [PlaybackException]
+ * cannot be constructed off-device without Robolectric (its constructor reads `SystemClock`).
+ */
+internal fun playbackErrorFor(
+    errorCode: Int,
+    localizedMessage: String?,
+): AppError {
+    val errorCodeName = PlaybackException.getErrorCodeName(errorCode)
+    return when (errorCode) {
+        in NETWORK_ERROR_CODES -> PlaybackError.ConnectionLost(debugInfo = errorCodeName)
+        in FORMAT_ERROR_CODES -> PlaybackError.UnsupportedFormat(debugInfo = errorCodeName)
+        else -> PlaybackError.CouldNotStart(debugInfo = "$errorCodeName: ${localizedMessage ?: "no message"}")
+    }
+}
+
+private val NETWORK_ERROR_CODES =
+    setOf(
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+        PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE,
+        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+    )
+
+private val FORMAT_ERROR_CODES =
+    setOf(
+        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+        PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
+        PlaybackException.ERROR_CODE_DECODING_FAILED,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+    )
+
 /**
  * Suspends until [ready] emits `true`, bounded by [timeoutMs]. Returns `true` once ready, or
  * `false` if the bound elapses first. `internal` (not `private`) so it can be tested directly
@@ -40,8 +81,8 @@ internal suspend fun awaitReady(
 /**
  * Singleton holder for the MediaController connection.
  *
- * NowPlayingViewModel consumes this controller via the PlaybackController seam
- * (there is no longer a separate PlayerViewModel). The holder owns the
+ * `PlayerSession` drives this controller through the PlaybackController seam
+ * (wrapped by `ManagedPlayerEngine`). The holder owns the
  * Player.Listener that drives PlaybackStateWriter's state/speed/error updates on
  * Android — those are coordinate-agnostic and forwarded faithfully by
  * `ChapterWindowPlayer`, the chapter-scoped presentation wrapper the session now
@@ -111,22 +152,7 @@ class MediaControllerHolder(
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                val isNetworkError =
-                    error.errorCode in
-                        listOf(
-                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
-                            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
-                            PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE,
-                            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
-                        )
-                val message =
-                    if (isNetworkError) {
-                        "Couldn't connect to server. Download this book for offline listening."
-                    } else {
-                        "Playback error: ${error.localizedMessage ?: "Unknown error"}"
-                    }
-                playbackManager.reportError(message = message, isRecoverable = isNetworkError)
+                playbackManager.reportError(error.toPlaybackError())
                 playbackManager.setPlaying(false)
                 logger.error { "ExoPlayer error: ${error.errorCodeName} - ${error.message ?: "no message"}" }
             }
@@ -209,8 +235,9 @@ class MediaControllerHolder(
         if (!awaitReady(connected, CONTROLLER_CONNECT_TIMEOUT_MS)) {
             logger.error { "MediaControllerHolder.awaitController: timed out waiting for connection" }
             playbackManager.reportError(
-                message = "Couldn't start playback. Please try again.",
-                isRecoverable = true,
+                PlaybackError.CouldNotStart(
+                    debugInfo = "controller did not connect within $CONTROLLER_CONNECT_TIMEOUT_MS ms",
+                ),
             )
             return null
         }

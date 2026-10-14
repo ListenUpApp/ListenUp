@@ -79,8 +79,8 @@ import com.calypsan.listenup.client.features.connect.ServerSetupScreen
 import com.calypsan.listenup.client.features.invite.JoinScreen
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingHost
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeight
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.ConnectionHealthBanner
@@ -708,15 +708,15 @@ private fun AuthenticatedNavigation(
     val unsavedWork = remember { UnsavedWorkHolds() }
 
     // ViewModels for shortcut action handling
-    val nowPlayingViewModel: NowPlayingViewModel = koinViewModel()
+    val nowPlayingViewModel: PlayerViewModel = koinViewModel()
 
     // Mini-player clearance: the bar is the producer of its own footprint, the detail screens
     // are the consumers via LocalNowPlayingInsets. The bar is "visible" (and thus reserves space)
-    // only while a book is Active and the full-screen player is collapsed. We latch the measured
-    // footprint so transient zero sizes during the slide-out animation don't collapse the inset.
-    val nowPlayingScreenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
-    val barVisible =
-        nowPlayingScreenState.state is NowPlayingState.Active && !nowPlayingScreenState.isExpanded
+    // only while a book is loaded (an error keeps it, gap 6) and the full-screen player is collapsed. We
+    // latch the measured footprint so transient zero sizes during the slide-out animation don't collapse the inset.
+    val playerState by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
+    val playerExpanded by nowPlayingViewModel.expanded.collectAsStateWithLifecycle()
+    val barVisible = playerState is PlayerUiState.Loaded && !playerExpanded
     var latchedFootprint by remember { mutableStateOf(DefaultNowPlayingFootprint) }
 
     // AppStartupViewModel holds the library-setup check result across Activity re-creations.
@@ -919,20 +919,21 @@ private fun ShareLinkEffect(
  */
 @Composable
 private fun AppKeyboardShortcuts(
-    nowPlayingViewModel: NowPlayingViewModel,
+    nowPlayingViewModel: PlayerViewModel,
     backStack: NavBackStack<NavKey>,
     searchRequests: ShellSearchRequests,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val nowPlaying by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
+    val playerState by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
+    val playerExpanded by nowPlayingViewModel.expanded.collectAsStateWithLifecycle()
     ShellKeyboardShortcuts(
         enabled = !LocalDeviceContext.current.isLeanback,
         onShortcut = { shortcut ->
             answerShellShortcut(
                 shortcut = shortcut,
                 nowPlayingViewModel = nowPlayingViewModel,
-                hasBook = nowPlaying.state is NowPlayingState.Active,
-                canOpenSearch = backStack.lastOrNull() == Shell && !nowPlaying.isExpanded,
+                hasBook = playerState is PlayerUiState.Loaded,
+                canOpenSearch = backStack.lastOrNull() == Shell && !playerExpanded,
                 searchRequests = searchRequests,
             )
         },
@@ -946,12 +947,12 @@ private fun AppKeyboardShortcuts(
 
 /**
  * Acts on a keyboard [shortcut], returning whether it did. The transport shortcuts need a loaded
- * book, and skip by the user's configured intervals (the view model's own [NowPlayingViewModel.skipBack]
- * and [NowPlayingViewModel.skipForward]). Search opens only where the shell's search is on screen.
+ * book, and skip by the user's configured intervals (the view model's own [PlayerViewModel.skipBack]
+ * and [PlayerViewModel.skipForward]). Search opens only where the shell's search is on screen.
  */
 private fun answerShellShortcut(
     shortcut: ShellShortcut,
-    nowPlayingViewModel: NowPlayingViewModel,
+    nowPlayingViewModel: PlayerViewModel,
     hasBook: Boolean,
     canOpenSearch: Boolean,
     searchRequests: ShellSearchRequests,
@@ -971,7 +972,7 @@ private fun answerShellShortcut(
 private fun shortcutActionDispatcher(
     scope: CoroutineScope,
     homeRepository: HomeRepository,
-    nowPlayingViewModel: NowPlayingViewModel,
+    nowPlayingViewModel: PlayerViewModel,
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
     onOpenSearch: () -> Unit,
@@ -1014,7 +1015,7 @@ private data class ShellWiring(
 private fun authenticatedNavEntries(
     backStack: NavBackStack<NavKey>,
     shell: ShellWiring,
-    nowPlayingViewModel: NowPlayingViewModel,
+    nowPlayingViewModel: PlayerViewModel,
     startupViewModel: AppStartupViewModel,
     scope: CoroutineScope,
     syncRepository: SyncRepository,
@@ -1137,7 +1138,7 @@ internal fun EntryProviderScope<NavKey>.destinationEntries(
 private fun BoxScope.AuthenticatedNavOverlays(
     backStack: NavBackStack<NavKey>,
     snackbarHostState: SnackbarHostState,
-    nowPlayingViewModel: NowPlayingViewModel,
+    nowPlayingViewModel: PlayerViewModel,
     readiness: LibraryReadiness,
     onRetryLibrarySetupCheck: () -> Unit,
     onBarFootprintChanged: (Dp) -> Unit,
@@ -1162,6 +1163,11 @@ private fun BoxScope.AuthenticatedNavOverlays(
         onNavigateToDocument = { localPath ->
             backStack.add(DocumentViewer(localPath))
         },
+        // The same routes the lapsed-session banner and the admin Inbox entry use.
+        onOpenSignIn = {
+            if (backStack.lastOrNull() != Login) backStack.add(Login)
+        },
+        onOpenInbox = { backStack.add(AdminInbox) },
         viewModel = nowPlayingViewModel,
         onBarFootprintChanged = onBarFootprintChanged,
     )
@@ -1238,7 +1244,7 @@ private fun BoxScope.AuthenticatedNavOverlays(
 private fun ShortcutActionEffect(
     shortcutActionManager: ShortcutActionManager,
     homeRepository: HomeRepository,
-    nowPlayingViewModel: NowPlayingViewModel,
+    nowPlayingViewModel: PlayerViewModel,
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
     onOpenSearch: () -> Unit,

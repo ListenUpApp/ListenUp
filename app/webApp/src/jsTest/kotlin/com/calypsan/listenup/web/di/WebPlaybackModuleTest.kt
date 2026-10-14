@@ -3,10 +3,13 @@ package com.calypsan.listenup.web.di
 import com.calypsan.listenup.client.di.jsSharedModules
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackController
+import com.calypsan.listenup.client.playback.PlaybackStartGate
 import com.calypsan.listenup.web.createSqliteWorker
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
+import com.calypsan.listenup.web.playback.HtmlAudioStartGate
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
@@ -60,6 +63,17 @@ class WebPlaybackModuleTest :
             val koin = startKoin { modules(jsSharedModules() + webPlaybackModule) }.koin
             try {
                 koin.get<AudioPlayer>() shouldBeSameInstanceAs koin.get<HtmlAudioPlayer>()
+            } finally {
+                stopKoin()
+            }
+        }
+
+        test("the shared player's start gate is the audio element's, so a tap primes it before the prepare") {
+            // Without this override the browser keeps sharedLogic's NoPlaybackStartGate: the prepare would run
+            // before the element ever saw the gesture, and Safari would refuse play() once it returned.
+            val koin = startKoin { modules(jsSharedModules() + webPlaybackModule) }.koin
+            try {
+                koin.get<PlaybackStartGate>().shouldBeInstanceOf<HtmlAudioStartGate>()
             } finally {
                 stopKoin()
             }

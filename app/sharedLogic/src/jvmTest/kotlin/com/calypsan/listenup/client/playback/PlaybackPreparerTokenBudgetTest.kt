@@ -178,7 +178,7 @@ class PlaybackPreparerTokenBudgetTest :
 
                 val preparer = buildPreparer(downloadedDownloadService(), tokenProvider)
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 // A fully-downloaded book plays entirely from local file:// paths — no HTTP audio
@@ -196,7 +196,7 @@ class PlaybackPreparerTokenBudgetTest :
 
                 val preparer = buildPreparer(streamingDownloadService(), tokenProvider)
 
-                val result = preparer.prepare(bookId, startAtMs = null).getOrNull()
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
 
                 result.shouldNotBeNull()
                 // Streaming files are fetched over HTTP with a bearer token — the token must still

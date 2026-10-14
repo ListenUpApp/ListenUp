@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
+
 /**
  * Narrow interface for platform-specific playback event sources (e.g., Android's
  * MediaControllerHolder Player.Listener) to push state changes into PlaybackManager
@@ -42,8 +44,6 @@ interface PlaybackStateWriter {
 
     fun updateSpeed(speed: Float)
 
-    fun reportError(
-        message: String,
-        isRecoverable: Boolean = false,
-    )
+    /** The engine failed; [error] is typed at the engine's edge (spec §4.6). */
+    fun reportError(error: AppError)
 }

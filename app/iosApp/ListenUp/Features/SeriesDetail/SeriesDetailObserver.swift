@@ -103,20 +103,20 @@ final class SeriesDetailObserver {
     /// True when `bookId` is the active book (playing OR buffering toward playing), so the row's
     /// glyph shows "pause" during the startup buffer instead of a play button that pauses.
     func isPlaying(_ bookId: String) -> Bool {
-        playerCoordinator.currentBookId == bookId && playerCoordinator.isPlaybackActive
+        playerObserver.currentBookId == bookId && playerObserver.isPlaybackActive
     }
 
     func progress(for bookId: String) -> Float? { bookProgress[bookId] }
     func isFinished(_ bookId: String) -> Bool { finishedBookIds.contains(bookId) }
 
     private let viewModel: SeriesDetailViewModel
-    private let playerCoordinator: PlayerCoordinator
+    private let playerObserver: PlayerObserver
     private let bridge = FlowBridge()
 
-    init(viewModel: SeriesDetailViewModel, playerCoordinator: PlayerCoordinator) {
+    init(viewModel: SeriesDetailViewModel, playerObserver: PlayerObserver) {
         self.viewModel = viewModel
         bridge.own(viewModel)
-        self.playerCoordinator = playerCoordinator
+        self.playerObserver = playerObserver
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.addSubSeries) { [weak self] in self?.applyAddSubSeries($0) }
     }
@@ -128,15 +128,15 @@ final class SeriesDetailObserver {
     /// Start/resume the series at its resume target.
     func continueSeries() {
         guard let resumeTarget else { return }
-        playerCoordinator.play(bookId: resumeTarget)
+        playerObserver.play(bookId: resumeTarget)
     }
 
     /// Play `bookId`, or pause/resume it if it's already the current book.
     func playBook(_ bookId: String) {
-        if playerCoordinator.currentBookId == bookId {
-            playerCoordinator.togglePlayback()
+        if playerObserver.currentBookId == bookId {
+            playerObserver.togglePlayback()
         } else {
-            playerCoordinator.play(bookId: bookId)
+            playerObserver.play(bookId: bookId)
         }
     }
 

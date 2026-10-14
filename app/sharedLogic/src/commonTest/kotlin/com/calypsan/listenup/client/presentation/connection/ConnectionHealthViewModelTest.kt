@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ConnectionHealth
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
-import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.test.fake.FakeNetworkMonitor
 import com.calypsan.listenup.client.domain.version.FakeClientIdentity
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
@@ -27,7 +27,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -50,14 +49,6 @@ private fun fakeLocalPreferences(
         every { outdatedDismissedFor } returns MutableStateFlow(null)
         everySuspend { setOutdatedDismissedFor(any()) } returns Unit
     }
-
-private class FakeNetworkMonitor : NetworkMonitor {
-    override fun isOnline(): Boolean = true
-
-    override val onlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
-
-    override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
-}
 
 private fun buildStore(
     scope: CoroutineScope,

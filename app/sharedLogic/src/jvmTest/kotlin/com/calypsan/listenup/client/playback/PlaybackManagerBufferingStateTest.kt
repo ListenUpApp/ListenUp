@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -33,7 +34,6 @@ import com.calypsan.listenup.client.data.remote.forTest
 import dev.mokkery.mock
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -219,7 +219,7 @@ class PlaybackManagerBufferingStateTest :
 
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
 
@@ -268,7 +268,7 @@ class PlaybackManagerBufferingStateTest :
                     val sut = createPlaybackManager(db, scope = managerScope)
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
 
@@ -277,12 +277,45 @@ class PlaybackManagerBufferingStateTest :
 
                     sut.playbackError.value shouldBe null
 
-                    player.emitState(PlaybackState.Error(message = "GStreamer hosed", isRecoverable = false))
+                    player.emitState(PlaybackState.Error(PlaybackError.UnsupportedFormat()))
                     advanceUntilIdle()
 
-                    val error = sut.playbackError.value.shouldNotBeNull()
-                    error.message shouldBe "GStreamer hosed"
-                    error.isRecoverable shouldBe false
+                    sut.playbackError.value shouldBe PlaybackError.UnsupportedFormat()
+
+                    managerScope.coroutineContext[Job]?.cancel()
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("a failed player's reset to zero does not move the playhead (the web stream-error reload)") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedBookAndAudioFiles(db)
+
+                    val managerScope = CoroutineScope(coroutineContext + Job())
+                    val sut = createPlaybackManager(db, scope = managerScope)
+                    val player = FakePlayer()
+
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
+                    checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
+                    sut.activateBook(BookId("book-1"))
+                    sut.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
+                    player.advancePosition(754_000L)
+                    advanceUntilIdle()
+                    sut.currentPositionMs.value shouldBe 754_000L
+
+                    // hls.js's fatal network error: the player publishes Error, then tearing hls.js down
+                    // reloads the element, whose currentTime (and so the player's position) drops to 0.
+                    player.emitState(PlaybackState.Error(PlaybackError.ConnectionLost()))
+                    player.advancePosition(0L)
+                    advanceUntilIdle()
+
+                    withClue("the bar keeps the listener's place while the error shows") {
+                        sut.currentPositionMs.value shouldBe 754_000L
+                    }
 
                     managerScope.coroutineContext[Job]?.cancel()
                 }
@@ -301,17 +334,16 @@ class PlaybackManagerBufferingStateTest :
                     val sut = createPlaybackManager(db, scope = managerScope)
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
 
                     sut.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
                     advanceUntilIdle()
 
-                    player.emitState(PlaybackState.Error(message = "transient", isRecoverable = true))
+                    player.emitState(PlaybackState.Error(PlaybackError.ConnectionLost()))
                     advanceUntilIdle()
-                    val midError = sut.playbackError.value.shouldNotBeNull()
-                    midError.isRecoverable shouldBe true
+                    sut.playbackError.value shouldBe PlaybackError.ConnectionLost()
 
                     player.emitState(PlaybackState.Playing)
                     advanceUntilIdle()
@@ -336,7 +368,7 @@ class PlaybackManagerBufferingStateTest :
                     val sut = createPlaybackManager(db, scope = managerScope, progressTracker = progressTracker)
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
                     sut.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
@@ -369,7 +401,7 @@ class PlaybackManagerBufferingStateTest :
                     val sut = createPlaybackManager(db, scope = managerScope, progressTracker = progressTracker)
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
                     sut.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
@@ -415,7 +447,7 @@ class PlaybackManagerBufferingStateTest :
                     // Activate the book WITHOUT starting an AudioPlayer — this mirrors the
                     // Android path where Media3 drives state transitions and the writer
                     // pushes them into PlaybackManager.
-                    checkNotNull(sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull())
+                    checkNotNull(sut.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull())
                     sut.activateBook(BookId("book-1"))
 
                     sut.setPlaybackState(PlaybackState.Playing)
@@ -446,7 +478,7 @@ class PlaybackManagerBufferingStateTest :
 
                     val sut = createPlaybackManager(db, scope = managerScope, progressTracker = progressTracker)
 
-                    checkNotNull(sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull())
+                    checkNotNull(sut.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull())
                     sut.activateBook(BookId("book-1"))
 
                     sut.setPlaybackState(PlaybackState.Paused)

@@ -43,4 +43,26 @@ class PlaybackErrorContractTest :
             PlaybackError.CouldNotStart().code shouldBe "PLAYBACK_COULD_NOT_START"
             PlaybackError.CouldNotStart().isRetryable shouldBe false
         }
+
+        val clientRaised: List<Triple<AppError, String, Boolean>> =
+            listOf(
+                Triple(PlaybackError.ConnectionLost(debugInfo = "d"), "PLAYBACK_CONNECTION_LOST", true),
+                Triple(PlaybackError.ServerUnreachable(debugInfo = "d"), "PLAYBACK_SERVER_UNREACHABLE", true),
+                Triple(PlaybackError.OfflineNotDownloaded(debugInfo = "d"), "PLAYBACK_OFFLINE_NOT_DOWNLOADED", false),
+                Triple(PlaybackError.UnsupportedFormat(debugInfo = "d"), "PLAYBACK_UNSUPPORTED_FORMAT", false),
+                Triple(PlaybackError.AutoplayBlocked(debugInfo = "d"), "PLAYBACK_AUTOPLAY_BLOCKED", false),
+                Triple(PlaybackError.NoLongerAvailable(debugInfo = "d"), "PLAYBACK_NO_LONGER_AVAILABLE", false),
+            )
+
+        clientRaised.forEach { (error, code, retryable) ->
+            test("$code round-trips with a stable SerialName and constant copy") {
+                val json = contractJson.encodeToString(AppError.serializer(), error)
+                json.contains("\"PlaybackError.${checkNotNull(error::class.simpleName)}\"") shouldBe true
+                contractJson.decodeFromString(AppError.serializer(), json) shouldBe error
+                error.code shouldBe code
+                error.isRetryable shouldBe retryable
+                error.message.endsWith(".") shouldBe true
+                error.withCorrelationId("c").correlationId shouldBe "c"
+            }
+        }
     })

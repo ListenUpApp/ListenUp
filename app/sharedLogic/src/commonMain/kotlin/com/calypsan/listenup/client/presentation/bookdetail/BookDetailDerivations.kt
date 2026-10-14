@@ -165,6 +165,6 @@ internal fun seriesShelfOf(
                 )
             },
         thisIndex = thisIndex,
-        nextBookId = books.getOrNull(thisIndex + 1)?.run { id.value },
+        nextBookId = series.bookAfter(thisBookId)?.run { id.value },
     )
 }

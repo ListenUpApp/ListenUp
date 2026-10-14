@@ -30,9 +30,10 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import com.calypsan.listenup.client.testing.Windows
+import com.calypsan.listenup.client.testing.idlePlayerSession
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -44,7 +45,11 @@ import dev.mokkery.every
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -77,6 +82,9 @@ class BookDetailReleaseConfirmationTest {
 
     private val inbox = HeldInbox(BookId(BOOK_ID))
 
+    // The screen's busy button reads the real PlayerSession; it lives here, cancelled after each test.
+    private val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+
     @Before
     fun startKoinForTheScreen() {
         startKoin {
@@ -94,9 +102,7 @@ class BookDetailReleaseConfirmationTest {
                     }
                     single<ServerConfig> { mock(MockMode.autoUnit) }
                     single<AuthSession> { mock(MockMode.autoUnit) }
-                    single<PlaybackManager> {
-                        mock(MockMode.autoUnit) { every { preparingBookIdUi } returns flowOf(null) }
-                    }
+                    single<PlayerSession> { idlePlayerSession(sessionScope) }
                 },
             )
         }
@@ -105,6 +111,7 @@ class BookDetailReleaseConfirmationTest {
     @After
     fun stopKoinAfterTheScreen() {
         stopKoin()
+        sessionScope.cancel()
     }
 
     @Test

@@ -4,7 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
+import com.calypsan.listenup.client.playback.PlayerSession
 
 /**
  * Desktop implementation of BookDetailPlatformActions.
@@ -13,7 +13,7 @@ import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
  * are not yet implemented on desktop, so download-related methods return stubs.
  */
 class DesktopBookDetailPlatformActions(
-    private val nowPlayingViewModel: NowPlayingViewModel,
+    private val playerSession: PlayerSession,
 ) : BookDetailPlatformActions {
     override suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome> =
         AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "Downloads not yet available on desktop"))
@@ -23,14 +23,14 @@ class DesktopBookDetailPlatformActions(
     override suspend fun deleteDownload(bookId: BookId) {}
 
     override fun playBook(bookId: BookId) {
-        nowPlayingViewModel.playBook(bookId)
+        playerSession.playBook(bookId, startAtMs = null)
     }
 
     override fun playFromChapter(
         bookId: BookId,
         startMs: Long,
     ) {
-        nowPlayingViewModel.playBook(bookId, startAtMs = startMs)
+        playerSession.playBook(bookId, startAtMs = startMs)
     }
 
     // Desktop has no handoff to offer it to.

@@ -3,191 +3,110 @@ import AVFoundation
 @testable import ListenUp
 import Shared
 
-/// Coverage for the book-switch path (`play(bookId:)` while another book is loaded/preparing):
-/// the metadata surface resets synchronously (RC-1), a superseded prepare can't clobber the
-/// new book (RC-4), the outgoing book's place is saved, and an errored book can be retried (RC-5).
+/// Coverage for the engine's book-switch path (a `.load` while another book is loaded or loading):
+/// the metadata resets synchronously (RC-1), a superseded load can't clobber the new book (RC-4), and
+/// the outgoing book's place is saved. Which book is loaded, retry and dismiss are the shared
+/// player's (`PlayerSessionPlayTest`, `PlayerSessionErrorsTest`).
 @Suite("Player switch path")
 @MainActor
 struct PlayerSwitchPathTests {
-    private func makeCoordinator(
-        coverPath: String? = "/covers/a.jpg"
-    ) -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: coverPath, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0,
-            chapters: [Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0, partTitle: nil, bookTitle: nil)],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine)
-        return (coordinator, engine, progress)
+    private let chapters = [
+        Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0, partTitle: nil, bookTitle: nil)
+    ]
+
+    private func book(cover: String? = "/covers/a.jpg") -> ListenUp.PreparedPlayback {
+        .fixture(coverPath: cover, chapters: chapters)
     }
 
-    /// RC-1(a): switching clears the cover/chapters/title *synchronously*, before the async
-    /// prepare — so the UI never renders the outgoing book's cover against the incoming book's id.
-    @Test func switchingClearsMetadataSynchronously() async {
-        let (coordinator, _, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-        #expect(coordinator.coverPath == "/covers/a.jpg")
-        #expect(!coordinator.chapterRows.isEmpty)
+    /// RC-1(a): a switch replaces the outgoing book's lock-screen metadata synchronously.
+    @Test func switchingReplacesMetadataSynchronously() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", book())
+        #expect(harness.coordinator.coverPath == "/covers/a.jpg")
+        #expect(!harness.coordinator.chapterRows.isEmpty)
 
-        coordinator.play(bookId: "book2")
-        // No `await` before these reads: the reset is synchronous, so it has happened while the
-        // incoming book's prepare has not yet run.
-        #expect(coordinator.coverPath == nil)
-        #expect(coordinator.chapterRows.isEmpty)
-        #expect(coordinator.bookTitle.isEmpty)
-        #expect(coordinator.currentBookId == "book2")
+        await harness.engine.setBlockLoad(true)
+        await harness.run(.load(bookId: "book2", prepared: book(cover: nil)))
+        #expect(harness.coordinator.coverPath == nil)
+        #expect(harness.coordinator.currentBookId == "book2")
+        await harness.engine.releaseLoad()
     }
 
-    /// RC-4: a rapid A→B switch supersedes A's prepare before it completes; only B ends up
-    /// loaded, and A never reports a phantom start.
+    /// RC-4: a rapid A→B switch supersedes A's load before it completes; only B ends up loaded, and A
+    /// never reports a phantom start. (Its Kotlin twin, `A → B → A`, is in `PlayerSessionPlayTest`.)
     @Test func rapidSwitchLandsOnLastBookOnly() async {
-        let (coordinator, _, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        coordinator.play(bookId: "book2")   // supersedes book1 before its prepare resolves
-        await progress.waitForStarted(bookId: "book2")
+        let harness = PlayerHarness()
+        harness.instructions.send(.load(bookId: "book1", prepared: book()))
+        harness.instructions.send(.load(bookId: "book2", prepared: book()))
+        await harness.progress.waitForStarted(bookId: "book2")
 
-        #expect(coordinator.currentBookId == "book2")
-        #expect(coordinator.phase.bookId == "book2")
-        #expect(progress.startedCalls.contains { $0.0 == "book2" })
-        #expect(!progress.startedCalls.contains { $0.0 == "book1" })
+        #expect(harness.coordinator.currentBookId == "book2")
+        #expect(harness.progress.startedCalls.contains { $0.0 == "book2" })
+        #expect(!harness.progress.startedCalls.contains { $0.0 == "book1" })
     }
 
     /// A switch away from a playing book saves the outgoing book's place first.
     @Test func switchingFromPlayingBookSavesOutgoingPosition() async {
-        let (coordinator, _, progress) = makeCoordinator()
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", book())
 
-        coordinator.play(bookId: "book2")
-        // The outgoing save is issued synchronously in `play`, before the new prepare.
-        #expect(progress.pausedCalls.contains { $0.0 == "book1" })
+        await harness.run(.load(bookId: "book2", prepared: book()))
+        // The outgoing save is issued synchronously by the load, before the new engine load.
+        #expect(harness.progress.pausedCalls.contains { $0.0 == "book1" })
 
-        await progress.waitForStarted(bookId: "book2")
-        #expect(coordinator.currentBookId == "book2")
+        await harness.progress.waitForStarted(bookId: "book2")
+        #expect(harness.coordinator.currentBookId == "book2")
     }
 
-    /// Honest buffering UI: the instant prepare resolves, the player shows the real book — its
-    /// real duration and a buffering state — instead of sitting at "0m / preparing" for the whole
-    /// (possibly slow, streaming) load. So while the engine's load is still in flight, phase is
-    /// already `.buffering` carrying the duration, and the mini-player is visible with it.
+    /// Honest buffering: while the engine's load is still in flight, the book is already held with
+    /// its real duration, and the shared player has been told it is buffering.
     @Test func showsRealDurationAndBuffersWhileLoadInFlight() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        await engine.setBlockLoad(true)   // hold the load open to observe the intermediate state
+        let harness = PlayerHarness()
+        await harness.engine.setBlockLoad(true)
 
-        coordinator.play(bookId: "book1")
-        await engine.waitForLoadEntered()  // prepare done, engine.load called and now suspended
+        await harness.run(.load(bookId: "book1", prepared: book()))
+        await harness.engine.waitForLoadEntered()
 
-        // Mid-load the UI is already honest — real duration, buffering, visible — not 0m/paused.
-        #expect(coordinator.bookDurationMs == 60000)
-        #expect(coordinator.isBuffering)
-        #expect(coordinator.isVisible)
+        #expect(harness.coordinator.bookDurationMs == 60000)
+        #expect(harness.coordinator.isBuffering)
+        #expect(harness.facts.phases.last == .buffering)
 
-        await engine.releaseLoad()
-        await progress.waitForStarted(bookId: "book1")
+        await harness.engine.releaseLoad()
+        await harness.progress.waitForStarted(bookId: "book1")
     }
 
     /// RC-3: a fresh load enters `.buffering` and is promoted to `.playing` only by the engine's
-    /// first real "playing" status event — never optimistically. With the fake's auto-ready
-    /// suppressed, the coordinator must sit in `.buffering` after start and only reach `.playing`
-    /// once an explicit `.ready` arrives.
+    /// first real "playing" status event — never optimistically.
     @Test func freshLoadEntersBufferingThenPlaying() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        await engine.setAutoReadyOnPlay(false)
+        let harness = PlayerHarness()
+        await harness.engine.setAutoReadyOnPlay(false)
 
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-        // Started, but not yet playing — the engine hasn't reported audio advancing.
-        #expect(coordinator.isBuffering)
-        #expect(!coordinator.isPlaying)
+        await harness.loadAndStart("book1", book())
+        #expect(harness.coordinator.isBuffering)
+        #expect(!harness.coordinator.isPlaying)
 
-        engine.emit(.statusChanged(.ready))   // the first real "playing" event
-        await awaitObservation { coordinator.isPlaying }
-        #expect(coordinator.isPlaying)
-        #expect(!coordinator.isBuffering)
+        harness.engine.emit(.statusChanged(.ready))
+        await awaitObservation { harness.coordinator.isPlaying }
+        #expect(harness.coordinator.isPlaying)
+        #expect(!harness.coordinator.isBuffering)
     }
 
-    /// `stop()` mid-load must supersede the in-flight load so it can't resurrect playback on a
-    /// released engine — no phantom `onPlaybackStarted`, no `.playing` after teardown. (`Task.cancel()`
-    /// alone doesn't interrupt the load's non-cancellation-checking awaits, so `stop()` bumps the epoch.)
+    /// A stop mid-load must supersede the in-flight load so it can't resurrect playback on an
+    /// unloaded engine — no phantom `onPlaybackStarted`, no `.playing` after teardown.
     @Test func stopDuringLoadDoesNotResurrectPlayback() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        await engine.setBlockLoad(true)
+        let harness = PlayerHarness()
+        await harness.engine.setBlockLoad(true)
 
-        coordinator.play(bookId: "book1")
-        await engine.waitForLoadEntered()   // load is in flight, blocked
+        await harness.run(.load(bookId: "book1", prepared: book()))
+        await harness.engine.waitForLoadEntered()
 
-        await coordinator.stop()            // teardown must supersede the in-flight load
-        await engine.releaseLoad()          // let the (now superseded) load resolve
-        await Task.yield()                  // give the superseded continuation a chance to (wrongly) start
+        await harness.run(.stop)
+        await harness.engine.releaseLoad()
+        await Task.yield()
 
-        #expect(!progress.startedCalls.contains { $0.0 == "book1" })
-        if case .playing = coordinator.phase {
-            Issue.record("phase resurrected to .playing after stop()")
-        }
-    }
-
-    /// Never stranded: a load failure keeps the player VISIBLE with the error message, so the
-    /// existing `.error`-retry (`togglePlayback`) is actually reachable rather than hidden behind
-    /// a vanished player.
-    @Test func errorStateKeepsPlayerVisibleWithMessage() async {
-        let (coordinator, engine, _) = makeCoordinator()
-        await engine.setLoadShouldFail(true)
-        coordinator.play(bookId: "book1")
-        await awaitObservation { if case .error = coordinator.phase { return true }; return false }
-
-        #expect(coordinator.isVisible)
-        #expect(coordinator.isErrored)
-        #expect(coordinator.errorMessage != nil)
-    }
-
-    /// The user can DISMISS an errored player back to idle (hidden) — otherwise a failed offline
-    /// load would leave an undismissable error bar reserving space over every tab.
-    @Test func dismissErrorReturnsToIdleAndHides() async {
-        let (coordinator, engine, _) = makeCoordinator()
-        await engine.setLoadShouldFail(true)
-        coordinator.play(bookId: "book1")
-        await awaitObservation { if case .error = coordinator.phase { return true }; return false }
-        #expect(coordinator.isVisible)   // errored → still visible (for the inline retry)
-
-        coordinator.dismissError()
-        #expect(!coordinator.isVisible)  // dismissed → hidden
-        #expect(!coordinator.isErrored)
-        guard case .idle = coordinator.phase else {
-            Issue.record("expected .idle after dismissError, got \(coordinator.phase)")
-            return
-        }
-    }
-
-    /// RC-5: a load failure surfaces `.error`; toggling the errored book retries it rather than
-    /// no-oping, so the user is never stranded on a dead player.
-    @Test func errorStateIsRecoverableByToggle() async {
-        let (coordinator, engine, progress) = makeCoordinator()
-        await engine.setLoadShouldFail(true)
-
-        coordinator.play(bookId: "book1")
-        await awaitObservation {
-            if case .error = coordinator.phase { return true }
-            return false
-        }
-        guard case .error = coordinator.phase else {
-            Issue.record("expected .error, got \(coordinator.phase)")
-            return
-        }
-
-        await engine.setLoadShouldFail(false)
-        coordinator.togglePlayback()   // retry
-        await progress.waitForStarted(bookId: "book1")
-        await awaitObservation { coordinator.isPlaying }
-        #expect(coordinator.isPlaying)
+        #expect(!harness.progress.startedCalls.contains { $0.0 == "book1" })
+        #expect(!harness.coordinator.isPlaying)
+        #expect(harness.coordinator.engineBook == nil)
     }
 }
 

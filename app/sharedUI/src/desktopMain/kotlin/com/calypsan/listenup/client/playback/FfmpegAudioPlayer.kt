@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
@@ -64,7 +65,7 @@ class FfmpegAudioPlayer(
     override suspend fun load(segments: List<AudioSegment>) {
         if (segments.isEmpty()) {
             logger.error { "Cannot load empty segment list" }
-            state.value = PlaybackState.Error(message = "Playback error. No audio segments were provided.")
+            state.value = PlaybackState.Error(PlaybackError.CouldNotStart(debugInfo = "Playback error. No audio segments were provided."))
             return
         }
 
@@ -165,7 +166,8 @@ class FfmpegAudioPlayer(
         val segment = segments.getOrNull(index)
         if (segment == null) {
             logger.error { "Invalid segment index: $index" }
-            state.value = PlaybackState.Error(message = "Playback error. Segment index $index is out of range.")
+            state.value =
+                PlaybackState.Error(PlaybackError.CouldNotStart(debugInfo = "Playback error. Segment index $index is out of range."))
             return
         }
 
@@ -202,7 +204,9 @@ class FfmpegAudioPlayer(
                 newGrabber.release()
                 state.value =
                     PlaybackState.Error(
-                        message = "Playback error. Audio stream has invalid format (${sampleRate}Hz, ${channels}ch).",
+                        PlaybackError.CouldNotStart(
+                            debugInfo = "Playback error. Audio stream has invalid format (${sampleRate}Hz, ${channels}ch).",
+                        ),
                     )
                 return
             }
@@ -248,7 +252,7 @@ class FfmpegAudioPlayer(
             throw e
         } catch (e: Exception) {
             logger.error(e) { "Failed to open segment $index" }
-            state.value = PlaybackState.Error(message = "Playback failed: ${e.message ?: "unknown error"}")
+            state.value = PlaybackState.Error(PlaybackError.CouldNotStart(debugInfo = "Playback failed: ${e.message ?: "unknown error"}"))
         }
     }
 
@@ -321,7 +325,10 @@ class FfmpegAudioPlayer(
                 } catch (e: Exception) {
                     if (isActive) {
                         logger.error(e) { "Decode loop error" }
-                        state.value = PlaybackState.Error(message = "Playback failed: ${e.message ?: "unknown error"}")
+                        state.value =
+                            PlaybackState.Error(
+                                PlaybackError.CouldNotStart(debugInfo = "Playback failed: ${e.message ?: "unknown error"}"),
+                            )
                     }
                 }
             }

@@ -15,23 +15,26 @@ private const val FADE_STEPS = 30
 private const val RESTORE_DELAY_MS = 100L
 
 /**
- * Ramp [controller] to silence, pause it, then put the volume back.
+ * Ramp the output to silence through [setVolume], [pause], then put the volume back.
  *
  * Shared rather than restated per client: this is what a sleep timer firing *sounds* like, and two
  * copies would drift the moment either was tuned. Every caller runs the same ramp for the same
  * three seconds.
  *
  * Restoring the volume is not optional bookkeeping — it is the whole reason the last two lines
- * exist. [PlaybackController.setVolume] writes to a player that outlives this fade, so leaving it
+ * exist. [setVolume] writes to the engine's volume, on a player that outlives this fade, so leaving it
  * at zero would make the *next* book start silent, with a working play button and no sound and
  * nothing on screen to explain it. The short [RESTORE_DELAY_MS] gap lets the pause take effect
  * first, so the restore cannot un-silence the last instant of the fade.
  *
- * On Desktop and Apple [PlaybackController.setVolume] is a documented no-op, so the fade is
+ * On Desktop and Apple the engine's volume is a documented no-op, so the fade is
  * inaudible there and playback simply stops at the end of it. The behaviour that matters — that it
  * stops, once, at the right time — is the same everywhere; only the softness of the landing differs.
  */
-suspend fun fadeOutAndPause(controller: PlaybackController) {
+suspend fun fadeOutAndPause(
+    setVolume: (Float) -> Unit,
+    pause: () -> Unit,
+) {
     logger.info { "Starting volume fade out" }
 
     val stepDelay = SLEEP_FADE_DURATION_MS / FADE_STEPS
@@ -40,14 +43,14 @@ suspend fun fadeOutAndPause(controller: PlaybackController) {
 
     repeat(FADE_STEPS) {
         currentVolume = (currentVolume - volumeStep).coerceAtLeast(0f)
-        controller.setVolume(currentVolume)
+        setVolume(currentVolume)
         delay(stepDelay)
     }
 
-    controller.pause()
+    pause()
 
     delay(RESTORE_DELAY_MS)
-    controller.setVolume(1f)
+    setVolume(1f)
 
     logger.info { "Fade complete, playback paused" }
 }

@@ -8,8 +8,9 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackStart
+import com.calypsan.listenup.client.playback.landingMs
 import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
-import com.calypsan.listenup.client.playback.PlaybackManager.PlaybackErrorUiState
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.PlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,19 +70,11 @@ class FakePlaybackManager : PlaybackManager {
     val playbackStateFlow = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
     override val playbackState: StateFlow<PlaybackState> = playbackStateFlow.asStateFlow()
 
-    val playbackErrorFlow = MutableStateFlow<PlaybackErrorUiState?>(null)
-    override val playbackError: StateFlow<PlaybackErrorUiState?> = playbackErrorFlow.asStateFlow()
+    val playbackErrorFlow = MutableStateFlow<AppError?>(null)
+    override val playbackError: StateFlow<AppError?> = playbackErrorFlow.asStateFlow()
 
     val effectiveGainDbFlow = MutableStateFlow(0f)
     override val effectiveGainDb: StateFlow<Float> = effectiveGainDbFlow.asStateFlow()
-
-    val preparingBookIdFlow = MutableStateFlow<BookId?>(null)
-    override val preparingBookId: StateFlow<BookId?> = preparingBookIdFlow.asStateFlow()
-
-    // No debounce in the fake — tests drive [preparingBookIdFlow]/[markPreparing] synchronously
-    // and assert on it directly; the real debounce timing is covered by PreparingBookIdUiFlowTest.
-    val preparingBookIdUiFlow = MutableStateFlow<BookId?>(null)
-    override val preparingBookIdUi: StateFlow<BookId?> = preparingBookIdUiFlow.asStateFlow()
 
     // === Notification callback hook ===
 
@@ -104,12 +97,10 @@ class FakePlaybackManager : PlaybackManager {
     var prepareForPlaybackSuspension: suspend () -> Unit = {}
 
     val activatedBookIds: MutableList<BookId> = mutableListOf()
-    val markPreparingCalls: MutableList<BookId> = mutableListOf()
-    var clearPreparingCalls: Int = 0
     val prepareForPlaybackCalls: MutableList<BookId> = mutableListOf()
-    val prepareForPlaybackStartAts: MutableList<Long?> = mutableListOf()
+    val prepareForPlaybackStarts: MutableList<PlaybackStart> = mutableListOf()
     val startPlaybackCalls: MutableList<StartPlaybackCall> = mutableListOf()
-    val reportedErrors: MutableList<PlaybackErrorUiState> = mutableListOf()
+    val reportedErrors: MutableList<AppError> = mutableListOf()
     var clearPlaybackCalls: Int = 0
     var clearErrorCalls: Int = 0
     val setPlayingCalls: MutableList<Boolean> = mutableListOf()
@@ -135,29 +126,36 @@ class FakePlaybackManager : PlaybackManager {
         currentBookIdFlow.value = bookId
     }
 
-    override fun markPreparing(bookId: BookId) {
-        markPreparingCalls += bookId
-        preparingBookIdFlow.value = bookId
-        preparingBookIdUiFlow.value = bookId
-    }
-
-    override fun clearPreparing() {
-        clearPreparingCalls += 1
-        preparingBookIdFlow.value = null
-        preparingBookIdUiFlow.value = null
-    }
-
     override suspend fun prepareForPlayback(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<PrepareResult> {
         prepareForPlaybackCalls += bookId
-        prepareForPlaybackStartAts += startAtMs
+        prepareForPlaybackStarts += start
         prepareForPlaybackSuspension()
         stubbedPrepareError?.let { return AppResult.Failure(it) }
         val prepared = stubbedPrepareResult ?: return AppResult.Failure(PlaybackError.CouldNotStart())
-        // A start position replaces the resume position, as the real preparer does.
-        return AppResult.Success(if (startAtMs == null) prepared else prepared.copy(resumePositionMs = startAtMs))
+        // A picked place replaces the resume position; moves replay from it, as the real preparer does.
+        val resumeAt =
+            when (start) {
+                PlaybackStart.Resume -> {
+                    prepared.resumePositionMs
+                }
+
+                is PlaybackStart.At -> {
+                    start.positionMs
+                }
+
+                is PlaybackStart.Moved -> {
+                    landingMs(
+                        prepared.resumePositionMs,
+                        start.moves,
+                        chapters.value,
+                        Long.MAX_VALUE,
+                    )
+                }
+            }
+        return AppResult.Success(prepared.copy(resumePositionMs = resumeAt))
     }
 
     override suspend fun startPlayback(
@@ -237,11 +235,9 @@ class FakePlaybackManager : PlaybackManager {
         playbackSpeedFlow.value = speed
     }
 
-    override fun reportError(
-        message: String,
-        isRecoverable: Boolean,
-    ) {
-        reportedErrors += PlaybackErrorUiState(message = message, isRecoverable = isRecoverable, timestampMs = 0L)
+    override fun reportError(error: AppError) {
+        reportedErrors += error
+        playbackErrorFlow.value = error
     }
 
     override fun clearError() {

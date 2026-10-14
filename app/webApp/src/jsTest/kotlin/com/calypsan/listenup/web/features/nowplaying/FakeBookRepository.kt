@@ -16,10 +16,10 @@ import kotlinx.coroutines.flow.flowOf
 /**
  * A book mirror holding [details] and nothing else.
  *
- * The player session reads exactly one thing from a `BookRepository` — `observeBookDetail`, to
- * learn who wrote the playing book and which cover to draw — so that is the only member with real
- * behaviour here. The other fourteen answer empty rather than throwing: a spec that accidentally
- * reaches one should fail on the assertion it was actually making, not on a stub.
+ * The shared player reads two things from a `BookRepository`: `observeBookDetail`, for the loaded
+ * book's identity, and `observeIsBookLive`, to keep it loaded while it is in the library. Those are
+ * the members with real behaviour here. The others answer empty rather than throwing: a spec that
+ * accidentally reaches one should fail on the assertion it was actually making, not on a stub.
  *
  * Not a mock. `mokkery` would let a defaulted member appear on the interface and silently answer
  * null on every stub site at once; a hand-written fake breaks at compile time instead, which is
@@ -42,7 +42,8 @@ internal class FakeBookRepository(
 
     override fun observeMatchRecord(bookId: String): Flow<BookMatchRecord?> = flowOf(null)
 
-    override fun observeIsBookLive(id: String): Flow<Boolean> = flowOf(false)
+    // A book this mirror holds is live, so the shared player's liveness watch keeps it loaded.
+    override fun observeIsBookLive(id: String): Flow<Boolean> = flowOf(id in details)
 
     override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryPick>> = flowOf(emptyList())
 

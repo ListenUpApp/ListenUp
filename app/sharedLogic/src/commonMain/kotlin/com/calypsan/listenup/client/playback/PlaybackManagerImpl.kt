@@ -1,6 +1,7 @@
 
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -23,7 +24,6 @@ import com.calypsan.listenup.client.playback.loudness.VolumeGain
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -135,8 +135,8 @@ internal class PlaybackManagerImpl(
 
     // Error state for displaying playback errors to the user
     // Null means no error, non-null means error to display
-    override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?>
-        field = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)
+    override val playbackError: StateFlow<AppError?>
+        field = MutableStateFlow<AppError?>(null)
 
     override val buffering: StateFlow<Boolean>
         field = MutableStateFlow(false)
@@ -147,22 +147,6 @@ internal class PlaybackManagerImpl(
     // Chapter state for notification and UI
     override val chapters: StateFlow<List<Chapter>>
         field = MutableStateFlow<List<Chapter>>(emptyList())
-
-    override val preparingBookId: StateFlow<BookId?>
-        field = MutableStateFlow<BookId?>(null)
-
-    // A plain, COLD Flow — deliberately NOT `.stateIn(scope, ...)` here. `stateIn` launches its
-    // sharing coroutine into `scope` at the moment this property is initialized, regardless of
-    // SharingStarted mode (Eagerly/Lazily/WhileSubscribed all park a coroutine there — only WHEN it
-    // starts collecting differs, not WHETHER a coroutine gets created); that coroutine never
-    // completes, and every PlaybackManagerImpl ever constructed — including test-only instances that
-    // never touch this flow — got one for free. jvmTests that bind `scope` to their TestScope (needed
-    // so `advanceUntilIdle` can drain ProgressTracker/PlaybackManager coroutines) then failed with
-    // `UncompletedCoroutinesError` on the dangling collector; see PlaybackManagerPreparingSharingTest.
-    // Per the rubric ("Streaming is Flow<T>. State is .stateIn(scope) at the call site"), state-ifying
-    // this is the CONSUMER's job — NowPlayingViewModel already folds it into its own
-    // `combine(...).stateIn(viewModelScope, WhileSubscribed(...))` for [NowPlayingScreenState].
-    override val preparingBookIdUi: Flow<BookId?> = preparingBookIdUiFlow(preparingBookId)
 
     override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?>
         field = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
@@ -183,16 +167,6 @@ internal class PlaybackManagerImpl(
 
     // Callback for chapter changes - used by PlaybackService to update notification
     override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
-
-    /** Open the pending-play window for [bookId]. See [PlaybackManager.markPreparing]. */
-    override fun markPreparing(bookId: BookId) {
-        preparingBookId.value = bookId
-    }
-
-    /** Close the pending-play window. See [PlaybackManager.clearPreparing]. */
-    override fun clearPreparing() {
-        preparingBookId.value = null
-    }
 
     /** Set the current book ID — call this only when playback is confirmed to proceed. */
     override fun activateBook(bookId: BookId) {
@@ -218,10 +192,10 @@ internal class PlaybackManagerImpl(
      */
     override suspend fun prepareForPlayback(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<PlaybackManager.PrepareResult> {
         val prepared =
-            when (val result = preparer.prepare(bookId, startAtMs)) {
+            when (val result = preparer.prepare(bookId, start)) {
                 is AppResult.Success -> result.data
                 is AppResult.Failure -> return result
             }
@@ -344,6 +318,10 @@ internal class PlaybackManagerImpl(
                     // than a delay loop, so it schedules no timer task.
                     var lastPersistedPositionMs = resumePositionMs
                     player.positionMs.collect { position ->
+                        // A failed player's position is not the listener's: on web, tearing hls.js down after
+                        // a fatal error reloads the element, which zeroes it. Keep the last real place for the
+                        // error card; a retry re-prepares from the saved position anyway.
+                        if (player.state.value is PlaybackState.Error) return@collect
                         updatePosition(position)
                         val advancedMs = position - lastPersistedPositionMs
                         if (advancedMs < 0) {
@@ -374,24 +352,15 @@ internal class PlaybackManagerImpl(
                         setPlaying(playing)
 
                         // Error routing: AudioPlayer actuals emit
-                        // PlaybackState.Error(message?) for platform-native failures;
-                        // PlaybackManager turns that into PlaybackError on the public flow.
+                        // PlaybackState.Error(error), typed at the engine edge;
+                        // PlaybackManager publishes it as is on the public flow.
                         // (Android emits errors via [reportError] from MediaControllerHolder;
                         // setPlaybackState never carries Error on the Android path.)
                         // Playing/Paused → [reporter] (position + listening-event)
                         // routing lives in [setPlaybackState] so both Desktop (via this collect)
                         // and Android (via PlaybackStateWriter.setPlaybackState from
                         // MediaControllerHolder.Player.Listener) flow through one path.
-                        if (playbackState is PlaybackState.Error) {
-                            playbackError.value =
-                                PlaybackManager.PlaybackErrorUiState(
-                                    message = playbackState.message ?: "Playback failed.",
-                                    isRecoverable = playbackState.isRecoverable,
-                                    timestampMs =
-                                        com.calypsan.listenup.core
-                                            .currentEpochMilliseconds(),
-                                )
-                        }
+                        if (playbackState is PlaybackState.Error) playbackError.value = playbackState.error
 
                         if (playbackState == PlaybackState.Ended) {
                             // The near-end guard lives in the tracker, which every platform's
@@ -627,18 +596,8 @@ internal class PlaybackManagerImpl(
      * Report a playback error to be displayed to the user.
      * Called by platform-specific error handlers.
      */
-    override fun reportError(
-        message: String,
-        isRecoverable: Boolean,
-    ) {
-        playbackError.value =
-            PlaybackManager.PlaybackErrorUiState(
-                message = message,
-                isRecoverable = isRecoverable,
-                timestampMs =
-                    com.calypsan.listenup.core
-                        .currentEpochMilliseconds(),
-            )
+    override fun reportError(error: AppError) {
+        playbackError.value = error
     }
 
     /**
@@ -654,51 +613,10 @@ internal class PlaybackManagerImpl(
      * Called from updatePosition() to track chapter changes.
      */
     internal fun updateCurrentChapter(positionMs: Long) {
-        val chapterList = chapters.value
-        if (chapterList.isEmpty()) {
-            currentChapter.value = null
-            return
-        }
-
-        val index =
-            chapterList
-                .indexOfLast { it.startTime <= positionMs }
-                .coerceAtLeast(0)
-
-        val chapter = chapterList[index]
-        val endMs =
-            chapterList.getOrNull(index + 1)?.startTime
-                ?: currentTimeline.value?.totalDurationMs
-                ?: chapter.startTime
-
-        val newChapter =
-            PlaybackManager.ChapterInfo(
-                index = index,
-                title = chapter.title,
-                startMs = chapter.startTime,
-                endMs = endMs,
-                remainingMs = (endMs - positionMs).coerceAtLeast(0),
-                totalChapters = chapterList.size,
-                isGenericTitle = isGenericChapterTitle(chapter.title),
-            )
-
-        // Only trigger notification update on chapter change
-        if (newChapter.index != currentChapter.value?.index) {
-            currentChapter.value = newChapter
-            onChapterChanged?.invoke(newChapter)
-        } else {
-            // Update remaining time without triggering notification
-            currentChapter.value = newChapter
-        }
-    }
-
-    /**
-     * Detect if a chapter title is generic (e.g., "Chapter 14", "Track 7", or empty).
-     */
-    private fun isGenericChapterTitle(title: String): Boolean {
-        val normalized = title.trim().lowercase()
-        return normalized.isEmpty() ||
-            normalized.matches(Regex("""^(chapter|part|track|section)\s*\d+$""")) ||
-            normalized.matches(Regex("""^\d+$"""))
+        val newChapter = chapterInfoAt(positionMs, chapters.value, currentTimeline.value?.totalDurationMs)
+        val chapterChanged = newChapter?.index != currentChapter.value?.index
+        currentChapter.value = newChapter
+        // Only a change of chapter re-stamps the notification.
+        if (chapterChanged && newChapter != null) onChapterChanged?.invoke(newChapter)
     }
 }

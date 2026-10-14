@@ -15,7 +15,10 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CoverUri
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -24,7 +27,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
-import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -35,13 +38,17 @@ import com.google.common.util.concurrent.ListenableFuture
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
+import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -80,6 +87,30 @@ class ListenUpSessionCallbackTest {
      * transport player shows up as a missing call rather than passing unnoticed.
      */
     private val sessionPlayer = FakeExoPlayer(canAdvertiseSession = true)
+
+    // ── Resumption plays the loaded book (spec §4.4) ──────────────────────────
+
+    @Test
+    fun `resumption plays the loaded book, not the last-played one`() {
+        val prepared = mutableListOf<BookId>()
+        val callback = resumptionCallback(loadedBookId = BookId("loaded"), prepared = prepared)
+
+        // The fake refuses every prepare, so the future fails; what matters is which book it asked for.
+        runCatching { callback.resume() }
+
+        prepared shouldBe listOf(BookId("loaded"))
+    }
+
+    @Test
+    fun `with nothing loaded, resumption refuses, so Close book is not undone after a reboot`() {
+        val prepared = mutableListOf<BookId>()
+        val callback = resumptionCallback(loadedBookId = null, prepared = prepared)
+
+        val outcome = runCatching { callback.resume() }
+
+        outcome.isFailure shouldBe true
+        prepared.shouldBeEmpty()
+    }
 
     // ── Publishing the landing position ───────────────────────────────────────
     //
@@ -510,7 +541,7 @@ class ListenUpSessionCallbackTest {
             voiceIntentResolver = unreachedVoiceIntentResolver(),
             homeRepository = mock<HomeRepository>(),
             authSession = authSession,
-            positionRepository = mock<PlaybackPositionRepository>(),
+            loadedBookRepository = FakeLoadedBookRepository(null),
             serviceScope = CoroutineScope(Dispatchers.Unconfined),
             transport = FakePlaybackTransport(null, 0L),
             uriPermissionGranter = FakeUriPermissionGranter(),
@@ -654,13 +685,55 @@ class ListenUpSessionCallbackTest {
             voiceIntentResolver = unreachedVoiceIntentResolver(),
             homeRepository = mock<HomeRepository>(),
             authSession = mock<AuthSession>(),
-            positionRepository = mock<PlaybackPositionRepository>(),
+            loadedBookRepository = FakeLoadedBookRepository(null),
             serviceScope = CoroutineScope(Dispatchers.Unconfined),
             transport = FakePlaybackTransport(player, bookPositionMs),
             uriPermissionGranter = uriPermissionGranter,
             strings = SystemStringsHolder(),
             skipIntervals = skipIntervals,
         )
+    }
+
+    /**
+     * Builds the callback for resumption: [loadedBookId] is this device's loaded book, and every prepare is
+     * recorded in [prepared] and refused, so the case asserts which book was asked for without building a
+     * timeline. Before the shared model, resumption read the last-played book from the position history.
+     */
+    private fun resumptionCallback(
+        loadedBookId: BookId?,
+        prepared: MutableList<BookId>,
+    ): ListenUpSessionCallback {
+        val playbackManager = mock<PlaybackManager>()
+        everySuspend { playbackManager.prepareForPlayback(any(), any()) } calls
+            { (bookId: BookId, _: Long?) ->
+                prepared += bookId
+                AppResult.Failure(PlaybackError.CouldNotStart())
+            }
+
+        return ListenUpSessionCallback(
+            context = context,
+            playbackManager = playbackManager,
+            browseTreeProvider = unreachedBrowseTreeProvider(),
+            voiceIntentResolver = unreachedVoiceIntentResolver(),
+            homeRepository = mock<HomeRepository>(),
+            authSession = mock<AuthSession>(),
+            loadedBookRepository = FakeLoadedBookRepository(loadedBookId),
+            serviceScope = CoroutineScope(Dispatchers.Unconfined),
+            transport = FakePlaybackTransport(null, 0L),
+            uriPermissionGranter = FakeUriPermissionGranter(),
+            strings = SystemStringsHolder(),
+            skipIntervals = stockIntervals(),
+        )
+    }
+
+    /** Asks for playback resumption the way the system's resume card does, blocking on the answer. */
+    private fun ListenUpSessionCallback.resume(): MediaSession.MediaItemsWithStartPosition {
+        val session = MediaSession.Builder(context, sessionPlayer).build()
+        try {
+            return onPlaybackResumption(session, testControllerInfo(), true).get()
+        } finally {
+            session.release()
+        }
     }
 
     /** The stock 30 s forward / 10 s back, for the cases whose subject is not the interval. */
@@ -738,4 +811,19 @@ private class FakePlaybackTransport(
     override fun bookRelativePositionMs(): Long = bookPositionMs
 
     override fun applyResumeSpeed(speed: Float) = Unit
+}
+
+/** This device's loaded book, fixed: all resumption reads is [loadedBookId]. */
+private class FakeLoadedBookRepository(
+    private val bookId: BookId?,
+) : LoadedBookRepository {
+    override fun observe(): Flow<LoadedBook> = emptyFlow()
+
+    override fun observeLoadedBookId(): Flow<BookId?> = flowOf(bookId)
+
+    override suspend fun loadedBookId(): BookId? = bookId
+
+    override suspend fun setLoaded(bookId: BookId) = Unit
+
+    override suspend fun clear() = Unit
 }

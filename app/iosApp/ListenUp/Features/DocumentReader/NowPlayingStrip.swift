@@ -2,22 +2,22 @@ import SwiftUI
 import Shared
 
 /// The reader's docked now-playing strip: cover · "Ch. N · {time left}" · play/pause.
-/// Reflects the shared `PlayerCoordinator` (global playback) and renders only while a
+/// Reflects the shared player (`PlayerObserver`) and renders only while a
 /// session is active — opening/reading the PDF never affects audio.
 struct NowPlayingStrip: View {
     @Environment(\.dependencies) private var dependencies
 
     var body: some View {
-        let player = dependencies.playerCoordinator
-        // `.error` is "visible" (so the main mini-player shows the inline error+retry), but the
-        // reader's strip has no honest content then — hide it rather than render a blank "0s" card.
+        let player = dependencies.playerObserver
+        // A book that can't play stays "visible" (the main mini-player shows why, with its action), but
+        // the reader's strip has no honest content then — hide it rather than render a blank "0s" card.
         if player.isVisible, !player.isErrored {
             content(player)
         }
     }
 
     @ViewBuilder
-    private func content(_ player: PlayerCoordinator) -> some View {
+    private func content(_ player: PlayerObserver) -> some View {
         HStack(spacing: 11) {
             BookCoverImage(bookId: player.currentBookId, coverPath: player.coverPath, coverHash: player.coverHash)
                 .frame(width: 40, height: 40)

@@ -1,5 +1,6 @@
 import Foundation
 @testable import ListenUp
+@preconcurrency import Shared
 
 /// Records every command the coordinator sends the engine. An `actor` so it can
 /// satisfy the `Sendable` `PlaybackEngine` protocol exactly as `AudioEngine` does.
@@ -66,7 +67,7 @@ actor FakePlaybackEngine: PlaybackEngine {
     func setBlockLoad(_ block: Bool) { shouldBlockLoad = block }
     func releaseLoad() { loadBlocker?.resume(); loadBlocker = nil }
 
-    func load(segments: [AudioSegment], startPositionMs: Int64) async -> Bool {
+    func load(segments: [ListenUp.AudioSegment], startPositionMs: Int64) async -> Bool {
         if isReleased { commandLog.append("load-after-release"); return false }
         didLoad = true; lastLoadStartMs = startPositionMs; commandLog.append("load")
         gate.fire("load")
@@ -82,9 +83,9 @@ actor FakePlaybackEngine: PlaybackEngine {
         gate.fire("play"); gate.fire("play-\(playCount)")
     }
     func pause() async { didPause = true; commandLog.append("pause"); gate.fire("pause") }
-    func seek(toMs positionMs: Int64) async { lastSeekMs = positionMs; gate.fire("seek") }
+    func seek(toMs positionMs: Int64) async { lastSeekMs = positionMs; commandLog.append("seek"); gate.fire("seek") }
     func setRate(_ newRate: Float) async { lastRate = newRate; gate.fire("setRate") }
-    func setVolume(_ volume: Float) async { lastVolume = volume; gate.fire("setVolume") }
+    func setVolume(_ volume: Float) async { lastVolume = volume; commandLog.append("volume"); gate.fire("setVolume") }
     func setGainDb(_ db: Float) async { lastGainDb = db; gate.fire("setGainDb") }
     func currentMeasuredGainDb() async -> Float? {
         gate.fire("measuredGain")
@@ -118,6 +119,9 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// engine reusable — mirrors `AudioEngine.unload()`.
     func unload() async { didUnload = true; teardownOrder.append("unload"); gate.fire("unload") }
 
+    /// Suspend until `unload()` has executed.
+    func waitUntilUnloaded() async { await gate.wait(forKey: "unload") }
+
     /// Suspend until `pause()` has executed. Returns immediately if it already has.
     func waitUntilPaused() async { await gate.wait(forKey: "pause") }
 
@@ -141,6 +145,7 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     private(set) var positionUpdates: [(String, Int64, Float)] = []
     private(set) var seeks: [(String, Int64, Int64, Float)] = []
     private(set) var speedChanges: [(String, Int64, Float)] = []
+    private(set) var speedResets: [(String, Int64, Float)] = []
     private(set) var boostChanges: [(String, Int64, Float)] = []
     private(set) var boostResets: [(String, Int64, Float)] = []
     private(set) var measuredGains: [(String, Int64, Float)] = []
@@ -175,6 +180,9 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
         speedChanges.append((bookId, positionMs, newSpeed)); gate.signal()
     }
+    func onSpeedReset(bookId: String, positionMs: Int64, defaultSpeed: Float) {
+        speedResets.append((bookId, positionMs, defaultSpeed)); gate.signal()
+    }
     func onVolumeBoostChanged(bookId: String, positionMs: Int64, newBoostDb: Float) {
         boostChanges.append((bookId, positionMs, newBoostDb)); gate.signal()
     }
@@ -195,7 +203,7 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     ///
     /// This is the canonical "the coordinator has issued the start" anchor: the coordinator
     /// enters `.buffering`, calls `engine.play()`, then reports `onPlaybackStarted` — so once
-    /// this returns, `isVisible` and `phase.playingState` are consistent, but `isPlaying` is
+    /// this returns, `engineBook` is set, but `isPlaying` is
     /// **not yet true**. The engine's first "playing" status event (auto-emitted by
     /// `FakePlaybackEngine.play()`) promotes `.buffering → .playing` shortly after; a test that
     /// needs `isPlaying == true` should `await awaitObservation { coordinator.isPlaying }` after this.
@@ -215,55 +223,6 @@ final class FakeProgressReporting: PlaybackProgressReporting {
         await gate.wait { [weak self] in
             self?.seeks.contains { $0.0 == bookId && $0.2 == afterMs } ?? false
         }
-    }
-}
-
-@MainActor
-final class FakeSleepTiming: SleepTiming {
-    let stateStream: AsyncStream<SleepTimingState>
-    private let stateContinuation: AsyncStream<SleepTimingState>.Continuation
-    let fired: AsyncStream<Void>
-    private let firedContinuation: AsyncStream<Void>.Continuation
-    private(set) var fadeCompletedCount = 0
-    private(set) var chapterChanges: [Int] = []
-    private(set) var bookChanges: [String?] = []
-
-    /// Fires on fade-completed and chapter-change callbacks (both driven on the main actor),
-    /// so tests can await those exact transitions without polling.
-    private let gate = AsyncGate()
-
-    init() {
-        var sc: AsyncStream<SleepTimingState>.Continuation!
-        stateStream = AsyncStream { sc = $0 }; stateContinuation = sc
-        var fc: AsyncStream<Void>.Continuation!
-        fired = AsyncStream { fc = $0 }; firedContinuation = fc
-    }
-    func emitFired() { firedContinuation.yield(()) }
-    func onFadeCompleted() { fadeCompletedCount += 1; gate.fire("fadeCompleted") }
-    func onBookChanged(bookId: String?) {
-        bookChanges.append(bookId); gate.fire("book-\(bookId ?? "nil")")
-    }
-    func onChapterChanged(newChapterIndex: Int) {
-        chapterChanges.append(newChapterIndex); gate.fire("chapter-\(newChapterIndex)")
-    }
-    func setDurationTimer(minutes: Int) {}
-    func setEndOfChapterTimer() {}
-    func cancelTimer() {}
-    private(set) var extensions: [Int] = []
-    func extendTimer(minutes: Int) { extensions.append(minutes) }
-
-    // The fake is `@MainActor` (its `SleepTiming` protocol is), so a predicate closure
-    // reading `self` can't cross into the non-isolated gate. Use the keyed API, which keeps
-    // the "did it fire?" state inside the gate — no main-actor `self` in the sent closure.
-
-    /// Suspend until the fade-completed callback has fired exactly once.
-    func waitForFadeCompleted() async {
-        await gate.wait(forKey: "fadeCompleted")
-    }
-
-    /// Suspend until a chapter change to `index` has been recorded.
-    func waitForChapterChange(to index: Int) async {
-        await gate.wait(forKey: "chapter-\(index)")
     }
 }
 
@@ -289,35 +248,104 @@ final class FakeSkipIntervalProviding: SkipIntervalProviding {
     func emitBackward(_ seconds: Int) { backwardContinuation.yield(seconds) }
 }
 
-final class FakePlaybackPreparing: PlaybackPreparing, @unchecked Sendable {
-    var result: PreparedPlayback?
-    /// Every start position the coordinator asked for, in order (`nil` = resume).
-    private(set) var startAtCalls: [Int64?] = []
-    /// When true, a non-nil start position replaces the stub's resume position, as the Kotlin preparer does.
-    var honourStartAt = false
+// MARK: - Engine seam fakes (the shared player's side of the coordinator)
 
-    func prepareOrNull(bookId: String, startAtMs: Int64?) async -> PreparedPlayback? {
-        startAtCalls.append(startAtMs)
-        guard honourStartAt, let startAtMs, let result else { return result }
-        return result.withResumePosition(startAtMs)
+/// The shared player's ordered instruction stream, driven by the test.
+@MainActor
+final class FakeEngineInstructions: EngineInstructionSource {
+    let instructions: AsyncStream<EngineInstruction>
+    private let continuation: AsyncStream<EngineInstruction>.Continuation
+    init() { (instructions, continuation) = AsyncStream.makeStream(bufferingPolicy: .unbounded) }
+    func send(_ instruction: EngineInstruction) { continuation.yield(instruction) }
+}
+
+/// Records every fact the coordinator reports to the shared player.
+@MainActor
+final class FakeEngineFacts: EngineFactReporting {
+    private(set) var phases: [EnginePhaseFact] = []
+    private(set) var positions: [Int64] = []
+    private(set) var rates: [Float] = []
+    private(set) var routes: [String?] = []
+    private(set) var failures: [EngineFailure] = []
+    private(set) var unloadedCount = 0
+    /// The load generation each book fact carried, in report order (the route is not about a book).
+    private(set) var generations: [EngineLoadGeneration] = []
+    private(set) var failureGenerations: [EngineLoadGeneration] = []
+    func phase(_ phase: EnginePhaseFact, generation: EngineLoadGeneration) {
+        phases.append(phase); generations.append(generation)
+    }
+    func position(ms: Int64, generation: EngineLoadGeneration) {
+        positions.append(ms); generations.append(generation)
+    }
+    func rate(_ rate: Float, generation: EngineLoadGeneration) { rates.append(rate); generations.append(generation) }
+    func boost(_ db: Float, generation: EngineLoadGeneration) { generations.append(generation) }
+    func route(_ deviceName: String?) { routes.append(deviceName) }
+    func failure(_ failure: EngineFailure, generation: EngineLoadGeneration) {
+        failures.append(failure); failureGenerations.append(generation); generations.append(generation)
+    }
+    func unloaded(generation: EngineLoadGeneration) { unloadedCount += 1; generations.append(generation) }
+    /// Each remote play the coordinator could not serve itself, by the generation it named.
+    private(set) var playRequests: [EngineLoadGeneration] = []
+    func playRequested(generation: EngineLoadGeneration) { playRequests.append(generation) }
+}
+
+extension ListenUp.PreparedPlayback {
+    /// A one-file, chapterless prepared book: the base every coordinator test varies.
+    static func fixture(
+        resumePositionMs: Int64 = 0,
+        durationMs: Int64 = 60000,
+        resumeSpeed: Float = 1.0,
+        resumeBoostDb: Float = 0,
+        measuredGainDb: Float? = nil,
+        normalizationGainDb: Float? = nil,
+        coverPath: String? = nil,
+        chapters: [Chapter] = [],
+        localPath: String? = "/a.m4a",
+        streamingUrl: String = ""
+    ) -> ListenUp.PreparedPlayback {
+        ListenUp.PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: coverPath,
+            resumeSpeed: resumeSpeed, resumeBoostDb: resumeBoostDb, measuredGainDb: measuredGainDb,
+            normalizationGainDb: normalizationGainDb, resumePositionMs: resumePositionMs, chapters: chapters,
+            timeline: PreparedTimeline(totalDurationMs: durationMs, files: [
+                PreparedFile(localPath: localPath, streamingUrl: streamingUrl, durationMs: durationMs, startOffsetMs: 0)
+            ])
+        )
     }
 }
 
-final class FakeBookDocumentProviding: BookDocumentProviding, @unchecked Sendable {
-    var pdfDocId: String?
-    var localPath: String?
-    func firstPdfDocId(bookId: String) async -> String? { pdfDocId }
-    func ensureLocalPath(bookId: String, docId: String) async -> String? { localPath }
-}
+/// A coordinator over fakes, plus the fakes a test drives it through and observes it by.
+@MainActor
+struct PlayerHarness {
+    let coordinator: PlayerCoordinator
+    let engine: FakePlaybackEngine
+    let progress: FakeProgressReporting
+    let instructions: FakeEngineInstructions
+    let facts: FakeEngineFacts
 
-extension PreparedPlayback {
-    /// The same prepared book with only `resumePositionMs` replaced — what the Kotlin preparer
-    /// returns for a start position.
-    func withResumePosition(_ positionMs: Int64) -> PreparedPlayback {
-        PreparedPlayback(
-            bookTitle: bookTitle, bookAuthor: bookAuthor, bookNarrator: bookNarrator, coverPath: coverPath,
-            resumeSpeed: resumeSpeed, resumeBoostDb: resumeBoostDb, measuredGainDb: measuredGainDb,
-            normalizationGainDb: normalizationGainDb, resumePositionMs: positionMs, chapters: chapters,
-            timeline: timeline, seriesId: seriesId, authors: authors, narrators: narrators, coverHash: coverHash)
+    init(
+        skipIntervals: SkipIntervalProviding? = nil,
+        notificationCenter: NotificationCenter = NotificationCenter()
+    ) {
+        engine = FakePlaybackEngine()
+        progress = FakeProgressReporting()
+        instructions = FakeEngineInstructions()
+        facts = FakeEngineFacts()
+        coordinator = PlayerCoordinator(
+            instructions: instructions, facts: facts, progress: progress, engine: engine,
+            skipIntervals: skipIntervals, notificationCenter: notificationCenter)
+    }
+
+    /// Execute one instruction now, as the drain task would, and wait for its synchronous part.
+    func run(_ instruction: EngineInstruction) async { await coordinator.execute(instruction) }
+
+    /// Load `prepared` as `bookId` and wait until the coordinator has reported it started.
+    func loadAndStart(
+        _ bookId: String = "book1",
+        _ prepared: ListenUp.PreparedPlayback = .fixture(),
+        generation: EngineLoadGeneration = 0
+    ) async {
+        await run(.load(bookId: bookId, prepared: prepared, generation: generation))
+        await progress.waitForStarted(bookId: bookId)
     }
 }

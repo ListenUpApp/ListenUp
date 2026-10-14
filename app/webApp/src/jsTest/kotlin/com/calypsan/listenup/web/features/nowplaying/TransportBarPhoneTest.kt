@@ -1,7 +1,9 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
 import com.calypsan.listenup.web.ViewportFrame
 import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
@@ -31,6 +33,12 @@ private const val LARGE_PHONE = 390
 private const val TABLET = 768
 
 private const val MIN_TARGET_PX = 44.0
+
+private fun row(
+    index: Int,
+    title: String,
+    startMs: Long,
+) = PlayerChapterRow(index, index + 1, title, startMs, BOOK_MS / 2, isCurrent = false)
 
 /** Taller than any phone, so the content region genuinely scrolls. */
 private const val TALL_PAGE_PX = 2_000
@@ -70,15 +78,21 @@ class TransportBarPhoneTest :
                         style { height(TALL_PAGE_PX.px) }
                     })
                     TransportBar(
-                        state = TransportState("The Way of Kings", isPlaying = false, positionMs = 0, durationMs = BOOK_MS),
-                        onPlayPause = {},
+                        state =
+                            loadedPlayerState(
+                                title = "The Way of Kings",
+                                phase = PlayerPhase.Paused,
+                                durationMs = BOOK_MS,
+                                chapters = listOf(row(0, "Prelude", 0), row(1, "One", BOOK_MS / 2)),
+                                currentChapterIndex = 0,
+                                sleepTimer = sleepTimer,
+                            ),
+                        progress = playerProgress(durationMs = BOOK_MS),
+                        onPrimary = {},
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
                         onSetSpeed = {},
-                        chapters = listOf(TransportChapter("Prelude", 0), TransportChapter("One", BOOK_MS / 2)),
-                        currentChapterIndex = 0,
-                        sleepTimer = sleepTimer,
                     )
                 }
                 ToastHost(toasts)

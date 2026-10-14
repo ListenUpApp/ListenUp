@@ -108,7 +108,7 @@ struct BookContextMenuItems: View {
         switch action {
         case .play:
             Button(String(localized: "common.play"), systemImage: "play.fill") {
-                deps.playerCoordinator.play(bookId: bookId)
+                deps.playerObserver.play(bookId: bookId)
             }
         case .addToShelf:
             if let selection {

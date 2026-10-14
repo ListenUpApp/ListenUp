@@ -94,15 +94,9 @@ struct PreparedFile: Sendable {
     let startOffsetMs: Int64
 }
 
-/// Resolve + map a book to a `PreparedPlayback`, or `nil` on failure. `startAtMs` is where the
-/// listener asked to start (a chapter's start, book ms); `nil` resumes from the saved position.
-protocol PlaybackPreparing: Sendable {
-    func prepareOrNull(bookId: String, startAtMs: Int64?) async -> PreparedPlayback?
-}
-
 /// Position + listening-event persistence. `bookId` is the value-class-erased id.
 ///
-/// `@MainActor`-isolated, mirroring `SleepTiming`/`SkipIntervalProviding`: the sole
+/// `@MainActor`-isolated, mirroring `SkipIntervalProviding`: the sole
 /// consumer (`PlayerCoordinator`) is `@MainActor` and drives every callback on the main
 /// actor. Isolation makes that a compile-time guarantee rather than a de-facto assumption —
 /// which matters for the test fake, whose `AsyncGate` waits and `signal()`s must share one
@@ -119,6 +113,8 @@ protocol PlaybackProgressReporting {
     /// A seek splits the listening span so the jumped-over range isn't counted as listened.
     func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float)
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float)
+    /// User reset this book's speed to the default: the per-book speed is removed, not overwritten.
+    func onSpeedReset(bookId: String, positionMs: Int64, defaultSpeed: Float)
     /// User picked a per-book volume boost.
     func onVolumeBoostChanged(bookId: String, positionMs: Int64, newBoostDb: Float)
     /// User reset this book's boost to the global default.
@@ -129,37 +125,6 @@ protocol PlaybackProgressReporting {
     func onBookFinished(bookId: String, positionMs: Int64, durationMs: Int64)
     /// Blocking critical save — used on pause, seek, and app backgrounding.
     func savePositionNow(bookId: String, positionMs: Int64) async
-}
-
-/// The sleep timer, projected as native streams. `stateStream` mirrors the KMP
-/// `state`; `fired` emits when the timer reaches zero and the consumer must fade+pause.
-///
-/// `@MainActor`-isolated: the conformer holds a non-`Sendable` Kotlin manager and a
-/// main-actor `FlowBridge`, and the sole consumer (`PlayerCoordinator`) is `@MainActor`.
-/// Isolation lets the type system enforce that invariant instead of an `@unchecked` comment.
-@MainActor
-protocol SleepTiming {
-    var stateStream: AsyncStream<SleepTimingState> { get }
-    var fired: AsyncStream<Void> { get }
-    func setDurationTimer(minutes: Int)
-    func setEndOfChapterTimer()
-    func cancelTimer()
-    /// Add minutes to a running countdown. The shared timer ignores it for an end-of-chapter timer
-    /// (there is no countdown to add to) and when nothing is running.
-    func extendTimer(minutes: Int)
-    /// Tell the timer which book the listener is on. A change of book cancels any running timer
-    /// and clears the end-of-chapter baseline — a timer is a request about *this* book's chapters,
-    /// and carrying it into the next one fires the fade at a boundary nobody asked for, while the
-    /// listener is asleep and cannot correct it. Reporting the same book again is a no-op.
-    func onBookChanged(bookId: String?)
-    func onChapterChanged(newChapterIndex: Int)
-    func onFadeCompleted()
-}
-
-/// Native projection of the KMP sleep-timer state for the UI surface.
-enum SleepTimingState: Sendable, Equatable {
-    case inactive
-    case active(remainingMs: Int64, isEndOfChapter: Bool, label: String)
 }
 
 /// The user's skip-interval settings, projected as native streams. Each stream emits
@@ -174,20 +139,4 @@ protocol SkipIntervalProviding {
     var forwardSeconds: AsyncStream<Int> { get }
     /// Backward skip interval in seconds. Emits current value, then on every change.
     var backwardSeconds: AsyncStream<Int> { get }
-}
-
-/// Provides supplementary document metadata and on-demand local paths for a book.
-/// Used by `PlayerCoordinator` to show the "Open PDF" menu item and to download
-/// the file before handing it to `DocumentReaderView`.
-protocol BookDocumentProviding: Sendable {
-    /// Returns the id of the first PDF document for the given book, or `nil` if none.
-    func firstPdfDocId(bookId: String) async -> String?
-    /// Downloads the document if absent and returns its absolute local path, or `nil` on failure.
-    func ensureLocalPath(bookId: String, docId: String) async -> String?
-}
-
-/// No-op conformer used as the default for tests that don't inject a real provider.
-struct NoDocumentProviding: BookDocumentProviding {
-    func firstPdfDocId(bookId: String) async -> String? { nil }
-    func ensureLocalPath(bookId: String, docId: String) async -> String? { nil }
 }

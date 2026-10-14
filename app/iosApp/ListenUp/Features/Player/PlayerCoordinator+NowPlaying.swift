@@ -43,9 +43,9 @@ extension NowPlayingInfo {
 @MainActor
 extension PlayerCoordinator {
     func updateNowPlaying() {
-        // `.error` keeps the in-app player visible (for the inline retry) but has no now-playing
-        // content — clear the lock-screen controls; the retry lives in the app.
-        guard isVisible, !isErrored else {
+        // Nothing held (nothing loaded, or a failed load) has no now-playing content — clear the
+        // lock-screen controls; the retry lives in the app.
+        guard engineBook != nil else {
             system.clear()
             return
         }

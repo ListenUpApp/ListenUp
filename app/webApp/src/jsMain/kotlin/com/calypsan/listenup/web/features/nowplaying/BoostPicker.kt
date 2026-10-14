@@ -3,7 +3,7 @@ package com.calypsan.listenup.web.features.nowplaying
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
-import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
+import com.calypsan.listenup.client.presentation.player.isSameVolumeBoost
 import com.calypsan.listenup.domain.VolumeBoostLimits
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div

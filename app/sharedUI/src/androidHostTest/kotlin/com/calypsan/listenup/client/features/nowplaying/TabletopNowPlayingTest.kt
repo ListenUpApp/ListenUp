@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.foldable.Fold
 import com.calypsan.listenup.client.foldable.LocalFold
 import com.calypsan.listenup.client.foldable.Posture
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
 import org.junit.Rule
@@ -46,7 +46,7 @@ class TabletopNowPlayingTest {
         // The cover's own fallback also prints the title; this is the line under it.
         val title =
             composeRule
-                .onNode(hasText(activeState.title) and !hasAnyAncestor(hasTestTag(NOW_PLAYING_COVER_TAG)))
+                .onNode(hasText(activeState.book.title) and !hasAnyAncestor(hasTestTag(NOW_PLAYING_COVER_TAG)))
                 .getUnclippedBoundsInRoot()
         val chapter = composeRule.onNodeWithText("Prologue: To Kill").getUnclippedBoundsInRoot()
         val play = composeRule.onNodeWithContentDescription("Play").getUnclippedBoundsInRoot()
@@ -88,7 +88,7 @@ class TabletopNowPlayingTest {
                         state = activeState,
                         progress = { progress },
                         onCollapse = {},
-                        onPlayPause = {},
+                        onPrimary = {},
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
@@ -115,37 +115,16 @@ class TabletopNowPlayingTest {
     private companion object {
         val WINDOW_HEIGHT = 841.dp
 
-        val progress =
-            PlaybackProgress(
-                bookProgress = 0.25f,
-                bookPositionMs = 60_000,
-                bookDurationMs = 240_000,
-                chapterProgress = 0.5f,
-                chapterPositionMs = 30_000,
-                chapterDurationMs = 60_000,
-            )
+        val progress = samplePlayerProgress
 
+        // As before the shared model: paused, no contributors, chapter 1 titled.
         val activeState =
-            NowPlayingState.Active(
-                bookId = "book-1",
+            loadedPlayerState(
                 title = "The Way of Kings",
-                author = "Brandon Sanderson",
-                coverPath = "/nonexistent/cover.jpg",
-                coverHash = null,
-                authors = emptyList(),
-                narrators = emptyList(),
-                seriesId = null,
-                seriesName = null,
+                phase = PlayerPhase.Paused,
+                primary = PrimaryControl.Play,
                 chapterTitle = "Prologue: To Kill",
-                chapterIndex = 0,
-                totalChapters = 10,
-                chapters = emptyList(),
-                isPlaying = false,
-                isBuffering = false,
-                playbackSpeed = 1f,
-                defaultPlaybackSpeed = 1f,
-                volumeBoostDb = 0f,
-                defaultVolumeBoostDb = 0f,
-            )
+                coverPath = "/nonexistent/cover.jpg",
+            ).let { it.copy(book = it.book.copy(authors = emptyList(), narrators = emptyList())) }
     }
 }

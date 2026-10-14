@@ -283,7 +283,7 @@ class PlaybackManagerAutoRewindOnResumeTest :
                     val reporter = buildReporter(autoRewindEnabled = true, nowMillis = { now }, scope = scope)
                     val manager = createManager(db, scope, reporter)
 
-                    val prepared = manager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    val prepared = manager.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
                     checkNotNull(prepared) { "prepareForPlayback must succeed" }
                     manager.activateBook(BookId("book-1"))
 

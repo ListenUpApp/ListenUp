@@ -15,7 +15,6 @@ import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.DesktopPlaybackController
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.ProgressTracker
-import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.FfmpegAudioPlayer
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -36,7 +35,7 @@ import java.util.UUID
  * - PlaybackManager for playback orchestration
  * - ProgressTracker for position persistence
  *
- * NowPlayingViewModel is bound in the shared `playbackPresentationModule`.
+ * PlayerViewModel and PlayerSession are bound in the shared `playerModule`.
  */
 val platformModule: Module =
     module {
@@ -119,19 +118,12 @@ val platformModule: Module =
             }
         }
 
-        // Sleep timer manager
-        single {
-            SleepTimerManager(
-                scope = get(qualifier = named("playbackScope")),
-            )
-        }
-
         // Background sync scheduler (stub)
         single<BackgroundSyncScheduler> { StubBackgroundSyncScheduler() }
 
         // Book detail platform actions (playback via FFmpeg, downloads stubbed)
         single<BookDetailPlatformActions> {
-            DesktopBookDetailPlatformActions(nowPlayingViewModel = get())
+            DesktopBookDetailPlatformActions(playerSession = get())
         }
 
         // Settings platform actions (reveal the on-device log directory)

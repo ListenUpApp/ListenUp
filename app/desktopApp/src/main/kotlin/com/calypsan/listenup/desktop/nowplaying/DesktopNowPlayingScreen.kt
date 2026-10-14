@@ -65,12 +65,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.WavySeekBar
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
@@ -78,17 +80,17 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * Full-screen now-playing view for desktop.
  *
- * Dispatches over the [NowPlayingState] sealed hierarchy: [NowPlayingState.Active]
- * gets the full transport / wavy seek bar / overflow menu UI; [NowPlayingState.Error]
- * shows an error card with retry affordances; [NowPlayingState.Idle] shows nothing
- * meaningful (caller normally avoids routing here when Idle).
+ * Dispatches over [PlayerUiState]: a loaded book gets the full transport / wavy seek bar /
+ * overflow menu UI; a loaded book whose phase is [PlayerPhase.Failed] or [PlayerPhase.Unavailable]
+ * shows an error card; [PlayerUiState.NothingLoaded] shows nothing meaningful (caller normally
+ * avoids routing here then).
  *
  * Active layout adapts: wide → cover left / controls right; tall → vertical centre.
  */
 @Composable
 fun DesktopNowPlayingScreen(
-    state: NowPlayingState,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState,
+    progress: () -> PlayerProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -104,20 +106,22 @@ fun DesktopNowPlayingScreen(
     modifier: Modifier = Modifier,
 ) {
     Surface(modifier = modifier.fillMaxSize()) {
-        when (state) {
-            is NowPlayingState.Idle -> {
+        val problem = (state as? PlayerUiState.Loaded)?.problem()
+        when {
+            state !is PlayerUiState.Loaded -> {
                 IdleScreen(onBackClick = onBackClick)
             }
 
-            is NowPlayingState.Error -> {
+            problem != null -> {
                 ErrorScreen(
-                    state = state,
+                    title = state.book.title,
+                    message = problem.message,
                     onBackClick = onBackClick,
                     onClose = onClose,
                 )
             }
 
-            is NowPlayingState.Active -> {
+            else -> {
                 ActiveScreen(
                     state = state,
                     progress = progress,
@@ -141,6 +145,31 @@ fun DesktopNowPlayingScreen(
         }
     }
 }
+
+/** What stops this book playing, or null when nothing does. */
+private fun PlayerUiState.Loaded.problem(): AppError? =
+    when (val p = phase) {
+        is PlayerPhase.Failed -> p.error
+        is PlayerPhase.Unavailable -> p.reason
+        else -> null
+    }
+
+/** Audio is advancing. */
+private val PlayerUiState.Loaded.isPlaying: Boolean
+    get() = phase == PlayerPhase.Playing || phase == PlayerPhase.SleepFading
+
+/** The byline as one line. */
+private val PlayerUiState.Loaded.author: String
+    get() = book.authors.joinToString(", ") { it.name }
+
+/** The chapter's own title; null for a chapterless book. */
+private val PlayerUiState.Loaded.chapterTitle: String?
+    get() = chapter.title.takeUnless { chapter.isWholeBook }
+
+/** "Chapter 6 of 75", empty for a chapterless book. Desktop is frozen and cannot reach sharedUI's internal Res. */
+@Suppress("NoHardcodedUiString")
+private val PlayerUiState.Loaded.chapterLabel: String
+    get() = if (chapter.isWholeBook) "" else "Chapter ${chapter.number} of ${chapter.total}"
 
 /** Where the player's overflow menu can lead; a null destination is left out of the menu. */
 private data class NowPlayingLinks(
@@ -167,7 +196,8 @@ private fun IdleScreen(onBackClick: () -> Unit) {
 
 @Composable
 private fun ErrorScreen(
-    state: NowPlayingState.Error,
+    title: String,
+    message: String,
     onBackClick: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -188,19 +218,17 @@ private fun ErrorScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            state.title?.let { title ->
-                // Desktop is frozen and cannot reach sharedUI's internal Res; this copy was already baselined.
-                @Suppress("NoHardcodedUiString")
-                Text(
-                    text = "Failed to play $title",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(Modifier.height(8.dp))
-            }
+            // Desktop is frozen and cannot reach sharedUI's internal Res; this copy was already baselined.
+            @Suppress("NoHardcodedUiString")
             Text(
-                text = state.message,
+                text = "Failed to play $title",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = message,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
@@ -212,8 +240,8 @@ private fun ErrorScreen(
 
 @Composable
 private fun ActiveScreen(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -319,8 +347,8 @@ private fun ActiveScreen(
 
 @Composable
 private fun TallLayout(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -356,8 +384,8 @@ private fun TallLayout(
             contentAlignment = Alignment.Center,
         ) {
             CoverArt(
-                bookId = state.bookId,
-                coverUrl = state.coverPath,
+                bookId = state.book.id,
+                coverUrl = state.book.coverPath,
             )
         }
 
@@ -365,7 +393,7 @@ private fun TallLayout(
 
         // Title section
         TitleSection(
-            title = state.title,
+            title = state.book.title,
             author = state.author,
             chapterTitle = state.chapterTitle,
             chapterLabel = state.chapterLabel,
@@ -397,7 +425,7 @@ private fun TallLayout(
 
         // Secondary controls
         SecondaryControls(
-            playbackSpeed = state.playbackSpeed,
+            playbackSpeed = state.settings.speed,
             onSpeedClick = onSetSpeed,
         )
 
@@ -409,8 +437,8 @@ private fun TallLayout(
 
 @Composable
 private fun WideLayout(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -438,8 +466,8 @@ private fun WideLayout(
             contentAlignment = Alignment.Center,
         ) {
             CoverArt(
-                bookId = state.bookId,
-                coverUrl = state.coverPath,
+                bookId = state.book.id,
+                coverUrl = state.book.coverPath,
             )
         }
 
@@ -459,7 +487,7 @@ private fun WideLayout(
             )
 
             TitleSection(
-                title = state.title,
+                title = state.book.title,
                 author = state.author,
                 chapterTitle = state.chapterTitle,
                 chapterLabel = state.chapterLabel,
@@ -482,7 +510,7 @@ private fun WideLayout(
             )
 
             SecondaryControls(
-                playbackSpeed = state.playbackSpeed,
+                playbackSpeed = state.settings.speed,
                 onSpeedClick = onSetSpeed,
             )
         }
@@ -493,7 +521,7 @@ private fun WideLayout(
 
 @Composable
 private fun TopBar(
-    state: NowPlayingState.Active,
+    state: PlayerUiState.Loaded,
     onBackClick: () -> Unit,
     onClose: () -> Unit,
     links: NowPlayingLinks,
@@ -539,7 +567,7 @@ private fun TopBar(
 private fun OverflowMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
-    state: NowPlayingState.Active,
+    state: PlayerUiState.Loaded,
     onGoToBook: (() -> Unit)?,
     onGoToSeries: ((String) -> Unit)?,
     onGoToContributor: ((String) -> Unit)?,
@@ -560,7 +588,10 @@ private fun OverflowMenu(
             )
         }
 
-        val seriesId = state.seriesId
+        val seriesId =
+            state.book.series
+                .firstOrNull()
+                ?.id
         if (onGoToSeries != null && seriesId != null) {
             DropdownMenuItem(
                 text = { Text("Go to Series") },
@@ -572,23 +603,27 @@ private fun OverflowMenu(
             )
         }
 
-        if (onGoToContributor != null && state.authors.isNotEmpty()) {
+        if (onGoToContributor != null && state.book.authors.isNotEmpty()) {
             DropdownMenuItem(
-                text = { Text(if (state.hasMultipleAuthors) "Go to Author…" else "Go to Author") },
+                text = { Text(if (state.book.authors.size > 1) "Go to Author…" else "Go to Author") },
                 onClick = {
                     onDismiss()
-                    state.authors.firstOrNull()?.let { onGoToContributor(it.id) }
+                    state.book.authors
+                        .firstOrNull()
+                        ?.let { onGoToContributor(it.id) }
                 },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
             )
         }
 
-        if (onGoToContributor != null && state.narrators.isNotEmpty()) {
+        if (onGoToContributor != null && state.book.narrators.isNotEmpty()) {
             DropdownMenuItem(
-                text = { Text(if (state.hasMultipleNarrators) "Go to Narrator…" else "Go to Narrator") },
+                text = { Text(if (state.book.narrators.size > 1) "Go to Narrator…" else "Go to Narrator") },
                 onClick = {
                     onDismiss()
-                    state.narrators.firstOrNull()?.let { onGoToContributor(it.id) }
+                    state.book.narrators
+                        .firstOrNull()
+                        ?.let { onGoToContributor(it.id) }
                 },
                 leadingIcon = { Icon(Icons.Default.RecordVoiceOver, contentDescription = null) },
             )
@@ -695,14 +730,14 @@ private fun TitleSection(
  */
 @Composable
 private fun SeekSection(
-    progress: () -> PlaybackProgress,
+    progress: () -> PlayerProgress,
     isPlaying: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth().widthIn(max = 480.dp)) {
         WavySeekBar(
-            progress = progress().chapterProgress.coerceIn(0f, 1f),
+            progress = progress().chapterFraction.coerceIn(0f, 1f),
             onSeek = onSeek,
             isPlaying = isPlaying,
         )

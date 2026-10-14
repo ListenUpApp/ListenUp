@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_next_chapter
 import listenup.composeapp.generated.resources.player_previous_chapter
@@ -25,12 +26,11 @@ import org.jetbrains.compose.resources.stringResource
  *
  * The play/pause FAB is a squircle-shaped [RoundedCornerShape](20.dp) button with
  * [MaterialTheme.colorScheme.primary] background and a wavy circular progress indicator
- * while [isBuffering] is true. Chapter-skip controls use [onSurfaceVariant] tint to
+ * while [primary] is busy. Chapter-skip controls use [onSurfaceVariant] tint to
  * visually de-emphasise them relative to the skip controls.
  *
- * @param isPlaying Whether playback is active (determines play/pause icon).
- * @param isBuffering Whether the player is loading (shows spinner instead of icon).
- * @param onPlayPause Called when the play/pause FAB is tapped.
+ * @param primary The shared model's main button (play, pause, busy, or a way out of a failure).
+ * @param onPrimary Called when the main button is tapped.
  * @param onSkipBack Called when the skip-back control is tapped.
  * @param onSkipForward Called when the skip-forward control is tapped.
  * @param onPreviousChapter Called when the skip-previous control is tapped.
@@ -42,9 +42,8 @@ import org.jetbrains.compose.resources.stringResource
  */
 @Composable
 fun PlayerTransport(
-    isPlaying: Boolean,
-    isBuffering: Boolean,
-    onPlayPause: () -> Unit,
+    primary: PrimaryControl,
+    onPrimary: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
     onPreviousChapter: () -> Unit,
@@ -76,10 +75,9 @@ fun PlayerTransport(
             tint = MaterialTheme.colorScheme.onSurface,
         )
 
-        PlayPauseFab(
-            isPlaying = isPlaying,
-            isBuffering = isBuffering,
-            onClick = onPlayPause,
+        PrimaryControlFab(
+            primary = primary,
+            onClick = onPrimary,
             size = fabSize,
         )
 

@@ -2,54 +2,33 @@ import Testing
 @testable import ListenUp
 
 /// Critical-path coverage for the audiobook promise "never lose the user's place"
-/// (iOS charter rule 13) and the player's uncovered error states.
+/// (iOS charter rule 13) and the engine's failure states.
 ///
-/// The save-on-pause / save-on-seek / save-on-background machinery is wired but lightly tested;
-/// `PlayerCoordinatorTests` already covers save-when-visible, save-no-op-when-idle, and
-/// seek-reports-position, and `ScenePhasePolicyTests` covers the background-save decision. This
-/// file fills the remaining gaps: pause carries the reached position, and the two preparation
-/// failure modes surface their error phase.
+/// `PlayerCoordinatorTests` covers save-when-loaded, save-no-op-when-idle and seek-reports-position,
+/// and `ScenePhasePolicyTests` covers the background-save decision. This file fills the remaining
+/// gaps: pause carries the reached position, the finish truth, and the typed failure reports.
 
 @Suite("Pause persistence")
 @MainActor
 struct PausePersistenceTests {
-    /// Pausing reports the user's current place. Pause is one of the three save triggers and
-    /// must carry the position that was reached — a refactor that drops the position here would
-    /// silently re-introduce the exact "lost on pause" regression rule 13 exists to prevent.
+    /// Pausing reports the user's current place. Pause is one of the three save triggers and must
+    /// carry the position that was reached.
     @Test func pauseReportsCurrentPosition() async throws {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine)
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
 
-        // Anchor the position so the pause report carries a concrete, non-zero place.
         // `rate: 0` (paused sample) holds the position exactly; a positive rate would start
-        // the CADisplayLink and interpolate past 12345, racing the `== 12345` poll into a hang.
-        engine.emit(.position(ms: 12345, rate: 0.0))
-        await awaitObservation { coordinator.bookPositionMs == 12345 }
+        // the display link and interpolate past 12345.
+        harness.engine.emit(.position(ms: 12345, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 12345 }
 
-        coordinator.togglePlayback()
-        await engine.waitUntilPaused()
+        await harness.run(.pause)
+        await harness.engine.waitUntilPaused()
 
-        // Poll for the pause report rather than asserting it the instant `pause()` lands — defensive
-        // against any late/reordered delivery under the parallel-suite MainActor scheduler. On a
-        // genuinely-wrong position this still fails (the value never arrives), and the failure
-        // message surfaces what WAS recorded so a CI flake here is finally diagnosable, not opaque.
-        await awaitUntil { progress.pausedCalls.contains { $0.0 == "book1" && $0.1 == 12345 } }
+        await awaitUntil { harness.progress.pausedCalls.contains { $0.0 == "book1" && $0.1 == 12345 } }
         #expect(
-            progress.pausedCalls.contains { $0.0 == "book1" && $0.1 == 12345 },
-            "expected a pause report at 12345 for book1; recorded: \(progress.pausedCalls)",
+            harness.progress.pausedCalls.contains { $0.0 == "book1" && $0.1 == 12345 },
+            "expected a pause report at 12345 for book1; recorded: \(harness.progress.pausedCalls)"
         )
     }
 }
@@ -57,190 +36,191 @@ struct PausePersistenceTests {
 @Suite("Finish truth")
 @MainActor
 struct FinishTruthTests {
-    private func playingOneMinuteBook() async -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(), engine: engine)
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-        return (coordinator, engine, progress)
-    }
-
-    /// End-of-media reports where the listener actually was, not the book's duration. The shared
-    /// tracker ignores an end that is not near the end — passing the duration here, as this used
-    /// to, would let a spurious end mark a half-listened book finished.
+    /// End-of-media reports where the listener actually was, not the book's duration, and tells the
+    /// shared player the engine ended.
     @Test func bookEndedReportsTheRealPosition() async throws {
-        let (coordinator, engine, progress) = await playingOneMinuteBook()
-        engine.emit(.position(ms: 24000, rate: 0.0))
-        await awaitObservation { coordinator.bookPositionMs == 24000 }
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        harness.engine.emit(.position(ms: 24000, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 24000 }
 
-        engine.emit(.ended)
+        harness.engine.emit(.ended)
 
-        await awaitUntil { !progress.finished.isEmpty }
-        #expect(progress.finished.first?.positionMs == 24000)
-        #expect(progress.finished.first?.durationMs == 60000)
+        await awaitUntil { !harness.progress.finished.isEmpty }
+        #expect(harness.progress.finished.first?.positionMs == 24000)
+        #expect(harness.progress.finished.first?.durationMs == 60000)
+        await awaitObservation { harness.coordinator.enginePhase == .ended }
+        #expect(harness.facts.phases.last == .ended)
     }
 
     /// A pause carries the book's duration, so the shared tracker can tell a pause in the end
     /// credits (the book is finished) from any other pause.
     @Test func pauseCarriesTheBookDuration() async throws {
-        let (coordinator, engine, progress) = await playingOneMinuteBook()
-        engine.emit(.position(ms: 59800, rate: 0.0))
-        await awaitObservation { coordinator.bookPositionMs == 59800 }
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        harness.engine.emit(.position(ms: 59800, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 59800 }
 
-        coordinator.togglePlayback()
-        await engine.waitUntilPaused()
+        await harness.run(.pause)
 
-        await awaitUntil { !progress.pausedDurations.isEmpty }
-        #expect(progress.pausedDurations.last == 60000)
-    }
-
-    /// Playing again after the book ended — a chapter tap, then play, with no new load — carries the
-    /// book's duration, so the shared tracker can tell a re-listen (a start outside the end credits,
-    /// which clears the finished flag) from playing on inside them.
-    @Test func startAfterTheEndCarriesTheBookDuration() async throws {
-        let (coordinator, engine, progress) = await playingOneMinuteBook()
-        engine.emit(.position(ms: 60000, rate: 0.0))
-        await awaitObservation { coordinator.bookPositionMs == 60000 }
-        engine.emit(.ended)
-        await awaitUntil { !progress.finished.isEmpty }
-
-        coordinator.seekTo(positionMs: 0)
-        engine.emit(.position(ms: 0, rate: 0.0))
-        await awaitObservation { coordinator.bookPositionMs == 0 }
-        coordinator.togglePlayback()
-
-        await awaitUntil { progress.startedDurations.count == 2 }
-        #expect(progress.startedCalls.last?.1 == 0)
-        #expect(progress.startedDurations.last == 60000)
+        await awaitUntil { !harness.progress.pausedDurations.isEmpty }
+        #expect(harness.progress.pausedDurations.last == 60000)
     }
 }
 
 @Suite("Buffering promotion")
 @MainActor
 struct BufferingPromotionTests {
-    /// Audio actually advancing promotes a `.buffering` phase to `.playing`.
-    ///
-    /// The engine's `.ready` is a KVO *transition* of `timeControlStatus` — if that transition
-    /// lands inside the `isEngineLoading` gate (first load's muted preroll), it is dropped and
-    /// nothing re-emits it. The coordinator then sits in `.buffering` forever while samples flow:
-    /// the in-app glyphs look right (`isPlaybackActive` covers buffering), but `updateNowPlaying`
-    /// pushes rate 0, so CarPlay and the lock screen show a paused book that is audibly playing.
-    /// Position events carry the player's real rate every ~250 ms — a positive rate IS the
-    /// "audio is advancing" fact, so it must promote regardless of which race ate the status event.
+    /// Audio actually advancing promotes a `.buffering` phase to `.playing`. The engine's `.ready` is a
+    /// KVO *transition*; if it lands inside the loading gate it is dropped and nothing re-emits it.
+    /// Position samples carry the player's real rate, and a positive rate IS "audio is advancing".
     @Test func advancingAudioPromotesBufferingToPlaying() async throws {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine)
-        // Model the dropped `.ready`: the real transition happened inside the load gate and no
-        // KVO ever re-fires it.
-        await engine.setAutoReadyOnPlay(false)
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-        #expect(!coordinator.isPlaying, "fresh load with no engine events should still be buffering")
+        let harness = PlayerHarness()
+        await harness.engine.setAutoReadyOnPlay(false)
+        await harness.loadAndStart()
+        #expect(!harness.coordinator.isPlaying, "fresh load with no engine events should still be buffering")
 
-        engine.emit(.position(ms: 250, rate: 1.0))
+        harness.engine.emit(.position(ms: 250, rate: 1.0))
 
-        await awaitObservation { coordinator.isPlaying }
-        #expect(coordinator.isPlaying, "advancing audio (rate > 0) must promote buffering to playing")
+        await awaitObservation { harness.coordinator.isPlaying }
+        #expect(harness.coordinator.isPlaying, "advancing audio (rate > 0) must promote buffering to playing")
     }
 
-    /// A paused-rate position sample must NOT promote — rate 0 samples arrive while genuinely
-    /// buffering, and pause ownership stays with the coordinator.
+    /// A paused-rate position sample must NOT promote — rate 0 samples arrive while genuinely buffering.
     @Test func stalledAudioDoesNotPromoteBuffering() async throws {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine)
-        await engine.setAutoReadyOnPlay(false)
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
+        let harness = PlayerHarness()
+        await harness.engine.setAutoReadyOnPlay(false)
+        await harness.loadAndStart()
 
-        engine.emit(.position(ms: 250, rate: 0.0))
-        await awaitObservation { coordinator.bookPositionMs == 250 }
+        harness.engine.emit(.position(ms: 250, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 250 }
 
-        #expect(!coordinator.isPlaying, "a rate-0 sample is not evidence of playback")
+        #expect(!harness.coordinator.isPlaying, "a rate-0 sample is not evidence of playback")
     }
 }
 
-@Suite("Prepare error states")
+@Suite("Engine failures")
 @MainActor
-struct PrepareErrorStateTests {
-    /// The preparer returns `nil` (the book couldn't be prepared) → the coordinator surfaces
-    /// the "Couldn't start playback." error phase rather than silently staying `.preparing`.
-    @Test func nilPreparedYieldsCouldNotStartError() async {
-        let preparer = FakePlaybackPreparing()
-        preparer.result = nil
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
-            engine: FakePlaybackEngine())
+struct EngineFailureTests {
+    /// A prepared book whose timeline yields no playable segments is reported as could-not-start.
+    @Test func emptyTimelineReportsCouldNotStart() async {
+        let harness = PlayerHarness()
+        await harness.run(.load(bookId: "book1", prepared: .fixture(localPath: nil, streamingUrl: "")))
 
-        coordinator.play(bookId: "book1")
-        await awaitObservation {
-            if case .error = coordinator.phase { return true }
-            return false
-        }
-
-        guard case let .error(state) = coordinator.phase else {
-            Issue.record("expected .error, got \(coordinator.phase)")
-            return
-        }
-        #expect(state.message == "Couldn't start playback.")
+        #expect(harness.facts.failures == [.couldNotStart(detail: "no audio")])
+        #expect(harness.coordinator.engineBook == nil)
     }
 
-    /// A prepared book whose timeline yields no playable segments (no local path and an empty
-    /// streaming URL) → the "This book has no audio." error phase.
-    @Test func emptyTimelineYieldsNoAudioError() async {
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: nil, streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
-            engine: FakePlaybackEngine())
+    /// An engine load failure is reported typed and holds nothing, so nothing saves against it.
+    @Test func loadFailureReportsCouldNotStart() async {
+        let harness = PlayerHarness()
+        await harness.engine.setLoadShouldFail(true)
+        await harness.run(.load(bookId: "book1", prepared: .fixture()))
 
-        coordinator.play(bookId: "book1")
-        await awaitObservation {
-            if case .error = coordinator.phase { return true }
-            return false
-        }
+        await awaitObservation { harness.coordinator.engineBook == nil }
+        #expect(harness.facts.failures == [.couldNotStart(detail: "engine load failed")])
+        await harness.coordinator.saveCurrentPosition()
+        #expect(harness.progress.savedNow.isEmpty)
+    }
 
-        guard case let .error(state) = coordinator.phase else {
-            Issue.record("expected .error, got \(coordinator.phase)")
-            return
+    /// An item failure mid-play reaches the shared player with its typed cause.
+    @Test func itemFailureIsReportedTyped() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+
+        harness.engine.emit(.failed(.connectionLost(detail: "NSURLErrorDomain -1005")))
+
+        await awaitObservation { harness.coordinator.engineBook == nil }
+        #expect(harness.facts.failures == [.connectionLost(detail: "NSURLErrorDomain -1005")])
+    }
+
+    /// Nothing plays behind an error (6c): a failed item stops the player, so AVPlayer cannot resume the stalled
+    /// queue, or move on to the next segment, by itself once the server is back. Only a fresh prepare plays again.
+    @Test func failureMidPlayStopsThePlayer() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        let pausesBefore = await harness.engine.commandLog.filter { $0 == "pause" }.count
+
+        harness.engine.emit(.failed(.connectionLost(detail: nil)))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+
+        await awaitUntil(timeout: .seconds(5)) {
+            await harness.engine.commandLog.filter { $0 == "pause" }.count > pausesBefore
         }
-        #expect(state.message == "This book has no audio.")
+        #expect(await harness.engine.commandLog.filter { $0 == "pause" }.count == pausesBefore + 1)
+    }
+
+    /// Position is sacred: a failure mid-play records the pause and saves the exact place before the book is
+    /// dropped, so a Retry (which resumes from the saved place) starts where the audio stopped, not up to 5 s back.
+    @Test func failureMidPlayRecordsThePlaceBeforeDroppingTheBook() async {
+        let harness = PlayerHarness()
+        // Start 3 s short of the place, so reaching it stays inside one 5 s position tick: only the failure path
+        // can record 15000 (from 0, the jump alone would cross the tick and save it, whatever the order).
+        await harness.loadAndStart("book1", .fixture(resumePositionMs: 12000))
+        // `rate: 0` holds the playhead exactly at 15000; a positive rate would interpolate past it.
+        harness.engine.emit(.position(ms: 15000, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 15000 }
+        #expect(harness.progress.positionUpdates.isEmpty, "the 5 s tick has not saved this place")
+
+        harness.engine.emit(.failed(.connectionLost(detail: nil)))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+
+        #expect(harness.progress.pausedCalls.last?.0 == "book1")
+        #expect(harness.progress.pausedCalls.last?.1 == 15000)
+        await awaitUntil { harness.progress.savedNow.contains { $0 == ("book1", 15000) } }
+        #expect(harness.progress.savedNow.contains { $0 == ("book1", 15000) })
+    }
+
+    /// A book that never started (its engine load failed) has no place of its own to save.
+    @Test func loadFailureRecordsNoPause() async {
+        let harness = PlayerHarness()
+        await harness.engine.setLoadShouldFail(true)
+        await harness.run(.load(bookId: "book1", prepared: .fixture(resumePositionMs: 9000)))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+        await awaitUntil(timeout: .milliseconds(300)) { !harness.progress.savedNow.isEmpty }
+        #expect(harness.progress.pausedCalls.isEmpty)
+        #expect(harness.progress.savedNow.isEmpty)
+    }
+
+    /// A play after a failure must not replay the preparation that just failed (its URLs, local paths and token
+    /// may be what broke): the coordinator holds nothing, and the shared player prepares the book afresh.
+    @Test func playAfterAFailureDoesNotReplayTheFailedPreparation() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        harness.engine.emit(.failed(.connectionLost(detail: nil)))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+
+        await harness.run(.seek(toMs: 20000))
+        await harness.run(.play)
+
+        let log = await harness.engine.commandLog
+        #expect(log.filter { $0 == "load" }.count == 1)
+        #expect(!log.contains("seek"))
+        #expect(harness.coordinator.engineBook == nil)
+    }
+
+    /// Never stranded from the lock screen, CarPlay or AirPods: a play there after a failure asks the shared
+    /// player to play, which prepares the book afresh, tagged with the failed load's generation.
+    @Test func remotePlayAfterAFailureAsksTheSharedPlayer() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(), generation: 4)
+        harness.engine.emit(.failed(.connectionLost(detail: nil)))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+
+        harness.coordinator.remotePlay()
+        harness.coordinator.remoteTogglePlayPause()
+
+        #expect(harness.facts.playRequests == [4, 4])
+        #expect(await harness.engine.commandLog.filter { $0 == "load" }.count == 1)
+    }
+
+    /// While the coordinator holds the book, a remote play resumes the engine; it does not bother the shared player.
+    @Test func remotePlayWhileHeldResumesTheEngine() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart()
+        await harness.run(.pause)
+        harness.coordinator.remotePlay()
+        await harness.engine.waitForPlayCount(2)
+        #expect(harness.facts.playRequests.isEmpty)
     }
 }

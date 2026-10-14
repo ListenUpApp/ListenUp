@@ -141,7 +141,7 @@ import listenup.composeapp.generated.resources.settings_wifi_only_downloads_subt
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
-import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
 import org.koin.compose.viewmodel.koinViewModel
 
 /**

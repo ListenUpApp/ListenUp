@@ -158,7 +158,7 @@ struct BookDetailView: View {
             let vm = deps.createBookDetailViewModel()
             let obs = BookDetailObserver(
                 viewModel: vm,
-                playerCoordinator: deps.playerCoordinator,
+                playerObserver: deps.playerObserver,
                 downloadService: deps.downloadService
             )
             observer = obs

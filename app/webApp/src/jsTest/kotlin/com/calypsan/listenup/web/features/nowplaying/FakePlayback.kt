@@ -2,13 +2,12 @@ package com.calypsan.listenup.web.features.nowplaying
 
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import kotlinx.coroutines.flow.flowOf
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioSegment
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.loudness.VolumeGain
 import com.calypsan.listenup.core.BookId
@@ -16,7 +15,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -24,7 +22,7 @@ import kotlinx.coroutines.yield
 
 /**
  * A [PlaybackManager] that prepares one real, decodable segment and bridges the player's flows
- * back — the two behaviours [LivePlayback] actually depends on, in the same order
+ * back — the two behaviours the browser's player engine actually depends on, in the same order
  * `PlaybackManagerImpl` performs them.
  *
  * Deliberately NOT a stub that returns canned state: the point of the specs that use this is to
@@ -40,16 +38,12 @@ internal fun fakePlaybackManager(
 ): FakePlaybackManager = FakePlaybackManager(segment, title, prepare, resumeBoostDb)
 
 /**
- * How a fake prepare ends. The two failing shapes are the ones a prime has to survive: a prepare
- * that blows up, and one that is still in flight when the session is closed.
+ * How a fake prepare ends: it succeeds, or it is still in flight (the shape a prime has to survive when the
+ * session is closed under it).
  */
 internal enum class PrepareOutcome {
     SUCCEEDS,
-    THROWS,
     NEVER_RETURNS,
-
-    /** The first book starts; every book after it has an RPC still in flight. */
-    STALLS_AFTER_FIRST,
 }
 
 /**
@@ -64,18 +58,6 @@ internal class FakePlaybackManager(
     /** The book's stored boost, published at prepare time the way `PlaybackManagerImpl` does. */
     private val resumeBoostDb: Float = 0f,
 ) : PlaybackManager {
-    private var prepareCount = 0
-
-    /** Every start position a prepare was asked for, in order (`null` = resume). */
-    val prepareStartAts = mutableListOf<Long?>()
-
-    /**
-     * When set, every prepare ends in this typed refusal instead of a timeline — the shape the real
-     * choke point returns for, say, a book held for review. Distinct from [PrepareOutcome.THROWS],
-     * which models an escaping failure rather than a typed one.
-     */
-    var stubbedPrepareError: AppError? = null
-
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override val currentBookId = MutableStateFlow<BookId?>(null)
@@ -87,10 +69,8 @@ internal class FakePlaybackManager(
     override val playbackSpeed = MutableStateFlow(1.0f)
     override val volumeBoostDb = MutableStateFlow(0f)
     override val playbackState = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
-    override val playbackError = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)
+    override val playbackError = MutableStateFlow<AppError?>(null)
     override val chapters = MutableStateFlow<List<Chapter>>(emptyList())
-    override val preparingBookId = MutableStateFlow<BookId?>(null)
-    override val preparingBookIdUi: Flow<BookId?> = preparingBookId
     override val currentChapter = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
     override val effectiveGainDb = MutableStateFlow(0f)
     override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
@@ -132,50 +112,27 @@ internal class FakePlaybackManager(
         playbackSpeed.value = speed
     }
 
-    override fun reportError(
-        message: String,
-        isRecoverable: Boolean,
-    ) {
-        playbackError.value =
-            PlaybackManager.PlaybackErrorUiState(message = message, isRecoverable = isRecoverable, timestampMs = 0L)
+    override fun reportError(error: AppError) {
+        playbackError.value = error
     }
 
     override fun activateBook(bookId: BookId) {
         currentBookId.value = bookId
     }
 
-    override fun markPreparing(bookId: BookId) {
-        preparingBookId.value = bookId
-    }
-
-    override fun clearPreparing() {
-        preparingBookId.value = null
-    }
-
     override suspend fun prepareForPlayback(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<PlaybackManager.PrepareResult> {
         // A real prepare is an RPC round-trip, so it always suspends. Without this the fake returns
-        // inline — and because `LivePlayback.playBook` launches UNDISPATCHED, the whole
+        // inline — and because the shared session's load launches UNDISPATCHED, the whole
         // prepare -> activate -> load chain would run to completion *before* `playBook` returns.
         // A spec asserting on state "while the prepare is in flight" would then silently read the
         // finished state instead, which is how the no-restart spec passed with its own fix deleted.
         yield()
-        prepareCount++
-        prepareStartAts += startAtMs
-        stubbedPrepareError?.let { return AppResult.Failure(it) }
-        when (prepare) {
-            PrepareOutcome.SUCCEEDS -> Unit
-
-            PrepareOutcome.STALLS_AFTER_FIRST -> if (prepareCount > 1) awaitCancellation()
-
-            PrepareOutcome.THROWS -> error("prepare failed")
-
-            // Suspends until the caller's scope is cancelled — the shape of a real RPC that is
-            // still in flight when the shell unmounts.
-            PrepareOutcome.NEVER_RETURNS -> awaitCancellation()
-        }
+        // Suspends until the caller's scope is cancelled — the shape of a real RPC that is still in
+        // flight when the shell unmounts.
+        if (prepare == PrepareOutcome.NEVER_RETURNS) awaitCancellation()
         val timeline =
             PlaybackTimeline(
                 bookId = bookId,
@@ -211,7 +168,7 @@ internal class FakePlaybackManager(
                 seriesName = null,
                 coverPath = null,
                 totalChapters = 1,
-                resumePositionMs = startAtMs ?: 0L,
+                resumePositionMs = (start as? PlaybackStart.At)?.positionMs ?: 0L,
                 resumeSpeed = 1.0f,
                 resumeBoostDb = resumeBoostDb,
                 measuredGainDb = null,
@@ -263,34 +220,4 @@ internal class FakePlaybackManager(
     override fun clearError() {
         playbackError.value = null
     }
-}
-
-/**
- * A [PlaybackPreferences] that answers from constructor values and never touches storage.
- *
- * Hand-written rather than mocked: the transport specs only ever read the two skip intervals, and
- * a mock would need all eight members stubbed at every call site to avoid throwing on the ones the
- * bar reads incidentally.
- */
-internal class FakePlaybackPreferences(
-    private val skipForwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
-    private val skipBackwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
-    private val speed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
-    private val boostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
-) : PlaybackPreferences {
-    override fun observeDefaultPlaybackSpeed(): Flow<Float> = flowOf(speed)
-
-    override suspend fun getDefaultPlaybackSpeed(): Float = speed
-
-    override fun observeDefaultVolumeBoostDb(): Flow<Float> = flowOf(boostDb)
-
-    override suspend fun getDefaultVolumeBoostDb(): Float = boostDb
-
-    override fun observeDefaultSkipForwardSec(): Flow<Int> = flowOf(skipForwardSec)
-
-    override fun observeDefaultSkipBackwardSec(): Flow<Int> = flowOf(skipBackwardSec)
-
-    override suspend fun getDefaultSkipForwardSec(): Int = skipForwardSec
-
-    override suspend fun getDefaultSkipBackwardSec(): Int = skipBackwardSec
 }

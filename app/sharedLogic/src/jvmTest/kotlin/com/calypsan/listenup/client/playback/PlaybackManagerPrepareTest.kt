@@ -155,7 +155,13 @@ class PlaybackManagerPrepareTest :
 
                     val playbackManager = createPlaybackManager(db)
 
-                    val result = playbackManager.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull().shouldNotBeNull()
+                    val result =
+                        playbackManager
+                            .prepareForPlayback(
+                                BookId("book-1"),
+                                start = PlaybackStart.Resume,
+                            ).getOrNull()
+                            .shouldNotBeNull()
 
                     withClue("timeline should have 3 segments") { result.timeline.files.size shouldBe 3 }
                     // Verify ordering: segments should be in index order (0, 1, 2)
@@ -176,7 +182,7 @@ class PlaybackManagerPrepareTest :
                     val playbackManager = createPlaybackManager(db)
 
                     val result =
-                        playbackManager.prepareForPlayback(BookId("book-1"), startAtMs = 1_234L).getOrNull().shouldNotBeNull()
+                        playbackManager.prepareForPlayback(BookId("book-1"), start = PlaybackStart.At(1_234L)).getOrNull().shouldNotBeNull()
 
                     result.resumePositionMs shouldBe 1_234L
                 }
@@ -206,7 +212,7 @@ class PlaybackManagerPrepareTest :
                         )
                     val player = FakePlayer()
 
-                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), startAtMs = null).getOrNull()
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"), start = PlaybackStart.Resume).getOrNull()
                     checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
                     sut.activateBook(BookId("book-1"))
 

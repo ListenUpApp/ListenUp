@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
+import com.calypsan.listenup.client.playback.PlayerSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -33,6 +34,7 @@ open class LogoutUseCase(
     private val rpcCacheInvalidator: RpcCacheInvalidator,
     private val libraryResetHelper: LibraryResetHelper,
     private val playbackStateProvider: PlaybackStateProvider? = null,
+    private val playerSession: PlayerSession? = null,
 ) {
     open suspend operator fun invoke(): AppResult<Unit> {
         if (authSession.isAuthenticated()) {
@@ -68,6 +70,9 @@ open class LogoutUseCase(
         // different user in the same process can't reuse the previous session's socket.
         rpcCacheInvalidator.invalidateAll()
         playbackStateProvider?.clearPlayback()
+        // Close the loaded book on every platform (iOS has no PlaybackStateProvider): it stops the engine,
+        // cancels a sleep timer so none outlives the session, and clears the device-local key.
+        playerSession?.closeBook()
         // 3. Clear library data, including any still-queued pending operations — a
         // signed-out user's unsent edits are deliberately discarded, not carried into
         // the next login (same or different user starts with a clean slate).

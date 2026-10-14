@@ -19,7 +19,7 @@ enum PlayerTransition {
 /// Two sibling controls, never one nested in the other: the book (cover + titles) opens the full
 /// player, and play/pause toggles playback.
 struct MiniPlayerBar: View {
-    let observer: PlayerCoordinator
+    let observer: PlayerObserver
     /// The namespace the cover registers in as the full player's zoom source.
     let transitionNamespace: Namespace.ID
     let onOpen: () -> Void
@@ -94,8 +94,8 @@ struct MiniPlayerBar: View {
         }
     }
 
-    /// Never-stranded failure surface: instead of the player vanishing on `.error`, the bar shows
-    /// the failure message and a Retry that re-drives the errored book (`togglePlayback` → replay).
+    /// Never-stranded failure surface: the bar keeps the book and shows why it can't play, with the
+    /// shared player's primary action (Retry, Sign in, Open Inbox or Close). Dismissing keeps the bar.
     private var errorRow: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -109,8 +109,8 @@ struct MiniPlayerBar: View {
 
             Spacer(minLength: 4)
 
-            Button { observer.togglePlayback() } label: {
-                Text("book.detail_retry")
+            Button { observer.primaryAction() } label: {
+                Text(observer.primary.errorActionTitle)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.listenUpOrange)
                     .frame(minHeight: 44)
@@ -188,7 +188,7 @@ struct MiniPlayerBar: View {
         Button {
             playPauseWillBeActive = !observer.isPlaybackActive
             playPauseTapCount += 1
-            observer.togglePlayback()
+            observer.primaryAction()
         } label: {
             Group {
                 // isPreparing piggybacks on the same buffering spinner: a play request in flight

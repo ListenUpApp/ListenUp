@@ -5,14 +5,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
+import com.calypsan.listenup.client.presentation.player.isSameVolumeBoost
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.domain.VolumeBoostLimits
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
+import com.calypsan.listenup.web.design.Button as DsButton
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
@@ -21,39 +28,18 @@ import org.jetbrains.compose.web.dom.Text
 import kotlin.math.roundToInt
 
 /**
- * What the transport bar shows.
+ * The bar under the shell: what is loaded, where it is, and the controls that change either.
  *
- * **Null means no book is loaded, and the bar renders nothing** — an empty transport bar is
- * chrome that lies about there being something to play.
- */
-data class TransportState(
-    val title: String,
-    val isPlaying: Boolean,
-    /**
-     * The player is waiting on bytes — a mid-playback stall, not a prepare.
-     *
-     * ⛔ Load-bearing, not decoration. [com.calypsan.listenup.web.playback.HtmlAudioPlayer] has
-     * published `Buffering` since it was written and nothing read it, so a book that stalled on a
-     * slow connection showed a Pause icon and a frozen clock — indistinguishable from a bug in the
-     * app. Both native clients put a spinner on the same control for the same reason.
-     */
-    val isBuffering: Boolean = false,
-    val positionMs: Long,
-    val durationMs: Long,
-    /** Current playback rate, shown on the speed control and used to size a skip. */
-    val speed: Float = 1.0f,
-    /** How far the back control moves, in seconds of listening. The listener's own setting. */
-    val skipBackSec: Int = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
-    /** How far the forward control moves, in seconds of listening. The listener's own setting. */
-    val skipForwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
-)
-
-/**
- * The bar under the shell: what is playing, where it is, and the two controls that change either.
+ * Presentational: every value comes from [state] and [progress], and every gesture leaves through a
+ * callback, so a spec can drive any moment of a listening session without a player behind it. The session
+ * that supplies those callbacks ([PlaybackSession]) is what reaches the real player. Only a loaded book has
+ * a bar: an empty transport bar is chrome that lies about there being something to play, so the host draws
+ * nothing for [PlayerUiState.NothingLoaded].
  *
- * Presentational — every value comes from [state] and every gesture leaves through a callback, so
- * a spec can drive any moment of a listening session without a player behind it. The session that
- * supplies those callbacks ([PlaybackSession]) is what reaches the real player.
+ * The bar shows from the moment a book is asked for: while it prepares it already names the new book, with
+ * a spinner on the main button (§3.6). The main button is whatever [PlayerUiState.Loaded.primary] says
+ * (Play, Pause, Retry, Listen again, …), and it acts through [onPrimary], so the bar never decides on its
+ * own what a press means.
  *
  * The play control is a `<button>` with an `aria-label` rather than an icon alone: the icon is
  * `aria-hidden` by construction (see [Icon]), so without the label the single most important
@@ -65,55 +51,42 @@ data class TransportState(
  * a seek per pointer sample, which on the HLS path means
  * [com.calypsan.listenup.web.playback.HtmlAudioPlayer] re-running `attach` per sample, destroying
  * and rebuilding an hls.js instance and re-fetching its playlists tens of times a second.
- * Committing once, on release, fixes both.
+ * Committing once, on release, fixes both. It spans the whole book for now; PR 3 moves it to the chapter.
  */
 @Composable
 fun TransportBar(
-    state: TransportState?,
-    onPlayPause: () -> Unit,
+    state: PlayerUiState.Loaded,
+    progress: PlayerProgress,
+    onPrimary: () -> Unit,
     onSeek: (Long) -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
     onSetSpeed: (Float) -> Unit,
     onResetSpeed: () -> Unit = {},
-    defaultSpeed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
-    chapters: List<TransportChapter> = emptyList(),
-    currentChapterIndex: Int? = null,
     onSeekToChapter: (Int) -> Unit = {},
-    sleepTimer: SleepTimerState = SleepTimerState.Inactive,
+    onPreviousChapter: () -> Unit = {},
+    onNextChapter: () -> Unit = {},
     onSetSleepTimer: (SleepTimerMode) -> Unit = {},
     onCancelSleepTimer: () -> Unit = {},
     onExtendSleepTimer: (Int) -> Unit = {},
-    volumeBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
-    defaultBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
     boostUnavailable: Boolean = false,
     onSetBoost: (Float) -> Unit = {},
     onResetBoost: () -> Unit = {},
-    nowPlaying: NowPlayingBook? = null,
     onOpenBook: (String) -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
     onOpenContributor: (String) -> Unit = {},
     onCloseBook: () -> Unit = {},
 ) {
-    if (state == null) return
-
     var chaptersOpen by remember { mutableStateOf(false) }
     var sleepOpen by remember { mutableStateOf(false) }
     var speedOpen by remember { mutableStateOf(false) }
     var boostOpen by remember { mutableStateOf(false) }
     var expandedOpen by remember { mutableStateOf(false) }
-    // ⛔ Announced, not merely drawn: a spinner is invisible to a screen reader, and "Pause" while
-    // the player is stalled is a lie about what pressing it would achieve.
-    val label =
-        when {
-            state.isBuffering -> "Loading"
-            state.isPlaying -> "Pause"
-            else -> "Play"
-        }
+    val settings = state.settings
+    val hasChapters = state.chapters.isNotEmpty()
     ChapterPicker(
         open = chaptersOpen,
-        chapters = chapters,
-        currentIndex = currentChapterIndex,
+        chapters = state.chapters,
         onPick = { index ->
             onSeekToChapter(index)
             chaptersOpen = false
@@ -122,8 +95,8 @@ fun TransportBar(
     )
     SleepTimerPicker(
         open = sleepOpen,
-        state = sleepTimer,
-        hasChapters = chapters.isNotEmpty(),
+        state = state.sleepTimer,
+        hasChapters = hasChapters,
         onSet = { mode ->
             onSetSleepTimer(mode)
             sleepOpen = false
@@ -134,16 +107,16 @@ fun TransportBar(
     )
     SpeedPicker(
         open = speedOpen,
-        speed = state.speed,
-        defaultSpeed = defaultSpeed,
+        speed = settings.speed,
+        defaultSpeed = settings.defaultSpeed,
         onSet = onSetSpeed,
         onReset = onResetSpeed,
         onDismiss = { speedOpen = false },
     )
     BoostPicker(
         open = boostOpen,
-        boostDb = volumeBoostDb,
-        defaultBoostDb = defaultBoostDb,
+        boostDb = settings.boostDb,
+        defaultBoostDb = settings.defaultBoostDb,
         unavailable = boostUnavailable,
         onSet = onSetBoost,
         onReset = onResetBoost,
@@ -153,16 +126,13 @@ fun TransportBar(
     NowPlayingPanel(
         open = expandedOpen,
         state = state,
-        book = nowPlaying,
-        chapters = chapters,
-        currentChapterIndex = currentChapterIndex,
-        sleepTimer = sleepTimer,
-        volumeBoostDb = volumeBoostDb,
-        onPlayPause = onPlayPause,
+        progress = progress,
+        onPrimary = onPrimary,
         onSeek = onSeek,
         onSkipBack = onSkipBack,
         onSkipForward = onSkipForward,
-        onSeekToChapter = onSeekToChapter,
+        onPreviousChapter = onPreviousChapter,
+        onNextChapter = onNextChapter,
         onOpenSpeed = { speedOpen = true },
         onOpenChapters = { chaptersOpen = true },
         onOpenBoost = { boostOpen = true },
@@ -186,37 +156,40 @@ fun TransportBar(
             onClick { expandedOpen = true }
         }) { Icon(WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
 
-        SkipButton(
-            icon = WebIcon.SkipBack,
-            seconds = state.skipBackSec,
-            label = "Back ${state.skipBackSec} seconds",
-            onClick = onSkipBack,
-        )
+        // Only where there is a settled position to go back from (§3.5): not while preparing or buffering.
+        if (state.showsSkipBack) {
+            SkipButton(
+                icon = WebIcon.SkipBack,
+                seconds = settings.skipBackSec,
+                label = "Back ${settings.skipBackSec} seconds",
+                onClick = onSkipBack,
+            )
+        }
 
-        PlayPauseButton(state = state, label = label, onPlayPause = onPlayPause)
+        PrimaryButton(primary = state.primary, onPrimary = onPrimary)
 
         SkipButton(
             icon = WebIcon.SkipForward,
-            seconds = state.skipForwardSec,
-            label = "Forward ${state.skipForwardSec} seconds",
+            seconds = settings.skipForwardSec,
+            label = "Forward ${settings.skipForwardSec} seconds",
             onClick = onSkipForward,
         )
 
-        Span(attrs = { classes("tport-t") }) { Text(state.title) }
+        Span(attrs = { classes("tport-t") }) { Text(state.book.title) }
 
         Playhead(
-            positionMs = state.positionMs,
-            durationMs = state.durationMs,
+            positionMs = progress.bookPositionMs,
+            durationMs = progress.bookDurationMs,
             timeClass = "tport-time",
             scrubClass = "tport-scrub",
             onSeek = onSeek,
         )
 
         SessionControls(
-            speed = state.speed,
-            hasChapters = chapters.isNotEmpty(),
-            volumeBoostDb = volumeBoostDb,
-            sleepArmed = sleepTimer !is SleepTimerState.Inactive,
+            speed = settings.speed,
+            hasChapters = hasChapters,
+            volumeBoostDb = settings.boostDb,
+            sleepArmed = state.sleepTimer !is SleepTimerState.Inactive,
             onOpenSpeed = { speedOpen = true },
             onOpenChapters = { chaptersOpen = true },
             onOpenBoost = { boostOpen = true },
@@ -310,34 +283,62 @@ private fun SessionControls(
 }
 
 /**
- * The one control that changes whether audio is coming out, in its three states.
+ * The one main button, in whichever of its states the shared model chose.
  *
  * ⛔ The spinner replaces the glyph rather than sitting beside it: the control keeps its size and
  * position, so a stall does not shuffle the whole transport row sideways under the reader's cursor.
+ * ⛔ Announced, not merely drawn: a spinner is invisible to a screen reader, and "Pause" while the
+ * player is stalled is a lie about what pressing it would achieve. A browser that refused to start
+ * the audio ([PrimaryControl.TapToPlay]) gets Play with a ring: one more tap is all it needs.
  */
 @Composable
-private fun PlayPauseButton(
-    state: TransportState,
-    label: String,
-    onPlayPause: () -> Unit,
+private fun PrimaryButton(
+    primary: PrimaryControl,
+    onPrimary: () -> Unit,
 ) {
+    val label = primaryLabel(primary)
     Button(attrs = {
         classes("tport-b")
+        if (primary == PrimaryControl.TapToPlay) classes("ring")
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, label)
         attr(ATTR_TITLE, label)
-        onClick { onPlayPause() }
+        onClick { onPrimary() }
     }) {
-        if (state.isBuffering) {
+        if (primary == PrimaryControl.Busy) {
             Div(attrs = {
                 classes("tport-wait")
                 attr("aria-hidden", "true")
             })
         } else {
-            Icon(if (state.isPlaying) WebIcon.Pause else WebIcon.Play, size = TRANSPORT_ICON_SIZE)
+            Icon(primaryIcon(primary), size = TRANSPORT_ICON_SIZE)
         }
     }
 }
+
+/** What the main button says it will do: its accessible name and its tooltip. */
+internal fun primaryLabel(primary: PrimaryControl): String =
+    when (primary) {
+        PrimaryControl.Pause -> "Pause"
+        PrimaryControl.Play, PrimaryControl.TapToPlay -> "Play"
+        PrimaryControl.Busy -> "Loading"
+        PrimaryControl.Retry -> "Retry"
+        PrimaryControl.ListenAgain -> "Listen again"
+        PrimaryControl.SignIn -> "Sign in"
+        PrimaryControl.OpenInbox -> "Open the Inbox"
+        PrimaryControl.Close -> "Close book"
+    }
+
+/** The glyph for every state but [PrimaryControl.Busy], which draws a spinner instead. */
+internal fun primaryIcon(primary: PrimaryControl): WebIcon =
+    when (primary) {
+        PrimaryControl.Pause -> WebIcon.Pause
+        PrimaryControl.Retry -> WebIcon.Refresh
+        PrimaryControl.SignIn -> WebIcon.LogIn
+        PrimaryControl.OpenInbox -> WebIcon.Inbox
+        PrimaryControl.Close -> WebIcon.X
+        PrimaryControl.Play, PrimaryControl.TapToPlay, PrimaryControl.ListenAgain, PrimaryControl.Busy -> WebIcon.Play
+    }
 
 /**
  * One skip control: the rotation arrow with the interval written inside it.
@@ -387,28 +388,36 @@ internal fun formatSpeed(speed: Float): String {
 }
 
 /**
- * A playback failure, said out loud.
+ * A playback failure, or a known "can't play", said out loud: the shared model's typed error in the
+ * browser's words, a title and, when there is one, its cause.
  *
- * Rendered beside the bar rather than inside it, because the two most common failures — a prepare
- * that never returned a book, and a fatal hls.js teardown — leave nothing playing, and a message
- * that only appeared when there was already a transport bar would be a message nobody ever sees.
+ * Rendered beside the bar rather than inside it, so it reads the same whether or not the bar has room.
+ * The strip stays until the redesigned mini player takes over its job (PR 2).
  *
- * Dismissable, and only dismissable: the errors reaching here are either already retried by the
- * layer below or explicitly non-recoverable, so a Retry button would be a control that cannot
- * keep its promise.
+ * Retry is offered when, and only when, the main button would retry ([PrimaryControl.Retry]): a dropped
+ * connection or a prepare that failed can be tried again, but a held book's or a removed book's refusal
+ * cannot, and a Retry there would be a control that cannot keep its promise. Dismiss keeps the bar.
  */
 @Composable
 fun PlaybackNotice(
-    message: String?,
+    error: AppError?,
+    primary: PrimaryControl?,
+    onRetry: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (message == null) return
+    if (error == null) return
 
     Div(attrs = {
         classes("tport-note")
         attr("role", "alert")
     }) {
-        Span(attrs = { classes("tport-note-t") }) { Text(message) }
+        Span(attrs = { classes("tport-note-t") }) {
+            Text(error.playerTitle())
+            error.playerCause()?.let { cause -> Text(" $cause") }
+        }
+        if (primary == PrimaryControl.Retry) {
+            DsButton(kind = ButtonKind.Secondary, size = ButtonSize.Sm, onClick = onRetry) { Text("Retry") }
+        }
         Button(attrs = {
             classes("tport-note-x")
             attr(ATTR_TYPE, VALUE_BUTTON)
@@ -419,6 +428,12 @@ fun PlaybackNotice(
             Icon(WebIcon.X, size = NOTICE_ICON_SIZE)
         }
     }
+}
+
+/** The error the notice reports for [state]: a failure, or a known reason the book cannot play. */
+internal fun noticeErrorOf(state: PlayerUiState): AppError? {
+    val phase = (state as? PlayerUiState.Loaded)?.phase
+    return (phase as? PlayerPhase.Failed)?.error ?: (phase as? PlayerPhase.Unavailable)?.reason
 }
 
 /**

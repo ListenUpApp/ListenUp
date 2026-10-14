@@ -30,22 +30,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 
 /**
  * Mini player bar shown at the bottom of the desktop window during playback.
  *
- * Renders the appropriate UI for the [NowPlayingState] sealed variant — full controls
- * when [NowPlayingState.Active], an error band on [NowPlayingState.Error]. Caller is
- * expected to skip rendering entirely on [NowPlayingState.Idle].
+ * Renders full controls for the loaded book, or an error band when its phase is
+ * [PlayerPhase.Failed] or [PlayerPhase.Unavailable]. The caller renders nothing when no book
+ * is loaded.
  *
  * Clicking the bar (outside of controls) expands to the full now-playing screen.
  */
 @Composable
 fun DesktopNowPlayingBar(
-    state: NowPlayingState,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -60,7 +61,7 @@ fun DesktopNowPlayingBar(
         Column {
             // Progress indicator at top of bar
             LinearProgressIndicator(
-                progress = { if (state is NowPlayingState.Active) progress().bookProgress.coerceIn(0f, 1f) else 0f },
+                progress = { progress().bookFraction },
                 modifier = Modifier.fillMaxWidth().height(3.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -74,81 +75,81 @@ fun DesktopNowPlayingBar(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                when (state) {
-                    is NowPlayingState.Idle -> {}
+                val problem =
+                    when (val phase = state.phase) {
+                        is PlayerPhase.Failed -> phase.error
+                        is PlayerPhase.Unavailable -> phase.reason
+                        else -> null
+                    }
+                val isPlaying = state.phase == PlayerPhase.Playing || state.phase == PlayerPhase.SleepFading
+                if (problem == null) {
+                    BarCover(
+                        bookId = state.book.id,
+                        coverPath = state.book.coverPath,
+                        contentDescription = state.book.title,
+                    )
 
-                    is NowPlayingState.Active -> {
-                        BarCover(
-                            bookId = state.bookId,
-                            coverPath = state.coverPath,
-                            contentDescription = state.title,
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = state.book.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = state.title,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = state.chapterTitle ?: state.author,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Playback controls
-                        IconButton(onClick = onSkipBack, modifier = Modifier.size(36.dp)) {
-                            Icon(
-                                Icons.Default.SkipPrevious,
-                                contentDescription = "Skip back",
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-
-                        IconButton(onClick = onPlayPause, modifier = Modifier.size(44.dp)) {
-                            Icon(
-                                imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (state.isPlaying) "Pause" else "Play",
-                                modifier = Modifier.size(28.dp),
-                            )
-                        }
-
-                        IconButton(onClick = onSkipForward, modifier = Modifier.size(36.dp)) {
-                            Icon(
-                                Icons.Default.SkipNext,
-                                contentDescription = "Skip forward",
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
+                        Text(
+                            text =
+                                state.chapter.title.takeUnless { state.chapter.isWholeBook }
+                                    ?: state.book.authors.joinToString(", ") { it.name },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
 
-                    is NowPlayingState.Error -> {
-                        Column(modifier = Modifier.weight(1f)) {
-                            val errorTitle = state.title
-                            if (errorTitle != null) {
-                                Text(
-                                    text = errorTitle,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            Text(
-                                text = state.message,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Playback controls
+                    IconButton(onClick = onSkipBack, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.SkipPrevious,
+                            contentDescription = "Skip back",
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+
+                    IconButton(onClick = onPlayPause, modifier = Modifier.size(44.dp)) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+
+                    IconButton(onClick = onSkipForward, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.SkipNext,
+                            contentDescription = "Skip forward",
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                } else {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = state.book.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = problem.message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }

@@ -11,6 +11,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.rounded.Login
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -31,9 +35,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.auth_sign_in
+import listenup.composeapp.generated.resources.common_inbox
+import listenup.composeapp.generated.resources.player_close
 import listenup.composeapp.generated.resources.player_pause
 import listenup.composeapp.generated.resources.player_play
+import listenup.composeapp.generated.resources.player_retry
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -88,6 +98,64 @@ fun PlayPauseFab(
         }
     }
 }
+
+/**
+ * The player's one main button, drawn from the shared [PrimaryControl] (spec §4.6). Play, pause and busy keep
+ * [PlayPauseFab]'s look; a way out of a failure (Retry, Sign in, Inbox, Close) takes the same squircle with its
+ * own glyph, so the bar names the next step instead of offering a Play that cannot work.
+ */
+@Composable
+fun PrimaryControlFab(
+    primary: PrimaryControl,
+    onClick: () -> Unit,
+    size: Dp,
+) {
+    val way = primary.wayOut()
+    if (way == null) {
+        PlayPauseFab(
+            isPlaying = primary == PrimaryControl.Pause,
+            isBuffering = primary == PrimaryControl.Busy,
+            onClick = onClick,
+            size = size,
+        )
+        return
+    }
+    val haptics = LocalHaptics.current
+    Surface(
+        onClick = {
+            haptics.press()
+            onClick()
+        },
+        modifier = Modifier.size(size).semantics { role = Role.Button },
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.primary,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = way.first,
+                contentDescription = stringResource(way.second),
+                modifier = Modifier.size(size * 0.54f),
+                tint = MaterialTheme.colorScheme.onPrimary,
+            )
+        }
+    }
+}
+
+/** The glyph and label for a primary that is a way out rather than play/pause, or null for play/pause/busy. */
+internal fun PrimaryControl.wayOut(): Pair<ImageVector, StringResource>? =
+    when (this) {
+        PrimaryControl.Retry -> Icons.Rounded.Refresh to Res.string.player_retry
+
+        PrimaryControl.SignIn -> Icons.AutoMirrored.Rounded.Login to Res.string.auth_sign_in
+
+        PrimaryControl.OpenInbox -> Icons.Rounded.Inbox to Res.string.common_inbox
+
+        PrimaryControl.Close -> Icons.Rounded.Close to Res.string.player_close
+
+        PrimaryControl.Pause, PrimaryControl.Play, PrimaryControl.Busy, PrimaryControl.ListenAgain,
+        PrimaryControl.TapToPlay,
+        -> null
+    }
 
 /**
  * Round transparent icon-button.

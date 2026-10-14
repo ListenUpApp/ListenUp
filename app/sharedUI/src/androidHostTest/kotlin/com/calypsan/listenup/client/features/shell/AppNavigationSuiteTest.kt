@@ -27,8 +27,10 @@ import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
 import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBar
 import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeight
 import com.calypsan.listenup.client.features.shell.components.AppNavigationSuite
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.features.nowplaying.loadedPlayerState
+import com.calypsan.listenup.client.features.nowplaying.samplePlayerProgress
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -151,7 +153,7 @@ class AppNavigationSuiteTest {
                             progress = { dockedProgress },
                             isExpanded = false,
                             onTap = {},
-                            onPlayPause = {},
+                            onPrimary = {},
                             onSkipBack = {},
                             onSkipForward = {},
                             onSeek = {},
@@ -323,37 +325,14 @@ class AppNavigationSuiteTest {
         const val DOCKED_BAR = "docked-bar"
         const val BARE_PILL = "bare-pill"
 
-        val dockedProgress =
-            PlaybackProgress(
-                bookProgress = 0.25f,
-                bookPositionMs = 60_000,
-                bookDurationMs = 240_000,
-                chapterProgress = 0.5f,
-                chapterPositionMs = 30_000,
-                chapterDurationMs = 60_000,
-            )
+        val dockedProgress = samplePlayerProgress
 
         val dockedState =
-            NowPlayingState.Active(
-                bookId = "book-1",
-                title = "The Way of Kings",
-                author = "Brandon Sanderson",
-                coverPath = "/nonexistent/cover.jpg",
-                coverHash = null,
-                authors = emptyList(),
-                narrators = emptyList(),
-                seriesId = null,
-                seriesName = null,
+            loadedPlayerState(
+                phase = PlayerPhase.Paused,
+                primary = PrimaryControl.Play,
                 chapterTitle = "Prologue",
-                chapterIndex = 0,
-                totalChapters = 10,
-                chapters = emptyList(),
-                isPlaying = false,
-                isBuffering = false,
-                playbackSpeed = 1f,
-                defaultPlaybackSpeed = 1f,
-                volumeBoostDb = 0f,
-                defaultVolumeBoostDb = 0f,
+                coverPath = "/nonexistent/cover.jpg",
             )
     }
 }

@@ -20,5 +20,5 @@ import org.koin.dsl.module
 val desktopAppModule =
     module {
         // Global media key listener (play/pause/next/prev when app is in background)
-        single { GlobalMediaKeyManager(nowPlayingViewModel = get()) }
+        single { GlobalMediaKeyManager(playerSession = get()) }
     }

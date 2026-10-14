@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.LocalRestrictedBookIds
 import com.calypsan.listenup.web.design.ShowActionToast
-import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
+import com.calypsan.listenup.web.features.nowplaying.PlaybackNoticeHost
 import com.calypsan.listenup.web.features.nowplaying.TransportBarHost
 import com.calypsan.listenup.web.features.sync.DeadLetterNotice
 import com.calypsan.listenup.web.motion.PageArrival
@@ -144,13 +144,9 @@ fun WebAppRoot(
             )
 
             // Both last inside the content region, so they sit under whatever page is showing and
-            // stay put as the reader moves between them. The notice comes first because it is often
-            // the only one of the two rendering: the failures it reports are exactly the ones that
-            // leave nothing playing, and therefore no bar.
-            PlaybackNotice(
-                message = playback.error.collectAsState().value,
-                onDismiss = playback.onDismissError,
-            )
+            // stay put as the reader moves between them. The notice sits above the bar it explains.
+            // Each in its own scope, so neither the tick nor a phase change re-runs this lambda.
+            PlaybackNoticeHost(playback)
             // Its own scope: the playback tick recomposes the bar, not this lambda. See the host.
             TransportBarHost(
                 playback = playback,
@@ -159,6 +155,7 @@ fun WebAppRoot(
                 onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
                 onOpenSeries = { id -> router.navigate(Routes.series(id)) },
                 onOpenContributor = { id -> router.navigate(Routes.Contributor.detail(id)) },
+                onOpenInbox = { router.navigate(Routes.Admin.inbox) },
             )
 
             // Last of all: the palette overlays everything above it, including the transport bar.

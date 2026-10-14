@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.calypsan.listenup.client.features.nowplaying.WavySeekBar
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -31,14 +31,14 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @Composable
 fun PlayerScrubber(
-    progress: () -> PlaybackProgress,
+    progress: () -> PlayerProgress,
     isPlaying: Boolean,
     isBuffering: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val current = progress()
-    val chapterProgress = current.chapterProgress
+    val chapterProgress = current.chapterFraction
     val chapterPositionMs = current.chapterPositionMs
     val chapterDurationMs = current.chapterDurationMs
 

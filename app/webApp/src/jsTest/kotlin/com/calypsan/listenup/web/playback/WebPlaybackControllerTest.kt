@@ -1,15 +1,16 @@
 package com.calypsan.listenup.web.playback
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -87,10 +88,7 @@ private val neverCalledPlaybackManager: PlaybackManager =
 
         override fun updateSpeed(speed: Float) = unexpected()
 
-        override fun reportError(
-            message: String,
-            isRecoverable: Boolean,
-        ) = unexpected()
+        override fun reportError(error: AppError) = unexpected()
 
         override val currentTimeline: StateFlow<PlaybackTimeline?> = MutableStateFlow(null)
         override val playing: StateFlow<Boolean> = MutableStateFlow(false)
@@ -100,23 +98,17 @@ private val neverCalledPlaybackManager: PlaybackManager =
         override val playbackSpeed: StateFlow<Float> = MutableStateFlow(1.0f)
         override val volumeBoostDb: StateFlow<Float> = MutableStateFlow(0f)
         override val playbackState: StateFlow<PlaybackState> = MutableStateFlow(PlaybackState.Idle)
-        override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?> = MutableStateFlow(null)
+        override val playbackError: StateFlow<AppError?> = MutableStateFlow(null)
         override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
-        override val preparingBookId: StateFlow<BookId?> = MutableStateFlow(null)
-        override val preparingBookIdUi: Flow<BookId?> = MutableStateFlow(null)
         override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> = MutableStateFlow(null)
         override val effectiveGainDb: StateFlow<Float> = MutableStateFlow(0f)
         override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
 
         override fun activateBook(bookId: BookId) = unexpected()
 
-        override fun markPreparing(bookId: BookId) = unexpected()
-
-        override fun clearPreparing() = unexpected()
-
         override suspend fun prepareForPlayback(
             bookId: BookId,
-            startAtMs: Long?,
+            start: PlaybackStart,
         ): AppResult<PlaybackManager.PrepareResult> = unexpected()
 
         override suspend fun startPlayback(

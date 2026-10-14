@@ -161,7 +161,7 @@ private const val HLS_MIME = "application/vnd.apple.mpegurl"
  * awaits that before the first HLS segment, so attaching stays synchronous from then on (a segment
  * advance fires from a media event, where there is nothing to suspend).
  *
- * @param onFatalError invoked when hls.js gives up; the argument is a diagnostic string.
+ * @param onFatalError invoked when hls.js gives up, with hls.js's error `type` and `details`.
  * @throws IllegalStateException when the browser has neither MSE nor native HLS — a state the
  *   caller must surface, because nothing else can make this segment audible.
  */
@@ -169,12 +169,12 @@ internal fun attachHls(
     library: HlsLibrary?,
     element: HTMLMediaElement,
     url: String,
-    onFatalError: (String) -> Unit,
+    onFatalError: (type: String, details: String) -> Unit,
 ): HlsHandle {
     if (library != null && library.isSupported()) {
         val hls = library.create()
         hls.on(HLS_ERROR_EVENT) { _, data ->
-            if (data.fatal) onFatalError("${data.type}: ${data.details}")
+            if (data.fatal) onFatalError(data.type, data.details)
         }
         hls.loadSource(url)
         hls.attachMedia(element)

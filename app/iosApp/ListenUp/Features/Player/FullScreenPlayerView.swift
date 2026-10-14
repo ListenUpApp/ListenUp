@@ -26,7 +26,7 @@ private struct ContributorPickerRequest: Identifiable {
 /// The accent is a legibility-clamped tint derived from the cover (coral until it
 /// resolves; coral on any failure — never stranded).
 struct FullScreenPlayerView: View {
-    let observer: PlayerCoordinator
+    let observer: PlayerObserver
     /// Dismiss the player and navigate to the current book's detail screen.
     var onViewDetails: () -> Void = {}
     /// Dismiss the player and navigate to the given series.
@@ -40,8 +40,7 @@ struct FullScreenPlayerView: View {
     @State private var contributorPicker: ContributorPickerRequest?
     @State private var tint: Color = .listenUpOrange
     /// The global default boost — the boost sheet needs it passed in for its "Use default" row
-    /// (`PlayerCoordinator` doesn't retain a reference to `PlaybackPreferences` past init, so the
-    /// view reads it directly). `nil` means "not known yet", which is NOT the same as 0 dB: the
+    /// (read from `PlaybackPreferences` each time the sheet opens, so it is never stale). `nil` means "not known yet", which is NOT the same as 0 dB: the
     /// sheet hides the row rather than offering to reset a book to a default it hasn't read.
     @State private var defaultBoostDb: Float?
     /// The controls column's natural height, measured; the cover sizes itself to what is left.
@@ -88,7 +87,7 @@ struct FullScreenPlayerView: View {
                     showBoostPicker = false
                 },
                 onUseDefault: {
-                    if let defaultBoostDb { observer.resetBoost(defaultDb: defaultBoostDb) }
+                    if defaultBoostDb != nil { observer.resetBoost() }
                     showBoostPicker = false
                 }
             )
@@ -141,8 +140,8 @@ struct FullScreenPlayerView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.primary)
-                Button { observer.togglePlayback() } label: {
-                    Text("book.detail_retry")
+                Button { observer.primaryAction() } label: {
+                    Text(observer.primary.errorActionTitle)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Color.luOnTint)
                         .padding(.horizontal, Spacing.xxl)
@@ -354,7 +353,7 @@ struct FullScreenPlayerView: View {
                 systemImage: "mic"
             )
             Divider()
-            Button(role: .destructive, action: { Task { await observer.stop() } }) {
+            Button(role: .destructive, action: { observer.closeBook() }) {
                 Label(String(localized: "player.close_book"), systemImage: "xmark")
             }
         } label: {

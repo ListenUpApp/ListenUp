@@ -1,14 +1,14 @@
 package com.calypsan.listenup.web.playback
 
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PlayerBook
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.web.design.coverUrl
-import com.calypsan.listenup.web.features.nowplaying.NowPlayingBook
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
-import com.calypsan.listenup.web.features.nowplaying.TransportState
 import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -134,9 +134,10 @@ internal const val MEDIA_SESSION_ARTWORK_PX = 512
  *
  * The `<audio>` element is never in the document ([HtmlAudioPlayer]), so the browser has no UI
  * to attach to on its own — a media key, a lock screen and a Bluetooth button all reach the
- * page only through this API. Metadata follows `nowPlaying` (which changes once per book) and
- * `state` (which changes on every position tick), so the two are collected separately and
- * `distinctUntilChanged` keeps the browser from being rewritten a few times a second.
+ * page only through this API. Metadata follows the loaded book (which changes once per book) and
+ * the position follows [PlaybackSession.progress] (which changes on every tick), so the two are
+ * collected separately and `distinctUntilChanged` keeps the browser from being rewritten a few
+ * times a second. The position stays book-scoped until the OS surfaces move to the chapter (PR 6).
  */
 internal fun bindMediaSession(
     session: PlaybackSession,
@@ -154,24 +155,28 @@ internal fun bindMediaSession(
     bridge.setHandler("nexttrack", session.onSkipForward)
     bridge.setSeekToHandler(session.onSeek)
 
+    val loaded = session.state.map { it as? PlayerUiState.Loaded }
     val job =
         scope.launch {
             launch {
-                combine(session.state, session.nowPlaying) { state, book -> state to book }
-                    .distinctUntilChanged { old, new ->
-                        old.first?.title == new.first?.title && old.second?.bookId == new.second?.bookId
-                    }.collect { (state, book) -> bridge.publish(state, book) }
+                loaded
+                    .map { it?.book }
+                    .distinctUntilChanged { old, new -> old?.id == new?.id && old?.title == new?.title }
+                    .collect { book -> book?.let { bridge.publish(it) } }
             }
             launch {
-                session.state
-                    .map { it?.isPlaying == true }
+                loaded
+                    .map { it?.phase == PlayerPhase.Playing || it?.phase == PlayerPhase.SleepFading }
                     .distinctUntilChanged()
                     .collect { bridge.setPlaying(it) }
             }
             launch {
-                session.state.filterNotNull().collect {
-                    bridge.setPosition(it.durationMs, it.positionMs, it.speed)
-                }
+                combine(loaded, session.progress) { state, progress -> state?.let { it to progress } }
+                    .collect { pair ->
+                        pair?.let { (state, progress) ->
+                            bridge.setPosition(progress.bookDurationMs, progress.bookPositionMs, state.settings.speed)
+                        }
+                    }
             }
         }
 
@@ -182,30 +187,19 @@ internal fun bindMediaSession(
     }
 }
 
-/**
- * Tells the OS what is playing — or says nothing at all, when there is no title to say.
- *
- * A book still loading has a [NowPlayingBook] but no [TransportState]; announcing it with an empty
- * title would put a blank card on the lock screen, which is worse than leaving the previous one up
- * for another moment.
- */
-private fun MediaSessionBridge.publish(
-    state: TransportState?,
-    book: NowPlayingBook?,
-) {
-    val title = state?.title ?: return
+/** Tells the OS what is playing: the book's title, who wrote it (or read it), its first series, its cover. */
+private fun MediaSessionBridge.publish(book: PlayerBook) {
     setMetadata(
-        title = title,
+        title = book.title,
         artist =
-            book?.authors?.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }
-                ?: book?.narrators.orEmpty(),
+            book.authors.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }
+                ?: book.narrators.joinToString(", ") { it.name },
         album =
-            book
-                ?.series
-                ?.firstOrNull()
+            book.series
+                .firstOrNull()
                 ?.name
                 .orEmpty(),
-        artworkUrl = book?.let { coverUrl(it.bookId, it.coverHash, MEDIA_SESSION_ARTWORK_PX) },
+        artworkUrl = coverUrl(book.id, book.coverHash, MEDIA_SESSION_ARTWORK_PX),
     )
 }
 

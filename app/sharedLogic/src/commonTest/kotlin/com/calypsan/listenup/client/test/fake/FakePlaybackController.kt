@@ -83,8 +83,12 @@ class FakePlaybackController(
         _setMediaQueueCalls += items to startPositionMs
     }
 
+    /** Runs inside [startPlayback] after it is recorded; set it to something that suspends to hold a start open. */
+    var startPlaybackSuspension: suspend () -> Unit = {}
+
     override suspend fun startPlayback(prepareResult: PlaybackManager.PrepareResult) {
         _startPlaybackCalls += prepareResult
+        startPlaybackSuspension()
     }
 
     /** Test helper: drive `ready` from outside to simulate connection state changes. */

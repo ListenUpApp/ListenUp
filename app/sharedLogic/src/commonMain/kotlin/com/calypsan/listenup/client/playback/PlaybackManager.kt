@@ -1,17 +1,17 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Orchestrates playback startup and coordinates between UI, service, and data layers.
  *
- * Defined as an `interface` so that test fakes (e.g., a fake VM dependency in
- * `NowPlayingViewModelTest`) can implement it without inheritance gymnastics, and
+ * Defined as an `interface` so that test fakes (e.g., `FakePlaybackManager` behind
+ * `ManagedPlayerEngineTest`) can implement it without inheritance gymnastics, and
  * so that platform-specific seams that only need a narrow surface can depend on
  * the interface rather than the concrete [PlaybackManagerImpl].
  *
@@ -59,42 +59,11 @@ interface PlaybackManager :
     /** Aggregate playback state (Idle/Buffering/Playing/Paused/Ended/Error). */
     val playbackState: StateFlow<PlaybackState>
 
-    /** Current playback error for display to the user (null when no error). */
-    val playbackError: StateFlow<PlaybackErrorUiState?>
+    /** The engine's current failure, typed, or null. */
+    val playbackError: StateFlow<AppError?>
 
     /** Chapter list for the current book. */
     val chapters: StateFlow<List<Chapter>>
-
-    /**
-     * Non-null while a play request is in flight for this book — from the moment
-     * [NowPlayingViewModel.playBook] opens the window (via [markPreparing]) until it closes it
-     * (via [clearPreparing]) in a `finally`, spanning [prepareForPlayback], [activateBook], and
-     * [PlaybackController.startPlayback].
-     *
-     * Instant — set/cleared synchronously, so [NowPlayingViewModel.playBook] can check it
-     * before launching to swallow a repeat tap while a prepare is already in flight. UI surfaces
-     * must NOT observe this directly (see [preparingBookIdUi]) — a fast prepare would flash a
-     * spinner for no reason.
-     */
-    val preparingBookId: StateFlow<BookId?>
-
-    /**
-     * UI-facing view of [preparingBookId], delayed behind it by [PREPARING_UI_DELAY] so a fast
-     * prepare never flashes a spinner. Both the mini player (Active-state visual feedback) and
-     * the Book Detail play button (busy variant) observe this — never [preparingBookId] — for
-     * visual feedback.
-     *
-     * A plain, COLD `Flow` — deliberately not a `StateFlow`. Per the rubric ("Streaming is
-     * `Flow<T>`. State is `.stateIn(scope)` at the call site"), turning this into hot state is the
-     * consumer's job: [NowPlayingViewModel] folds it into its own `combine(...).stateIn(...)` for
-     * [NowPlayingScreenState]; a Compose call site can use
-     * `collectAsStateWithLifecycle(initialValue = null)`. Being cold means every fresh collector
-     * re-runs [PREPARING_UI_DELAY]'s debounce from ITS OWN subscription point rather than inheriting
-     * an already-elapsed one — bounded to at most one extra [PREPARING_UI_DELAY] of lag right after a
-     * (re)subscribe, the same class of staleness `WhileSubscribed`/lifecycle-scoped collection
-     * already introduces for every other field these surfaces observe.
-     */
-    val preparingBookIdUi: Flow<BookId?>
 
     /** Currently active chapter (derived from [currentPositionMs] + [chapters]). */
     val currentChapter: StateFlow<ChapterInfo?>
@@ -124,30 +93,17 @@ interface PlaybackManager :
     fun activateBook(bookId: BookId)
 
     /**
-     * Open the pending-play window for [bookId] — sets [preparingBookId] synchronously. Call once,
-     * before starting to prepare it.
-     */
-    fun markPreparing(bookId: BookId)
-
-    /**
-     * Close the pending-play window opened by [markPreparing]. Call in a `finally` around the
-     * prepare/activate/start-playback sequence so a thrown or failed prepare can never strand the
-     * window open.
-     */
-    fun clearPreparing()
-
-    /**
      * Prepare for playback of a book, through [PlaybackPreparer.prepare] — the playback choke point.
      *
      * @return the [PrepareResult] (timeline + resume position), or a typed failure:
      *   [com.calypsan.listenup.api.error.BookError.HeldForReview] for a book held for review,
      *   [com.calypsan.listenup.api.error.PlaybackError.CouldNotStart] for anything else.
      *
-     * [startAtMs]: start here (book ms) instead of the saved position; null resumes. See [PlaybackPreparer.prepare].
+     * [start]: where to start, resolved against the reconciled saved position. See [PlaybackPreparer.prepare].
      */
     suspend fun prepareForPlayback(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<PrepareResult>
 
     /**
@@ -190,9 +146,9 @@ interface PlaybackManager :
     /**
      * Clear a latched [playbackError] immediately.
      *
-     * Called by the VM when the user re-initiates play/resume, so the mini player reappears
-     * right away instead of waiting for the async Playing-state confirmation (which also clears
-     * it, in [PlaybackManagerImpl.setPlaybackState]) to arrive from the platform player.
+     * Called when the user re-initiates play/resume, so the failure clears at once instead of
+     * waiting for the async Playing-state confirmation (which also clears it, in
+     * [PlaybackManagerImpl.setPlaybackState]) to arrive from the platform player.
      */
     fun clearError()
 
@@ -200,7 +156,7 @@ interface PlaybackManager :
     // Nested types
     //
     // Kept nested (not promoted to top-level) because consumer code references
-    // them as `PlaybackManager.PrepareResult`, `PlaybackManager.PlaybackErrorUiState`,
+    // them as `PlaybackManager.PrepareResult`,
     // `PlaybackManager.ChapterInfo` across shared, composeApp/{android,desktop}Main,
     // and tests. Promoting to top-level would cause an avoidable churn through every
     // reference site.
@@ -222,13 +178,6 @@ interface PlaybackManager :
         val measuredGainDb: Float?,
         /** Server tag-read normalization gain (ReplayGain/iTunNORM), null when the file has no tag. */
         val normalizationGainDb: Float?,
-    )
-
-    /** Playback error for display to the user. */
-    data class PlaybackErrorUiState(
-        val message: String,
-        val isRecoverable: Boolean,
-        val timestampMs: Long,
     )
 
     /** Current chapter information for notification and UI. */

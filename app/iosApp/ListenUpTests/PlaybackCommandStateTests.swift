@@ -4,18 +4,45 @@ import Testing
 /// The Playback menu dims what cannot run and names play/pause for what it will do.
 @Suite("Playback commands")
 struct PlaybackCommandStateTests {
-    private let loaded = PlayingState(bookId: "b1", durationMs: 60_000)
+    /// A loaded book's snapshot; each test changes what it is about.
+    private func snapshot(
+        primary: PlayerPrimary = .play,
+        isPlaying: Bool = false,
+        isBuffering: Bool = false,
+        showsSkipBack: Bool = true,
+        chapterIndex: Int = 0,
+        canSkipToNextChapter: Bool = true,
+        sleepTimerActive: Bool = false,
+        sleepTimerIsEndOfChapter: Bool = false
+    ) -> PlayerSnapshot {
+        var snapshot = PlayerSnapshot()
+        snapshot.isVisible = true
+        snapshot.primary = primary
+        snapshot.isPlaying = isPlaying
+        snapshot.isBuffering = isBuffering
+        snapshot.showsSkipBack = showsSkipBack
+        snapshot.chapterIndex = chapterIndex
+        snapshot.canSkipToNextChapter = canSkipToNextChapter
+        snapshot.sleepTimerActive = sleepTimerActive
+        snapshot.sleepTimerIsEndOfChapter = sleepTimerIsEndOfChapter
+        return snapshot
+    }
 
     @Test func nothingLoadedDisablesEverything() {
-        #expect(PlaybackCommandState.from(phase: .idle, chapterIndex: 0, totalChapters: 0) == .unavailable)
-        let preparing = PlaybackCommandState.from(
-            phase: .preparing(PreparingState(bookId: "b1")), chapterIndex: 0, totalChapters: 3
-        )
-        #expect(preparing == .unavailable)
+        #expect(PlaybackCommandState.from(snapshot: PlayerSnapshot()) == .unavailable)
+    }
+
+    @Test func aPreparingBookCanNeitherToggleNorSeek() {
+        var preparing = snapshot(primary: .busy, showsSkipBack: false)
+        preparing.isPreparing = true
+        let state = PlaybackCommandState.from(snapshot: preparing)
+        #expect(!state.canTogglePlayback)
+        #expect(!state.canSeek)
+        #expect(!state.hasPreviousChapter)
     }
 
     @Test func aPausedBookOffersPlayAndEverySeek() {
-        let state = PlaybackCommandState.from(phase: .paused(loaded), chapterIndex: 1, totalChapters: 3)
+        let state = PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 1))
         #expect(state.canTogglePlayback)
         #expect(!state.showsPause)
         #expect(state.canSeek)
@@ -24,50 +51,38 @@ struct PlaybackCommandStateTests {
     }
 
     @Test func playingAndBufferingOfferPause() {
-        #expect(PlaybackCommandState.from(phase: .playing(loaded), chapterIndex: 0, totalChapters: 1).showsPause)
-        #expect(PlaybackCommandState.from(phase: .buffering(loaded), chapterIndex: 0, totalChapters: 1).showsPause)
+        #expect(PlaybackCommandState.from(snapshot: snapshot(primary: .pause, isPlaying: true)).showsPause)
+        // Buffering draws the busy spinner, and pressing it pauses: the command stays live.
+        let buffering = PlaybackCommandState.from(snapshot: snapshot(primary: .busy, isBuffering: true))
+        #expect(buffering.showsPause)
+        #expect(buffering.canTogglePlayback)
     }
 
     @Test func chapterJumpsStopAtTheEnds() {
-        let first = PlaybackCommandState.from(phase: .playing(loaded), chapterIndex: 0, totalChapters: 3)
+        let first = PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 0, canSkipToNextChapter: true))
         #expect(!first.hasPreviousChapter)
         #expect(first.hasNextChapter)
-        let last = PlaybackCommandState.from(phase: .playing(loaded), chapterIndex: 2, totalChapters: 3)
+        let last = PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 2, canSkipToNextChapter: false))
         #expect(last.hasPreviousChapter)
         #expect(!last.hasNextChapter)
     }
 
+    /// A failed book keeps its button (Retry) but has nowhere to seek: the shared player hides Back N.
     @Test func anErroredBookCanBeRetriedButNotSought() {
-        let state = PlaybackCommandState.from(
-            phase: .error(ErrorState(message: "x", bookId: "b1")), chapterIndex: 0, totalChapters: 3
-        )
+        let state = PlaybackCommandState.from(snapshot: snapshot(primary: .retry, showsSkipBack: false))
         #expect(state.canTogglePlayback)
         #expect(!state.showsPause)
         #expect(!state.canSeek)
     }
 
-    /// "Add more time" stays listed but dims unless a countdown is running on a loaded book: an
-    /// end-of-chapter timer has no countdown to grow, and with no timer there is nothing to extend.
+    /// "Add more time" stays listed but dims unless a countdown is running on a loaded book.
     @Test func onlyARunningCountdownOnALoadedBookCanBeExtended() {
-        let countdown = PlaybackCommandState.from(
-            phase: .playing(loaded), chapterIndex: 0, totalChapters: 1,
-            sleepTimerActive: true, sleepTimerIsEndOfChapter: false
-        )
-        #expect(countdown.canExtendSleepTimer)
-        let endOfChapter = PlaybackCommandState.from(
-            phase: .playing(loaded), chapterIndex: 0, totalChapters: 1,
-            sleepTimerActive: true, sleepTimerIsEndOfChapter: true
-        )
-        #expect(!endOfChapter.canExtendSleepTimer)
-        let noTimer = PlaybackCommandState.from(
-            phase: .playing(loaded), chapterIndex: 0, totalChapters: 1,
-            sleepTimerActive: false, sleepTimerIsEndOfChapter: false
-        )
-        #expect(!noTimer.canExtendSleepTimer)
-        let nothingLoaded = PlaybackCommandState.from(
-            phase: .idle, chapterIndex: 0, totalChapters: 0,
-            sleepTimerActive: true, sleepTimerIsEndOfChapter: false
-        )
-        #expect(!nothingLoaded.canExtendSleepTimer)
+        #expect(PlaybackCommandState.from(snapshot: snapshot(sleepTimerActive: true)).canExtendSleepTimer)
+        let endOfChapter = snapshot(sleepTimerActive: true, sleepTimerIsEndOfChapter: true)
+        #expect(!PlaybackCommandState.from(snapshot: endOfChapter).canExtendSleepTimer)
+        #expect(!PlaybackCommandState.from(snapshot: snapshot()).canExtendSleepTimer)
+        var nothingLoaded = PlayerSnapshot()
+        nothingLoaded.sleepTimerActive = true
+        #expect(!PlaybackCommandState.from(snapshot: nothingLoaded).canExtendSleepTimer)
     }
 }

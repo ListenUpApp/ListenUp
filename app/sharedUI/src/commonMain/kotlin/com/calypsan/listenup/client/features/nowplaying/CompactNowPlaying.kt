@@ -34,8 +34,8 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerSeconda
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
@@ -64,11 +64,11 @@ private val COMPACT_FIT_MIN_HEIGHT = 640.dp
  * non-scrolling layout also leaves the parent's swipe-down-to-collapse gesture (in [NowPlayingScreen])
  * free to fire, instead of being consumed by an inner scroll container.
  *
- * @param state Current [NowPlayingState.Active] snapshot.
+ * @param state Current [PlayerUiState.Loaded] snapshot.
  * @param progress Deferred read of the fast-changing playback progress driving the scrubber and
  *   time labels. Passed as a lambda so a position tick recomposes only the scrubber, not this layout.
  * @param onCollapse Called when the collapse button (or back gesture) fires.
- * @param onPlayPause Called when the play/pause FAB is tapped.
+ * @param onPrimary Called when the main button is tapped; it acts on the shared primary.
  * @param onSeek Called with a 0f–1f fractional position when the user seeks.
  * @param onSkipBack Called when replay-10 is tapped.
  * @param onSkipForward Called when forward-30 is tapped.
@@ -91,10 +91,10 @@ private val COMPACT_FIT_MIN_HEIGHT = 640.dp
 @Suppress("LongParameterList", "LongMethod")
 @Composable
 fun CompactNowPlaying(
-    state: NowPlayingState.Active,
-    progress: () -> PlaybackProgress,
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
     onCollapse: () -> Unit,
-    onPlayPause: () -> Unit,
+    onPrimary: () -> Unit,
     onSeek: (Float) -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -162,19 +162,19 @@ fun CompactNowPlaying(
 
             // Cover art with ambient glow — responsive size.
             PlayerArtwork(
-                coverPath = state.coverPath,
-                bookId = state.bookId,
+                coverPath = state.book.coverPath,
+                bookId = state.book.id,
                 size = coverSize,
-                title = state.title,
-                author = state.author,
-                coverHash = state.coverHash,
+                title = state.book.title,
+                author = state.book.authorLine,
+                coverHash = state.book.coverHash,
             )
 
             Spacer(Modifier.height(Spacing.xl))
 
             // Book title — headlineSmall, bold, centered.
             Text(
-                text = state.title,
+                text = state.book.title,
                 style =
                     MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
@@ -190,11 +190,8 @@ fun CompactNowPlaying(
             // The chapter's own title, falling back to "Chapter N" only when it's genuinely
             // untitled. No "Chapter N · " prefix — the title is often itself "Chapter N", which
             // produced confusing duplicates like "Chapter 3 · Chapter 1" (offset by front-matter).
-            val chapterLine =
-                state.chapterTitle?.takeIf { it.isNotBlank() }
-                    ?: "Chapter ${state.chapterIndex + 1}"
             Text(
-                text = chapterLine,
+                text = state.chapterLine(),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -203,11 +200,11 @@ fun CompactNowPlaying(
             )
 
             // Narrator line — only shown when narrators are present.
-            if (state.narrators.isNotEmpty()) {
+            if (state.book.narrators.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
 
                 ClickableContributorLine(
-                    contributors = state.narrators,
+                    contributors = state.book.narrators.asBookContributors(),
                     onContributorClick = onGoToContributor,
                     style = MaterialTheme.typography.bodyMedium,
                     nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -236,8 +233,8 @@ fun CompactNowPlaying(
             // Scrubber + time labels — fills column width (horizontal padding from the column).
             PlayerScrubber(
                 progress = progress,
-                isPlaying = state.isPlaying,
-                isBuffering = state.isBuffering,
+                isPlaying = state.isAudible,
+                isBuffering = state.isBusy,
                 onSeek = onSeek,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -246,9 +243,8 @@ fun CompactNowPlaying(
 
             // Transport — slightly smaller FAB (88 dp).
             PlayerTransport(
-                isPlaying = state.isPlaying,
-                isBuffering = state.isBuffering,
-                onPlayPause = onPlayPause,
+                primary = state.primary,
+                onPrimary = onPrimary,
                 onSkipBack = onSkipBack,
                 onSkipForward = onSkipForward,
                 onPreviousChapter = onPreviousChapter,
@@ -263,9 +259,9 @@ fun CompactNowPlaying(
 
             // Secondary actions: speed pill, boost pill, sleep pill, chapters pill.
             PlayerSecondaryActions(
-                playbackSpeed = state.playbackSpeed,
+                playbackSpeed = state.settings.speed,
                 onSpeedClick = onSpeedClick,
-                volumeBoostDb = state.volumeBoostDb,
+                volumeBoostDb = state.settings.boostDb,
                 onBoostClick = onBoostClick,
                 onSleepClick = onSleepClick,
                 onChaptersClick = onChaptersClick,

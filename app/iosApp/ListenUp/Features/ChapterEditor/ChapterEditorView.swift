@@ -20,7 +20,7 @@ struct ChapterEditorView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
     @State private var observer: ChapterEditorObserver?
-    @State private var player: PlayerCoordinator?
+    @State private var player: PlayerObserver?
     @State private var query: String = ""
     @State private var pendingDiscard = false
     @State private var renaming: EditableChapterRow?
@@ -47,7 +47,7 @@ struct ChapterEditorView: View {
         .interactiveDismissDisabled(dismissal.blocksInteractiveDismiss)
         .task(id: bookId) {
             guard observer == nil else { return }
-            player = deps.playerCoordinator
+            player = deps.playerObserver
             observer = ChapterEditorObserver(viewModel: deps.createChapterEditorViewModel(bookId: bookId))
         }
         // ⛔ The ViewModel's scope outlives this view otherwise, and an in-flight save orphans.

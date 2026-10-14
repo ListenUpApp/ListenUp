@@ -1,80 +1,45 @@
 import Testing
 @testable import ListenUp
 
-/// Closing a book (the player's "Close book" item) and signing out both call
-/// `PlayerCoordinator.stop()`. Before this suite, `stop()` released the engine terminally and
-/// cancelled every subscription, so the app-wide cached coordinator could never play again.
+/// Closing a book (the shared player's `.stop`) and signing out (`PlayerCoordinator.stop()`) both
+/// unload the engine. The coordinator is an app-lifetime singleton, so neither may leave it unable to
+/// play the next book or with its subscriptions severed.
 @Suite("Close book leaves the player reusable")
 @MainActor
 struct PlayerCloseBookReuseTests {
-
-    /// The coordinator under test plus the fakes a test drives and observes it through.
-    private struct Harness {
-        let coordinator: PlayerCoordinator
-        let engine: FakePlaybackEngine
-        let progress: FakeProgressReporting
-        let skips: FakeSkipIntervalProviding
-    }
-
-    private func makeHarness() -> Harness {
-        let engine = FakePlaybackEngine()
-        let progress = FakeProgressReporting()
-        let skips = FakeSkipIntervalProviding(initialForward: 30, initialBackward: 10)
-        let preparer = FakePlaybackPreparing()
-        preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
-            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
-            resumePositionMs: 0, chapters: [],
-            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
-                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
-        )
-        let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: progress,
-            sleep: FakeSleepTiming(), engine: engine, skipIntervals: skips
-        )
-        return Harness(coordinator: coordinator, engine: engine, progress: progress, skips: skips)
-    }
-
-    /// The regression: play → close book → play another book must reach `.playing`, not
-    /// "Couldn't start playback." on a dead engine.
+    /// The regression: play → close book → play another book must reach `.playing`, not a failure
+    /// on a dead engine.
     @Test func playingAgainAfterCloseBookReachesPlaying() async {
-        let harness = makeHarness()
-        let coordinator = harness.coordinator
-        let progress = harness.progress
-        coordinator.play(bookId: "book1")
-        await progress.waitForStarted(bookId: "book1")
-        await awaitObservation { coordinator.isPlaying }
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1")
+        await awaitObservation { harness.coordinator.isPlaying }
 
-        await coordinator.stop()
-        #expect(coordinator.isVisible == false)
+        await harness.run(.stop)
+        #expect(harness.coordinator.engineBook == nil)
 
-        coordinator.play(bookId: "book2")
-        // Bounded on either outcome: against a terminal engine the second load fails and the
-        // coordinator lands in `.error`, so an unbounded `waitForStarted` would hang, not fail.
-        await awaitObservation { coordinator.isPlaying || coordinator.isErrored }
-        #expect(coordinator.isPlaying)
-        #expect(coordinator.isErrored == false)
+        await harness.run(.load(bookId: "book2", prepared: .fixture()))
+        // Bounded on either outcome: against a terminal engine the second load fails.
+        await awaitObservation { harness.coordinator.isPlaying || !harness.facts.failures.isEmpty }
+        #expect(harness.coordinator.isPlaying)
+        #expect(harness.facts.failures.isEmpty)
     }
 
     @Test func stopUnloadsRatherThanReleasingTheEngine() async {
-        let harness = makeHarness()
+        let harness = PlayerHarness()
         await harness.coordinator.stop()
         #expect(await harness.engine.teardownOrder == ["deactivate", "unload"])
         #expect(await harness.engine.didRelease == false)
     }
 
-    /// The coordinator is an app-lifetime singleton: its subscriptions (here, the skip-interval
-    /// setting) must keep delivering after a close, or the next book plays with stale settings.
+    /// Its subscriptions (here, the skip-interval setting) keep delivering after a close.
     @Test func skipIntervalObservationSurvivesStop() async {
-        let harness = makeHarness()
-        let coordinator = harness.coordinator
-        await awaitObservation { coordinator.skipForwardSec == 30 }
-        await coordinator.stop()
+        let skips = FakeSkipIntervalProviding(initialForward: 30, initialBackward: 10)
+        let harness = PlayerHarness(skipIntervals: skips)
+        await awaitObservation { harness.coordinator.skipForwardSec == 30 }
+        await harness.coordinator.stop()
 
-        harness.skips.emitForward(45)
-        // A severed subscription never mutates the interval, so this ends at the watchdog and
-        // fails by name rather than hanging.
-        await awaitObservation { coordinator.skipForwardSec == 45 }
-        #expect(coordinator.skipForwardSec == 45)
+        skips.emitForward(45)
+        await awaitObservation { harness.coordinator.skipForwardSec == 45 }
+        #expect(harness.coordinator.skipForwardSec == 45)
     }
 }

@@ -9,7 +9,7 @@ private enum EngineSignal: Sendable {
     case periodicTick
     case itemEnded(ObjectIdentifier)
     case currentItemChanged
-    case itemStatus(status: AVPlayerItem.Status, errorMessage: String?, errorDetail: String)
+    case itemStatus(status: AVPlayerItem.Status, errorMessage: String?, failure: EngineFailure)
 }
 
 /// Wraps `AVQueuePlayer` + `AVAudioSession`. The single isolation domain for all
@@ -124,8 +124,8 @@ actor AudioEngine: PlaybackEngine {
         case .periodicTick: emitPosition()
         case .itemEnded(let itemId): handleItemEnded(itemId)
         case .currentItemChanged: handleCurrentItemChanged()
-        case .itemStatus(let status, let msg, let detail):
-            handleItemStatus(status, errorMessage: msg, errorDetail: detail)
+        case .itemStatus(let status, let msg, let failure):
+            handleItemStatus(status, errorMessage: msg, failure: failure)
         }
     }
 
@@ -147,7 +147,7 @@ actor AudioEngine: PlaybackEngine {
             return false
         }
         guard !segments.isEmpty else {
-            continuation.yield(.failed(message: "This book has no audio."))
+            continuation.yield(.failed(.couldNotStart(detail: "no audio")))
             return false
         }
         self.segments = segments
@@ -363,7 +363,7 @@ actor AudioEngine: PlaybackEngine {
             return true
         } catch {
             Log.error("Failed to configure audio session", error: error)
-            continuation.yield(.failed(message: "Couldn't start audio playback."))
+            continuation.yield(.failed(.couldNotStart(detail: "audio session / queue")))
             return false
         }
     }
@@ -385,7 +385,7 @@ actor AudioEngine: PlaybackEngine {
                 // A rejected segment would silently skip audio and corrupt the user's place.
                 // Surface it as a playback failure rather than dropping it without a trace.
                 Log.error("AVQueuePlayer rejected segment \(entry.segmentIndex); aborting queue build")
-                continuation.yield(.failed(message: "Couldn't start audio playback."))
+                continuation.yield(.failed(.couldNotStart(detail: "audio session / queue")))
                 return false
             }
             player.insert(entry.item, after: nil)
@@ -513,14 +513,14 @@ actor AudioEngine: PlaybackEngine {
             guard let self else { return }
             let status = item.status
             let errorMessage = item.error?.localizedDescription
-            // Capture the NSError domain/code too — the localized text alone rarely
-            // names the cause (ATS, TLS trust, HTTP status).
-            let detail = (item.error as NSError?).map { " [\($0.domain) \($0.code)]" } ?? ""
-            self.signalContinuation.yield(.itemStatus(status: status, errorMessage: errorMessage, errorDetail: detail))
+            // Typed from the NSError domain/code — the localized text alone rarely names the cause
+            // (ATS, TLS trust, HTTP status); the failure's detail carries both for the log.
+            let failure = AudioEngine.failure(for: item.error as NSError?)
+            self.signalContinuation.yield(.itemStatus(status: status, errorMessage: errorMessage, failure: failure))
         }
     }
 
-    private func handleItemStatus(_ status: AVPlayerItem.Status, errorMessage: String?, errorDetail: String) {
+    private func handleItemStatus(_ status: AVPlayerItem.Status, errorMessage: String?, failure: EngineFailure) {
         switch status {
         case .readyToPlay:
             // A deferred cross-segment seek (set by `seek(toMs:)`, which rebuilds the queue and
@@ -538,9 +538,9 @@ actor AudioEngine: PlaybackEngine {
             // owns that distinction so the UI can't claim "playing" during the startup buffer.
             resumeReadyIfWaiting(true)
         case .failed:
-            Log.error("AVPlayerItem failed: \(errorMessage ?? "unknown error")\(errorDetail)")
+            Log.error("AVPlayerItem failed: \(errorMessage ?? "unknown error") [\(failure)]")
             resumeReadyIfWaiting(false)
-            continuation.yield(.failed(message: errorMessage ?? "Playback failed."))
+            continuation.yield(.failed(failure))
         case .unknown:
             break
         @unknown default:

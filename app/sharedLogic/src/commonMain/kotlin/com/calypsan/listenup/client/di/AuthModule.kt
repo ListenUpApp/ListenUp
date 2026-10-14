@@ -30,6 +30,7 @@ import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -233,6 +234,7 @@ internal val clientAuthModule: Module
                     rpcCacheInvalidator = get(),
                     libraryResetHelper = get(),
                     playbackStateProvider = getOrNull<PlaybackManager>(),
+                    playerSession = getOrNull<PlayerSession>(),
                 )
             }
         }

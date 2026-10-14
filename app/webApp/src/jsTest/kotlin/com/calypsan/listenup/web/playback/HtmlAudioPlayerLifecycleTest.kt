@@ -1,9 +1,9 @@
 package com.calypsan.listenup.web.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlaybackState
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeBetween
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.w3c.dom.url.URL
 
@@ -92,11 +92,11 @@ class HtmlAudioPlayerLifecycleTest :
             // NotSupportedError is deliberately not asserted here. It only ever arrives alongside
             // an element error that HtmlAudioPlayer has already reported more precisely, so
             // onPlayRejected drops it rather than restating it; see the guard there.
-            playRefusalMessage("NotAllowedError").shouldNotBeNull()
+            playRefusal("NotAllowedError") shouldBe PlaybackError.AutoplayBlocked()
 
             // A segment advance re-points the element while a play is pending, which rejects with
             // AbortError every time. Reporting that would paint an error over correct playback —
             // the boundary-crossing spec above would fail the moment it stopped being filtered.
-            playRefusalMessage("AbortError") shouldBe null
+            playRefusal("AbortError") shouldBe null
         }
     })

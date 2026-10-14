@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import android.content.Context
@@ -276,21 +277,15 @@ private class StubPlaybackManager : PlaybackManager {
     override val playbackSpeed: StateFlow<Float> = MutableStateFlow(1.0f)
     override val volumeBoostDb: StateFlow<Float> = MutableStateFlow(0f)
     override val playbackState: StateFlow<PlaybackState> = MutableStateFlow(PlaybackState.Idle)
-    override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?> = MutableStateFlow(null)
+    override val playbackError: StateFlow<AppError?> = MutableStateFlow(null)
     override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
     override val effectiveGainDb: StateFlow<Float> = MutableStateFlow(0f)
-    override val preparingBookId: StateFlow<BookId?> = MutableStateFlow(null)
-    override val preparingBookIdUi: StateFlow<BookId?> = MutableStateFlow(null)
-
-    override fun markPreparing(bookId: BookId) = Unit
-
-    override fun clearPreparing() = Unit
 
     override fun activateBook(bookId: BookId) = Unit
 
     override suspend fun prepareForPlayback(
         bookId: BookId,
-        startAtMs: Long?,
+        start: PlaybackStart,
     ): AppResult<PlaybackManager.PrepareResult> = AppResult.Failure(PlaybackError.CouldNotStart())
 
     override suspend fun startPlayback(
@@ -326,8 +321,5 @@ private class StubPlaybackManager : PlaybackManager {
 
     override fun updateSpeed(speed: Float) = Unit
 
-    override fun reportError(
-        message: String,
-        isRecoverable: Boolean,
-    ) = Unit
+    override fun reportError(error: AppError) = Unit
 }

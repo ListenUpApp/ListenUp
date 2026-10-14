@@ -48,6 +48,9 @@ import androidx.media3.exoplayer.trackselection.TrackSelectionArray
 import androidx.media3.exoplayer.trackselection.TrackSelector
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import androidx.media3.exoplayer.video.spherical.CameraMotionListener
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
@@ -55,13 +58,16 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import io.kotest.assertions.withClue
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
@@ -208,8 +214,8 @@ class PlaybackErrorHandlerTest {
     fun `handle Network returns true and does not pause player`() {
         runTest {
             val tracker = FakeProgressTracker()
-            val player = FakeExoPlayer(stubbedPosition = 8_000L)
-            val errors = mutableListOf<String>()
+            val player = FakeExoPlayer(playWhenReady = true, stubbedPosition = 8_000L)
+            val errors = mutableListOf<AppError>()
 
             val result =
                 makeHandler(tracker = tracker).handle(
@@ -242,7 +248,7 @@ class PlaybackErrorHandlerTest {
 
             makeHandler(tracker = tracker).handle(
                 error = PlaybackErrorHandler.ClassifiedError.Network("net"),
-                player = FakeExoPlayer(),
+                player = FakeExoPlayer(playWhenReady = true),
                 currentBookId = null,
                 bookPositionMs = 0L,
                 onShowError = {},
@@ -264,7 +270,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `handle Network re-prepares and resumes the player`() =
         runTest {
-            val player = FakeExoPlayer()
+            val player = FakeExoPlayer(playWhenReady = true)
 
             val result =
                 makeHandler().handle(
@@ -286,8 +292,8 @@ class PlaybackErrorHandlerTest {
     fun `handle Network gives up once the retry budget is spent and tells the listener`() =
         runTest {
             val handler = makeHandler()
-            val player = FakeExoPlayer()
-            val errors = mutableListOf<String>()
+            val player = FakeExoPlayer(playWhenReady = true)
+            val errors = mutableListOf<AppError>()
 
             repeat(RECOVERY_ATTEMPT_BUDGET) { _ ->
                 handler.handle(
@@ -312,20 +318,49 @@ class PlaybackErrorHandlerTest {
 
             withClue("Returning false lets the caller start the idle timer") { exhausted shouldBe false }
             withClue("Listener is told once, not on every failed attempt") { errors.size shouldBe 1 }
-            withClue("The message points at the manual fallback") {
-                errors.single().contains("Tap play") shouldBe true
+            withClue("A spent budget is a dropped connection, typed") {
+                errors.single().shouldBeInstanceOf<PlaybackError.ConnectionLost>()
             }
             withClue("No further prepare() once the budget is spent") {
                 player.prepareCount shouldBe RECOVERY_ATTEMPT_BUDGET
             }
+            withClue("A surfaced failure leaves the player stopped: nothing resumes behind the error") {
+                player.playWhenReady shouldBe false
+            }
+        }
+
+    @Test
+    fun `handle Network stops recovering once the surfaced failure has paused the player (6c)`() =
+        runTest {
+            val player = FakeExoPlayer(playWhenReady = true)
+            val errors = mutableListOf<AppError>()
+
+            val recovery =
+                async {
+                    makeHandler().handle(
+                        error = PlaybackErrorHandler.ClassifiedError.Network("net"),
+                        player = player,
+                        currentBookId = BookId("book1"),
+                        bookPositionMs = 1_000L,
+                        onShowError = { errors += it },
+                    )
+                }
+            // The shared player surfaced the failure and paused while this recovery was backing off.
+            advanceTimeBy(500L)
+            player.pause()
+
+            withClue("A paused player's recovery is over") { recovery.await() shouldBe false }
+            withClue("No re-prepare behind the error") { player.prepareCount shouldBe 0 }
+            withClue("No play behind the error") { player.playCount shouldBe 0 }
+            withClue("The listener was already told; nothing new to say") { errors.isEmpty() shouldBe true }
         }
 
     @Test
     fun `onPlaybackHealthy refills the budget so it is per-incident, not per-session`() =
         runTest {
             val handler = makeHandler()
-            val player = FakeExoPlayer()
-            val errors = mutableListOf<String>()
+            val player = FakeExoPlayer(playWhenReady = true)
+            val errors = mutableListOf<AppError>()
 
             repeat(RECOVERY_ATTEMPT_BUDGET + 1) { _ ->
                 handler.handle(
@@ -338,6 +373,8 @@ class PlaybackErrorHandlerTest {
             }
             withClue("Precondition: budget is spent") { errors.size shouldBe 1 }
 
+            // The spent budget stopped the player; the listener plays again and it comes back healthy.
+            player.play()
             handler.onPlaybackHealthy()
 
             val afterRecovery =
@@ -361,8 +398,8 @@ class PlaybackErrorHandlerTest {
     fun `handle Stuck draws on the same budget as Network`() =
         runTest {
             val handler = makeHandler()
-            val player = FakeExoPlayer()
-            val errors = mutableListOf<String>()
+            val player = FakeExoPlayer(playWhenReady = true)
+            val errors = mutableListOf<AppError>()
 
             // A book that stalls, recovers, and stalls again is failing repeatedly whatever the
             // reported cause — so a mix of the two must not double the effective budget.
@@ -398,7 +435,7 @@ class PlaybackErrorHandlerTest {
         runBlocking {
             val tracker = FakeProgressTracker()
             val player = FakeExoPlayer(stubbedPosition = 4_500L)
-            val errors = mutableListOf<String>()
+            val errors = mutableListOf<AppError>()
 
             val result =
                 makeHandler(tracker = tracker).handle(
@@ -412,8 +449,10 @@ class PlaybackErrorHandlerTest {
 
             withClue("NotFound should return false (no further playback)") { result shouldBe false }
             withClue("Player paused") { player.pauseCount shouldBe 1 }
-            errors.size shouldBe 1
-            withClue("Error message is non-blank") { errors.first().isNotBlank() shouldBe true }
+            withClue("A missing file cannot start, and debugInfo names the 404") {
+                val error = errors.single().shouldBeInstanceOf<PlaybackError.CouldNotStart>()
+                error.debugInfo.orEmpty() shouldContain "404"
+            }
             tracker.savePlaybackStateCalls.size shouldBe 1
             tracker.savePlaybackStateCalls.first().first shouldBe BookId("book2")
             withClue("Saved position must be the BOOK-relative value, not player.currentPosition (4_500)") {
@@ -429,7 +468,7 @@ class PlaybackErrorHandlerTest {
     fun `handle Codec returns false, pauses player, shows user error`() {
         runBlocking {
             val player = FakeExoPlayer()
-            val errors = mutableListOf<String>()
+            val errors = mutableListOf<AppError>()
 
             val result =
                 makeHandler().handle(
@@ -442,7 +481,7 @@ class PlaybackErrorHandlerTest {
 
             result shouldBe false
             player.pauseCount shouldBe 1
-            errors.size shouldBe 1
+            errors.single().shouldBeInstanceOf<PlaybackError.UnsupportedFormat>()
         }
     }
 
@@ -458,7 +497,7 @@ class PlaybackErrorHandlerTest {
         runTest {
             val tokens = FakeAudioTokenRecovery(initialToken = "rejected-token")
             val player = FakeExoPlayer()
-            val errors = mutableListOf<String>()
+            val errors = mutableListOf<AppError>()
 
             val result =
                 makeHandler(tokens = tokens).handle(
@@ -475,7 +514,9 @@ class PlaybackErrorHandlerTest {
             withClue("Re-preparing against the rejected token just re-issues the same 401") {
                 player.prepareCount shouldBe 0
             }
-            withClue("The listener must be told to sign in, not left in silence") { errors.size shouldBe 1 }
+            withClue("The listener must be told to sign in, not left in silence") {
+                errors.single().shouldBeInstanceOf<AuthError.SessionExpired>()
+            }
             withClue("Playback is paused rather than left spinning") { player.pauseCount shouldBe 1 }
         }
 
@@ -483,8 +524,8 @@ class PlaybackErrorHandlerTest {
     fun `handle AuthExpired retries when the refresh yields a genuinely new token`() =
         runTest {
             val tokens = FakeAudioTokenRecovery(initialToken = "rejected-token") { "fresh-token" }
-            val player = FakeExoPlayer()
-            val errors = mutableListOf<String>()
+            val player = FakeExoPlayer(playWhenReady = true)
+            val errors = mutableListOf<AppError>()
 
             val result =
                 makeHandler(tokens = tokens).handle(
@@ -511,8 +552,8 @@ class PlaybackErrorHandlerTest {
             // forever: the token-comparison guard never fires, so only a budget bounds it.
             val tokens = FakeAudioTokenRecovery(initialToken = "t0") { attempt -> "t$attempt" }
             val handler = makeHandler(tokens = tokens)
-            val player = FakeExoPlayer()
-            val errors = mutableListOf<String>()
+            val player = FakeExoPlayer(playWhenReady = true)
+            val errors = mutableListOf<AppError>()
 
             repeat(RECOVERY_ATTEMPT_BUDGET) { _ ->
                 handler.handle(
@@ -539,6 +580,9 @@ class PlaybackErrorHandlerTest {
             withClue("No further prepare() once the budget is spent") {
                 player.prepareCount shouldBe RECOVERY_ATTEMPT_BUDGET
             }
+            withClue("A surfaced failure leaves the player stopped: nothing resumes behind the error") {
+                player.playWhenReady shouldBe false
+            }
         }
 
     // ── handle — Stuck ────────────────────────────────────────────────────────
@@ -547,8 +591,8 @@ class PlaybackErrorHandlerTest {
     fun `handle Stuck returns true and performs stop-prepare-seekTo-play recovery`() {
         runTest {
             val tracker = FakeProgressTracker()
-            val player = FakeExoPlayer(stubbedPosition = 12_000L, stubbedMediaItemIndex = 2)
-            val errors = mutableListOf<String>()
+            val player = FakeExoPlayer(playWhenReady = true, stubbedPosition = 12_000L, stubbedMediaItemIndex = 2)
+            val errors = mutableListOf<AppError>()
 
             val result =
                 makeHandler(tracker = tracker).handle(
@@ -583,7 +627,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `handle Stuck at position 0 does not call seekTo`() {
         runTest {
-            val player = FakeExoPlayer(stubbedPosition = 0L, stubbedMediaItemIndex = 0)
+            val player = FakeExoPlayer(playWhenReady = true, stubbedPosition = 0L, stubbedMediaItemIndex = 0)
 
             makeHandler().handle(
                 error = PlaybackErrorHandler.ClassifiedError.Stuck("stuck at zero"),
@@ -604,7 +648,7 @@ class PlaybackErrorHandlerTest {
         runBlocking {
             val tracker = FakeProgressTracker()
             val player = FakeExoPlayer(stubbedPosition = 3_000L)
-            val errors = mutableListOf<String>()
+            val errors = mutableListOf<AppError>()
 
             val result =
                 makeHandler(tracker = tracker).handle(
@@ -617,7 +661,7 @@ class PlaybackErrorHandlerTest {
 
             result shouldBe false
             player.pauseCount shouldBe 1
-            errors.size shouldBe 1
+            errors.single().shouldBeInstanceOf<PlaybackError.CouldNotStart>()
             tracker.savePlaybackStateCalls.size shouldBe 1
             tracker.savePlaybackStateCalls.first().first shouldBe BookId("book4")
         }
@@ -863,6 +907,9 @@ internal class FakeExoPlayer(
     // confine every user of this fake to Robolectric, including suites like AutoRewindSeekTest
     // whose subject is pure logic and never reads the command set.
     private val availableCommands: Player.Commands? = null,
+    // What the listener last asked for. A player that errored mid-play still wants to play (Media3 keeps
+    // playWhenReady through an error), which is what the recovery path reads; play() and pause() move it.
+    private var playWhenReady: Boolean = false,
 ) : ExoPlayer {
     private val _currentPosition = stubbedPosition
     private val _currentMediaItemIndex = stubbedMediaItemIndex
@@ -885,10 +932,12 @@ internal class FakeExoPlayer(
     // ── Methods called by PlaybackErrorHandler.handle ──────────────────────────
     override fun pause() {
         pauseCount++
+        playWhenReady = false
     }
 
     override fun play() {
         playCount++
+        playWhenReady = true
     }
 
     override fun stop() {
@@ -1001,9 +1050,11 @@ internal class FakeExoPlayer(
 
     override fun getPlayerError(): ExoPlaybackException? = null
 
-    override fun setPlayWhenReady(playWhenReady: Boolean) = Unit
+    override fun setPlayWhenReady(playWhenReady: Boolean) {
+        this.playWhenReady = playWhenReady
+    }
 
-    override fun getPlayWhenReady(): Boolean = false
+    override fun getPlayWhenReady(): Boolean = playWhenReady
 
     override fun setRepeatMode(repeatMode: Int) = Unit
 

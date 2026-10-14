@@ -14,14 +14,24 @@ import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.NoDownloadsService
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
+import com.calypsan.listenup.client.playback.ManagedPlayerEngine
+import com.calypsan.listenup.client.playback.NoOutputRoute
+import com.calypsan.listenup.client.playback.NoPlaybackStartGate
+import com.calypsan.listenup.client.playback.OutputRoute
+import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackMediaItem
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
+import com.calypsan.listenup.client.playback.PlaybackStartGate
+import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.ProgressTracker
 import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -120,6 +130,25 @@ internal val browserPlaybackModule: Module =
             )
         }
 
+        // The shared player's engine (playerModule): today's PlaybackManager + PlaybackController behind one seam.
+        single(named(OFFLINE_COPIES)) { false } // a browser keeps no downloads
+        // `:app:webApp`'s webPlaybackModule overrides this with the <audio> element's HtmlAudioStartGate.
+        single<PlaybackStartGate> { NoPlaybackStartGate }
+        single<OutputRoute> { NoOutputRoute }
+        // No player until the app shell supplies one (webPlaybackModule binds WebPlaybackController), like
+        // `playbackAvailable`. The shared player is created at start, so the graph needs a controller to build it.
+        single<PlaybackController> { NoBrowserPlaybackController }
+        single<PlayerEngine> {
+            ManagedPlayerEngine(
+                playbackManager = get(),
+                playbackController = get(),
+                startGate = get(),
+                progressTracker = get(),
+                outputRoute = get(),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
+            )
+        }
+
         // Structured device identity — shared source for auth login + listening history.
         single<DeviceInfoProvider> {
             val clientVersion = get<String>(named("clientVersion"))
@@ -135,3 +164,34 @@ internal val browserPlaybackModule: Module =
             }
         }
     }
+
+/**
+ * The browser graph's controller before an app shell supplies a player: it never becomes ready and does nothing.
+ * `playbackAvailable` is false alongside it, so no play path reaches it.
+ */
+private object NoBrowserPlaybackController : PlaybackController {
+    override val ready: StateFlow<Boolean> = MutableStateFlow(false)
+
+    override fun acquire() = Unit
+
+    override fun releasePlayer() = Unit
+
+    override fun play() = Unit
+
+    override fun pause() = Unit
+
+    override fun seekTo(positionMs: Long) = Unit
+
+    override fun setPlaybackSpeed(speed: Float) = Unit
+
+    override fun stop() = Unit
+
+    override fun setVolume(volume: Float) = Unit
+
+    override suspend fun setMediaQueue(
+        items: List<PlaybackMediaItem>,
+        startPositionMs: Long,
+    ) = Unit
+
+    override suspend fun startPlayback(prepareResult: PlaybackManager.PrepareResult) = Unit
+}

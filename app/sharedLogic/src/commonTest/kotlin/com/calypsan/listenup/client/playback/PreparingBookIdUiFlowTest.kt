@@ -12,10 +12,10 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Unit tests for [preparingBookIdUiFlow] — the debounced, UI-facing view of a play-in-flight
- * signal (e.g. [PlaybackManager.preparingBookId]). Covers the #1's actual reported bug: tapping
+ * signal (e.g. [PlayerSession.preparingBookId]). Covers the #1's actual reported bug: tapping
  * play shows nothing for seconds. This flow is what fixes the *visible* half of that fix (the
- * other half — swallowing repeat taps — lives in [PlaybackManager.preparingBookId] itself and is
- * covered by `NowPlayingViewModelTest`).
+ * other half — swallowing repeat taps — lives in [PlayerSession.preparingBookId] itself and is
+ * covered by `PlayerSessionPlayTest`).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PreparingBookIdUiFlowTest :
@@ -95,7 +95,7 @@ class PreparingBookIdUiFlowTest :
 
         test("a fresh collector re-runs its own debounce window rather than inheriting an already-elapsed one") {
             runTest {
-                // preparingBookIdUiFlow is a plain, COLD Flow (see PlaybackManager.preparingBookIdUi
+                // preparingBookIdUiFlow is a plain, COLD Flow (see PlayerSession.preparingBookIdUi
                 // KDoc) — there is deliberately no sharing/stateIn at this layer, per the rubric
                 // ("state is .stateIn(scope) at the call site"). The accepted consequence: a fresh
                 // collector has no memory of how long the source has actually been non-null, so it

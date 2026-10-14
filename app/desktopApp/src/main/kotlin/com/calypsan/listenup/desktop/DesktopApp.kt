@@ -71,8 +71,8 @@ import com.calypsan.listenup.client.navigation.AuthNavigation
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
-import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.desktop.nowplaying.DesktopNowPlayingBar
 import com.calypsan.listenup.desktop.nowplaying.DesktopNowPlayingScreen
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -230,11 +230,10 @@ fun DesktopApp() {
 private fun DesktopAuthenticatedNavigation() {
     val scope = rememberCoroutineScope()
     val logoutUseCase: LogoutUseCase = koinInject()
-    val nowPlayingViewModel: NowPlayingViewModel = koinInject()
+    val nowPlayingViewModel: PlayerViewModel = koinInject()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val playerScreenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
-    val playerState = playerScreenState.state
+    val playerState by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
     val playerProgressState = nowPlayingViewModel.progress.collectAsStateWithLifecycle()
 
     // Outlives every destination, deliberately: the screen that owns the selection and the editor
@@ -345,9 +344,10 @@ private fun DesktopAuthenticatedNavigation() {
             }
 
             // Persistent mini player (visible when a book is loaded, hidden on NowPlaying screen)
-            if (playerState !is NowPlayingState.Idle && !isShowingNowPlaying) {
+            val loaded = playerState as? PlayerUiState.Loaded
+            if (loaded != null && !isShowingNowPlaying) {
                 DesktopNowPlayingBar(
-                    state = playerState,
+                    state = loaded,
                     progress = { playerProgressState.value },
                     onPlayPause = { nowPlayingViewModel.playPause() },
                     onSkipBack = { nowPlayingViewModel.skipBack() },
@@ -367,7 +367,7 @@ private fun DetailScreen(
     destination: DetailDestination,
     navigateTo: (DetailDestination) -> Unit,
     navigateBack: () -> Unit,
-    nowPlayingViewModel: NowPlayingViewModel,
+    nowPlayingViewModel: PlayerViewModel,
     onBulkEditApplied: (changedCount: Int) -> Unit,
 ) {
     when (destination) {
@@ -569,17 +569,10 @@ private fun DetailScreen(
         }
 
         is DetailDestination.NowPlaying -> {
-            val screenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
-            val state = screenState.state
+            val state by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
             val progressState = nowPlayingViewModel.progress.collectAsStateWithLifecycle()
-            // "Go to Book" only meaningful when there's a known bookId — Active
-            // has one; Error sometimes does; Idle never.
-            val activeBookId: String? =
-                when (state) {
-                    is NowPlayingState.Active -> state.bookId
-                    is NowPlayingState.Error -> state.bookId
-                    is NowPlayingState.Idle -> null
-                }
+            // "Go to Book" only meaningful when a book is loaded.
+            val activeBookId: String? = (state as? PlayerUiState.Loaded)?.run { book.id }
             DesktopNowPlayingScreen(
                 state = state,
                 progress = { progressState.value },

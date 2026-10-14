@@ -23,8 +23,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
-import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlayerSession
+import com.calypsan.listenup.client.playback.PlayerSessionState
 import com.calypsan.listenup.desktop.DesktopApp
 import com.calypsan.listenup.desktop.tray.ListenUpTray
 import org.jetbrains.skia.Image
@@ -74,7 +74,7 @@ fun ListenUpWindow(
         ListenUpTheme(
             darkTheme = isDark,
         ) {
-            val nowPlayingViewModel: NowPlayingViewModel = koinInject()
+            val playerSession: PlayerSession = koinInject()
 
             Surface(
                 modifier =
@@ -82,7 +82,7 @@ fun ListenUpWindow(
                         .fillMaxSize()
                         .onPreviewKeyEvent { event ->
                             if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                            handleMediaKey(event.key, nowPlayingViewModel)
+                            handleMediaKey(event.key, playerSession)
                         },
             ) {
                 DesktopApp()
@@ -99,24 +99,25 @@ fun ListenUpWindow(
  */
 private fun handleMediaKey(
     key: Key,
-    nowPlayingViewModel: NowPlayingViewModel,
+    playerSession: PlayerSession,
 ): Boolean {
-    // Only intercept media keys when there's a book loaded (any non-Idle variant).
-    if (nowPlayingViewModel.screenState.value.state is NowPlayingState.Idle) return false
+    // Only intercept media keys when a book is loaded. The session's state is eagerly shared, so this
+    // reads the truth with no screen collecting it.
+    if (playerSession.state.value !is PlayerSessionState.Loaded) return false
 
     return when (key) {
         Key.MediaPlayPause, Key.Spacebar -> {
-            nowPlayingViewModel.playPause()
+            playerSession.playPause()
             true
         }
 
         Key.MediaNext -> {
-            nowPlayingViewModel.skipForward()
+            playerSession.skipForward()
             true
         }
 
         Key.MediaPrevious -> {
-            nowPlayingViewModel.skipBack()
+            playerSession.skipBack()
             true
         }
 

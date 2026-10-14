@@ -1,8 +1,16 @@
 package com.calypsan.listenup.client.di.e2e
 
+import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.api.error.DownloadError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.di.OFFLINE_COPIES
+import com.calypsan.listenup.client.di.PLAYER_SCOPE
+import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.di.sharedModules
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.playback.PlayerEngine
+import com.calypsan.listenup.client.test.fake.FakePlayerEngine
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.module
 import io.ktor.server.cio.CIO
@@ -11,10 +19,15 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.EngineConnectorBuilder
 import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.koin.core.KoinApplication
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.stopKoin
+import org.koin.core.qualifier.named
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import java.nio.file.Files
@@ -44,6 +57,8 @@ internal class DiWiredClientFixture private constructor(
         if (GlobalContext.getKoinApplicationOrNull() != null) {
             stopKoin()
         }
+        // The session is created at start and collects for the life of its scope; Koin does not cancel scopes.
+        koin.koin.get<CoroutineScope>(named(PLAYER_SCOPE)).cancel()
         koin.close()
     }
 
@@ -101,9 +116,9 @@ internal class DiWiredClientFixture private constructor(
         }
 
         /**
-         * The only test doubles in the graph: an in-memory Room database and a
-         * fixed-URL [ServerConfig]. Declared after `sharedModules` so they
-         * override the production bindings.
+         * The only test doubles in the graph: an in-memory Room database, a
+         * fixed-URL [ServerConfig], the player engine a platform module would
+         * bind, and the player's scope. Declared after `sharedModules` so they override the production bindings.
          *
          * `allowOverride(true)` is set on the [koinApplication] because Koin 4.2.1's
          * [module] function has no per-module `override` parameter.
@@ -116,6 +131,27 @@ internal class DiWiredClientFixture private constructor(
             module {
                 single<ListenUpDatabase> { createInMemoryTestDatabase() }
                 single<ServerConfig> { TestServerConfig(baseUrl) }
+                // What every platform playback module supplies to the shared player (playerModule) and
+                // sharedModules alone does not: the engine, and whether this device keeps downloads.
+                single<PlayerEngine> { FakePlayerEngine() }
+                // playerModule runs the session on Dispatchers.Main, which a headless JVM does not have; the
+                // session is created at start, so without this every graph build fails or depends on which spec
+                // last called setMain. One thread keeps the session's main-thread confinement.
+                single(named(PLAYER_SCOPE)) {
+                    @Suppress("InjectDispatcher")
+                    CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
+                }
+                single(named(OFFLINE_COPIES)) { true }
+                // Whether this graph has a player at all; the session reads it through BookAvailability.
+                single(named("playbackAvailable")) { false }
+                // The session is created at start and observes download status, which reaches the platform's
+                // enqueuer (WorkManager on Android); this graph never downloads.
+                single<DownloadEnqueuer> {
+                    object : DownloadEnqueuer {
+                        override suspend fun enqueue(entity: DownloadEntity): AppResult<Unit> =
+                            AppResult.Failure(DownloadError.NotSupported())
+                    }
+                }
             }
     }
 }

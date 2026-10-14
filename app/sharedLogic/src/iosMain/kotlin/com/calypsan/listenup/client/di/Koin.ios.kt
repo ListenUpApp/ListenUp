@@ -28,15 +28,16 @@ import org.koin.dsl.module
 import org.koin.mp.KoinPlatform
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
-import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
-import com.calypsan.listenup.client.playback.SleepTimerManager
+import com.calypsan.listenup.client.playback.NativePlayerEngine
+import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -485,13 +486,18 @@ object KoinHelper {
 
     fun getDownloadService(): DownloadService = resolve(DownloadService::class)
 
-    fun getSleepTimerManager(): SleepTimerManager = resolve(SleepTimerManager::class)
-
-    fun getPlaybackPreparer(): PlaybackPreparer = resolve(PlaybackPreparer::class)
-
     fun getPlaybackBandwidthCoordinator(): PlaybackBandwidthCoordinator = resolve(PlaybackBandwidthCoordinator::class)
 
     fun getPlaybackPreferences(): PlaybackPreferences = resolve(PlaybackPreferences::class)
+
+    /** The shared player's engine: Swift's `PlayerCoordinator` executes its commands and reports back into it. */
+    fun getNativePlayerEngine(): NativePlayerEngine = resolve(NativePlayerEngine::class)
+
+    /** The player's one view model (a fresh instance per call); Swift's `PlayerObserver` wraps it. */
+    fun getPlayerViewModel(): PlayerViewModel = resolve(PlayerViewModel::class)
+
+    /** The loaded book's id, or null (App Intents' and Control Center's resume, spec §4.4). Plain-typed for Swift. */
+    suspend fun loadedBookIdOrNull(): String? = resolve(LoadedBookRepository::class).loadedBookId()?.value
 }
 
 /**
