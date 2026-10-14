@@ -5,8 +5,6 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.AuthState
-import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
@@ -36,11 +34,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -67,11 +62,11 @@ class PlayerSession(
     bookRepository: BookRepository,
     downloadRepository: DownloadRepository,
     private val positionRepository: PlaybackPositionRepository,
-    private val availability: BookAvailability,
-    private val inboxRepository: InboxRepository,
-    private val networkMonitor: NetworkMonitor,
+    availability: BookAvailability,
+    inboxRepository: InboxRepository,
+    networkMonitor: NetworkMonitor,
     private val serverReachability: ServerReachability,
-    private val authSession: AuthSession,
+    authSession: AuthSession,
     private val sleepTimer: SleepTimerManager,
     private val playbackPreferences: PlaybackPreferences,
     /** True where the device keeps downloads; the browser does not, so it never says "offline, not downloaded". */
@@ -148,54 +143,24 @@ class PlayerSession(
     fun finishDates(bookId: BookId): Flow<Pair<Long?, Long?>> =
         positionRepository.observe(bookId).map { it?.finishedAtMs to it?.startedAtMs }.distinctUntilChanged()
 
-    private val phaseInputs: Flow<PhaseInputs?> =
-        stageBookId.flatMapLatest { id ->
-            if (id == null) {
-                flowOf(null)
-            } else {
-                val engineFacts =
-                    combine(engine.phase, engine.error, engine.loadedBookId) { p, e, b -> Triple(p, e, b) }
-                combine(
-                    flow = engineFacts,
-                    flow2 = positionRepository.observe(id).map { it?.isFinished == true },
-                    flow3 = observeUnavailableReason(id),
-                    flow4 = sleepTimer.state.map { it is SleepTimerState.FadingOut },
-                ) { (phase, error, engineBook), finished, unavailable, fading ->
-                    PhaseInputs(
-                        forBookId = id,
-                        enginePhase = phase,
-                        engineError = error,
-                        engineBookId = engineBook,
-                        isFading = fading,
-                        isFinishedRow = finished,
-                        unavailable = unavailable,
-                    )
-                }
-            }
-        }
+    private val derivation =
+        PlayerStateDerivation(
+            engine = engine,
+            stage = stage,
+            restoring = restoring,
+            stageBookId = stageBookId,
+            positionRepository = positionRepository,
+            availability = availability,
+            inboxRepository = inboxRepository,
+            networkMonitor = networkMonitor,
+            authSession = authSession,
+            sleepTimer = sleepTimer,
+            offlineCopiesSupported = offlineCopiesSupported,
+            scope = scope,
+        )
 
     /** The session's one state. Never re-emits on a position tick. */
-    val state: StateFlow<PlayerSessionState> =
-        combine(restoring, stage, phaseInputs) { isRestoring, s, inputs ->
-            when {
-                isRestoring -> {
-                    PlayerSessionState.Restoring
-                }
-
-                s == null -> {
-                    PlayerSessionState.NothingLoaded
-                }
-
-                else -> {
-                    val current = inputs?.takeIf { it.forBookId == s.bookId } ?: neutralInputs(s.bookId)
-                    PlayerSessionState.Loaded(
-                        bookId = s.bookId,
-                        phase = playerPhaseOf(s, current),
-                        isEngineBound = s is SessionStage.Engine && current.engineBookId == s.bookId,
-                    )
-                }
-            }
-        }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, PlayerSessionState.Restoring)
+    val state: StateFlow<PlayerSessionState> = derivation.state
 
     init {
         scope.launch { loadedBooks.observeLoadedBookId().collect(::onPersistedBookId) }
@@ -321,34 +286,6 @@ class PlayerSession(
         if (wasLoading) engine.abandonLoad()
     }
 
-    private fun neutralInputs(bookId: BookId) =
-        PhaseInputs(
-            forBookId = bookId,
-            enginePhase = engine.phase.value,
-            engineError = engine.error.value,
-            engineBookId = engine.loadedBookId.value,
-            isFading = false,
-            isFinishedRow = false,
-            unavailable = null,
-        )
-
-    private fun observeUnavailableReason(bookId: BookId): Flow<AppError?> =
-        combine(
-            flow = inboxRepository.observeHeldBookIds().map { bookId in it },
-            flow2 = authSession.authState.map { it is AuthState.SessionLapsed },
-            flow3 = availability.observe(bookId),
-            flow4 = networkMonitor.onlineFlow,
-        ) { held, lapsed, available, online ->
-            unavailableReasonOf(
-                isHeld = held,
-                isSessionLapsed = lapsed,
-                hasDownloadedAudio = available.downloadStatus is BookDownloadStatus.Completed,
-                canPlay = available.canPlay,
-                isDeviceOnline = online,
-                offlineCopiesSupported = offlineCopiesSupported,
-            )
-        }.distinctUntilChanged()
-
     // ── Load (Task 14) ───────────────────────────────────────────────────────────────────────────────
 
     /**
@@ -356,8 +293,8 @@ class PlayerSession(
      * null resumes from the saved position.
      *
      * - A plain repeat tap for the book already preparing is swallowed (a double tap).
-     * - The book the engine already holds, not finished and not failed, is a resume: a seek when [startAtMs]
-     *   is given, then play. Never a re-prepare (the web rule, now everyone's).
+     * - The book the engine already holds, not finished, not failed and not halted by a failure, is a resume: a
+     *   seek when [startAtMs] is given, then play. Never a re-prepare (the web rule, now everyone's).
      * - Anything else starts a load, which supersedes any load in flight. A plain Play of the loaded book starts
      *   where the listener moved it before Play.
      */
@@ -373,7 +310,8 @@ class PlayerSession(
                     loaded.bookId == bookId &&
                     loaded.isEngineBound &&
                     loaded.phase !is PlayerPhase.Finished &&
-                    loaded.phase !is PlayerPhase.Failed
+                    loaded.phase !is PlayerPhase.Failed &&
+                    (stage.value as? SessionStage.Engine)?.halted != true
             if (resumable) {
                 if (startAtMs != null) engine.seekTo(startAtMs.coerceIn(0L, (durationMs.value - 1).coerceAtLeast(0L)))
                 engine.clearError()
@@ -415,7 +353,7 @@ class PlayerSession(
                     // unreachable, session lapsed) is that reason, not a generic one: back to Idle, which shows it
                     // and clears it when the cause does.
                     val failedForAKnownReason =
-                        result is AppResult.Failure && observeUnavailableReason(bookId).first() != null
+                        result is AppResult.Failure && derivation.unavailableReason(bookId).first() != null
                     if (myGeneration != generation) return@launch
                     stage.value =
                         when (result) {
@@ -478,7 +416,11 @@ class PlayerSession(
 
     // ── Transport (Task 15) ──────────────────────────────────────────────────────────────────────────
 
-    /** The one play/pause intent (§4.3): resume, pause, prepare a restored book, re-listen, or retry. */
+    /**
+     * The one play/pause intent (§4.3): resume, pause, prepare a restored book, re-listen, or retry. A pause left by
+     * a dismissed failure prepares the book again: the failure halted the engine, and on the web it tore the element's
+     * source down, so resuming it would play nothing.
+     */
     fun playPause() {
         onPlayer {
             val loaded = loadedOrNull() ?: return@onPlayer
@@ -489,7 +431,11 @@ class PlayerSession(
 
                 PlayerPhase.Paused -> {
                     engine.clearError()
-                    engine.play()
+                    if ((stage.value as? SessionStage.Engine)?.halted == true) {
+                        startLoad(loaded.bookId, retryStart(loaded))
+                    } else {
+                        engine.play()
+                    }
                 }
 
                 PlayerPhase.Restored -> {
@@ -738,20 +684,24 @@ class PlayerSession(
     /**
      * Nothing plays while the bar says it's broken. Once an engine failure surfaces, the engine is told to stop
      * trying: a pause, which every engine treats as the end of its own recovery (Media3's re-prepare, a resumable
-     * stalled item). Only Retry or an explicit Play starts it again. A brief drop still recovers quietly before
-     * this, while the engine reports Buffering rather than a failure.
+     * stalled item). Only Retry or an explicit Play starts it again; a Play from the pause a Dismiss leaves
+     * prepares the book again. A brief drop still recovers quietly before this, while the engine reports
+     * Buffering rather than a failure. An engine heard playing again (an autoplay block lifted) is no longer
+     * halted.
      */
     private suspend fun haltSurfacedFailures() {
         state
-            .map { current ->
-                (current as? PlayerSessionState.Loaded)?.takeIf { it.isEngineBound && it.phase is PlayerPhase.Failed }
-            }.distinctUntilChanged()
-            .collect { failed ->
-                if (failed == null) return@collect
-                engine.pause()
+            .map { current -> (current as? PlayerSessionState.Loaded)?.takeIf { it.isEngineBound } }
+            .distinctUntilChanged()
+            .collect { bound ->
                 val current = stage.value
-                if (current is SessionStage.Engine && current.bookId == failed.bookId) {
+                if (bound == null || current !is SessionStage.Engine || current.bookId != bound.bookId) return@collect
+                val playing = bound.phase == PlayerPhase.Playing || bound.phase == PlayerPhase.SleepFading
+                if (bound.phase is PlayerPhase.Failed) {
+                    engine.pause()
                     stage.value = current.copy(halted = true)
+                } else if (playing && current.halted) {
+                    stage.value = current.copy(halted = false)
                 }
             }
     }

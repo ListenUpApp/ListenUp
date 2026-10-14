@@ -84,6 +84,35 @@ class PlayerSessionNativeEngineTest :
             }
         }
 
+        test("a failed switch to a never-played book shows and retries from that book's place, never the last book's") {
+            runTest {
+                val prepared = mutableListOf<Pair<BookId, PlaybackStart>>()
+                val (rig, engine) = nativeRig(prepared)
+                try {
+                    rig.withBook("a")
+                    rig.withBook("b")
+                    runCurrent()
+                    rig.session.playBook(BookId("a"), null)
+                    runCurrent()
+                    engine().onPhase(1, EnginePhase.PLAYING)
+                    engine().onPosition(1, 250_000)
+                    rig.session.playBook(BookId("b"), null)
+                    runCurrent()
+                    // b's stream dies before its first byte; a late tick from a's load is about a book no longer held.
+                    engine().onPosition(1, 250_400)
+                    engine().reportConnectionLost(2, "NSURLErrorDomain -1004")
+                    runCurrent()
+                    rig.loaded.bookId shouldBe BookId("b")
+                    rig.session.positionMs.value shouldBe 0L
+                    rig.session.retry()
+                    runCurrent()
+                    prepared.last() shouldBe (BookId("b") to PlaybackStart.Resume)
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("Retry on a mid-play failure re-prepares through the session") {
             runTest {
                 val prepared = mutableListOf<Pair<BookId, PlaybackStart>>()
