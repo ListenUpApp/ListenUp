@@ -5,8 +5,6 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.AuthState
-import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
@@ -36,11 +34,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -67,11 +62,11 @@ class PlayerSession(
     bookRepository: BookRepository,
     downloadRepository: DownloadRepository,
     private val positionRepository: PlaybackPositionRepository,
-    private val availability: BookAvailability,
-    private val inboxRepository: InboxRepository,
-    private val networkMonitor: NetworkMonitor,
+    availability: BookAvailability,
+    inboxRepository: InboxRepository,
+    networkMonitor: NetworkMonitor,
     private val serverReachability: ServerReachability,
-    private val authSession: AuthSession,
+    authSession: AuthSession,
     private val sleepTimer: SleepTimerManager,
     private val playbackPreferences: PlaybackPreferences,
     /** True where the device keeps downloads; the browser does not, so it never says "offline, not downloaded". */
@@ -148,54 +143,24 @@ class PlayerSession(
     fun finishDates(bookId: BookId): Flow<Pair<Long?, Long?>> =
         positionRepository.observe(bookId).map { it?.finishedAtMs to it?.startedAtMs }.distinctUntilChanged()
 
-    private val phaseInputs: Flow<PhaseInputs?> =
-        stageBookId.flatMapLatest { id ->
-            if (id == null) {
-                flowOf(null)
-            } else {
-                val engineFacts =
-                    combine(engine.phase, engine.error, engine.loadedBookId) { p, e, b -> Triple(p, e, b) }
-                combine(
-                    flow = engineFacts,
-                    flow2 = positionRepository.observe(id).map { it?.isFinished == true },
-                    flow3 = observeUnavailableReason(id),
-                    flow4 = sleepTimer.state.map { it is SleepTimerState.FadingOut },
-                ) { (phase, error, engineBook), finished, unavailable, fading ->
-                    PhaseInputs(
-                        forBookId = id,
-                        enginePhase = phase,
-                        engineError = error,
-                        engineBookId = engineBook,
-                        isFading = fading,
-                        isFinishedRow = finished,
-                        unavailable = unavailable,
-                    )
-                }
-            }
-        }
+    private val derivation =
+        PlayerStateDerivation(
+            engine = engine,
+            stage = stage,
+            restoring = restoring,
+            stageBookId = stageBookId,
+            positionRepository = positionRepository,
+            availability = availability,
+            inboxRepository = inboxRepository,
+            networkMonitor = networkMonitor,
+            authSession = authSession,
+            sleepTimer = sleepTimer,
+            offlineCopiesSupported = offlineCopiesSupported,
+            scope = scope,
+        )
 
     /** The session's one state. Never re-emits on a position tick. */
-    val state: StateFlow<PlayerSessionState> =
-        combine(restoring, stage, phaseInputs) { isRestoring, s, inputs ->
-            when {
-                isRestoring -> {
-                    PlayerSessionState.Restoring
-                }
-
-                s == null -> {
-                    PlayerSessionState.NothingLoaded
-                }
-
-                else -> {
-                    val current = inputs?.takeIf { it.forBookId == s.bookId } ?: neutralInputs(s.bookId)
-                    PlayerSessionState.Loaded(
-                        bookId = s.bookId,
-                        phase = playerPhaseOf(s, current),
-                        isEngineBound = s is SessionStage.Engine && current.engineBookId == s.bookId,
-                    )
-                }
-            }
-        }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, PlayerSessionState.Restoring)
+    val state: StateFlow<PlayerSessionState> = derivation.state
 
     init {
         scope.launch { loadedBooks.observeLoadedBookId().collect(::onPersistedBookId) }
@@ -321,34 +286,6 @@ class PlayerSession(
         if (wasLoading) engine.abandonLoad()
     }
 
-    private fun neutralInputs(bookId: BookId) =
-        PhaseInputs(
-            forBookId = bookId,
-            enginePhase = engine.phase.value,
-            engineError = engine.error.value,
-            engineBookId = engine.loadedBookId.value,
-            isFading = false,
-            isFinishedRow = false,
-            unavailable = null,
-        )
-
-    private fun observeUnavailableReason(bookId: BookId): Flow<AppError?> =
-        combine(
-            flow = inboxRepository.observeHeldBookIds().map { bookId in it },
-            flow2 = authSession.authState.map { it is AuthState.SessionLapsed },
-            flow3 = availability.observe(bookId),
-            flow4 = networkMonitor.onlineFlow,
-        ) { held, lapsed, available, online ->
-            unavailableReasonOf(
-                isHeld = held,
-                isSessionLapsed = lapsed,
-                hasDownloadedAudio = available.downloadStatus is BookDownloadStatus.Completed,
-                canPlay = available.canPlay,
-                isDeviceOnline = online,
-                offlineCopiesSupported = offlineCopiesSupported,
-            )
-        }.distinctUntilChanged()
-
     // ── Load (Task 14) ───────────────────────────────────────────────────────────────────────────────
 
     /**
@@ -415,7 +352,7 @@ class PlayerSession(
                     // unreachable, session lapsed) is that reason, not a generic one: back to Idle, which shows it
                     // and clears it when the cause does.
                     val failedForAKnownReason =
-                        result is AppResult.Failure && observeUnavailableReason(bookId).first() != null
+                        result is AppResult.Failure && derivation.unavailableReason(bookId).first() != null
                     if (myGeneration != generation) return@launch
                     stage.value =
                         when (result) {
