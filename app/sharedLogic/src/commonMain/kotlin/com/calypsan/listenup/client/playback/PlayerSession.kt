@@ -201,6 +201,7 @@ class PlayerSession(
         scope.launch { loadedBooks.observeLoadedBookId().collect(::onPersistedBookId) }
         scope.launch { engine.loadedBookId.collect(::onEngineBook) }
         scope.launch { watchLiveness() }
+        scope.launch { haltSurfacedFailures() }
         sleep.start(loadedBookId = stageBookId)
     }
 
@@ -732,6 +733,27 @@ class PlayerSession(
                 }
             }
         }
+    }
+
+    /**
+     * Nothing plays while the bar says it's broken. Once an engine failure surfaces, the engine is told to stop
+     * trying: a pause, which every engine treats as the end of its own recovery (Media3's re-prepare, a resumable
+     * stalled item). Only Retry or an explicit Play starts it again. A brief drop still recovers quietly before
+     * this, while the engine reports Buffering rather than a failure.
+     */
+    private suspend fun haltSurfacedFailures() {
+        state
+            .map { current ->
+                (current as? PlayerSessionState.Loaded)?.takeIf { it.isEngineBound && it.phase is PlayerPhase.Failed }
+            }.distinctUntilChanged()
+            .collect { failed ->
+                if (failed == null) return@collect
+                engine.pause()
+                val current = stage.value
+                if (current is SessionStage.Engine && current.bookId == failed.bookId) {
+                    stage.value = current.copy(halted = true)
+                }
+            }
     }
 
     private fun AppError.isTransport(): Boolean =

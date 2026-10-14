@@ -44,6 +44,10 @@ class PlayerPhaseDerivationTest :
                 playerPhaseOf(s, inputs(EnginePhase.PAUSED, book, isFinishedRow = true)) shouldBe PlayerPhase.Finished
                 playerPhaseOf(s, inputs(EnginePhase.ENDED, book)) shouldBe PlayerPhase.Finished
             }
+            test("an engine a surfaced failure stopped, left idle, waits for Play") {
+                playerPhaseOf(SessionStage.Engine(book, halted = true), inputs(EnginePhase.IDLE, book)) shouldBe
+                    PlayerPhase.Paused
+            }
             test("an engine error is Failed") {
                 playerPhaseOf(
                     SessionStage.Engine(book),

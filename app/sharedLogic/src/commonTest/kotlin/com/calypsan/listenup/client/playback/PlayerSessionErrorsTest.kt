@@ -36,6 +36,73 @@ class PlayerSessionErrorsTest :
             }
         }
 
+        test("a surfaced stream failure stops the engine: nothing plays behind the error until Retry (6c)") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("a")
+                    rig.withBook("b")
+                    runCurrent()
+                    rig.session.playBook(BookId("a"), null)
+                    runCurrent()
+                    rig.session.playBook(BookId("b"), null)
+                    runCurrent()
+                    // The server dies under B's stream. The engine reports the failure and goes on trying to recover
+                    // (Media3 re-prepares with playWhenReady still true), so it reads Buffering behind the error.
+                    val callsBeforeFailure = rig.engine.calls.size
+                    rig.engine.phase.value = EnginePhase.BUFFERING
+                    rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+
+                    // The server comes back. An engine still told to play recovers and plays by itself (and a
+                    // recovered engine clears its error); one the session paused stays where it is.
+                    val stillToldToPlay = "pause" !in rig.engine.calls.drop(callsBeforeFailure)
+                    if (stillToldToPlay) {
+                        rig.engine.error.value = null
+                        rig.engine.phase.value = EnginePhase.PLAYING
+                    }
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+
+                    rig.session.retry()
+                    runCurrent()
+                    rig.engine.loads
+                        .last()
+                        .first shouldBe BookId("b")
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("dismissing a stopped failure leaves a playable pause even when the engine fell idle, and Play plays") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    // Media3 drops to IDLE on a fatal error, and a pause leaves an idle player idle.
+                    rig.engine.phase.value = EnginePhase.IDLE
+                    runCurrent()
+                    rig.session.dismissError()
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Paused
+                    rig.session.playPause()
+                    runCurrent()
+                    rig.engine.calls.takeLast(2) shouldContainExactly listOf("clearError", "play")
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("a failed prepare dismisses to Restored, never to nothing") {
             runTest {
                 val rig = PlayerSessionRig(this)

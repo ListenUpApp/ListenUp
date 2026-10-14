@@ -94,7 +94,8 @@ class FakePlayerEngine : PlayerEngine {
 
     override fun pause() {
         record("pause")
-        if (loadedBookId.value != null) phase.value = EnginePhase.PAUSED
+        // A pause leaves an idle engine idle, as Media3 does after a fatal error: there is nothing to pause.
+        if (loadedBookId.value != null && phase.value != EnginePhase.IDLE) phase.value = EnginePhase.PAUSED
     }
 
     override fun seekTo(positionMs: Long) {

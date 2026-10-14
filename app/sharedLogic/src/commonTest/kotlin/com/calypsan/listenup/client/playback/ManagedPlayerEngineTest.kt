@@ -388,6 +388,34 @@ class ManagedPlayerEngineTest :
             }
         }
 
+        test("the session's stop on a surfaced failure reaches the platform controller (6c)") {
+            runTest {
+                var engineRig: Rig? = null
+                val session = PlayerSessionRig(this, playerEngine = { scope -> Rig(scope).also { engineRig = it }.engine })
+                try {
+                    val rig = engineRig!!
+                    session.withBook("b1")
+                    rig.manager.stubbedPrepareResult = prepareResultFor("b1")
+                    runCurrent()
+                    session.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.manager.playbackStateFlow.value = PlaybackState.Playing
+                    rig.manager.playingFlow.value = true
+                    runCurrent()
+                    val pausesBefore = rig.controller.pauseCount
+                    // Media3 reports the dropped stream and goes on re-buffering it, playWhenReady still true.
+                    rig.manager.playingFlow.value = false
+                    rig.manager.playbackStateFlow.value = PlaybackState.Buffering
+                    rig.manager.reportError(PlaybackError.ConnectionLost())
+                    runCurrent()
+                    session.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+                    rig.controller.pauseCount shouldBe pausesBefore + 1
+                } finally {
+                    session.close()
+                }
+            }
+        }
+
         test("the error and output route pass straight through") {
             runTest {
                 val scope = CoroutineScope(StandardTestDispatcher(testScheduler))

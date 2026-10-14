@@ -21,9 +21,13 @@ internal sealed interface SessionStage {
         val generation: Int,
     ) : SessionStage
 
-    /** The engine holds it; the engine's facts decide the phase. */
+    /**
+     * The engine holds it; the engine's facts decide the phase. [halted]: a surfaced failure stopped the engine, so
+     * an engine left idle by it is waiting for Play, not preparing.
+     */
     data class Engine(
         override val bookId: BookId,
+        val halted: Boolean = false,
     ) : SessionStage
 
     /** The prepare failed with [error]. */
@@ -84,7 +88,7 @@ internal fun playerPhaseOf(
 
                 else -> {
                     when (inputs.enginePhase) {
-                        EnginePhase.IDLE -> PlayerPhase.Preparing
+                        EnginePhase.IDLE -> if (stage.halted) PlayerPhase.Paused else PlayerPhase.Preparing
                         EnginePhase.BUFFERING -> PlayerPhase.Buffering
                         EnginePhase.PLAYING -> if (inputs.isFading) PlayerPhase.SleepFading else PlayerPhase.Playing
                         EnginePhase.PAUSED -> if (inputs.isFinishedRow) PlayerPhase.Finished else PlayerPhase.Paused
