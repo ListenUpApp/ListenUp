@@ -46,8 +46,18 @@ class ImageFrameE2ETest :
                         // The outbox drains to the server.
                     }
                 }
-                // Wait for the echo of that write to land here, then check it kept the frame: asserting any sooner would
-                // read the optimistic write and pass even if the echo dropped the frame.
+                // The frame must survive what the server sends back. The op's own echo can be shielded while the op is
+                // still queued here (the anti-flicker shield), so wait for the outbox to drain, then make a server write
+                // that keeps the photo: its echo cannot be shielded, and it must carry the frame. Asserting on the
+                // optimistic row alone would pass even if inbound sync dropped the frame.
+                withTimeout(ROUND_TRIP) {
+                    while (clientDatabase.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).isNotEmpty()) {
+                        // The op is acknowledged and removed.
+                    }
+                }
+                serverContributorRepository.upsert(
+                    serverContributorRepository.findById(id.value)!!.copy(description = "A narrator."),
+                )
                 val echoed = serverContributorRepository.findById(id.value)!!.revision
                 withTimeout(ROUND_TRIP) {
                     while ((clientDatabase.contributorDao().getById(id.value)?.revision ?: 0L) < echoed) {
