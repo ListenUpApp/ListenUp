@@ -103,6 +103,29 @@ class PlayerSessionErrorsTest :
             }
         }
 
+        test("a stream that drops while the server is unreachable says the server can't be reached") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.availability.stateFlow.value =
+                        rig.availability.stateFlow.value
+                            .copy(canPlay = false)
+                    rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ServerUnreachable())
+                    rig.network.onlineFlow.value = false
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.OfflineNotDownloaded())
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("a failed prepare dismisses to Restored, never to nothing") {
             runTest {
                 val rig = PlayerSessionRig(this)

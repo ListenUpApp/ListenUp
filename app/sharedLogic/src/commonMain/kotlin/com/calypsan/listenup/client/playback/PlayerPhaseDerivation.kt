@@ -83,7 +83,7 @@ internal fun playerPhaseOf(
                 }
 
                 inputs.engineError != null -> {
-                    PlayerPhase.Failed(inputs.engineError)
+                    PlayerPhase.Failed(inputs.engineError.explainedBy(inputs.unavailable))
                 }
 
                 else -> {
@@ -97,6 +97,19 @@ internal fun playerPhaseOf(
                 }
             }
         }
+    }
+
+/**
+ * A stream that dropped while the book can't be reached for a known reason (the server is unreachable, the device
+ * is offline) is that reason, as a failed prepare is: "Can't reach your server.", not "Couldn't play this book.".
+ */
+private fun AppError.explainedBy(unavailable: AppError?): AppError =
+    if (this is PlaybackError.ConnectionLost &&
+        (unavailable is PlaybackError.ServerUnreachable || unavailable is PlaybackError.OfflineNotDownloaded)
+    ) {
+        unavailable
+    } else {
+        this
     }
 
 /** Why a not-prepared book can't play right now, or null (§4.6 proactive causes). Pure. */

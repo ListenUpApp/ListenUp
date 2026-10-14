@@ -55,6 +55,39 @@ class PlayerPhaseDerivationTest :
                 ) shouldBe
                     PlayerPhase.Failed(PlaybackError.ConnectionLost())
             }
+            test("a dropped stream while the book can't be reached is that reason, as a failed prepare is") {
+                val dropped = PlaybackError.ConnectionLost()
+                val s = SessionStage.Engine(book)
+                playerPhaseOf(
+                    s,
+                    inputs(EnginePhase.PAUSED, book, engineError = dropped, unavailable = PlaybackError.ServerUnreachable()),
+                ) shouldBe PlayerPhase.Failed(PlaybackError.ServerUnreachable())
+                playerPhaseOf(
+                    s,
+                    inputs(EnginePhase.PAUSED, book, engineError = dropped, unavailable = PlaybackError.OfflineNotDownloaded()),
+                ) shouldBe PlayerPhase.Failed(PlaybackError.OfflineNotDownloaded())
+            }
+            test("only a dropped stream is explained by reachability; other reasons and failures stand") {
+                val s = SessionStage.Engine(book)
+                playerPhaseOf(
+                    s,
+                    inputs(
+                        EnginePhase.PAUSED,
+                        book,
+                        engineError = PlaybackError.UnsupportedFormat(),
+                        unavailable = PlaybackError.ServerUnreachable(),
+                    ),
+                ) shouldBe PlayerPhase.Failed(PlaybackError.UnsupportedFormat())
+                playerPhaseOf(
+                    s,
+                    inputs(
+                        EnginePhase.PAUSED,
+                        book,
+                        engineError = PlaybackError.ConnectionLost(),
+                        unavailable = BookError.HeldForReview(),
+                    ),
+                ) shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+            }
             test("a proactive reason does not interrupt a book the engine holds") {
                 playerPhaseOf(
                     SessionStage.Engine(book),
