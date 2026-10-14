@@ -166,7 +166,7 @@ fun TransportBar(
             )
         }
 
-        PrimaryButton(primary = state.primary, onPrimary = onPrimary)
+        PrimaryButton(primary = state.primary, phase = state.phase, onPrimary = onPrimary)
 
         SkipButton(
             icon = WebIcon.SkipForward,
@@ -294,9 +294,10 @@ private fun SessionControls(
 @Composable
 private fun PrimaryButton(
     primary: PrimaryControl,
+    phase: PlayerPhase,
     onPrimary: () -> Unit,
 ) {
-    val label = primaryLabel(primary)
+    val label = primaryLabel(primary, phase)
     Button(attrs = {
         classes("tport-b")
         if (primary == PrimaryControl.TapToPlay) classes("ring")
@@ -316,8 +317,17 @@ private fun PrimaryButton(
     }
 }
 
-/** What the main button says it will do: its accessible name and its tooltip. */
-internal fun primaryLabel(primary: PrimaryControl): String =
+/**
+ * What the main button says it will do: its accessible name and its tooltip. A stall the network caused says so
+ * (en.json's `player.reconnecting`); any other stall is plain loading.
+ */
+internal fun primaryLabel(
+    primary: PrimaryControl,
+    phase: PlayerPhase,
+): String =
+    if (phase == PlayerPhase.Reconnecting) "Reconnecting…" else primaryActionLabel(primary)
+
+private fun primaryActionLabel(primary: PrimaryControl): String =
     when (primary) {
         PrimaryControl.Pause -> "Pause"
         PrimaryControl.Play, PrimaryControl.TapToPlay -> "Play"
