@@ -243,9 +243,10 @@ class ProfileServiceImplTest :
                 val t1 = 1_700_000_000_000L
                 val t2 = t1 + 60_000L
                 sql.seedTestUser("u1")
-                sql.usersQueries.updateAvatarType(
+                sql.usersQueries.updateAvatarTypeAndFrame(
                     avatar_type = "image",
                     avatar_updated_at = t1,
+                    avatar_frame = null,
                     updated_at = t1,
                     id = "u1",
                 )

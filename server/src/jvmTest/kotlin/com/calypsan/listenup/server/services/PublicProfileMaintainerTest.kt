@@ -217,9 +217,10 @@ class PublicProfileMaintainerTest :
                         avatar_type = "image",
                         timezone = "UTC",
                     )
-                    sql.usersQueries.updateAvatarType(
+                    sql.usersQueries.updateAvatarTypeAndFrame(
                         avatar_type = "image",
                         avatar_updated_at = avatarTs,
+                        avatar_frame = null,
                         updated_at = avatarTs,
                         id = "uav",
                     )

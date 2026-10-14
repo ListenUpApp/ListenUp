@@ -248,9 +248,12 @@ UPDATE users SET can_edit = :can_edit WHERE id = :id;
 setCanMakeReadingOrders:
 UPDATE users SET can_make_reading_orders = :can_make_reading_orders WHERE id = :id;
 
--- Flip avatar_type to 'image', stamp avatar_updated_at + updated_at after a successful avatar upload (ProfileRoutes).
-updateAvatarType:
-UPDATE users SET avatar_type = :avatar_type, avatar_updated_at = :avatar_updated_at, updated_at = :updated_at WHERE id = :id;
+-- After a successful avatar upload (ProfileRoutes): flip avatar_type to 'image', stamp avatar_updated_at + updated_at,
+-- and set the new image's frame — NULL when the upload carried none, so a new image never inherits the old one's.
+updateAvatarTypeAndFrame:
+UPDATE users
+SET avatar_type = :avatar_type, avatar_updated_at = :avatar_updated_at, avatar_frame = :avatar_frame, updated_at = :updated_at
+WHERE id = :id;
 
 -- Count of LIVE (non-tombstoned) users — used by BackupArchive to embed a snapshot
 -- count in the backup manifest.
