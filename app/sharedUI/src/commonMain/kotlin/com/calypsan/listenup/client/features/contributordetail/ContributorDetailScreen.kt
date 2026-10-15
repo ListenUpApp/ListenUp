@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.contributordetail
 
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +58,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import listenup.composeapp.generated.resources.edit_adjust_photo
 import listenup.composeapp.generated.resources.edit_frame_saved
@@ -165,6 +167,7 @@ fun ContributorDetailScreen(
 
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val screenScope = rememberCoroutineScope()
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
     var adjusting by rememberSaveable { mutableStateOf(false) }
 
@@ -263,9 +266,10 @@ fun ContributorDetailScreen(
 
                 if (adjusting) {
                     AdjustPhotoFromMenu(
-                        state = current,
-                        viewModel = viewModel,
+                        contributor = current.contributor,
+                        adjustPhoto = viewModel::adjustPhoto,
                         snackbarHostState = snackbarHostState,
+                        snackbarScope = screenScope,
                         onClose = { adjusting = false },
                         onOpenEdit = { onEditClick(contributorId) },
                     )
@@ -991,23 +995,25 @@ private fun DeleteErrorSnackbar(
  * the editor and goes to Contributor edit (R6).
  */
 @Composable
-private fun AdjustPhotoFromMenu(
-    state: ContributorDetailUiState.Ready,
-    viewModel: ContributorDetailViewModel,
+internal fun AdjustPhotoFromMenu(
+    contributor: Contributor,
+    adjustPhoto: (ImageFrame) -> Unit,
     snackbarHostState: SnackbarHostState,
+    snackbarScope: CoroutineScope,
     onClose: () -> Unit,
     onOpenEdit: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
     val photoAdjusted = stringResource(Res.string.edit_frame_saved)
     ContributorPhotoAdjuster(
-        contributorId = state.contributor.id.value,
-        imagePath = state.contributor.imagePath,
-        frame = state.contributor.imageFrame,
-        onSave = { frame ->
+        contributorId = contributor.id.value,
+        imagePath = contributor.imagePath,
+        frame = contributor.imageFrame,
+        onSave = { saved ->
             onClose()
-            viewModel.adjustPhoto(frame)
-            scope.launch { snackbarHostState.showSnackbar(photoAdjusted) }
+            adjustPhoto(saved)
+            // The screen's scope, not this one: closing the editor ends this composable's scope, and the
+            // message would be cancelled before it showed.
+            snackbarScope.launch { snackbarHostState.showSnackbar(photoAdjusted) }
         },
         onDismiss = onClose,
         onOpenEdit = {
