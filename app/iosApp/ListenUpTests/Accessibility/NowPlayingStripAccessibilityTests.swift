@@ -12,7 +12,7 @@ struct NowPlayingStripAccessibilityTests {
         _ phase: any PlayerPhase, _ primary: any PrimaryControl, back: Bool
     ) -> MiniPlayerAccessoryModel {
         MiniPlayerAccessoryModel.make(
-            snapshot: PlayerSnapshot.from(.fixture(
+            snapshot: PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
                 phase: phase, currentIndex: 5, primary: primary, chapterTitle: "Bridge Four", showsSkipBack: back)),
             chapterRemainingMs: 511_000, chapterFraction: 0.59, isInline: false, isWide: false)
     }

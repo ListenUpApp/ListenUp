@@ -14,8 +14,8 @@ struct MiniPlayerBookSwitchTests {
         primary: any PrimaryControl = PrimaryControlPause.shared
     ) -> MiniPlayerAccessoryModel {
         MiniPlayerAccessoryModel.make(
-            snapshot: PlayerSnapshot.from(
-                .fixture(phase: phase, currentIndex: 5, primary: primary, chapterTitle: "Bridge Four")),
+            snapshot: PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
+                phase: phase, currentIndex: 5, primary: primary, chapterTitle: "Bridge Four")),
             chapterRemainingMs: 511_000, chapterFraction: 0.59, isInline: false, isWide: false)
     }
 
