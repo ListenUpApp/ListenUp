@@ -51,22 +51,22 @@ class NowPlayingToolbarTest {
             MaterialTheme {
                 Box(Modifier.fillMaxSize()) {
                     NowPlayingToolbar(
-                    state = state.copy(book = state.book.copy(coverPath = "/nonexistent/cover.jpg")),
-                    progress = { samplePlayerProgress },
-                    isExpanded = false,
-                    onTap = {},
-                    onPrimary = { primaryPresses++ },
-                    onSkipBack = {},
-                    onSkipForward = {},
-                    onSeek = { seeks += it },
-                    onSpeedClick = {},
-                    onSleepClick = { sleepTaps++ },
-                    onChaptersClick = { chapterTaps++ },
-                    onKeepListening = { keepListeningPresses++ },
-                    skipBackwardSec = 10,
-                    skipForwardSec = 30,
-                    modifier = Modifier.align(Alignment.BottomCenter).testTag(TOOLBAR),
-                )
+                        state = state.copy(book = state.book.copy(coverPath = "/nonexistent/cover.jpg")),
+                        progress = { samplePlayerProgress },
+                        isExpanded = false,
+                        onTap = {},
+                        onPrimary = { primaryPresses++ },
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onSeek = { seeks += it },
+                        onSpeedClick = {},
+                        onSleepClick = { sleepTaps++ },
+                        onChaptersClick = { chapterTaps++ },
+                        onKeepListening = { keepListeningPresses++ },
+                        skipBackwardSec = 10,
+                        skipForwardSec = 30,
+                        modifier = Modifier.align(Alignment.BottomCenter).testTag(TOOLBAR),
+                    )
                 }
             }
         }

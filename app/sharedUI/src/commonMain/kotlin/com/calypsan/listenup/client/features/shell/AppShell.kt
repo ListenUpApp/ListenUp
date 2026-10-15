@@ -446,4 +446,5 @@ private fun SearchResultsOverlayHost(
  * Library and Discover scrolls clear of the toolbar (the phone layout gets this from its Scaffold's bottomBar).
  */
 @Composable
-internal fun railContentInsets(): WindowInsets = ScaffoldDefaults.contentWindowInsets.union(LocalNowPlayingInsets.current)
+internal fun railContentInsets(): WindowInsets =
+    ScaffoldDefaults.contentWindowInsets.union(LocalNowPlayingInsets.current)
