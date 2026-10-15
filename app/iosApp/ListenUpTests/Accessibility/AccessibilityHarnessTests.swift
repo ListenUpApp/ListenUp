@@ -13,4 +13,16 @@ struct AccessibilityHarnessTests {
         defer { hosted.close() }
         #expect(HostedView.isSwiftUIAccessibilityLoaded)
     }
+
+    /// A stop's custom actions are what VoiceOver's Actions rotor offers, so a test can pin their names.
+    @Test func aStopListsItsCustomActionsInOrder() async throws {
+        let hosted = await HostedView(
+            Text(verbatim: "Photo")
+                .accessibilityAction(named: Text(verbatim: "First")) {}
+                .accessibilityAction(named: Text(verbatim: "Second")) {}
+        )
+        defer { hosted.close() }
+        let stop = try #require(hosted.stop(labelled: "Photo"), "\(hosted.tree)")
+        #expect(stop.customActionNames == ["First", "Second"])
+    }
 }
