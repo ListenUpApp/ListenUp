@@ -144,7 +144,14 @@ internal class HomeRepositoryImpl(
                     combine(
                         bookRepository.observeBookListItems(bookIds),
                         downloadRepository.observeAllStatuses(),
-                    ) { books, downloads -> buildContinueListeningItems(positions, books, downloads, limit) }
+                    ) { books, downloads ->
+                        buildContinueListeningItems(
+                            positions = positions,
+                            books = books,
+                            downloads = downloads,
+                            limit = limit,
+                        )
+                    }
                 }
             }
 

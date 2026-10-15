@@ -154,8 +154,10 @@ class HomeSlotRulesTest :
             }
 
             test("finishing the loaded book is a loaded-book change") {
-                (LoadedBook.Loaded("a", isPlaying = false, isFinished = true).toKey() ==
-                    LoadedBook.Loaded("a", isPlaying = false, isFinished = false).toKey()) shouldBe false
+                (
+                    LoadedBook.Loaded("a", isPlaying = false, isFinished = true).toKey() ==
+                        LoadedBook.Loaded("a", isPlaying = false, isFinished = false).toKey()
+                ) shouldBe false
             }
 
             test("a FirstSync skeleton resolves in place (rule 4)") {

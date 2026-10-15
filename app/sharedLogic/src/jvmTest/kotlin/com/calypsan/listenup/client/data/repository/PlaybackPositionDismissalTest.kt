@@ -80,7 +80,11 @@ class PlaybackPositionDismissalTest :
                 row.lastPlayedAt shouldBe 1_000L
                 row.isFinished shouldBe true
                 row.finishedAt shouldBe 900L
-                repoAgainst(db).observe(book).first().shouldNotBeNull().finishedCardDismissedAtMs shouldBe 5_000L
+                repoAgainst(db)
+                    .observe(book)
+                    .first()
+                    .shouldNotBeNull()
+                    .finishedCardDismissedAtMs shouldBe 5_000L
             }
         }
 
@@ -118,7 +122,11 @@ class PlaybackPositionDismissalTest :
                 repo.savePlaybackState(book, PlaybackUpdate.DismissFinishedCard(atMs = 5_000L))
                 repo.savePlaybackState(book, PlaybackUpdate.DismissFinishedCard(atMs = 4_000L))
 
-                db.playbackPositionDao().get(book).shouldNotBeNull().finishedCardDismissedAt shouldBe 5_000L
+                db
+                    .playbackPositionDao()
+                    .get(book)
+                    .shouldNotBeNull()
+                    .finishedCardDismissedAt shouldBe 5_000L
             }
         }
 
@@ -146,7 +154,12 @@ class PlaybackPositionDismissalTest :
                 }
 
                 repo.savePlaybackState(book, PlaybackUpdate.BookFinished(finalPositionMs = 9_000L))
-                db.playbackPositionDao().get(book).shouldNotBeNull().finishedAt.shouldNotBeNull() shouldBeGreaterThan 5_000L
+                db
+                    .playbackPositionDao()
+                    .get(book)
+                    .shouldNotBeNull()
+                    .finishedAt
+                    .shouldNotBeNull() shouldBeGreaterThan 5_000L
             }
         }
     })

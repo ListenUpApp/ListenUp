@@ -77,7 +77,8 @@ internal class HomeSlotRig(
             positions
         }
 
-    private val activities: ActivityRepository = mock { every { observeOtherFinishers(any(), any()) } returns finishers }
+    private val activities: ActivityRepository =
+        mock { every { observeOtherFinishers(any(), any()) } returns finishers }
     private val home: HomeRepository = mock { every { observeLibraryShowcase(any()) } returns showcase }
     private val loadedBooks: LoadedBookRepository = mock { every { observe() } returns loaded }
 

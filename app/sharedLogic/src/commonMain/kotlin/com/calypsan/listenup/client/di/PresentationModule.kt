@@ -565,10 +565,7 @@ internal val discoverPresentationModule =
                 loadedBooks = get(),
                 positions = get(),
                 inbox = get(),
-                nextInSeries =
-                    get<com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase>().let { observe ->
-                        { bookId: String -> observe(bookId) }
-                    },
+                nextInSeries = get<com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase>()::invoke,
                 books = get(),
                 availability = get(),
                 ratings = get(),

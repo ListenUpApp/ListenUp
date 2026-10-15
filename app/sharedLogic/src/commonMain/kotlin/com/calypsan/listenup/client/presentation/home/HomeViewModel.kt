@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.core.fallbackTo
@@ -120,8 +119,8 @@ class HomeViewModel internal constructor(
     shelfRepository: ShelfRepository,
     private val syncRepository: SyncRepository,
     private val slotPresenter: HomeSlotPresenter,
-    private val serverReachability: ServerReachability,
-    private val networkMonitor: NetworkMonitor,
+    serverReachability: ServerReachability,
+    networkMonitor: NetworkMonitor,
     private val errorBus: ErrorBus,
     private val currentHour: () -> Int = { currentHourOfDay() },
 ) : ViewModel() {
@@ -152,11 +151,11 @@ class HomeViewModel internal constructor(
     // Folded into one upstream because `combine` is typed to five flows.
     private val shellFlow: Flow<HomeShell> =
         combine(
-            syncRepository.syncState,
-            syncRepository.buildingInitialLibrary,
-            syncRepository.scanProgress,
-            serverReachability.state,
-            networkMonitor.onlineFlow,
+            flow = syncRepository.syncState,
+            flow2 = syncRepository.buildingInitialLibrary,
+            flow3 = syncRepository.scanProgress,
+            flow4 = serverReachability.state,
+            flow5 = networkMonitor.onlineFlow,
         ) { sync, building, scan, reachability, online ->
             HomeShell(
                 isSyncing = sync is SyncState.Syncing || sync is SyncState.Progress,
@@ -200,7 +199,13 @@ class HomeViewModel internal constructor(
                     decisionRuns = decisionRuns,
                     dismissedHere = dismissedHere,
                 )
-            combine(userFlow, continueListening, shelvesFlow, shellFlow, slot) { user, read, shelves, shell, slotState ->
+            combine(
+                flow = userFlow,
+                flow2 = continueListening,
+                flow3 = shelvesFlow,
+                flow4 = shellFlow,
+                flow5 = slot,
+            ) { user, read, shelves, shell, slotState ->
                 if (slotState == null) {
                     HomeUiState.Loading
                 } else {
@@ -251,23 +256,16 @@ class HomeViewModel internal constructor(
      * point, §2.1 rule 3); if the dismissal cannot be saved, it comes back and the error bus says why.
      */
     fun dismissFinished(bookId: String) {
-        val card =
-            ((state.value as? HomeUiState.Ready)?.slot as? HomeSlot.JustFinished)
-                ?.card
-                ?.takeIf { it.book.bookId == bookId } ?: return
+        val ready = state.value as? HomeUiState.Ready ?: return
+        val card = (ready.slot as? HomeSlot.JustFinished)?.card ?: return
+        if (card.book.bookId != bookId) return
         dismissedHere.update { it + (bookId to card.finishedAtMs) }
         decisionRuns.update { it + 1 }
         viewModelScope.launch {
-            when (val result = slotPresenter.dismissFinished(bookId)) {
-                is AppResult.Success -> {
-                    Unit
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    dismissedHere.update { it - bookId }
-                    decisionRuns.update { it + 1 }
-                }
+            slotPresenter.dismissFinished(bookId).onFailure { error ->
+                errorBus.emit(error)
+                dismissedHere.update { it - bookId }
+                decisionRuns.update { it + 1 }
             }
         }
     }
@@ -278,10 +276,7 @@ class HomeViewModel internal constructor(
         halfStars: Int,
     ) {
         viewModelScope.launch {
-            when (val result = slotPresenter.rateFinished(bookId, halfStars)) {
-                is AppResult.Success -> Unit
-                is AppResult.Failure -> errorBus.emit(result.error)
-            }
+            slotPresenter.rateFinished(bookId, halfStars).onFailure(errorBus::emit)
         }
     }
 }

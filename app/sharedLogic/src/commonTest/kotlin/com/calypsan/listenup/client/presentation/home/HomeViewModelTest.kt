@@ -689,7 +689,9 @@ class HomeViewModelTest :
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                ready.slot.shouldBeInstanceOf<HomeSlot.Resume>().book.bookId shouldBe "a"
+                ready.slot
+                    .shouldBeInstanceOf<HomeSlot.Resume>()
+                    .book.bookId shouldBe "a"
                 ready.alsoInProgress.map { it.bookId } shouldBe listOf("b")
                 ready.continueListening.map { it.bookId } shouldBe listOf("a", "b")
                 ready.timeOfDay shouldBe TimeOfDay.Morning
@@ -819,12 +821,16 @@ class HomeViewModelTest :
 
                 fixture.reachability.state.value = Reachability.Unreachable
                 advanceUntilIdle()
-                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>().connectivity shouldBe
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .connectivity shouldBe
                     HomeConnectivity.ServerUnreachable
 
                 fixture.network.onlineFlow.value = false
                 advanceUntilIdle()
-                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>().connectivity shouldBe HomeConnectivity.Offline
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .connectivity shouldBe HomeConnectivity.Offline
             }
         }
 

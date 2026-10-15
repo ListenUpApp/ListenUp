@@ -1185,7 +1185,17 @@ class ClassContractTest :
                         // all four stats states. It joins this contract by hand like the pages
                         // above — a state nobody lists here is a state whose classes go unchecked.
                         HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
-                        HomePage(HomeUiState.Error(UnexpectedClientError()), HomeStatsUiState.Loading, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
+                        HomePage(
+                            HomeUiState.Error(UnexpectedClientError()),
+                            HomeStatsUiState.Loading,
+                            {},
+                            {},
+                            {},
+                            {},
+                            {},
+                            onRetry = {},
+                            onRetryStats = {},
+                        )
                         HomePage(readyHome(), HomeStatsUiState.Loading, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
                         HomePage(readyHome(), HomeStatsUiState.Empty, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
                         HomePage(

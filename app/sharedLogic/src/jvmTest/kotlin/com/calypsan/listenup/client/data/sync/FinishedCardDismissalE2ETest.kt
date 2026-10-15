@@ -52,7 +52,9 @@ class FinishedCardDismissalE2ETest :
                     .savePlaybackState(BookId("b-done"), PlaybackUpdate.DismissFinishedCard(atMs = FINISHED_AT + 100_000L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 withTimeout(ROUND_TRIP) {
-                    while (serverPlaybackPositionRepository.getPosition("u1", "b-done")?.finishedCardDismissedAt != FINISHED_AT + 100_000L) {
+                    while (serverPlaybackPositionRepository.getPosition("u1", "b-done")?.finishedCardDismissedAt !=
+                        FINISHED_AT + 100_000L
+                    ) {
                         // The outbox drains to the server.
                     }
                 }

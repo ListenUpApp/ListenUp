@@ -71,9 +71,15 @@ internal class HomeSlotPresenter(
     ): Flow<HomeSlotState?> =
         channelFlow {
             // One upstream subscription: the kind and the contents read the same decided value.
-            val decided = decide(continueListening, isBuildingInitialLibrary, decisionRuns, dismissedHere).stateIn(this)
+            val decided =
+                decide(
+                    continueListening = continueListening,
+                    isBuildingInitialLibrary = isBuildingInitialLibrary,
+                    decisionRuns = decisionRuns,
+                    dismissedHere = dismissedHere,
+                ).stateIn(this)
             decided
-                .map { it?.latched?.kind }
+                .map { decision -> decision?.run { latched.kind } }
                 .distinctUntilChanged()
                 .flatMapLatest { kind -> if (kind == null) flowOf(null) else assemble(kind, decided) }
                 .collect { send(it) }
@@ -105,11 +111,24 @@ internal class HomeSlotPresenter(
             combine(positions.observeAll(), inbox.observeHeldBookIds(), dismissedHere) { all, held, dismissed ->
                 SlotFacts(all.values.toList(), held.mapTo(HashSet()) { it.value }, dismissed)
             }
-        return combine(loaded, continueListening, facts, isBuildingInitialLibrary, decisionRuns) { view, items, f, building, runs ->
-            view?.let { Candidate(it, items, f, building, runs) }
+        return combine(
+            flow = loaded,
+            flow2 = continueListening,
+            flow3 = facts,
+            flow4 = isBuildingInitialLibrary,
+            flow5 = decisionRuns,
+        ) { view, items, f, building, runs ->
+            view?.let { Candidate(view = it, items = items, facts = f, building = building, runs = runs) }
         }.scan<Candidate?, Decided?>(null) { previous, candidate ->
             candidate?.let { c ->
-                val justFinished = justFinishedBookId(c.facts.positions, c.facts.held, c.facts.dismissedHere, c.view.freshLoad, nowMs())
+                val justFinished =
+                    justFinishedBookId(
+                        positions = c.facts.positions,
+                        heldBookIds = c.facts.held,
+                        dismissedHere = c.facts.dismissedHere,
+                        freshLoad = c.view.freshLoad,
+                        nowMs = nowMs(),
+                    )
                 val fresh =
                     slotKindFor(
                         SlotInputs(
@@ -170,14 +189,23 @@ internal class HomeSlotPresenter(
         current: Flow<Decided>,
     ): Flow<HomeSlotState?> {
         val extras =
-            combine(nextInSeries(bookId), books.observeChapters(bookId), availability.observe(BookId(bookId))) { next, chapters, state ->
+            combine(
+                nextInSeries(bookId),
+                books.observeChapters(bookId),
+                availability.observe(BookId(bookId)),
+            ) { next, chapters, state ->
                 ResumeExtras(next, chapters, state.canPlay)
             }
         return combine(current, extras) { d, x -> d to x }
             .scan<Pair<Decided, ResumeExtras>, HomeSlotState?>(null) { previous, (d, x) ->
                 val book = d.readyBook(bookId) ?: (previous?.slot as? HomeSlot.Resume)?.book ?: return@scan previous
                 HomeSlotState(
-                    HomeSlot.Resume(book = book, next = x.next, chapter = heroChapterOf(x.chapters, book.currentPositionMs), canPlay = x.canPlay),
+                    HomeSlot.Resume(
+                        book = book,
+                        next = x.next,
+                        chapter = heroChapterOf(x.chapters, book.currentPositionMs),
+                        canPlay = x.canPlay,
+                    ),
                     d.alsoInProgress,
                 )
             }.filterNotNull()
@@ -192,11 +220,11 @@ internal class HomeSlotPresenter(
                 .flatMapLatest { id -> activities.observeOtherFinishers(bookId, excludeUserId = id.orEmpty()) }
                 .map(::alsoFinishedOf)
         return combine(
-            books.observeBookListItems(listOf(bookId)).map { it.firstOrNull() },
-            positions.observe(BookId(bookId)),
-            yourHalfStars,
-            nextInSeries(bookId),
-            alsoFinished,
+            flow = books.observeBookListItems(listOf(bookId)).map { it.firstOrNull() },
+            flow2 = positions.observe(BookId(bookId)),
+            flow3 = yourHalfStars,
+            flow4 = nextInSeries(bookId),
+            flow5 = alsoFinished,
         ) { item, position, stars, next, others ->
             val finishedAt = position?.finishedAtMs
             if (item == null || finishedAt == null) {
@@ -259,7 +287,10 @@ private data class Decided(
     val alsoInProgress: List<ContinueListeningItem>,
 ) {
     fun readyBook(bookId: String): ContinueListeningBook? =
-        continueListening.firstNotNullOfOrNull { (it as? ContinueListeningItem.Ready)?.book?.takeIf { book -> book.bookId == bookId } }
+        continueListening
+            .filterIsInstance<ContinueListeningItem.Ready>()
+            .firstOrNull { it.bookId == bookId }
+            ?.book
 }
 
 private data class ResumeExtras(

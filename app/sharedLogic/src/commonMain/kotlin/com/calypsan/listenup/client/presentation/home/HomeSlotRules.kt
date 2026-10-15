@@ -149,16 +149,19 @@ internal fun justFinishedBookId(
     nowMs: Long,
 ): String? =
     positions
-        .mapNotNull { position -> position.finishedAtMs?.takeIf { position.isFinished }?.let { position to it } }
+        .mapNotNull { position -> finishOf(position)?.let { finishedAt -> position to finishedAt } }
         .filter { (position, finishedAt) ->
             position.bookId !in heldBookIds &&
                 nowMs - finishedAt <= JUST_FINISHED_WINDOW_MS &&
                 (position.finishedCardDismissedAtMs ?: Long.MIN_VALUE) < finishedAt &&
                 dismissedHere[position.bookId] != finishedAt &&
-                !movedOn(position.bookId, finishedAt, positions, freshLoad)
-        }.maxByOrNull { (_, finishedAt) -> finishedAt }
+                !movedOn(bookId = position.bookId, finishedAtMs = finishedAt, positions = positions, freshLoad = freshLoad)
+        }.map { (position, finishedAt) -> position.bookId to finishedAt }
+        .maxByOrNull { (_, finishedAt) -> finishedAt }
         ?.first
-        ?.bookId
+
+/** When [position]'s book was finished, or null when it is not finished. */
+private fun finishOf(position: PlaybackPosition): Long? = if (position.isFinished) position.finishedAtMs else null
 
 private fun movedOn(
     bookId: String,
@@ -206,10 +209,12 @@ internal fun alsoInProgressOf(
 /** Finished books, newest finish first, at most [SERIES_CANDIDATE_WALK]. Pure. */
 internal fun finishedNewestFirst(positions: Collection<PlaybackPosition>): List<String> =
     positions
+        .asSequence()
         .filter { it.isFinished }
         .sortedByDescending { it.finishedAtMs ?: it.effectiveLastPlayedAtMs }
         .take(SERIES_CANDIDATE_WALK)
         .map { it.bookId }
+        .toList()
 
 /**
  * The first next-in-series, in walk order, that is neither started nor finished (spec §2.3). [nextOfFinished] is

@@ -374,18 +374,9 @@ internal class PlaybackPositionRepositoryImpl(
                 )
             }
 
-            // The row as it stands, dismissal included: its own lastPlayedAt, never `now`. Dismissing claims no
-            // listening, so it must not win the server's lastPlayedAt guard; the server merges the dismissal apart
-            // from it. No row means nothing to push.
+            // No row means nothing to push.
             is PlaybackUpdate.DismissFinishedCard -> {
-                entity?.let { row ->
-                    snapshotRequest(
-                        bookId = bookId,
-                        entity = row,
-                        positionMs = row.positionMs,
-                        lastPlayedAt = row.lastPlayedAt ?: row.updatedAt,
-                    )
-                }
+                entity?.let { row -> dismissalRequest(bookId, row) }
             }
 
             // User-command resets: enqueue the post-reset row so the discard/restart
@@ -397,17 +388,38 @@ internal class PlaybackPositionRepositoryImpl(
             PlaybackUpdate.DiscardProgress,
             PlaybackUpdate.Restart,
             -> {
-                entity?.let { row ->
-                    snapshotRequest(
-                        bookId = bookId,
-                        entity = row,
-                        positionMs = row.positionMs,
-                        lastPlayedAt = row.lastPlayedAt ?: now,
-                        finished = false,
-                    )
-                }
+                entity?.let { row -> resetRequest(bookId, row, now) }
             }
         }
+
+    /** The post-reset row, unfinished, at its own lastPlayedAt (else [now]). */
+    private fun resetRequest(
+        bookId: BookId,
+        row: PlaybackPositionEntity,
+        now: Long,
+    ): RecordPositionRequest =
+        snapshotRequest(
+            bookId = bookId,
+            entity = row,
+            positionMs = row.positionMs,
+            lastPlayedAt = row.lastPlayedAt ?: now,
+            finished = false,
+        )
+
+    /**
+     * The row as it stands, dismissal included, at its own lastPlayedAt — never `now`. Dismissing a finish card claims
+     * no listening, so it must not win the server's lastPlayedAt guard; the server merges the dismissal apart from it.
+     */
+    private fun dismissalRequest(
+        bookId: BookId,
+        row: PlaybackPositionEntity,
+    ): RecordPositionRequest =
+        snapshotRequest(
+            bookId = bookId,
+            entity = row,
+            positionMs = row.positionMs,
+            lastPlayedAt = row.lastPlayedAt ?: row.updatedAt,
+        )
 
     /**
      * The common "request from current entity snapshot + position" construction: every wire

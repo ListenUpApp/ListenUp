@@ -42,7 +42,10 @@ internal class ActivityRepositoryImpl(
     override fun observeOtherFinishers(
         bookId: String,
         excludeUserId: String,
-    ): Flow<List<String>> = dao.observeFinishersOf(bookId, excludeUserId).map { rows -> rows.map { it.displayName.orEmpty() } }
+    ): Flow<List<String>> =
+        dao.observeFinishersOf(bookId, excludeUserId).map { rows ->
+            rows.map { it.displayName.orEmpty() }
+        }
 }
 
 /**

@@ -48,7 +48,9 @@ class HomeSlotPresenterTest :
                 rig.continueListening.value = listOf(readyItem("a", positionMs = 1_500L), readyItem("b"))
                 rig.nextByBook.value = mapOf("a" to nextBook("a2"))
                 rig.books.setChapters("a", listOf(Chapter("c1", "Prelude", 1_000L, 0L), Chapter("c2", "Bridge Four", 1_000L, 1_000L)))
-                rig.availability.stateFlow.value = rig.availability.stateFlow.value.copy(canPlay = false)
+                rig.availability.stateFlow.value =
+                    rig.availability.stateFlow.value
+                        .copy(canPlay = false)
                 rig.slots().test {
                     val state = awaitState<HomeSlot.Resume>()
                     val resume = state.slot as HomeSlot.Resume
@@ -122,7 +124,9 @@ class HomeSlotPresenterTest :
 
                 rig.loaded.value = LoadedBook.NothingLoaded
                 runCurrent()
-                states.slot.shouldBeInstanceOf<HomeSlot.Resume>().book.bookId shouldBe "a"
+                states.slot
+                    .shouldBeInstanceOf<HomeSlot.Resume>()
+                    .book.bookId shouldBe "a"
             }
         }
 
@@ -174,7 +178,11 @@ class HomeSlotPresenterTest :
 
                 rig.presenter().dismissFinished("done").shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                val row = rig.positions.observe(BookId("done")).first().shouldNotBeNull()
+                val row =
+                    rig.positions
+                        .observe(BookId("done"))
+                        .first()
+                        .shouldNotBeNull()
                 row.finishedCardDismissedAtMs shouldBe RIG_NOW
                 row.lastPlayedAtMs shouldBe RIG_NOW - 3 * RIG_HOUR
             }
@@ -196,7 +204,9 @@ class HomeSlotPresenterTest :
 
                 rig.runs.value = 1
                 runCurrent()
-                states.slot.shouldBeInstanceOf<HomeSlot.JustFinished>().card.book.bookId shouldBe "b"
+                states.slot
+                    .shouldBeInstanceOf<HomeSlot.JustFinished>()
+                    .card.book.bookId shouldBe "b"
             }
         }
 
@@ -254,7 +264,11 @@ class HomeSlotPresenterTest :
                 val rig = HomeSlotRig()
                 rig.building.value = true
                 rig.play("a", hoursAgo = 2)
-                rig.continueListening.value = listOf(com.calypsan.listenup.client.domain.model.ContinueListeningItem.Loading("a"))
+                rig.continueListening.value =
+                    listOf(
+                        com.calypsan.listenup.client.domain.model.ContinueListeningItem
+                            .Loading("a"),
+                    )
                 rig.slots().test {
                     awaitSlot<HomeSlot.FirstSync>()
                     rig.continueListening.value = listOf(readyItem("a"))
@@ -302,9 +316,8 @@ private suspend inline fun <reified T : HomeSlot> ReceiveTurbine<HomeSlotState?>
     }
 }
 
-private suspend inline fun <reified T : HomeSlot> ReceiveTurbine<HomeSlotState?>.awaitSlot(
-    where: (T) -> Boolean = { true },
-): T = awaitState<T>(where).slot as T
+private suspend inline fun <reified T : HomeSlot> ReceiveTurbine<HomeSlotState?>.awaitSlot(where: (T) -> Boolean = { true }): T =
+    awaitState<T>(where).slot as T
 
 /** Collects every slot state into a list, for tests that assert what did NOT change; read it after runCurrent(). */
 private fun TestScope.collectSlots(rig: HomeSlotRig): List<HomeSlotState?> {
