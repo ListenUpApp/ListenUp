@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
+import com.calypsan.listenup.client.presentation.player.PlayerBook
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.coverUrl
@@ -156,93 +157,29 @@ fun TransportBar(
 
     val line = MiniPlayerLines.of(state)
     val tinted = line is MiniPlayerLine.Problem && line.isTinted
-    val authorLine = state.book.authors.joinToString(", ") { it.name }
     Div(attrs = {
         classes("tport")
         if (tinted) classes("problem")
         // The book the bar shows: what its arrival motion is keyed on (see [BookSwitch]).
         attr("data-book", state.book.id)
-        attr("role", "region")
+        attr(ATTR_ROLE, "region")
         attr(ATTR_ARIA_LABEL, "Player")
     }) {
-        // Phone only (CSS): the chapter line along the bar's top edge. Passive; the body's line says the time.
-        Div(attrs = {
-            classes("tport-line")
-            attr("aria-hidden", "true")
-        }) {
-            Div(attrs = {
-                classes("tport-line-fill")
-                style { width((progress.chapterFraction * PERCENT).percent) }
-            })
-        }
+        BarBook(book = state.book, line = line, progress = progress, bookSwitch = bookSwitch, onOpen = {
+            expandedOpen =
+                true
+        })
 
-        // Polite, and empty except while reconnecting: inserting the word is what a screen reader announces, once (§8).
-        Span(attrs = {
-            classes("sr-only")
-            attr("role", "status")
-        }) { if (line == MiniPlayerLine.Reconnecting) Text("Reconnecting…") }
-
-        // The book is the target (M1): one button into Now Playing, named for the book and where it is.
-        // A `<button>` until PR 3 gives Now Playing a route to link to.
-        Button(attrs = {
-            classes("tport-body")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Open Now Playing: ${state.book.title}, ${miniLineLabel(line, progress)}")
-            onClick { expandedOpen = true }
-            ref { element ->
-                bookSwitch.body = element
-                onDispose { bookSwitch.body = null }
-            }
-        }) {
-            Span(attrs = { classes("tport-cover") }) {
-                Cover(
-                    title = state.book.title,
-                    imageUrl = coverUrl(state.book.id, state.book.coverHash, BAR_COVER_RUNG),
-                    size = null,
-                    radius = BAR_COVER_RADIUS,
-                    decorative = true,
-                )
-            }
-            Span(attrs = { classes("tport-text") }) {
-                Span(attrs = { classes("tport-t") }) { Text(state.book.title) }
-                Span(attrs = { classes("tport-sub", "desk") }) { Text(miniLineText(line, progress, MiniLineFit.Desktop, authorLine)) }
-                Span(attrs = { classes("tport-sub", "phone") }) { Text(miniLineText(line, progress, MiniLineFit.Phone, authorLine)) }
-            }
-        }
-
-        Div(attrs = { classes("tport-mid") }) {
-            Div(attrs = { classes("tport-transport") }) {
-                // Its slot is kept while hidden (§3.5's stalls), so the main button never moves under the cursor.
-                SkipButton(
-                    icon = WebIcon.SkipBack,
-                    seconds = settings.skipBackSec,
-                    label = "Skip back ${settings.skipBackSec} seconds",
-                    extraClass = "tport-back",
-                    shown = state.showsSkipBack,
-                    onClick = onSkipBack,
-                )
-                BarPrimary(state = state, line = line, onPrimary = onPrimary, onKeepListening = onCancelSleepTimer)
-                SkipButton(
-                    icon = WebIcon.SkipForward,
-                    seconds = settings.skipForwardSec,
-                    label = "Skip forward ${settings.skipForwardSec} seconds",
-                    extraClass = "tport-fwd",
-                    onClick = onSkipForward,
-                )
-            }
-            Div(attrs = { classes("tport-head") }) {
-                Playhead(
-                    positionMs = progress.chapterPositionMs,
-                    durationMs = progress.chapterDurationMs,
-                    timeClass = "tport-time",
-                    scrubClass = "tport-scrub",
-                    startMs = state.chapter.startMs,
-                    label = "Chapter position",
-                    showsRemaining = true,
-                    onSeek = onSeek,
-                )
-            }
-        }
+        BarTransport(
+            state = state,
+            line = line,
+            progress = progress,
+            onPrimary = onPrimary,
+            onSeek = onSeek,
+            onSkipBack = onSkipBack,
+            onSkipForward = onSkipForward,
+            onKeepListening = onCancelSleepTimer,
+        )
 
         Div(attrs = { classes("tport-settings") }) {
             SessionControls(
@@ -269,6 +206,116 @@ fun TransportBar(
     DisposableEffect(state.book.id) {
         bookSwitch.show(state.book.id)
         onDispose { }
+    }
+}
+
+/**
+ * The bar's book: the phone's chapter line, the polite Reconnecting announcement, and the body — cover, title and
+ * line — which is one button into Now Playing (M1). A `<button>` until PR 3 gives Now Playing a route to link to.
+ */
+@Composable
+private fun BarBook(
+    book: PlayerBook,
+    line: MiniPlayerLine,
+    progress: PlayerProgress,
+    bookSwitch: BookSwitch,
+    onOpen: () -> Unit,
+) {
+    val authorLine = book.authors.joinToString(", ") { it.name }
+    // Phone only (CSS): the chapter line along the bar's top edge. Passive; the body's line says the time.
+    Div(attrs = {
+        classes("tport-line")
+        attr(ATTR_ARIA_HIDDEN, VALUE_TRUE)
+    }) {
+        Div(attrs = {
+            classes("tport-line-fill")
+            style { width((progress.chapterFraction * PERCENT).percent) }
+        })
+    }
+
+    // Polite, and empty except while reconnecting: inserting the word is what a screen reader announces, once (§8).
+    Span(attrs = {
+        classes("sr-only")
+        attr(ATTR_ROLE, "status")
+    }) { if (line == MiniPlayerLine.Reconnecting) Text("Reconnecting…") }
+
+    // Named for the book and where it is in it.
+    Button(attrs = {
+        classes("tport-body")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, "Open Now Playing: ${book.title}, ${miniLineLabel(line, progress)}")
+        onClick { onOpen() }
+        ref { element ->
+            bookSwitch.body = element
+            onDispose { bookSwitch.body = null }
+        }
+    }) {
+        Span(attrs = { classes("tport-cover") }) {
+            Cover(
+                title = book.title,
+                imageUrl = coverUrl(book.id, book.coverHash, BAR_COVER_RUNG),
+                size = null,
+                radius = BAR_COVER_RADIUS,
+                decorative = true,
+            )
+        }
+        Span(attrs = { classes("tport-text") }) {
+            Span(attrs = { classes("tport-t") }) { Text(book.title) }
+            Span(
+                attrs = { classes("tport-sub", "desk") },
+            ) { Text(miniLineText(line, progress, MiniLineFit.Desktop, authorLine)) }
+            Span(
+                attrs = { classes("tport-sub", "phone") },
+            ) { Text(miniLineText(line, progress, MiniLineFit.Phone, authorLine)) }
+        }
+    }
+}
+
+/** Back N · the main button · forward over the chapter scrubber: where the book is, and the controls that move it. */
+@Composable
+private fun BarTransport(
+    state: PlayerUiState.Loaded,
+    line: MiniPlayerLine,
+    progress: PlayerProgress,
+    onPrimary: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onSkipBack: () -> Unit,
+    onSkipForward: () -> Unit,
+    onKeepListening: () -> Unit,
+) {
+    val settings = state.settings
+    Div(attrs = { classes("tport-mid") }) {
+        Div(attrs = { classes("tport-transport") }) {
+            // Its slot is kept while hidden (§3.5's stalls), so the main button never moves under the cursor.
+            SkipButton(
+                icon = WebIcon.SkipBack,
+                seconds = settings.skipBackSec,
+                label = "Skip back ${settings.skipBackSec} seconds",
+                extraClass = "tport-back",
+                shown = state.showsSkipBack,
+                onClick = onSkipBack,
+            )
+            BarPrimary(state = state, line = line, onPrimary = onPrimary, onKeepListening = onKeepListening)
+            SkipButton(
+                icon = WebIcon.SkipForward,
+                seconds = settings.skipForwardSec,
+                label = "Skip forward ${settings.skipForwardSec} seconds",
+                extraClass = "tport-fwd",
+                onClick = onSkipForward,
+            )
+        }
+        Div(attrs = { classes("tport-head") }) {
+            Playhead(
+                positionMs = progress.chapterPositionMs,
+                durationMs = progress.chapterDurationMs,
+                timeClass = "tport-time",
+                scrubClass = "tport-scrub",
+                startMs = state.chapter.startMs,
+                label = "Chapter position",
+                showsRemaining = true,
+                onSeek = onSeek,
+            )
+        }
     }
 }
 
@@ -313,7 +360,7 @@ private fun SessionControls(
     }) {
         Icon(WebIcon.Moon, size = SLEEP_ICON_SIZE)
         if (active != null) {
-            Span(attrs = { attr("aria-hidden", "true") }) { Text(active.formatRemaining()) }
+            Span(attrs = { attr(ATTR_ARIA_HIDDEN, VALUE_TRUE) }) { Text(active.formatRemaining()) }
         }
     }
 
@@ -353,12 +400,25 @@ private fun BarPrimary(
 ) {
     val primary = state.primary
     when {
-        line == MiniPlayerLine.FadingOut -> BarPill("Keep listening", label = null, quiet = true, onClick = onKeepListening)
-        primary == PrimaryControl.Retry -> BarPill("Retry", label = null, quiet = false, onClick = onPrimary)
-        primary == PrimaryControl.SignIn -> BarPill("Sign in", label = null, quiet = false, onClick = onPrimary)
-        primary == PrimaryControl.OpenInbox -> BarPill("Open Inbox", label = null, quiet = false, onClick = onPrimary)
-        primary == PrimaryControl.ListenAgain ->
+        line == MiniPlayerLine.FadingOut -> {
+            BarPill("Keep listening", label = null, quiet = true, onClick = onKeepListening)
+        }
+
+        primary == PrimaryControl.Retry -> {
+            BarPill("Retry", label = null, quiet = false, onClick = onPrimary)
+        }
+
+        primary == PrimaryControl.SignIn -> {
+            BarPill("Sign in", label = null, quiet = false, onClick = onPrimary)
+        }
+
+        primary == PrimaryControl.OpenInbox -> {
+            BarPill("Open Inbox", label = null, quiet = false, onClick = onPrimary)
+        }
+
+        primary == PrimaryControl.ListenAgain -> {
             BarPill("Listen again", label = "Listen again to ${state.book.title}", quiet = true, onClick = onPrimary)
+        }
 
         primary == PrimaryControl.Close -> {
             Button(attrs = {
@@ -383,7 +443,7 @@ private fun BarPrimary(
                 if (primary == PrimaryControl.Busy) {
                     Div(attrs = {
                         classes("tport-wait")
-                        attr("aria-hidden", "true")
+                        attr(ATTR_ARIA_HIDDEN, VALUE_TRUE)
                     })
                 } else {
                     Icon(primaryIcon(primary), size = TRANSPORT_ICON_SIZE)
@@ -467,7 +527,7 @@ private fun SkipButton(
         // accessibility tree, so the main button beside it never moves.
         if (!shown) {
             classes("off")
-            attr("aria-hidden", "true")
+            attr(ATTR_ARIA_HIDDEN, VALUE_TRUE)
             attr("tabindex", "-1")
             disabled()
         }
@@ -478,7 +538,7 @@ private fun SkipButton(
         // screen reader appends a bare "10" to it.
         Span(attrs = {
             classes("tport-skip-n")
-            attr("aria-hidden", "true")
+            attr(ATTR_ARIA_HIDDEN, VALUE_TRUE)
         }) { Text(seconds.toString()) }
     }
 }
@@ -580,7 +640,14 @@ internal fun Playhead(
 
     // The bar counts down what is left of the chapter; the panel shows the book's length.
     val trailing =
-        if (showsRemaining) "\u2212" + formatElapsed((durationMs - shownPositionMs).coerceAtLeast(0L)) else formatElapsed(durationMs)
+        if (showsRemaining) {
+            "\u2212" +
+                formatElapsed(
+                    (durationMs - shownPositionMs).coerceAtLeast(0L),
+                )
+        } else {
+            formatElapsed(durationMs)
+        }
     Span(attrs = { classes("mono", timeClass) }) { Text(trailing) }
 }
 
@@ -603,6 +670,12 @@ private const val ATTR_TYPE = "type"
 private const val ATTR_ARIA_LABEL = "aria-label"
 
 private const val ATTR_TITLE = "title"
+
+private const val ATTR_ARIA_HIDDEN = "aria-hidden"
+
+private const val ATTR_ROLE = "role"
+
+private const val VALUE_TRUE = "true"
 
 private const val CHAPTER_ICON_SIZE = 18
 
