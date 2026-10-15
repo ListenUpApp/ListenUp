@@ -194,12 +194,18 @@ struct DrawnContrast {
     private let height: Int
     private let scale: CGFloat
 
-    init(_ hosted: HostedView) {
+    /// `composited` captures what the screen would show, glass included: Liquid Glass is drawn by the render
+    /// server, which `layer.render` never sees (a toolbar's glass capsule comes back as the page behind it).
+    init(_ hosted: HostedView, composited: Bool = false) {
         let window = hosted.window
         let format = UIGraphicsImageRendererFormat(for: window.traitCollection)
         format.opaque = true
         let image = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { context in
-            window.layer.render(in: context.cgContext)
+            if composited {
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            } else {
+                window.layer.render(in: context.cgContext)
+            }
         }
         let cgImage = image.cgImage!
         width = cgImage.width
@@ -250,6 +256,11 @@ struct DrawnContrast {
     /// The strongest contrast anything inside `rect` reaches against the region's background.
     func strongestInk(in rect: CGRect) -> Double {
         textLines(in: rect).max() ?? 1
+    }
+
+    /// The background inside `rect` (window points): the most common colour drawn there.
+    func background(in rect: CGRect) -> SRGBColor {
+        dominantColour(in: pixelRect(rect))
     }
 
     /// A region of the capture, in pixels.
