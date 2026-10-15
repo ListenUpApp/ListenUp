@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.search
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.domain.model.SearchFacets
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
@@ -29,7 +30,10 @@ internal fun bookHit(
 internal fun contributorHit(
     id: String,
     name: String,
-): SearchHit = SearchHit(id = id, type = SearchHitType.CONTRIBUTOR, name = name)
+    imagePath: String? = null,
+    imageFrame: ImageFrame? = null,
+): SearchHit =
+    SearchHit(id = id, type = SearchHitType.CONTRIBUTOR, name = name, imagePath = imagePath, imageFrame = imageFrame)
 
 internal fun seriesHit(
     id: String,

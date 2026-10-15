@@ -112,6 +112,7 @@ private val PRESS_EXEMPT =
         ".lnk",
         ".crumb a",
         ".bd-by-name",
+        ".bd-credits-open",
         // Deliberately inert — a static row in the palette is a heading, not a target. Its hover
         // rule exists to CANCEL the row hover above it.
         ".search-row.is-static",

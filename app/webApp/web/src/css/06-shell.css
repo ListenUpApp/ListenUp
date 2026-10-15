@@ -278,6 +278,25 @@
 @media (hover: hover) { .bd-by-name:hover { color:var(--coral-text); text-decoration:underline; } }
 .bd-by-name:focus { outline:none; }
 .bd-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* The byline, then "· All credits": one line that wraps as a whole, the separator drawn here so a
+   screen reader hears "All credits", not "middle dot". */
+.bd-by-row { display:flex; flex-wrap:wrap; align-items:baseline; column-gap:var(--sp-8); }
+.bd-credits-open { padding:0; border:0; background:none; font:inherit; font-size:var(--fs-body); font-weight:700; color:var(--coral-text); cursor:pointer; border-radius:var(--r-xs); }
+.bd-credits-open::before { content:"·"; margin-right:var(--sp-8); color:var(--ink-3); font-weight:600; }
+@media (hover: hover) { .bd-credits-open:hover { text-decoration:underline; } }
+.bd-credits-open:focus { outline:none; }
+.bd-credits-open:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* All credits: every person on the book, one row each — the board's "List row · circle 48". */
+dialog.dlg.bd-credits { width:520px; }
+.credit-list { display:flex; flex-direction:column; gap:2px; max-height:min(60vh, 440px); overflow-y:auto; margin:0 calc(-1 * var(--sp-8)); }
+.credit-row { display:flex; align-items:center; gap:var(--sp-12); width:100%; padding:var(--sp-8); border:0; border-radius:var(--r-md); background:none; font:inherit; text-align:left; color:var(--ink); cursor:pointer; }
+@media (hover: hover) { .credit-row:hover { background:var(--surface-2); } }
+.credit-row:focus { outline:none; }
+.credit-row:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
+.credit-photo { width:48px; height:48px; flex:none; border-radius:var(--r-pill); overflow:hidden; display:flex; align-items:center; justify-content:center; color:#FFFFFF; font-weight:800; font-size:1rem; }
+.credit-info { display:flex; flex-direction:column; min-width:0; }
+.credit-name { font-size:var(--fs-body); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.credit-roles { font-size:var(--fs-small); color:var(--ink-2); }
 /* No Download, deliberately: a browser cannot finish one, so the primary stands beside Add to shelf. */
 .bd-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:var(--sp-4); }
 /* The About body. `BookMarkdown` emits its own <p> runs, so the type lives here rather than as

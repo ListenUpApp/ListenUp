@@ -16,6 +16,8 @@ import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.HeldPill
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.ContributorPhoto
+import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Pill
@@ -282,6 +284,15 @@ internal fun SearchRow(
                 decorative = true,
                 overlay = { if (!hit.isHeld) RestrictedMarker(hit.id, compact = true) },
             )
+        } else if (hit.type == SearchHitType.CONTRIBUTOR) {
+            // A person is shown by their face, as on the Contributors list: the framed photo in a
+            // circle, or their initials on their tint. Decorative, like every badge here: the name
+            // beside it is the row's name.
+            Div(attrs = {
+                classes("search-badge", "is-person")
+                attr("aria-hidden", "true")
+                style { property("background", avatarTintFor(hit.name)) }
+            }) { ContributorPhoto(hit.id, hit.name, hit.imagePath, hit.imageFrame) }
         } else {
             Div(attrs = {
                 classes("search-badge")
@@ -403,6 +414,7 @@ internal fun SearchHitType.label(): String =
 private fun badgeIconFor(type: SearchHitType): WebIcon =
     when (type) {
         SearchHitType.BOOK -> WebIcon.Book
+        // Unreached: a contributor's badge is their photo or initials (see SearchRow).
         SearchHitType.CONTRIBUTOR -> WebIcon.Person
         SearchHitType.SERIES -> WebIcon.Bookmark
         SearchHitType.TAG -> WebIcon.Hash
