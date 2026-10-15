@@ -32,7 +32,8 @@ final class FrameEditorModel {
         )
         self.editor = editor
         frame = Self.project(editor)
-        bridge.bind(editor.feedback) { [weak self] _ in self?.edgeTicks += 1 }
+        // By name: a flow of Kotlin enum entries traps in the Swift Export bridge.
+        bridge.bind(editor.feedbackNames) { [weak self] _ in self?.edgeTicks += 1 }
     }
 
     /// The cut-out's side, in the units every gesture is given in. Call on first layout and on every resize.

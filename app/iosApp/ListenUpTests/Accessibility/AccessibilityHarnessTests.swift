@@ -14,12 +14,13 @@ struct AccessibilityHarnessTests {
         #expect(HostedView.isSwiftUIAccessibilityLoaded)
     }
 
-    /// A stop's custom actions are what VoiceOver's Actions rotor offers, so a test can pin their names.
-    @Test func aStopListsItsCustomActionsInOrder() async throws {
+    /// A stop's custom actions are what VoiceOver's Actions rotor offers, in the rotor's order, so a test can pin
+    /// them. SwiftUI offers the outermost modifier's action first: the last one written is read first.
+    @Test func aStopListsItsCustomActionsInRotorOrder() async throws {
         let hosted = await HostedView(
             Text(verbatim: "Photo")
-                .accessibilityAction(named: Text(verbatim: "First")) {}
                 .accessibilityAction(named: Text(verbatim: "Second")) {}
+                .accessibilityAction(named: Text(verbatim: "First")) {}
         )
         defer { hosted.close() }
         let stop = try #require(hosted.stop(labelled: "Photo"), "\(hosted.tree)")

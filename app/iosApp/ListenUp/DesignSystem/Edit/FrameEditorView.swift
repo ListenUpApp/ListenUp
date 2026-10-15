@@ -155,11 +155,13 @@ private struct FrameEditorStage: View {
             @unknown default: break
             }
         }
-        .accessibilityAction(named: Text(String(localized: "edit.frame_show_top"))) { model.nudge(.up) }
-        .accessibilityAction(named: Text(String(localized: "edit.frame_show_bottom"))) { model.nudge(.down) }
-        .accessibilityAction(named: Text(String(localized: "edit.frame_show_left"))) { model.nudge(.left) }
-        .accessibilityAction(named: Text(String(localized: "edit.frame_show_right"))) { model.nudge(.right) }
+        // SwiftUI's rotor offers the last-written action first, so these are written bottom-up to read top, bottom,
+        // left, right, then Reset.
         .accessibilityAction(named: Text(String(localized: "edit.frame_reset"))) { model.reset() }
+        .accessibilityAction(named: Text(String(localized: "edit.frame_show_right"))) { model.nudge(.right) }
+        .accessibilityAction(named: Text(String(localized: "edit.frame_show_left"))) { model.nudge(.left) }
+        .accessibilityAction(named: Text(String(localized: "edit.frame_show_bottom"))) { model.nudge(.down) }
+        .accessibilityAction(named: Text(String(localized: "edit.frame_show_top"))) { model.nudge(.up) }
     }
 
     /// The photo follows the finger, one step per change.
