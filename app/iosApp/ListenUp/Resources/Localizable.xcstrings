@@ -11101,6 +11101,26 @@
         }
       }
     },
+    "edit.adjust_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust photo"
+          }
+        }
+      }
+    },
+    "edit.adjust_photo_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust Photo"
+          }
+        }
+      }
+    },
     "edit.change_image": {
       "localizations": {
         "en": {
@@ -11137,6 +11157,226 @@
           "stringUnit": {
             "state": "translated",
             "value": "Discard Changes?"
+          }
+        }
+      }
+    },
+    "edit.frame_at_edge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At edge"
+          }
+        }
+      }
+    },
+    "edit.frame_choose_another": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose another"
+          }
+        }
+      }
+    },
+    "edit.frame_choose_another_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Another"
+          }
+        }
+      }
+    },
+    "edit.frame_could_not_open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't open this photo"
+          }
+        }
+      }
+    },
+    "edit.frame_could_not_open_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try a JPEG, PNG or WebP."
+          }
+        }
+      }
+    },
+    "edit.frame_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag to move · pinch to zoom"
+          }
+        }
+      }
+    },
+    "edit.frame_hint_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag to move, pinch to zoom. Swipe up or down to zoom."
+          }
+        }
+      }
+    },
+    "edit.frame_photo_position": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo position"
+          }
+        }
+      }
+    },
+    "edit.frame_preview_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detail and lists"
+          }
+        }
+      }
+    },
+    "edit.frame_preview_profile_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile and lists"
+          }
+        }
+      }
+    },
+    "edit.frame_reset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        }
+      }
+    },
+    "edit.frame_saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo adjusted."
+          }
+        }
+      }
+    },
+    "edit.frame_show_bottom": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show more of the bottom"
+          }
+        }
+      }
+    },
+    "edit.frame_show_left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show more of the left"
+          }
+        }
+      }
+    },
+    "edit.frame_show_right": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show more of the right"
+          }
+        }
+      }
+    },
+    "edit.frame_show_top": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show more of the top"
+          }
+        }
+      }
+    },
+    "edit.frame_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust photo"
+          }
+        }
+      }
+    },
+    "edit.frame_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move and Scale"
+          }
+        }
+      }
+    },
+    "edit.frame_zoom": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom"
+          }
+        }
+      }
+    },
+    "edit.frame_zoom_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom in"
+          }
+        }
+      }
+    },
+    "edit.frame_zoom_out": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom out"
+          }
+        }
+      }
+    },
+    "edit.frame_zoom_value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom %1$@"
           }
         }
       }
