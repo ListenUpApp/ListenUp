@@ -288,11 +288,11 @@ class BookWithContributorsMapperTest :
             every { imageStorage.exists(any()) } returns false
             val frame = ImageFrame(focusX = 0.4, focusY = 0.2, zoom = 2.0)
             val photographed =
-                makeContributors().map {
-                    if (it.id == authorId) {
-                        it.copy(imagePath = "contributors/abc.jpg", imageFrame = ImageFraming("abc", frame))
+                makeContributors().map { contributor ->
+                    if (contributor.id == authorId) {
+                        contributor.copy(imagePath = "contributors/abc.jpg", imageFrame = ImageFraming("abc", frame))
                     } else {
-                        it
+                        contributor
                     }
                 }
             val row =
@@ -310,7 +310,11 @@ class BookWithContributorsMapperTest :
             credited.imageFrame shouldBe frame
             detail.authors.single().imageFrame shouldBe frame
             detail.allContributors.first { it.id == "contrib-narrator" }.imageFrame shouldBe null
-            row.toListItem(imageStorage).authors.single().imagePath shouldBe "contributors/abc.jpg"
+            row
+                .toListItem(imageStorage)
+                .authors
+                .single()
+                .imagePath shouldBe "contributors/abc.jpg"
         }
 
         test("toListItem carries libraryId and folderId from BookEntity") {

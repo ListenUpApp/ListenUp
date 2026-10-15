@@ -533,6 +533,9 @@ class ContributorEditPageTest :
             awaitFrame()
             buttonLabelled("Done").shouldNotBeNull().click()
 
-            events.filterIsInstance<ContributorEditUiEvent.StageFrame>().single().frame.zoom shouldBeGreaterThan 1.0
+            events
+                .filterIsInstance<ContributorEditUiEvent.StageFrame>()
+                .single()
+                .frame.zoom shouldBeGreaterThan 1.0
         }
     })

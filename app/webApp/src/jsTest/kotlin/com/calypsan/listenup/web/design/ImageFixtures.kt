@@ -76,7 +76,8 @@ internal fun pickFile(
 }
 
 /** Waits until the Adjust photo editor under [host] has a decoded photo, and returns its stage. */
-internal suspend fun awaitEditorReady(host: HTMLElement): HTMLElement = awaitPresent(host, "dialog.fed .fed-stage[role=group]")
+internal suspend fun awaitEditorReady(host: HTMLElement): HTMLElement =
+    awaitPresent(host, "dialog.fed .fed-stage[role=group]")
 
 /** Closes every open dialog under [host], as Escape would, so no modal outlives its spec. */
 internal fun closeDialogs(host: HTMLElement) {

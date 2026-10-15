@@ -38,6 +38,7 @@ enum class WebIcon(
     ChevronLeft("M15 5l-7 7 7 7"),
     ChevronRight("M9 5l7 7-7 7"),
     Clock("M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M12 7v5.5l3.5 2"),
+
     // From the image-framing canvas (2026-10-13): Adjust photo, the crop marks.
     Crop("M7 3v14h14 M3 7h14v14"),
     Cog(

@@ -45,7 +45,13 @@ internal fun readyContributor(
     imageFrame: ImageFrame? = null,
 ): ContributorDetailUiState.Ready =
     ContributorDetailUiState.Ready(
-        contributor = Contributor(id = ContributorId("c-king"), name = name, imagePath = imagePath, imageFrame = imageFrame),
+        contributor =
+            Contributor(
+                id = ContributorId("c-king"),
+                name = name,
+                imagePath = imagePath,
+                imageFrame = imageFrame,
+            ),
         roleSections = roleSections,
         bookProgress = bookProgress,
         bookCreditedAs = bookCreditedAs,

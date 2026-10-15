@@ -1453,7 +1453,12 @@ class ClassContractTest :
                 }
             awaitEditorReady(host)
             awaitImagesApplied(host)
-            val used = host.querySelectorAll("*").asList().flatMap { element -> (element as Element).classList.asList() }.toSet()
+            val used =
+                host
+                    .querySelectorAll("*")
+                    .asList()
+                    .flatMap { element -> (element as Element).classList.asList() }
+                    .toSet()
             closeDialogs(host)
             mounts.disposeAll()
 
