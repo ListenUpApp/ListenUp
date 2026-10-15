@@ -4,10 +4,16 @@ import Testing
 import ListenupContract
 @preconcurrency import Shared
 
+/// `minutes` in the system's abbreviated units: "8 mins" on iOS 26, "8 min" on iOS 27. The mini line speaks the
+/// system's own words, so expectations read them from the system rather than pinning one release's spelling.
+func systemMinutes(_ minutes: Int64) -> String {
+    Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
+}
+
 @Suite("The mini player accessory, per state")
 @MainActor
 struct MiniPlayerAccessoryModelTests {
-    /// 511 s left in the chapter: "8 mins".
+    /// 511 s left in the chapter: eight minutes, floored.
     private let left: Int64 = 511_000
 
     private func model(
@@ -32,7 +38,7 @@ struct MiniPlayerAccessoryModelTests {
     @Test("iPhone: the book's own chapter title and time left, back N and Pause")
     func iPhone() {
         let mini = model(playing())
-        #expect(mini.line == "Bridge Four · 8 mins left")
+        #expect(mini.line == "Bridge Four · \(systemMinutes(8)) left")
         #expect(mini.showsSkipBack)
         #expect(!mini.showsSkipForward)
         #expect(mini.primary == .pause)
@@ -44,19 +50,19 @@ struct MiniPlayerAccessoryModelTests {
     @Test("iPad: the same line, and forward")
     func iPad() {
         let mini = model(playing(), wide: true)
-        #expect(mini.line == "Bridge Four · 8 mins left")
+        #expect(mini.line == "Bridge Four · \(systemMinutes(8)) left")
         #expect(mini.showsSkipForward)
     }
 
     @Test("an untitled chapter reads by its number; a chapterless book reads Whole book")
     func chapterNames() {
         let untitled = PlayerUiStateLoaded.fixture(phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "")
-        #expect(model(untitled).line == "Chapter 6 · 8 mins left")
+        #expect(model(untitled).line == "Chapter 6 · \(systemMinutes(8)) left")
         let generic = PlayerUiStateLoaded.fixture(
             phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "Track 7")
-        #expect(model(generic).line == "Track 7 · 8 mins left")
+        #expect(model(generic).line == "Track 7 · \(systemMinutes(8)) left")
         let wholeBook = PlayerUiStateLoaded.fixture(phase: PlayerPhasePlaying.shared, wholeBook: true)
-        #expect(model(wholeBook).line == "Whole book · 8 mins left")
+        #expect(model(wholeBook).line == "Whole book · \(systemMinutes(8)) left")
     }
 
     @Test("inline: title and the main button only")
@@ -72,7 +78,7 @@ struct MiniPlayerAccessoryModelTests {
     @Test("paused says so and offers Play")
     func paused() {
         let mini = model(playing(PlayerPhasePaused.shared, primary: PrimaryControlPlay.shared))
-        #expect(mini.line == "Paused · Bridge Four · 8 mins left")
+        #expect(mini.line == "Paused · Bridge Four · \(systemMinutes(8)) left")
         #expect(mini.primary == .play)
         #expect(mini.primaryLabel == String(localized: "player.play"))
     }
@@ -98,7 +104,7 @@ struct MiniPlayerAccessoryModelTests {
             mode: SleepTimerModeDuration(minutes: 30), remainingMs: 1_380_000, totalMs: 1_800_000, startedAt: 0)
         let state = PlayerUiStateLoaded.fixture(
             phase: PlayerPhasePlaying.shared, currentIndex: 5, sleepTimer: timer, chapterTitle: "Bridge Four")
-        #expect(model(state).line == "Bridge Four · Sleep · 23 mins")
+        #expect(model(state).line == "Bridge Four · Sleep · \(systemMinutes(23))")
     }
 
     @Test("the sleep fade offers Keep Listening, which cancels the timer, and keeps back N")
@@ -118,15 +124,15 @@ struct MiniPlayerAccessoryModelTests {
     func lineParts() {
         let playingMini = model(playing())
         #expect(playingMini.lineLead == "Bridge Four")
-        #expect(playingMini.lineTail == "8 mins left")
+        #expect(playingMini.lineTail == "\(systemMinutes(8)) left")
         let pausedMini = model(playing(PlayerPhasePaused.shared, primary: PrimaryControlPlay.shared))
         #expect(pausedMini.lineLead == "Paused · Bridge Four")
-        #expect(pausedMini.lineTail == "8 mins left")
+        #expect(pausedMini.lineTail == "\(systemMinutes(8)) left")
         let timer = SleepTimerStateActive(
             mode: SleepTimerModeDuration(minutes: 30), remainingMs: 1_380_000, totalMs: 1_800_000, startedAt: 0)
         let armed = model(PlayerUiStateLoaded.fixture(
             phase: PlayerPhasePlaying.shared, currentIndex: 5, sleepTimer: timer, chapterTitle: "Bridge Four"))
-        #expect(armed.lineTail == "Sleep · 23 mins")
+        #expect(armed.lineTail == "Sleep · \(systemMinutes(23))")
         let finished = model(
             playing(PlayerPhaseFinished.shared, primary: PrimaryControlListenAgain.shared, showsSkipBack: false))
         #expect(finished.lineLead == "Finished")
@@ -226,8 +232,8 @@ struct MiniPlayerAccessoryModelTests {
 
     @Test("short durations: the system's abbreviated hours and minutes; seconds spelled out")
     func durations() {
-        #expect(MiniPlayerAccessoryModel.shortDuration(ms: 511_000) == "8 mins")
-        #expect(MiniPlayerAccessoryModel.shortDuration(ms: 3_900_000) == "1 hr, 5 mins")
+        #expect(MiniPlayerAccessoryModel.shortDuration(ms: 511_000) == systemMinutes(8))
+        #expect(MiniPlayerAccessoryModel.shortDuration(ms: 3_900_000) == systemMinutes(65))
         #expect(MiniPlayerAccessoryModel.shortDuration(ms: 42_000) == "42 seconds")
     }
 }

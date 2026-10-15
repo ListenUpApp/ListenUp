@@ -30,7 +30,7 @@ struct MiniPlayerAccessibilityTests {
         defer { hosted.close() }
         let book = try #require(hosted.stops(labelContaining: "The Way of Kings").first, "\(hosted.tree)")
         #expect(book.isButton)
-        #expect(book.label.contains("Bridge Four · 8 mins left"))
+        #expect(book.label.contains("Bridge Four · \(systemMinutes(8)) left"))
         let back = try #require(hosted.stop(labelled: skipBackLabel), "\(hosted.tree)")
         #expect(back.isButton)
         #expect(back.frame.height >= 44)

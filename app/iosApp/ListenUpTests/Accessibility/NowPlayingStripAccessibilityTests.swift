@@ -25,7 +25,7 @@ struct NowPlayingStripAccessibilityTests {
     @Test func playingShowsTheChapterLineBackNAndPause() async throws {
         let hosted = await host(model(PlayerPhasePlaying.shared, PrimaryControlPause.shared, back: true))
         defer { hosted.close() }
-        #expect(!hosted.stops(labelContaining: "Bridge Four · 8 mins left").isEmpty, "\(hosted.tree)")
+        #expect(!hosted.stops(labelContaining: "Bridge Four · \(systemMinutes(8)) left").isEmpty, "\(hosted.tree)")
         #expect(hosted.stop(labelled: String(format: String(localized: "player.skip_backward"), "10")) != nil)
         #expect(hosted.stop(labelled: String(localized: "player.pause")) != nil)
     }
