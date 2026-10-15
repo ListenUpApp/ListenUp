@@ -40,7 +40,8 @@ final class HostedView {
     init<Content: View>(
         _ content: Content,
         size: CGSize = CGSize(width: 393, height: 852),
-        dynamicTypeSize: DynamicTypeSize = .large
+        dynamicTypeSize: DynamicTypeSize = .large,
+        appearance: UIUserInterfaceStyle = .light
     ) async {
         if !(await Self.accessibilityRuntimeHasLoaded()) {
             Issue.record("SwiftUI's accessibility bundle never loaded, so this tree may be empty or a stop short.")
@@ -49,13 +50,13 @@ final class HostedView {
             .environment(\.dynamicTypeSize, dynamicTypeSize)
             .environment(HapticsSettings())
         let host = UIHostingController(rootView: root)
-        host.overrideUserInterfaceStyle = .light
+        host.overrideUserInterfaceStyle = appearance
         guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
             preconditionFailure("The test host has no window scene to host a view in.")
         }
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(origin: .zero, size: size)
-        window.overrideUserInterfaceStyle = .light
+        window.overrideUserInterfaceStyle = appearance
         window.rootViewController = host
         window.makeKeyAndVisible()
         self.window = window

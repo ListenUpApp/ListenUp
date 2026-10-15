@@ -81,6 +81,37 @@ struct MiniPlayerSnapshotExportTests {
     }
 }
 
+/// Dark Mode and the accessory's largest Dynamic Type (it caps at xLarge), for the states that crowd it most.
+@MainActor
+@Suite("Mini player review snapshots, appearances", .serialized,
+       .enabled(if: ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"] != nil))
+struct MiniPlayerAppearanceSnapshotTests {
+    enum Variant: String, CaseIterable {
+        case dark, xLarge
+    }
+
+    @Test(arguments: Variant.allCases, [MiniPlayerSnapshotExportTests.Case.playing, .fadingOut])
+    func export(_ variant: Variant, _ shot: MiniPlayerSnapshotExportTests.Case) async throws {
+        let dir = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"]))
+        guard UIDevice.current.userInterfaceIdiom == .phone else { return }
+        let phase: any PlayerPhase = shot == .playing ? PlayerPhasePlaying.shared : PlayerPhaseSleepFading.shared
+        let model = MiniPlayerAccessoryModel.make(
+            snapshot: PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
+                phase: phase, currentIndex: 5, chapterTitle: "Bridge Four")),
+            chapterRemainingMs: 511_000, chapterFraction: 0.59, isInline: false, isWide: false)
+        let hosted = await HostedView(
+            TabHarness(model: model), size: CGSize(width: 393, height: 852),
+            dynamicTypeSize: variant == .xLarge ? .xLarge : .large,
+            appearance: variant == .dark ? .dark : .light)
+        defer { hosted.close() }
+        let image = UIGraphicsImageRenderer(bounds: hosted.window.bounds).image { _ in
+            hosted.window.drawHierarchy(in: hosted.window.bounds, afterScreenUpdates: true)
+        }
+        let name = "iphone-\(shot.rawValue)-\(variant.rawValue).png"
+        try #require(image.pngData()).write(to: dir.appendingPathComponent(name))
+    }
+}
+
 /// A two-tab shell with the accessory attached, so the snapshot shows the system's own Liquid Glass capsule.
 private struct TabHarness: View {
     let model: MiniPlayerAccessoryModel
