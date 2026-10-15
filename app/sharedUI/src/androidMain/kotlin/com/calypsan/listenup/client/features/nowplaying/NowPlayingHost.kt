@@ -209,6 +209,7 @@ fun NowPlayingHost(
                 onTap = viewModel::expand,
                 onPrimary = viewModel::onPrimary,
                 onSkipBack = { viewModel.skipBack() },
+                onKeepListening = viewModel::cancelSleepTimer,
                 skipBackwardSec = skipBackwardSec,
                 modifier =
                     Modifier

@@ -30,7 +30,7 @@ class MiniPlayerTouchTargetTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `the floating mini-player's controls are 48dp and the card keeps its height`() {
+    fun `the phone bar's controls are 48dp and the bar keeps its height`() {
         composeRule.setContent {
             MaterialTheme {
                 NowPlayingBar(
@@ -40,14 +40,15 @@ class MiniPlayerTouchTargetTest {
                     onTap = {},
                     onPrimary = {},
                     onSkipBack = {},
+                    onKeepListening = {},
                     skipBackwardSec = 15,
                     modifier = Modifier.testTag(BAR),
                 )
             }
         }
 
-        composeRule.onNodeWithTag(BAR).assertHeightIsEqualTo(FLOATING_BAR_HEIGHT)
-        control("Skip backward 15 seconds").assertIsAtLeastMinimumTarget()
+        composeRule.onNodeWithTag(BAR).assertHeightIsEqualTo(MiniBarHeight)
+        control("Skip back 15 seconds").assertIsAtLeastMinimumTarget()
         control("Play").assertIsAtLeastMinimumTarget()
     }
 
@@ -73,7 +74,7 @@ class MiniPlayerTouchTargetTest {
         }
 
         composeRule.onNodeWithTag(BAR).assertHeightIsEqualTo(DOCKED_BAR_HEIGHT)
-        control("Skip backward 15 seconds").assertIsAtLeastMinimumTarget()
+        control("Skip back 15 seconds").assertIsAtLeastMinimumTarget()
         control("Play").assertIsAtLeastMinimumTarget()
         control("Skip forward 30 seconds").assertIsAtLeastMinimumTarget()
         control("Expand").assertIsAtLeastMinimumTarget()
@@ -89,8 +90,7 @@ class MiniPlayerTouchTargetTest {
     private companion object {
         const val BAR = "bar"
 
-        // Both heights were measured before the targets grew; they must not move.
-        val FLOATING_BAR_HEIGHT = 100.dp
+        // Measured before the targets grew; it must not move.
         val DOCKED_BAR_HEIGHT = 72.dp
 
         val progress = samplePlayerProgress

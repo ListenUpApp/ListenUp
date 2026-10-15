@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.api.error.PlaybackError
@@ -41,13 +40,14 @@ class MiniPlayerErrorTest {
                     onTap = {},
                     onPrimary = { primaryTaps++ },
                     onSkipBack = {},
+                    onKeepListening = {},
                     skipBackwardSec = 10,
                 )
             }
         }
 
-        composeRule.onNodeWithText("Couldn't play this book.").assertExists()
-        composeRule.onNodeWithContentDescription("Retry").performClick()
+        composeRule.onNodeWithText("Couldn't play this book.", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Retry").performClick()
         primaryTaps shouldBe 1
     }
 
@@ -68,12 +68,13 @@ class MiniPlayerErrorTest {
                     onTap = {},
                     onPrimary = {},
                     onSkipBack = {},
+                    onKeepListening = {},
                     skipBackwardSec = 10,
                 )
             }
         }
 
-        composeRule.onNodeWithText("You're offline.").assertExists()
-        composeRule.onNodeWithText("Bridge Four").assertDoesNotExist()
+        composeRule.onNodeWithText("Can't play offline", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Bridge Four", substring = true, useUnmergedTree = true).assertDoesNotExist()
     }
 }

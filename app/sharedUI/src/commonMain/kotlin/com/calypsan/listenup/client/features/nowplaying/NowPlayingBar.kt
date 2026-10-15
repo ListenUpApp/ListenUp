@@ -1,73 +1,105 @@
 package com.calypsan.listenup.client.features.nowplaying
 
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.Role
-import com.calypsan.listenup.client.design.MinTouchTarget
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.util.isLargeFontScale
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
-import com.calypsan.listenup.client.features.nowplaying.components.PrimaryControlFab
+import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
+import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
+import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
+import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
-import com.calypsan.listenup.client.design.util.isLargeFontScale
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.player_cover_a11y
+import listenup.composeapp.generated.resources.player_mini_open
+import listenup.composeapp.generated.resources.player_mini_resume
 import listenup.composeapp.generated.resources.player_skip_backward
 import org.jetbrains.compose.resources.stringResource
 
-/** A mini-player control's glyph — the size the bars were drawn at, kept while the targets grew to 48dp. */
-internal val MiniPlayerGlyphSize = 20.dp
+/** A mini-player control's glyph on the phone bar and the toolbar: the M3 icon-button glyph. */
+internal val MiniPlayerGlyphSize = 24.dp
+
+/** The progress line's slot: the wave's own height (M3 `WaveHeight`), so a phase change never moves the row. */
+internal val MiniProgressSlotHeight = 10.dp
+
+/** The docked toolbar's row (m3.material.io/components/toolbars: 64dp). */
+internal val MiniBarRowHeight = 64.dp
+
+/** The phone bar's whole height above any system inset. */
+internal val MiniBarHeight = MiniProgressSlotHeight + MiniBarRowHeight
+
+/** The phone bar's play/pause container: the wide 56×48 (§5.1 M10). */
+internal val MiniPhonePlaySize = DpSize(56.dp, 48.dp)
+
+/** The phone bar's cover. */
+private val MiniPhoneCoverSize = 48.dp
+
+/** Test tag: the wavy chapter line, drawn only while the book is playing. */
+internal const val MiniProgressWavyTag = "mini-progress-wavy"
+
+/** Test tag: the flat chapter line, drawn in every other phase. */
+internal const val MiniProgressFlatTag = "mini-progress-flat"
+
+/** Test tag: the body, the one target that opens Now Playing. */
+internal const val MiniBodyTag = "mini-body"
+
+/** Test tag: the decorative cover inside the body. */
+internal const val MiniCoverTag = "mini-cover"
 
 /**
- * Floating mini-player card docked above the bottom navigation.
+ * The phone mini player (spec §5.1, board `Main`): a flat docked toolbar, full width on `surfaceContainerHigh`,
+ * directly above the 64dp navigation bar — or, on a detail screen, at the bottom edge with its row padded clear of
+ * the gesture area ([bottomInset]). A chapter line along the top is the wave while playing, flat otherwise.
  *
- * M3 Expressive styling per the MiniPlayerMobile design:
- * - [surfaceContainerHigh] card with large rounded corners
- * - Cover thumbnail · title + chapter line · skip-back · play/pause squircle
- * - Non-interactive wavy progress strip along the bottom (chapter progress)
- *
- * Visible whenever a book is loaded and [isExpanded] is false — including when it failed or cannot play: the
- * second line then says why and the main button offers the way out (gap 6). Tapping anywhere expands to the
- * full-screen player via [onTap].
+ * The body (cover, title, line) is one target, "Open Now Playing", and back N and the main button are its siblings,
+ * never inside it (§8). A failure tints the bar `errorContainer`; the bar never hides while a book is loaded (gap 6).
  *
  * @param onPrimary The main button's action, decided by [PlayerUiState.Loaded.primary].
+ * @param onKeepListening The main button's action during the sleep fade, where it reads Keep listening: cancel the
+ * timer and restore the volume.
+ * @param bottomInset The system inset the bar runs under and pads its row clear of; none above the navigation bar.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NowPlayingBar(
     state: PlayerUiState,
@@ -76,157 +108,172 @@ fun NowPlayingBar(
     onTap: () -> Unit,
     onPrimary: () -> Unit,
     onSkipBack: () -> Unit,
+    onKeepListening: () -> Unit,
     skipBackwardSec: Int,
     modifier: Modifier = Modifier,
+    bottomInset: WindowInsets = WindowInsets(0, 0, 0, 0),
 ) {
-    val isVisible = state is PlayerUiState.Loaded && !isExpanded
-
     AnimatedVisibility(
-        visible = isVisible,
+        visible = state is PlayerUiState.Loaded && !isExpanded,
         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         modifier = modifier,
     ) {
-        val interactionSource = remember { MutableInteractionSource() }
-        val isFocused by interactionSource.collectIsFocusedAsState()
-        val focusScale by animateFloatAsState(
-            targetValue = if (isFocused) 1.05f else 1f,
-            label = "mini_player_focus_scale",
-        )
-        val focusBorderShape = MaterialTheme.shapes.large
-
+        val loaded = state as? PlayerUiState.Loaded ?: return@AnimatedVisibility
+        val line = MiniPlayerLines.of(loaded)
+        val tinted = line is MiniPlayerLine.Problem && line.isTinted
         Surface(
-            onClick = onTap,
-            interactionSource = interactionSource,
-            modifier =
-                Modifier
-                    .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.sm)
-                    .fillMaxWidth()
-                    .semantics { role = Role.Button }
-                    .swipeUpToExpand(onTap)
-                    .graphicsLayer {
-                        scaleX = focusScale
-                        scaleY = focusScale
-                    }.then(
-                        if (isFocused) {
-                            Modifier.border(
-                                width = 2.dp,
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = focusBorderShape,
-                            )
-                        } else {
-                            Modifier
-                        },
-                    ),
-            shape = MaterialTheme.shapes.large,
-            // Tonal, not shadowed: the highest container level lifts it off the content it floats
-            // over; only covers cast shadows (DESIGN.md, Books-Cast-Shadows).
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            shape = RectangleShape,
+            color = if (tinted) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = if (tinted) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.fillMaxWidth().swipeUpToExpand(onTap),
         ) {
-            if (state is PlayerUiState.Loaded) {
-                MiniPlayerContent(
-                    state = state,
+            Column(Modifier.windowInsetsPadding(bottomInset)) {
+                MiniProgressLine(
+                    isPlaying = loaded.phase == PlayerPhase.Playing,
                     progress = progress,
-                    onPrimary = onPrimary,
-                    onSkipBack = onSkipBack,
-                    skipBackwardSec = skipBackwardSec,
+                    modifier = Modifier.fillMaxWidth().height(MiniProgressSlotHeight),
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(MiniBarRowHeight).padding(start = 12.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    MiniBody(
+                        state = loaded,
+                        line = line,
+                        progress = progress,
+                        onOpen = onTap,
+                        fit = MiniLineFit.WithTimeLeft,
+                        coverSize = MiniPhoneCoverSize,
+                    )
+                    if (loaded.showsSkipBack) {
+                        Ctrl(
+                            icon = SkipGlyphs.backward(skipBackwardSec),
+                            contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
+                            onClick = onSkipBack,
+                            size = MinTouchTarget,
+                            iconSize = MiniPlayerGlyphSize,
+                            tint = LocalContentColor.current,
+                        )
+                    }
+                    MiniPrimaryButton(
+                        primary = loaded.primary,
+                        bookTitle = loaded.book.title,
+                        onClick = onPrimary,
+                        size = MiniPhonePlaySize,
+                        playLabel = miniPlayLabel(line),
+                        onKeepListening = onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
+                    )
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** "Resume" for Android's background refusal (§4.6), whose primary is Play; null keeps "Play". */
 @Composable
-private fun MiniPlayerContent(
+internal fun miniPlayLabel(line: MiniPlayerLine): String? =
+    if (line is MiniPlayerLine.Problem && line.error is PlaybackError.BlockedInBackground) {
+        stringResource(Res.string.player_mini_resume)
+    } else {
+        null
+    }
+
+/**
+ * The open target: cover, title and line, one node named "Open Now Playing" (§8). The cover is decorative (the title
+ * beside it names the book) and steps aside at a large font, where the title needs the width more than the bar needs
+ * the picture.
+ */
+@Composable
+internal fun RowScope.MiniBody(
     state: PlayerUiState.Loaded,
+    line: MiniPlayerLine,
     progress: () -> PlayerProgress,
-    onPrimary: () -> Unit,
-    onSkipBack: () -> Unit,
-    skipBackwardSec: Int,
+    onOpen: () -> Unit,
+    fit: MiniLineFit,
+    coverSize: Dp,
+    modifier: Modifier = Modifier,
 ) {
-    Column {
-        Row(
-            modifier =
-                Modifier
-                    .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // Cover thumbnail — 48dp, rounded 12dp corners. At a large font it steps aside: the title already
-            // names the book, and the title needs the width more than the bar needs the picture.
-            if (!isLargeFontScale()) {
-                BookCoverImage(
-                    bookId = state.book.id,
-                    coverPath = state.book.coverPath,
-                    coverHash = state.book.coverHash,
-                    contentDescription = stringResource(Res.string.player_cover_a11y),
-                    title = state.book.title,
-                    author = state.book.authorLine,
-                    modifier =
-                        Modifier
-                            .size(48.dp)
-                            .clip(MaterialTheme.shapes.small),
-                )
-
-                Spacer(Modifier.width(4.dp))
-            }
-
-            // Title + chapter info column — grows to fill available space
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = state.book.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                // Show the chapter's own title; no "Ch. N · " prefix — the title is often itself
-                // "Chapter N", and chapterIndex counts front-matter tracks (Introduction, Epigraph),
-                // so the prefix produced confusing, offset labels like "Ch. 3 · Chapter 1". When the book
-                // cannot play, this line says why instead (gap 6).
-                Text(
-                    text = state.statusLine(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            // Skip-back control (single skip on the phone mini-player), only where there is a settled
-            // position to go back from (§3.5).
-            if (state.showsSkipBack) {
-                Ctrl(
-                    icon = SkipGlyphs.backward(skipBackwardSec),
-                    contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
-                    onClick = onSkipBack,
-                    size = MinTouchTarget,
-                    iconSize = MiniPlayerGlyphSize,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-
-            // The main button, drawn from the shared primary. No drop shadow — the bar's rounded
-            // Surface would clip it. A play request in flight shows as Busy without hiding this bar.
-            PrimaryControlFab(
-                primary = state.primary,
-                onClick = onPrimary,
-                size = 48.dp,
+    val tinted = line is MiniPlayerLine.Problem && line.isTinted
+    Row(
+        modifier =
+            modifier
+                .weight(1f)
+                .heightIn(min = MinTouchTarget)
+                .clip(MaterialTheme.shapes.medium)
+                .clickable(
+                    onClickLabel = stringResource(Res.string.player_mini_open),
+                    role = Role.Button,
+                    onClick = onOpen,
+                ).testTag(MiniBodyTag),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (!isLargeFontScale()) {
+            BookCoverImage(
+                bookId = state.book.id,
+                coverPath = state.book.coverPath,
+                coverHash = state.book.coverHash,
+                // The title beside it names the book; a described cover (or its placeholder's lettering) would read
+                // it twice, so the cover carries no semantics at all.
+                contentDescription = null,
+                title = state.book.title,
+                author = state.book.authorLine,
+                modifier =
+                    Modifier
+                        .size(coverSize)
+                        .clip(MaterialTheme.shapes.medium)
+                        .testTag(MiniCoverTag)
+                        .clearAndSetSemantics {},
             )
         }
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = state.book.title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            MiniPlayerLineText(
+                line = line,
+                progress = progress,
+                fit = fit,
+                color =
+                    if (tinted) {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+        }
+    }
+}
 
-        // Thin, non-interactive chapter progress strip. A plain bar (not the wavy indicator) reads
-        // cleaner at the mini-player's small height — the expressive wave is reserved for the
-        // full-screen player and the desktop bar, where it has the vertical room to register.
-        LinearProgressIndicator(
-            progress = { progress().chapterFraction },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(4.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            drawStopIndicator = {},
-        )
+/** The chapter line along the bar's top edge: the wave only for the book that is playing (F6), flat otherwise. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun MiniProgressLine(
+    isPlaying: Boolean,
+    progress: () -> PlayerProgress,
+    modifier: Modifier,
+) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        if (isPlaying) {
+            LinearWavyProgressIndicator(
+                progress = { progress().chapterFraction },
+                modifier = Modifier.fillMaxWidth().testTag(MiniProgressWavyTag),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+        } else {
+            LinearProgressIndicator(
+                progress = { progress().chapterFraction },
+                modifier = Modifier.fillMaxWidth().testTag(MiniProgressFlatTag),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                drawStopIndicator = {},
+            )
+        }
     }
 }

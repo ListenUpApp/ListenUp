@@ -305,8 +305,9 @@ private fun MiniPlayerPhoneSection() {
         onTap = {},
         onPrimary = {},
         onSkipBack = {},
+        onKeepListening = {},
         skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
+        modifier = Modifier.fillMaxWidth(),
     )
 
     GalleryLabel("Mini-player — phone (buffering)")
@@ -317,8 +318,9 @@ private fun MiniPlayerPhoneSection() {
         onTap = {},
         onPrimary = {},
         onSkipBack = {},
+        onKeepListening = {},
         skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
+        modifier = Modifier.fillMaxWidth(),
     )
 }
 
