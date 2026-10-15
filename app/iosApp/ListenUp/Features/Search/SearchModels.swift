@@ -86,6 +86,10 @@ struct SearchRow: Identifiable, Equatable, Hashable {
     /// Held for review in the admin inbox — only a book can be. Drawn as `HeldBadge`; the row still
     /// just opens the book, into its triage page.
     let isHeld: Bool
+    /// A person hit's photo path (content-addressed, so a new photo busts the cache); nil for every other kind.
+    let imagePath: String?
+    /// How a person hit's photo sits in its circle; nil is the centre crop, and nil for every other kind.
+    let imageFrame: ImageFrameValue?
 
     init(
         id: String,
@@ -95,7 +99,9 @@ struct SearchRow: Identifiable, Equatable, Hashable {
         author: String?,
         coverPath: String?,
         coverHash: String?,
-        isHeld: Bool = false
+        isHeld: Bool = false,
+        imagePath: String? = nil,
+        imageFrame: ImageFrameValue? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -105,6 +111,8 @@ struct SearchRow: Identifiable, Equatable, Hashable {
         self.coverPath = coverPath
         self.coverHash = coverHash
         self.isHeld = isHeld
+        self.imagePath = imagePath
+        self.imageFrame = imageFrame
     }
 
     /// A book hit's VoiceOver label: title and `byline` first, then why a cover badge is there — Held,
@@ -125,6 +133,9 @@ struct SearchRow: Identifiable, Equatable, Hashable {
         self.coverPath = hit.coverPath
         self.coverHash = hit.coverHash
         self.isHeld = hit.type == .book && hit.isHeld
+        let isPerson = hit.type == .contributor
+        self.imagePath = isPerson ? hit.imagePath : nil
+        self.imageFrame = isPerson ? ImageFrameValue(hit.imageFrame) : nil
         switch hit.type {
         case .book:
             self.kind = .book

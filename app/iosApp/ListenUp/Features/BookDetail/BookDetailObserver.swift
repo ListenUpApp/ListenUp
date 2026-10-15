@@ -26,6 +26,8 @@ final class BookDetailObserver {
     /// hero's `ForEach` never re-bridges the Kotlin `BookContributor`s.
     private(set) var heroAuthors: [CastMember] = []
     private(set) var heroNarrators: [CastMember] = []
+    /// Everyone credited on the book, for Cast & Credits' production group.
+    private(set) var castMembers: [CastMember] = []
     private(set) var genres: [FacetChip] = []
     private(set) var tags: [FacetChip] = []
     private(set) var moods: [FacetChip] = []
@@ -418,8 +420,9 @@ final class BookDetailObserver {
         audioFormat = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
             .audioFormatDisplay(files: book.audioFiles)
         audioFileSizes = book.audioFiles.map { $0.size }
-        heroAuthors = book.authors.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
-        heroNarrators = book.narrators.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
+        heroAuthors = book.authors.map { CastMember($0) }
+        heroNarrators = book.narrators.map { CastMember($0) }
+        castMembers = book.allContributors.map { CastMember($0) }
         if observingDownloadForBookId != book.idString {
             observingDownloadForBookId = book.idString
             observeDownloadStatus(bookId: book.idString)

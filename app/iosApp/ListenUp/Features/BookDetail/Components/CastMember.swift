@@ -1,12 +1,35 @@
 import Foundation
+import Shared
 
-/// A native, test-constructible cast member. KMP `BookContributor` is not constructible
-/// in Swift tests, so grouping/collapse logic operates on this value type; the view maps
-/// `BookContributor` → `CastMember` (thin untested glue, like the chapters mapping).
+/// A native cast member, projected once from the bridged `BookContributor` at the observer boundary
+/// (iosApp rule 8), so the hero lines and the Cast & Credits rows never re-read Kotlin.
 struct CastMember: Identifiable, Hashable {
     let id: String
     let name: String
     let roles: [String]
+    /// The contributor's photo path; nil shows their initials.
+    let imagePath: String?
+    /// How the photo sits in its circle; nil is the centre crop.
+    let imageFrame: ImageFrameValue?
+
+    init(id: String, name: String, roles: [String], imagePath: String? = nil, imageFrame: ImageFrameValue? = nil) {
+        self.id = id
+        self.name = name
+        self.roles = roles
+        self.imagePath = imagePath
+        self.imageFrame = imageFrame
+    }
+
+    /// Reads each bridged property of `contributor` once.
+    init(_ contributor: BookContributor) {
+        self.init(
+            id: contributor.id,
+            name: contributor.name,
+            roles: Array(contributor.roles),
+            imagePath: contributor.imagePath,
+            imageFrame: ImageFrameValue(contributor.imageFrame)
+        )
+    }
 }
 
 /// A role group in the Cast & Credits sheet.
