@@ -121,7 +121,9 @@ struct ContributorDetailView: View {
         .matchReceipt(contributorId: activeContributorId, name: observer?.name ?? "")
         .frameEditor(item: $adjustTarget, onDismiss: editIfAsked) { target in
             FetchedPhotoFrameEditor(
-                fetch: { await FramePhoto.contributor(contributorId: target.contributorId, imagePath: target.imagePath) },
+                fetch: {
+                    await FramePhoto.contributor(contributorId: target.contributorId, imagePath: target.imagePath)
+                },
                 initial: target.frame,
                 confirm: .save,
                 onConfirm: { frame in

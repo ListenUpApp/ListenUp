@@ -59,8 +59,10 @@ struct FramedImageGeometryTests {
 
     @Test("the decode target grows with the zoom and caps at 2,048 px")
     func zoomedTarget() {
-        #expect(FramedImageGeometry.targetPixels(base: 360, frame: ImageFrameValue(focusX: 0.5, focusY: 0.5, zoom: 2.2)) == 792)
-        #expect(FramedImageGeometry.targetPixels(base: 1200, frame: ImageFrameValue(focusX: 0.5, focusY: 0.5, zoom: 4)) == 2048)
+        let closer = ImageFrameValue(focusX: 0.5, focusY: 0.5, zoom: 2.2)
+        let closest = ImageFrameValue(focusX: 0.5, focusY: 0.5, zoom: 4)
+        #expect(FramedImageGeometry.targetPixels(base: 360, frame: closer) == 792)
+        #expect(FramedImageGeometry.targetPixels(base: 1200, frame: closest) == 2048)
         #expect(FramedImageGeometry.targetPixels(base: 360, frame: nil) == 360)
     }
 

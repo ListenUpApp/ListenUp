@@ -36,7 +36,8 @@ struct FrameEditorAccessibilityTests {
         #expect(stage.traits.contains(.adjustable))
         #expect(stage.value == "Zoom 1.0×")
         #expect(stage.customActionNames == [
-            "Show more of the top", "Show more of the bottom", "Show more of the left", "Show more of the right", "Reset",
+            "Show more of the top", "Show more of the bottom", "Show more of the left", "Show more of the right",
+            "Reset"
         ])
     }
 

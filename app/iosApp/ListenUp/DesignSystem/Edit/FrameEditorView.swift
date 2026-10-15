@@ -90,7 +90,12 @@ private struct FrameEditorStage: View {
     @State private var lastMagnification: CGFloat = 1
     @Environment(\.horizontalSizeClass) private var sizeClass
 
-    init(image: UIImage, initial: ImageFrameValue?, confirmTitle: String, onConfirm: @escaping (ImageFrameValue) -> Void) {
+    init(
+        image: UIImage,
+        initial: ImageFrameValue?,
+        confirmTitle: String,
+        onConfirm: @escaping (ImageFrameValue) -> Void
+    ) {
         self.image = image
         self.confirmTitle = confirmTitle
         self.onConfirm = onConfirm

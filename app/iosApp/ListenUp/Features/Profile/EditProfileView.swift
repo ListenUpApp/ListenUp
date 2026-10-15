@@ -338,7 +338,8 @@ private struct StagedAvatarPreview: View {
         // cancelled if the view goes away.
         .task(id: "\(data.count):\(frame?.zoom ?? 1)") {
             let base = (size * displayScale).rounded(.up)
-            decoded = await Self.decode(data, maxPixelSize: Int(FramedImageGeometry.targetPixels(base: base, frame: frame)))
+            let pixels = Int(FramedImageGeometry.targetPixels(base: base, frame: frame))
+            decoded = await Self.decode(data, maxPixelSize: pixels)
         }
     }
 
