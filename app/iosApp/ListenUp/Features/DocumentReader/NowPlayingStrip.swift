@@ -1,51 +1,72 @@
 import SwiftUI
 import Shared
 
-/// The reader's docked now-playing strip: cover · "Ch. N · {time left}" · play/pause.
-/// Reflects the shared player (`PlayerObserver`) and renders only while a
-/// session is active — opening/reading the PDF never affects audio.
+/// The reader's docked now-playing strip (M19): cover · the title and the mini line (chapter time left) · back N · the
+/// main button. It is the accessory's own model, so the reader and the tab bar never disagree. A book that can't play
+/// shows why and its way out rather than hiding: the mini line has honest content for it now. Opening or reading the
+/// PDF never affects audio.
 struct NowPlayingStrip: View {
     @Environment(\.dependencies) private var dependencies
 
     var body: some View {
         let player = dependencies.playerObserver
-        // A book that can't play stays "visible" (the main mini-player shows why, with its action), but
-        // the reader's strip has no honest content then — hide it rather than render a blank "0s" card.
-        if player.isVisible, !player.isErrored {
-            content(player)
+        if player.isVisible {
+            let model = MiniPlayerAccessoryModel.make(
+                snapshot: player.snapshot,
+                chapterRemainingMs: max(0, player.chapterDurationMs - player.displayChapterPositionMs),
+                chapterFraction: 0, isInline: false, isWide: false)
+            NowPlayingStripContent(
+                model: model,
+                onSkipBack: { player.skipBackward() },
+                onPrimary: { player.miniPrimary(model.primaryAction) })
         }
     }
+}
 
-    @ViewBuilder
-    private func content(_ player: PlayerObserver) -> some View {
+/// The strip's layout, from a value, so the accessibility tests host it directly.
+struct NowPlayingStripContent: View {
+    let model: MiniPlayerAccessoryModel
+    let onSkipBack: () -> Void
+    let onPrimary: () -> Void
+
+    var body: some View {
         HStack(spacing: 11) {
-            BookCoverImage(bookId: player.currentBookId, coverPath: player.coverPath, coverHash: player.coverHash)
+            BookCoverImage(bookId: model.bookId, coverPath: model.coverPath, coverHash: model.coverHash)
                 .frame(width: 40, height: 40)
                 .clipShape(.concentric(minimum: Radius.s))
                 .accessibilityHidden(true)
-
             VStack(alignment: .leading, spacing: 1) {
-                Text(player.chapterTitle ?? player.bookTitle)
-                    .font(.subheadline.weight(.medium)).lineLimit(1)
-                Text(formatTimeLeft(remainingMs: player.bookDurationMs - player.displayBookPositionMs))
-                    .font(.caption).foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
+                Text(model.title).font(.subheadline.weight(.medium)).lineLimit(1)
+                if let line = model.line {
+                    HStack(spacing: 3) {
+                        if model.isFailure {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .imageScale(.small)
+                                .accessibilityHidden(true)
+                        }
+                        Text(line).monospacedDigit().lineLimit(1)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(model.isFailure ? Color.luPlayerError : Color.secondary)
+                }
             }
-
+            .accessibilityElement(children: .combine)
             Spacer(minLength: 8)
-
-            Button { player.togglePlayback() } label: {
-                // `isPlaybackActive` (playing OR buffering) so the glyph reads "pause" during the
-                // startup buffer, matching what a tap does.
-                Image(systemName: player.isPlaybackActive ? "pause.fill" : "play.fill")
-                    .font(.title3).foregroundStyle(Color.luOnTint)
-                    .frame(width: 38, height: 38)
-                    .background(Color.listenUpOrange, in: .concentric(minimum: Radius.s))
-                    .minimumTapTarget(visualSize: 38)
+            if model.showsSkipBack {
+                Button(action: onSkipBack) {
+                    Image(systemName: PlayerGlyphs.skipBackward(seconds: model.skipBackSec))
+                        .font(.title3)
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(format: String(localized: "player.skip_backward"), "\(model.skipBackSec)"))
             }
-            .accessibilityLabel(String(localized: player.isPlaybackActive ? "player.pause" : "player.play"))
+            MiniPlayerPrimaryButton(model: model, action: onPrimary)
         }
         .padding(.horizontal, Spacing.s).padding(.vertical, Spacing.xs)
-        // The cover and the play button sit concentric with the strip's corners.
+        // The cover sits concentric with the strip's corners.
         .containerShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
     }
