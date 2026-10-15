@@ -228,8 +228,10 @@ class AudiobookNotificationProviderTest {
     // ── decodeDownsampled — the artwork the cache actually holds ──────────────
 
     @Test
-    fun `decodeDownsampled brings a provider-sized cover under the notification cap`() {
-        val cover = Bitmap.createBitmap(2400, 2400, Bitmap.Config.ARGB_8888)
+    fun `decodeDownsampled brings a large cover under the notification cap`() {
+        // Over twice the cap, so the decode has to halve more than once; a full 2400 px cover (23 MB, plus its
+        // encoded copy) ran this lane's shared 512 MB test heap out of memory on CI.
+        val cover = Bitmap.createBitmap(1100, 1100, Bitmap.Config.ARGB_8888)
         val encoded =
             ByteArrayOutputStream().also { cover.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
 
