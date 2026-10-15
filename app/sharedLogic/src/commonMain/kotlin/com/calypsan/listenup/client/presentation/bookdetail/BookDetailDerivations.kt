@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
 import com.calypsan.listenup.client.core.formatSeriesSequence
+import com.calypsan.listenup.client.domain.chapter.currentChapterIndex
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks

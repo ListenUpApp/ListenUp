@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.presentation.bookdetail
+package com.calypsan.listenup.client.domain.chapter
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
