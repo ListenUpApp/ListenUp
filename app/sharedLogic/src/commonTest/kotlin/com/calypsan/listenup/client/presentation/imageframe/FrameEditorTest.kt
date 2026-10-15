@@ -72,6 +72,22 @@ class FrameEditorTest :
             }
         }
 
+        test("feedbackNames carries each limit event by name, for Swift, whose bridge traps on a flow of Kotlin enums") {
+            runTest {
+                val editor = FrameEditor(1_000, 1_000, ImageFrame(0.5, 0.5, 2.0), FrameShape.Circle)
+                editor.setViewport(100.0)
+                editor.feedbackNames.test {
+                    editor.pan(500.0, 0.0)
+                    editor.pan(5.0, 0.0)
+                    awaitItem() shouldBe "EdgeReached"
+                    expectNoEvents()
+                    editor.zoomTo(9.0)
+                    awaitItem() shouldBe "ZoomLimitReached"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         test("an image with no size is clamped, never thrown") {
             FrameEditor(0, -5, null, FrameShape.Square).state.value shouldBe
                 FrameEditorState.Ready(1, 1, ImageFrame.Centered, FrameShape.Square)
