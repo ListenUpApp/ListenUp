@@ -21,6 +21,16 @@ internal fun loadedPlayerState(
     coverPath: String? = null,
     skipBackSec: Int = 10,
     skipForwardSec: Int = 30,
+    source: AudioSource = AudioSource.Streaming,
+    sleepTimer: SleepTimerState = SleepTimerState.Inactive,
+    isGenericTitle: Boolean = false,
+    isWholeBook: Boolean = false,
+    // The shared rule (`showsSkipBackFor` is internal to :app:sharedLogic): only a settled position offers back N.
+    showsSkipBack: Boolean =
+        phase == PlayerPhase.Playing ||
+            phase == PlayerPhase.Paused ||
+            phase == PlayerPhase.Restored ||
+            phase == PlayerPhase.SleepFading,
 ): PlayerUiState.Loaded =
     PlayerUiState.Loaded(
         book =
@@ -41,25 +51,38 @@ internal fun loadedPlayerState(
             ),
         phase = phase,
         chapter =
-            PlayerChapter(
-                index = 5,
-                number = 6,
-                total = 75,
-                title = chapterTitle,
-                isGenericTitle = false,
-                isWholeBook = false,
-                startMs = 0,
-                durationMs = 1_235_000,
-            ),
+            if (isWholeBook) {
+                PlayerChapter(
+                    index = 0,
+                    number = 1,
+                    total = 1,
+                    title = "",
+                    isGenericTitle = true,
+                    isWholeBook = true,
+                    startMs = 0,
+                    durationMs = 163_800_000,
+                )
+            } else {
+                PlayerChapter(
+                    index = 5,
+                    number = 6,
+                    total = 75,
+                    title = chapterTitle,
+                    isGenericTitle = isGenericTitle,
+                    isWholeBook = false,
+                    startMs = 0,
+                    durationMs = 1_235_000,
+                )
+            },
         chapters =
             (0 until 75).map {
                 PlayerChapterRow(it, it + 1, "Chapter ${it + 1}", it * 1_000L, 1_000L, isCurrent = it == 5)
             },
-        source = AudioSource.Streaming,
+        source = source,
         settings = PlayerSettings(1.0f, 1.0f, 0f, 0f, skipBackSec, skipForwardSec),
-        sleepTimer = SleepTimerState.Inactive,
+        sleepTimer = sleepTimer,
         primary = primary,
-        showsSkipBack = phase == PlayerPhase.Playing || phase == PlayerPhase.Paused,
+        showsSkipBack = showsSkipBack,
         canSkipToNextChapter = true,
         finished = null,
     )
