@@ -123,10 +123,7 @@ internal fun RouteContent(
             contributorId = contributorId,
             route = route,
             router = router,
-            openContributorDetail = graph.openContributorDetail,
-            openContributorBooks = graph.openContributorBooks,
-            openContributorEdit = graph.openContributorEdit,
-            matchDetails = graph.matchDetails,
+            graph = graph,
             currentUserId = currentUserId,
             onToast = onToast,
         )

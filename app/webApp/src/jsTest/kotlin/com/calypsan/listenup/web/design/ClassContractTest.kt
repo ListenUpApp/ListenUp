@@ -1475,7 +1475,8 @@ class ClassContractTest :
 
             used shouldContain "fed-photo"
             used shouldContain "fed-scrim"
-            (used + others - definedClasses()) shouldBe emptySet()
+            val undefined = used + others - definedClasses()
+            undefined shouldBe emptySet()
         }
     })
 

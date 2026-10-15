@@ -67,7 +67,7 @@ internal class FrameStageGestures(
         // Not passive: the wheel zooms the photo, and must not also scroll the page under the dialog.
         element.addEventListener("wheel", onWheel, js("({ passive: false })"))
         element.addEventListener("keydown", onKeyDown)
-        resizes = ResizeObserver { _, _ -> measure() }.also { it.observe(element) }
+        resizes = ResizeObserver { _, _ -> measure() }.apply { observe(element) }
         window.requestAnimationFrame { measure() }
     }
 
@@ -158,7 +158,9 @@ internal class FrameStageGestures(
 
     private fun local(pointer: PointerEvent): Pair<Double, Double> {
         val rect = stage?.getBoundingClientRect()
-        return (pointer.clientX - (rect?.left ?: 0.0)) to (pointer.clientY - (rect?.top ?: 0.0))
+        val x = pointer.clientX - (rect?.left ?: 0.0)
+        val y = pointer.clientY - (rect?.top ?: 0.0)
+        return x to y
     }
 
     /** Pointer capture keeps a drag alive past the stage's edge; a synthetic pointer may refuse it. */
