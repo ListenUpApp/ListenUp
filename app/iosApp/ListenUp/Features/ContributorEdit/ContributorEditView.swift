@@ -32,17 +32,20 @@ struct ContributorEditView: View {
                             size: 120,
                             isUploading: observer.isUploadingImage,
                             canRemove: false,
-                            onPicked: { observer.onImagePicked($0) },
-                            onRemove: {}
+                            onPicked: { _ in },
+                            onRemove: {},
+                            framing: framing(observer)
                         ) {
-                            // Non-streaming (streamsContributorPhoto == false): the picked local
-                            // staging file in displayImagePath renders immediately before Save,
-                            // mirroring how BookEditView shows displayCoverPath.
+                            // A staged pick is a local file in displayImagePath and renders from disk
+                            // before Save, as BookEditView shows displayCoverPath; the saved photo streams.
+                            // Either way it wears the frame it will be shown with.
                             ContributorAvatar(
                                 name: observer.name,
                                 imagePath: observer.displayImagePath,
                                 id: contributorId,
-                                fontSize: 40
+                                fontSize: 40,
+                                streamsContributorPhoto: !observer.hasStagedImage,
+                                frame: observer.displayFrame
                             )
                         }
                         .frame(maxWidth: .infinity)
@@ -154,6 +157,28 @@ struct ContributorEditView: View {
             observer = obs
             obs.loadContributor(contributorId: contributorId)
         }
+    }
+}
+
+extension ContributorEditView {
+    /// A pick goes through Move and Scale; Adjust Photo opens the photo shown (the staged pick's local file, or
+    /// the saved photo) at the frame it is shown with, and stages the new frame for Save.
+    private func framing(_ observer: ContributorEditObserver) -> PhotoFraming {
+        PhotoFraming(
+            onFramed: { observer.onImagePicked($0, frame: $1) },
+            adjust: observer.displayImagePath.map { path in
+                let isStaged = observer.hasStagedImage
+                let id = contributorId
+                return PhotoFraming.Adjust(
+                    initial: observer.displayFrame,
+                    photo: {
+                        if isStaged { return await FramePhoto.file(atPath: path) }
+                        return await FramePhoto.contributor(contributorId: id, imagePath: path)
+                    },
+                    onAdjusted: { observer.onStageFrame($0) }
+                )
+            }
+        )
     }
 }
 

@@ -1,3 +1,4 @@
+import ListenupContract
 import Testing
 import Shared
 @testable import ListenUp
@@ -200,6 +201,36 @@ struct SearchObserverTests {
         #expect(root.subtitle == "8 books")
     }
 
+    // MARK: - Contributor photo
+
+    /// A person row draws the contributor's photo — its own path and frame, never the cover fields, which a
+    /// contributor hit does not fill.
+    @Test func aContributorHitCarriesItsPhotoAndFrame() {
+        let frame = ImageFrame(focusX: 0.4, focusY: 0.25, zoom: 1.8)
+        let person = SearchRow(bookHit(
+            isHeld: false,
+            type: .contributor,
+            coverPath: "covers/not-a-person.jpg",
+            imagePath: "contributors/abc.jpg",
+            imageFrame: frame
+        ))
+        #expect(person.imagePath == "contributors/abc.jpg")
+        #expect(person.imageFrame == ImageFrameValue(focusX: 0.4, focusY: 0.25, zoom: 1.8))
+    }
+
+    @Test func aContributorHitWithoutAPhotoHasNone() {
+        let person = SearchRow(bookHit(isHeld: false, type: .contributor))
+        #expect(person.imagePath == nil)
+        #expect(person.imageFrame == nil)
+    }
+
+    /// Only people have photos: a book hit keeps its cover and carries no photo fields.
+    @Test func aBookHitCarriesNoPhoto() {
+        let book = SearchRow(bookHit(isHeld: false, imagePath: "contributors/abc.jpg"))
+        #expect(book.imagePath == nil)
+        #expect(book.imageFrame == nil)
+    }
+
     @Test func handBuiltRowsDefaultToNotHeld() {
         #expect(row("b1", .book).isHeld == false)
     }
@@ -216,7 +247,10 @@ struct SearchObserverTests {
         isHeld: Bool,
         type: SearchHitType = .book,
         bookCount: Int32? = nil,
-        seriesPath: [String] = []
+        seriesPath: [String] = [],
+        coverPath: String? = nil,
+        imagePath: String? = nil,
+        imageFrame: ImageFrame? = nil
     ) -> SearchHit {
         SearchHit(
             id: "b1",
@@ -230,12 +264,14 @@ struct SearchObserverTests {
             bookCount: bookCount,
             genreSlugs: nil,
             tags: nil,
-            coverPath: nil,
+            coverPath: coverPath,
             coverHash: nil,
             score: 0,
             highlight: nil,
             isHeld: isHeld,
-            seriesPath: seriesPath
+            seriesPath: seriesPath,
+            imagePath: imagePath,
+            imageFrame: imageFrame
         )
     }
 }

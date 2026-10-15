@@ -1,30 +1,24 @@
 import SwiftUI
-import Shared
 
 /// Role-grouped Cast & Credits sheet (Author / Narrators / Production). Presented as a
 /// native sheet from Book Detail; responsive two-column layout where width allows.
-/// Maps the book's KMP contributors into native `CastMember`s, then groups via `castGroups`.
+/// Takes the native `CastMember`s `BookDetailObserver` projected once, and groups them via `castGroups`.
 struct CastCreditsSheet: View {
-    let book: BookDetail
+    let title: String
+    let authors: [CastMember]
+    let narrators: [CastMember]
+    let all: [CastMember]
     let onClose: () -> Void
 
     /// Pushes a contributor's full page onto the main tab stack (provided by `MainTabView`). We
     /// navigate there rather than inside this sheet so a tapped cast member opens their full page.
     @Environment(\.navigateToContributor) private var navigateToContributor
 
-    private var members: (authors: [CastMember], narrators: [CastMember], all: [CastMember]) {
-        func map(_ c: BookContributor) -> CastMember {
-            CastMember(id: c.id, name: c.name, roles: Array(c.roles))
-        }
-        return (book.authors.map(map), book.narrators.map(map), book.allContributors.map(map))
-    }
-
     private var groups: [CastGroup] {
-        let m = members
-        return castGroups(authors: m.authors, narrators: m.narrators, all: m.all)
+        castGroups(authors: authors, narrators: narrators, all: all)
     }
 
-    private var totalCount: Int { members.all.count }
+    private var totalCount: Int { all.count }
 
     var body: some View {
         NavigationStack {
@@ -64,7 +58,7 @@ struct CastCreditsSheet: View {
                 }
             }
             .safeAreaInset(edge: .top) {
-                Text(String(format: String(localized: "book.detail_credits_subtitle"), totalCount, book.title))
+                Text(String(format: String(localized: "book.detail_credits_subtitle"), totalCount, title))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -103,21 +97,17 @@ struct CastCreditsSheet: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The shared `AvatarPalette` fill, keyed by the contributor id so a person wears the same
-    /// colour here as on their own page.
+    /// The contributor's framed photo in a 48 pt circle, the same place in the face as on their own page;
+    /// their initials on the shared `AvatarPalette` fill until it loads, or when they have none.
     private func avatar(_ member: CastMember) -> some View {
-        Text(initials(member.name))
-            .font(.subheadline.weight(.bold))
-            .foregroundStyle(AvatarPalette.initialsInk)
-            .frame(width: 40, height: 40)
-            .background(AvatarPalette.fill(forKey: member.id), in: Circle())
-            .accessibilityHidden(true)
-    }
-
-    private func initials(_ name: String) -> String {
-        let parts = name.split(separator: " ")
-        let first = parts.first?.first.map(String.init) ?? ""
-        let last = parts.count > 1 ? (parts.last?.first.map(String.init) ?? "") : ""
-        return (first + last).uppercased()
+        ContributorAvatar(
+            name: member.name,
+            imagePath: member.imagePath,
+            id: member.id,
+            streamsContributorPhoto: true,
+            frame: member.imageFrame
+        )
+        .frame(width: 48, height: 48)
+        .accessibilityHidden(true)
     }
 }

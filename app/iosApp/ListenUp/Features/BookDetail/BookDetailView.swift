@@ -127,8 +127,13 @@ struct BookDetailView: View {
         }
         .sheet(item: $hardcoverMatchTarget) { HardcoverMatchSheet(bookId: $0.bookId) }
         .sheet(isPresented: $showCast) {
-            if let observer, let book = observer.book {
-                CastCreditsSheet(book: book) { showCast = false }
+            if let observer {
+                CastCreditsSheet(
+                    title: observer.title,
+                    authors: observer.heroAuthors,
+                    narrators: observer.heroNarrators,
+                    all: observer.castMembers
+                ) { showCast = false }
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }

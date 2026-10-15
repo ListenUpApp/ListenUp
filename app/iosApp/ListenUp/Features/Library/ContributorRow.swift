@@ -13,12 +13,15 @@ struct ContributorRow: Identifiable, Equatable, Hashable {
     let name: String
     let bookCount: Int
     let imagePath: String?
+    /// How the photo sits in its circle; nil is the centre crop.
+    let imageFrame: ImageFrameValue?
 
-    init(id: String, name: String, bookCount: Int, imagePath: String?) {
+    init(id: String, name: String, bookCount: Int, imagePath: String?, imageFrame: ImageFrameValue? = nil) {
         self.id = id
         self.name = name
         self.bookCount = bookCount
         self.imagePath = imagePath
+        self.imageFrame = imageFrame
     }
 
     /// Snapshot a Kotlin `ContributorWithBookCount` into native values. Reads each bridged property once.
@@ -27,5 +30,6 @@ struct ContributorRow: Identifiable, Equatable, Hashable {
         self.name = contributor.contributor.name
         self.bookCount = Int(contributor.bookCount)
         self.imagePath = contributor.contributor.imagePath
+        self.imageFrame = ImageFrameValue(contributor.contributor.imageFrame)
     }
 }

@@ -13,8 +13,8 @@ struct EditProfileObserverTests {
 
     @Test func stagedUploadCanAlwaysBeRemoved() {
         // A freshly picked image can be backed out of, regardless of the stored avatar.
-        #expect(EditProfileView.canRemoveAvatar(staged: .image(Data([0x01])), hasImageAvatar: false))
-        #expect(EditProfileView.canRemoveAvatar(staged: .image(Data([0x01])), hasImageAvatar: true))
+        #expect(EditProfileView.canRemoveAvatar(staged: .image(Data([0x01]), nil), hasImageAvatar: false))
+        #expect(EditProfileView.canRemoveAvatar(staged: .image(Data([0x01]), nil), hasImageAvatar: true))
     }
 
     @Test func revertedAvatarHidesRemove() {
@@ -29,21 +29,66 @@ struct EditProfileObserverTests {
         #expect(!EditProfileView.canRemoveAvatar(staged: .none, hasImageAvatar: false))
     }
 
+    @Test func aReframedAvatarCanStillBeRemoved() {
+        #expect(EditProfileView.canRemoveAvatar(staged: .reframed(.centered), hasImageAvatar: true))
+    }
+
+    // MARK: - Adjust Photo
+
+    @Test func adjustIsOfferedWheneverThereIsAnImageToFrame() {
+        #expect(EditProfileView.canAdjustAvatar(staged: .image(Data([0x01]), nil), hasImageAvatar: false))
+        #expect(EditProfileView.canAdjustAvatar(staged: .reframed(.centered), hasImageAvatar: true))
+        #expect(EditProfileView.canAdjustAvatar(staged: .none, hasImageAvatar: true))
+    }
+
+    @Test func adjustIsNeverOfferedForInitials() {
+        #expect(!EditProfileView.canAdjustAvatar(staged: .none, hasImageAvatar: false))
+        #expect(!EditProfileView.canAdjustAvatar(staged: .reverted, hasImageAvatar: true))
+    }
+
+    @Test func adjustOpensAtTheFrameShownNow() {
+        let stored = ImageFrameValue(focusX: 0.5, focusY: 0.3, zoom: 1.4)
+        let staged = ImageFrameValue(focusX: 0.6, focusY: 0.4, zoom: 2.2)
+        #expect(EditProfileView.currentAvatarFrame(staged: .none, stored: stored) == stored)
+        #expect(EditProfileView.currentAvatarFrame(staged: .reframed(staged), stored: stored) == staged)
+        #expect(EditProfileView.currentAvatarFrame(staged: .image(Data([0x01]), staged), stored: stored) == staged)
+        // A new pick never wears the old photo's frame.
+        #expect(EditProfileView.currentAvatarFrame(staged: .image(Data([0x01]), nil), stored: stored) == nil)
+    }
+
     // MARK: - StagedAvatar projection
 
-    @Test func stagedAvatarEquatesUploadsByImageBytes() {
-        #expect(StagedAvatar.image(Data([0x01, 0x02])) == .image(Data([0x01, 0x02])))
-        #expect(StagedAvatar.image(Data([0x01])) != .image(Data([0x02])))
+    @Test func stagedAvatarEquatesUploadsByImageBytesAndFrame() {
+        #expect(StagedAvatar.image(Data([0x01, 0x02]), nil) == .image(Data([0x01, 0x02]), nil))
+        #expect(StagedAvatar.image(Data([0x01]), nil) != .image(Data([0x02]), nil))
+        #expect(StagedAvatar.image(Data([0x01]), nil) != .image(Data([0x01]), .centered))
     }
 
     @Test func stagedAvatarCasesAreDistinct() {
         #expect(StagedAvatar.none != .reverted)
-        #expect(StagedAvatar.reverted != .image(Data([0x01])))
+        #expect(StagedAvatar.reverted != .image(Data([0x01]), nil))
+        #expect(StagedAvatar.reframed(.centered) != .none)
     }
 
-    @Test func reframeKeepsShowingTheStoredAvatar() {
+    @Test func aFramedUploadPreviewsWithItsFrame() {
+        let data = Data([0x01, 0x02])
+        let change = AvatarChangeUpload(
+            bytes: data.toKotlinByteArray(),
+            contentType: "image/jpeg",
+            frame: ImageFrame(focusX: 0.4, focusY: 0.3, zoom: 2)
+        )
+        #expect(
+            EditProfileObserver.stagedAvatar(for: change, pickedImage: data)
+                == .image(data, ImageFrameValue(focusX: 0.4, focusY: 0.3, zoom: 2))
+        )
+    }
+
+    @Test func aReframeShowsTheStoredAvatarWithTheNewFrame() {
         let change = AvatarChangeReframe(frame: ImageFrame(focusX: 0.5, focusY: 0.2, zoom: 1.5))
-        #expect(EditProfileObserver.stagedAvatar(for: change, pickedImage: nil) == .none)
+        #expect(
+            EditProfileObserver.stagedAvatar(for: change, pickedImage: nil)
+                == .reframed(ImageFrameValue(focusX: 0.5, focusY: 0.2, zoom: 1.5))
+        )
     }
 
     // MARK: - State mapping

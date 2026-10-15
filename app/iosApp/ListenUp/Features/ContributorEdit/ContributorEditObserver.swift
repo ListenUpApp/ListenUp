@@ -19,6 +19,11 @@ final class ContributorEditObserver {
     /// Path to render for the avatar: the staged (picked-but-unsaved) local file when present,
     /// otherwise the contributor's image. Mirrors `BookEditObserver.displayCoverPath`.
     private(set) var displayImagePath: String?
+    /// The frame the header shows: the staged one, else the saved photo's (a new pick never wears the old
+    /// photo's frame). Nil is the centre crop.
+    private(set) var displayFrame: ImageFrameValue?
+    /// A picked photo is staged in a local file, not yet saved.
+    private(set) var hasStagedImage: Bool = false
     private(set) var hasChanges: Bool = false
     private(set) var isSaving: Bool = false
     private(set) var isUploadingImage: Bool = false
@@ -65,12 +70,18 @@ final class ContributorEditObserver {
     func onDeathDateChanged(_ value: String) {
         viewModel.onEvent(event: ContributorEditUiEventDeathDateChanged(date: value))
     }
-    func onImagePicked(_ data: Data) {
+    /// Stage a picked photo, framed in Move and Scale.
+    func onImagePicked(_ data: Data, frame: ImageFrameValue) {
         viewModel.onEvent(event: ContributorEditUiEventUploadImage(
             imageData: data.toKotlinByteArray(),
             filename: "avatar.jpg",
-            frame: nil
+            frame: frame.kotlin
         ))
+    }
+
+    /// Stage a new frame from Adjust Photo, for the staged pick or the saved photo; it is saved with the form.
+    func onStageFrame(_ frame: ImageFrameValue) {
+        viewModel.onEvent(event: ContributorEditUiEventStageFrame(frame: frame.kotlin))
     }
     func onSave() { viewModel.onEvent(event: ContributorEditUiEventSave.shared) }
     func onCancel() { viewModel.onEvent(event: ContributorEditUiEventCancel.shared) }
@@ -99,6 +110,13 @@ final class ContributorEditObserver {
         deathDate = state.deathDate
         imagePath = state.imagePath
         displayImagePath = state.displayImagePath
+        let stagingPath = state.stagingImagePath
+        hasStagedImage = stagingPath != nil
+        displayFrame = Self.displayFrame(
+            staged: ImageFrameValue(state.pendingImageFrame),
+            saved: ImageFrameValue(state.imageFrame),
+            hasStagedImage: stagingPath != nil
+        )
         hasChanges = state.hasChanges
         isSaving = state.isSaving
         isUploadingImage = state.isUploadingImage
@@ -107,6 +125,16 @@ final class ContributorEditObserver {
         mergeQuery = state.mergeQuery
         canCurateLibrary = state.canCurateLibrary
         renameCollisionCandidate = state.renameCollisionCandidate.map(MergeCandidate.init)
+    }
+
+    /// The staged frame wins; with none, a staged new photo shows its centre crop and the saved photo its saved
+    /// frame. Pure, so it is unit-tested without live Kotlin state.
+    nonisolated static func displayFrame(
+        staged: ImageFrameValue?,
+        saved: ImageFrameValue?,
+        hasStagedImage: Bool
+    ) -> ImageFrameValue? {
+        staged ?? (hasStagedImage ? nil : saved)
     }
 
     private func applyNav(_ action: ContributorEditNavAction) {
