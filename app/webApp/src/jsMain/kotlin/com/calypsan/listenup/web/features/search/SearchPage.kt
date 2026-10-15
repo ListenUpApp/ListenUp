@@ -414,7 +414,6 @@ internal fun SearchHitType.label(): String =
 private fun badgeIconFor(type: SearchHitType): WebIcon =
     when (type) {
         SearchHitType.BOOK -> WebIcon.Book
-        // Unreached: a contributor's badge is their photo or initials (see SearchRow).
         SearchHitType.CONTRIBUTOR -> WebIcon.Person
         SearchHitType.SERIES -> WebIcon.Bookmark
         SearchHitType.TAG -> WebIcon.Hash

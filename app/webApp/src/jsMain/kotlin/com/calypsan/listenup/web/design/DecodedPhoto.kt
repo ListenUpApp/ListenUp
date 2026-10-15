@@ -36,7 +36,13 @@ suspend fun decodePhoto(blob: Blob): DecodedPhoto =
         val width = bitmap.width
         val height = bitmap.height
         bitmap.close()
-        if (width > 0 && height > 0) DecodedPhoto.Ready(URL.createObjectURL(blob), width, height) else DecodedPhoto.CouldNotOpen
+        if (width > 0 &&
+            height > 0
+        ) {
+            DecodedPhoto.Ready(URL.createObjectURL(blob), width, height)
+        } else {
+            DecodedPhoto.CouldNotOpen
+        }
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (_: Throwable) {

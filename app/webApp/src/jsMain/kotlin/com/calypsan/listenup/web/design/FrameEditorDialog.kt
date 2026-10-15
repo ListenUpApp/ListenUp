@@ -105,7 +105,7 @@ private fun ReadyEditor(
     var stageBox by remember { mutableStateOf(StageBox.Unmeasured) }
     var spoken by remember { mutableStateOf("") }
     val announcer = remember { Announcer { spoken = it } }
-    val gestures = remember { StageGestures(editor, onMeasured = { stageBox = it }, announce = announcer::say) }
+    val gestures = remember { FrameStageGestures(editor, onMeasured = { stageBox = it }, announce = announcer::say) }
 
     LaunchedEffect(editor) {
         editor.feedback.collect { feedback ->
@@ -187,7 +187,9 @@ private fun Scrim(box: StageBox) {
     val r = box.cut / 2
     val cx = box.cutLeft + r
     val cy = box.cutTop + r
-    val circle = "M${num(cx - r)} ${num(cy)}a${num(r)} ${num(r)} 0 1 0 ${num(2 * r)} 0a${num(r)} ${num(r)} 0 1 0 ${num(-2 * r)} 0Z"
+    val circle = "M${num(
+        cx - r,
+    )} ${num(cy)}a${num(r)} ${num(r)} 0 1 0 ${num(2 * r)} 0a${num(r)} ${num(r)} 0 1 0 ${num(-2 * r)} 0Z"
     Svg({
         classes("fed-scrim")
         attr("aria-hidden", "true")
@@ -290,7 +292,9 @@ private fun Foot(
     reset: (() -> Unit)?,
 ) {
     Div(attrs = { classes("fed-foot") }) {
-        Button(kind = ButtonKind.Ghost, onClick = { reset?.invoke() }, enabled = reset != null, attrs = { classes("fed-reset") }) {
+        Button(kind = ButtonKind.Ghost, onClick = {
+            reset?.invoke()
+        }, enabled = reset != null, attrs = { classes("fed-reset") }) {
             Icon(WebIcon.Undo, size = SMALL_ICON)
             Text("Reset")
         }

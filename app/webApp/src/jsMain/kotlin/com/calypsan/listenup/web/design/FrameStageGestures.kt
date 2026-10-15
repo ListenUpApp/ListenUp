@@ -22,7 +22,7 @@ import kotlin.math.hypot
  * phone rotating) would leave the editor's viewport stale. A ResizeObserver keeps the drawing in step
  * between gestures. A step that changes the zoom label says it, through [announce].
  */
-internal class StageGestures(
+internal class FrameStageGestures(
     private val editor: FrameEditor,
     private val onMeasured: (StageBox) -> Unit,
     private val announce: (String) -> Unit,
@@ -59,7 +59,11 @@ internal class StageGestures(
         stage = element
         element.addEventListener("pointerdown", onPointerDown)
         element.addEventListener("pointermove", onPointerMove)
-        listOf("pointerup", "pointercancel", "lostpointercapture").forEach { element.addEventListener(it, onPointerEnd) }
+        listOf(
+            "pointerup",
+            "pointercancel",
+            "lostpointercapture",
+        ).forEach { element.addEventListener(it, onPointerEnd) }
         // Not passive: the wheel zooms the photo, and must not also scroll the page under the dialog.
         element.addEventListener("wheel", onWheel, js("({ passive: false })"))
         element.addEventListener("keydown", onKeyDown)
@@ -71,7 +75,11 @@ internal class StageGestures(
         val element = stage ?: return
         element.removeEventListener("pointerdown", onPointerDown)
         element.removeEventListener("pointermove", onPointerMove)
-        listOf("pointerup", "pointercancel", "lostpointercapture").forEach { element.removeEventListener(it, onPointerEnd) }
+        listOf(
+            "pointerup",
+            "pointercancel",
+            "lostpointercapture",
+        ).forEach { element.removeEventListener(it, onPointerEnd) }
         element.removeEventListener("wheel", onWheel)
         element.removeEventListener("keydown", onKeyDown)
         resizes?.disconnect()
