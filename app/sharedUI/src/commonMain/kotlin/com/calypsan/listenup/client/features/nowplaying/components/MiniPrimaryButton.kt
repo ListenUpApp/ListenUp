@@ -110,24 +110,16 @@ internal fun MiniPrimaryButton(
             }
         }
 
-        PrimaryControl.Retry, PrimaryControl.SignIn, PrimaryControl.OpenInbox -> {
-            Button(
-                onClick = {
-                    haptics.press()
-                    onClick()
-                },
-                modifier = modifier.heightIn(min = MinTouchTarget),
-            ) {
-                Text(
-                    stringResource(
-                        when (primary) {
-                            PrimaryControl.SignIn -> Res.string.auth_sign_in
-                            PrimaryControl.OpenInbox -> Res.string.player_mini_open_inbox
-                            else -> Res.string.player_retry
-                        },
-                    ),
-                )
-            }
+        PrimaryControl.Retry -> {
+            MiniWayOutButton(stringResource(Res.string.player_retry), onClick, modifier)
+        }
+
+        PrimaryControl.SignIn -> {
+            MiniWayOutButton(stringResource(Res.string.auth_sign_in), onClick, modifier)
+        }
+
+        PrimaryControl.OpenInbox -> {
+            MiniWayOutButton(stringResource(Res.string.player_mini_open_inbox), onClick, modifier)
         }
 
         PrimaryControl.ListenAgain -> {
@@ -148,5 +140,24 @@ internal fun MiniPrimaryButton(
                 Icon(Icons.Rounded.Close, contentDescription = stringResource(Res.string.player_close_book))
             }
         }
+    }
+}
+
+/** A way out of a problem (Retry, Sign in, Open Inbox): a filled button that says what it does. */
+@Composable
+private fun MiniWayOutButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val haptics = LocalHaptics.current
+    Button(
+        onClick = {
+            haptics.press()
+            onClick()
+        },
+        modifier = modifier.heightIn(min = MinTouchTarget),
+    ) {
+        Text(label)
     }
 }

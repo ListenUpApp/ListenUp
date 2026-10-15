@@ -388,7 +388,8 @@ class PlayerViewModelTest :
                         rig.vm.playBook(BookId("b"), null)
                         runCurrent()
                         // B's metadata is still in flight: the bar must not unmount.
-                        rig.vm.uiState.value.shouldBeInstanceOf<PlayerUiState.Loaded>()
+                        rig.vm.uiState.value
+                            .shouldBeInstanceOf<PlayerUiState.Loaded>()
 
                         rig.documentGates.getValue("b").complete(Unit)
                         runCurrent()

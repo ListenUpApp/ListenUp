@@ -43,7 +43,7 @@ class NowPlayingBarTest {
 
     private fun bar(
         state: PlayerUiState.Loaded,
-        bottomInset: WindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomInset: WindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
     ) {
         composeRule.setContent {
             MaterialTheme {
@@ -74,8 +74,8 @@ class NowPlayingBarTest {
         backShown(true)
         composeRule.onNodeWithContentDescription("Pause").assertExists()
         composeRule.onNodeWithText("Bridge Four · 8m left", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag(MiniProgressWavyTag).assertExists()
-        composeRule.onNodeWithTag(MiniProgressFlatTag).assertDoesNotExist()
+        composeRule.onNodeWithTag(MINI_PROGRESS_WAVY_TAG).assertExists()
+        composeRule.onNodeWithTag(MINI_PROGRESS_FLAT_TAG).assertDoesNotExist()
     }
 
     @Test
@@ -83,8 +83,8 @@ class NowPlayingBarTest {
         bar(loadedPlayerState(phase = PlayerPhase.Paused, primary = PrimaryControl.Play))
         backShown(true)
         composeRule.onNodeWithContentDescription("Play").assertExists()
-        composeRule.onNodeWithTag(MiniProgressFlatTag).assertExists()
-        composeRule.onNodeWithTag(MiniProgressWavyTag).assertDoesNotExist()
+        composeRule.onNodeWithTag(MINI_PROGRESS_FLAT_TAG).assertExists()
+        composeRule.onNodeWithTag(MINI_PROGRESS_WAVY_TAG).assertDoesNotExist()
     }
 
     @Test
@@ -108,7 +108,7 @@ class NowPlayingBarTest {
     fun `buffering hides back and is flat`() {
         bar(loadedPlayerState(phase = PlayerPhase.Buffering, primary = PrimaryControl.Busy))
         backShown(false)
-        composeRule.onNodeWithTag(MiniProgressFlatTag).assertExists()
+        composeRule.onNodeWithTag(MINI_PROGRESS_FLAT_TAG).assertExists()
     }
 
     @Test
@@ -117,7 +117,7 @@ class NowPlayingBarTest {
         composeRule.onNodeWithText("Reconnecting…", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithContentDescription("Loading. Pause").assertExists()
         backShown(false)
-        composeRule.onNodeWithTag(MiniProgressFlatTag).assertExists()
+        composeRule.onNodeWithTag(MINI_PROGRESS_FLAT_TAG).assertExists()
     }
 
     @Test
@@ -125,7 +125,7 @@ class NowPlayingBarTest {
         bar(loadedPlayerState(phase = PlayerPhase.SleepFading))
         backShown(true)
         composeRule.onNodeWithText("Sleep timer · fading out", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag(MiniProgressFlatTag).assertExists()
+        composeRule.onNodeWithTag(MINI_PROGRESS_FLAT_TAG).assertExists()
         composeRule.onNodeWithContentDescription("Pause").assertDoesNotExist()
         composeRule.onNode(hasText("Keep listening")).performClick()
         keepListeningPresses shouldBe 1
@@ -172,14 +172,14 @@ class NowPlayingBarTest {
     @Test
     fun `the body is one target that opens Now Playing, and no button sits inside it`() {
         bar(loadedPlayerState(phase = PlayerPhase.Playing))
-        composeRule.onNodeWithTag(MiniBodyTag).assert(
+        composeRule.onNodeWithTag(MINI_BODY_TAG).assert(
             SemanticsMatcher("opens Now Playing") { node ->
                 node.config.getOrNull(SemanticsActions.OnClick)?.label == "Open Now Playing"
             },
         )
-        composeRule.onNode(hasContentDescription("Pause") and hasAnyAncestor(hasTestTag(MiniBodyTag))).assertDoesNotExist()
+        composeRule.onNode(hasContentDescription("Pause") and hasAnyAncestor(hasTestTag(MINI_BODY_TAG))).assertDoesNotExist()
         composeRule
-            .onNode(hasContentDescription("Skip back 10 seconds") and hasAnyAncestor(hasTestTag(MiniBodyTag)))
+            .onNode(hasContentDescription("Skip back 10 seconds") and hasAnyAncestor(hasTestTag(MINI_BODY_TAG)))
             .assertDoesNotExist()
     }
 

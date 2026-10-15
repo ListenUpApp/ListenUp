@@ -76,16 +76,16 @@ internal val MiniPhonePlaySize = DpSize(56.dp, 48.dp)
 private val MiniPhoneCoverSize = 48.dp
 
 /** Test tag: the wavy chapter line, drawn only while the book is playing. */
-internal const val MiniProgressWavyTag = "mini-progress-wavy"
+internal const val MINI_PROGRESS_WAVY_TAG = "mini-progress-wavy"
 
 /** Test tag: the flat chapter line, drawn in every other phase. */
-internal const val MiniProgressFlatTag = "mini-progress-flat"
+internal const val MINI_PROGRESS_FLAT_TAG = "mini-progress-flat"
 
 /** Test tag: the body, the one target that opens Now Playing. */
-internal const val MiniBodyTag = "mini-body"
+internal const val MINI_BODY_TAG = "mini-body"
 
 /** Test tag: the decorative cover inside the body. */
-internal const val MiniCoverTag = "mini-cover"
+internal const val MINI_COVER_TAG = "mini-cover"
 
 /**
  * The phone mini player (spec §5.1, board `Main`): a flat docked toolbar, full width on `surfaceContainerHigh`,
@@ -111,7 +111,7 @@ fun NowPlayingBar(
     onKeepListening: () -> Unit,
     skipBackwardSec: Int,
     modifier: Modifier = Modifier,
-    bottomInset: WindowInsets = WindowInsets(0, 0, 0, 0),
+    bottomInset: WindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
 ) {
     AnimatedVisibility(
         visible = state is PlayerUiState.Loaded && !isExpanded,
@@ -206,7 +206,7 @@ internal fun RowScope.MiniBody(
                     onClickLabel = stringResource(Res.string.player_mini_open),
                     role = Role.Button,
                     onClick = onOpen,
-                ).testTag(MiniBodyTag),
+                ).testTag(MINI_BODY_TAG),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -224,7 +224,7 @@ internal fun RowScope.MiniBody(
                     Modifier
                         .size(coverSize)
                         .clip(MaterialTheme.shapes.medium)
-                        .testTag(MiniCoverTag)
+                        .testTag(MINI_COVER_TAG)
                         .clearAndSetSemantics {},
             )
         }
@@ -262,14 +262,14 @@ private fun MiniProgressLine(
         if (isPlaying) {
             LinearWavyProgressIndicator(
                 progress = { progress().chapterFraction },
-                modifier = Modifier.fillMaxWidth().testTag(MiniProgressWavyTag),
+                modifier = Modifier.fillMaxWidth().testTag(MINI_PROGRESS_WAVY_TAG),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
             )
         } else {
             LinearProgressIndicator(
                 progress = { progress().chapterFraction },
-                modifier = Modifier.fillMaxWidth().testTag(MiniProgressFlatTag),
+                modifier = Modifier.fillMaxWidth().testTag(MINI_PROGRESS_FLAT_TAG),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 drawStopIndicator = {},

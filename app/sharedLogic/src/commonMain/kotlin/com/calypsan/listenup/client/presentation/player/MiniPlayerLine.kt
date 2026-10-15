@@ -80,19 +80,41 @@ object MiniPlayerLines {
         val sleepRemainingMs = (state.sleepTimer as? SleepTimerState.Active)?.remainingMs
         val casting = state.source as? AudioSource.Casting
         return when (val phase = state.phase) {
-            is PlayerPhase.Failed -> MiniPlayerLine.Problem(phase.error, isTinted = phase.error.isFailureToFix())
-            is PlayerPhase.Unavailable -> MiniPlayerLine.Problem(phase.reason, isTinted = false)
-            PlayerPhase.Preparing -> MiniPlayerLine.Starting
-            PlayerPhase.Buffering -> MiniPlayerLine.Loading
-            PlayerPhase.Reconnecting -> MiniPlayerLine.Reconnecting
-            PlayerPhase.SleepFading -> MiniPlayerLine.FadingOut
-            PlayerPhase.Finished -> MiniPlayerLine.Finished
-            PlayerPhase.Playing, PlayerPhase.Paused, PlayerPhase.Restored ->
+            is PlayerPhase.Failed -> {
+                MiniPlayerLine.Problem(phase.error, isTinted = phase.error.isFailureToFix())
+            }
+
+            is PlayerPhase.Unavailable -> {
+                MiniPlayerLine.Problem(phase.reason, isTinted = false)
+            }
+
+            PlayerPhase.Preparing -> {
+                MiniPlayerLine.Starting
+            }
+
+            PlayerPhase.Buffering -> {
+                MiniPlayerLine.Loading
+            }
+
+            PlayerPhase.Reconnecting -> {
+                MiniPlayerLine.Reconnecting
+            }
+
+            PlayerPhase.SleepFading -> {
+                MiniPlayerLine.FadingOut
+            }
+
+            PlayerPhase.Finished -> {
+                MiniPlayerLine.Finished
+            }
+
+            PlayerPhase.Playing, PlayerPhase.Paused, PlayerPhase.Restored -> {
                 when {
                     casting != null -> MiniPlayerLine.Casting(casting.deviceName, number, title)
                     phase == PlayerPhase.Playing -> MiniPlayerLine.Chapter(number, title, sleepRemainingMs)
                     else -> MiniPlayerLine.Paused(number, title, sleepRemainingMs)
                 }
+            }
         }
     }
 }

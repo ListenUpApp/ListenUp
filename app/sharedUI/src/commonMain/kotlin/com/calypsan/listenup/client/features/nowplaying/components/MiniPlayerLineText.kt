@@ -93,17 +93,29 @@ private fun miniLineWords(
             )
         }
 
-        MiniPlayerLine.Starting -> stringResource(Res.string.player_mini_starting)
+        MiniPlayerLine.Starting -> {
+            stringResource(Res.string.player_mini_starting)
+        }
 
-        MiniPlayerLine.Loading -> stringResource(Res.string.player_mini_loading)
+        MiniPlayerLine.Loading -> {
+            stringResource(Res.string.player_mini_loading)
+        }
 
-        MiniPlayerLine.Reconnecting -> stringResource(Res.string.player_reconnecting)
+        MiniPlayerLine.Reconnecting -> {
+            stringResource(Res.string.player_reconnecting)
+        }
 
-        MiniPlayerLine.FadingOut -> stringResource(Res.string.player_mini_fading_out)
+        MiniPlayerLine.FadingOut -> {
+            stringResource(Res.string.player_mini_fading_out)
+        }
 
-        MiniPlayerLine.Finished -> stringResource(Res.string.player_mini_finished)
+        MiniPlayerLine.Finished -> {
+            stringResource(Res.string.player_mini_finished)
+        }
 
-        is MiniPlayerLine.Problem -> line.error.miniPlayerWords()
+        is MiniPlayerLine.Problem -> {
+            line.error.miniPlayerWords()
+        }
     }
 
 /**
@@ -148,6 +160,7 @@ internal fun AppError.miniPlayerWords(): String =
         else -> playerTitle()
     }
 
-private fun shortDuration(ms: Long): String = DurationFormatter.hoursMinutesOrUnderMinute(ms.coerceAtLeast(0).milliseconds)
+private fun shortDuration(ms: Long): String =
+    DurationFormatter.hoursMinutesOrUnderMinute(ms.coerceAtLeast(0).milliseconds)
 
 private fun joinDots(vararg parts: String?): String = parts.filterNotNull().joinToString(" · ")

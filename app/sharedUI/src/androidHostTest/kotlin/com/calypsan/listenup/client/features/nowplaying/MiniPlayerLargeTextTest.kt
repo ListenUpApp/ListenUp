@@ -44,13 +44,13 @@ class MiniPlayerLargeTextTest {
     @Test
     fun `at the largest font the cover steps aside for the title`() {
         bar(fontScale = 2f)
-        composeRule.onNodeWithTag(MiniCoverTag, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag(MINI_COVER_TAG, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
     fun `at the default font the cover stays`() {
         bar(fontScale = 1f)
-        composeRule.onNodeWithTag(MiniCoverTag, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(MINI_COVER_TAG, useUnmergedTree = true).assertExists()
     }
 
     private companion object {

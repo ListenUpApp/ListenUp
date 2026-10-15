@@ -32,6 +32,7 @@ class MiniPrimaryButtonTest {
         playLabel: String? = null,
         isFadingOut: Boolean = false,
     ) {
+        val keepListening: () -> Unit = { keepListeningPresses++ }
         composeRule.setContent {
             MaterialTheme {
                 MiniPrimaryButton(
@@ -40,7 +41,7 @@ class MiniPrimaryButtonTest {
                     onClick = { presses++ },
                     size = DpSize(56.dp, 48.dp),
                     playLabel = playLabel,
-                    onKeepListening = if (isFadingOut) ({ keepListeningPresses++ }) else null,
+                    onKeepListening = keepListening.takeIf { isFadingOut },
                 )
             }
         }
