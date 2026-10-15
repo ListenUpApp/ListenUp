@@ -109,6 +109,7 @@ private const val FOCUSED_SCALE = 1.02f
  * @param onPrimary The main button's action, decided by [PlayerUiState.Loaded.primary].
  * @param onKeepListening The main button's action during the sleep fade, where it reads Keep listening.
  */
+@Suppress("LongParameterList") // one input per control the board draws
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NowPlayingToolbar(
@@ -165,7 +166,14 @@ fun NowPlayingToolbar(
                 // The container stays; only its content moves when the book changes.
                 MiniBookSwitch(loaded, Modifier.weight(1f)) { shown ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        ToolbarContent(shown, progress, fullSet, actions, skipBackwardSec, skipForwardSec)
+                        ToolbarContent(
+                            state = shown,
+                            progress = progress,
+                            fullSet = fullSet,
+                            actions = actions,
+                            skipBackwardSec = skipBackwardSec,
+                            skipForwardSec = skipForwardSec,
+                        )
                     }
                 }
             }
@@ -174,7 +182,7 @@ fun NowPlayingToolbar(
 }
 
 /** What each of the toolbar's controls does. */
-private class ToolbarActions(
+private data class ToolbarActions(
     val onOpen: () -> Unit,
     val onPrimary: () -> Unit,
     val onSkipBack: () -> Unit,
@@ -196,7 +204,13 @@ private fun RowScope.ToolbarContent(
     skipForwardSec: Int,
 ) {
     val line = MiniPlayerLines.of(state)
-    ToolbarBody(state, line, progress, actions.onOpen, if (fullSet) Modifier.width(ToolbarBodyWidth) else Modifier.weight(1f))
+    ToolbarBody(
+        state = state,
+        line = line,
+        progress = progress,
+        onOpen = actions.onOpen,
+        modifier = if (fullSet) Modifier.width(ToolbarBodyWidth) else Modifier.weight(1f),
+    )
     if (state.showsSkipBack) {
         Ctrl(
             icon = SkipGlyphs.backward(skipBackwardSec),
@@ -276,7 +290,14 @@ private fun ToolbarBody(
                 .then(if (focused) Modifier.border(2.dp, outline, shape) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MiniBody(state, line, progress, onOpen, MiniLineFit.WithoutTime, coverSize = ToolbarCoverSize)
+        MiniBody(
+            state = state,
+            line = line,
+            progress = progress,
+            onOpen = onOpen,
+            fit = MiniLineFit.WithoutTime,
+            coverSize = ToolbarCoverSize,
+        )
     }
 }
 

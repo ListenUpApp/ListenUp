@@ -132,7 +132,15 @@ fun NowPlayingBar(
         ) {
             // The container stays; only its content moves when the book changes.
             MiniBookSwitch(loaded, Modifier.windowInsetsPadding(bottomInset)) { shown ->
-                PhoneBarContent(shown, progress, onTap, onPrimary, onSkipBack, onKeepListening, skipBackwardSec)
+                PhoneBarContent(
+                    state = shown,
+                    progress = progress,
+                    onOpen = onTap,
+                    onPrimary = onPrimary,
+                    onSkipBack = onSkipBack,
+                    onKeepListening = onKeepListening,
+                    skipBackwardSec = skipBackwardSec,
+                )
             }
         }
     }
