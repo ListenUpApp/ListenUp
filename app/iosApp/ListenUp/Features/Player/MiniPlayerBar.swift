@@ -22,6 +22,7 @@ struct MiniPlayerBar: View {
 
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let isInline = placement == .inline
@@ -31,12 +32,14 @@ struct MiniPlayerBar: View {
             chapterFraction: chapterFraction,
             isInline: isInline,
             isWide: sizeClass == .regular)
-        MiniPlayerAccessoryContent(
-            model: model, isInline: isInline, transitionNamespace: transitionNamespace,
-            onOpen: onOpen,
-            onSkipBack: { observer.skipBackward() },
-            onSkipForward: { observer.skipForward() },
-            onPrimary: { observer.miniPrimary(model.primaryAction) })
+        MiniPlayerBookSwitchTransition(key: model.switchKey, reduceMotion: reduceMotion) {
+            MiniPlayerAccessoryContent(
+                model: model, isInline: isInline, transitionNamespace: transitionNamespace,
+                onOpen: onOpen,
+                onSkipBack: { observer.skipBackward() },
+                onSkipForward: { observer.skipForward() },
+                onPrimary: { observer.miniPrimary(model.primaryAction) })
+        }
         // Said once, politely, when a dropped connection starts recovering; never per second (HIG, Accessibility).
         .onChange(of: model.isReconnecting) { _, isReconnecting in
             guard isReconnecting else { return }
@@ -49,6 +52,52 @@ struct MiniPlayerBar: View {
         let duration = observer.chapterDurationMs
         guard duration > 0 else { return observer.displayBookProgress }
         return min(1, Float(observer.displayChapterPositionMs) / Float(duration))
+    }
+}
+
+/// How the mini player moves on a book switch (Simon, 2026-10-14): the old book goes out and the new one comes in,
+/// so the change reads as deliberate rather than a one-frame flicker. Reduce Motion swaps instantly.
+enum MiniPlayerBookSwitch {
+    /// The two ways a switch can look.
+    enum Style: Equatable {
+        /// The system's content-replacement transition (`.blurReplace`), on the system's smooth spring.
+        case replace
+        /// No transition: the new book simply takes the old one's place.
+        case instant
+    }
+
+    static func style(reduceMotion: Bool) -> Style { reduceMotion ? .instant : .replace }
+
+    static func animation(reduceMotion: Bool) -> Animation? {
+        switch style(reduceMotion: reduceMotion) {
+        case .replace: .smooth
+        case .instant: nil
+        }
+    }
+
+    static func transition(reduceMotion: Bool) -> AnyTransition {
+        switch style(reduceMotion: reduceMotion) {
+        case .replace: AnyTransition(.blurReplace)
+        case .instant: .identity
+        }
+    }
+}
+
+/// Re-identifies its content by `key` (the book), so a switch transitions the old content out and the new in. The
+/// two overlap in one `ZStack` while it runs, so the bar is never empty for a frame; a change that keeps the key (a
+/// pause, a tick) is an ordinary update and never animates as a switch.
+struct MiniPlayerBookSwitchTransition<Content: View>: View {
+    let key: String?
+    let reduceMotion: Bool
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ZStack {
+            content()
+                .id(key)
+                .transition(MiniPlayerBookSwitch.transition(reduceMotion: reduceMotion))
+        }
+        .animation(MiniPlayerBookSwitch.animation(reduceMotion: reduceMotion), value: key)
     }
 }
 
