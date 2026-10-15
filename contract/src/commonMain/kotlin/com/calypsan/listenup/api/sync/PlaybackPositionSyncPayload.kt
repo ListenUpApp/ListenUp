@@ -58,6 +58,13 @@ data class PlaybackPositionSyncPayload(
     @SerialName("hasCustomSpeed") val hasCustomSpeed: Boolean = false,
     /** True when the listener explicitly chose [volumeBoostDb] for this book. See [hasCustomSpeed]. */
     @SerialName("hasCustomBoost") val hasCustomBoost: Boolean = false,
+    /**
+     * When the reader last dismissed this book's "just finished" card on Home, epoch ms; null when never. It hides the
+     * card only for a finish at or before it ([finishedAt] ≤ this), so a later re-read gets a fresh card. Monotonic on
+     * both sides — the larger value wins and null never erases — and independent of the [lastPlayedAt] conflict key,
+     * because dismissing a card is not listening and must never count as a listening day.
+     */
+    @SerialName("finishedCardDismissedAt") val finishedCardDismissedAt: Long? = null,
     override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
