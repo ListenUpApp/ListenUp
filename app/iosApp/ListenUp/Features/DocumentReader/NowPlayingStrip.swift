@@ -37,20 +37,10 @@ struct NowPlayingStripContent: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(model.title).font(.subheadline.weight(.medium)).lineLimit(1)
-                if let line = model.line {
-                    HStack(spacing: 3) {
-                        if model.isFailure {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .imageScale(.small)
-                                .accessibilityHidden(true)
-                        }
-                        Text(line).monospacedDigit().lineLimit(1)
-                    }
-                    .font(.caption)
-                    .foregroundStyle(model.isFailure ? Color.luPlayerError : Color.secondary)
-                }
+                MiniPlayerLineText(model: model)
             }
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel([model.title, model.line].compactMap(\.self).joined(separator: ", "))
             Spacer(minLength: 8)
             if model.showsSkipBack {
                 Button(action: onSkipBack) {

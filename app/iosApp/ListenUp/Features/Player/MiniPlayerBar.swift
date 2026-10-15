@@ -115,7 +115,7 @@ struct MiniPlayerAccessoryContent: View {
     var body: some View {
         HStack(spacing: 4) {
             Button(action: onOpen) {
-                HStack(spacing: 10) {
+                HStack(spacing: coverGap) {
                     cover
                     titles
                     Spacer(minLength: 0)
@@ -123,6 +123,7 @@ struct MiniPlayerAccessoryContent: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel([model.title, model.line].compactMap(\.self).joined(separator: ", "))
             .accessibilityHint(String(localized: "player.opens_player_hint"))
             .accessibilityShowsLargeContentViewer { Label(model.title, systemImage: "book") }
 
@@ -136,10 +137,14 @@ struct MiniPlayerAccessoryContent: View {
                 skip(symbol: PlayerGlyphs.skipForward(seconds: model.skipForwardSec),
                      label: String(format: String(localized: "player.skip_forward"), "\(model.skipForwardSec)"),
                      action: onSkipForward)
+                    .disabled(!model.canSkipForward)
             }
         }
-        .padding(.leading, isInline ? Spacing.xs : Spacing.s)
-        .padding(.trailing, Spacing.xxs)
+        .padding(.leading, leadingInset)
+        // A labelled capsule sits concentric inside the accessory's end cap (its radius less the capsule's); a glyph
+        // keeps the tight inset.
+        .padding(.trailing, model.primary.isPill ? Spacing.xs : Spacing.xxs)
+        .containerShape(Capsule())
         .overlay(alignment: .bottom) { if model.showsProgress { progressLine } }
         // The accessory is system chrome of a fixed height, like the tab bar: its text stops growing at xLarge, and
         // the large content viewer shows each control instead (HIG, Accessibility). MiniPlayerAccessibilityTests
@@ -147,38 +152,28 @@ struct MiniPlayerAccessoryContent: View {
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
     }
 
+    private var leadingInset: CGFloat { isInline ? Spacing.xs : Spacing.s }
+    private var coverSide: CGFloat { isInline ? 28 : 34 }
+    /// The gap between the cover and the titles.
+    private let coverGap: CGFloat = 10
+
     private var titles: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(model.title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-            if let line = model.line {
-                // A failure is a red glyph and red words on the plain glass (Simon, 2026-10-14): the capsule is the
-                // system's and stays untinted, and the glyph keeps the meaning off colour alone.
-                HStack(spacing: 3) {
-                    if model.isFailure {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .imageScale(.small)
-                            .accessibilityHidden(true)
-                    }
-                    Text(line)
-                        .monospacedDigit()
-                        .lineLimit(1)
-                }
-                .font(.caption)
-                .foregroundStyle(model.isFailure ? Color.luPlayerError : Color.secondary)
-            }
+            MiniPlayerLineText(model: model)
         }
     }
 
+    /// The cover sits concentric with the accessory's capsule (HIG, Layout: concentric corners inside Liquid Glass).
     private var cover: some View {
-        let side: CGFloat = isInline ? 32 : (model.showsSkipForward ? 44 : 42)
-        return BookCoverImage(bookId: model.bookId, coverPath: model.coverPath, coverHash: model.coverHash)
-            .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
+        BookCoverImage(bookId: model.bookId, coverPath: model.coverPath, coverHash: model.coverHash)
+            .frame(width: coverSide, height: coverSide)
+            .clipShape(.concentric(minimum: Radius.s))
             .matchedTransitionSource(id: PlayerTransition.coverID, in: transitionNamespace) { source in
-                source.clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
+                source.clipShape(.concentric(minimum: Radius.s))
             }
             .accessibilityHidden(true)
     }
@@ -209,7 +204,9 @@ struct MiniPlayerAccessoryContent: View {
                 }
         }
         .frame(height: 2)
-        .padding(.horizontal, Spacing.xl)
+        // It starts at the text column, so it never crosses the cover.
+        .padding(.leading, leadingInset + coverSide + coverGap)
+        .padding(.trailing, Spacing.xl)
         .padding(.bottom, 3)
         .accessibilityHidden(true)
     }
@@ -254,7 +251,7 @@ struct MiniPlayerPrimaryButton: View {
         case .busy:
             ProgressView()
                 .controlSize(.small)
-                .tint(Color.listenUpOrange)
+                .tint(Color.secondary)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         case .close:
@@ -267,13 +264,48 @@ struct MiniPlayerPrimaryButton: View {
             // A compact capsule inside the accessory's glass, its target still 44pt tall (HIG, Buttons).
             Text(text)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(prominent ? Color.luOnTint : Color.listenUpOrange)
+                .foregroundStyle(prominent ? Color.luOnTint : Color.luTintInk)
                 .lineLimit(1)
                 .padding(.horizontal, Spacing.s)
                 .padding(.vertical, Spacing.xxs + 2)
                 .background(Capsule().fill(prominent ? Color.listenUpOrange : Color.listenUpOrange.opacity(0.12)))
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
+        }
+    }
+}
+
+/// The mini line as two parts: the lead ("Paused · Bridge Four") truncates first, and the tail ("8 mins left") keeps
+/// its full width, so the time left is never the part that disappears. A failure is a red glyph and red words on the
+/// plain glass (Simon, 2026-10-14): the capsule is the system's and stays untinted, and the glyph keeps the meaning off
+/// colour alone. Shared with the reader's strip.
+struct MiniPlayerLineText: View {
+    let model: MiniPlayerAccessoryModel
+
+    var body: some View {
+        if let lead = model.lineLead {
+            HStack(spacing: 0) {
+                if model.isFailure {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .imageScale(.small)
+                        .padding(.trailing, 3)
+                        .accessibilityHidden(true)
+                }
+                Text(lead)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if let tail = model.lineTail {
+                    Text(" · \(tail)")
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .fixedSize()
+                        .layoutPriority(1)
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(model.isFailure ? Color.luPlayerError : Color.secondary)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(model.line ?? lead)
         }
     }
 }
