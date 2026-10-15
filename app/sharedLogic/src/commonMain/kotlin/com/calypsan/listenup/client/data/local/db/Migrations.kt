@@ -623,3 +623,15 @@ internal val MIGRATION_25_26 =
             connection.executeDdl("ALTER TABLE `public_profiles` ADD COLUMN `avatarFrame` TEXT")
         }
     }
+
+/**
+ * v26 → v27: `playback_positions.finishedCardDismissedAt`, when the reader last dismissed a book's "just finished"
+ * card. Non-destructive by construction: one nullable column, so every row reads as "never dismissed". The cursor is
+ * not rewound — no server row holds a dismissal yet, so there is nothing to re-pull.
+ */
+internal val MIGRATION_26_27 =
+    object : Migration(26, 27) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `playback_positions` ADD COLUMN `finishedCardDismissedAt` INTEGER")
+        }
+    }

@@ -295,6 +295,10 @@ internal data class PlaybackPositionEntity(
     val revision: Long = 0,
     // Epoch-ms tombstone set by the server when the position is soft-deleted
     val deletedAt: Long? = null,
+    // When the reader last dismissed this book's "just finished" card on Home (epoch ms), null when never.
+    // Hides the card only for a finish at or before it. Synced, and merged apart from lastPlayedAt: it only ever
+    // rises, because dismissing a card is not listening (spec S2).
+    val finishedCardDismissedAt: Long? = null,
 )
 
 /**
