@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.home
 
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
@@ -12,12 +13,16 @@ import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.fake.FakeBookAvailability
 import com.calypsan.listenup.client.test.fake.FakeBookRepository
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
+import com.calypsan.listenup.core.BookId
 import dev.mokkery.MockMode
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -34,7 +39,9 @@ internal const val RIG_HOUR = 3_600_000L
  * Everything [HomeSlotPresenter] reads, as in-memory state a test moves by hand: the loaded book, positions, held
  * books, series, chapters, availability, ratings, fellow finishers and the library showcase. [now] is the clock.
  */
-internal class HomeSlotRig {
+internal class HomeSlotRig(
+    failWrites: Boolean = false,
+) {
     var now = RIG_NOW
     val loaded = MutableStateFlow<LoadedBook>(LoadedBook.NothingLoaded)
     val positions = FakePlaybackPositionRepository(nowMs = { now })
@@ -50,11 +57,26 @@ internal class HomeSlotRig {
     val runs = MutableStateFlow(0)
     val dismissedHere = MutableStateFlow<Map<String, Long>>(emptyMap())
 
+    /** What the next rating write answers; a test flips it to a failure. */
+    var rateResult: AppResult<Unit> = AppResult.Success(Unit)
+
     val ratings: BookRatingRepository =
         mock(MockMode.autoUnit) {
             every { observeForBook(any()) } returns ratingsFlow
-            everySuspend { rate(any(), any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { rate(any(), any(), any()) } calls { rateResult }
         }
+    private val writablePositions: PlaybackPositionRepository =
+        if (failWrites) {
+            object : PlaybackPositionRepository by positions {
+                override suspend fun savePlaybackState(
+                    bookId: BookId,
+                    update: PlaybackUpdate,
+                ): AppResult<Unit> = AppResult.Failure(UnexpectedClientError())
+            }
+        } else {
+            positions
+        }
+
     private val activities: ActivityRepository = mock { every { observeOtherFinishers(any(), any()) } returns finishers }
     private val home: HomeRepository = mock { every { observeLibraryShowcase(any()) } returns showcase }
     private val loadedBooks: LoadedBookRepository = mock { every { observe() } returns loaded }
@@ -62,7 +84,7 @@ internal class HomeSlotRig {
     fun presenter(): HomeSlotPresenter =
         HomeSlotPresenter(
             loadedBooks = loadedBooks,
-            positions = positions,
+            positions = writablePositions,
             inbox = inbox,
             nextInSeries = { bookId -> nextByBook.map { it[bookId] } },
             books = books,

@@ -7,7 +7,7 @@ import io.kotest.matchers.shouldBe
  * One-shot events use `Channel<Event>(Channel.BUFFERED).receiveAsFlow()` — never
  * `StateFlow<Event?>`. A nullable-event StateFlow replays its last value to every new
  * subscriber, so a navigation/snackbar event re-fires on re-subscription (rotation,
- * back-navigation). Compliance references: `HomeViewModel.snackbarMessages`,
+ * back-navigation). Compliance references: `PlayerViewModel.events`,
  * `SeeAllSearchViewModel.navActions`, `AdminBackupViewModel.downloadSaved`.
  *
  * Implementation note: like [ViewModelUsesStateInWhileSubscribedRule], this is a
