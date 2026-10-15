@@ -268,7 +268,7 @@ struct MiniPlayerPrimaryButton: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(prominent ? Color.luOnTint : Color.listenUpOrange)
                 .lineLimit(1)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, Spacing.s)
                 .frame(minHeight: 44)
                 .background(Capsule().fill(prominent ? Color.listenUpOrange : Color.listenUpOrange.opacity(0.12)))
                 .contentShape(Capsule())

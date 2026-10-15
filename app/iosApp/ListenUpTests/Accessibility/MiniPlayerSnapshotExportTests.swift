@@ -22,9 +22,9 @@ struct MiniPlayerSnapshotExportTests {
     private static let sessionError = AuthErrorSessionExpired(correlationId: nil, debugInfo: nil)
     private static let revokedError = PlaybackErrorNoLongerAvailable(correlationId: nil, debugInfo: nil)
 
-    private func state(_ c: Case) -> PlayerUiStateLoaded {
+    private func state(_ shot: Case) -> PlayerUiStateLoaded {
         let title = "Bridge Four"
-        switch c {
+        switch shot {
         case .playing:
             return .fixture(phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: title)
         case .paused:
@@ -64,11 +64,11 @@ struct MiniPlayerSnapshotExportTests {
     }
 
     @Test(arguments: Case.allCases)
-    func export(_ c: Case) async throws {
+    func export(_ shot: Case) async throws {
         let dir = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"]))
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
         let model = MiniPlayerAccessoryModel.make(
-            snapshot: PlayerSnapshot.from(state(c)), chapterRemainingMs: 511_000, chapterFraction: 0.59,
+            snapshot: PlayerSnapshot.from(state(shot)), chapterRemainingMs: 511_000, chapterFraction: 0.59,
             isInline: false, isWide: isPad)
         let size = isPad ? CGSize(width: 1180, height: 820) : CGSize(width: 393, height: 852)
         let hosted = await HostedView(TabHarness(model: model), size: size)
@@ -76,7 +76,7 @@ struct MiniPlayerSnapshotExportTests {
         let image = UIGraphicsImageRenderer(bounds: hosted.window.bounds).image { _ in
             hosted.window.drawHierarchy(in: hosted.window.bounds, afterScreenUpdates: true)
         }
-        let name = "\(isPad ? "ipad" : "iphone")-\(c.rawValue).png"
+        let name = "\(isPad ? "ipad" : "iphone")-\(shot.rawValue).png"
         try #require(image.pngData()).write(to: dir.appendingPathComponent(name))
     }
 }

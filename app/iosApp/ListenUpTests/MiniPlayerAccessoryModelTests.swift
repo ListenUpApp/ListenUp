@@ -31,21 +31,21 @@ struct MiniPlayerAccessoryModelTests {
 
     @Test("iPhone: the book's own chapter title and time left, back N and Pause")
     func iPhone() {
-        let m = model(playing())
-        #expect(m.line == "Bridge Four · 8 mins left")
-        #expect(m.showsSkipBack)
-        #expect(!m.showsSkipForward)
-        #expect(m.primary == .pause)
-        #expect(m.primaryAction == .shared)
-        #expect(m.primaryLabel == String(localized: "player.pause"))
-        #expect(m.showsProgress)
+        let mini = model(playing())
+        #expect(mini.line == "Bridge Four · 8 mins left")
+        #expect(mini.showsSkipBack)
+        #expect(!mini.showsSkipForward)
+        #expect(mini.primary == .pause)
+        #expect(mini.primaryAction == .shared)
+        #expect(mini.primaryLabel == String(localized: "player.pause"))
+        #expect(mini.showsProgress)
     }
 
     @Test("iPad: the same line, and forward")
     func iPad() {
-        let m = model(playing(), wide: true)
-        #expect(m.line == "Bridge Four · 8 mins left")
-        #expect(m.showsSkipForward)
+        let mini = model(playing(), wide: true)
+        #expect(mini.line == "Bridge Four · 8 mins left")
+        #expect(mini.showsSkipForward)
     }
 
     @Test("an untitled chapter reads by its number; a chapterless book reads Whole book")
@@ -61,35 +61,35 @@ struct MiniPlayerAccessoryModelTests {
 
     @Test("inline: title and the main button only")
     func inline() {
-        let m = model(playing(), inline: true)
-        #expect(m.line == nil)
-        #expect(!m.showsSkipBack)
-        #expect(!m.showsSkipForward)
-        #expect(!m.showsProgress)
-        #expect(m.primary == .pause)
+        let mini = model(playing(), inline: true)
+        #expect(mini.line == nil)
+        #expect(!mini.showsSkipBack)
+        #expect(!mini.showsSkipForward)
+        #expect(!mini.showsProgress)
+        #expect(mini.primary == .pause)
     }
 
     @Test("paused says so and offers Play")
     func paused() {
-        let m = model(playing(PlayerPhasePaused.shared, primary: PrimaryControlPlay.shared))
-        #expect(m.line == "Paused · Bridge Four · 8 mins left")
-        #expect(m.primary == .play)
-        #expect(m.primaryLabel == String(localized: "player.play"))
+        let mini = model(playing(PlayerPhasePaused.shared, primary: PrimaryControlPlay.shared))
+        #expect(mini.line == "Paused · Bridge Four · 8 mins left")
+        #expect(mini.primary == .play)
+        #expect(mini.primaryLabel == String(localized: "player.play"))
     }
 
     @Test("a stall is busy, named Loading. Pause, with no back")
     func busy() {
-        let m = model(playing(PlayerPhaseBuffering.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false))
-        #expect(m.line == "Loading…")
-        #expect(m.primary == .busy)
-        #expect(m.primaryLabel == "Loading. Pause")
-        #expect(!m.showsSkipBack)
+        let mini = model(playing(PlayerPhaseBuffering.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false))
+        #expect(mini.line == "Loading…")
+        #expect(mini.primary == .busy)
+        #expect(mini.primaryLabel == "Loading. Pause")
+        #expect(!mini.showsSkipBack)
     }
 
     @Test("preparing says Starting")
     func preparing() {
-        let m = model(playing(PlayerPhasePreparing.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false))
-        #expect(m.line == "Starting…")
+        let mini = model(playing(PlayerPhasePreparing.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false))
+        #expect(mini.line == "Starting…")
     }
 
     @Test("a running timer replaces the time left")
@@ -103,62 +103,62 @@ struct MiniPlayerAccessoryModelTests {
 
     @Test("the sleep fade offers Keep Listening, which cancels the timer, and keeps back N")
     func fadingOut() {
-        let m = model(playing(PlayerPhaseSleepFading.shared, primary: PrimaryControlPause.shared))
-        #expect(m.line == "Sleep timer · fading out")
-        #expect(m.primary == .pill("Keep Listening", prominent: false))
-        #expect(m.primaryLabel == "Keep Listening")
-        #expect(m.primaryAction == .keepListening)
-        #expect(m.showsSkipBack)
+        let mini = model(playing(PlayerPhaseSleepFading.shared, primary: PrimaryControlPause.shared))
+        #expect(mini.line == "Sleep timer · fading out")
+        #expect(mini.primary == .pill("Keep Listening", prominent: false))
+        #expect(mini.primaryLabel == "Keep Listening")
+        #expect(mini.primaryAction == .keepListening)
+        #expect(mini.showsSkipBack)
     }
 
     @Test("a failure is marked, says why, and offers a Retry capsule")
     func failure() {
-        let m = model(playing(
+        let mini = model(playing(
             PlayerPhaseFailed(error: PlaybackErrorConnectionLost(correlationId: nil, debugInfo: nil)),
             primary: PrimaryControlRetry.shared, showsSkipBack: false))
-        #expect(m.isFailure)
-        #expect(m.line == "Couldn't play this book.")
-        #expect(m.primary == .pill(String(localized: "player.retry"), prominent: true))
-        #expect(m.primaryAction == .shared)
-        #expect(!m.showsSkipBack)
+        #expect(mini.isFailure)
+        #expect(mini.line == "Couldn't play this book.")
+        #expect(mini.primary == .pill(String(localized: "player.retry"), prominent: true))
+        #expect(mini.primaryAction == .shared)
+        #expect(!mini.showsSkipBack)
     }
 
     @Test("offline without a download is not a failure, and offers Retry")
     func offline() {
-        let m = model(playing(
+        let mini = model(playing(
             PlayerPhaseUnavailable(reason: PlaybackErrorOfflineNotDownloaded(correlationId: nil, debugInfo: nil)),
             primary: PrimaryControlRetry.shared, showsSkipBack: false))
-        #expect(!m.isFailure)
-        #expect(m.line == "Can't play offline")
+        #expect(!mini.isFailure)
+        #expect(mini.line == "Can't play offline")
     }
 
     @Test("a lapsed session offers Sign in")
     func signedOut() {
-        let m = model(playing(
+        let mini = model(playing(
             PlayerPhaseUnavailable(reason: AuthErrorSessionExpired(correlationId: nil, debugInfo: nil)),
             primary: PrimaryControlSignIn.shared, showsSkipBack: false))
-        #expect(m.line == "Signed out · place saved")
-        #expect(!m.isFailure)
-        #expect(m.primary == .pill(String(localized: "auth.sign_in"), prominent: true))
+        #expect(mini.line == "Signed out · place saved")
+        #expect(!mini.isFailure)
+        #expect(mini.primary == .pill(String(localized: "auth.sign_in"), prominent: true))
     }
 
     @Test("a revoked book offers Close")
     func revoked() {
-        let m = model(playing(
+        let mini = model(playing(
             PlayerPhaseUnavailable(reason: PlaybackErrorNoLongerAvailable(correlationId: nil, debugInfo: nil)),
             primary: PrimaryControlClose.shared, showsSkipBack: false))
-        #expect(m.line == "No longer in your library")
-        #expect(m.primary == .close)
-        #expect(m.primaryLabel == String(localized: "player.close_book"))
+        #expect(mini.line == "No longer in your library")
+        #expect(mini.primary == .close)
+        #expect(mini.primaryLabel == String(localized: "player.close_book"))
     }
 
     @Test("finished offers Listen Again for this book")
     func finished() {
-        let m = model(
+        let mini = model(
             playing(PlayerPhaseFinished.shared, primary: PrimaryControlListenAgain.shared, showsSkipBack: false))
-        #expect(m.line == "Finished")
-        #expect(m.primary == .pill("Listen Again", prominent: false))
-        #expect(m.primaryLabel == "Listen again to The Way of Kings")
+        #expect(mini.line == "Finished")
+        #expect(mini.primary == .pill("Listen Again", prominent: false))
+        #expect(mini.primaryLabel == "Listen again to The Way of Kings")
     }
 
     @Test("casting names the device and the chapter")
@@ -171,21 +171,21 @@ struct MiniPlayerAccessoryModelTests {
 
     @Test("a dropped connection reads Reconnecting, and the busy control says so")
     func reconnecting() {
-        let m = model(
+        let mini = model(
             playing(PlayerPhaseReconnecting.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false))
-        #expect(m.line == String(localized: "player.reconnecting"))
-        #expect(m.primary == .busy)
-        #expect(m.primaryLabel == "Reconnecting. Pause")
-        #expect(!m.showsSkipBack)
-        #expect(m.isReconnecting)
+        #expect(mini.line == String(localized: "player.reconnecting"))
+        #expect(mini.primary == .busy)
+        #expect(mini.primaryLabel == "Reconnecting. Pause")
+        #expect(!mini.showsSkipBack)
+        #expect(mini.isReconnecting)
     }
 
     @Test("inline while reconnecting: no line; the word lives in the control's label")
     func reconnectingInline() {
-        let m = model(
-            playing(PlayerPhaseReconnecting.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false), inline: true)
-        #expect(m.line == nil)
-        #expect(m.primaryLabel == "Reconnecting. Pause")
+        let reconnecting = playing(PlayerPhaseReconnecting.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false)
+        let mini = model(reconnecting, inline: true)
+        #expect(mini.line == nil)
+        #expect(mini.primaryLabel == "Reconnecting. Pause")
     }
 
     @Test("short durations: the system's abbreviated hours and minutes; seconds spelled out")
