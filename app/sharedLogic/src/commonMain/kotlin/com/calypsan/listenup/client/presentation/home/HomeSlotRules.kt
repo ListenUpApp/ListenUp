@@ -22,10 +22,13 @@ internal const val ALSO_FINISHED_NAMES = 2
 
 /** The loaded book as the slot decides on it: `isPlaying` dropped, so play/pause is never a decision point (P-R6). */
 internal sealed interface LoadedKey {
+    /** The player has not yet read back which book was loaded. */
     data object Restoring : LoadedKey
 
+    /** No book is loaded. */
     data object NothingLoaded : LoadedKey
 
+    /** [bookId] is loaded; [isFinished] says whether it has been finished. */
     data class Loaded(
         val bookId: String,
         val isFinished: Boolean,
@@ -83,20 +86,26 @@ internal fun nextLoadedView(
 
 /** The slot's kind, before its contents are read (spec §2.2). */
 internal sealed interface SlotKind {
+    /** The library's first sync is still arriving. */
     data object FirstSync : SlotKind
 
+    /** A book is loaded, so the mini player owns it. */
     data object Absent : SlotKind
 
+    /** Resume [bookId], the most recent book in progress. */
     data class Resume(
         val bookId: String,
     ) : SlotKind
 
+    /** The just-finished card for [bookId]. */
     data class JustFinished(
         val bookId: String,
     ) : SlotKind
 
+    /** Nothing in progress, but the reader has listened before. */
     data object NothingInProgress : SlotKind
 
+    /** No listening history at all. */
     data object NewListener : SlotKind
 }
 
