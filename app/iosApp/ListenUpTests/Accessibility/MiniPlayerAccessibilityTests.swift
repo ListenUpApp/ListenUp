@@ -1,5 +1,6 @@
 import SwiftUI
 import Testing
+import UIKit
 @testable import ListenUp
 import ListenupContract
 @preconcurrency import Shared
@@ -50,6 +51,25 @@ struct MiniPlayerAccessibilityTests {
         #expect(largest.stop(labelled: skipBackLabel) != nil)
     }
 
+    /// In the real accessory, the line's descenders never touch the progress hairline: at least 2pt of clear glass
+    /// between them, at the default size and at the xLarge cap.
+    @Test(arguments: [DynamicTypeSize.large, .xLarge])
+    func theLineClearsTheHairline(_ size: DynamicTypeSize) async throws {
+        let hosted = await HostedView(
+            TabAccessoryHarness(model: Self.playingModel()), size: CGSize(width: 393, height: 852),
+            dynamicTypeSize: size)
+        defer { hosted.close() }
+        let book = try #require(hosted.stops(labelContaining: "The Way of Kings").first, "\(hosted.tree)")
+        // The text column: past the 34pt cover and its 10pt gap, where the hairline's played part runs beneath it.
+        let column = CGRect(x: book.frame.minX + 46, y: book.frame.minY - 8, width: 110, height: book.frame.height + 16)
+        let runs = InkRuns(hosted.window).rows(in: column)
+        // Title, line, hairline: three separate bands of ink, the last two at least 2pt apart.
+        try #require(runs.count >= 3, "ink bands \(runs) in \(column)")
+        let line = runs[runs.count - 2]
+        let hairline = runs[runs.count - 1]
+        #expect(hairline.lowerBound - line.upperBound >= 2, "line \(line) hairline \(hairline) at \(size)")
+    }
+
     @Test func aProblemOffersItsActionAndNoDismiss() async throws {
         let failed = Self.model(.fixture(
             phase: PlayerPhaseFailed(error: PlaybackErrorConnectionLost(correlationId: nil, debugInfo: nil)),
@@ -83,5 +103,68 @@ struct AccessoryHarness: View {
         MiniPlayerAccessoryContent(
             model: model, isInline: isInline, transitionNamespace: namespace,
             onOpen: {}, onSkipBack: {}, onSkipForward: {}, onPrimary: {})
+    }
+}
+
+/// The accessory in a real system tab bar, so the measurement sees the capsule's own height.
+private struct TabAccessoryHarness: View {
+    let model: MiniPlayerAccessoryModel
+    @Namespace private var namespace
+
+    var body: some View {
+        TabView {
+            Tab("Home", systemImage: "house") { Color(.systemBackground) }
+            Tab("Library", systemImage: "books.vertical") { Color(.systemBackground) }
+        }
+        .tabViewBottomAccessory {
+            MiniPlayerAccessoryContent(
+                model: model, isInline: false, transitionNamespace: namespace,
+                onOpen: {}, onSkipBack: {}, onSkipForward: {}, onPrimary: {})
+        }
+    }
+}
+
+/// Bands of ink (text, or the hairline's coral) in a window region, read from what was drawn, in points.
+@MainActor
+private struct InkRuns {
+    let image: CGImage
+    let scale: CGFloat
+
+    init(_ window: UIWindow) {
+        let rendered = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        image = rendered.cgImage!
+        scale = CGFloat(image.width) / window.bounds.width
+    }
+
+    /// Each vertical run of rows holding ink, as point ranges, top to bottom.
+    func rows(in rect: CGRect) -> [ClosedRange<CGFloat>] {
+        let width = image.width, height = image.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        pixels.withUnsafeMutableBytes { bytes in
+            let context = CGContext(
+                data: bytes.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            context?.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        let minX = max(0, Int(rect.minX * scale)), maxX = min(width, Int(rect.maxX * scale))
+        let minY = max(0, Int(rect.minY * scale)), maxY = min(height, Int(rect.maxY * scale))
+        var runs: [ClosedRange<CGFloat>] = []
+        var start: Int?
+        for y in minY..<maxY {
+            var inked = false
+            for x in stride(from: minX, to: maxX, by: 1) {
+                let offset = (y * width + x) * 4
+                if Int(pixels[offset]) + Int(pixels[offset + 1]) + Int(pixels[offset + 2]) < 600 { inked = true; break }
+            }
+            if inked, start == nil { start = y }
+            if !inked, let first = start {
+                runs.append(CGFloat(first) / scale...CGFloat(y) / scale)
+                start = nil
+            }
+        }
+        if let first = start { runs.append(CGFloat(first) / scale...CGFloat(maxY) / scale) }
+        return runs
     }
 }
