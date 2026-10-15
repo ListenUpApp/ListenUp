@@ -240,6 +240,7 @@ private fun Gate(
                 openPlayback = fixedPlayback(),
                 observeIsAdmin = { flowOf(false) },
                 observeCurrentUserId = { flowOf(null) },
+                observeAvatarFrame = { flowOf(null) },
             ),
         observeThemeMode = { themeMode },
         initialInviteCode = inviteCode,

@@ -42,6 +42,7 @@ class PhoneGridsTest :
             frames.mount(width) {
                 InShell {
                     ContributorDetailPage(
+                        onAdjustPhoto = {},
                         state =
                             readyContributor(
                                 roleSections =

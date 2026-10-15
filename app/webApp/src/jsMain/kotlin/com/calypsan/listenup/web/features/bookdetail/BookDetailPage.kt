@@ -610,19 +610,39 @@ private fun Byline(
     val authors = state.book.authors
     val narrators = state.book.narrators
     if (authors.isEmpty() && narrators.isEmpty()) return
+    var showingCredits by remember { mutableStateOf(false) }
 
-    Div(attrs = { classes("bd-by") }) {
-        if (authors.isNotEmpty()) {
-            ContributorNames(authors, onOpenContributor)
+    Div(attrs = { classes("bd-by-row") }) {
+        Div(attrs = { classes("bd-by") }) {
+            if (authors.isNotEmpty()) {
+                ContributorNames(authors, onOpenContributor)
+            }
+            if (authors.isNotEmpty() && narrators.isNotEmpty()) {
+                Text(" $BYLINE_SEPARATOR read by ")
+            } else if (narrators.isNotEmpty()) {
+                Text("read by ")
+            }
+            if (narrators.isNotEmpty()) {
+                ContributorNames(narrators, onOpenContributor)
+            }
         }
-        if (authors.isNotEmpty() && narrators.isNotEmpty()) {
-            Text(" $BYLINE_SEPARATOR read by ")
-        } else if (narrators.isNotEmpty()) {
-            Text("read by ")
-        }
-        if (narrators.isNotEmpty()) {
-            ContributorNames(narrators, onOpenContributor)
-        }
+        // Everyone else credited (editors, translators, a full cast) is one press away, as on Android
+        // ("All credits") and iOS (Cast & Credits). Outside `.bd-by`, so the byline still reads as
+        // one sentence; the separator is drawn by CSS and is not read out.
+        Button(attrs = {
+            classes("bd-credits-open")
+            attr("type", BUTTON_VALUE)
+            onClick { showingCredits = true }
+        }) { Text("All credits") }
+    }
+
+    if (showingCredits) {
+        CreditsDialog(
+            // Older books may carry no full credit list; the byline's people are then everyone known.
+            credits = state.book.allContributors.ifEmpty { (authors + narrators).distinctBy { it.id } },
+            onOpenContributor = onOpenContributor,
+            onDismiss = { showingCredits = false },
+        )
     }
 }
 

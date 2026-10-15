@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
+import com.calypsan.listenup.web.WebGraph
 import com.calypsan.listenup.web.features.admin.AdminRouteContent
 import com.calypsan.listenup.web.features.bookdetail.BookRouteContent
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
@@ -120,12 +121,11 @@ internal fun ContributorRouteContent(
     contributorId: String?,
     route: Route,
     router: Router,
-    openContributorDetail: OpenContributorDetail,
-    openContributorBooks: OpenContributorBooks,
-    openContributorEdit: OpenContributorEdit,
-    matchDetails: MatchDetailsGraph,
+    graph: WebGraph,
     currentUserId: String?,
+    onToast: (String) -> Unit,
 ) {
+    val matchDetails = graph.matchDetails
     // Derived here rather than in [RouteContent], the same way [BookRouteContent] owns its own
     // sub-routes: a value only this branch reads is this branch's business, and RouteContent's
     // length is a budget every route family spends from.
@@ -176,7 +176,7 @@ internal fun ContributorRouteContent(
         // The per-role book list, likewise — `/contributor/{id}/books` is also a `/contributor/{id}`.
         roleBooksContributorId != null -> {
             ContributorBooksPage(
-                state = contributorBooksState(roleBooksContributorId, roleBooksRole, openContributorBooks),
+                state = contributorBooksState(roleBooksContributorId, roleBooksRole, graph.openContributorBooks),
                 onOpenLibrary = { router.navigate(Routes.library) },
                 onOpenContributors = { router.navigate(Routes.libraryContributors) },
                 onOpenContributor = { router.navigate(Routes.Contributor.detail(roleBooksContributorId)) },
@@ -188,13 +188,13 @@ internal fun ContributorRouteContent(
         editingContributorId != null -> {
             ContributorEditRoute(
                 router = router,
-                openContributorEdit = openContributorEdit,
+                openContributorEdit = graph.openContributorEdit,
                 contributorId = editingContributorId,
             )
         }
 
         contributorId != null -> {
-            val session = contributorDetailSession(contributorId, openContributorDetail)
+            val session = contributorDetailSession(contributorId, graph.openContributorDetail)
 
             // ⛔ Deleted is the only nav action this ViewModel emits, and it must be obeyed: the
             // page it fires from describes someone who no longer exists, so staying would leave a
@@ -215,6 +215,8 @@ internal fun ContributorRouteContent(
                 state = detail,
                 onConfirmDelete = session.onConfirmDelete,
                 onDismissDeleteError = session.onDismissDeleteError,
+                onAdjustPhoto = session.onAdjustPhoto,
+                onPhotoAdjusted = { onToast("Photo adjusted.") },
                 onEdit = { router.navigate(Routes.Contributor.edit(contributorId)) },
                 onMatchMetadata = { router.navigate(Routes.Contributor.match(contributorId)) },
                 onOpenLibrary = { router.navigate(Routes.library) },

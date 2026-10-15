@@ -19,7 +19,7 @@ import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
-import com.calypsan.listenup.web.design.initialsFor
+import com.calypsan.listenup.web.design.ContributorPhoto
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -192,7 +192,14 @@ private fun ContributorRow(
             style { property("background", avatarTintFor(entry.contributor.name)) }
             // The return leg: Back from this person's page flies their avatar home here.
             heroTile(contributorHeroKey(entry.contributor.idString))
-        }) { Text(initialsFor(entry.contributor.name)) }
+        }) {
+            ContributorPhoto(
+                contributorId = entry.contributor.idString,
+                name = entry.contributor.name,
+                imagePath = entry.contributor.imagePath,
+                frame = entry.contributor.imageFrame,
+            )
+        }
 
         Div(attrs = { classes("contrib-info") }) {
             Div(attrs = { classes("contrib-name") }) { Text(entry.contributor.name) }

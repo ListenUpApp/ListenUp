@@ -29,6 +29,7 @@ internal fun readyBook(
     audioFiles: List<AudioFile> = sampleAudioFiles(),
     authors: List<BookContributor> = listOf(BookContributor(id = "c1", name = "Stephen King")),
     narrators: List<BookContributor> = listOf(BookContributor(id = "c2", name = "Santino Fontana")),
+    allContributors: List<BookContributor> = emptyList(),
     series: List<BookSeries> = emptyList(),
     seriesPaths: List<BookSeriesPath> =
         series.map { BookSeriesPath(it.seriesId, it.seriesName, it.sequenceLabel, ancestors = emptyList()) },
@@ -46,6 +47,7 @@ internal fun readyBook(
                 title = "The Institute",
                 authors = authors,
                 narrators = narrators,
+                allContributors = allContributors,
                 duration = TOTAL_SECONDS * MILLIS_PER_SECOND,
                 coverPath = null,
                 addedAt = Timestamp(0L),

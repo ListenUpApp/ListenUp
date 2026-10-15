@@ -13,7 +13,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Dl
 import com.calypsan.listenup.web.design.EmptyLook
 import com.calypsan.listenup.web.design.EmptyState
-import com.calypsan.listenup.web.features.contributoredit.contributorPhotoUrl
+import com.calypsan.listenup.web.design.contributorPhotoUrl
 import org.jetbrains.compose.web.dom.CheckboxInput
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Fieldset

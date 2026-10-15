@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorCandidate
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
@@ -21,6 +22,12 @@ import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
+import com.calypsan.listenup.web.design.FrameConfirm
+import com.calypsan.listenup.web.design.FramedImg
+import com.calypsan.listenup.web.design.PhotoFraming
+import com.calypsan.listenup.web.design.PhotoFramingDialog
+import com.calypsan.listenup.web.design.rememberPhotoFraming
+import com.calypsan.listenup.web.design.contributorPhotoUrl
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
 import com.calypsan.listenup.web.design.PageHeader
@@ -35,7 +42,6 @@ import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -156,26 +162,31 @@ private fun PortraitField(
     DisposableEffect(previewUrl) { onDispose { previewUrl?.let(URL::revokeObjectURL) } }
 
     val scope = rememberCoroutineScope()
+    val framing = rememberPhotoFraming()
     var input by remember { mutableStateOf<HTMLInputElement?>(null) }
     var portraitFailed by remember(state.contributorId) { mutableStateOf(false) }
+    val savedPhotoUrl = state.imagePath?.let { contributorPhotoUrl(state.contributorId, it) }
 
     Div(attrs = { classes("ced-portrait") }) {
         when {
             previewUrl != null -> {
-                Img(src = previewUrl, alt = "New portrait preview", attrs = { classes(PHOTO) })
+                FramedImg(
+                    src = previewUrl,
+                    alt = "New portrait preview",
+                    frame = state.pendingImageFrame,
+                    classes = listOf(PHOTO),
+                )
             }
 
             // A contributor with no photo is the normal case, so a 404 here is routine rather than
             // exceptional — the monogram it falls back to is a finished portrait.
             state.imagePath != null && !portraitFailed -> {
-                Img(
-                    src = contributorPhotoUrl(state.contributorId),
+                FramedImg(
+                    src = savedPhotoUrl.orEmpty(),
                     alt = state.name,
-                    attrs = {
-                        classes(PHOTO)
-                        attr("decoding", "async")
-                        addEventListener("error") { portraitFailed = true }
-                    },
+                    frame = state.pendingImageFrame ?: state.imageFrame,
+                    classes = listOf(PHOTO),
+                    onError = { portraitFailed = true },
                 )
             }
 
@@ -190,6 +201,24 @@ private fun PortraitField(
                 onClick = { input?.click() },
                 enabled = !(state.isSaving || state.isUploadingImage),
             ) { Text(if (state.isUploadingImage) "Uploading…" else "Choose a photo") }
+            // Re-frames whichever photo Save would leave: a staged pick, or the one already saved.
+            // Either way only the frame is staged (decided Q2: inside a form, Done stages).
+            val pending = state.pendingImageData
+            if (pending != null || savedPhotoUrl != null) {
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = {
+                        val stageFrame: (ImageFrame) -> Unit = { onEvent(ContributorEditUiEvent.StageFrame(it)) }
+                        val initial = state.pendingImageFrame ?: state.imageFrame.takeIf { pending == null }
+                        if (pending != null) {
+                            framing.openBytes(pending, initial, stageFrame)
+                        } else if (savedPhotoUrl != null) {
+                            framing.openUrl(savedPhotoUrl, initial, stageFrame)
+                        }
+                    },
+                    enabled = !(state.isSaving || state.isUploadingImage),
+                ) { Text("Adjust photo") }
+            }
             Span(attrs = { classes("ced-portrait-hint") }) { Text("JPG, PNG or WebP") }
         }
 
@@ -203,12 +232,14 @@ private fun PortraitField(
             }
             onChange { event ->
                 val element = event.target as HTMLInputElement
-                element.files?.item(0)?.let { file -> stagePhoto(scope, file, onEvent) }
+                element.files?.item(0)?.let { file -> framePickedPhoto(scope, file, framing, onEvent) }
                 // Re-picking the same file must fire change again next time.
                 element.value = ""
             }
         })
     }
+
+    PhotoFramingDialog(framing, FrameConfirm.Done, onChooseAnother = { input?.click() })
 }
 
 @Composable
@@ -467,19 +498,23 @@ private fun EditActions(
     }
 }
 
-private fun stagePhoto(
+/**
+ * Read the picked file and open it in the editor; Done stages it with the frame chosen there. Cancel
+ * leaves the form as it was — a pick is not a change until it has been framed.
+ */
+private fun framePickedPhoto(
     scope: CoroutineScope,
     file: File,
+    framing: PhotoFraming,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
     scope.launch {
         val bytes = file.readByteArray() ?: return@launch
-        onEvent(ContributorEditUiEvent.UploadImage(imageData = bytes, filename = file.name, frame = null))
+        framing.openBytes(bytes, initialFrame = null) { frame ->
+            onEvent(ContributorEditUiEvent.UploadImage(imageData = bytes, filename = file.name, frame = frame))
+        }
     }
 }
-
-/** Where the server serves a contributor's photo from. 404s for anyone who has none. */
-internal fun contributorPhotoUrl(contributorId: String): String = "/api/v1/contributors/$contributorId/photo"
 
 private const val ATTR_TYPE = "type"
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorRole
@@ -40,9 +41,17 @@ internal fun readyContributor(
     deleteError: String? = null,
     canEditMetadata: Boolean = true,
     canCurateLibrary: Boolean = true,
+    imagePath: String? = null,
+    imageFrame: ImageFrame? = null,
 ): ContributorDetailUiState.Ready =
     ContributorDetailUiState.Ready(
-        contributor = Contributor(id = ContributorId("c-king"), name = name),
+        contributor =
+            Contributor(
+                id = ContributorId("c-king"),
+                name = name,
+                imagePath = imagePath,
+                imageFrame = imageFrame,
+            ),
         roleSections = roleSections,
         bookProgress = bookProgress,
         bookCreditedAs = bookCreditedAs,

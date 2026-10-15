@@ -6,6 +6,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.awaitPresent
+import com.calypsan.listenup.web.design.buttonLabelled
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.nulls.shouldNotBeNull
 import org.w3c.dom.asList
@@ -36,9 +38,12 @@ class ContributorDetailPageTest :
             onOpenRoleBooks: (String) -> Unit = {},
             onConfirmDelete: () -> Unit = {},
             onDismissDeleteError: () -> Unit = {},
+            onEdit: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 ContributorDetailPage(
+                    onEdit = onEdit,
+                    onAdjustPhoto = {},
                     state = state,
                     onOpenLibrary = onOpenLibrary,
                     onOpenContributors = onOpenContributors,
@@ -389,5 +394,26 @@ class ContributorDetailPageTest :
             (root.querySelectorAll(".cd-view-all").item(1) as HTMLElement).click()
 
             opened shouldBe ContributorRole.NARRATOR.apiValue
+        }
+
+        test("Adjust photo follows Edit metadata, and is there only when there is a photo") {
+            fun adjust(host: HTMLElement) = host.querySelector("button[aria-label='Adjust photo']")
+
+            adjust(contributorDetailPage(readyContributor(imagePath = "contributors/k.jpg"))).shouldNotBeNull()
+            adjust(contributorDetailPage(readyContributor(imagePath = "contributors/k.jpg", canEditMetadata = false))) shouldBe null
+            adjust(contributorDetailPage(readyContributor(imagePath = null))) shouldBe null
+        }
+
+        test("a photo that won't open offers Choose another, which goes to Contributor edit") {
+            var edits = 0
+            val host = contributorDetailPage(readyContributor(imagePath = "contributors/missing.jpg"), onEdit = { edits++ })
+
+            (host.querySelector("button[aria-label='Adjust photo']") as HTMLElement).click()
+            awaitPresent(host, ".fed-error")
+            buttonLabelled("Choose another").shouldNotBeNull().click()
+            awaitFrame()
+
+            edits shouldBe 1
+            host.querySelector("dialog.fed") shouldBe null
         }
     })

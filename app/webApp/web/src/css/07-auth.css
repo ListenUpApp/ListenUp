@@ -255,7 +255,7 @@
 .contrib-row:focus { outline: none; }
 .contrib-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .contrib-avatar {
-  width: 58px; height: 58px; border-radius: var(--r-pill); flex-shrink: 0;
+  width: 58px; height: 58px; border-radius: var(--r-pill); flex-shrink: 0; overflow: hidden;
   color: #FFFFFF; display: flex; align-items: center; justify-content: center;
   font-weight: 800; font-size: 1.25rem;
   box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
@@ -279,7 +279,7 @@
    instead of pushing past the screen's edge. A desktop row has room for all of it and never wraps. */
 .cd-hero { display:flex; flex-wrap:wrap; align-items:center; gap:22px; }
 .cd-avatar {
-  width:104px; height:104px; border-radius:var(--r-pill); flex-shrink:0;
+  width:104px; height:104px; border-radius:var(--r-pill); flex-shrink:0; overflow:hidden;
   color:#FFFFFF; display:flex; align-items:center; justify-content:center;
   font-weight:800; font-size:2.1875rem; letter-spacing:-0.01em;
   box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
@@ -442,6 +442,8 @@
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-3);
   display: flex; align-items: center; justify-content: center;
 }
+/* A contributor hit is a person: their framed photo or initials in a circle, as on the Contributors list. */
+.search-badge.is-person { border-radius: var(--r-pill); border: 0; overflow: hidden; color: #FFFFFF; font-weight: 800; font-size: 0.9375rem; }
 .search-info { flex-grow: 1; min-width: 0; }
 .search-name { font-size: var(--fs-body); font-weight: 700; letter-spacing: -0.01em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search-meta { font-size: var(--fs-small); color: var(--ink-2); font-weight: 500; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

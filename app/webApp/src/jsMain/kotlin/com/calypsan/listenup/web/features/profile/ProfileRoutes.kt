@@ -124,6 +124,7 @@ private fun EditProfileRoute(
         onNewPassword = session.onNewPassword,
         onConfirmPassword = session.onConfirmPassword,
         onPickAvatar = session.onPickAvatar,
+        onReframeAvatar = session.onReframeAvatar,
         onRemoveAvatar = session.onRemoveAvatar,
         onSave = {
             saveError = null

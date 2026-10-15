@@ -6,6 +6,15 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorEdit
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.awaitPresent
+import com.calypsan.listenup.web.design.awaitEditorReady
+import com.calypsan.listenup.web.design.buttonLabelled
+import com.calypsan.listenup.web.design.closeDialogs
+import com.calypsan.listenup.web.design.pickFile
+import com.calypsan.listenup.web.design.pngFile
+import com.calypsan.listenup.web.readByteArray
+import io.kotest.matchers.doubles.shouldBeGreaterThan
+import io.kotest.matchers.doubles.shouldBeLessThan
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
@@ -21,6 +30,8 @@ import org.w3c.dom.HTMLTextAreaElement
 import org.w3c.dom.EventInit
 import org.w3c.dom.asList
 import org.w3c.dom.events.Event
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 
 private val hosts = mutableListOf<HTMLElement>()
 
@@ -472,6 +483,59 @@ class ContributorEditPageTest :
         test("a contributor with a photo shows it") {
             val host = page(editingContributor(imagePath = "contributors/c-king.jpg"))
 
-            host.querySelector("img")?.getAttribute("src") shouldBe "/api/v1/contributors/c-king/photo"
+            host.querySelector("img")?.getAttribute("src") shouldBe "/api/v1/contributors/c-king/photo?v=contributors/c-king.jpg"
+        }
+
+        test("a contributor with a photo offers Adjust photo, and it opens the editor") {
+            val host = page(editingContributor(imagePath = "contributors/c-king.jpg"))
+
+            button(host, "Adjust photo").shouldNotBeNull().click()
+
+            awaitPresent(host, "dialog.fed")
+            closeDialogs(host)
+        }
+
+        test("with no photo and nothing picked, there is nothing to adjust") {
+            val host = page(editingContributor(imagePath = null))
+
+            button(host, "Adjust photo").shouldBeNull()
+        }
+
+        test("a picked photo opens the editor first, and Done stages it with its frame") {
+            val events = mutableListOf<ContributorEditUiEvent>()
+            val host = page(editingContributor(), onEvent = { events += it })
+
+            pickFile(host.querySelector("#ced-photo-input") as HTMLInputElement, pngFile("face.png"))
+            val stage = awaitEditorReady(host)
+            // Nothing is staged until the reader confirms: Cancel would leave the form untouched.
+            events.filterIsInstance<ContributorEditUiEvent.UploadImage>() shouldBe emptyList()
+            stage.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "ArrowUp", bubbles = true)))
+            awaitFrame()
+            buttonLabelled("Done").shouldNotBeNull().click()
+
+            val upload = events.filterIsInstance<ContributorEditUiEvent.UploadImage>().single()
+            upload.filename shouldBe "face.png"
+            upload.frame.shouldNotBeNull().focusY shouldBeLessThan 0.5
+        }
+
+        test("adjusting a staged pick stages only its frame") {
+            val events = mutableListOf<ContributorEditUiEvent>()
+            val bytes = pngFile().readByteArray().shouldNotBeNull()
+            val host =
+                page(
+                    editingContributor().copy(pendingImageData = bytes, pendingImageFilename = "face.png"),
+                    onEvent = { events += it },
+                )
+
+            button(host, "Adjust photo").shouldNotBeNull().click()
+            val stage = awaitEditorReady(host)
+            stage.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "+", bubbles = true)))
+            awaitFrame()
+            buttonLabelled("Done").shouldNotBeNull().click()
+
+            events
+                .filterIsInstance<ContributorEditUiEvent.StageFrame>()
+                .single()
+                .frame.zoom shouldBeGreaterThan 1.0
         }
     })
