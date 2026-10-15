@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.web.design.paletteShortcutLabel
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.domain.GenreShare
@@ -314,7 +315,7 @@ class HomePageTest :
 
         test("a failed Home offers Try again, and pressing it asks Home to reload") {
             var retries = 0
-            val host = homePage(HomeUiState.Error("Failed to load home screen"), onRetry = { retries++ })
+            val host = homePage(HomeUiState.Error(UnexpectedClientError()), onRetry = { retries++ })
 
             val retry = host.buttonsLabelled("Try again")
             retry.size shouldBe 1
@@ -370,10 +371,10 @@ class HomePageTest :
             host.textContent.orEmpty() shouldNotContain "Nothing on the go"
         }
 
-        test("a failed Home surfaces the ViewModel's message rather than a generic apology") {
-            val host = homePage(HomeUiState.Error("Failed to load home screen"))
+        test("a failed Home surfaces the error's message") {
+            val host = homePage(HomeUiState.Error(UnexpectedClientError()))
 
-            host.textContent.orEmpty() shouldContain "Failed to load home screen"
+            host.textContent.orEmpty() shouldContain "Something went wrong in the app."
         }
 
         // ⛔ While selecting, a press PICKS instead of opening. One gesture, two jobs, decided by

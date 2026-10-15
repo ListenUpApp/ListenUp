@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
 /**
- * An open Home session: the two state streams the page reads, and the teardown for them.
+ * An open Home session: the two state streams the page reads, the actions it can take, and the teardown for them.
  *
  * Home is the only web page backed by TWO ViewModels. They are genuinely separate upstreams —
  * [HomeViewModel] combines user, continue-listening, shelves and sync/scan, while
@@ -33,6 +33,10 @@ class HomeSession(
     val onRetry: () -> Unit,
     /** Re-runs failed stats; offered only on the failed stats section. */
     val onRetryStats: () -> Unit,
+    /** Dismisses a book's just-finished card on every device. Drawn in Home PR 4. */
+    val onDismissFinished: (bookId: String) -> Unit,
+    /** Rates a book from its just-finished card, in half stars (2..10). Drawn in Home PR 4. */
+    val onRateFinished: (bookId: String, halfStars: Int) -> Unit,
     override val close: () -> Unit,
 ) : RouteSession
 
@@ -64,6 +68,8 @@ fun graphHome(koin: Koin): OpenHome =
             stats = stats.uiState,
             onRetry = home::refresh,
             onRetryStats = stats::refresh,
+            onDismissFinished = home::dismissFinished,
+            onRateFinished = home::rateFinished,
             close = store::clear,
         )
     }
@@ -74,6 +80,8 @@ fun fixedHome(
     stats: HomeStatsUiState = HomeStatsUiState.Loading,
     onRetry: () -> Unit = {},
     onRetryStats: () -> Unit = {},
+    onDismissFinished: (String) -> Unit = {},
+    onRateFinished: (String, Int) -> Unit = { _, _ -> },
 ): OpenHome =
     {
         HomeSession(
@@ -81,6 +89,8 @@ fun fixedHome(
             stats = MutableStateFlow(stats),
             onRetry = onRetry,
             onRetryStats = onRetryStats,
+            onDismissFinished = onDismissFinished,
+            onRateFinished = onRateFinished,
             close = {},
         )
     }
