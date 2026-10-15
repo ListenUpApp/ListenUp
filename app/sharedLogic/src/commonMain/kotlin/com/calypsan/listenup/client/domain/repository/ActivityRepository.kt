@@ -36,4 +36,14 @@ interface ActivityRepository {
         userId: String,
         limit: Int,
     ): Flow<List<ProfileRecentBook>>
+
+    /**
+     * The display names of everyone but [excludeUserId] who finished [bookId], newest finish first — Home's "Maya and
+     * Tom finished it too". A person whose profile has not arrived yet is an empty name. Room only, so it works
+     * offline.
+     */
+    fun observeOtherFinishers(
+        bookId: String,
+        excludeUserId: String,
+    ): Flow<List<String>>
 }

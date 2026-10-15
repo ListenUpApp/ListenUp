@@ -77,6 +77,29 @@ internal interface ActivityDao {
         limit: Int,
     ): Flow<List<RecentlyListenedBook>>
 
+    /**
+     * Everyone but [excludeUserId] who finished [bookId], once each at their newest finish, newest first. Identity is
+     * joined from the local `public_profiles` mirror (null until it arrives). Re-emits when `activities` or
+     * `public_profiles` change. Tombstoned activities are excluded.
+     */
+    @Query(
+        """
+        SELECT a.userId AS userId, pp.displayName AS displayName, MAX(a.occurredAt) AS finishedAt
+        FROM activities a
+        LEFT JOIN public_profiles pp ON pp.id = a.userId
+        WHERE a.bookId = :bookId
+          AND a.type = '${ActivityType.FINISHED_BOOK}'
+          AND a.deletedAt IS NULL
+          AND a.userId != :excludeUserId
+        GROUP BY a.userId
+        ORDER BY finishedAt DESC, a.userId
+    """,
+    )
+    fun observeFinishersOf(
+        bookId: String,
+        excludeUserId: String,
+    ): Flow<List<BookFinisherRow>>
+
     /** Read a single activity row (tombstone-inclusive) — the mirror's insert-if-absent probe. */
     @Query("SELECT * FROM activities WHERE id = :id")
     suspend fun getById(id: String): ActivityEntity?
@@ -206,4 +229,11 @@ internal data class RecentlyListenedBook(
     val title: String,
     val coverHash: String?,
     val lastListenedAt: Long,
+)
+
+/** One person who finished a book: who, their name if their profile has arrived, and their newest finish (epoch ms). */
+internal data class BookFinisherRow(
+    val userId: String,
+    val displayName: String?,
+    val finishedAt: Long,
 )
