@@ -28,7 +28,6 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
-import com.calypsan.listenup.client.features.shell.components.NavigationBarHeight
 import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -183,25 +182,18 @@ fun NowPlayingHost(
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         } else if (!hasBottomNav) {
-            // Only render floating mini bar on detail screens (not Shell)
-            // When hasBottomNav=true, the mini bar is rendered inside AppShell's bottomBar
-            val navBarInsets = WindowInsets.navigationBars
-            val density = LocalDensity.current
-            val systemNavBarHeight = with(density) { navBarInsets.getBottom(density).toDp() }
+            // Detail screens: no navigation bar under it, so the docked bar sits at the bottom edge and runs under the
+            // gesture area, padding its own row clear of it. Its measured footprint therefore already includes that
+            // inset, which is what LocalNowPlayingInsets must span for ListenUpScaffold to clear it. (On the shell the
+            // bar lives in AppShell's bottomBar, above the navigation bar, which pads the tab content itself.)
             val snackbarPadding = if (isSnackbarVisible) SnackbarHeight + 8.dp else 0.dp
-            val targetBottomPadding =
-                if (hasBottomNav) {
-                    NavigationBarHeight + systemNavBarHeight + snackbarPadding
-                } else {
-                    systemNavBarHeight + 8.dp + snackbarPadding
-                }
             val bottomPadding by animateDpAsState(
-                targetValue = targetBottomPadding,
+                targetValue = snackbarPadding,
                 // Matches ProvideNowPlayingInsets, so content clears the bar in step with it.
                 animationSpec = motion.defaultSpatialSpec(),
                 label = "miniPlayerPosition",
             )
-
+            val density = LocalDensity.current
             NowPlayingBar(
                 state = state,
                 progress = provideProgress,
@@ -211,19 +203,14 @@ fun NowPlayingHost(
                 onSkipBack = { viewModel.skipBack() },
                 onKeepListening = viewModel::cancelSleepTimer,
                 skipBackwardSec = skipBackwardSec,
+                bottomInset = WindowInsets.navigationBars,
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
                         .onSizeChanged { size ->
-                            // Report the bar's FULL resting footprint — its own height *plus* the
-                            // nav-bar + 8dp offset it floats above — by measuring outside the
-                            // .padding below. LocalNowPlayingInsets must span from the screen bottom
-                            // to the bar's top edge so ListenUpScaffold's union with the system bars
-                            // clears a docked bottomBar (e.g. Save Changes); measuring inside the
-                            // padding under-reported by exactly that offset and let the bar overlap.
-                            // A visible snackbar lifts the bar (snackbarPadding) — reporting that
-                            // would reflow every detail screen up for the snackbar's duration, so we
-                            // skip those measurements.
+                            // Measured outside the snackbar lift below. A visible snackbar lifts the bar; reporting
+                            // that would reflow every detail screen for the snackbar's lifetime, so those
+                            // measurements are skipped.
                             if (!isSnackbarVisible) {
                                 onBarFootprintChanged(with(density) { size.height.toDp() })
                             }
