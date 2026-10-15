@@ -341,17 +341,17 @@ class NowPlayingPanelTest :
             (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Loading. Pause"
         }
 
-        test("a dropped connection keeps the stalled control and says Reconnecting…, bar and panel alike") {
+        test("a dropped connection keeps the stalled control and names it Reconnecting. Pause, bar and panel alike") {
             // The shared model tells a network drop inside its grace from an ordinary stall; the control
             // looks the same as Buffering until the player redesign, but its words say what is happening.
             val host = plainBar(kings(phase = PlayerPhase.Reconnecting))
 
             host.querySelector(".tport-wait").shouldNotBeNull()
-            (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Reconnecting…"
-            (host.querySelector(".tport-b") as HTMLElement).getAttribute("title") shouldBe "Reconnecting…"
+            (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Reconnecting. Pause"
+            (host.querySelector(".tport-b") as HTMLElement).getAttribute("title") shouldBe "Reconnecting. Pause"
 
             val panel = openPanel(kings(phase = PlayerPhase.Reconnecting))
-            (panel.querySelector(".np-play") as HTMLElement).getAttribute("aria-label") shouldBe "Reconnecting…"
+            (panel.querySelector(".np-play") as HTMLElement).getAttribute("aria-label") shouldBe "Reconnecting. Pause"
         }
 
         test("a player that is merely playing shows no spinner") {

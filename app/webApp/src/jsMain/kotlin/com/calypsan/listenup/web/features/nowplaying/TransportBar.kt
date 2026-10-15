@@ -172,6 +172,12 @@ fun TransportBar(
             })
         }
 
+        // Polite, and empty except while reconnecting: inserting the word is what a screen reader announces, once (§8).
+        Span(attrs = {
+            classes("sr-only")
+            attr("role", "status")
+        }) { if (line == MiniPlayerLine.Reconnecting) Text("Reconnecting…") }
+
         // The book is the target (M1): one button into Now Playing, named for the book and where it is.
         // A `<button>` until PR 3 gives Now Playing a route to link to.
         Button(attrs = {
@@ -391,13 +397,14 @@ private fun BarPill(
 }
 
 /**
- * What the main button says it will do: its accessible name and its tooltip. A stall the network caused says so
- * (en.json's `player.reconnecting`); any other stall is plain loading.
+ * What the main button says it will do: its accessible name and its tooltip. A stall the network caused says so,
+ * and that Pause still works (en.json's `player.mini_reconnecting_a11y`, the `Reconnecting` board); any other
+ * stall is "Loading. Pause".
  */
 internal fun primaryLabel(
     primary: PrimaryControl,
     phase: PlayerPhase,
-): String = if (phase == PlayerPhase.Reconnecting) "Reconnecting…" else primaryActionLabel(primary)
+): String = if (phase == PlayerPhase.Reconnecting) "Reconnecting. Pause" else primaryActionLabel(primary)
 
 private fun primaryActionLabel(primary: PrimaryControl): String =
     when (primary) {

@@ -62,6 +62,7 @@ class MiniPlayerWordsTest :
         test("the transitional and terminal states") {
             miniLineText(MiniPlayerLine.Starting, EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe "Starting…"
             miniLineText(MiniPlayerLine.Loading, EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe "Loading…"
+            miniLineText(MiniPlayerLine.Reconnecting, EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe "Reconnecting…"
             miniLineText(MiniPlayerLine.FadingOut, EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe "Sleep timer · fading out"
             miniLineText(MiniPlayerLine.Finished, EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe "Finished"
         }

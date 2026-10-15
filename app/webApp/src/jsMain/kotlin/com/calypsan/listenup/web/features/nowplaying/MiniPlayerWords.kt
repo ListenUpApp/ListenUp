@@ -100,8 +100,8 @@ internal fun spokenDuration(ms: Long): String {
 private fun statusWords(line: MiniPlayerLine): String =
     when (line) {
         MiniPlayerLine.Starting -> "Starting…"
-        // Drawn as an ordinary stall until the Reconnecting words land (plan group R).
-        MiniPlayerLine.Loading, MiniPlayerLine.Reconnecting -> "Loading…"
+        MiniPlayerLine.Loading -> "Loading…"
+        MiniPlayerLine.Reconnecting -> "Reconnecting…"
         MiniPlayerLine.FadingOut -> "Sleep timer · fading out"
         MiniPlayerLine.Finished -> "Finished"
         is MiniPlayerLine.Problem -> line.error.miniPlayerWords()

@@ -499,4 +499,17 @@ class TransportBarTest :
                 .querySelector(".tport-note")
                 .shouldBeNull()
         }
+
+        test("a dropped connection says Reconnecting in the line and once in a status region; back keeps its slot") {
+            val host = bar(chaptered(phase = PlayerPhase.Reconnecting, primary = PrimaryControl.Busy), CHAPTER_PROGRESS)
+            host.querySelector(".tport-sub.desk")!!.textContent shouldBe "Reconnecting…"
+            host.querySelector(".tport [role=status]")!!.textContent shouldBe "Reconnecting…"
+            host.querySelector(".tport-b")!!.getAttribute("aria-label") shouldBe "Reconnecting. Pause"
+            host.querySelector(".tport-back")!!.classList.contains("off") shouldBe true
+        }
+
+        test("the status region is empty in every other state, so it speaks only when reconnecting starts") {
+            val host = bar(chaptered(), CHAPTER_PROGRESS)
+            host.querySelector(".tport [role=status]")!!.textContent shouldBe ""
+        }
     })
