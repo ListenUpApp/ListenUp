@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.playback.SleepTimerMode
@@ -16,6 +17,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -184,6 +186,8 @@ private class FakeHome(
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
         if (books.isEmpty()) AppResult.Failure(InternalError()) else AppResult.Success(books.take(limit))
 
+    override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> = emptyFlow()
+
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
 }
 
@@ -196,5 +200,7 @@ private fun book(id: String) =
         progress = 0.5f,
         currentPositionMs = 3_600_000L,
         totalDurationMs = 7_200_000L,
-        lastPlayedAt = "2024-01-01T12:00:00Z",
+        narratorNames = null,
+        lastPlayedAtMs = 1_704_067_200_000L,
+        isDownloaded = false,
     )

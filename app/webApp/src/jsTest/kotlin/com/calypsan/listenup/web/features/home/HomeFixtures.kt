@@ -1,13 +1,17 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.client.presentation.home.HomeConnectivity
+import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import com.calypsan.listenup.core.ShelfId
 
 private const val HOUR_MS = 3_600_000L
@@ -31,7 +35,9 @@ internal fun continuing(
                 progress = progress,
                 currentPositionMs = (totalHours * HOUR_MS * progress).toLong(),
                 totalDurationMs = totalHours * HOUR_MS,
-                lastPlayedAt = "2026-08-24T09:00:00Z",
+                narratorNames = null,
+                lastPlayedAtMs = 1_704_067_200_000L,
+                isDownloaded = false,
             ),
     )
 
@@ -44,6 +50,9 @@ internal fun readyHome(
     isSyncing: Boolean = false,
     isBuildingInitialLibrary: Boolean = false,
     scanProgress: ScanProgressState? = null,
+    slot: HomeSlot = HomeSlot.Absent,
+    connectivity: HomeConnectivity = HomeConnectivity.Online,
+    continueListeningError: AppError? = null,
 ): HomeUiState.Ready =
     HomeUiState.Ready(
         userName = userName,
@@ -53,6 +62,12 @@ internal fun readyHome(
         isSyncing = isSyncing,
         isBuildingInitialLibrary = isBuildingInitialLibrary,
         scanProgress = scanProgress,
+        timeOfDay = TimeOfDay.Afternoon,
+        firstName = userName.ifBlank { null },
+        slot = slot,
+        alsoInProgress = continueListening,
+        connectivity = connectivity,
+        continueListeningError = continueListeningError,
     )
 
 /** A shelf with enough shape for Home to render a row for it. */

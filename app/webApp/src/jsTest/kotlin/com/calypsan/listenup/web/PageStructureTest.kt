@@ -2,6 +2,7 @@ package com.calypsan.listenup.web
 
 import androidx.compose.runtime.Composition
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
@@ -180,7 +181,7 @@ private class PageState(
 private val PAGE_STATES =
     listOf(
         PageState("Home, loading") { mountAt("/") },
-        PageState("Home, failed") { mountAt("/", openHome = fixedHome(HomeUiState.Error("Home failed"))) },
+        PageState("Home, failed") { mountAt("/", openHome = fixedHome(HomeUiState.Error(UnexpectedClientError()))) },
         PageState("Library, loading") { mountAt("/library") },
         PageState("Library, failed") { mountAt("/library", openLibrary = fakeLibrary(LibraryUiState.Error("nope"))) },
         PageState("Contributors, loading") { mountAt("/library/contributors") },

@@ -1,17 +1,27 @@
 package com.calypsan.listenup.client.presentation.home
 
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
+import com.calypsan.listenup.client.test.fake.FakeNetworkMonitor
+import com.calypsan.listenup.client.test.fake.FakeServerReachability
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -19,16 +29,19 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -43,7 +56,7 @@ import kotlinx.coroutines.test.setMain
  * - User observation and name extraction
  * - Greeting generation (userName updates)
  * - State derived properties
- * - Snackbar emission on continue-listening failure
+ * - The slot, typed errors and the finish-card actions
  *
  * Uses Mokkery for mocking repositories.
  */
@@ -54,7 +67,9 @@ class HomeViewModelTest :
 
         // ========== Test Fixtures ==========
 
-        class TestFixture {
+        class TestFixture(
+            failWrites: Boolean = false,
+        ) {
             val homeRepository: HomeRepository = mock()
             val userRepository: UserRepository = mock()
             val shelfRepository: ShelfRepository = mock()
@@ -66,6 +81,10 @@ class HomeViewModelTest :
             val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
             val buildingInitialLibraryFlow = MutableStateFlow(false)
             var currentHour: Int = 10 // Default to morning
+            val rig = HomeSlotRig(failWrites = failWrites)
+            val reachability = FakeServerReachability()
+            val network = FakeNetworkMonitor()
+            val errorBus = ErrorBus()
 
             fun build(): HomeViewModel {
                 every { syncRepository.scanProgress } returns scanProgressFlow
@@ -76,13 +95,17 @@ class HomeViewModelTest :
                     userRepository = userRepository,
                     shelfRepository = shelfRepository,
                     syncRepository = syncRepository,
+                    slotPresenter = rig.presenter(),
+                    serverReachability = reachability,
+                    networkMonitor = network,
+                    errorBus = errorBus,
                     currentHour = { currentHour },
                 )
             }
         }
 
-        fun createFixture(): TestFixture {
-            val fixture = TestFixture()
+        fun createFixture(failWrites: Boolean = false): TestFixture {
+            val fixture = TestFixture(failWrites)
 
             // Default stubs for reactive observation
             every { fixture.userRepository.observeCurrentUser() } returns fixture.userFlow
@@ -131,7 +154,9 @@ class HomeViewModelTest :
                 progress = progress,
                 currentPositionMs = currentPositionMs,
                 totalDurationMs = totalDurationMs,
-                lastPlayedAt = "2024-01-01T00:00:00Z",
+                narratorNames = null,
+                lastPlayedAtMs = 1_704_067_200_000L,
+                isDownloaded = false,
             )
 
         fun createReadyItem(
@@ -402,7 +427,7 @@ class HomeViewModelTest :
         }
 
         test("a failed Continue Listening row comes back when refresh is called") {
-            // Continue Listening falls back to an empty row (plus a snackbar) rather than failing
+            // Continue Listening falls back to an empty row (plus a typed error) rather than failing
             // the screen — and that fallback, too, used to be the row's last word.
             runTest {
                 val fixture = createFixture()
@@ -639,24 +664,190 @@ class HomeViewModelTest :
             }
         }
 
-        // ========== Snackbar Tests ==========
+        test("no Ready while the loaded book is still restoring") {
+            runTest {
+                val fixture = createFixture()
+                fixture.rig.loaded.value = LoadedBook.Restoring
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Loading>()
 
-        test("continue listening failure emits snackbar") {
+                fixture.rig.loaded.value = LoadedBook.NothingLoaded
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+            }
+        }
+
+        test("Ready carries the slot, the rail, the time of day and the first name") {
+            runTest {
+                val fixture = createFixture()
+                fixture.userFlow.value = createUser(displayName = "John Smith")
+                fixture.continueListeningFlow.value = listOf(createReadyItem(bookId = "a"), createReadyItem(bookId = "b"))
+                fixture.rig.play("a", hoursAgo = 1)
+                fixture.rig.play("b", hoursAgo = 2)
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.slot
+                    .shouldBeInstanceOf<HomeSlot.Resume>()
+                    .book.bookId shouldBe "a"
+                ready.alsoInProgress.map { it.bookId } shouldBe listOf("b")
+                ready.continueListening.map { it.bookId } shouldBe listOf("a", "b")
+                ready.timeOfDay shouldBe TimeOfDay.Morning
+                ready.firstName shouldBe "John"
+                ready.connectivity shouldBe HomeConnectivity.Online
+                ready.continueListeningError shouldBe null
+            }
+        }
+
+        test("a loaded book leaves no slot and is not on the rail") {
+            runTest {
+                val fixture = createFixture()
+                fixture.continueListeningFlow.value = listOf(createReadyItem(bookId = "a"), createReadyItem(bookId = "b"))
+                fixture.rig.loaded.value = LoadedBook.Loaded("b", isPlaying = false, isFinished = false)
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.slot shouldBe HomeSlot.Absent
+                ready.alsoInProgress.map { it.bookId } shouldBe listOf("a")
+            }
+        }
+
+        test("refresh is a decision point: a finish that landed meanwhile takes the slot") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.sync() } returns AppResult.Success(Unit)
+                fixture.continueListeningFlow.value = listOf(createReadyItem(bookId = "a"))
+                fixture.rig.play("a", hoursAgo = 5)
+                fixture.rig.books.setBooks(listOf(TestData.bookListItem(id = "done")))
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                fixture.rig.finish("done", hoursAgo = 1)
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot
+                    .shouldBeInstanceOf<HomeSlot.Resume>()
+
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot
+                    .shouldBeInstanceOf<HomeSlot.JustFinished>()
+                    .card.book.bookId shouldBe "done"
+            }
+        }
+
+        test("dismissFinished retires the card at once and records the dismissal") {
+            runTest {
+                val fixture = createFixture()
+                fixture.rig.finish("done", hoursAgo = 3)
+                fixture.rig.books.setBooks(listOf(TestData.bookListItem(id = "done")))
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot
+                    .shouldBeInstanceOf<HomeSlot.JustFinished>()
+
+                viewModel.dismissFinished("done")
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot
+                    .shouldBeInstanceOf<HomeSlot.NothingInProgress>()
+                fixture.rig.positions
+                    .observe(BookId("done"))
+                    .first()
+                    .shouldNotBeNull()
+                    .finishedCardDismissedAtMs shouldBe RIG_NOW
+            }
+        }
+
+        test("a dismissal that cannot be saved brings the card back and says why") {
+            runTest {
+                val fixture = createFixture(failWrites = true)
+                fixture.rig.finish("done", hoursAgo = 3)
+                fixture.rig.books.setBooks(listOf(TestData.bookListItem(id = "done")))
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                val errors = mutableListOf<AppError>()
+                // Unconfined, so the bus has its subscriber before anything emits (the bus does not replay).
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { fixture.errorBus.errors.collect { errors += it } }
+                advanceUntilIdle()
+
+                viewModel.dismissFinished("done")
+                advanceUntilIdle()
+
+                errors.single().shouldBeInstanceOf<UnexpectedClientError>()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot
+                    .shouldBeInstanceOf<HomeSlot.JustFinished>()
+            }
+        }
+
+        test("rateFinished writes through; a failure goes to the error bus") {
+            runTest {
+                val fixture = createFixture()
+                fixture.rig.finish("done", hoursAgo = 3)
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                val errors = mutableListOf<AppError>()
+                // Unconfined, so the bus has its subscriber before anything emits (the bus does not replay).
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { fixture.errorBus.errors.collect { errors += it } }
+                advanceUntilIdle()
+
+                viewModel.rateFinished("done", halfStars = 8)
+                advanceUntilIdle()
+                verifySuspend { fixture.rig.ratings.rate("done", 8, null) }
+                errors shouldBe emptyList()
+
+                fixture.rig.rateResult = AppResult.Failure(UnexpectedClientError())
+                viewModel.rateFinished("done", halfStars = 4)
+                advanceUntilIdle()
+                errors.single().shouldBeInstanceOf<UnexpectedClientError>()
+            }
+        }
+
+        test("connectivity follows the device's network, then the server") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                fixture.reachability.state.value = Reachability.Unreachable
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .connectivity shouldBe
+                    HomeConnectivity.ServerUnreachable
+
+                fixture.network.onlineFlow.value = false
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .connectivity shouldBe HomeConnectivity.Offline
+            }
+        }
+
+        // ========== Slot, errors and actions ==========
+
+        test("a Continue Listening failure is Ready.continueListeningError, and the rest of Home stays up") {
             runTest {
                 val fixture = createFixture()
                 every { fixture.homeRepository.observeContinueListening(any()) } returns
                     flow { throw SimulatedFailure("boom") }
-                val viewModel = fixture.build()
-
-                val emitted = mutableListOf<String>()
-                // Ordering matters: the snackbar collector must subscribe to the Channel-backed
-                // Flow before state subscription triggers the catch { trySend(...) } so the
-                // emission is routed to a live collector under runTest's virtual scheduler.
-                backgroundScope.launch { viewModel.snackbarMessages.collect { emitted += it } }
-                keepStateHot(viewModel)
+                fixture.userFlow.value = createUser(displayName = "Jane Doe")
+                val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
 
-                emitted.contains("Failed to load continue listening") shouldBe true
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.continueListeningError shouldBe ErrorMapper.map(SimulatedFailure("boom"))
+                ready.firstName shouldBe "Jane"
             }
         }
 
@@ -696,6 +887,10 @@ class HomeViewModelTest :
                         userRepository = fixture.userRepository,
                         shelfRepository = fixture.shelfRepository,
                         syncRepository = fixture.syncRepository,
+                        slotPresenter = fixture.rig.presenter(),
+                        serverReachability = fixture.reachability,
+                        networkMonitor = fixture.network,
+                        errorBus = fixture.errorBus,
                         currentHour = { throw SimulatedFailure("upstream boom") },
                     )
                 // Emit a non-null user so the combine pipeline's transform actually runs.
@@ -705,7 +900,7 @@ class HomeViewModelTest :
 
                 val state = viewModel.state.value
                 val error = state.shouldBeInstanceOf<HomeUiState.Error>()
-                error.message shouldBe "Failed to load home screen"
+                error.error shouldBe ErrorMapper.map(SimulatedFailure("upstream boom"))
             }
         }
     })

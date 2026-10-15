@@ -41,6 +41,11 @@ class ClientKoinGraphE2ETest :
             fixture.koin.koin.get<AuthSession>() shouldNotBe null
         }
 
+        test("Home's ViewModel and slot presenter resolve from the real graph (internal constructors; Koin verify cannot see them)") {
+            val fixture = autoClose(DiWiredClientFixture.start())
+            fixture.koin.koin.get<com.calypsan.listenup.client.presentation.home.HomeViewModel>() shouldNotBe null
+        }
+
         test("registration watch streams resolve from the graph") {
             // Regression guard (historical): the SSE-era Impls took `connectTimeoutMillis: Long = DEFAULT`,
             // and a `singleOf(::…)` binding made Koin resolve EVERY param via the graph (Kotlin defaults

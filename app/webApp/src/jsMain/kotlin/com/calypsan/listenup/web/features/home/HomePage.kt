@@ -82,7 +82,7 @@ fun HomePage(
 
             is HomeUiState.Error -> {
                 PageHeader(title = HOME, documentTitle = null)
-                EmptyState(title = "Home is unavailable", body = state.message) {
+                EmptyState(title = "Home is unavailable", body = state.error.message) {
                     Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }

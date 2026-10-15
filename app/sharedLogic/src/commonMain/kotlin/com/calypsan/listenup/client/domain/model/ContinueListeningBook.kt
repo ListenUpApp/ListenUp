@@ -9,19 +9,24 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * Combines playback progress data with book metadata for UI display.
  * Provides computed properties for progress display and time remaining.
+ *
+ * @property narratorNames the narrators joined with ", ", or null when the book names none.
+ * @property lastPlayedAtMs when the reader last played it, epoch ms (the position's lastPlayedAt, else its updatedAt).
+ * @property isDownloaded every file is on this device, so it plays with no server.
  */
 data class ContinueListeningBook(
     val bookId: String,
     val title: String,
     val authorNames: String,
+    val narratorNames: String?,
     val coverPath: String?,
     val coverHash: String? = null,
     // 0.0 - 1.0
     val progress: Float,
     val currentPositionMs: Long,
     val totalDurationMs: Long,
-    // ISO 8601 timestamp
-    val lastPlayedAt: String,
+    val lastPlayedAtMs: Long,
+    val isDownloaded: Boolean,
 ) {
     /**
      * Time remaining in milliseconds.

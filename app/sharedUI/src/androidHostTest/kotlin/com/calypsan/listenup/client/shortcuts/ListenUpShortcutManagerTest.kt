@@ -8,6 +8,7 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
@@ -17,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -48,6 +50,8 @@ class ListenUpShortcutManagerTest {
                     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
                         AppResult.Success(emptyList())
 
+                    override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> = emptyFlow()
+
                     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
                 },
             scope = CoroutineScope(Dispatchers.Unconfined),
@@ -66,6 +70,8 @@ class ListenUpShortcutManagerTest {
                         object : HomeRepository {
                             override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
                                 throw CancellationException("shortcut refresh cancelled")
+
+                            override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> = emptyFlow()
 
                             override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
                         },
@@ -237,6 +243,8 @@ class ListenUpShortcutManagerTest {
     private fun emptyHomeRepository(): HomeRepository =
         object : HomeRepository {
             override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = AppResult.Success(emptyList())
+
+            override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> = emptyFlow()
 
             override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
         }

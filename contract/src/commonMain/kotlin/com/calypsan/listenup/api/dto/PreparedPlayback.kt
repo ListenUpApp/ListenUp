@@ -76,6 +76,12 @@ data class RecordPositionRequest(
      * (on Hardcover, live or as history); a server that predates it ignores it.
      */
     @SerialName("startedAt") val startedAt: Long? = null,
+    /**
+     * When the reader dismissed this book's "just finished" card on Home, epoch ms, or null when this write says
+     * nothing about it. The server keeps the latest dismissal it has seen and null never erases one, whatever the
+     * write's [lastPlayedAt] does: dismissing is not listening. See [PlaybackPositionSyncPayload.finishedCardDismissedAt].
+     */
+    @SerialName("finishedCardDismissedAt") val finishedCardDismissedAt: Long? = null,
 )
 
 /**

@@ -17,6 +17,14 @@ internal fun describeSupersededPositionWrite(
     deviceNowMs: Long,
 ): String? {
     if (result.accepted) return null
+    // A dismissal claims no newer listening, so it always "loses" the lastPlayedAt guard; it landed if the server holds it.
+    val dismissal = request.finishedCardDismissedAt
+    if (dismissal != null &&
+        request.lastPlayedAt == result.position.lastPlayedAt &&
+        (result.position.finishedCardDismissedAt ?: Long.MIN_VALUE) >= dismissal
+    ) {
+        return null
+    }
     return "Position write superseded for book=${request.bookId}: " +
         "sent lastPlayedAt=${request.lastPlayedAt} pos=${request.positionMs} finished=${request.finished}; " +
         "server kept lastPlayedAt=${result.position.lastPlayedAt} pos=${result.position.positionMs}; " +

@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 
@@ -67,4 +68,10 @@ interface HomeRepository {
      * @return Flow emitting list of [ContinueListeningItem] whenever positions change
      */
     fun observeContinueListening(limit: Int = 10): Flow<List<ContinueListeningItem>>
+
+    /**
+     * The library as a new listener's Home shows it: the newest [coverLimit] books that have a cover, newest first.
+     * Held books are left out. Room only.
+     */
+    fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase>
 }

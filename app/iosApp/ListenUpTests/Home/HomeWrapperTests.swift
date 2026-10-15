@@ -1,3 +1,4 @@
+import Foundation
 import ListenupContract
 import Testing
 import Shared
@@ -16,12 +17,14 @@ struct HomeWrapperTests {
             bookId: "book-1",
             title: "The Way of Kings",
             authorNames: "Brandon Sanderson",
+            narratorNames: "Michael Kramer, Kate Reading",
             coverPath: "/covers/wok.jpg",
             coverHash: nil,
             progress: 0.42,
             currentPositionMs: 1_000,
             totalDurationMs: 10_000,
-            lastPlayedAt: "2026-06-11T00:00:00Z"
+            lastPlayedAtMs: 1_760_000_000_000,
+            isDownloaded: true
         )
         let item = ContinueItem(from: ContinueListeningItemReady(bookId: "book-1", book: book))
 
@@ -35,6 +38,9 @@ struct HomeWrapperTests {
         // timeLeft is the KMP computed `timeRemainingFormatted` passed straight through.
         #expect(item.timeLeft == book.timeRemainingFormatted)
         #expect(item.isLoading == false)
+        #expect(item.narrators == "Michael Kramer, Kate Reading")
+        #expect(item.isDownloaded == true)
+        #expect(item.lastPlayedAt == Date(timeIntervalSince1970: 1_760_000_000))
     }
 
     // MARK: - ContinueItem (Loading skeleton)
@@ -165,7 +171,13 @@ struct HomeWrapperTests {
             myShelves: [],
             isSyncing: false,
             isBuildingInitialLibrary: false,
-            scanProgress: nil
+            scanProgress: nil,
+            timeOfDay: TimeOfDay.Evening,
+            firstName: "Simon",
+            slot: HomeSlotAbsent.shared,
+            alsoInProgress: [],
+            connectivity: HomeConnectivity.Online,
+            continueListeningError: nil
         )
         let mapped = HomeReady(from: ready)
 
@@ -174,5 +186,97 @@ struct HomeWrapperTests {
         // The KMP getter combines them; the wrapper must NOT carry the combined form.
         #expect(mapped.timeGreeting != ready.greeting)
         #expect(ready.greeting == "Good evening, Simon")
+        #expect(mapped.timeOfDay == .evening)
+        #expect(mapped.firstName == "Simon")
+        #expect(mapped.slot == .absent)
+        #expect(mapped.connectivity == .online)
+        #expect(mapped.continueListeningError == nil)
+    }
+
+    // MARK: - Slot
+
+    private func clBook(_ id: String) -> ContinueListeningBook {
+        ContinueListeningBook(
+            bookId: id, title: "Book \(id)", authorNames: "A. Writer", narratorNames: nil, coverPath: nil, coverHash: nil,
+            progress: 0.5, currentPositionMs: 1_000, totalDurationMs: 2_000, lastPlayedAtMs: 0, isDownloaded: false
+        )
+    }
+
+    private func next(_ id: String) -> NextInSeries {
+        NextInSeries(
+            bookId: id, title: "Words of Radiance", coverPath: nil, coverHash: nil, narratorNames: "Kate Reading",
+            seriesName: "The Stormlight Archive", sequenceLabel: "2", durationMs: 173_700_000
+        )
+    }
+
+    @Test func slotMapsResume() {
+        let slot = HomeSlotItem(from: HomeSlotResume(
+            book: clBook("a"), next: next("b"), chapter: HeroChapter(number: 6, title: "Bridge Four"), canPlay: false
+        ))
+        guard case .resume(let resume) = slot else { Issue.record("expected resume"); return }
+        #expect(resume.book.id == "a")
+        #expect(resume.next?.id == "b")
+        #expect(resume.next?.seriesName == "The Stormlight Archive")
+        #expect(resume.chapterNumber == 6)
+        #expect(resume.chapterTitle == "Bridge Four")
+        #expect(resume.canPlay == false)
+    }
+
+    @Test func slotMapsJustFinished() {
+        let card = FinishedCard(
+            book: FinishedBook(
+                bookId: "done", title: "The Way of Kings", authorNames: "Brandon Sanderson",
+                coverPath: nil, coverHash: nil, durationMs: 163_800_000
+            ),
+            startedAtMs: 1_757_000_000_000,
+            finishedAtMs: 1_760_000_000_000,
+            yourHalfStars: 8,
+            next: next("words"),
+            alsoFinished: AlsoFinished(names: ["Maya", "Tom"], othersCount: 1)
+        )
+        guard case .justFinished(let finished) = HomeSlotItem(from: HomeSlotJustFinished(card: card)) else {
+            Issue.record("expected justFinished"); return
+        }
+        #expect(finished.bookId == "done")
+        #expect(finished.finishedAt == Date(timeIntervalSince1970: 1_760_000_000))
+        #expect(finished.startedAt == Date(timeIntervalSince1970: 1_757_000_000))
+        #expect(finished.yourHalfStars == 8)
+        #expect(finished.next?.id == "words")
+        #expect(finished.alsoFinishedNames == ["Maya", "Tom"])
+        #expect(finished.alsoFinishedOthers == 1)
+    }
+
+    @Test func slotMapsTheQuietKinds() {
+        #expect(HomeSlotItem(from: HomeSlotAbsent.shared) == .absent)
+        #expect(HomeSlotItem(from: HomeSlotFirstSync.shared) == .firstSync)
+        #expect(HomeSlotItem(from: HomeSlotNothingInProgress(candidate: nil)) == .nothingInProgress(nil))
+        let newListener = HomeSlotItem(from: HomeSlotNewListener(
+            covers: [ShelfCover(bookId: "n1", coverPath: "/c/n1.jpg", coverHash: "h1")]
+        ))
+        guard case .newListener(let covers) = newListener else { Issue.record("expected newListener"); return }
+        #expect(covers.map(\.bookId) == ["n1"])
+    }
+
+    @Test func readyCarriesTheContinueListeningErrorMessage() {
+        let ready = HomeUiStateReady(
+            userName: "", timeGreeting: "Good morning", continueListening: [], myShelves: [], isSyncing: false,
+            isBuildingInitialLibrary: false, scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
+            slot: HomeSlotAbsent.shared, alsoInProgress: [ContinueListeningItemReady(bookId: "b", book: clBook("b"))],
+            connectivity: HomeConnectivity.ServerUnreachable,
+            continueListeningError: UnexpectedClientError(correlationId: nil, debugInfo: nil)
+        )
+        let mapped = HomeReady(from: ready)
+        #expect(mapped.continueListeningError == "Something went wrong in the app.")
+        #expect(mapped.alsoInProgress.map(\.id) == ["b"])
+        #expect(mapped.connectivity == .serverUnreachable)
+    }
+
+    @Test func statsCarryTheOneStreakRule() {
+        let data = HomeStatsUiStateData(
+            totalSecondsThisWeek: 0, currentStreakDays: 0, longestStreakDays: 9, dailyBuckets: [], topGenres: []
+        )
+        let mapped = HomeStatsData(from: data)
+        #expect(mapped.streakChipDays == nil)
+        #expect(mapped.bestStreakDays == 9)
     }
 }

@@ -6,17 +6,25 @@ import com.calypsan.listenup.domain.FinishedPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
+import com.calypsan.listenup.client.domain.model.ShelfCover
+import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlin.time.Instant
+
+// How many newest books to look through per cover wanted: art is common, not universal (plan call C15).
+private const val SHOWCASE_OVERSCAN = 4
 
 /**
  * Repository for Home screen data.
@@ -30,10 +38,12 @@ import kotlin.time.Instant
  *
  * @property bookRepository Repository for fetching book details
  * @property playbackPositionDao DAO for playback positions
+ * @property downloadRepository whether each card's book is on this device
  */
 internal class HomeRepositoryImpl(
     private val bookRepository: com.calypsan.listenup.client.domain.repository.BookRepository,
     private val playbackPositionDao: PlaybackPositionDao,
+    private val downloadRepository: DownloadRepository,
 ) : HomeRepository {
     private val logger = KotlinLogging.logger {}
 
@@ -72,6 +82,7 @@ internal class HomeRepositoryImpl(
 
         val bookIds = positions.map { it.bookId.value }
         val bookMap = bookRepository.getBookListItems(bookIds).associateBy { it.id.value }
+        val downloads = downloadRepository.observeAllStatuses().first()
 
         val books =
             positions.mapNotNull { position ->
@@ -81,13 +92,6 @@ internal class HomeRepositoryImpl(
                         booksNotFound++
                         logger.warn { "Local fallback: book not found - id=$bookIdStr" }
                         return@mapNotNull null
-                    }
-
-                val progress =
-                    if (book.duration > 0) {
-                        (position.positionMs.toFloat() / book.duration).coerceIn(0f, 1f)
-                    } else {
-                        0f
                     }
 
                 val effectivelyFinished =
@@ -101,21 +105,7 @@ internal class HomeRepositoryImpl(
                     return@mapNotNull null
                 }
 
-                // Use lastPlayedAt if available, fall back to updatedAt for legacy data
-                val lastPlayedAtMs = position.lastPlayedAt ?: position.updatedAt
-                val lastPlayedAtIso = Instant.fromEpochMilliseconds(lastPlayedAtMs).toString()
-
-                ContinueListeningBook(
-                    bookId = bookIdStr,
-                    title = book.title,
-                    authorNames = book.authorNames,
-                    coverPath = book.coverPath,
-                    coverHash = book.coverHash,
-                    progress = progress,
-                    currentPositionMs = position.positionMs,
-                    totalDurationMs = book.duration,
-                    lastPlayedAt = lastPlayedAtIso,
-                )
+                toContinueListeningBook(position, book, downloads)
             }
 
         logger.info {
@@ -151,15 +141,35 @@ internal class HomeRepositoryImpl(
                     flowOf(emptyList())
                 } else {
                     val bookIds = positions.map { it.bookId.value }
-                    bookRepository
-                        .observeBookListItems(bookIds)
-                        .map { books -> buildContinueListeningItems(positions, books, limit) }
+                    combine(
+                        bookRepository.observeBookListItems(bookIds),
+                        downloadRepository.observeAllStatuses(),
+                    ) { books, downloads ->
+                        buildContinueListeningItems(
+                            positions = positions,
+                            books = books,
+                            downloads = downloads,
+                            limit = limit,
+                        )
+                    }
                 }
             }
+
+    override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> =
+        bookRepository.observeRecentlyAddedBooks(limit = coverLimit * SHOWCASE_OVERSCAN).map { newest ->
+            LibraryShowcase(
+                covers =
+                    newest
+                        .filter { it.coverHash != null }
+                        .take(coverLimit)
+                        .map { ShelfCover(bookId = it.id, coverPath = it.coverPath, coverHash = it.coverHash) },
+            )
+        }
 
     private fun buildContinueListeningItems(
         positions: List<PlaybackPositionEntity>,
         books: List<BookListItem>,
+        downloads: Map<String, BookDownloadStatus>,
         limit: Int,
     ): List<ContinueListeningItem> {
         val bookMap = books.associateBy { it.id.value }
@@ -180,7 +190,7 @@ internal class HomeRepositoryImpl(
                         } else {
                             ContinueListeningItem.Ready(
                                 bookId = pos.bookId.value,
-                                book = toContinueListeningBook(pos, book),
+                                book = toContinueListeningBook(pos, book, downloads),
                             )
                         }
                     }
@@ -194,6 +204,7 @@ internal class HomeRepositoryImpl(
     private fun toContinueListeningBook(
         position: PlaybackPositionEntity,
         book: BookListItem,
+        downloads: Map<String, BookDownloadStatus>,
     ): ContinueListeningBook {
         val progress =
             if (book.duration > 0) {
@@ -201,17 +212,18 @@ internal class HomeRepositoryImpl(
             } else {
                 0f
             }
-        val lastPlayedAtMs = position.lastPlayedAt ?: position.updatedAt
         return ContinueListeningBook(
             bookId = position.bookId.value,
             title = book.title,
             authorNames = book.authorNames,
+            narratorNames = book.narrators.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name },
             coverPath = book.coverPath,
             coverHash = book.coverHash,
             progress = progress,
             currentPositionMs = position.positionMs,
             totalDurationMs = book.duration,
-            lastPlayedAt = Instant.fromEpochMilliseconds(lastPlayedAtMs).toString(),
+            lastPlayedAtMs = position.lastPlayedAt ?: position.updatedAt,
+            isDownloaded = downloads[position.bookId.value] is BookDownloadStatus.Completed,
         )
     }
 }

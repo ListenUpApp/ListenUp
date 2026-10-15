@@ -265,6 +265,16 @@ class FakePlaybackPositionRepository(
                         syncedAtMs = null,
                     )
                 }
+
+                is PlaybackUpdate.DismissFinishedCard -> {
+                    existing?.let { row ->
+                        if ((row.finishedCardDismissedAtMs ?: Long.MIN_VALUE) >= update.atMs) {
+                            row
+                        } else {
+                            row.copy(finishedCardDismissedAtMs = update.atMs, updatedAtMs = now, syncedAtMs = null)
+                        }
+                    }
+                }
             }
         if (merged != null) {
             state.value = state.value + (key to merged)

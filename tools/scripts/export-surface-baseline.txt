@@ -49,6 +49,7 @@ AdminUiState_SealedType
 AdminUserInfo
 AdminViewModel
 AdoptServerUseCase
+AlsoFinished
 AppError
 AppError_SealedType
 AppNotification
@@ -365,6 +366,8 @@ FineScrubStep
 FinishDates
 FinishDatesProblem
 FinishTimestamps
+FinishedBook
+FinishedCard
 FinishedInfo
 FinishedSpan
 FolderId
@@ -434,11 +437,15 @@ HardcoverSyncStatus
 HardcoverSyncStatus_SealedType
 HardcoverTokenSave
 HardcoverTokenSave_SealedType
+HeroChapter
 HiddenFrom
 HiddenFromNames
 HiddenFromSummary
 HiddenFrom_SealedType
+HomeConnectivity
 HomeRepository
+HomeSlot
+HomeSlot_SealedType
 HomeStatsUiState
 HomeStatsUiState_SealedType
 HomeStatsViewModel
@@ -537,6 +544,7 @@ LibrarySetupNavAction
 LibrarySetupNavAction_SealedType
 LibrarySetupUiState
 LibrarySetupViewModel
+LibraryShowcase
 LibraryUiEvent
 LibraryUiEvent_SealedType
 LibraryUiState
@@ -923,6 +931,7 @@ StorageSpaceProvider
 StorageUiState
 StorageViewModel
 StoryWorldHistoryId
+StreakDisplay
 StreamedRegistrationStatus
 StreamedRegistrationStatus_SealedType
 SubGenre
@@ -947,6 +956,7 @@ TagId
 TagRepository
 ThemeMode
 TierLabels
+TimeOfDay
 TimelineChapter
 TimelineFileBoundary
 TimelineFileInput

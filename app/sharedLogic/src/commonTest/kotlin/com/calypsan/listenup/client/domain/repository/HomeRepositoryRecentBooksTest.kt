@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -26,7 +27,9 @@ class HomeRepositoryRecentBooksTest :
                 progress = 0.5f,
                 currentPositionMs = 5_000L,
                 totalDurationMs = 10_000L,
-                lastPlayedAt = "2026-10-10T10:00:00Z",
+                narratorNames = null,
+                lastPlayedAtMs = 1_704_067_200_000L,
+                isDownloaded = false,
             )
 
         /** Records the limit it was asked for and answers with [result]. */
@@ -39,6 +42,8 @@ class HomeRepositoryRecentBooksTest :
                 requestedLimit = limit
                 return result
             }
+
+            override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> = emptyFlow()
 
             override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = emptyFlow()
         }

@@ -38,6 +38,14 @@ internal class ActivityRepositoryImpl(
         dao.observeRecentlyListened(userId, limit).map { rows ->
             rows.map { ProfileRecentBook(bookId = it.bookId, title = it.title, coverHash = it.coverHash) }
         }
+
+    override fun observeOtherFinishers(
+        bookId: String,
+        excludeUserId: String,
+    ): Flow<List<String>> =
+        dao.observeFinishersOf(bookId, excludeUserId).map { rows ->
+            rows.map { it.displayName.orEmpty() }
+        }
 }
 
 /**

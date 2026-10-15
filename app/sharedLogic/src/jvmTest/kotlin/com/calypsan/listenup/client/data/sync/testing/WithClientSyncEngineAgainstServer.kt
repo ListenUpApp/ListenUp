@@ -1002,6 +1002,8 @@ internal class DirectPlaybackPositionSender(
                 finished = request.finished,
                 playbackSpeed = request.playbackSpeed,
                 currentChapterId = request.currentChapterId,
+                finishedAt = request.finishedAt,
+                finishedCardDismissedAt = request.finishedCardDismissedAt,
             )
         return when (wireResult) {
             is com.calypsan.listenup.api.result.AppResult.Success -> AppResult.Success(Unit)

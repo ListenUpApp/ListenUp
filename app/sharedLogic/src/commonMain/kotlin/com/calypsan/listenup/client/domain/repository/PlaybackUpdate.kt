@@ -90,4 +90,12 @@ sealed interface PlaybackUpdate {
 
     /** User command: restart book (position=0, isFinished=false; resets startedAt to now — new reading session). */
     data object Restart : PlaybackUpdate
+
+    /**
+     * User command: dismiss Home's "just finished" card for this book on every device (spec S2), at [atMs]. Sets only
+     * the dismissal, and only upward; never touches position, finish or lastPlayedAt — dismissing is not listening.
+     */
+    data class DismissFinishedCard(
+        val atMs: Long,
+    ) : PlaybackUpdate
 }

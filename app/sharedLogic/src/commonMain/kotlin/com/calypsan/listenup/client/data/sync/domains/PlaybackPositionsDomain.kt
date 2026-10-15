@@ -33,6 +33,12 @@ internal fun playbackPositionsDomain(database: ListenUpDatabase): MirroredDomain
                 existingStamp = { payload ->
                     database.playbackPositionDao().get(BookId(payload.bookId))?.lastPlayedAt
                 },
+                // A dismissal on another device travels with its row's own lastPlayedAt, so it arrives "stale".
+                onSuperseded = { payload ->
+                    payload.finishedCardDismissedAt?.let { at ->
+                        database.playbackPositionDao().raiseFinishedCardDismissedAt(BookId(payload.bookId), at)
+                    }
+                },
             ),
         deletes =
             DeleteSemantics.CatchUpOnly(
@@ -59,6 +65,9 @@ internal fun playbackPositionsDomain(database: ListenUpDatabase): MirroredDomain
  * "this device doesn't know", not "erase it", so an echo from a device that never finished the
  * book — or never measured its loudness — cannot wipe what another device recorded. This mirrors
  * the server's own COALESCE on both columns (`PlaybackPositions.sq` `update`).
+ *
+ * `finishedCardDismissedAt` only ever rises — the larger value wins, and a stale row still raises it
+ * ([ConflictPolicy.NewerWins.onSuperseded]) — because a dismissal is not listening and carries no newer `lastPlayedAt`.
  */
 internal class PlaybackPositionMirrorApply(
     private val database: ListenUpDatabase,
@@ -88,6 +97,7 @@ internal class PlaybackPositionMirrorApply(
                 startedAt = existing?.startedAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
+                finishedCardDismissedAt = latestOf(payload.finishedCardDismissedAt, existing?.finishedCardDismissedAt),
             ),
         )
     }
@@ -100,3 +110,14 @@ internal class PlaybackPositionMirrorApply(
         )
     }
 }
+
+/** The later of two optional instants; null only when both are. */
+private fun latestOf(
+    first: Long?,
+    second: Long?,
+): Long? =
+    when {
+        first == null -> second
+        second == null -> first
+        else -> maxOf(first, second)
+    }

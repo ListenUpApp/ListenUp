@@ -49,7 +49,9 @@ private fun mockBook(
     progress = progress,
     currentPositionMs = (progress * 36_000_000).toLong(),
     totalDurationMs = 36_000_000L,
-    lastPlayedAt = "2026-06-04T12:00:00Z",
+    narratorNames = null,
+    lastPlayedAtMs = 1_704_067_200_000L,
+    isDownloaded = false,
 )
 
 private fun mockContinue() =

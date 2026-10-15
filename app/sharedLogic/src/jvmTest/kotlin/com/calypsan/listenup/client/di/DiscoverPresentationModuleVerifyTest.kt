@@ -3,15 +3,22 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.BookAvailability
+import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -36,6 +43,15 @@ import org.koin.test.verify.verify
  *  - [ActivityRepository] — owned by `socialModule`.
  *  - [ServerReachability] — owned by `clientSyncModule`.
  *  - [UserProfileRepository] — owned by `socialModule`.
+ *  - [LoadedBookRepository] — owned by `playerModule`.
+ *  - [PlaybackPositionRepository] — owned by `listeningModule`.
+ *  - [InboxRepository] — owned by `collectionModule`.
+ *  - [ObserveNextInSeriesUseCase] — owned by `seriesModule`.
+ *  - [BookAvailability] — owned by `clientSyncModule`.
+ *  - [BookRatingRepository] — owned by `shelfModule`.
+ *  - [NetworkMonitor] — owned by each platform's storage module.
+ *  - [Function1] — `HomeSlotPresenter`'s next-in-series lookup, a lambda built in the same definition from
+ *    [ObserveNextInSeriesUseCase], so it is never a binding of its own.
  */
 @OptIn(KoinExperimentalAPI::class)
 class DiscoverPresentationModuleVerifyTest :
@@ -58,6 +74,14 @@ class DiscoverPresentationModuleVerifyTest :
                         ActivityRepository::class,
                         ServerReachability::class,
                         UserProfileRepository::class,
+                        LoadedBookRepository::class,
+                        PlaybackPositionRepository::class,
+                        InboxRepository::class,
+                        ObserveNextInSeriesUseCase::class,
+                        BookAvailability::class,
+                        BookRatingRepository::class,
+                        NetworkMonitor::class,
+                        Function1::class,
                     ),
             )
         }

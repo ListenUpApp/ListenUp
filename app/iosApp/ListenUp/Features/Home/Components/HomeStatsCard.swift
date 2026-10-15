@@ -128,7 +128,9 @@ extension HomeStatsData {
         days: [DayBar],
         maxDaySeconds: Int,
         genres: [GenreBar],
-        hasGenreData: Bool
+        hasGenreData: Bool,
+        streakChipDays: Int? = nil,
+        bestStreakDays: Int? = nil
     ) {
         self.listenTimeLabel = listenTimeLabel
         self.currentStreak = currentStreak
@@ -138,6 +140,8 @@ extension HomeStatsData {
         self.maxDaySeconds = maxDaySeconds
         self.genres = genres
         self.hasGenreData = hasGenreData
+        self.streakChipDays = streakChipDays
+        self.bestStreakDays = bestStreakDays
     }
 }
 

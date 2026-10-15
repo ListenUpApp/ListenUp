@@ -36,5 +36,11 @@ internal sealed interface ConflictPolicy<T : Any> {
     data class NewerWins<T : Any>(
         val incomingStamp: (T) -> Long,
         val existingStamp: suspend (payload: T) -> Long?,
+        /**
+         * Runs when the local row wins the stamp comparison, inside the same apply transaction: for a field that merges
+         * on its own rule, apart from the conflict key (playback_positions' finish-card dismissal, which is not
+         * listening and so never moves lastPlayedAt). Default: nothing.
+         */
+        val onSuperseded: suspend (payload: T) -> Unit = {},
     ) : ConflictPolicy<T>
 }

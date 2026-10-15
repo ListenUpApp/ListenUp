@@ -44,6 +44,8 @@ import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.client.presentation.error.localized
+import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
@@ -95,8 +97,10 @@ fun HomeScreen(
     val playback: PlaybackManager = koinInject()
     val playingBookId by playback.currentBookId.collectAsStateWithLifecycle()
 
-    LaunchedEffect(viewModel) {
-        viewModel.snackbarMessages.collect { snackbarHostState.showSnackbar(it) }
+    // A Continue Listening failure is on the state now (spec §4.1). Home PR 4 draws it inline; until then, a snackbar.
+    val continueListeningError = (state as? HomeUiState.Ready)?.continueListeningError
+    LaunchedEffect(continueListeningError) {
+        continueListeningError?.let { snackbarHostState.showSnackbar(it.localizedString()) }
     }
 
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
@@ -136,7 +140,7 @@ fun HomeScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = s.message,
+                            text = s.error.localized(),
                             color = MaterialTheme.colorScheme.error,
                         )
                         // The pull-to-refresh lives in the Ready content, so the failed screen

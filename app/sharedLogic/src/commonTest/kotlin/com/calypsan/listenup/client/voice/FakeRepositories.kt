@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.voice
 
 import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -31,6 +32,7 @@ import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 
 // ========== Fake Search Repository ==========
 
@@ -115,6 +117,8 @@ class FakeHomeRepository : HomeRepository {
 
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
         AppResult.Success(continueListeningBooks.take(limit))
+
+    override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> = emptyFlow()
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
         MutableStateFlow(
@@ -350,17 +354,19 @@ fun testContinueListeningBook(
     progress: Float = 0.5f,
     currentPositionMs: Long = 1_800_000, // 30 minutes
     totalDurationMs: Long = 3_600_000, // 1 hour
-    lastPlayedAt: String = "2024-01-15T10:30:00Z",
+    lastPlayedAtMs: Long = 1_705_314_600_000L,
 ): ContinueListeningBook =
     ContinueListeningBook(
         bookId = bookId,
         title = title,
         authorNames = authorNames,
+        narratorNames = null,
         coverPath = null,
         progress = progress,
         currentPositionMs = currentPositionMs,
         totalDurationMs = totalDurationMs,
-        lastPlayedAt = lastPlayedAt,
+        lastPlayedAtMs = lastPlayedAtMs,
+        isDownloaded = false,
     )
 
 /**

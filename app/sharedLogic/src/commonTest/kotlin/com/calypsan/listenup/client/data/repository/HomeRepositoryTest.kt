@@ -15,7 +15,6 @@ import dev.mokkery.mock
 import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
-import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -43,7 +42,7 @@ class HomeRepositoryTest :
             val playbackPositionDao: PlaybackPositionDao = mock()
 
             fun build(): HomeRepositoryImpl =
-                HomeRepositoryImpl(
+                homeRepositoryOf(
                     bookRepository = bookRepository,
                     playbackPositionDao = playbackPositionDao,
                 )
@@ -337,13 +336,11 @@ class HomeRepositoryTest :
             }
         }
 
-        // ========== Regression Test: lastPlayedAt must be ISO 8601 ==========
+        // ========== Regression Test: the card's last play is the position's lastPlayedAt ==========
 
-        test("getContinueListening returns lastPlayedAt as ISO 8601 timestamp") {
+        test("getContinueListening reports the position's lastPlayedAt, not its updatedAt") {
             runTest {
-                // Given: A position with specific lastPlayedAt timestamp
-                // Issue #3: lastPlayedAt was being returned as raw epoch milliseconds
-                // instead of ISO 8601 format, breaking UI display
+                // Given: A position whose last play differs from its last write
                 val fixture = createFixture()
                 // Jan 1, 2024 12:00:00 UTC = 1704110400000L
                 val lastPlayedAtMs = 1_704_110_400_000L
@@ -364,18 +361,12 @@ class HomeRepositoryTest :
                 // When
                 val result = repository.getContinueListening(10)
 
-                // Then: lastPlayedAt should be ISO 8601, not raw milliseconds
+                // Then: the card carries the last play, in epoch ms
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val books = success.data.shouldBeInstanceOf<List<*>>()
                 books.size shouldBe 1
                 val continueBook = books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>()
-                // Should be ISO 8601 format, not "1704110400000"
-                withClue("Expected ISO 8601 timestamp containing '2024-01-01', got: ${continueBook.lastPlayedAt}") {
-                    continueBook.lastPlayedAt.contains("2024-01-01") shouldBe true
-                }
-                withClue("Expected ISO 8601 timestamp with 'T' separator, got: ${continueBook.lastPlayedAt}") {
-                    continueBook.lastPlayedAt.contains("T") shouldBe true
-                }
+                continueBook.lastPlayedAtMs shouldBe lastPlayedAtMs
             }
         }
 
@@ -401,13 +392,11 @@ class HomeRepositoryTest :
                 // When
                 val result = repository.getContinueListening(10)
 
-                // Then: Should fall back to updatedAt, still as ISO 8601
+                // Then: Should fall back to updatedAt
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val books = success.data.shouldBeInstanceOf<List<*>>()
                 val continueBook = books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>()
-                withClue("Expected ISO 8601 from updatedAt fallback, got: ${continueBook.lastPlayedAt}") {
-                    continueBook.lastPlayedAt.contains("2024-01-01") shouldBe true
-                }
+                continueBook.lastPlayedAtMs shouldBe updatedAtMs
             }
         }
 

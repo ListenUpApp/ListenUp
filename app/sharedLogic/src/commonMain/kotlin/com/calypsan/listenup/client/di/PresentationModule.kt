@@ -561,11 +561,29 @@ internal val contributorPresentationModule =
 internal val discoverPresentationModule =
     module {
         factory {
+            com.calypsan.listenup.client.presentation.home.HomeSlotPresenter(
+                loadedBooks = get(),
+                positions = get(),
+                inbox = get(),
+                nextInSeries = get<com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase>()::invoke,
+                books = get(),
+                availability = get(),
+                ratings = get(),
+                activities = get(),
+                authSession = get(),
+                home = get(),
+            )
+        }
+        factory {
             com.calypsan.listenup.client.presentation.home.HomeViewModel(
                 homeRepository = get(),
                 userRepository = get(),
                 shelfRepository = get(),
                 syncRepository = get(),
+                slotPresenter = get(),
+                serverReachability = get(),
+                networkMonitor = get(),
+                errorBus = get(),
             )
         }
         // HomeStatsViewModel for home screen stats section (observes local stats)

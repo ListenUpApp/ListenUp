@@ -35,7 +35,7 @@ import kotlinx.coroutines.sync.withLock
  * only the latest position is ever pushed — no flooding.
  *
  * The [savePlaybackState] entry point owns per-book Mutex serialization
- * plus per-call transactional dispatch over the 13-variant [PlaybackUpdate]
+ * plus per-call transactional dispatch over the 14-variant [PlaybackUpdate]
  * sealed hierarchy. Every variant handler runs inside [TransactionRunner.atomically]
  * so each fetch-then-save pair is rollback-safe. Concurrent writes for the same
  * book serialize on a per-book Mutex; different books proceed in parallel.
@@ -137,7 +137,7 @@ internal class PlaybackPositionRepositoryImpl(
         }
 
     /**
-     * Exhaustive dispatcher over the 13-variant [PlaybackUpdate] hierarchy.
+     * Exhaustive dispatcher over the 14-variant [PlaybackUpdate] hierarchy.
      *
      * Adding a new variant produces a `when` exhaustiveness compile error here —
      * the sealed-hierarchy contract every consumer must satisfy.
@@ -160,6 +160,7 @@ internal class PlaybackPositionRepositoryImpl(
             is PlaybackUpdate.MarkComplete -> handleMarkComplete(bookId, update)
             PlaybackUpdate.DiscardProgress -> handleDiscardProgress(bookId)
             PlaybackUpdate.Restart -> handleRestart(bookId)
+            is PlaybackUpdate.DismissFinishedCard -> handleDismissFinishedCard(bookId, update)
         }
     }
 
@@ -373,6 +374,11 @@ internal class PlaybackPositionRepositoryImpl(
                 )
             }
 
+            // No row means nothing to push.
+            is PlaybackUpdate.DismissFinishedCard -> {
+                entity?.let { row -> dismissalRequest(bookId, row) }
+            }
+
             // User-command resets: enqueue the post-reset row so the discard/restart
             // reaches the server immediately (NewerWins on lastPlayedAt lets it beat
             // stale positions from other devices). coalesce=true supersedes any queued
@@ -382,17 +388,38 @@ internal class PlaybackPositionRepositoryImpl(
             PlaybackUpdate.DiscardProgress,
             PlaybackUpdate.Restart,
             -> {
-                entity?.let { row ->
-                    snapshotRequest(
-                        bookId = bookId,
-                        entity = row,
-                        positionMs = row.positionMs,
-                        lastPlayedAt = row.lastPlayedAt ?: now,
-                        finished = false,
-                    )
-                }
+                entity?.let { row -> resetRequest(bookId, row, now) }
             }
         }
+
+    /** The post-reset row, unfinished, at its own lastPlayedAt (else [now]). */
+    private fun resetRequest(
+        bookId: BookId,
+        row: PlaybackPositionEntity,
+        now: Long,
+    ): RecordPositionRequest =
+        snapshotRequest(
+            bookId = bookId,
+            entity = row,
+            positionMs = row.positionMs,
+            lastPlayedAt = row.lastPlayedAt ?: now,
+            finished = false,
+        )
+
+    /**
+     * The row as it stands, dismissal included, at its own lastPlayedAt — never `now`. Dismissing a finish card claims
+     * no listening, so it must not win the server's lastPlayedAt guard; the server merges the dismissal apart from it.
+     */
+    private fun dismissalRequest(
+        bookId: BookId,
+        row: PlaybackPositionEntity,
+    ): RecordPositionRequest =
+        snapshotRequest(
+            bookId = bookId,
+            entity = row,
+            positionMs = row.positionMs,
+            lastPlayedAt = row.lastPlayedAt ?: row.updatedAt,
+        )
 
     /**
      * The common "request from current entity snapshot + position" construction: every wire
@@ -412,6 +439,7 @@ internal class PlaybackPositionRepositoryImpl(
         hasCustomSpeed: Boolean = entity?.hasCustomSpeed == true,
         hasCustomBoost: Boolean = entity?.hasCustomBoost == true,
         startedAt: Long? = null,
+        finishedCardDismissedAt: Long? = entity?.finishedCardDismissedAt,
     ): RecordPositionRequest =
         RecordPositionRequest(
             bookId = bookId.value,
@@ -426,6 +454,7 @@ internal class PlaybackPositionRepositoryImpl(
             hasCustomSpeed = hasCustomSpeed,
             hasCustomBoost = hasCustomBoost,
             startedAt = startedAt,
+            finishedCardDismissedAt = finishedCardDismissedAt,
         )
 
     // ----- Per-variant handlers -------------------------------------------------------------
@@ -718,6 +747,21 @@ internal class PlaybackPositionRepositoryImpl(
         )
     }
 
+    private suspend fun handleDismissFinishedCard(
+        bookId: BookId,
+        u: PlaybackUpdate.DismissFinishedCard,
+    ) {
+        val existing = dao.get(bookId) ?: return // no-op if no row
+        if ((existing.finishedCardDismissedAt ?: Long.MIN_VALUE) >= u.atMs) return
+        dao.save(
+            existing.copy(
+                finishedCardDismissedAt = u.atMs,
+                updatedAt = currentEpochMilliseconds(),
+                syncedAt = null,
+            ),
+        )
+    }
+
     /**
      * Construct a fresh blank entity for [bookId] anchored at [now].
      * Used when a variant handler must materialize a row that doesn't yet exist.
@@ -761,4 +805,5 @@ private fun PlaybackPositionEntity.toDomain(): PlaybackPosition =
         isFinished = isFinished,
         finishedAtMs = finishedAt,
         startedAtMs = startedAt,
+        finishedCardDismissedAtMs = finishedCardDismissedAt,
     )

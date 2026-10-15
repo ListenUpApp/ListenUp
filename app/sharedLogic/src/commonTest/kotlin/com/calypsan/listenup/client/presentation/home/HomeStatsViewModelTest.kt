@@ -88,6 +88,20 @@ class HomeStatsViewModelTest :
             }
         }
 
+        test("a lapsed streak survives the projection as the best alone") {
+            runTest {
+                val stats = nonEmptyStats(totalSeconds = 3_600L, currentStreak = 0, longestStreak = 9)
+                val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)))
+                vm.uiState.test {
+                    val data = awaitUntil { it is HomeStatsUiState.Data }.shouldBeInstanceOf<HomeStatsUiState.Data>()
+                    data.currentStreakDays shouldBe 0
+                    data.longestStreakDays shouldBe 9
+                    data.streak shouldBe StreakDisplay(chipDays = null, bestDays = 9)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         test("Data carries the correct daily buckets and genres") {
             runTest {
                 val buckets = listOf(DayBucket(0, 1_800L), DayBucket(1, 900L))

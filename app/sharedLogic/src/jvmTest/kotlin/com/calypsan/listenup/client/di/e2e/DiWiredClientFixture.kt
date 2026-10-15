@@ -1,9 +1,11 @@
 package com.calypsan.listenup.client.di.e2e
 
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.di.OFFLINE_COPIES
 import com.calypsan.listenup.client.di.PLAYER_SCOPE
 import com.calypsan.listenup.client.download.DownloadEnqueuer
@@ -142,6 +144,8 @@ internal class DiWiredClientFixture private constructor(
                     CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
                 }
                 single(named(OFFLINE_COPIES)) { true }
+                // Every platform's playback module names the device; the listening-event recorder reads it.
+                single<DeviceInfoProvider> { DeviceInfoProvider { DeviceInfo() } }
                 // Whether this graph has a player at all; the session reads it through BookAvailability.
                 single(named("playbackAvailable")) { false }
                 // The session is created at start and observes download status, which reaches the platform's

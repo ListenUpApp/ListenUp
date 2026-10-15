@@ -1,0 +1,330 @@
+package com.calypsan.listenup.client.presentation.home
+
+import app.cash.turbine.ReceiveTurbine
+import app.cash.turbine.test
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.TestData
+import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
+import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.LoadedBook
+import com.calypsan.listenup.client.domain.model.ShelfCover
+import com.calypsan.listenup.core.BookId
+import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+
+/** The slot end to end over in-memory sources: §2.2 kinds, §2.1 latching, §2.3 contents (spec §4.1 TDD list). */
+class HomeSlotPresenterTest :
+    FunSpec({
+        test("nothing is decided while the loaded book is restoring (no Resume flash on a cold start)") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.loaded.value = LoadedBook.Restoring
+                rig.play("a", hoursAgo = 2)
+                rig.continueListening.value = listOf(readyItem("a"))
+                rig.slots().test {
+                    awaitItem().shouldBeNull()
+                    expectNoEvents()
+                    rig.loaded.value = LoadedBook.NothingLoaded
+                    awaitSlot<HomeSlot.Resume>().book.bookId shouldBe "a"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("Resume carries the most recent book, its next book, its chapter and whether it can play") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.play("a", hoursAgo = 2, positionMs = 1_500L)
+                rig.continueListening.value = listOf(readyItem("a", positionMs = 1_500L), readyItem("b"))
+                rig.nextByBook.value = mapOf("a" to nextBook("a2"))
+                rig.books.setChapters("a", listOf(Chapter("c1", "Prelude", 1_000L, 0L), Chapter("c2", "Bridge Four", 1_000L, 1_000L)))
+                rig.availability.stateFlow.value =
+                    rig.availability.stateFlow.value
+                        .copy(canPlay = false)
+                rig.slots().test {
+                    val state = awaitState<HomeSlot.Resume>()
+                    val resume = state.slot as HomeSlot.Resume
+                    resume.book.bookId shouldBe "a"
+                    resume.next shouldBe nextBook("a2")
+                    resume.chapter shouldBe HeroChapter(number = 2, title = "Bridge Four")
+                    resume.canPlay shouldBe false
+                    state.alsoInProgress.map { it.bookId } shouldBe listOf("b")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("Resume's contents stay live: a position tick moves its book without changing the kind") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.play("a", hoursAgo = 2)
+                rig.continueListening.value = listOf(readyItem("a", positionMs = 1_000L))
+                rig.slots().test {
+                    awaitSlot<HomeSlot.Resume>().book.currentPositionMs shouldBe 1_000L
+                    rig.continueListening.value = listOf(readyItem("a", positionMs = 2_000L))
+                    awaitSlot<HomeSlot.Resume> { it.book.currentPositionMs == 2_000L }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("Resume keeps its book when it leaves Continue Listening before the next decision") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.play("a", hoursAgo = 2)
+                rig.continueListening.value = listOf(readyItem("a"))
+                rig.slots().test {
+                    awaitSlot<HomeSlot.Resume>().book.bookId shouldBe "a"
+                    rig.continueListening.value = emptyList()
+                    awaitState<HomeSlot.Resume>().alsoInProgress shouldBe emptyList()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a loaded book: Absent, and the rail leaves the loaded book out (K8)") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.play("a", hoursAgo = 1)
+                rig.play("b", hoursAgo = 2)
+                rig.loaded.value = LoadedBook.Loaded("a", isPlaying = true, isFinished = false)
+                rig.continueListening.value = listOf(readyItem("a"), readyItem("b"))
+                rig.slots().test {
+                    val state = awaitState<HomeSlot.Absent>()
+                    state.alsoInProgress.map { it.bookId } shouldBe listOf("b")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("play/pause is not a decision point; closing the book is") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.play("a", hoursAgo = 1)
+                rig.loaded.value = LoadedBook.Loaded("a", isPlaying = true, isFinished = false)
+                rig.continueListening.value = listOf(readyItem("a"))
+                val states = collectSlots(rig)
+                runCurrent()
+                states.slot.shouldBeInstanceOf<HomeSlot.Absent>()
+                val seen = states.size
+
+                rig.loaded.value = LoadedBook.Loaded("a", isPlaying = false, isFinished = false)
+                runCurrent()
+                states.size shouldBe seen
+
+                rig.loaded.value = LoadedBook.NothingLoaded
+                runCurrent()
+                states.slot
+                    .shouldBeInstanceOf<HomeSlot.Resume>()
+                    .book.bookId shouldBe "a"
+            }
+        }
+
+        test("JustFinished: the book, its dates, your rating, the next book and who else finished it") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.finish("done", hoursAgo = 3)
+                rig.books.setBooks(listOf(TestData.bookListItem(id = "done", title = "The Way of Kings", duration = 9_000L)))
+                rig.nextByBook.value = mapOf("done" to nextBook("words"))
+                rig.ratingsFlow.value = listOf(ListenerRating(bookId = "done", userId = "me", halfStars = 8, note = null, ratedAtMs = 1L))
+                rig.finishers.value = listOf("Maya", "Tom", "Ana")
+                rig.slots().test {
+                    val card = awaitSlot<HomeSlot.JustFinished>().card
+                    card.book.bookId shouldBe "done"
+                    card.book.title shouldBe "The Way of Kings"
+                    card.finishedAtMs shouldBe RIG_NOW - 3 * RIG_HOUR
+                    card.startedAtMs shouldBe RIG_NOW - 13 * RIG_HOUR
+                    card.yourHalfStars shouldBe 8
+                    card.next shouldBe nextBook("words")
+                    card.alsoFinished shouldBe AlsoFinished(names = listOf("Maya", "Tom"), othersCount = 1)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("rating from the card writes through, and the card shows it live") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.finish("done", hoursAgo = 3)
+                rig.books.setBooks(listOf(TestData.bookListItem(id = "done")))
+                val presenter = rig.presenter()
+
+                presenter.rateFinished("done", halfStars = 6).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                verifySuspend { rig.ratings.rate("done", 6, null) }
+                presenter.observe(rig.continueListening, rig.building, rig.runs, rig.dismissedHere).test {
+                    awaitSlot<HomeSlot.JustFinished>().card.yourHalfStars.shouldBeNull()
+                    rig.ratingsFlow.value = listOf(ListenerRating("done", "me", 6, null, 1L))
+                    awaitSlot<HomeSlot.JustFinished> { it.card.yourHalfStars == 6 }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("dismissFinished writes a dismissal stamped now, and nothing else") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.finish("done", hoursAgo = 3)
+
+                rig.presenter().dismissFinished("done").shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val row =
+                    rig.positions
+                        .observe(BookId("done"))
+                        .first()
+                        .shouldNotBeNull()
+                row.finishedCardDismissedAtMs shouldBe RIG_NOW
+                row.lastPlayedAtMs shouldBe RIG_NOW - 3 * RIG_HOUR
+            }
+        }
+
+        test("a book finishing elsewhere waits for the next decision to replace Resume") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.play("a", hoursAgo = 5)
+                rig.continueListening.value = listOf(readyItem("a"))
+                rig.books.setBooks(listOf(TestData.bookListItem(id = "b")))
+                val states = collectSlots(rig)
+                runCurrent()
+                states.slot.shouldBeInstanceOf<HomeSlot.Resume>()
+
+                rig.finish("b", hoursAgo = 1)
+                runCurrent()
+                states.slot.shouldBeInstanceOf<HomeSlot.Resume>()
+
+                rig.runs.value = 1
+                runCurrent()
+                states.slot
+                    .shouldBeInstanceOf<HomeSlot.JustFinished>()
+                    .card.book.bookId shouldBe "b"
+            }
+        }
+
+        test("the 72-hour expiry waits for the next decision too") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.finish("done", hoursAgo = 71)
+                rig.books.setBooks(listOf(TestData.bookListItem(id = "done")))
+                val states = collectSlots(rig)
+                runCurrent()
+                states.slot.shouldBeInstanceOf<HomeSlot.JustFinished>()
+
+                rig.now += 2 * RIG_HOUR
+                rig.play("older", hoursAgo = 200) // any position emission, now past the window; played before the finish
+                runCurrent()
+                states.slot.shouldBeInstanceOf<HomeSlot.JustFinished>()
+
+                rig.runs.value = 1
+                runCurrent()
+                states.slot.shouldBeInstanceOf<HomeSlot.NothingInProgress>()
+            }
+        }
+
+        test("a dismissal made this visit retires the card at that decision") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.finish("done", hoursAgo = 3)
+                rig.books.setBooks(listOf(TestData.bookListItem(id = "done")))
+                rig.slots().test {
+                    awaitSlot<HomeSlot.JustFinished>()
+                    rig.dismissedHere.value = mapOf("done" to RIG_NOW - 3 * RIG_HOUR)
+                    rig.runs.value = 1
+                    awaitSlot<HomeSlot.NothingInProgress>()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("Play next book retires the card at the load, before any position says so (C10)") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.finish("done", hoursAgo = 3)
+                rig.books.setBooks(listOf(TestData.bookListItem(id = "done")))
+                rig.slots().test {
+                    awaitSlot<HomeSlot.JustFinished>()
+                    rig.loaded.value = LoadedBook.Loaded("next", isPlaying = true, isFinished = false)
+                    awaitSlot<HomeSlot.Absent>()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("first sync resolves in place into Resume when its book arrives") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.building.value = true
+                rig.play("a", hoursAgo = 2)
+                rig.continueListening.value =
+                    listOf(
+                        com.calypsan.listenup.client.domain.model.ContinueListeningItem
+                            .Loading("a"),
+                    )
+                rig.slots().test {
+                    awaitSlot<HomeSlot.FirstSync>()
+                    rig.continueListening.value = listOf(readyItem("a"))
+                    awaitSlot<HomeSlot.Resume>().book.bookId shouldBe "a"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("NothingInProgress offers the next unstarted book of the newest finished series") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.finish("newer", hoursAgo = 100)
+                rig.finish("older", hoursAgo = 200)
+                rig.play("newer-2", hoursAgo = 150, positionMs = 500L) // started: skipped
+                rig.nextByBook.value = mapOf("newer" to nextBook("newer-2"), "older" to nextBook("older-2"))
+                rig.slots().test {
+                    awaitSlot<HomeSlot.NothingInProgress>().candidate shouldBe nextBook("older-2")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("NewListener shows the newest covers") {
+            runTest {
+                val rig = HomeSlotRig()
+                val covers = listOf(ShelfCover("n1", "/c/n1.jpg", "h1"))
+                rig.showcase.value = LibraryShowcase(covers = covers)
+                rig.slots().test {
+                    awaitSlot<HomeSlot.NewListener>().covers shouldBe covers
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+    })
+
+/** The next state whose slot is a [T] (and passes [where]), skipping the transient states before it. */
+private suspend inline fun <reified T : HomeSlot> ReceiveTurbine<HomeSlotState?>.awaitState(
+    where: (T) -> Boolean = { true },
+): HomeSlotState {
+    while (true) {
+        val state = awaitItem() ?: continue
+        val slot = state.slot
+        if (slot is T && where(slot)) return state
+    }
+}
+
+private suspend inline fun <reified T : HomeSlot> ReceiveTurbine<HomeSlotState?>.awaitSlot(where: (T) -> Boolean = { true }): T =
+    awaitState<T>(where).slot as T
+
+/** Collects every slot state into a list, for tests that assert what did NOT change; read it after runCurrent(). */
+private fun TestScope.collectSlots(rig: HomeSlotRig): List<HomeSlotState?> {
+    val states = mutableListOf<HomeSlotState?>()
+    backgroundScope.launch { rig.slots().collect { states += it } }
+    return states
+}
+
+private val List<HomeSlotState?>.slot: HomeSlot?
+    get() = lastOrNull()?.slot

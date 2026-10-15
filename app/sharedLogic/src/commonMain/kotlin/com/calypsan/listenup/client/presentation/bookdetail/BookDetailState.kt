@@ -136,16 +136,6 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
 }
 
 /**
- * Index of the chapter currently playing: the last chapter whose start time is at or
- * before [positionMs], or null when there are no chapters. Pure — drives the
- * current-chapter highlight from playback position.
- */
-internal fun currentChapterIndex(
-    chapterStartTimesMs: List<Long>,
-    positionMs: Long,
-): Int? = chapterStartTimesMs.indexOfLast { it <= positionMs }.takeIf { it >= 0 }
-
-/**
  * Checks if a subtitle is redundant because it's just the series name and book number.
  *
  * Examples of redundant subtitles:
