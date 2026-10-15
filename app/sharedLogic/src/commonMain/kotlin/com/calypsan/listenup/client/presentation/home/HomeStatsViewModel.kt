@@ -153,6 +153,10 @@ sealed interface HomeStatsUiState {
         /** Whether to show the streak section (current or longest streak > 0). */
         val hasStreak: Boolean
             get() = currentStreakDays > 0 || longestStreakDays > 0
+
+        /** The streak as every platform shows it (spec §2.6); see [streakDisplay]. */
+        val streak: StreakDisplay
+            get() = streakDisplay(current = currentStreakDays, best = longestStreakDays)
     }
 
     /** Upstream failure — section renders an error card. */
