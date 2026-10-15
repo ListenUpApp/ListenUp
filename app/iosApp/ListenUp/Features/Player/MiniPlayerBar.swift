@@ -141,9 +141,10 @@ struct MiniPlayerAccessoryContent: View {
             }
         }
         .padding(.leading, leadingInset)
-        // A labelled capsule sits concentric inside the accessory's end cap (its radius less the capsule's); a glyph
-        // keeps the tight inset.
-        .padding(.trailing, model.primary.isPill ? Spacing.xs : Spacing.xxs)
+        // A labelled capsule that ends the row sits concentric inside the accessory's end cap: the same 12pt clear on
+        // its end as above and below it. A glyph, or a capsule followed by iPad's forward, keeps the tight inset, so
+        // forward holds one position in every state.
+        .padding(.trailing, model.primary.isPill && !model.showsSkipForward ? Spacing.s : Spacing.xxs)
         .containerShape(Capsule())
         .overlay(alignment: .bottom) { if model.showsProgress { progressLine } }
         // The accessory is system chrome of a fixed height, like the tab bar: its text stops growing at xLarge, and
@@ -165,6 +166,9 @@ struct MiniPlayerAccessoryContent: View {
                 .lineLimit(1)
             MiniPlayerLineText(model: model)
         }
+        // Lifts the text clear of the progress hairline: the line's descenders keep 2pt of glass above it, up to the
+        // xLarge cap (MiniPlayerAccessibilityTests pins the gap).
+        .padding(.bottom, Spacing.xxs)
     }
 
     /// The cover sits concentric with the accessory's capsule (HIG, Layout: concentric corners inside Liquid Glass).
@@ -208,7 +212,7 @@ struct MiniPlayerAccessoryContent: View {
         // It starts at the text column, so it never crosses the cover.
         .padding(.leading, leadingInset + coverSide + coverGap)
         .padding(.trailing, Spacing.xl)
-        .padding(.bottom, 3)
+        .padding(.bottom, 1)
         .accessibilityHidden(true)
     }
 }
