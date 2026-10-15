@@ -14,6 +14,10 @@ extension Color {
     /// only 2.85:1; the ink is 6.74:1 (HIG, Accessibility: 4.5:1 for text up to 17pt). Every label,
     /// glyph and spinner drawn on a coral fill takes this, never `.white`.
     static let luOnTint = Color(ColorResource.onBrandCoral)
+    /// Coral text on a coral tint — the `CoralInk` Color Set: `#A8261F` light, `#FF9270` dark (`#8C1D18` / `#FFB8A3`
+    /// under Increase Contrast). The brand coral itself is about 4:1 on its own 12% wash, under the 4.5:1 text floor
+    /// (HIG, Accessibility), so a tinted capsule's label (Keep Listening, Listen Again) takes this deeper ink.
+    static let luTintInk = Color(ColorResource.coralInk)
 
     /// Caution — the `WarningAmber` Color Set: `#8A5C00` light, `#FFD60A` dark (`#7A5200` / `#FFE55C`
     /// under Increase Contrast). A warning must not read as the brand coral, which means "act here",
@@ -60,7 +64,8 @@ extension Color {
 
 #Preview("Tokens") {
     let swatches: [(String, Color)] = [
-        ("luTint", .luTint), ("luOnTint", .luOnTint), ("luWarning", .luWarning), ("luPlayerError", .luPlayerError),
+        ("luTint", .luTint), ("luOnTint", .luOnTint), ("luTintInk", .luTintInk),
+        ("luWarning", .luWarning), ("luPlayerError", .luPlayerError),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),
         ("luLabel3", .luLabel3)
