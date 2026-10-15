@@ -101,7 +101,13 @@ internal fun FrameStage(
         SideEffect { editor.setViewport(diameter.toDouble()) }
 
         val layout =
-            frameLayout(image.width.toDouble(), image.height.toDouble(), diameter.toDouble(), diameter.toDouble(), frame)
+            frameLayout(
+                image.width.toDouble(),
+                image.height.toDouble(),
+                diameter.toDouble(),
+                diameter.toDouble(),
+                frame,
+            )
         // The photo is drawn across the whole stage, positioned as the cut-out will show it, so the dimmed
         // surround keeps the context a pinch needs.
         Image(
@@ -169,7 +175,11 @@ internal fun FrameStage(
                         detectTransformGestures { centroid, pan, zoom, _ ->
                             editor.pan(pan.x.toDouble(), pan.y.toDouble())
                             if (zoom != 1f) {
-                                editor.zoomBy(zoom.toDouble(), (centroid.x - cutLeft).toDouble(), (centroid.y - cutTop).toDouble())
+                                editor.zoomBy(
+                                    zoom.toDouble(),
+                                    (centroid.x - cutLeft).toDouble(),
+                                    (centroid.y - cutTop).toDouble(),
+                                )
                             }
                         }
                     },
@@ -205,6 +215,7 @@ private fun rememberStageActions(
     val zoomIn = stringResource(Res.string.edit_frame_zoom_in)
     val zoomOut = stringResource(Res.string.edit_frame_zoom_out)
     val reset = stringResource(Res.string.edit_frame_reset)
+
     fun nudge(direction: NudgeDirection): () -> Boolean =
         {
             editor.nudge(direction, large = false)

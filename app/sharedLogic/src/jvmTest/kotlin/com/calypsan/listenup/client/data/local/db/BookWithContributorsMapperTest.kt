@@ -310,7 +310,11 @@ class BookWithContributorsMapperTest :
             credited.imageFrame shouldBe frame
             detail.authors.single().imageFrame shouldBe frame
             detail.allContributors.first { it.id == "contrib-narrator" }.imageFrame shouldBe null
-            row.toListItem(imageStorage).authors.single().imagePath shouldBe "contributors/abc.jpg"
+            row
+                .toListItem(imageStorage)
+                .authors
+                .single()
+                .imagePath shouldBe "contributors/abc.jpg"
         }
 
         test("toListItem carries libraryId and folderId from BookEntity") {

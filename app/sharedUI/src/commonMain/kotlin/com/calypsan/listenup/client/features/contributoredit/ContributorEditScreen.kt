@@ -571,15 +571,30 @@ internal fun ContributorPhotoEditor(
         }
     val source =
         when (editing) {
-            is ContributorFrameEdit.NewPick -> FrameEditorSource.Bytes(editing.bytes)
-            ContributorFrameEdit.Undecodable -> FrameEditorSource.Undecodable
-            ContributorFrameEdit.Existing -> stagedBytes?.let(FrameEditorSource::Bytes)
-                ?: savedRequest?.let(FrameEditorSource::Model)
-                ?: FrameEditorSource.Resolving
+            is ContributorFrameEdit.NewPick -> {
+                FrameEditorSource.Bytes(editing.bytes)
+            }
+
+            ContributorFrameEdit.Undecodable -> {
+                FrameEditorSource.Undecodable
+            }
+
+            ContributorFrameEdit.Existing -> {
+                stagedBytes?.let(FrameEditorSource::Bytes)
+                    ?: savedRequest?.let(FrameEditorSource::Model)
+                    ?: FrameEditorSource.Resolving
+            }
         }
     FrameEditorDialog(
         source = source,
-        initialFrame = if (editing == ContributorFrameEdit.Existing) state.pendingImageFrame ?: state.imageFrame else null,
+        initialFrame =
+            if (editing ==
+                ContributorFrameEdit.Existing
+            ) {
+                state.pendingImageFrame ?: state.imageFrame
+            } else {
+                null
+            },
         shape = FrameShape.Circle,
         confirm = FrameConfirm.Done,
         previews = scallopFramePreviews(),

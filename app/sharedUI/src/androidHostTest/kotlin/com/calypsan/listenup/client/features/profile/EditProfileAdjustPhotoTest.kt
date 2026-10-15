@@ -158,7 +158,12 @@ class EditProfileAdjustPhotoTest {
         val vm = editProfileViewModel(hasImageAvatar = false)
         show(vm, pick = AvatarPick.Picked(pngBytes()))
         pressDone()
-        vm.readyState().avatarChange.shouldBeInstanceOf<AvatarChange.Upload>().frame.shouldNotBeNull()
+        vm
+            .readyState()
+            .avatarChange
+            .shouldBeInstanceOf<AvatarChange.Upload>()
+            .frame
+            .shouldNotBeNull()
         pickConsumed shouldBe true
     }
 

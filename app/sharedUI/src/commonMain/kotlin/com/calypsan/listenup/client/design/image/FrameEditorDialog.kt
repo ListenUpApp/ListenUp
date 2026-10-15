@@ -197,8 +197,14 @@ internal fun FrameEditorContent(
     previewLabel: StringResource = Res.string.edit_frame_preview_label,
 ) {
     val ready = image as? FrameEditorImage.Ready
-    val editor = remember(ready?.width, ready?.height) { ready?.let { FrameEditor(it.width, it.height, initialFrame, shape) } }
-    val frame = editor?.state?.collectAsStateWithLifecycle()?.value?.frame
+    val editor =
+        remember(ready?.width, ready?.height) { ready?.let { FrameEditor(it.width, it.height, initialFrame, shape) } }
+    val frame =
+        editor
+            ?.state
+            ?.collectAsStateWithLifecycle()
+            ?.value
+            ?.frame
     val latestOnFrameChanged by rememberUpdatedState(onFrameChanged)
     LaunchedEffect(frame) { frame?.let { latestOnFrameChanged(it) } }
 
@@ -214,7 +220,15 @@ internal fun FrameEditorContent(
         }
     val wide = isWideEditor()
     val stage: @Composable (Modifier) -> Unit = { stageModifier ->
-        StageArea(image, editor, frame, shape, isDialog = wide, onChooseAnother = onChooseAnother, modifier = stageModifier)
+        StageArea(
+            image,
+            editor,
+            frame,
+            shape,
+            isDialog = wide,
+            onChooseAnother = onChooseAnother,
+            modifier = stageModifier,
+        )
     }
     val controls: @Composable () -> Unit = {
         if (editor != null && ready != null && frame != null) {
@@ -333,7 +347,14 @@ private fun StageArea(
     modifier: Modifier,
 ) {
     if (image is FrameEditorImage.Ready && editor != null && frame != null) {
-        FrameStage(editor = editor, image = image, frame = frame, shape = shape, isDialog = isDialog, modifier = modifier)
+        FrameStage(
+            editor = editor,
+            image = image,
+            frame = frame,
+            shape = shape,
+            isDialog = isDialog,
+            modifier = modifier,
+        )
         return
     }
     Box(modifier = modifier.background(MaterialTheme.colorScheme.scrim), contentAlignment = Alignment.Center) {
