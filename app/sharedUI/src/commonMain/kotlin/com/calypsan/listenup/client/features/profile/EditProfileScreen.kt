@@ -17,6 +17,17 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material3.OutlinedButton
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.client.design.components.UserAvatarImage
+import com.calypsan.listenup.client.design.image.FrameConfirm
+import com.calypsan.listenup.client.design.image.FrameEditorDialog
+import com.calypsan.listenup.client.design.image.FrameEditorSource
+import com.calypsan.listenup.client.design.image.scallopFramePreviews
+import com.calypsan.listenup.client.presentation.imageframe.FrameShape
+import listenup.composeapp.generated.resources.edit_adjust_photo
+import listenup.composeapp.generated.resources.edit_frame_preview_profile_label
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -104,6 +115,9 @@ private val DESKTOP_MAX_WIDTH = 1040.dp
  *
  * @param onBack Navigate back.
  * @param onPickImage Launch the platform image picker (Android: Photo Picker).
+ * @param pickResult What the picker handed back, waiting to be framed: it opens the Adjust photo editor,
+ *   and nothing is staged until Done.
+ * @param onPickConsumed Called once [pickResult] has been framed, cancelled or replaced.
  * @param viewModel The shared [EditProfileViewModel].
  */
 @Composable
@@ -111,6 +125,8 @@ fun EditProfileScreen(
     onBack: () -> Unit,
     onPickImage: () -> Unit,
     modifier: Modifier = Modifier,
+    pickResult: AvatarPick? = null,
+    onPickConsumed: () -> Unit = {},
     viewModel: EditProfileViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -187,6 +203,14 @@ fun EditProfileScreen(
                         onPickImage = onPickImage,
                         viewModel = viewModel,
                     )
+                    if (pickResult != null) {
+                        PickedAvatarFrameEditor(
+                            pick = pickResult,
+                            onPickConsumed = onPickConsumed,
+                            onPickImage = onPickImage,
+                            viewModel = viewModel,
+                        )
+                    }
                 }
             }
         }
@@ -332,6 +356,24 @@ private fun AvatarCard(
     viewModel: EditProfileViewModel,
     modifier: Modifier = Modifier,
 ) {
+    // The persisted photo, which Adjust photo opens when nothing new is staged; null until it is on disk.
+    val avatarImage = rememberUserAvatarImage(ready.user.id.value)
+    var adjusting by remember { mutableStateOf(false) }
+    if (adjusting) {
+        ExistingAvatarFrameEditor(
+            avatarChange = ready.avatarChange,
+            avatarImage = avatarImage,
+            onDone = { frame ->
+                adjusting = false
+                viewModel.stageAvatarReframe(frame)
+            },
+            onCancel = { adjusting = false },
+            onChooseAnother = {
+                adjusting = false
+                onPickImage()
+            },
+        )
+    }
     ProfileSectionCard(
         title = stringResource(Res.string.profile_avatar),
         subtitle = stringResource(Res.string.profile_avatar_description),
@@ -343,6 +385,7 @@ private fun AvatarCard(
             avatarChange = ready.avatarChange,
             isSaving = ready.isSaving,
             onPickImage = onPickImage,
+            onAdjustPhoto = avatarImage?.let { { adjusting = true } },
             onRevert = viewModel::stageAvatarRevert,
         )
     }
@@ -355,6 +398,7 @@ private fun AvatarEditRow(
     avatarChange: AvatarChange,
     isSaving: Boolean,
     onPickImage: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onRevert: () -> Unit,
 ) {
     Row(
@@ -378,6 +422,26 @@ private fun AvatarEditRow(
                 )
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(stringResource(Res.string.profile_upload_photo))
+            }
+
+            // Adjust photo when there is a photo to frame: a staged pick, or the persisted image avatar
+            // (once it is on disk) that is not about to be removed.
+            val showAdjust =
+                avatarChange is AvatarChange.Upload ||
+                    (hasImageAvatar && avatarChange !is AvatarChange.RevertToAuto && onAdjustPhoto != null)
+            if (showAdjust && onAdjustPhoto != null) {
+                OutlinedButton(
+                    onClick = onAdjustPhoto,
+                    enabled = !isSaving,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Crop,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(stringResource(Res.string.edit_adjust_photo))
+                }
             }
 
             // Show Remove only when there's a real image avatar or one staged for upload
@@ -603,3 +667,82 @@ private fun PasswordInputField(
         trailingIconContentDescription = passwordVisibilityDescription(visible),
     )
 }
+
+/** What the platform picker handed back for the avatar, waiting to be framed. */
+sealed interface AvatarPick {
+    /** A picked photo, already normalised to JPEG. */
+    class Picked(
+        val jpeg: ByteArray,
+    ) : AvatarPick
+
+    /** The picked file could not be read as a photo. */
+    data object Undecodable : AvatarPick
+}
+
+/**
+ * A fresh pick goes straight into the editor (board `android-edit-profile`, panel 2 to 3). Done stages
+ * the photo with its frame (Q2); Cancel drops the pick and leaves the current photo alone. A pick that
+ * cannot be read says so and offers the picker again, rather than being silently dropped.
+ */
+@Composable
+private fun PickedAvatarFrameEditor(
+    pick: AvatarPick,
+    onPickConsumed: () -> Unit,
+    onPickImage: () -> Unit,
+    viewModel: EditProfileViewModel,
+) {
+    FrameEditorDialog(
+        source =
+            when (pick) {
+                is AvatarPick.Picked -> FrameEditorSource.Bytes(pick.jpeg)
+                AvatarPick.Undecodable -> FrameEditorSource.Undecodable
+            },
+        initialFrame = null,
+        shape = FrameShape.Circle,
+        confirm = FrameConfirm.Done,
+        previews = scallopFramePreviews(),
+        previewLabel = Res.string.edit_frame_preview_profile_label,
+        onConfirm = { frame ->
+            if (pick is AvatarPick.Picked) viewModel.stageAvatarUpload(pick.jpeg, AVATAR_CONTENT_TYPE, frame)
+            onPickConsumed()
+        },
+        onCancel = onPickConsumed,
+        onChooseAnother = {
+            onPickConsumed()
+            onPickImage()
+        },
+    )
+}
+
+/**
+ * Adjust photo on the avatar you have: a staged pick when there is one, else the persisted photo.
+ * Done stages the new frame; the form's Save commits it.
+ */
+@Composable
+private fun ExistingAvatarFrameEditor(
+    avatarChange: AvatarChange,
+    avatarImage: UserAvatarImage?,
+    onDone: (ImageFrame) -> Unit,
+    onCancel: () -> Unit,
+    onChooseAnother: () -> Unit,
+) {
+    val upload = avatarChange as? AvatarChange.Upload
+    FrameEditorDialog(
+        source =
+            when {
+                upload != null -> FrameEditorSource.Bytes(upload.bytes)
+                avatarImage != null -> FrameEditorSource.Model(avatarImage.localPath)
+                else -> FrameEditorSource.Resolving
+            },
+        initialFrame = upload?.frame ?: (avatarChange as? AvatarChange.Reframe)?.frame ?: avatarImage?.frame,
+        shape = FrameShape.Circle,
+        confirm = FrameConfirm.Done,
+        previews = scallopFramePreviews(),
+        previewLabel = Res.string.edit_frame_preview_profile_label,
+        onConfirm = onDone,
+        onCancel = onCancel,
+        onChooseAnother = onChooseAnother,
+    )
+}
+
+private const val AVATAR_CONTENT_TYPE = "image/jpeg"
