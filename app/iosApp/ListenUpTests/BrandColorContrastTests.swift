@@ -125,6 +125,18 @@ struct BrandColorContrastTests {
         }
     }
 
+    @Test("the player's error red reads as text on every surface, in every appearance")
+    func playerErrorRed() {
+        let red = UIColor(named: "PlayerErrorRed")
+        #expect(red != nil)
+        guard let red else { return }
+        for traits in Traits.colorAppearances {
+            let ratio = SRGBColor(red, resolvedFor: traits).minimumContrastRatio(against: surfaces(traits))
+            let style = traits.userInterfaceStyle.rawValue
+            #expect(ratio >= ContrastMinimum.text, "player error text \(ratio) in \(style)")
+        }
+    }
+
     @Test("the warning amber is visibly not the brand coral")
     func warningIsNotCoral() {
         func hue(_ color: UIColor) -> Double {

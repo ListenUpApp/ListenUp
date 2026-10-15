@@ -55,6 +55,7 @@ struct PlayerObserverTests {
         #expect(!snapshot.isPlaying)
         #expect(!snapshot.isErrored)
         #expect(snapshot.primary == .busy)
+        #expect(snapshot.miniLine == .reconnecting)
     }
 
     @Test("a known reason the book can't play reads as an error with its reason")
@@ -88,6 +89,32 @@ struct PlayerObserverTests {
         #expect(PlayerSnapshot.from(PlayerUiStateLoaded.fixture(sleepTimer: endOfChapter)).sleepTimerIsEndOfChapter)
     }
 
+    @Test("the mini player's line arrives as a native value, named by the book's own chapter title")
+    func miniLine() {
+        let playing = PlayerSnapshot.from(
+            PlayerUiStateLoaded.fixture(phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "Bridge Four"))
+        #expect(playing.miniLine == .chapter(number: nil, title: "Bridge Four", sleepRemainingMs: nil))
+
+        let untitled = PlayerSnapshot.from(
+            PlayerUiStateLoaded.fixture(phase: PlayerPhasePaused.shared, currentIndex: 5, chapterTitle: ""))
+        #expect(untitled.miniLine == .paused(number: 6, title: nil, sleepRemainingMs: nil))
+
+        let wholeBook = PlayerSnapshot.from(
+            PlayerUiStateLoaded.fixture(phase: PlayerPhasePlaying.shared, wholeBook: true))
+        #expect(wholeBook.miniLine == .chapter(number: nil, title: nil, sleepRemainingMs: nil))
+
+        let failed = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
+            phase: PlayerPhaseFailed(error: PlaybackErrorConnectionLost(correlationId: nil, debugInfo: nil)),
+            primary: PrimaryControlRetry.shared))
+        guard case .problem(let code, let title, let isTinted) = failed.miniLine else {
+            Issue.record("expected a problem line, got \(failed.miniLine)")
+            return
+        }
+        #expect(code == "PLAYBACK_CONNECTION_LOST")
+        #expect(title == "Couldn't play this book.")
+        #expect(isTinted)
+    }
+
     @Test("progress becomes a native row with its derived values")
     func progress() {
         let row = PlayerProgressRow(PlayerProgress(
@@ -105,7 +132,10 @@ extension PlayerUiStateLoaded {
         currentIndex: Int = 0,
         wholeBook: Bool = false,
         primary: any PrimaryControl = PrimaryControlPause.shared,
-        sleepTimer: any SleepTimerState = SleepTimerStateInactive.shared
+        sleepTimer: any SleepTimerState = SleepTimerStateInactive.shared,
+        chapterTitle: String? = nil,
+        source: any AudioSource = AudioSourceStreaming.shared,
+        showsSkipBack: Bool = true
     ) -> PlayerUiStateLoaded {
         let total = wholeBook ? 1 : 8
         let rows = wholeBook ? [] : (0..<total).map { index in
@@ -124,16 +154,16 @@ extension PlayerUiStateLoaded {
             phase: phase,
             chapter: PlayerChapter(
                 index: Int32(wholeBook ? 0 : currentIndex), number: Int32((wholeBook ? 0 : currentIndex) + 1),
-                total: Int32(total), title: wholeBook ? "" : "Chapter \(currentIndex + 1)",
+                total: Int32(total), title: wholeBook ? "" : (chapterTitle ?? "Chapter \(currentIndex + 1)"),
                 isGenericTitle: false, isWholeBook: wholeBook,
                 startMs: wholeBook ? 0 : Int64(currentIndex) * 60_000, durationMs: wholeBook ? 480_000 : 60_000),
             chapters: rows,
-            source: AudioSourceStreaming.shared,
+            source: source,
             settings: PlayerSettings(
                 speed: 1.5, defaultSpeed: 1.0, boostDb: 0, defaultBoostDb: 0, skipBackSec: 10, skipForwardSec: 30),
             sleepTimer: sleepTimer,
             primary: primary,
-            showsSkipBack: true,
+            showsSkipBack: showsSkipBack,
             canSkipToNextChapter: !wholeBook && currentIndex < total - 1,
             finished: nil
         )
