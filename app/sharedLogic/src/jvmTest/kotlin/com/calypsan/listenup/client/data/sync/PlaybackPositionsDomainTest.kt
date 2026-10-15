@@ -263,6 +263,59 @@ class PlaybackPositionsDomainTest :
                 db.close()
             }
         }
+
+        test("an equal-stamp payload carrying a newer dismissal raises it here and moves nothing else") {
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(bookId = "book-1", positionMs = 99_000L, lastPlayedAt = 2000L, revision = 5L),
+                )
+
+                handler.onEvent(
+                    updated(
+                        payload(
+                            "pos-1",
+                            "book-1",
+                            positionMs = 1_000L,
+                            lastPlayedAt = 2000L,
+                            revision = 6L,
+                            finishedCardDismissedAt = 3000L,
+                        ),
+                    ),
+                )
+
+                val row = db.playbackPositionDao().get(BookId("book-1"))!!
+                row.positionMs shouldBe 99_000L
+                row.finishedCardDismissedAt shouldBe 3000L
+            }
+        }
+
+        test("a stale payload's older dismissal never lowers this device's") {
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(bookId = "book-1", lastPlayedAt = 2000L, finishedCardDismissedAt = 5000L),
+                )
+
+                handler.onEvent(
+                    updated(payload("pos-1", "book-1", lastPlayedAt = 1000L, revision = 6L, finishedCardDismissedAt = 3000L)),
+                )
+
+                db.playbackPositionDao().get(BookId("book-1"))!!.finishedCardDismissedAt shouldBe 5000L
+            }
+        }
+
+        test("a newer payload that says nothing about the card keeps this device's dismissal") {
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(bookId = "book-1", positionMs = 1_000L, lastPlayedAt = 1000L, finishedCardDismissedAt = 5000L),
+                )
+
+                handler.onEvent(updated(payload("pos-1", "book-1", positionMs = 7_000L, lastPlayedAt = 9000L, revision = 6L)))
+
+                val row = db.playbackPositionDao().get(BookId("book-1"))!!
+                row.positionMs shouldBe 7_000L
+                row.finishedCardDismissedAt shouldBe 5000L
+            }
+        }
     })
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -305,6 +358,7 @@ private fun payload(
     playbackSpeed: Float = 1.0f,
     currentChapterId: String? = null,
     deletedAt: Long? = null,
+    finishedCardDismissedAt: Long? = null,
 ) = PlaybackPositionSyncPayload(
     id = id,
     bookId = bookId,
@@ -313,6 +367,7 @@ private fun payload(
     finished = finished,
     playbackSpeed = playbackSpeed,
     currentChapterId = currentChapterId,
+    finishedCardDismissedAt = finishedCardDismissedAt,
     revision = revision,
     updatedAt = 200L,
     createdAt = 50L,
@@ -328,6 +383,7 @@ private fun localRow(
     syncedAt: Long? = null,
     finishedAt: Long? = null,
     startedAt: Long? = null,
+    finishedCardDismissedAt: Long? = null,
 ) = PlaybackPositionEntity(
     bookId = BookId(bookId),
     positionMs = positionMs,
@@ -341,4 +397,5 @@ private fun localRow(
     startedAt = startedAt,
     revision = revision,
     deletedAt = null,
+    finishedCardDismissedAt = finishedCardDismissedAt,
 )

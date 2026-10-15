@@ -135,7 +135,10 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
 
             is ConflictPolicy.NewerWins -> {
                 val existing = conflict.existingStamp(payload)
-                if (existing != null && existing >= conflict.incomingStamp(payload)) return
+                if (existing != null && existing >= conflict.incomingStamp(payload)) {
+                    conflict.onSuperseded(payload)
+                    return
+                }
                 domain.apply.upsert(payload)
             }
         }

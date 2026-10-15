@@ -55,4 +55,18 @@ class SupersededPositionWriteTest :
             line shouldContain "server kept lastPlayedAt=2000 pos=50000"
             line shouldContain "deviceClockOffsetMs=600000"
         }
+
+        test("a dismissal the server kept says nothing, though it claimed no newer listening") {
+            val dismissal = request.copy(lastPlayedAt = 2_000L, finishedCardDismissedAt = 9_000L)
+
+            describeSupersededPositionWrite(
+                dismissal,
+                RecordPositionResult(
+                    position = stored.copy(finishedCardDismissedAt = 9_000L),
+                    accepted = false,
+                    serverNowMs = 0L,
+                ),
+                deviceNowMs = 0L,
+            ).shouldBeNull()
+        }
     })

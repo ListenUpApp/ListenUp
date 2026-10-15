@@ -228,4 +228,17 @@ internal interface PlaybackPositionDao {
             "UNION SELECT finishedAt FROM playback_positions WHERE deletedAt IS NULL AND finishedAt IS NOT NULL",
     )
     fun observeListenedDayTimestamps(): Flow<List<Long>>
+
+    /**
+     * Record a finish-card dismissal (spec S2): only ever raises it, and touches nothing else. Used when an inbound row
+     * is otherwise stale, because a dismissal travels without a newer lastPlayedAt.
+     */
+    @Query(
+        "UPDATE playback_positions SET finishedCardDismissedAt = :at " +
+            "WHERE bookId = :bookId AND (finishedCardDismissedAt IS NULL OR finishedCardDismissedAt < :at)",
+    )
+    suspend fun raiseFinishedCardDismissedAt(
+        bookId: BookId,
+        at: Long,
+    )
 }
