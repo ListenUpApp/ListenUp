@@ -45,6 +45,44 @@ enum PlayerPrimary: Sendable, Equatable {
     }
 }
 
+/// The mini player's second line (spec §5.1), mapped once from the shared `MiniPlayerLine` (rule 8). A chapter is
+/// named by the book's own `title`; `number` is set only for a chaptered book's untitled chapter; both nil is a
+/// chapterless book.
+enum MiniLine: Equatable, Sendable {
+    case chapter(number: Int?, title: String?, sleepRemainingMs: Int64?)
+    case paused(number: Int?, title: String?, sleepRemainingMs: Int64?)
+    case casting(device: String, number: Int?, title: String?)
+    case starting, loading, reconnecting, fadingOut, finished
+    /// `title` is the short mini line (`player.mini_<code>`), falling back to the card title. `isTinted` marks a
+    /// failure the reader has to act on.
+    case problem(code: String, title: String, isTinted: Bool)
+
+    init(_ line: any MiniPlayerLine) {
+        switch line.sealedType() {
+        case .chapter(let chapter):
+            let value = chapter.value
+            self = .chapter(
+                number: value.number.map { Int($0) }, title: value.title, sleepRemainingMs: value.sleepRemainingMs)
+        case .paused(let paused):
+            let value = paused.value
+            self = .paused(
+                number: value.number.map { Int($0) }, title: value.title, sleepRemainingMs: value.sleepRemainingMs)
+        case .casting(let casting):
+            let value = casting.value
+            self = .casting(device: value.deviceName, number: value.number.map { Int($0) }, title: value.title)
+        case .starting: self = .starting
+        case .loading: self = .loading
+        case .reconnecting: self = .reconnecting
+        case .fadingOut: self = .fadingOut
+        case .finished: self = .finished
+        case .problem(let problem):
+            let value = problem.value
+            self = .problem(
+                code: value.error.code, title: PlayerSnapshot.miniTitle(for: value.error), isTinted: value.isTinted)
+        }
+    }
+}
+
 /// Native values the player surfaces render (rule 8). Built once per `uiState` emission, never on a
 /// position tick (ticks are `PlayerProgressRow`).
 struct PlayerSnapshot: Equatable {
@@ -78,6 +116,8 @@ struct PlayerSnapshot: Equatable {
     /// The error's card title (`player.title_<code>`), falling back to the error's own message.
     var errorMessage: String?
     var primary: PlayerPrimary = .play
+    /// The mini player's second line, decided in shared code.
+    var miniLine: MiniLine = .loading
     var showsSkipBack = false
     var canSkipToNextChapter = false
     var playbackSpeed: Float = 1.0
@@ -99,6 +139,7 @@ struct PlayerSnapshot: Equatable {
         snapshot.applyChapters(current: loaded.chapter, rows: loaded.chapters)
         snapshot.applyPhase(loaded.phase)
         snapshot.primary = PlayerPrimary(loaded.primary)
+        snapshot.miniLine = MiniLine(MiniPlayerLines.shared.of(state: loaded))
         snapshot.showsSkipBack = loaded.showsSkipBack
         snapshot.canSkipToNextChapter = loaded.canSkipToNextChapter
         let settings = loaded.settings
@@ -161,6 +202,13 @@ struct PlayerSnapshot: Equatable {
         let key = "player.title_" + error.code.lowercased()
         let title = String(localized: String.LocalizationValue(key))
         return title == key ? error.message : title
+    }
+
+    /// The mini line for `error`: `player.mini_<code>`, else the card title (§4.6).
+    static func miniTitle(for error: any AppError) -> String {
+        let key = "player.mini_" + error.code.lowercased()
+        let text = String(localized: String.LocalizationValue(key))
+        return text == key ? title(for: error) : text
     }
 
     private mutating func applySleepTimer(_ state: any SleepTimerState) {
@@ -259,6 +307,7 @@ final class PlayerObserver {
     var isErrored: Bool { snapshot.isErrored }
     var errorMessage: String? { snapshot.errorMessage }
     var primary: PlayerPrimary { snapshot.primary }
+    var miniLine: MiniLine { snapshot.miniLine }
     var showsSkipBack: Bool { snapshot.showsSkipBack }
     var canSkipToNextChapter: Bool { snapshot.canSkipToNextChapter }
     var playbackSpeed: Float { snapshot.playbackSpeed }
