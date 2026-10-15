@@ -472,6 +472,6 @@ class ContributorEditPageTest :
         test("a contributor with a photo shows it") {
             val host = page(editingContributor(imagePath = "contributors/c-king.jpg"))
 
-            host.querySelector("img")?.getAttribute("src") shouldBe "/api/v1/contributors/c-king/photo"
+            host.querySelector("img")?.getAttribute("src") shouldBe "/api/v1/contributors/c-king/photo?v=contributors/c-king.jpg"
         }
     })

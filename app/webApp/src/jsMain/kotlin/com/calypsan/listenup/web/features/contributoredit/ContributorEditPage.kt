@@ -21,6 +21,8 @@ import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
+import com.calypsan.listenup.web.design.FramedImg
+import com.calypsan.listenup.web.design.contributorPhotoUrl
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
 import com.calypsan.listenup.web.design.PageHeader
@@ -35,7 +37,6 @@ import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -162,20 +163,23 @@ private fun PortraitField(
     Div(attrs = { classes("ced-portrait") }) {
         when {
             previewUrl != null -> {
-                Img(src = previewUrl, alt = "New portrait preview", attrs = { classes(PHOTO) })
+                FramedImg(
+                    src = previewUrl,
+                    alt = "New portrait preview",
+                    frame = state.pendingImageFrame,
+                    classes = listOf(PHOTO),
+                )
             }
 
             // A contributor with no photo is the normal case, so a 404 here is routine rather than
             // exceptional — the monogram it falls back to is a finished portrait.
             state.imagePath != null && !portraitFailed -> {
-                Img(
-                    src = contributorPhotoUrl(state.contributorId),
+                FramedImg(
+                    src = contributorPhotoUrl(state.contributorId, state.imagePath.orEmpty()),
                     alt = state.name,
-                    attrs = {
-                        classes(PHOTO)
-                        attr("decoding", "async")
-                        addEventListener("error") { portraitFailed = true }
-                    },
+                    frame = state.pendingImageFrame ?: state.imageFrame,
+                    classes = listOf(PHOTO),
+                    onError = { portraitFailed = true },
                 )
             }
 
@@ -477,9 +481,6 @@ private fun stagePhoto(
         onEvent(ContributorEditUiEvent.UploadImage(imageData = bytes, filename = file.name, frame = null))
     }
 }
-
-/** Where the server serves a contributor's photo from. 404s for anyone who has none. */
-internal fun contributorPhotoUrl(contributorId: String): String = "/api/v1/contributors/$contributorId/photo"
 
 private const val ATTR_TYPE = "type"
 

@@ -26,7 +26,7 @@ import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.coverUrl
-import com.calypsan.listenup.web.design.initialsFor
+import com.calypsan.listenup.web.design.ContributorPhoto
 import com.calypsan.listenup.web.design.tintGradient
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
@@ -256,7 +256,14 @@ private fun Hero(
             style { property("background", avatarTintFor(state.contributor.name)) }
             // The arrival half of the avatar's flight from the Contributors list. See [heroTarget].
             heroTarget(contributorHeroKey(state.contributor.idString))
-        }) { Text(initialsFor(state.contributor.name)) }
+        }) {
+            ContributorPhoto(
+                contributorId = state.contributor.idString,
+                name = state.contributor.name,
+                imagePath = state.contributor.imagePath,
+                frame = state.contributor.imageFrame,
+            )
+        }
 
         Div(attrs = { classes("cd-name-block") }) {
             PageHeader(title = state.contributor.name, display = true)

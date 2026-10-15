@@ -4,6 +4,7 @@ import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,16 +19,18 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.FormSection
+import com.calypsan.listenup.web.design.FramedImg
+import com.calypsan.listenup.web.design.LocalAvatarFrames
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.readByteArray
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -243,15 +246,32 @@ private fun PhotoField(
     var fileInput by remember { mutableStateOf<HTMLInputElement?>(null) }
 
     Div(attrs = { classes("pedit-photo") }) {
-        if (previewUrl != null) {
-            Img(src = previewUrl, alt = "New photo preview", attrs = { classes("pedit-preview") })
-        } else {
-            UserAvatar(
-                userId = state.user.idString,
-                name = state.user.displayName,
-                size = AVATAR_SIZE,
-                monogramOnly = state.avatarChange == AvatarChange.RevertToAuto,
-            )
+        val reframe = state.avatarChange as? AvatarChange.Reframe
+        when {
+            previewUrl != null -> {
+                FramedImg(
+                    src = previewUrl,
+                    alt = "New photo preview",
+                    frame = staged?.frame,
+                    classes = listOf("pedit-preview"),
+                )
+            }
+
+            // A staged re-frame previews over the saved picture, so the reader sees what Save keeps.
+            reframe != null -> {
+                CompositionLocalProvider(LocalAvatarFrames provides { flowOf(reframe.frame) }) {
+                    UserAvatar(userId = state.user.idString, name = state.user.displayName, size = AVATAR_SIZE)
+                }
+            }
+
+            else -> {
+                UserAvatar(
+                    userId = state.user.idString,
+                    name = state.user.displayName,
+                    size = AVATAR_SIZE,
+                    monogramOnly = state.avatarChange == AvatarChange.RevertToAuto,
+                )
+            }
         }
         Div(attrs = { classes("pedit-photo-acts") }) {
             // ⛔ type=button on both. A <button> with no type defaults to SUBMIT, so inside the

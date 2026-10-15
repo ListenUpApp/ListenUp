@@ -1,0 +1,10 @@
+/* Framed photos: a positioned image inside a clipping box. The box is `div.framed`; its size and
+   shape come from the caller's class beside it. See FramedImg.kt. Not scoped to .luw, like `.uav`:
+   an avatar is drawn in the same shape wherever it appears. */
+.framed { position: relative; overflow: hidden; }
+.framed-img { position: absolute; display: block; max-width: none; }
+/* Until the image's own size is known it is today's centre crop, so nothing jumps on load. */
+.framed-img.is-pending { inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Fill a circle the caller already draws: the user avatar, a contributor's ring, a search badge. */
+.uav-frame, .contrib-photo { width: 100%; height: 100%; border-radius: inherit; }
+.uav-frame { border-radius: 50%; }
