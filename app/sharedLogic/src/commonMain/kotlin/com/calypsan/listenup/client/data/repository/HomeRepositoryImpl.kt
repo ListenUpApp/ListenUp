@@ -10,6 +10,8 @@ import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
+import com.calypsan.listenup.client.domain.model.ShelfCover
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -20,6 +22,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+
+// How many newest books to look through per cover wanted: art is common, not universal (plan call C15).
+private const val SHOWCASE_OVERSCAN = 4
 
 /**
  * Repository for Home screen data.
@@ -142,6 +147,17 @@ internal class HomeRepositoryImpl(
                     ) { books, downloads -> buildContinueListeningItems(positions, books, downloads, limit) }
                 }
             }
+
+    override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> =
+        bookRepository.observeRecentlyAddedBooks(limit = coverLimit * SHOWCASE_OVERSCAN).map { newest ->
+            LibraryShowcase(
+                covers =
+                    newest
+                        .filter { it.coverHash != null }
+                        .take(coverLimit)
+                        .map { ShelfCover(bookId = it.id, coverPath = it.coverPath, coverHash = it.coverHash) },
+            )
+        }
 
     private fun buildContinueListeningItems(
         positions: List<PlaybackPositionEntity>,

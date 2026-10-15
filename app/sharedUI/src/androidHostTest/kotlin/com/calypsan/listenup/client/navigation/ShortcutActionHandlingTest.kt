@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.playback.SleepTimerMode
@@ -16,6 +17,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -183,6 +185,8 @@ private class FakeHome(
 ) : HomeRepository {
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
         if (books.isEmpty()) AppResult.Failure(InternalError()) else AppResult.Success(books.take(limit))
+
+    override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> = emptyFlow()
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
 }

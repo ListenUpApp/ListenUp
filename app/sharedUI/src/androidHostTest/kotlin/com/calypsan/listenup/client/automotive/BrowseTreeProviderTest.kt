@@ -5,6 +5,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaConstants
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.LibraryShowcase
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -34,6 +35,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -596,6 +598,8 @@ private class FakeHomeRepository(
         } else {
             AppResult.Success(books.take(limit))
         }
+
+    override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> = emptyFlow()
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
         flowOf(

@@ -2,14 +2,14 @@ package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
 import com.calypsan.listenup.client.TestData
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
-import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.repository.BookRepository
-import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
-import com.calypsan.listenup.core.BookId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -20,10 +20,10 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlin.time.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Clock
 
 /**
  * Kotest FunSpec tests for [HomeRepositoryImpl.observeContinueListening].
