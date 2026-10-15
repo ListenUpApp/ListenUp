@@ -151,7 +151,7 @@
    ============================================================ */
 @media (max-width: 759px) {
   /* The two docked strips, named once so every offset below is arithmetic on the same numbers. */
-  :root { --tab-h:58px; --tport-h:84px; }
+  :root { --tab-h:58px; --tport-h:72px; }
   .shell { padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom)); }
   /* Toasts are fixed to the viewport and stack from its foot — which on a phone is where the tab
      bar and the player live. They rise above both rather than printing over the controls. */
@@ -211,37 +211,25 @@
   .shell-main:has(> .tport) { --dock:var(--tport-h); }
   .shell-main, .shell-main:has(> .tport) { padding:14px 14px calc(14px + var(--dock)); scroll-padding-bottom:calc(8px + var(--dock)); }
 
-  /* The player bar. Pinned directly above the tab bar, always in reach, in two rows: the scrub
-     alone across the full width, then play, what is playing and where, chapters, and the way into
-     the full player. Speed, boost, sleep and the skips live in that full player on a phone — one
-     tap away, rather than squeezed to a size a thumb cannot hit. */
+  /* The player bar (board Mini-WebPhone): pinned directly above the tab bar. A chapter line along the top, then
+     the book (one button into Now Playing), back N and play. Forward, the scrubber and the settings live in the
+     full player on a phone — one tap away — rather than squeezed below a thumb's reach. An armed sleep timer
+     moves into the line under the title, so it is still where the eye already is. */
   .tport, .shell-main > .tport {
     position:fixed; left:0; right:0; bottom:calc(var(--tab-h) + env(safe-area-inset-bottom)); z-index:30;
-    margin:0; height:var(--tport-h); min-height:0;
-    padding:6px calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left));
-    display:grid; column-gap:var(--sp-8); row-gap:0; align-items:center;
-    grid-template-columns:44px auto minmax(0,1fr) auto auto auto;
-    grid-template-rows:28px 22px 22px;
-    grid-template-areas:
-      "scrub scrub scrub scrub scrub scrub"
-      "play  title title sleep ch    expand"
-      "play  now   end   sleep ch    expand";
+    margin:0; height:var(--tport-h); min-height:0; flex-wrap:nowrap; gap:2px;
+    padding:3px calc(10px + env(safe-area-inset-right)) 0 calc(12px + env(safe-area-inset-left));
     box-shadow:var(--shadow-up);
   }
-  .tport-scrub { grid-area:scrub; width:100%; min-width:0; height:28px; }
-  .tport-b { grid-area:play; width:44px; height:44px; }
-  .tport-t { grid-area:title; align-self:end; max-width:none; font-size:var(--fs-small); }
-  /* Playhead renders the two times either side of the scrub; here they read as one line. */
-  .tport-time:has(+ .tport-scrub) { grid-area:now; align-self:start; }
-  .tport-scrub + .tport-time { grid-area:end; align-self:start; }
-  .tport-scrub + .tport-time::before { content:"/\00a0" / ""; }
-  .tport-ch { grid-area:ch; width:44px; height:44px; }
-  .tport-expand { grid-area:expand; width:44px; height:44px; }
-  .tport-skip, .tport-speed, .tport-boost, .tport-sleep { display:none; }
-  /* Except an ARMED sleep timer. A timer nobody can see is one the listener forgets setting, and
-     finding out by having the book stop is the one way that feature feels broken — so while one
-     is running, its control stays on the bar where the eye already is. */
-  .tport-sleep.on { display:inline-flex; grid-area:sleep; width:44px; height:44px; }
+  .tport-line { display:block; position:absolute; left:0; right:0; top:-1px; height:3px; background:var(--line); }
+  .tport-line-fill { height:3px; background:var(--coral-fill); }
+  .tport-body { flex:1 1 auto; gap:10px; }
+  .tport-cover { width:46px; }
+  .tport-sub.desk { display:none; }
+  .tport-sub.phone { display:block; }
+  .tport-mid, .tport-transport { display:contents; }
+  .tport-fwd, .tport-head, .tport-settings, .tport-expand { display:none; }
+  .tport-b { width:48px; height:48px; }
 }
 
 /* ---- book detail (Workbench layout, Paper voice) ---- */

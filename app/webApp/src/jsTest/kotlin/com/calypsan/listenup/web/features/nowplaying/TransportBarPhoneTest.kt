@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.web.ViewportFrame
 import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
@@ -54,9 +55,10 @@ private val NAV =
     )
 
 /**
- * The transport bar on a phone: the one surface a listener reaches for with a thumb, often without
- * looking. It pins above the tab bar, gives the scrub a row of its own, keeps play, the time, the
- * chapters and the way into the full player — and fits at 320px without a sideways scroll.
+ * The player bar on a phone (board Mini-WebPhone): the one surface a listener reaches for with a thumb, often
+ * without looking. It pins above the tab bar: a chapter line along its top, then the book (one target into Now
+ * Playing), back N and play — and it fits at 320px without a sideways scroll. Forward, the scrubber and the
+ * settings are one tap away in the full player.
  *
  * Rendered inside the real [Shell] at real widths (see [ViewportFrames]), because every claim here
  * is about where things land against each other, which only a laid-out page can answer.
@@ -87,7 +89,8 @@ class TransportBarPhoneTest :
                                 currentChapterIndex = 0,
                                 sleepTimer = sleepTimer,
                             ),
-                        progress = playerProgress(durationMs = BOOK_MS),
+                        // At the start of the first chapter, half the book long: "5m left".
+                        progress = PlayerProgress(chapterPositionMs = 0, chapterDurationMs = BOOK_MS / 2, bookPositionMs = 0, bookDurationMs = BOOK_MS),
                         onPrimary = {},
                         onSeek = {},
                         onSkipBack = {},
@@ -107,57 +110,46 @@ class TransportBarPhoneTest :
             frame.rect(bar).bottom shouldBe frame.rect(frame.find(".sidebar")).top
         }
 
-        test("the scrub has a full-width row of its own, above the controls") {
+        test("a chapter line runs along the bar's top edge") {
             val frame = player()
             val bar = frame.rect(frame.find(".tport"))
-            val scrub = frame.rect(frame.find(".tport-scrub"))
-            val play = frame.rect(frame.find(".tport-b"))
+            val line = frame.find(".tport-line")
 
-            scrub.bottom shouldBeLessThanOrEqual play.top
-            // Edge to edge less the bar's own gutters: a thumb needs every pixel of a seek.
-            scrub.width shouldBeGreaterThanOrEqual bar.width - 2 * 16
+            frame.isShown(line) shouldBe true
+            frame.rect(line).top shouldBe bar.top
+            frame.rect(line).height shouldBe 3.0
         }
 
-        test("play, the time, chapters and the way into the player all stay, and all fit at 320px") {
+        test("the phone bar is the book, back N and play: each a full target, and it fits at 320px") {
             val frame = player()
             val bar = frame.find(".tport")
             val box = frame.rect(bar)
 
-            val kept = listOf(".tport-b", ".tport-time", ".tport-ch", ".tport-expand", ".tport-scrub")
-            kept.forEach { selector ->
+            listOf(".tport-body", ".tport-back", ".tport-b").forEach { selector ->
                 val control = frame.find(selector)
                 frame.isShown(control) shouldBe true
                 frame.rect(control).left shouldBeGreaterThanOrEqual box.left
                 frame.rect(control).right shouldBeLessThanOrEqual box.right
             }
-            listOf(".tport-b", ".tport-ch", ".tport-expand").forEach { selector ->
-                frame.rect(frame.find(selector)).height shouldBeGreaterThanOrEqual MIN_TARGET_PX
-                frame.rect(frame.find(selector)).width shouldBeGreaterThanOrEqual MIN_TARGET_PX
+            frame.rect(frame.find(".tport-back")).width shouldBeGreaterThanOrEqual MIN_TARGET_PX
+            frame.rect(frame.find(".tport-b")).width shouldBe 48.0
+            listOf(".tport-fwd", ".tport-head", ".tport-speed", ".tport-sleep", ".tport-ch", ".tport-expand").forEach { selector ->
+                frame.findAll(selector).forEach { frame.isShown(it) shouldBe false }
             }
             bar.scrollWidth shouldBeLessThanOrEqual bar.clientWidth
             frame.horizontalOverflow() shouldBe 0
         }
 
-        test("the chapters control is not a skip, so it survives the phone layout") {
-            val frame = player()
-            val chapters = frame.find("[aria-label='Chapters']")
-
-            chapters.classList.contains("tport-ch") shouldBe true
-            chapters.classList.contains("tport-skip") shouldBe false
-            frame.isShown(chapters) shouldBe true
-        }
-
-        test("the session controls step aside on a phone, because the full player holds them") {
+        test("the line under the title says the chapter and its time left") {
             val frame = player()
 
-            listOf(".tport-speed", ".tport-boost", ".tport-sleep", ".tport-skip").forEach { selector ->
-                frame.findAll(selector).forEach { frame.isShown(it) shouldBe false }
-            }
+            frame.isShown(frame.find(".tport-sub.phone")) shouldBe true
+            frame.isShown(frame.find(".tport-sub.desk")) shouldBe false
+            frame.find(".tport-sub.phone").textContent shouldBe "Paused · Prelude · 5m left"
         }
 
-        test("an armed sleep timer stays on the bar, and the bar still fits") {
-            // ⛔ A timer nobody can see is one the listener forgets setting — so the one session
-            // control that returns to a phone's bar is the sleep timer, and only while it runs.
+        test("an armed sleep timer shows in the line, and the bar still fits") {
+            // ⛔ A timer nobody can see is one the listener forgets setting (kept from the old armed-control spec).
             val frame =
                 player(
                     sleepTimer =
@@ -168,28 +160,21 @@ class TransportBarPhoneTest :
                             startedAt = 0L,
                         ),
                 )
-            val bar = frame.find(".tport")
-            val sleep = frame.find("[aria-label='Sleep timer, set']")
 
-            frame.isShown(sleep) shouldBe true
-            frame.rect(sleep).width shouldBeGreaterThanOrEqual MIN_TARGET_PX
-            frame.rect(sleep).right shouldBeLessThanOrEqual frame.rect(bar).right
-            bar.scrollWidth shouldBeLessThanOrEqual bar.clientWidth
+            frame.find(".tport-sub.phone").textContent shouldBe "Paused · Prelude · Sleep · 20m"
             frame.horizontalOverflow() shouldBe 0
         }
 
-        test("the bar keeps its names and its spoken position on a phone") {
+        test("the bar keeps its names on a phone") {
             val frame = player()
 
             frame.find(".tport-b").getAttribute("aria-label") shouldBe "Play"
-            frame.find(".tport-expand").getAttribute("aria-label") shouldBe "Open the player"
-            frame.find(".tport-scrub").getAttribute("aria-valuetext") shouldBe
-                "${formatElapsed(0)} of ${formatElapsed(BOOK_MS)}"
+            frame.find(".tport-body").getAttribute("aria-label").orEmpty().startsWith("Open Now Playing: The Way of Kings") shouldBe true
         }
 
-        test("speed, boost and sleep are one tap into the full player, and it fills the phone") {
+        test("speed, chapters, boost and sleep are one tap into the full player, and it fills the phone") {
             val frame = player()
-            frame.find(".tport-expand").click()
+            frame.find(".tport-body").click()
             awaitFrame()
 
             val panel = frame.rect(frame.find(".np-dlg"))
@@ -204,7 +189,7 @@ class TransportBarPhoneTest :
 
         test("the full player's sleep chip opens the sleep timer on a phone") {
             val frame = player()
-            frame.find(".tport-expand").click()
+            frame.find(".tport-body").click()
             awaitFrame()
 
             frame.findAll(".np-chip").single { it.textContent.orEmpty().trim() == "Sleep" }.click()
