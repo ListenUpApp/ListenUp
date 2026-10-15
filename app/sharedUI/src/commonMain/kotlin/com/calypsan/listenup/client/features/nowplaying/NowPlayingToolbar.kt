@@ -48,6 +48,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
+import com.calypsan.listenup.client.features.nowplaying.components.MiniBookSwitch
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
@@ -161,7 +162,12 @@ fun NowPlayingToolbar(
                 expandedShadowElevation = ToolbarElevation,
                 modifier = Modifier.fillMaxWidth().swipeUpToExpand(onTap),
             ) {
-                ToolbarContent(loaded, line, progress, fullSet, actions, skipBackwardSec, skipForwardSec)
+                // The container stays; only its content moves when the book changes.
+                MiniBookSwitch(loaded, Modifier.weight(1f)) { shown ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        ToolbarContent(shown, progress, fullSet, actions, skipBackwardSec, skipForwardSec)
+                    }
+                }
             }
         }
     }
@@ -183,13 +189,13 @@ private class ToolbarActions(
 @Composable
 private fun RowScope.ToolbarContent(
     state: PlayerUiState.Loaded,
-    line: MiniPlayerLine,
     progress: () -> PlayerProgress,
     fullSet: Boolean,
     actions: ToolbarActions,
     skipBackwardSec: Int,
     skipForwardSec: Int,
 ) {
+    val line = MiniPlayerLines.of(state)
     ToolbarBody(state, line, progress, actions.onOpen, if (fullSet) Modifier.width(ToolbarBodyWidth) else Modifier.weight(1f))
     if (state.showsSkipBack) {
         Ctrl(

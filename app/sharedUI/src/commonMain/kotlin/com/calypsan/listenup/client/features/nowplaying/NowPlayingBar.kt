@@ -42,6 +42,7 @@ import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.util.isLargeFontScale
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
+import com.calypsan.listenup.client.features.nowplaying.components.MiniBookSwitch
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
@@ -129,46 +130,63 @@ fun NowPlayingBar(
             contentColor = if (tinted) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.fillMaxWidth().swipeUpToExpand(onTap),
         ) {
-            Column(Modifier.windowInsetsPadding(bottomInset)) {
-                MiniProgressLine(
-                    isPlaying = loaded.phase == PlayerPhase.Playing,
-                    progress = progress,
-                    modifier = Modifier.fillMaxWidth().height(MiniProgressSlotHeight),
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(MiniBarRowHeight).padding(start = 12.dp, end = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    MiniBody(
-                        state = loaded,
-                        line = line,
-                        progress = progress,
-                        onOpen = onTap,
-                        fit = MiniLineFit.WithTimeLeft,
-                        coverSize = MiniPhoneCoverSize,
-                    )
-                    if (loaded.showsSkipBack) {
-                        Ctrl(
-                            icon = SkipGlyphs.backward(skipBackwardSec),
-                            contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
-                            onClick = onSkipBack,
-                            size = MinTouchTarget,
-                            iconSize = MiniPlayerGlyphSize,
-                            tint = LocalContentColor.current,
-                        )
-                    }
-                    MiniPrimaryButton(
-                        primary = loaded.primary,
-                        bookTitle = loaded.book.title,
-                        onClick = onPrimary,
-                        size = MiniPhonePlaySize,
-                        playLabel = miniPlayLabel(line),
-                        busyLabel = miniBusyLabel(line),
-                        onKeepListening = onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
-                    )
-                }
+            // The container stays; only its content moves when the book changes.
+            MiniBookSwitch(loaded, Modifier.windowInsetsPadding(bottomInset)) { shown ->
+                PhoneBarContent(shown, progress, onTap, onPrimary, onSkipBack, onKeepListening, skipBackwardSec)
             }
+        }
+    }
+}
+
+@Composable
+private fun PhoneBarContent(
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
+    onOpen: () -> Unit,
+    onPrimary: () -> Unit,
+    onSkipBack: () -> Unit,
+    onKeepListening: () -> Unit,
+    skipBackwardSec: Int,
+) {
+    val line = MiniPlayerLines.of(state)
+    Column {
+        MiniProgressLine(
+            isPlaying = state.phase == PlayerPhase.Playing,
+            progress = progress,
+            modifier = Modifier.fillMaxWidth().height(MiniProgressSlotHeight),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().height(MiniBarRowHeight).padding(start = 12.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            MiniBody(
+                state = state,
+                line = line,
+                progress = progress,
+                onOpen = onOpen,
+                fit = MiniLineFit.WithTimeLeft,
+                coverSize = MiniPhoneCoverSize,
+            )
+            if (state.showsSkipBack) {
+                Ctrl(
+                    icon = SkipGlyphs.backward(skipBackwardSec),
+                    contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
+                    onClick = onSkipBack,
+                    size = MinTouchTarget,
+                    iconSize = MiniPlayerGlyphSize,
+                    tint = LocalContentColor.current,
+                )
+            }
+            MiniPrimaryButton(
+                primary = state.primary,
+                bookTitle = state.book.title,
+                onClick = onPrimary,
+                size = MiniPhonePlaySize,
+                playLabel = miniPlayLabel(line),
+                busyLabel = miniBusyLabel(line),
+                onKeepListening = onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
+            )
         }
     }
 }
