@@ -68,7 +68,8 @@ class MiniPlayerWordsTest :
         }
 
         test("each problem has its short line; others read the card title") {
-            fun problem(error: AppError) = miniLineText(MiniPlayerLine.Problem(error, isTinted = false), EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "")
+            fun problem(error: AppError) =
+                miniLineText(MiniPlayerLine.Problem(error, isTinted = false), EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "")
             problem(PlaybackError.ServerUnreachable()) shouldBe "Can't reach your server"
             problem(PlaybackError.OfflineNotDownloaded()) shouldBe "Can't play offline"
             problem(AuthError.SessionExpired()) shouldBe "Signed out · place saved"

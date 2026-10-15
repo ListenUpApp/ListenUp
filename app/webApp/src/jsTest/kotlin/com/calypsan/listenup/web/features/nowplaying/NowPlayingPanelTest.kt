@@ -367,7 +367,11 @@ class NowPlayingPanelTest :
                 mounts.mount {
                     NowPlayingPanel(
                         open = true,
-                        state = loadedPlayerState(phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()), primary = PrimaryControl.Retry),
+                        state =
+                            loadedPlayerState(
+                                phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()),
+                                primary = PrimaryControl.Retry,
+                            ),
                         progress = playerProgress(),
                         onPrimary = {},
                         onSeek = {},

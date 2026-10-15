@@ -192,7 +192,11 @@ class BoostBarTest :
             val host = mount { boostBar() }
             host.openNowPlaying()
 
-            host.boostChip().textContent.orEmpty().trim() shouldBe "Boost"
+            host
+                .boostChip()
+                .textContent
+                .orEmpty()
+                .trim() shouldBe "Boost"
 
             host.closeDialogs()
         }

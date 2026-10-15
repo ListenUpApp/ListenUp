@@ -38,7 +38,10 @@ internal class BookSwitch {
 internal fun settleBookIn(body: Element) {
     animateComposited(
         body,
-        listOf(Keyframe.of(opacity = 0.0, transform = "translateY(${ARRIVAL_RISE_PX}px)"), Keyframe.of(opacity = 1.0, transform = "none")),
+        listOf(
+            Keyframe.of(opacity = 0.0, transform = "translateY(${ARRIVAL_RISE_PX}px)"),
+            Keyframe.of(opacity = 1.0, transform = "none"),
+        ),
         MotionToken.MOVE,
     )
 }

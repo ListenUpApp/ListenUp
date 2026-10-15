@@ -70,7 +70,8 @@ private fun chaptered(
     loadedPlayerState(
         title = "The Way of Kings",
         phase = phase,
-        primary = primary ?: if (phase == PlayerPhase.Playing || phase == PlayerPhase.SleepFading) PrimaryControl.Pause else PrimaryControl.Play,
+        primary =
+            primary ?: if (phase == PlayerPhase.Playing || phase == PlayerPhase.SleepFading) PrimaryControl.Pause else PrimaryControl.Play,
         authors = listOf(PlayerContributor("c1", "Brandon Sanderson", 1)),
         durationMs = 600_000,
         chapters =
@@ -476,7 +477,10 @@ class TransportBarTest :
 
         test("a lapsed session offers Sign in; a revoked book offers Close") {
             val lapsed =
-                bar(chaptered(phase = PlayerPhase.Unavailable(AuthError.SessionExpired()), primary = PrimaryControl.SignIn), CHAPTER_PROGRESS)
+                bar(
+                    chaptered(phase = PlayerPhase.Unavailable(AuthError.SessionExpired()), primary = PrimaryControl.SignIn),
+                    CHAPTER_PROGRESS,
+                )
             lapsed.querySelector(".tport-pill")!!.textContent shouldBe "Sign in"
             val revoked =
                 bar(

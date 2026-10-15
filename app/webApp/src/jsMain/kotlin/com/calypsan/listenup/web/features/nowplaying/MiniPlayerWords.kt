@@ -35,7 +35,13 @@ internal fun miniLineText(
         is MiniPlayerLine.Chapter -> {
             joinDots(
                 chapterWords(line.number, line.title),
-                if (fit == MiniLineFit.Phone) phoneTrailing(line.sleepRemainingMs, progress) else authorLine.ifBlank { null },
+                if (fit ==
+                    MiniLineFit.Phone
+                ) {
+                    phoneTrailing(line.sleepRemainingMs, progress)
+                } else {
+                    authorLine.ifBlank { null }
+                },
             )
         }
 
@@ -47,8 +53,13 @@ internal fun miniLineText(
             )
         }
 
-        is MiniPlayerLine.Casting -> joinDots("Playing on ${line.deviceName}", chapterWords(line.number, line.title))
-        else -> statusWords(line)
+        is MiniPlayerLine.Casting -> {
+            joinDots("Playing on ${line.deviceName}", chapterWords(line.number, line.title))
+        }
+
+        else -> {
+            statusWords(line)
+        }
     }
 
 /**
@@ -60,11 +71,21 @@ internal fun miniLineLabel(
     progress: PlayerProgress,
 ): String =
     when (line) {
-        is MiniPlayerLine.Chapter -> joinCommas(chapterWords(line.number, line.title), spokenTrailing(line.sleepRemainingMs, progress))
-        is MiniPlayerLine.Paused ->
+        is MiniPlayerLine.Chapter -> {
+            joinCommas(chapterWords(line.number, line.title), spokenTrailing(line.sleepRemainingMs, progress))
+        }
+
+        is MiniPlayerLine.Paused -> {
             joinCommas("Paused", chapterWords(line.number, line.title), spokenTrailing(line.sleepRemainingMs, progress))
-        is MiniPlayerLine.Casting -> joinCommas("Playing on ${line.deviceName}", chapterWords(line.number, line.title))
-        else -> statusWords(line)
+        }
+
+        is MiniPlayerLine.Casting -> {
+            joinCommas("Playing on ${line.deviceName}", chapterWords(line.number, line.title))
+        }
+
+        else -> {
+            statusWords(line)
+        }
     }
 
 /** The short line for a book that can't play, or the card title where the player has none (§4.6). */
@@ -116,7 +137,8 @@ private fun chapterWords(
 private fun phoneTrailing(
     sleepRemainingMs: Long?,
     progress: PlayerProgress,
-): String = sleepRemainingMs?.let { "Sleep · ${shortDuration(it)}" } ?: "${shortDuration(progress.chapterRemainingMs)} left"
+): String =
+    sleepRemainingMs?.let { "Sleep · ${shortDuration(it)}" } ?: "${shortDuration(progress.chapterRemainingMs)} left"
 
 private fun spokenTrailing(
     sleepRemainingMs: Long?,
@@ -125,7 +147,8 @@ private fun spokenTrailing(
     sleepRemainingMs?.let { "sleep timer, ${spokenDuration(it)} left" }
         ?: "${spokenDuration(progress.chapterRemainingMs)} left in the chapter"
 
-private fun shortDuration(ms: Long): String = DurationFormatter.hoursMinutesOrUnderMinute(ms.coerceAtLeast(0).milliseconds)
+private fun shortDuration(ms: Long): String =
+    DurationFormatter.hoursMinutesOrUnderMinute(ms.coerceAtLeast(0).milliseconds)
 
 private fun counted(
     count: Long,

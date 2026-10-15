@@ -90,7 +90,13 @@ class TransportBarPhoneTest :
                                 sleepTimer = sleepTimer,
                             ),
                         // At the start of the first chapter, half the book long: "5m left".
-                        progress = PlayerProgress(chapterPositionMs = 0, chapterDurationMs = BOOK_MS / 2, bookPositionMs = 0, bookDurationMs = BOOK_MS),
+                        progress =
+                            PlayerProgress(
+                                chapterPositionMs = 0,
+                                chapterDurationMs = BOOK_MS / 2,
+                                bookPositionMs = 0,
+                                bookDurationMs = BOOK_MS,
+                            ),
                         onPrimary = {},
                         onSeek = {},
                         onSkipBack = {},
@@ -169,7 +175,11 @@ class TransportBarPhoneTest :
             val frame = player()
 
             frame.find(".tport-b").getAttribute("aria-label") shouldBe "Play"
-            frame.find(".tport-body").getAttribute("aria-label").orEmpty().startsWith("Open Now Playing: The Way of Kings") shouldBe true
+            frame
+                .find(".tport-body")
+                .getAttribute("aria-label")
+                .orEmpty()
+                .startsWith("Open Now Playing: The Way of Kings") shouldBe true
         }
 
         test("speed, chapters, boost and sleep are one tap into the full player, and it fills the phone") {
