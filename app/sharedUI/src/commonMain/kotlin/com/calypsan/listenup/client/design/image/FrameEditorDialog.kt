@@ -330,6 +330,8 @@ private fun DialogEditor(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (editor != null && frame != null) {
                     TextButton(onClick = editor::reset, enabled = !frame.isCentreCrop()) {
+                        Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(stringResource(Res.string.edit_frame_reset))
                     }
                 }
