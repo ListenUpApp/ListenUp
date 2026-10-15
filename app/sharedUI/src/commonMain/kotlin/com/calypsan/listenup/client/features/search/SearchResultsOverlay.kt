@@ -13,7 +13,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.ContributorPhotoCircle
 import com.calypsan.listenup.client.design.components.HeldLabel
 import com.calypsan.listenup.client.design.components.ContentRow
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -927,27 +927,30 @@ internal fun BookResultRow(
 }
 
 @Composable
-private fun PersonResultRow(
+internal fun PersonResultRow(
     hit: SearchHit,
     query: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     ContentRow(onClick = onClick, modifier = modifier) {
-        Box(
-            modifier =
-                Modifier
-                    .size(52.dp)
-                    // A circular icon badge; keep it round now that extraLarge is a bounded radius.
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
+        // The contributor's framed photo when they have one; otherwise today's circular icon badge.
+        ContributorPhotoCircle(
+            contributorId = hit.id,
+            imagePath = hit.imagePath,
+            frame = hit.imageFrame,
+            size = 52.dp,
         ) {
-            Icon(
-                Icons.Default.Person,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
+            Box(
+                modifier = Modifier.matchParentSize().background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
         }
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
