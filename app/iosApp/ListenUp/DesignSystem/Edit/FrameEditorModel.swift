@@ -28,7 +28,7 @@ final class FrameEditorModel {
             imageWidth: Int32(max(1, imageSize.width.rounded())),
             imageHeight: Int32(max(1, imageSize.height.rounded())),
             initialFrame: initial?.kotlin,
-            shape: .circle
+            shape: .Circle
         )
         self.editor = editor
         frame = Self.project(editor)
@@ -74,10 +74,10 @@ final class FrameEditorModel {
     /// One VoiceOver nudge: `.up` shows more of the photo's top.
     func nudge(_ direction: Direction) {
         let kotlin: NudgeDirection = switch direction {
-        case .up: .up
-        case .down: .down
-        case .left: .left
-        case .right: .right
+        case .up: .Up
+        case .down: .Down
+        case .left: .Left
+        case .right: .Right
         }
         editor.nudge(direction: kotlin, large: false)
         sync()

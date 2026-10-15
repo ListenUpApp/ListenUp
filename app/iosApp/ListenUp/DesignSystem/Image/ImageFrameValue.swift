@@ -1,5 +1,6 @@
 import Foundation
 import ListenupContract
+import Shared
 
 /// How a photo sits in its shape, as a native value: the point at the shape's centre (0...1 of the photo's
 /// width and height) and the zoom past "just covers" (1...4). Projected once from the Kotlin `ImageFrame` at
