@@ -9,6 +9,12 @@ struct MiniPlayerAccessoryModel: Equatable {
         /// A labelled action (Retry, Sign in, Open Inbox, Listen Again, Keep Listening); `prominent` = a filled
         /// coral capsule, otherwise a tinted one.
         case pill(String, prominent: Bool)
+
+        /// A labelled capsule rather than a glyph.
+        var isPill: Bool {
+            if case .pill = self { return true }
+            return false
+        }
     }
 
     /// What the main button does. The sleep fade's Keep Listening is the mini player's own (Simon, 2026-10-14):
@@ -21,10 +27,15 @@ struct MiniPlayerAccessoryModel: Equatable {
     var coverPath: String?
     var coverHash: String?
     var title: String
-    /// Nil inline: the minimised tab bar leaves room for the title and the main button only.
-    var line: String?
+    /// The line's lead ("Paused · Bridge Four"), which truncates first; nil inline, where the minimised tab bar leaves
+    /// room for the title and the main button only.
+    var lineLead: String?
+    /// The line's tail ("8 mins left", "Sleep · 23 mins"), which never truncates; nil where the line has no time.
+    var lineTail: String?
     var showsSkipBack: Bool
     var showsSkipForward: Bool
+    /// Forward is live only where something can play: a book that can play (back N's rule) or one loading to play.
+    var canSkipForward: Bool
     var skipBackSec: Int
     var skipForwardSec: Int
     var primary: Primary
@@ -37,6 +48,12 @@ struct MiniPlayerAccessoryModel: Equatable {
     var isReconnecting: Bool
     var showsProgress: Bool
     var chapterFraction: Float
+
+    /// The whole line, as VoiceOver reads it and the tests name it.
+    var line: String? {
+        guard let lineLead else { return nil }
+        return [lineLead, lineTail].compactMap(\.self).joined(separator: " · ")
+    }
 
     /// What a book switch animates on: the book, never its state, so a pause or a tick never re-animates the bar.
     var switchKey: String? { bookId }
@@ -51,14 +68,20 @@ struct MiniPlayerAccessoryModel: Equatable {
         let (primary, label, action) = primary(for: snapshot)
         var isFailure = false
         if case .problem(_, _, let tinted) = snapshot.miniLine { isFailure = tinted }
+        let parts = isInline ? nil : lineParts(snapshot.miniLine, chapterRemainingMs: chapterRemainingMs)
+        // On a phone the fade's Keep Listening needs back N's room so the title and the line stay readable; back N
+        // stays one tap away in Now Playing.
+        let isPhoneFade = snapshot.miniLine == .fadingOut && !isWide
         return MiniPlayerAccessoryModel(
             bookId: snapshot.currentBookId,
             coverPath: snapshot.coverPath,
             coverHash: snapshot.coverHash,
             title: snapshot.bookTitle,
-            line: isInline ? nil : lineText(snapshot.miniLine, chapterRemainingMs: chapterRemainingMs),
-            showsSkipBack: snapshot.showsSkipBack && !isInline,
+            lineLead: parts?.lead,
+            lineTail: parts?.tail,
+            showsSkipBack: snapshot.showsSkipBack && !isInline && !isPhoneFade,
             showsSkipForward: isWide && !isInline,
+            canSkipForward: snapshot.showsSkipBack || primary == .busy,
             skipBackSec: snapshot.skipBackwardSec,
             skipForwardSec: snapshot.skipForwardSec,
             primary: primary,
@@ -98,8 +121,9 @@ struct MiniPlayerAccessoryModel: Equatable {
         (.pill(text, prominent: true), text, .shared)
     }
 
-    /// The line in words. A chapter is named by the book's own title, never by our counter (Simon, 2026-10-14).
-    static func lineText(_ line: MiniLine, chapterRemainingMs: Int64) -> String {
+    /// The line in words, as a lead that may truncate and a tail that never does. A chapter is named by the book's own
+    /// title, never by our counter (Simon, 2026-10-14).
+    static func lineParts(_ line: MiniLine, chapterRemainingMs: Int64) -> (lead: String, tail: String?) {
         func chapter(_ number: Int?, _ title: String?) -> String {
             if let title { return title }
             if let number { return String(format: String(localized: "player.mini_chapter"), Int32(number)) }
@@ -111,19 +135,18 @@ struct MiniPlayerAccessoryModel: Equatable {
         }
         switch line {
         case .chapter(let number, let title, let sleep):
-            return [chapter(number, title), trailing(sleep)].joined(separator: " · ")
+            return (chapter(number, title), trailing(sleep))
         case .paused(let number, let title, let sleep):
-            return [String(localized: "player.mini_paused"), chapter(number, title), trailing(sleep)]
-                .joined(separator: " · ")
+            return ("\(String(localized: "player.mini_paused")) · \(chapter(number, title))", trailing(sleep))
         case .casting(let device, let number, let title):
-            return [String(format: String(localized: "player.mini_playing_on"), device), chapter(number, title)]
-                .joined(separator: " · ")
-        case .starting: return String(localized: "player.mini_starting")
-        case .loading: return String(localized: "player.mini_loading")
-        case .reconnecting: return String(localized: "player.reconnecting")
-        case .fadingOut: return String(localized: "player.mini_fading_out")
-        case .finished: return String(localized: "player.mini_finished")
-        case .problem(_, let title, _): return title
+            let playingOn = String(format: String(localized: "player.mini_playing_on"), device)
+            return ("\(playingOn) · \(chapter(number, title))", nil)
+        case .starting: return (String(localized: "player.mini_starting"), nil)
+        case .loading: return (String(localized: "player.mini_loading"), nil)
+        case .reconnecting: return (String(localized: "player.reconnecting"), nil)
+        case .fadingOut: return (String(localized: "player.mini_fading_out"), nil)
+        case .finished: return (String(localized: "player.mini_finished"), nil)
+        case .problem(_, let title, _): return (title, nil)
         }
     }
 
