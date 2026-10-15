@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,6 +86,7 @@ fun TransportBar(
     var speedOpen by remember { mutableStateOf(false) }
     var boostOpen by remember { mutableStateOf(false) }
     var expandedOpen by remember { mutableStateOf(false) }
+    val bookSwitch = remember { BookSwitch() }
     val settings = state.settings
     val hasChapters = state.chapters.isNotEmpty()
     ChapterPicker(
@@ -158,6 +160,8 @@ fun TransportBar(
     Div(attrs = {
         classes("tport")
         if (tinted) classes("problem")
+        // The book the bar shows: what its arrival motion is keyed on (see [BookSwitch]).
+        attr("data-book", state.book.id)
         attr("role", "region")
         attr(ATTR_ARIA_LABEL, "Player")
     }) {
@@ -185,6 +189,10 @@ fun TransportBar(
             attr(ATTR_TYPE, VALUE_BUTTON)
             attr(ATTR_ARIA_LABEL, "Open Now Playing: ${state.book.title}, ${miniLineLabel(line, progress)}")
             onClick { expandedOpen = true }
+            ref { element ->
+                bookSwitch.body = element
+                onDispose { bookSwitch.body = null }
+            }
         }) {
             Span(attrs = { classes("tport-cover") }) {
                 Cover(
@@ -255,6 +263,12 @@ fun TransportBar(
             attr("aria-expanded", expandedOpen.toString())
             onClick { expandedOpen = true }
         }) { Icon(WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
+    }
+
+    // In the same apply that swaps the book in, so its first painted frame is already the motion's first.
+    DisposableEffect(state.book.id) {
+        bookSwitch.show(state.book.id)
+        onDispose { }
     }
 }
 
