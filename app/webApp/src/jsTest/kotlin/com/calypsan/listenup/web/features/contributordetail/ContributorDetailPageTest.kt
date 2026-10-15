@@ -404,6 +404,16 @@ class ContributorDetailPageTest :
             adjust(contributorDetailPage(readyContributor(imagePath = null))) shouldBe null
         }
 
+        test("on a phone the name keeps its width and the hero's actions wrap below it") {
+            val host = contributorDetailPage(readyContributor(imagePath = "contributors/k.jpg", canCurateLibrary = true))
+            host.className = "luw"
+            host.style.width = "362px"
+            awaitFrame()
+            val nameBlock = host.querySelector(".cd-name-block") as HTMLElement
+
+            (nameBlock.getBoundingClientRect().width >= 150.0) shouldBe true
+        }
+
         test("Adjust photo lines up with the hero's other actions instead of sagging below them") {
             val host = contributorDetailPage(readyContributor(imagePath = "contributors/k.jpg", canCurateLibrary = true))
             // The hero's action rules are scoped to the app root's `luw` class, as in the app.

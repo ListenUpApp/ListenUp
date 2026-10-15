@@ -284,7 +284,8 @@
   font-weight:800; font-size:2.1875rem; letter-spacing:-0.01em;
   box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
 }
-.cd-name-block { flex:1; min-width:0; }
+/* A floor, so the actions wrap under the name instead of crushing it to a letter a line. */
+.cd-name-block { flex:1; min-width:min(12rem, 100%); }
 
 .cd-roles { display:flex; align-items:center; gap:var(--sp-8); margin-top:10px; }
 .cd-role-chip {
