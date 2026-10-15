@@ -55,6 +55,7 @@ import androidx.window.core.layout.WindowSizeClass
 import coil3.compose.AsyncImagePainter
 import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
+import coil3.request.crossfade
 import coil3.request.ImageRequest
 import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.core.image.canonical
@@ -160,7 +161,7 @@ internal fun rememberFrameEditorImage(source: FrameEditorSource): FrameEditorIma
     val request =
         remember(model) {
             val builder = (model as? ImageRequest)?.newBuilder() ?: ImageRequest.Builder(context).data(model)
-            builder.size(MAX_FRAMED_DECODE_PX, MAX_FRAMED_DECODE_PX).build()
+            builder.size(MAX_FRAMED_DECODE_PX, MAX_FRAMED_DECODE_PX).crossfade(false).build()
         }
     val painter = rememberAsyncImagePainter(request)
     val state by painter.state.collectAsStateWithLifecycle()

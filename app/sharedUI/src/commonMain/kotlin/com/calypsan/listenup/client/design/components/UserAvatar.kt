@@ -37,6 +37,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.image.FramedAlignment
 import com.calypsan.listenup.client.design.image.FramedCrop
 import com.calypsan.listenup.client.design.image.rememberZoomedSizeResolver
+import com.calypsan.listenup.client.design.image.withoutCrossfadeWhenFramed
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
@@ -268,6 +269,7 @@ private fun LocalImageAvatar(
                 .memoryCachePolicy(CachePolicy.ENABLED)
                 .diskCachePolicy(CachePolicy.ENABLED)
                 .crossfade(true)
+                .withoutCrossfadeWhenFramed(frame)
                 .build(),
         contentDescription = contentDescription,
         modifier = modifier.then(constraints),

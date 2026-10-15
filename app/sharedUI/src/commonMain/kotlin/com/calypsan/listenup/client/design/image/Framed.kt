@@ -13,6 +13,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import coil3.compose.ConstraintsSizeResolver
 import coil3.compose.rememberConstraintsSizeResolver
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import coil3.size.Dimension
 import coil3.size.SizeResolver
 import com.calypsan.listenup.api.dto.image.ImageFrame
@@ -115,3 +117,12 @@ private fun Dimension.zoomed(zoom: Double?): Dimension =
         is Dimension.Pixels -> Dimension(zoomedPixels(px, zoom))
         Dimension.Undefined -> this
     }
+
+/**
+ * Turns Coil's crossfade off for a framed photo. Coil's crossfade painter applies the image's content
+ * scale itself and then the image applies it again: harmless for a plain crop, but for [FramedCrop] it
+ * squares the zoom and centres instead of aligning, so a 2x frame drew at 4x around the wrong point.
+ * An unframed photo keeps the loader's crossfade.
+ */
+fun ImageRequest.Builder.withoutCrossfadeWhenFramed(frame: ImageFrame?): ImageRequest.Builder =
+    apply { if (frame != null) crossfade(false) }

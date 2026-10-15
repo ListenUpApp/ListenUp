@@ -56,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import com.calypsan.listenup.client.design.image.FramedAlignment
 import com.calypsan.listenup.client.design.image.FramedCrop
+import com.calypsan.listenup.client.design.image.withoutCrossfadeWhenFramed
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -482,6 +483,7 @@ private fun AvatarPreview(
                         .Builder(context)
                         .data(avatarChange.bytes)
                         .memoryCacheKey("staged-${avatarChange.bytes.size}-${avatarChange.bytes.contentHashCode()}")
+                        .withoutCrossfadeWhenFramed(avatarChange.frame)
                         .build(),
                 contentDescription = null,
                 modifier = Modifier.size(size).clip(cookieScallopShape()),
@@ -509,6 +511,7 @@ private fun AvatarPreview(
                             .data(avatarImage.localPath)
                             .memoryCacheKey(avatarImage.cacheKey)
                             .diskCacheKey(avatarImage.cacheKey)
+                            .withoutCrossfadeWhenFramed(frame)
                             .build(),
                     contentDescription = null,
                     modifier = Modifier.size(size).clip(cookieScallopShape()),

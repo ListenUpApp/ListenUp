@@ -18,6 +18,7 @@ import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.design.image.FramedAlignment
 import com.calypsan.listenup.client.design.image.FramedCrop
 import com.calypsan.listenup.client.design.image.rememberZoomedSizeResolver
+import com.calypsan.listenup.client.design.image.withoutCrossfadeWhenFramed
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.design.transitions.heroElement
@@ -76,6 +77,7 @@ fun ContributorCoverImage(
                     .Builder(context)
                     .data(stagingImagePath)
                     .size(zoomed)
+                    .withoutCrossfadeWhenFramed(frame)
                     .build(),
             contentDescription = contentDescription,
             modifier = modifier.then(constraints).heroElement(heroKey, heroClipShape),
@@ -86,7 +88,11 @@ fun ContributorCoverImage(
         return
     }
 
-    val imageRequest = rememberContributorImageRequest(contributorId, imagePath) { size(zoomed) }
+    val imageRequest =
+        rememberContributorImageRequest(contributorId, imagePath) {
+            size(zoomed)
+            withoutCrossfadeWhenFramed(frame)
+        }
 
     imageRequest?.let { request ->
         AsyncImage(

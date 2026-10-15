@@ -60,6 +60,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.calypsan.listenup.client.design.image.FramedAlignment
 import com.calypsan.listenup.client.design.image.FramedCrop
+import com.calypsan.listenup.client.design.image.withoutCrossfadeWhenFramed
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -489,6 +490,7 @@ private fun ProfileScallopAvatar(state: UserProfileUiState.Ready) {
                         .data(avatarImage.localPath)
                         .memoryCacheKey(avatarImage.cacheKey)
                         .diskCacheKey(avatarImage.cacheKey)
+                        .withoutCrossfadeWhenFramed(avatarImage.frame)
                         .build(),
                 contentDescription = stringResource(Res.string.common_displayname_avatar, state.displayName),
                 modifier = Modifier.size(120.dp).clip(scallop),
