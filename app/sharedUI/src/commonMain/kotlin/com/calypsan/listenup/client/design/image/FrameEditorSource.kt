@@ -1,0 +1,54 @@
+package com.calypsan.listenup.client.design.image
+
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.unit.Dp
+
+/** What Adjust photo opens: picked bytes, an existing photo as a Coil model, or a pick that failed to decode. */
+sealed interface FrameEditorSource {
+    /** A freshly picked, already-normalised JPEG. */
+    class Bytes(
+        val bytes: ByteArray,
+    ) : FrameEditorSource
+
+    /** An existing photo, as any Coil model (a local path, or the contributor's resolved request). */
+    data class Model(
+        val model: Any,
+    ) : FrameEditorSource
+
+    /** The existing photo's request is still being resolved: the editor shows its loading state. */
+    data object Resolving : FrameEditorSource
+
+    /** The picker returned something that could not be decoded. */
+    data object Undecodable : FrameEditorSource
+}
+
+/** The decoded photo the stage draws, or why there is none. Local UI state, never an AppError (spec §8). */
+sealed interface FrameEditorImage {
+    /** Still decoding. */
+    data object Loading : FrameEditorImage
+
+    /** Decoded: a [width]×[height] photo drawn by [painter]. */
+    data class Ready(
+        val width: Int,
+        val height: Int,
+        val painter: Painter,
+    ) : FrameEditorImage
+
+    /** It could not be decoded or loaded: the editor offers "Choose another" and Cancel. */
+    data object CouldNotOpen : FrameEditorImage
+}
+
+/** The editor's confirm: "Done" stages inside a form, "Save" commits from a menu (Q2). */
+enum class FrameConfirm { Done, Save }
+
+/**
+ * A live preview of the frame in a display shape the circle cut-out does not show (Android's scallop),
+ * drawn [size] across under the editor.
+ */
+@Immutable
+data class FramePreview(
+    val shape: Shape,
+    val size: Dp,
+)
