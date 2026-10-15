@@ -128,6 +128,9 @@ enum class WebIcon(
     Merge("M6 4v6a4 4 0 0 0 4 4h8 M14 10l4 4-4 4"),
     Minus("M5 12h14"),
 
+    // The board's sleep-timer glyph (Mini-WebDesktop): a crescent, what every platform's sleep control wears.
+    Moon("M19 14.5A7.5 7.5 0 1 1 9.5 5a6 6 0 0 0 9.5 9.5z"),
+
     // Not mirrored — the design project's shell has no overflow entry, because the sidebar never
     // runs out of room. Three filled dots: the phone tab bar's "More".
     More(

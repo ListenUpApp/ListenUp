@@ -67,11 +67,8 @@
    children, and it grows to fill the region so the pinned player still sits at the bottom. */
 .page-body { display:flex; flex-direction:column; flex:1 0 auto; min-width:0; }
 
-/* The bottom group. Whichever of these comes first absorbs the free space; when the notice is
-   present it takes the auto margin and the bar tucks directly beneath it, so the two stay a pair
-   rather than splitting the gap between them. */
-.shell-main > .tport-note, .shell-main > .tport { margin-top:auto; }
-.shell-main > .tport-note ~ .tport { margin-top:0; }
+/* The bar sits at the foot: its auto top margin absorbs the free space on a short page. */
+.shell-main > .tport { margin-top:auto; }
 
 /* The bar's own `margin-bottom:-24px` cannot cancel the container's bottom padding here: in a flex
    column an `auto` top margin absorbs the free space AFTER the other margins are counted, so a
@@ -80,37 +77,50 @@
 .shell-main:has(> .tport) { padding-bottom:0; }
 .shell-main > .tport { margin-bottom:0; }
 
-/* ---- transport bar — the player docked under whatever page is showing.
-   Sticky rather than fixed: it belongs to the content region, so it never
-   overlaps the sidebar and never needs a width computed from it. It renders
-   only when a book is loaded, which is why nothing here reserves space. */
-.tport { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:14px; margin:var(--sp-24) -28px -24px; padding:14px 22px; min-height:76px; background:var(--surface); border-top:1px solid var(--line); box-shadow:var(--shadow-up); }
-.tport-b { width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral-fill); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
+/* ---- the player bar (spec §5.1, board Mini-WebDesktop) — docked under whatever page is showing.
+   Sticky rather than fixed: it belongs to the content region, so it never overlaps the sidebar.
+   One DOM for every width: body · back · play · forward · chapter scrubber · speed · sleep · chapters ·
+   open, in that order, which is also the focus order (TransportBarTest pins it). */
+.tport { position:sticky; bottom:0; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:12px 24px; margin:var(--sp-24) -28px -24px; padding:12px 24px; min-height:80px; background:var(--surface); border-top:1px solid var(--line); box-shadow:var(--shadow-up); }
+/* A failure to fix tints the whole bar (§3.9); refusals and "can't play yet" stay on the plain surface. */
+.tport.problem { background:var(--player-err-container); color:var(--player-err-ink); }
+.tport-line { display:none; }
+.tport-body { flex:1 1 260px; min-width:0; display:flex; align-items:center; gap:12px; padding:0; border:none; border-radius:var(--r-sm); background:none; color:inherit; text-align:left; cursor:pointer; font:inherit; }
+.tport-cover { flex:none; width:56px; }
+.tport-text { display:flex; flex-direction:column; min-width:0; }
+.tport-t { font-size:var(--fs-ui); font-weight:700; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tport-sub { font-size:var(--fs-small); color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tport.problem .tport-sub { color:inherit; }
+.tport-sub.phone { display:none; }
+.tport-mid { flex:2 1 420px; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; }
+.tport-transport { display:flex; align-items:center; gap:8px; }
+.tport-head { width:100%; display:flex; align-items:center; gap:10px; }
+.tport-settings { flex:1 1 240px; display:flex; align-items:center; justify-content:flex-end; gap:4px; }
+.tport-b { width:52px; height:52px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral-fill); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .tport-b:hover { background:var(--coral-fill-press); } }
 /* A browser that refused to start the audio: Play with a ring, because one more tap is all it needs. */
 .tport-b.ring, .np-play.ring { box-shadow:0 0 0 3px var(--coral-soft), 0 0 0 5px var(--coral-fill); }
-/* Shrinks before anything else does: on a tablet the rail leaves ~690px, and a title that refused
-   to give way pushed the sleep timer out past the edge of the bar. */
-.tport-t { font-size:var(--fs-ui); font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:0 1 auto; min-width:0; }
 .tport-time { font-size:0.75rem; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
-.tport-scrub { flex:1; min-width:60px; height:4px; margin:0; accent-color:var(--coral); cursor:pointer; }
-/* Skip controls flank the play button. Quieter than it on purpose — the same size would make the
-   bar read as three equal actions, when only one of them is the one you reach for. `position:
-   relative` anchors the interval numeral over the arrow. */
-.tport-skip, .tport-ch, .tport-sleep, .tport-boost, .tport-expand { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .tport-skip:hover, .tport-ch:hover, .tport-sleep:hover, .tport-boost:hover, .tport-expand:hover { background:var(--surface-2); color:var(--ink); } }
+.tport.problem .tport-time { color:inherit; }
+.tport-scrub { flex:1; min-width:60px; height:24px; margin:0; accent-color:var(--coral); cursor:pointer; }
+/* Quieter than the main button on purpose: the same size would make the bar read as equal actions.
+   `position:relative` anchors the skip's interval numeral over the arrow. */
+.tport-skip, .tport-ch, .tport-sleep, .tport-expand, .tport-close { position:relative; width:44px; height:44px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:inherit; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+@media (hover: hover) { .tport-skip:hover, .tport-ch:hover, .tport-sleep:hover, .tport-expand:hover, .tport-close:hover { background:var(--surface-2); } }
+/* A hidden back N keeps its box (§3.5's stalls), so the main button never shifts under the cursor. */
+.tport-back.off { visibility:hidden; }
 /* Centred inside the arrow's loop. 9px because the glyph leaves barely more room than that, and a
    two-digit interval still has to fit. */
 .tport-skip-n { position:absolute; top:50%; left:50%; transform:translate(-50%,-45%); font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }
-/* Text, not an icon: the current rate IS the label, and no glyph says "1.5x" as directly. */
-.tport-speed { flex:none; min-width:40px; height:30px; padding:0 var(--sp-8); border:1px solid var(--line); border-radius:15px; background:transparent; color:var(--ink-2); font-size:0.75rem; font-weight:700; font-variant-numeric:tabular-nums; cursor:pointer; }
-@media (hover: hover) { .tport-speed:hover { background:var(--surface-2); color:var(--ink); } }
-/* The playback failure notice. Sits directly above the bar and, more often, alone — the failures
-   worth reporting are the ones that leave nothing playing. */
-.tport-note { position:sticky; bottom:76px; z-index:6; display:flex; align-items:center; gap:10px; margin:var(--sp-16) -28px 0; padding:10px 22px; background:var(--coral-soft); color:var(--coral-text); border-top:1px solid var(--line); font-size:var(--fs-ui); font-weight:600; }
-.tport-note-t { flex:1; min-width:0; }
-.tport-note-x { width:28px; height:28px; flex:none; border:none; border-radius:var(--r-sm); background:transparent; color:inherit; opacity:.7; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .tport-note-x:hover { opacity:1; background:var(--surface-2); } }
+/* Text, not an icon: the current rate IS the label, and no glyph says "1.25×" as directly. */
+.tport-speed { flex:none; min-width:44px; height:44px; padding:0 14px; border:1px solid var(--outline); border-radius:22px; background:transparent; color:inherit; font-size:var(--fs-ui); font-weight:600; font-variant-numeric:tabular-nums; cursor:pointer; }
+@media (hover: hover) { .tport-speed:hover { background:var(--surface-2); } }
+/* Armed, the countdown is the control, in gold (§3.9). */
+.tport-sleep.armed { width:auto; padding:0 14px; border-radius:22px; background:var(--sleep-container); color:var(--sleep-ink); font-weight:700; font-variant-numeric:tabular-nums; }
+.tport-pill { flex:none; height:44px; padding:0 16px; border:none; border-radius:22px; background:var(--coral-fill); color:var(--on-coral); font:inherit; font-size:var(--fs-ui); font-weight:700; white-space:nowrap; cursor:pointer; }
+@media (hover: hover) { .tport-pill:hover { background:var(--coral-fill-press); } }
+.tport-pill.quiet { background:transparent; color:inherit; border:1px solid var(--outline); }
+@media (hover: hover) { .tport-pill.quiet:hover { background:var(--surface-2); } }
 
 /* The rail form. ONE mechanism, two triggers: the manual .clpsd class (>=1280 preference)
    and the narrow-viewport media query below, which forces it. Keep the two blocks identical. */

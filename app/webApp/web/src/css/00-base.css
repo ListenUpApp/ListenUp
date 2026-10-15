@@ -76,6 +76,11 @@
      on the matching fill. */
   --danger:           #C0392B;
   --danger-soft:      #FBE9E6;
+  /* Player (spec §3.9): the error container and its ink; gold = a running sleep timer. */
+  --player-err-container: #F9DEDC;
+  --player-err-ink:       #410E0B;
+  --sleep-container:      #F6E1C4;
+  --sleep-ink:            #4A2E00;
   --danger-fill:      #C0392B;
   --danger-fill-press:#A5301F;
   --on-danger:        #FFFFFF;
@@ -211,6 +216,10 @@
   --coral-text: #FF6A3D;
   --danger:      #F08D7C;
   --danger-soft: #2B1512;
+  --player-err-container: #8C1D18;
+  --player-err-ink:       #F9DEDC;
+  --sleep-container:      #4A2E00;
+  --sleep-ink:            #F6E1C4;
   --warn:        #F3D492;
   --warn-soft:   #2A2110;
   --on-warn:     #2A2110;

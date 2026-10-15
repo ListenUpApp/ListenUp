@@ -267,8 +267,11 @@ class SleepTimerBarTest :
                     )
                 }
 
-            val armed = host.querySelector("[aria-label='Sleep timer, set']") as HTMLElement
-            armed.classList.contains("on") shouldBe true
+            // Armed, the countdown is the control (§3.9 gold), and its name says how long is left.
+            val armed = host.querySelector(".tport-sleep") as HTMLElement
+            armed.classList.contains("armed") shouldBe true
+            armed.getAttribute("aria-label").orEmpty().startsWith("Sleep timer, ") shouldBe true
+            armed.getAttribute("aria-label").orEmpty().endsWith(" left") shouldBe true
         }
     })
 

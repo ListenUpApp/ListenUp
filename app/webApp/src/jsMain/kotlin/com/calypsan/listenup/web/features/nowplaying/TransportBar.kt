@@ -12,13 +12,18 @@ import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
-import com.calypsan.listenup.client.presentation.player.isSameVolumeBoost
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.domain.VolumeBoostLimits
+import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.attributes.disabled
+import org.jetbrains.compose.web.css.percent
+import org.jetbrains.compose.web.css.width
 import com.calypsan.listenup.web.design.Button as DsButton
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -51,7 +56,7 @@ import kotlin.math.roundToInt
  * a seek per pointer sample, which on the HLS path means
  * [com.calypsan.listenup.web.playback.HtmlAudioPlayer] re-running `attach` per sample, destroying
  * and rebuilding an hls.js instance and re-fetching its playlists tens of times a second.
- * Committing once, on release, fixes both. It spans the whole book for now; PR 3 moves it to the chapter.
+ * Committing once, on release, fixes both. On the bar it spans the chapter (M10); the panel's spans the book.
  */
 @Composable
 fun TransportBar(
@@ -147,74 +152,118 @@ fun TransportBar(
         onDismiss = { expandedOpen = false },
     )
 
-    Div(attrs = { classes("tport") }) {
-        Button(attrs = {
-            classes("tport-expand")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Open the player")
-            attr(ATTR_TITLE, "Open the player")
-            onClick { expandedOpen = true }
-        }) { Icon(WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
+    val line = MiniPlayerLines.of(state)
+    val tinted = line is MiniPlayerLine.Problem && line.isTinted
+    val authorLine = state.book.authors.joinToString(", ") { it.name }
+    Div(attrs = {
+        classes("tport")
+        if (tinted) classes("problem")
+        attr("role", "region")
+        attr(ATTR_ARIA_LABEL, "Player")
+    }) {
+        // Phone only (CSS): the chapter line along the bar's top edge. Passive; the body's line says the time.
+        Div(attrs = {
+            classes("tport-line")
+            attr("aria-hidden", "true")
+        }) {
+            Div(attrs = {
+                classes("tport-line-fill")
+                style { width((progress.chapterFraction * PERCENT).percent) }
+            })
+        }
 
-        // Only where there is a settled position to go back from (§3.5): not while preparing or buffering.
-        if (state.showsSkipBack) {
-            SkipButton(
-                icon = WebIcon.SkipBack,
-                seconds = settings.skipBackSec,
-                label = "Back ${settings.skipBackSec} seconds",
-                onClick = onSkipBack,
+        // The book is the target (M1): one button into Now Playing, named for the book and where it is.
+        // A `<button>` until PR 3 gives Now Playing a route to link to.
+        Button(attrs = {
+            classes("tport-body")
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr(ATTR_ARIA_LABEL, "Open Now Playing: ${state.book.title}, ${miniLineLabel(line, progress)}")
+            onClick { expandedOpen = true }
+        }) {
+            Span(attrs = { classes("tport-cover") }) {
+                Cover(
+                    title = state.book.title,
+                    imageUrl = coverUrl(state.book.id, state.book.coverHash, BAR_COVER_RUNG),
+                    size = null,
+                    radius = BAR_COVER_RADIUS,
+                    decorative = true,
+                )
+            }
+            Span(attrs = { classes("tport-text") }) {
+                Span(attrs = { classes("tport-t") }) { Text(state.book.title) }
+                Span(attrs = { classes("tport-sub", "desk") }) { Text(miniLineText(line, progress, MiniLineFit.Desktop, authorLine)) }
+                Span(attrs = { classes("tport-sub", "phone") }) { Text(miniLineText(line, progress, MiniLineFit.Phone, authorLine)) }
+            }
+        }
+
+        Div(attrs = { classes("tport-mid") }) {
+            Div(attrs = { classes("tport-transport") }) {
+                // Its slot is kept while hidden (§3.5's stalls), so the main button never moves under the cursor.
+                SkipButton(
+                    icon = WebIcon.SkipBack,
+                    seconds = settings.skipBackSec,
+                    label = "Skip back ${settings.skipBackSec} seconds",
+                    extraClass = "tport-back",
+                    shown = state.showsSkipBack,
+                    onClick = onSkipBack,
+                )
+                BarPrimary(state = state, line = line, onPrimary = onPrimary, onKeepListening = onCancelSleepTimer)
+                SkipButton(
+                    icon = WebIcon.SkipForward,
+                    seconds = settings.skipForwardSec,
+                    label = "Skip forward ${settings.skipForwardSec} seconds",
+                    extraClass = "tport-fwd",
+                    onClick = onSkipForward,
+                )
+            }
+            Div(attrs = { classes("tport-head") }) {
+                Playhead(
+                    positionMs = progress.chapterPositionMs,
+                    durationMs = progress.chapterDurationMs,
+                    timeClass = "tport-time",
+                    scrubClass = "tport-scrub",
+                    startMs = state.chapter.startMs,
+                    label = "Chapter position",
+                    showsRemaining = true,
+                    onSeek = onSeek,
+                )
+            }
+        }
+
+        Div(attrs = { classes("tport-settings") }) {
+            SessionControls(
+                speed = settings.speed,
+                hasChapters = hasChapters,
+                sleepTimer = state.sleepTimer,
+                onOpenSpeed = { speedOpen = true },
+                onOpenChapters = { chaptersOpen = true },
+                onOpenSleep = { sleepOpen = true },
             )
         }
 
-        PrimaryButton(primary = state.primary, phase = state.phase, onPrimary = onPrimary)
-
-        SkipButton(
-            icon = WebIcon.SkipForward,
-            seconds = settings.skipForwardSec,
-            label = "Forward ${settings.skipForwardSec} seconds",
-            onClick = onSkipForward,
-        )
-
-        Span(attrs = { classes("tport-t") }) { Text(state.book.title) }
-
-        Playhead(
-            positionMs = progress.bookPositionMs,
-            durationMs = progress.bookDurationMs,
-            timeClass = "tport-time",
-            scrubClass = "tport-scrub",
-            onSeek = onSeek,
-        )
-
-        SessionControls(
-            speed = settings.speed,
-            hasChapters = hasChapters,
-            volumeBoostDb = settings.boostDb,
-            sleepArmed = state.sleepTimer !is SleepTimerState.Inactive,
-            onOpenSpeed = { speedOpen = true },
-            onOpenChapters = { chaptersOpen = true },
-            onOpenBoost = { boostOpen = true },
-            onOpenSleep = { sleepOpen = true },
-        )
+        Button(attrs = {
+            classes("tport-expand")
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr(ATTR_ARIA_LABEL, "Open Now Playing")
+            attr(ATTR_TITLE, "Open Now Playing")
+            attr("aria-expanded", expandedOpen.toString())
+            onClick { expandedOpen = true }
+        }) { Icon(WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
     }
 }
 
 /**
- * The four controls that change how the session behaves rather than where it is: rate, chapter,
- * boost, sleep.
- *
- * Split out from [TransportBar] because they are one idea — every one of them opens a panel and
- * none of them touches the playhead — and because keeping them inline pushed the bar past the
- * length where you can still see its shape in one screen.
+ * Speed · Sleep · Chapters: the three that change how this book plays rather than where it is (§5.1 M13, M16,
+ * M14). Volume boost left the bar with the redesign; it is one tap away in Now Playing until PR 4 moves it
+ * into More.
  */
 @Composable
 private fun SessionControls(
     speed: Float,
     hasChapters: Boolean,
-    volumeBoostDb: Float,
-    sleepArmed: Boolean,
+    sleepTimer: SleepTimerState,
     onOpenSpeed: () -> Unit,
     onOpenChapters: () -> Unit,
-    onOpenBoost: () -> Unit,
     onOpenSleep: () -> Unit,
 ) {
     // Opens the picker rather than cycling. Cycling made one move cheap and every other one
@@ -224,17 +273,34 @@ private fun SessionControls(
     Button(attrs = {
         classes("tport-speed")
         attr(ATTR_TYPE, VALUE_BUTTON)
-        attr(ATTR_ARIA_LABEL, "Playback speed ${formatSpeed(speed)}, change")
+        attr(ATTR_ARIA_LABEL, "Playback speed, ${formatSpeed(speed)} times")
         attr(ATTR_TITLE, "Playback speed")
         onClick { onOpenSpeed() }
+    }) { Text("${formatSpeed(speed)}\u00D7") }
+
+    // Always offered, unlike chapters: a duration timer needs nothing from the book. Armed, the countdown IS the
+    // control, in gold (§3.9): a timer nobody can see is one the listener forgets setting — and finding out it was
+    // armed by having the book stop is the one way this feature can feel broken rather than kind.
+    val active = sleepTimer as? SleepTimerState.Active
+    val sleepLabel = active?.let { "Sleep timer, ${it.formatRemaining()} left" } ?: "Sleep timer"
+    Button(attrs = {
+        classes("tport-sleep")
+        if (active != null) classes("armed")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, sleepLabel)
+        attr(ATTR_TITLE, sleepLabel)
+        onClick { onOpenSleep() }
     }) {
-        Text("${formatSpeed(speed)}\u00D7")
+        Icon(WebIcon.Moon, size = SLEEP_ICON_SIZE)
+        if (active != null) {
+            Span(attrs = { attr("aria-hidden", "true") }) { Text(active.formatRemaining()) }
+        }
     }
 
     // Only when the book actually has marks. A control that opens an empty list is a promise
     // the book cannot keep, and plenty of audiobooks ship without chapters at all.
     // ⛔ Its own class, not `.tport-skip`: the skips step aside on a phone, and this used to wear
-    // their class and vanish with them — on the one screen where finding your chapter matters most.
+    // their class and vanish with them.
     if (hasChapters) {
         Button(attrs = {
             classes("tport-ch")
@@ -242,79 +308,86 @@ private fun SessionControls(
             attr(ATTR_ARIA_LABEL, "Chapters")
             attr(ATTR_TITLE, "Chapters")
             onClick { onOpenChapters() }
-        }) {
-            Icon(WebIcon.Hash, size = CHAPTER_ICON_SIZE)
-        }
-    }
-
-    // Beside the sleep timer rather than with the skips. On a phone the bar has room for a thumb's
-    // worth of controls, so this one — with speed and sleep — lives in the full player there, one
-    // tap away, and a boost in force still shows on that panel's chip. The boost in force is on
-    // the control because it is not otherwise visible — "why is this book so loud" has to have an
-    // answer you can see.
-    val boosted = !isSameVolumeBoost(volumeBoostDb, VolumeBoostLimits.MIN_DB)
-    val boostLabel = if (boosted) "Volume boost, ${formatBoost(volumeBoostDb)}" else "Volume boost"
-    Button(attrs = {
-        classes("tport-boost")
-        if (boosted) classes("on")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        attr(ATTR_ARIA_LABEL, boostLabel)
-        attr(ATTR_TITLE, boostLabel)
-        onClick { onOpenBoost() }
-    }) {
-        Icon(WebIcon.Volume, size = BOOST_ICON_SIZE)
-    }
-
-    // Always offered, unlike chapters: a duration timer needs nothing from the book. The
-    // armed state is on the control itself, because a timer nobody can see is one the
-    // listener will not remember setting — and finding out it was armed by having the book
-    // stop is the one way this feature can feel broken rather than kind.
-    val sleepLabel = if (sleepArmed) "Sleep timer, set" else "Sleep timer"
-    Button(attrs = {
-        classes("tport-sleep")
-        if (sleepArmed) classes("on")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        attr(ATTR_ARIA_LABEL, sleepLabel)
-        attr(ATTR_TITLE, sleepLabel)
-        onClick { onOpenSleep() }
-    }) {
-        Icon(WebIcon.Clock, size = SLEEP_ICON_SIZE)
+        }) { Icon(WebIcon.ListOrdered, size = CHAPTER_ICON_SIZE) }
     }
 }
 
 /**
- * The one main button, in whichever of its states the shared model chose.
+ * The bar's one main button, as the shared primary says: a coral circle, a labelled pill for a way out, or ✕.
  *
  * ⛔ The spinner replaces the glyph rather than sitting beside it: the control keeps its size and
- * position, so a stall does not shuffle the whole transport row sideways under the reader's cursor.
+ * position, so a stall does not shuffle the transport row sideways under the reader's cursor.
  * ⛔ Announced, not merely drawn: a spinner is invisible to a screen reader, and "Pause" while the
  * player is stalled is a lie about what pressing it would achieve. A browser that refused to start
  * the audio ([PrimaryControl.TapToPlay]) gets Play with a ring: one more tap is all it needs.
+ *
+ * During the sleep fade ([MiniPlayerLine.FadingOut]) the mini player's button is Keep listening, which cancels
+ * the timer and restores full volume ([onKeepListening]); Now Playing keeps its Pause (Simon, 2026-10-14).
  */
 @Composable
-private fun PrimaryButton(
-    primary: PrimaryControl,
-    phase: PlayerPhase,
+private fun BarPrimary(
+    state: PlayerUiState.Loaded,
+    line: MiniPlayerLine,
     onPrimary: () -> Unit,
+    onKeepListening: () -> Unit,
 ) {
-    val label = primaryLabel(primary, phase)
-    Button(attrs = {
-        classes("tport-b")
-        if (primary == PrimaryControl.TapToPlay) classes("ring")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        attr(ATTR_ARIA_LABEL, label)
-        attr(ATTR_TITLE, label)
-        onClick { onPrimary() }
-    }) {
-        if (primary == PrimaryControl.Busy) {
-            Div(attrs = {
-                classes("tport-wait")
-                attr("aria-hidden", "true")
-            })
-        } else {
-            Icon(primaryIcon(primary), size = TRANSPORT_ICON_SIZE)
+    val primary = state.primary
+    when {
+        line == MiniPlayerLine.FadingOut -> BarPill("Keep listening", label = null, quiet = true, onClick = onKeepListening)
+        primary == PrimaryControl.Retry -> BarPill("Retry", label = null, quiet = false, onClick = onPrimary)
+        primary == PrimaryControl.SignIn -> BarPill("Sign in", label = null, quiet = false, onClick = onPrimary)
+        primary == PrimaryControl.OpenInbox -> BarPill("Open Inbox", label = null, quiet = false, onClick = onPrimary)
+        primary == PrimaryControl.ListenAgain ->
+            BarPill("Listen again", label = "Listen again to ${state.book.title}", quiet = true, onClick = onPrimary)
+
+        primary == PrimaryControl.Close -> {
+            Button(attrs = {
+                classes("tport-close")
+                attr(ATTR_TYPE, VALUE_BUTTON)
+                attr(ATTR_ARIA_LABEL, "Close book")
+                attr(ATTR_TITLE, "Close book")
+                onClick { onPrimary() }
+            }) { Icon(WebIcon.X, size = TRANSPORT_ICON_SIZE) }
+        }
+
+        else -> {
+            val label = primaryLabel(primary, state.phase)
+            Button(attrs = {
+                classes("tport-b")
+                if (primary == PrimaryControl.TapToPlay) classes("ring")
+                attr(ATTR_TYPE, VALUE_BUTTON)
+                attr(ATTR_ARIA_LABEL, label)
+                attr(ATTR_TITLE, label)
+                onClick { onPrimary() }
+            }) {
+                if (primary == PrimaryControl.Busy) {
+                    Div(attrs = {
+                        classes("tport-wait")
+                        attr("aria-hidden", "true")
+                    })
+                } else {
+                    Icon(primaryIcon(primary), size = TRANSPORT_ICON_SIZE)
+                }
+            }
         }
     }
+}
+
+/** A way out that needs its word: Retry, Sign in, Open Inbox, Listen again, Keep listening. [quiet] is outlined. */
+@Composable
+private fun BarPill(
+    text: String,
+    label: String?,
+    quiet: Boolean,
+    onClick: () -> Unit,
+) {
+    Button(attrs = {
+        classes("tport-pill")
+        if (quiet) classes("quiet")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        if (label != null) attr(ATTR_ARIA_LABEL, label)
+        onClick { onClick() }
+    }) { Text(text) }
 }
 
 /**
@@ -330,7 +403,7 @@ private fun primaryActionLabel(primary: PrimaryControl): String =
     when (primary) {
         PrimaryControl.Pause -> "Pause"
         PrimaryControl.Play, PrimaryControl.TapToPlay -> "Play"
-        PrimaryControl.Busy -> "Loading"
+        PrimaryControl.Busy -> "Loading. Pause"
         PrimaryControl.Retry -> "Retry"
         PrimaryControl.ListenAgain -> "Listen again"
         PrimaryControl.SignIn -> "Sign in"
@@ -360,17 +433,27 @@ private fun SkipButton(
     icon: WebIcon,
     seconds: Int,
     label: String,
+    extraClass: String,
+    shown: Boolean = true,
     onClick: () -> Unit,
 ) {
     Button(attrs = {
-        classes("tport-skip")
+        classes("tport-skip", extraClass)
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, label)
         attr(ATTR_TITLE, label)
+        // Hidden, it keeps its box (`.off` is `visibility:hidden`) and leaves the tab order and the
+        // accessibility tree, so the main button beside it never moves.
+        if (!shown) {
+            classes("off")
+            attr("aria-hidden", "true")
+            attr("tabindex", "-1")
+            disabled()
+        }
         onClick { onClick() }
     }) {
         Icon(icon, size = TRANSPORT_ICON_SIZE)
-        // aria-hidden: the button's own label already says "Back 10 seconds", and without this a
+        // aria-hidden: the button's own label already says "Skip back 10 seconds", and without this a
         // screen reader appends a bare "10" to it.
         Span(attrs = {
             classes("tport-skip-n")
@@ -489,6 +572,9 @@ internal fun Playhead(
     durationMs: Long,
     timeClass: String,
     scrubClass: String,
+    startMs: Long = 0L,
+    label: String = "Seek",
+    showsRemaining: Boolean = false,
     onSeek: (Long) -> Unit,
 ) {
     var dragPositionMs by remember { mutableStateOf<Long?>(null) }
@@ -496,8 +582,8 @@ internal fun Playhead(
 
     Span(attrs = { classes("mono", timeClass) }) { Text(formatElapsed(shownPositionMs)) }
 
-    // The scrubber spans the whole book, not the current file: a listener drags to a place in
-    // a story, and which of the book's files that lands in is the player's problem.
+    // A place in the story, never in a file: the panel's range spans the whole book, the bar's the chapter
+    // ([startMs] is where that span begins in the book, so a release seeks book-relative either way).
     Input(type = InputType.Range) {
         classes(scrubClass)
         attr("min", "0")
@@ -506,7 +592,7 @@ internal fun Playhead(
         // Without this the range keeps its default step of 1 — one MILLISECOND per arrow key,
         // so a keyboard listener would need thirty thousand presses to skip half a minute.
         attr("step", STEP_MS.toString())
-        attr(ATTR_ARIA_LABEL, "Seek")
+        attr(ATTR_ARIA_LABEL, label)
         // The implicit `aria-valuenow` is the raw millisecond count, which a screen reader
         // reads out as "four hundred and twenty thousand". Same courtesy the play button gets.
         // "3:30 of 42:00", not just "3:30": where you are only means something against the whole.
@@ -516,11 +602,14 @@ internal fun Playhead(
         onChange { event ->
             val target = scrubbedMs(event.target.value) ?: positionMs
             dragPositionMs = null
-            onSeek(target)
+            onSeek(startMs + target)
         }
     }
 
-    Span(attrs = { classes("mono", timeClass) }) { Text(formatElapsed(durationMs)) }
+    // The bar counts down what is left of the chapter; the panel shows the book's length.
+    val trailing =
+        if (showsRemaining) "\u2212" + formatElapsed((durationMs - shownPositionMs).coerceAtLeast(0L)) else formatElapsed(durationMs)
+    Span(attrs = { classes("mono", timeClass) }) { Text(trailing) }
 }
 
 private const val MILLIS_PER_SECOND = 1_000L
@@ -549,9 +638,14 @@ private const val CHAPTER_ICON_SIZE = 18
 
 private const val SLEEP_ICON_SIZE = 17
 
-private const val BOOST_ICON_SIZE = 17
-
 private const val VALUE_BUTTON = "button"
+
+/** 2× the bar's 56px cover. */
+private const val BAR_COVER_RUNG = 112
+
+private const val BAR_COVER_RADIUS = 6
+
+private const val PERCENT = 100
 
 /** A speed is carried as hundredths so the ladder's quarter steps stay exact in integer maths. */
 private const val HUNDREDTHS = 100

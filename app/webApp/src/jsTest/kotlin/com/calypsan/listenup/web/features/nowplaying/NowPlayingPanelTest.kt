@@ -335,7 +335,7 @@ class NowPlayingPanelTest :
             val host = plainBar(kings(phase = PlayerPhase.Buffering))
 
             host.querySelector(".tport-wait").shouldNotBeNull()
-            (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Loading"
+            (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Loading. Pause"
         }
 
         test("a dropped connection keeps the stalled control and says Reconnecting…, bar and panel alike") {

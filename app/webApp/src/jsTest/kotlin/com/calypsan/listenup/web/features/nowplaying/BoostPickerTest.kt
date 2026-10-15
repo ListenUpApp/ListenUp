@@ -11,6 +11,7 @@ import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 
 /** A bar over a playing book, with only the boost inputs worth varying exposed. */
 @Composable
@@ -189,35 +190,46 @@ class BoostBarTest :
 
         test("the boost control is offered for any book, chapters or not") {
             val host = mount { boostBar() }
+            host.openNowPlaying()
 
-            host.querySelectorAll("[aria-label='Volume boost']").length shouldBe 1
+            host.boostChip().textContent.orEmpty().trim() shouldBe "Boost"
+
+            host.closeDialogs()
         }
 
-        test("a boost in force is visible on the bar, not only inside the dialog") {
+        // The bar carried a boost control until the mini player redesign (spec §5.1); boost now lives in Now
+        // Playing, one tap from the bar, until PR 4 moves it into More. These three pin the same guarantees there.
+        test("a boost in force is visible in Now Playing, not only inside the dialog") {
             // ⛔ A boost changes how the book sounds. "Why is this one so loud" has to have an
-            // answer you can see without opening a panel to ask.
+            // answer you can see without opening the boost picker to ask.
             val host = mount { boostBar(volumeBoostDb = BOOSTED) }
+            host.openNowPlaying()
 
-            val on = host.querySelector("[aria-label='Volume boost, +6 dB']") as HTMLElement
+            val on = host.boostChip()
+            on.textContent.orEmpty().trim() shouldBe "+6 dB"
             on.classList.contains("on") shouldBe true
+
+            host.closeDialogs()
         }
 
-        test("the boost control is not dressed as a skip") {
+        test("the bar carries no boost control any more, so none can wear a skip's phone behaviour") {
             // ⛔ The skips have their own phone behaviour, and a control wearing `.tport-skip` gets
-            // it whether it meant to or not — the trap the sleep timer and the chapters button both
-            // fell into. On a phone the boost is reached through the full player instead
-            // (TransportBarPhoneTest), which is a decision, not an accident of a borrowed class.
+            // it whether it meant to or not. Boost is reached through Now Playing on every width.
             val host = mount { boostBar(volumeBoostDb = BOOSTED) }
 
-            val boost = host.querySelector(".tport-boost") as HTMLElement
-            boost.classList.contains("tport-skip") shouldBe false
+            host.querySelector(".tport-boost") shouldBe null
+            host.openNowPlaying()
+            host.boostChip().classList.contains("tport-skip") shouldBe false
+
+            host.closeDialogs()
         }
 
-        test("the bar opens the picker rather than stepping the boost under you") {
+        test("the boost chip opens the picker rather than stepping the boost under you") {
             var set = 0
             val host = mount { boostBar(onSetBoost = { set++ }) }
+            host.openNowPlaying()
 
-            (host.querySelector(".tport-boost") as HTMLButtonElement).click()
+            host.boostChip().click()
             awaitFrame()
 
             set shouldBe 0
@@ -226,3 +238,16 @@ class BoostBarTest :
             host.closeDialogs()
         }
     })
+
+/** Opens Now Playing from the bar, the way a listener would. */
+private suspend fun HTMLElement.openNowPlaying() {
+    (querySelector(".tport-expand") as HTMLButtonElement).click()
+    awaitFrame()
+}
+
+/** The Now Playing chip that opens the boost picker: "Boost", or the boost in force. */
+private fun HTMLElement.boostChip(): HTMLButtonElement =
+    querySelectorAll(".np-chip")
+        .asList()
+        .map { it as HTMLButtonElement }
+        .single { it.textContent.orEmpty().let { text -> "Boost" in text || "dB" in text } }
