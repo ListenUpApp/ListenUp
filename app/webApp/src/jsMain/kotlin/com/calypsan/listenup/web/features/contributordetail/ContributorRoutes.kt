@@ -125,6 +125,7 @@ internal fun ContributorRouteContent(
     openContributorEdit: OpenContributorEdit,
     matchDetails: MatchDetailsGraph,
     currentUserId: String?,
+    onToast: (String) -> Unit,
 ) {
     // Derived here rather than in [RouteContent], the same way [BookRouteContent] owns its own
     // sub-routes: a value only this branch reads is this branch's business, and RouteContent's
@@ -215,6 +216,8 @@ internal fun ContributorRouteContent(
                 state = detail,
                 onConfirmDelete = session.onConfirmDelete,
                 onDismissDeleteError = session.onDismissDeleteError,
+                onAdjustPhoto = session.onAdjustPhoto,
+                onPhotoAdjusted = { onToast("Photo adjusted.") },
                 onEdit = { router.navigate(Routes.Contributor.edit(contributorId)) },
                 onMatchMetadata = { router.navigate(Routes.Contributor.match(contributorId)) },
                 onOpenLibrary = { router.navigate(Routes.library) },

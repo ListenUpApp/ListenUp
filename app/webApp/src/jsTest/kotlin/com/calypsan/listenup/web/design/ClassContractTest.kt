@@ -86,6 +86,13 @@ import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import org.w3c.dom.HTMLDialogElement
+import org.w3c.dom.Element
+import org.w3c.dom.asList
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.client.domain.model.BookContributor
+import com.calypsan.listenup.client.presentation.imageframe.FrameShape
+import com.calypsan.listenup.web.features.bookdetail.CreditsDialog
+import io.kotest.matchers.collections.shouldContain
 import com.calypsan.listenup.web.features.devices.DevicesPage
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
@@ -555,6 +562,7 @@ class ClassContractTest :
                         // a series panel) and every non-Ready state — each draws classes of its own,
                         // and a state nobody renders here is one whose invented classes nothing catches.
                         ContributorDetailPage(
+                            onAdjustPhoto = {},
                             state =
                                 readyContributor(
                                     roleSections =
@@ -575,6 +583,7 @@ class ClassContractTest :
                             onDismissDeleteError = {},
                         )
                         ContributorDetailPage(
+                            onAdjustPhoto = {},
                             state = ContributorDetailUiState.Loading,
                             onOpenLibrary = {},
                             onOpenContributors = {},
@@ -583,6 +592,7 @@ class ClassContractTest :
                             onDismissDeleteError = {},
                         )
                         ContributorDetailPage(
+                            onAdjustPhoto = {},
                             state = ContributorDetailUiState.Error("The server could not be reached."),
                             onOpenLibrary = {},
                             onOpenContributors = {},
@@ -591,6 +601,7 @@ class ClassContractTest :
                             onDismissDeleteError = {},
                         )
                         ContributorDetailPage(
+                            onAdjustPhoto = {},
                             state = ContributorDetailUiState.NotFound,
                             onOpenLibrary = {},
                             onOpenContributors = {},
@@ -1420,6 +1431,47 @@ class ClassContractTest :
             val undefined = used - definedClasses()
             undefined shouldBe emptySet()
         }
+
+        test("every class the photo framing draws is defined, measured and loaded") {
+            // Its own case: the editor draws its photo and scrim only once the stage has a size, and a
+            // framed image takes its placement only once the picture has loaded, so the main case's
+            // synchronous read would never see them.
+            val url = portraitPngUrl(300, 400)
+            val host =
+                mounts.mount {
+                    FramedImg(src = url, alt = "", frame = ImageFrame(0.5, 0.3, 1.5), classes = listOf("uav-frame"))
+                    ContributorPhoto("c1", "Ann Leckie", imagePath = null, frame = null)
+                    FrameEditorDialog(
+                        photo = DecodedPhoto.Ready(url, 300, 400),
+                        initialFrame = null,
+                        shape = FrameShape.Circle,
+                        confirm = FrameConfirm.Done,
+                        onConfirm = {},
+                        onCancel = {},
+                        onChooseAnother = {},
+                    )
+                }
+            awaitEditorReady(host)
+            awaitImagesApplied(host)
+            val used = host.querySelectorAll("*").asList().flatMap { element -> (element as Element).classList.asList() }.toSet()
+            closeDialogs(host)
+            mounts.disposeAll()
+
+            val others =
+                classesUsedIn {
+                    FrameEditorDialog(DecodedPhoto.CouldNotOpen, null, FrameShape.Circle, FrameConfirm.Save, {}, {}, {})
+                    FrameEditorDialog(null, null, FrameShape.Circle, FrameConfirm.Done, {}, {}, {})
+                    CreditsDialog(
+                        credits = listOf(BookContributor(id = "a1", name = "Ann Leckie", roles = listOf("author"))),
+                        onOpenContributor = {},
+                        onDismiss = {},
+                    )
+                }
+
+            used shouldContain "fed-photo"
+            used shouldContain "fed-scrim"
+            (used + others - definedClasses()) shouldBe emptySet()
+        }
     })
 
 private val CLASS_SELECTOR = Regex("\\.([A-Za-z][A-Za-z0-9_-]*)")
@@ -1989,7 +2041,7 @@ private fun editProfileShapes(): List<@Composable () -> Unit> {
         saveError: String? = null,
     ): @Composable () -> Unit =
         {
-            EditProfilePage(state, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, saveError)
+            EditProfilePage(state, {}, {}, {}, {}, {}, {}, { _, _, _ -> }, {}, {}, {}, {}, saveError)
         }
 
     return listOf(

@@ -128,6 +128,7 @@ internal fun RouteContent(
             openContributorEdit = graph.openContributorEdit,
             matchDetails = graph.matchDetails,
             currentUserId = currentUserId,
+            onToast = onToast,
         )
     } else if (profileId != null) {
         ProfileRouteContent(

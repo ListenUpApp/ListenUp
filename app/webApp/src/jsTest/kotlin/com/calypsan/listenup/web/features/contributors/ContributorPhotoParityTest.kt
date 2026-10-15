@@ -43,6 +43,7 @@ class ContributorPhotoParityTest :
         fun detailPage(state: ContributorDetailUiState): HTMLElement =
             mounts.mount {
                 ContributorDetailPage(
+                    onAdjustPhoto = {},
                     state = state,
                     onOpenLibrary = {},
                     onOpenContributors = {},

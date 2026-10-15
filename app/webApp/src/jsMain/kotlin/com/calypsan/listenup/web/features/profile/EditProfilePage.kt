@@ -6,11 +6,13 @@ import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.presentation.profile.AvatarChange
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
@@ -19,7 +21,12 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.FormSection
+import com.calypsan.listenup.web.design.FrameConfirm
 import com.calypsan.listenup.web.design.FramedImg
+import com.calypsan.listenup.web.design.PhotoFraming
+import com.calypsan.listenup.web.design.PhotoFramingDialog
+import com.calypsan.listenup.web.design.avatarUrl
+import com.calypsan.listenup.web.design.rememberPhotoFraming
 import com.calypsan.listenup.web.design.LocalAvatarFrames
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.readByteArray
@@ -68,7 +75,12 @@ fun EditProfilePage(
     onCurrentPassword: (String) -> Unit,
     onNewPassword: (String) -> Unit,
     onConfirmPassword: (String) -> Unit,
-    onPickAvatar: (ByteArray, String) -> Unit,
+    onPickAvatar: (ByteArray, String, ImageFrame?) -> Unit,
+    /**
+     * Stage a new frame for the photo Save would leave. No default: a defaulted no-op would render a
+     * real Adjust photo whose Done does nothing.
+     */
+    onReframeAvatar: (ImageFrame) -> Unit,
     onRemoveAvatar: () -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
@@ -98,6 +110,7 @@ fun EditProfilePage(
                     onNewPassword = onNewPassword,
                     onConfirmPassword = onConfirmPassword,
                     onPickAvatar = onPickAvatar,
+                    onReframeAvatar = onReframeAvatar,
                     onRemoveAvatar = onRemoveAvatar,
                     onSave = onSave,
                     onCancel = { guard.leave(onCancel) },
@@ -117,7 +130,8 @@ private fun ReadyForm(
     onCurrentPassword: (String) -> Unit,
     onNewPassword: (String) -> Unit,
     onConfirmPassword: (String) -> Unit,
-    onPickAvatar: (ByteArray, String) -> Unit,
+    onPickAvatar: (ByteArray, String, ImageFrame?) -> Unit,
+    onReframeAvatar: (ImageFrame) -> Unit,
     onRemoveAvatar: () -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
@@ -143,7 +157,7 @@ private fun ReadyForm(
     }) {
         FormSection(title = "Photo") {
             Hint("Shown wherever you appear — your profile, shelves you share, and the leaderboard.")
-            PhotoField(state, onPickAvatar, onRemoveAvatar)
+            PhotoField(state, onPickAvatar, onReframeAvatar, onRemoveAvatar)
         }
         FormSection(title = "Name") {
             Hint("How you are listed to everyone else on this server.")
@@ -230,7 +244,8 @@ private fun Hint(text: String) {
 @Composable
 private fun PhotoField(
     state: EditProfileUiState.Ready,
-    onPickAvatar: (ByteArray, String) -> Unit,
+    onPickAvatar: (ByteArray, String, ImageFrame?) -> Unit,
+    onReframeAvatar: (ImageFrame) -> Unit,
     onRemoveAvatar: () -> Unit,
 ) {
     val staged = state.avatarChange as? AvatarChange.Upload
@@ -243,6 +258,11 @@ private fun PhotoField(
     }
 
     val scope = rememberCoroutineScope()
+    val framing = rememberPhotoFraming()
+    // The saved frame seeds the editor, read where every avatar reads it.
+    val observeFrame = LocalAvatarFrames.current
+    val savedFrame by remember(state.user.idString, observeFrame) { observeFrame(state.user.idString) }
+        .collectAsState(initial = null)
     var fileInput by remember { mutableStateOf<HTMLInputElement?>(null) }
 
     Div(attrs = { classes("pedit-photo") }) {
@@ -281,6 +301,24 @@ private fun PhotoField(
                 onClick = { fileInput?.click() },
                 enabled = !state.isSaving,
             ) { Text("Upload photo") }
+            // Re-frames whichever picture Save would leave: a staged upload, or the one already
+            // saved. Only the frame is staged (decided Q2: inside a form, Done stages).
+            val canAdjust =
+                staged != null || (state.hasImageAvatar && state.avatarChange != AvatarChange.RevertToAuto)
+            if (canAdjust) {
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = {
+                        if (staged != null) {
+                            framing.openBytes(staged.bytes, staged.frame, onReframeAvatar)
+                        } else {
+                            val initial = (state.avatarChange as? AvatarChange.Reframe)?.frame ?: savedFrame
+                            framing.openUrl(avatarUrl(state.user.idString), initial, onReframeAvatar)
+                        }
+                    },
+                    enabled = !state.isSaving,
+                ) { Text("Adjust photo") }
+            }
             if (state.hasImageAvatar && state.avatarChange !is AvatarChange.Upload) {
                 Button(
                     kind = ButtonKind.Secondary,
@@ -300,28 +338,34 @@ private fun PhotoField(
             }
             onChange { event ->
                 val element = event.target as HTMLInputElement
-                element.files?.item(0)?.let { file -> stagePhoto(scope, file, onPickAvatar) }
+                element.files?.item(0)?.let { file -> framePickedPhoto(scope, file, framing, onPickAvatar) }
                 // Re-picking the same file must fire change again next time.
                 element.value = ""
             }
         })
     }
+
+    PhotoFramingDialog(framing, FrameConfirm.Done, onChooseAnother = { fileInput?.click() })
 }
 
 /**
- * Read the picked file and stage its bytes on the ViewModel.
+ * Read the picked file and open it in the editor; Done stages its bytes, with the frame chosen there.
+ * Cancel leaves the form as it was — a pick is not a change until it has been framed.
  *
  * The file's own MIME type goes with it: the server stores what it is told, and a picture sent as
  * the wrong type comes back as one the browser will not render.
  */
-private fun stagePhoto(
+private fun framePickedPhoto(
     scope: CoroutineScope,
     file: File,
-    onPickAvatar: (ByteArray, String) -> Unit,
+    framing: PhotoFraming,
+    onPickAvatar: (ByteArray, String, ImageFrame?) -> Unit,
 ) {
     scope.launch {
         val bytes = file.readByteArray() ?: return@launch
-        onPickAvatar(bytes, file.type.ifBlank { DEFAULT_IMAGE_TYPE })
+        framing.openBytes(bytes, initialFrame = null) { frame ->
+            onPickAvatar(bytes, file.type.ifBlank { DEFAULT_IMAGE_TYPE }, frame)
+        }
     }
 }
 
