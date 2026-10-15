@@ -61,14 +61,14 @@ struct MiniPlayerAccessibilityTests {
         #expect(!hosted.stops(labelContaining: "Couldn't play this book.").isEmpty, "\(hosted.tree)")
     }
 
-    @Test func theSleepFadeOffersKeepListeningBesideBackN() async throws {
+    @Test func theSleepFadeOffersKeepListeningAndGivesBackNsRoomToTheTitle() async throws {
         let fading = Self.model(.fixture(
             phase: PlayerPhaseSleepFading.shared, currentIndex: 5, primary: PrimaryControlPause.shared,
             chapterTitle: "Bridge Four"))
         let hosted = await host(fading)
         defer { hosted.close() }
         #expect(hosted.stop(labelled: "Keep Listening")?.isButton == true, "\(hosted.tree)")
-        #expect(hosted.stop(labelled: skipBackLabel) != nil)
+        #expect(hosted.stop(labelled: skipBackLabel) == nil)
         #expect(hosted.stop(labelled: String(localized: "player.pause")) == nil)
     }
 }

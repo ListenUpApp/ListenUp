@@ -108,7 +108,43 @@ struct MiniPlayerAccessoryModelTests {
         #expect(mini.primary == .pill("Keep Listening", prominent: false))
         #expect(mini.primaryLabel == "Keep Listening")
         #expect(mini.primaryAction == .keepListening)
-        #expect(mini.showsSkipBack)
+        // On a phone the fade gives back N's room to the title and Keep Listening; back stays in Now Playing.
+        #expect(!mini.showsSkipBack)
+        #expect(model(playing(PlayerPhaseSleepFading.shared, primary: PrimaryControlPause.shared), wide: true)
+            .showsSkipBack)
+    }
+
+    @Test("the line splits into a lead that may truncate and a tail that never does")
+    func lineParts() {
+        let playingMini = model(playing())
+        #expect(playingMini.lineLead == "Bridge Four")
+        #expect(playingMini.lineTail == "8 mins left")
+        let pausedMini = model(playing(PlayerPhasePaused.shared, primary: PrimaryControlPlay.shared))
+        #expect(pausedMini.lineLead == "Paused · Bridge Four")
+        #expect(pausedMini.lineTail == "8 mins left")
+        let timer = SleepTimerStateActive(
+            mode: SleepTimerModeDuration(minutes: 30), remainingMs: 1_380_000, totalMs: 1_800_000, startedAt: 0)
+        let armed = model(PlayerUiStateLoaded.fixture(
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, sleepTimer: timer, chapterTitle: "Bridge Four"))
+        #expect(armed.lineTail == "Sleep · 23 mins")
+        let finished = model(
+            playing(PlayerPhaseFinished.shared, primary: PrimaryControlListenAgain.shared, showsSkipBack: false))
+        #expect(finished.lineLead == "Finished")
+        #expect(finished.lineTail == nil)
+        #expect(model(playing(), inline: true).lineLead == nil)
+    }
+
+    @Test("forward is live only where something can play")
+    func forwardFollowsPlayability() {
+        #expect(model(playing(), wide: true).canSkipForward)
+        let busy = playing(PlayerPhaseBuffering.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false)
+        #expect(model(busy, wide: true).canSkipForward)
+        let failed = playing(
+            PlayerPhaseFailed(error: PlaybackErrorConnectionLost(correlationId: nil, debugInfo: nil)),
+            primary: PrimaryControlRetry.shared, showsSkipBack: false)
+        #expect(!model(failed, wide: true).canSkipForward)
+        let done = playing(PlayerPhaseFinished.shared, primary: PrimaryControlListenAgain.shared, showsSkipBack: false)
+        #expect(!model(done, wide: true).canSkipForward)
     }
 
     @Test("a failure is marked, says why, and offers a Retry capsule")
