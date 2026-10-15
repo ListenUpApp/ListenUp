@@ -319,13 +319,6 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .boost-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral-text); }
 .boost-reset { margin-top: 14px; }
 
-/* An armed timer, said on the control itself rather than only inside the dialog. */
-.tport-sleep.on { color: var(--coral-text); }
-
-/* A boost in force, same idea: it changes how the book sounds, so it has to be visible without
-   opening a panel to ask. */
-.tport-boost.on { color: var(--coral-text); }
-
 /* ---- banners ---- */
 .banner { display:flex; align-items:center; gap:11px; padding:0 var(--sp-16); min-height:44px; font-size:var(--fs-ui); font-weight:600; border-bottom:1px solid; }
 .banner.warn { background:var(--warn-soft); color:var(--warn); border-color:color-mix(in srgb, var(--warn) 22%, var(--warn-soft)); }
