@@ -205,6 +205,8 @@ private fun ContributorEntity.toSearchHit(): SearchHit =
         name = name,
         bookCount = null, // Would need count - acceptable for offline
         score = 1.0f,
+        imagePath = imagePath,
+        imageFrame = imageFrame?.frame,
     )
 
 private fun SeriesEntity.toSearchHit(hierarchy: SeriesHierarchy): SearchHit =

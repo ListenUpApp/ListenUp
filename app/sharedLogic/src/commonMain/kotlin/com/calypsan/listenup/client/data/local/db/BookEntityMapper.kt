@@ -140,7 +140,12 @@ internal fun List<BookContributorCrossRef>.extractByRole(
     filter { it.role == role }
         .mapNotNull { crossRef ->
             contributorsById[crossRef.contributorId]?.let { entity ->
-                BookContributor(entity.id.value, crossRef.creditedAs ?: entity.name)
+                BookContributor(
+                    id = entity.id.value,
+                    name = crossRef.creditedAs ?: entity.name,
+                    imagePath = entity.imagePath,
+                    imageFrame = entity.imageFrame?.frame,
+                )
             }
         }.distinctBy { it.id }
 
@@ -232,6 +237,8 @@ internal fun BookWithContributors.toDetail(
                     name = creditedAsByContributorId[entity.id] ?: entity.name,
                     creditedAs = creditedAsByContributorId[entity.id],
                     roles = rolesByContributorId[entity.id].orEmpty(),
+                    imagePath = entity.imagePath,
+                    imageFrame = entity.imageFrame?.frame,
                 )
             }
 

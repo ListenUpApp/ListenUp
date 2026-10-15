@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -279,6 +281,36 @@ class BookWithContributorsMapperTest :
             val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList(), emptyList())
 
             result.allContributors.first().name shouldBe "Brandon Sanderson"
+        }
+
+        test("credits carry each contributor's photo and its frame, so a credit row can show the framed face") {
+            val imageStorage = mock<ImageStorage>()
+            every { imageStorage.exists(any()) } returns false
+            val frame = ImageFrame(focusX = 0.4, focusY = 0.2, zoom = 2.0)
+            val photographed =
+                makeContributors().map {
+                    if (it.id == authorId) {
+                        it.copy(imagePath = "contributors/abc.jpg", imageFrame = ImageFraming("abc", frame))
+                    } else {
+                        it
+                    }
+                }
+            val row =
+                BookWithContributors(
+                    book = makeBook(),
+                    contributors = photographed,
+                    contributorRoles = makeContributorRoles(),
+                    series = makeSeries(),
+                    seriesSequences = makeSeriesSequences(),
+                )
+
+            val detail = row.toDetail(imageStorage, emptyList(), emptyList(), emptyList())
+            val credited = detail.allContributors.first { it.id == "contrib-author" }
+            credited.imagePath shouldBe "contributors/abc.jpg"
+            credited.imageFrame shouldBe frame
+            detail.authors.single().imageFrame shouldBe frame
+            detail.allContributors.first { it.id == "contrib-narrator" }.imageFrame shouldBe null
+            row.toListItem(imageStorage).authors.single().imagePath shouldBe "contributors/abc.jpg"
         }
 
         test("toListItem carries libraryId and folderId from BookEntity") {
