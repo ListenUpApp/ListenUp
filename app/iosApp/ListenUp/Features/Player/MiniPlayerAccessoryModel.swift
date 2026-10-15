@@ -127,11 +127,13 @@ struct MiniPlayerAccessoryModel: Equatable {
         }
     }
 
-    /// "8 min", "1 hr, 5 min", "42 sec": the system's abbreviated units, floored, so a minute is never promised early.
+    /// "8 mins", "1 hr, 5 mins": the system's abbreviated units, floored, so a minute is never promised early. Under a
+    /// minute the seconds are spelled out ("42 seconds"), because the system's abbreviation ("42 secs.") ends in a
+    /// period that would sit mid-line before "left".
     static func shortDuration(ms: Int64) -> String {
         let clamped = max(0, ms)
         if clamped < 60_000 {
-            return Duration.seconds(clamped / 1_000).formatted(.units(allowed: [.seconds], width: .abbreviated))
+            return Duration.seconds(clamped / 1_000).formatted(.units(allowed: [.seconds], width: .wide))
         }
         return Duration.milliseconds(clamped).formatted(
             .units(allowed: [.hours, .minutes], width: .abbreviated, fractionalPart: .hide(rounded: .down)))
