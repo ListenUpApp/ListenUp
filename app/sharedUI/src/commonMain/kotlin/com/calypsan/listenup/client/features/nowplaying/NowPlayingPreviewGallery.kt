@@ -328,7 +328,7 @@ private fun MiniPlayerPhoneSection() {
 private fun MiniPlayerDesktopSection() {
     GalleryLabel("Mini-player — desktop/tablet — scroll horizontally →")
     WidePreview {
-        DockedNowPlayingBar(
+        NowPlayingToolbar(
             state = mockActiveState,
             progress = { mockProgress },
             isExpanded = false,
@@ -338,6 +338,9 @@ private fun MiniPlayerDesktopSection() {
             onSkipForward = {},
             onSeek = {},
             onSpeedClick = {},
+            onSleepClick = {},
+            onChaptersClick = {},
+            onKeepListening = {},
             skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
             skipForwardSec = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
         )

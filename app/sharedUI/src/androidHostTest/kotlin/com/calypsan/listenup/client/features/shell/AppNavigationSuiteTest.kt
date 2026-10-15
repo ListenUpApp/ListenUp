@@ -24,8 +24,7 @@ import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
-import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBar
-import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeight
+import com.calypsan.listenup.client.features.nowplaying.NowPlayingToolbar
 import com.calypsan.listenup.client.features.shell.components.AppNavigationSuite
 import com.calypsan.listenup.client.features.nowplaying.loadedPlayerState
 import com.calypsan.listenup.client.features.nowplaying.samplePlayerProgress
@@ -139,7 +138,7 @@ class AppNavigationSuiteTest {
     fun railLogoutStaysAboveTheDockedNowPlayingBar() {
         composeRule.setContent {
             MaterialTheme {
-                ProvideNowPlayingInsets(barVisible = true, latchedFootprint = DockedNowPlayingBarHeight) {
+                ProvideNowPlayingInsets(barVisible = true, latchedFootprint = 120.dp) {
                     Box(Modifier.fillMaxSize()) {
                         AppNavigationSuite(
                             navType = ShellNavType.RailExpanded,
@@ -148,7 +147,7 @@ class AppNavigationSuiteTest {
                             onSignOutRequest = {},
                             modifier = Modifier.fillMaxHeight(),
                         )
-                        DockedNowPlayingBar(
+                        NowPlayingToolbar(
                             state = dockedState,
                             progress = { dockedProgress },
                             isExpanded = false,
@@ -158,6 +157,9 @@ class AppNavigationSuiteTest {
                             onSkipForward = {},
                             onSeek = {},
                             onSpeedClick = {},
+                            onSleepClick = {},
+                            onChaptersClick = {},
+                            onKeepListening = {},
                             skipBackwardSec = 15,
                             skipForwardSec = 30,
                             modifier = Modifier.align(Alignment.BottomCenter).testTag(DOCKED_BAR),

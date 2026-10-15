@@ -167,7 +167,7 @@ fun NowPlayingHost(
 
         // Mini player — docked bar for TV/Desktop/Tablet, floating pill for phone
         if (useDockedBar) {
-            DockedNowPlayingBar(
+            NowPlayingToolbar(
                 state = state,
                 progress = provideProgress,
                 isExpanded = isExpanded,
@@ -177,6 +177,9 @@ fun NowPlayingHost(
                 onSkipForward = { viewModel.skipForward() },
                 onSeek = viewModel::seekWithinChapter,
                 onSpeedClick = viewModel::showSpeedPicker,
+                onSleepClick = viewModel::showSleepTimer,
+                onChaptersClick = viewModel::showChapterPicker,
+                onKeepListening = viewModel::cancelSleepTimer,
                 skipBackwardSec = skipBackwardSec,
                 skipForwardSec = skipForwardSec,
                 modifier = Modifier.align(Alignment.BottomCenter),
