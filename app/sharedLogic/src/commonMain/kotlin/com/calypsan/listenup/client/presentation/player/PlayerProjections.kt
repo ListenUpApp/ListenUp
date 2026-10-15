@@ -116,3 +116,28 @@ internal fun chapterRowsOf(
             isCurrent = index == currentIndex,
         )
     }
+
+/**
+ * The chapter-scoped progress for a playhead, its chapter and the book's length — or null when they cannot belong
+ * to the same book: the playhead past the chapter's end or the book's, or before a chapter other than the first
+ * (a first chapter may start after 0, and [chapterInfoAt][com.calypsan.listenup.client.playback.chapterInfoAt]
+ * gives it the opening anyway). The caller holds its last progress through such a frame.
+ */
+internal fun progressOf(
+    positionMs: Long,
+    chapter: PlaybackManager.ChapterInfo?,
+    durationMs: Long,
+): PlayerProgress? {
+    val start = chapter?.startMs ?: 0L
+    val end = chapter?.endMs ?: durationMs
+    val pastTheEnd = positionMs > end || (durationMs > 0 && positionMs > durationMs)
+    val beforeTheChapter = chapter != null && chapter.index > 0 && positionMs < start
+    if (pastTheEnd || beforeTheChapter) return null
+    val chapterDuration = (end - start).coerceAtLeast(0L)
+    return PlayerProgress(
+        chapterPositionMs = (positionMs - start).coerceIn(0L, chapterDuration),
+        chapterDurationMs = chapterDuration,
+        bookPositionMs = positionMs,
+        bookDurationMs = durationMs,
+    )
+}

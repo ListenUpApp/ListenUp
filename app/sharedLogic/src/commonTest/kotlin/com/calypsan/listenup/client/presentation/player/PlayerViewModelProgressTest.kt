@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.player
 
 import app.cash.turbine.test
+import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -87,6 +88,49 @@ class PlayerViewModelProgressTest :
                         val p = expectMostRecentItem()
                         p.chapterDurationMs shouldBe 1_000_000
                         p.chapterPositionMs shouldBe 250_000
+                    }
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a switch whose chapter arrives before its position never shows the chapter complete") {
+            // The web bar showed the new book's chapter 3 full while it was 1% in: a frame paired the new book's
+            // chapter range (20–30 s) with the old book's playhead (250 s), and the clamp made that "done".
+            runTest {
+                val rig = PlayerViewModelRig(this)
+                try {
+                    rig.s.withBook("b1")
+                    rig.vm.playBook(BookId("b1"), 250_000)
+                    runCurrent()
+                    rig.vm.progress.test {
+                        runCurrent() // starts the subscription's upstream; moves no virtual time
+                        expectMostRecentItem().chapterPositionMs shouldBe 50_000
+                        val engine = rig.s.engine
+                        // The engine announces the next book's chapter and length first …
+                        engine.durationMs.value = 30_000
+                        engine.currentChapter.value =
+                            PlaybackManager.ChapterInfo(
+                                index = 2,
+                                title = "Three",
+                                startMs = 20_000,
+                                endMs = 30_000,
+                                remainingMs = 9_900,
+                                totalChapters = 3,
+                                isGenericTitle = false,
+                            )
+                        runCurrent()
+                        // … and its playhead a moment later.
+                        engine.positionMs.value = 20_100
+                        runCurrent()
+                        val frames =
+                            cancelAndConsumeRemainingEvents()
+                                .filterIsInstance<app.cash.turbine.Event.Item<PlayerProgress>>()
+                                .map { it.value }
+                        frames.none { it.chapterFraction == 1f } shouldBe true
+                        frames.last().chapterPositionMs shouldBe 100
+                        frames.last().chapterDurationMs shouldBe 10_000
                     }
                 } finally {
                     rig.close()

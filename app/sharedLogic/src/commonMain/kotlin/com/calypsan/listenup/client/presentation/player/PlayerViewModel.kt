@@ -210,19 +210,18 @@ class PlayerViewModel(
             .distinctUntilChanged()
             .stateIn(viewModelScope, WhileSubscribedForUi, PlayerUiState.NothingLoaded)
 
-    /** The fast-changing, chapter-scoped position (~4 Hz). */
+    /**
+     * The fast-changing, chapter-scoped position (~4 Hz).
+     *
+     * ⛔ The playhead, the chapter and the length are three flows, and on a book switch (or a chapter boundary) they
+     * do not land in the same frame. A frame that pairs one book's chapter with another's playhead used to be
+     * clamped into "chapter complete" — a full line under "Loading…". Such a frame is dropped, so the last
+     * agreeing progress holds until the three agree again ([progressOf]).
+     */
     val progress: StateFlow<PlayerProgress> =
-        combine(session.positionMs, session.currentChapter, session.durationMs) { position, chapter, duration ->
-            val start = chapter?.startMs ?: 0L
-            val end = chapter?.endMs ?: duration
-            val chapterDuration = (end - start).coerceAtLeast(0L)
-            PlayerProgress(
-                chapterPositionMs = (position - start).coerceIn(0L, chapterDuration),
-                chapterDurationMs = chapterDuration,
-                bookPositionMs = position,
-                bookDurationMs = duration,
-            )
-        }.stateIn(viewModelScope, WhileSubscribedForUi, PlayerProgress.Zero)
+        combine(session.positionMs, session.currentChapter, session.durationMs, ::progressOf)
+            .filterNotNull()
+            .stateIn(viewModelScope, WhileSubscribedForUi, PlayerProgress.Zero)
 
     private fun observePlayerBook(id: BookId): Flow<PlayerBook?> =
         bookRepository.observeBookDetail(id.value).flatMapLatest { detail ->
