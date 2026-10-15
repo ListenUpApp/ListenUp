@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.player
 
+import app.cash.turbine.Event
 import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -364,6 +365,39 @@ class PlayerViewModelTest :
                         rig.vm.overlay.value shouldBe overlay
                         rig.vm.hideOverlay()
                         rig.vm.overlay.value shouldBe PlayerOverlay.None
+                    }
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("switching books never passes through NothingLoaded while the new book's metadata loads (§3.6)") {
+            runTest {
+                val rig = PlayerViewModelRig(this)
+                try {
+                    rig.s.withBook("a")
+                    rig.s.withBook("b")
+                    rig.vm.uiState.test {
+                        rig.vm.playBook(BookId("a"), null)
+                        runCurrent()
+                        expectMostRecentLoaded().book.id shouldBe "a"
+
+                        rig.documentGates["b"] = CompletableDeferred()
+                        rig.s.engine.loadSuspension = { CompletableDeferred<Unit>().await() }
+                        rig.vm.playBook(BookId("b"), null)
+                        runCurrent()
+                        // B's metadata is still in flight: the bar must not unmount.
+                        rig.vm.uiState.value.shouldBeInstanceOf<PlayerUiState.Loaded>()
+
+                        rig.documentGates.getValue("b").complete(Unit)
+                        runCurrent()
+                        val emitted =
+                            cancelAndConsumeRemainingEvents()
+                                .filterIsInstance<Event.Item<PlayerUiState>>()
+                                .map { it.value }
+                        emitted.none { it is PlayerUiState.NothingLoaded } shouldBe true
+                        (emitted.last() as PlayerUiState.Loaded).book.id shouldBe "b"
                     }
                 } finally {
                     rig.close()
