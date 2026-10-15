@@ -115,7 +115,8 @@ struct FrameEditorAccessibilityTests {
         let another = try #require(view.stop(labelled: "Choose Another"), "\(view.tree)")
         // Clear of the capsule's rounded ends, where the black page behind it would pass for ink.
         let label = another.frame.insetBy(dx: another.frame.height / 2, dy: 6)
-        let ink = DrawnContrast(view).strongestInk(in: label)
+        // Composited: the prominent fill is drawn by the render server, which a plain layer capture misses.
+        let ink = DrawnContrast(view, composited: true).strongestInk(in: label)
         #expect(ink >= 4.5, "Choose Another reads at \(ink):1")
     }
 

@@ -128,7 +128,7 @@ private struct FrameEditorStage: View {
                     .frameEditorConfirmStyle()
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { controls }
+        .safeAreaBar(edge: .bottom) { controls }
     }
 
     /// The circle the photo is framed in: the largest that fits with `inset` to spare, centred.
@@ -207,7 +207,7 @@ private struct FrameEditorStage: View {
     }
 
     /// The zoom slider across the full width, Reset centred on its own row below (HIG, Sliders: a fine control
-    /// for a 4× range wants a long track), on the system bar material (no hand-rolled glass, iosApp rule 11).
+    /// for a 4× range wants a long track), in a system safe-area bar (no hand-rolled glass, iosApp rule 11).
     private var controls: some View {
         VStack(spacing: Spacing.xs) {
             Slider(
@@ -225,11 +225,10 @@ private struct FrameEditorStage: View {
                 .disabled(model.isCentered)
                 .frame(minHeight: 44)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 18)
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.m)
         .padding(.bottom, Spacing.xs)
         .frame(maxWidth: .infinity)
-        .background(.bar)
     }
 }
 
