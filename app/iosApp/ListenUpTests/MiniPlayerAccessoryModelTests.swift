@@ -182,8 +182,8 @@ struct MiniPlayerAccessoryModelTests {
 
     @Test("inline while reconnecting: no line; the word lives in the control's label")
     func reconnectingInline() {
-        let reconnecting = playing(PlayerPhaseReconnecting.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false)
-        let mini = model(reconnecting, inline: true)
+        let state = playing(PlayerPhaseReconnecting.shared, primary: PrimaryControlBusy.shared, showsSkipBack: false)
+        let mini = model(state, inline: true)
         #expect(mini.line == nil)
         #expect(mini.primaryLabel == "Reconnecting. Pause")
     }
