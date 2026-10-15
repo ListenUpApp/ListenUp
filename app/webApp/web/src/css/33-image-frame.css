@@ -8,3 +8,45 @@
 /* Fill a circle the caller already draws: the user avatar, a contributor's ring, a search badge. */
 .uav-frame, .contrib-photo { width: 100%; height: 100%; border-radius: inherit; }
 .uav-frame { border-radius: 50%; }
+
+/* ---- Adjust photo (FrameEditorDialog.kt): boards web-desktop, web-phone and errors ---- */
+dialog.dlg.fed { width: min(560px, calc(100% - 32px)); max-width: none; }
+dialog.dlg.fed .dlg-body { position: relative; gap: 14px; }
+/* The ✕ sits in the title row; on a phone the confirm joins it there. */
+.fed-head { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: flex-end; align-items: center; gap: 8px; pointer-events: none; }
+.fed-head > * { pointer-events: auto; }
+.fed-head-confirm { display: none; }
+/* The stage is fixed black and its ring fixed white in both themes: a photo is judged against neutral black. */
+.fed-stage { position: relative; height: 400px; overflow: hidden; border-radius: var(--r-md); background: #1C1714; touch-action: none; cursor: grab; user-select: none; }
+.fed-stage:active { cursor: grabbing; }
+.fed-stage:focus { outline: none; }
+.fed-stage:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+.fed-photo { position: absolute; display: block; max-width: none; user-select: none; pointer-events: none; }
+.fed-scrim { position: absolute; inset: 0; pointer-events: none; }
+.fed-chip { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 6px 12px; border-radius: var(--r-pill); background: rgba(0,0,0,0.6); color: #FFFFFF; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; pointer-events: none; }
+.fed-zoom { display: flex; align-items: center; gap: 12px; }
+.fed-zoom label { font-size: 0.875rem; font-weight: 700; flex: none; }
+.fed-zoom input[type=range] { flex: 1; min-width: 0; height: 28px; margin: 0; accent-color: var(--coral-fill); }
+.fed-zoom-value { width: 40px; flex: none; text-align: right; font-size: 0.875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fed-hint { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--ink-2); }
+.fed-hint-touch { display: none; justify-content: center; }
+.fed-kbd { font-family: var(--mono); font-size: 0.75rem; padding: 1px 6px; border-radius: 5px; background: var(--surface-2); box-shadow: inset 0 -1px 0 var(--hairline); color: var(--ink); }
+.fed-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 4px; }
+.fed-spacer { flex: 1; }
+.fed-error { height: 300px; border-radius: var(--r-md); background: var(--surface-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; }
+.fed-error-t { margin: 0; font-size: 1.0625rem; font-weight: 800; color: var(--ink); }
+.fed-error-p { margin: 0; font-size: 0.875rem; color: var(--ink-2); }
+/* < 640: full screen, as the board's phone. The ✕ moves to the leading edge, the confirm to the
+   trailing one; the stage runs edge to edge; the keys give way to the touch gestures. */
+@media (max-width: 639px) {
+  dialog.dlg.fed { width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; border-radius: 0; border: 0; }
+  dialog.dlg.fed .dlg-body { padding: 0 0 20px; height: 100%; box-sizing: border-box; }
+  dialog.dlg.fed .dlg-t { height: 56px; display: flex; align-items: center; padding: 0 112px 0 56px; font-size: 1.125rem; border-bottom: 1px solid var(--line); }
+  .fed-head { top: 6px; left: 6px; justify-content: space-between; }
+  .fed-head-confirm { display: inline-flex; }
+  .fed-stage { height: 568px; max-height: calc(100% - 220px); border-radius: 0; flex: none; }
+  .fed-chip, .fed-hint-keys, .fed-foot-cancel, .fed-foot-confirm, .fed-spacer { display: none; }
+  .fed-hint-touch { display: flex; padding: 0 20px; }
+  .fed-zoom { padding: 0 20px; }
+  .fed-foot { justify-content: center; }
+}

@@ -4,6 +4,7 @@ import com.calypsan.listenup.web.awaitFrame
 import kotlinx.browser.document
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.w3c.dom.CanvasRenderingContext2D
+import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
@@ -53,3 +54,14 @@ internal suspend fun awaitImagesApplied(host: HTMLElement) {
 internal fun percentOf(css: String): Double = css.removeSuffix("%").toDouble()
 
 private const val SETTLE_FRAMES = 50
+
+/** The button anywhere in the document whose words, or failing that whose `aria-label`, are exactly [label]. */
+internal fun buttonLabelled(label: String): HTMLButtonElement? =
+    document
+        .querySelectorAll("button")
+        .asList()
+        .filterIsInstance<HTMLButtonElement>()
+        .let { buttons ->
+            buttons.firstOrNull { it.textContent?.trim() == label }
+                ?: buttons.firstOrNull { it.getAttribute("aria-label") == label }
+        }
