@@ -23,6 +23,8 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +58,12 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorEdit
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.util.rememberImagePicker
+import com.calypsan.listenup.client.design.components.rememberContributorImageRequest
+import com.calypsan.listenup.client.design.image.FrameConfirm
+import com.calypsan.listenup.client.design.image.FrameEditorDialog
+import com.calypsan.listenup.client.design.image.FrameEditorSource
+import com.calypsan.listenup.client.design.image.scallopFramePreviews
+import com.calypsan.listenup.client.presentation.imageframe.FrameShape
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.contributor_biography
@@ -307,20 +315,36 @@ private fun ArtistStudioContent(
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     val isMediumOrLarger = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
+    // What the open Adjust photo editor is framing; null when it is closed.
+    var editing by remember { mutableStateOf<ContributorFrameEdit?>(null) }
     val imagePicker =
         rememberImagePicker { result ->
             when (result) {
+                // A pick goes straight into the editor; nothing is staged until Done.
                 is ImagePickerResult.Success -> {
-                    onEvent(ContributorEditUiEvent.UploadImage(result.data, result.filename, frame = null))
+                    editing = ContributorFrameEdit.NewPick(result.data, result.filename)
                 }
 
+                // A pick that cannot be read says so, and offers another, instead of doing nothing.
                 is ImagePickerResult.Error -> {
-                    // Error is logged by the image picker; user will see nothing happened
+                    editing = ContributorFrameEdit.Undecodable
                 }
 
                 ImagePickerResult.Cancelled -> { /* User cancelled */ }
             }
         }
+    editing?.let { current ->
+        ContributorPhotoEditor(
+            editing = current,
+            state = state,
+            onEvent = onEvent,
+            onChooseAnother = {
+                editing = null
+                imagePicker.launch()
+            },
+            onDismiss = { editing = null },
+        )
+    }
 
     Column(
         modifier =
@@ -343,6 +367,7 @@ private fun ArtistStudioContent(
             isUploadingImage = state.isUploadingImage,
             onNameChange = { onEvent(ContributorEditUiEvent.NameChanged(it)) },
             onAvatarClick = { imagePicker.launch() },
+            onAdjustPhoto = state.displayImagePath?.let { { editing = ContributorFrameEdit.Existing } },
             onBackClick = onBackClick,
             actions = { ContributorSaveAction(state = state, onSave = onSave) },
         )
@@ -506,4 +531,77 @@ private fun DatesCardContent(
             placeholder = stringResource(Res.string.contributor_select_death_date),
         )
     }
+}
+
+/** What the open Adjust photo editor is framing, and so what Done stages. */
+internal sealed interface ContributorFrameEdit {
+    /** A photo just picked: Done stages it with its frame. */
+    class NewPick(
+        val bytes: ByteArray,
+        val filename: String,
+    ) : ContributorFrameEdit
+
+    /** The photo the form shows (a staged pick, else the saved photo): Done re-stages its frame. */
+    data object Existing : ContributorFrameEdit
+
+    /** A pick that could not be read: the editor says so and offers another. */
+    data object Undecodable : ContributorFrameEdit
+}
+
+/**
+ * The Adjust photo editor inside Contributor edit. Its confirm is Done and stages (Q2): a new pick is
+ * staged with its frame, a staged pick is staged again with the new frame, and the saved photo stages
+ * only its frame. The Save in the form's top bar commits.
+ */
+@Composable
+internal fun ContributorPhotoEditor(
+    editing: ContributorFrameEdit,
+    state: ContributorEditUiState,
+    onEvent: (ContributorEditUiEvent) -> Unit,
+    onChooseAnother: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val stagedBytes = state.pendingImageData
+    val stagedName = state.pendingImageFilename
+    val savedRequest =
+        if (editing == ContributorFrameEdit.Existing && stagedBytes == null) {
+            rememberContributorImageRequest(state.contributorId, state.imagePath)
+        } else {
+            null
+        }
+    val source =
+        when (editing) {
+            is ContributorFrameEdit.NewPick -> FrameEditorSource.Bytes(editing.bytes)
+            ContributorFrameEdit.Undecodable -> FrameEditorSource.Undecodable
+            ContributorFrameEdit.Existing -> stagedBytes?.let(FrameEditorSource::Bytes)
+                ?: savedRequest?.let(FrameEditorSource::Model)
+                ?: FrameEditorSource.Resolving
+        }
+    FrameEditorDialog(
+        source = source,
+        initialFrame = if (editing == ContributorFrameEdit.Existing) state.pendingImageFrame ?: state.imageFrame else null,
+        shape = FrameShape.Circle,
+        confirm = FrameConfirm.Done,
+        previews = scallopFramePreviews(),
+        onConfirm = { frame ->
+            val event =
+                when {
+                    editing is ContributorFrameEdit.NewPick -> {
+                        ContributorEditUiEvent.UploadImage(editing.bytes, editing.filename, frame)
+                    }
+
+                    stagedBytes != null && stagedName != null -> {
+                        ContributorEditUiEvent.UploadImage(stagedBytes, stagedName, frame)
+                    }
+
+                    else -> {
+                        ContributorEditUiEvent.StageFrame(frame)
+                    }
+                }
+            onEvent(event)
+            onDismiss()
+        },
+        onCancel = onDismiss,
+        onChooseAnother = onChooseAnother,
+    )
 }

@@ -1,9 +1,14 @@
 package com.calypsan.listenup.client.design.image
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.cookieScallopShape
 
 /** What Adjust photo opens: picked bytes, an existing photo as a Coil model, or a pick that failed to decode. */
 sealed interface FrameEditorSource {
@@ -52,3 +57,21 @@ data class FramePreview(
     val shape: Shape,
     val size: Dp,
 )
+
+/**
+ * The previews for a photo Android shows as a scallop (a contributor's detail hero, your own profile):
+ * the 52 dp scallop and a 36 dp list circle, as on board `android-contributor`.
+ */
+@Composable
+fun scallopFramePreviews(): List<FramePreview> {
+    val scallop = cookieScallopShape()
+    return remember(scallop) {
+        listOf(
+            FramePreview(scallop, SCALLOP_PREVIEW_SIZE),
+            FramePreview(CircleShape, CIRCLE_PREVIEW_SIZE),
+        )
+    }
+}
+
+private val SCALLOP_PREVIEW_SIZE = 52.dp
+private val CIRCLE_PREVIEW_SIZE = 36.dp

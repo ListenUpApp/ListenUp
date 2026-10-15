@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -55,6 +56,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import listenup.composeapp.generated.resources.edit_adjust_photo
+import listenup.composeapp.generated.resources.edit_frame_saved
+import com.calypsan.listenup.client.design.components.rememberContributorImageRequest
+import com.calypsan.listenup.client.design.image.FrameConfirm
+import com.calypsan.listenup.client.design.image.FrameEditorDialog
+import com.calypsan.listenup.client.design.image.FrameEditorSource
+import com.calypsan.listenup.client.design.image.scallopFramePreviews
+import com.calypsan.listenup.client.presentation.imageframe.FrameShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -155,6 +166,8 @@ fun ContributorDetailScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
+    var adjusting by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     // Navigate back when a delete succeeds.
     LaunchedEffect(viewModel) {
@@ -218,6 +231,8 @@ fun ContributorDetailScreen(
             }
 
             is ContributorDetailUiState.Ready -> {
+                // Adjust photo is offered only when there is a photo to frame.
+                val adjustPhoto: (() -> Unit)? = current.contributor.imagePath?.let { { adjusting = true } }
                 val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
                 val useWideLayout =
                     windowSizeClass.isWidthAtLeastBreakpoint(
@@ -231,6 +246,7 @@ fun ContributorDetailScreen(
                         onBackClick = onBackClick,
                         onEditClick = { onEditClick(contributorId) },
                         onMatchDetails = { onMatchDetailsClick(contributorId) },
+                        onAdjustPhoto = adjustPhoto,
                         onDeleteClick = { showDeleteConfirmation = true },
                         onBookClick = onBookClick,
                         onViewAllClick = { role -> onViewAllClick(contributorId, role) },
@@ -242,6 +258,7 @@ fun ContributorDetailScreen(
                         onBackClick = onBackClick,
                         onEditClick = { onEditClick(contributorId) },
                         onMatchDetails = { onMatchDetailsClick(contributorId) },
+                        onAdjustPhoto = adjustPhoto,
                         onDeleteClick = { showDeleteConfirmation = true },
                         onBookClick = onBookClick,
                         onViewAllClick = { role -> onViewAllClick(contributorId, role) },
@@ -259,6 +276,26 @@ fun ContributorDetailScreen(
                         onConfirm = {
                             showDeleteConfirmation = false
                             viewModel.confirmDelete()
+                        },
+                    )
+                }
+
+                if (adjusting) {
+                    val photoAdjusted = stringResource(Res.string.edit_frame_saved)
+                    ContributorPhotoAdjuster(
+                        contributorId = contributorId,
+                        imagePath = current.contributor.imagePath,
+                        frame = current.contributor.imageFrame,
+                        onSave = { frame ->
+                            adjusting = false
+                            viewModel.adjustPhoto(frame)
+                            // The write lands in Room before any network (offline-first), so it is done now.
+                            scope.launch { snackbarHostState.showSnackbar(photoAdjusted) }
+                        },
+                        onDismiss = { adjusting = false },
+                        onOpenEdit = {
+                            adjusting = false
+                            onEditClick(contributorId)
                         },
                     )
                 }
@@ -297,6 +334,7 @@ private fun WideContributorPortfolio(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
     onBookClick: (String) -> Unit,
     onViewAllClick: (role: String) -> Unit,
@@ -322,6 +360,7 @@ private fun WideContributorPortfolio(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
             )
         }
@@ -370,6 +409,7 @@ private fun WideHeroHeader(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
 ) {
     val contributor = state.contributor
@@ -391,6 +431,7 @@ private fun WideHeroHeader(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
                 canEditMetadata = state.canEditMetadata,
                 canCurateLibrary = state.canCurateLibrary,
@@ -600,6 +641,7 @@ private fun NarrowContributorPortfolio(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
     onBookClick: (String) -> Unit,
     onViewAllClick: (role: String) -> Unit,
@@ -623,6 +665,7 @@ private fun NarrowContributorPortfolio(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
             )
         }
@@ -679,6 +722,7 @@ private fun NarrowColorHero(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
 ) {
     val ink = MaterialTheme.colorScheme.onPrimaryContainer
@@ -695,6 +739,7 @@ private fun NarrowColorHero(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
                 canEditMetadata = state.canEditMetadata,
                 canCurateLibrary = state.canCurateLibrary,
@@ -802,14 +847,16 @@ private fun NarrowWorkSection(
 // =============================================================================
 
 /**
- * Floating back button and overflow menu. The menu offers only what the user may do — Edit and Match
- * details under Edit metadata, Delete under Curate library — and is absent when that is nothing.
+ * Floating back button and overflow menu. The menu offers only what the user may do — Edit, Match
+ * details and (when there is a photo, [onAdjustPhoto] non-null) Adjust photo under Edit metadata,
+ * Delete under Curate library — and is absent when that is nothing.
  */
 @Composable
 internal fun NavigationBar(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
     canEditMetadata: Boolean,
     canCurateLibrary: Boolean,
@@ -824,6 +871,7 @@ internal fun NavigationBar(
             OverflowMenu(
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
                 canEditMetadata = canEditMetadata,
                 canCurateLibrary = canCurateLibrary,
@@ -840,6 +888,7 @@ internal fun NavigationBar(
 private fun OverflowMenu(
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
     canEditMetadata: Boolean,
     canCurateLibrary: Boolean,
@@ -894,6 +943,18 @@ private fun OverflowMenu(
                     },
                     enabled = actionsEnabled,
                 )
+                if (onAdjustPhoto != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.edit_adjust_photo)) },
+                        leadingIcon = { Icon(Icons.Default.Crop, null) },
+                        onClick = {
+                            haptics.press()
+                            showMenu = false
+                            onAdjustPhoto()
+                        },
+                        enabled = actionsEnabled,
+                    )
+                }
             }
             if (canCurateLibrary) {
                 if (canEditMetadata) HorizontalDivider()
@@ -921,6 +982,33 @@ private fun OverflowMenu(
             }
         }
     }
+}
+
+/**
+ * Adjust photo from the overflow menu: the editor over the photo the screen shows, with the scallop
+ * and list-circle previews, saving straight away (Q2). An existing photo that will not open has no
+ * other photo to choose here, so "Choose another" goes to Contributor edit, where one is picked (R6).
+ */
+@Composable
+internal fun ContributorPhotoAdjuster(
+    contributorId: String,
+    imagePath: String?,
+    frame: ImageFrame?,
+    onSave: (ImageFrame) -> Unit,
+    onDismiss: () -> Unit,
+    onOpenEdit: () -> Unit,
+) {
+    val request = rememberContributorImageRequest(contributorId, imagePath)
+    FrameEditorDialog(
+        source = request?.let(FrameEditorSource::Model) ?: FrameEditorSource.Resolving,
+        initialFrame = frame,
+        shape = FrameShape.Circle,
+        confirm = FrameConfirm.Save,
+        previews = scallopFramePreviews(),
+        onConfirm = onSave,
+        onCancel = onDismiss,
+        onChooseAnother = onOpenEdit,
+    )
 }
 
 /**
@@ -1068,6 +1156,7 @@ private fun ContributorDetailLoadingFrame(
                 onBackClick = onBackClick,
                 onEditClick = {},
                 onMatchDetails = {},
+                onAdjustPhoto = null,
                 onDeleteClick = {},
                 canEditMetadata = false,
                 canCurateLibrary = false,

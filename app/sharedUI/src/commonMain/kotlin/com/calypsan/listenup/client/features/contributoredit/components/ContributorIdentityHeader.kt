@@ -21,11 +21,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,6 +50,7 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.edit_adjust_photo
 import listenup.composeapp.generated.resources.common_name
 import listenup.composeapp.generated.resources.contributor_change_photo
 import listenup.composeapp.generated.resources.contributor_contributor_photo
@@ -58,6 +61,7 @@ import androidx.compose.foundation.text.KeyboardOptions
  * Identity header with large avatar and name field side by side.
  *
  * @param frame How the shown photo sits in its circle; null is the centre crop.
+ * @param onAdjustPhoto Opens the Adjust photo editor; null when there is no photo to adjust, which hides the button.
  * @param actions Top-bar actions (the screen's Save), trailing the back button in the top row.
  */
 @Suppress("LongMethod")
@@ -72,6 +76,7 @@ fun ContributorIdentityHeader(
     isUploadingImage: Boolean,
     onNameChange: (String) -> Unit,
     onAvatarClick: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onBackClick: () -> Unit,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
@@ -117,7 +122,11 @@ fun ContributorIdentityHeader(
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Large editable avatar (120dp) - tappable for upload
+            // Large editable avatar (120dp) - tappable for upload - with Adjust photo under it
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
             ElevatedCard(
                 onClick = onAvatarClick,
                 shape = CircleShape,
@@ -201,6 +210,14 @@ fun ContributorIdentityHeader(
                         }
                     }
                 }
+            }
+            if (onAdjustPhoto != null) {
+                OutlinedButton(onClick = onAdjustPhoto, enabled = !isUploadingImage) {
+                    Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(Res.string.edit_adjust_photo))
+                }
+            }
             }
 
             // Name field — large editorial hero variant of the canonical text field.
