@@ -204,7 +204,9 @@ private struct FrameEditorStage: View {
                 Image(systemName: "plus.magnifyingglass").accessibilityHidden(true)
             }
             .accessibilityValue(model.zoomText)
-            .frame(minWidth: 160)
+            // A bottom-bar item sizes to its content, which leaves a bare Slider a short track; this one is the
+            // fine control for a 4× range, so it gets room to move in (fits the narrowest iPhone with Reset).
+            .frame(width: 200)
             Button(String(localized: "edit.frame_reset")) { model.reset() }
                 .disabled(model.isCentered)
         }
