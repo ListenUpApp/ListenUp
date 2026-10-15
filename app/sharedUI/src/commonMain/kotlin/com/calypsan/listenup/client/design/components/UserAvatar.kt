@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,9 +30,13 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.image.FramedAlignment
+import com.calypsan.listenup.client.design.image.FramedCrop
+import com.calypsan.listenup.client.design.image.rememberZoomedSizeResolver
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
@@ -120,6 +123,7 @@ fun UserAvatar(
                 localPath = state.localPath,
                 cacheKey = state.cacheKey,
                 contentDescription = state.contentDescription,
+                frame = state.frame,
                 modifier = baseModifier,
             )
         }
@@ -202,11 +206,13 @@ internal fun rememberUserAvatarState(
  * @property cacheKey Coil memory/disk cache key, versioned on the profile's avatar-update time so a
  *   re-uploaded avatar re-decodes instead of serving a stale bitmap.
  * @property contentDescription Accessibility description for the image.
+ * @property frame How the photo sits in its circle or scallop; null is the centre crop.
  */
 data class UserAvatarImage(
     val localPath: String,
     val cacheKey: String,
     val contentDescription: String,
+    val frame: ImageFrame? = null,
 )
 
 /**
@@ -228,6 +234,7 @@ fun rememberUserAvatarImage(userId: String): UserAvatarImage? =
                 localPath = state.localPath,
                 cacheKey = state.cacheKey,
                 contentDescription = state.contentDescription,
+                frame = state.frame,
             )
         }
 
@@ -245,14 +252,17 @@ private fun LocalImageAvatar(
     localPath: String,
     cacheKey: String,
     contentDescription: String,
+    frame: ImageFrame?,
     modifier: Modifier,
 ) {
     val context = LocalPlatformContext.current
+    val (constraints, zoomedSize) = rememberZoomedSizeResolver(frame)
     AsyncImage(
         model =
             ImageRequest
                 .Builder(context)
                 .data(localPath)
+                .size(zoomedSize)
                 .memoryCacheKey(cacheKey)
                 .diskCacheKey(cacheKey)
                 .memoryCachePolicy(CachePolicy.ENABLED)
@@ -260,8 +270,9 @@ private fun LocalImageAvatar(
                 .crossfade(true)
                 .build(),
         contentDescription = contentDescription,
-        modifier = modifier,
-        contentScale = ContentScale.Crop,
+        modifier = modifier.then(constraints),
+        contentScale = FramedCrop(frame),
+        alignment = FramedAlignment(frame),
     )
 }
 
@@ -333,6 +344,8 @@ internal sealed interface UserAvatarUiState {
         val localPath: String,
         val cacheKey: String,
         val contentDescription: String,
+        /** How the photo sits in its circle or scallop; null is the centre crop. */
+        val frame: ImageFrame? = null,
     ) : UserAvatarUiState
 
     /** No local image (auto type, or image not yet downloaded) — render initials. */
@@ -395,6 +408,7 @@ internal fun userAvatarUiState(
                 // instead of serving the stale cached bitmap.
                 cacheKey = "$userId-avatar-${profile.updatedAt}",
                 contentDescription = profile.displayName.ifBlank { "User avatar" },
+                frame = profile.avatarFrame,
             )
         }
 

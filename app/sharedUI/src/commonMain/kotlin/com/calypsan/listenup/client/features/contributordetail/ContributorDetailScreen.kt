@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.contributordetail
 
 import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -406,6 +407,7 @@ private fun WideHeroHeader(
                 RingedScallopAvatar(
                     name = contributor.name,
                     imagePath = contributor.imagePath,
+                    frame = contributor.imageFrame,
                     contributorId = contributorId,
                     colorScheme = colorScheme,
                 )
@@ -704,6 +706,7 @@ private fun NarrowColorHero(
                 RingedScallopAvatar(
                     name = state.contributor.name,
                     imagePath = state.contributor.imagePath,
+                    frame = state.contributor.imageFrame,
                     contributorId = contributorId,
                     colorScheme = colorScheme,
                 )
@@ -929,6 +932,7 @@ private fun OverflowMenu(
 private fun ElevatedAvatar(
     name: String,
     imagePath: String?,
+    frame: ImageFrame?,
     contributorId: String,
     colorScheme: ContributorColorScheme,
     shape: Shape = CircleShape,
@@ -983,7 +987,7 @@ private fun ElevatedAvatar(
                 contributorId = contributorId,
                 imagePath = imagePath,
                 contentDescription = stringResource(Res.string.contributor_name_profile_image, name),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                frame = frame,
                 modifier = Modifier.fillMaxSize(),
                 onState = { state ->
                     if (state is coil3.compose.AsyncImagePainter.State.Success) {
@@ -1105,6 +1109,7 @@ private fun ContributorDetailLoadingFrame(
 private fun RingedScallopAvatar(
     name: String,
     imagePath: String?,
+    frame: ImageFrame?,
     contributorId: String,
     colorScheme: ContributorColorScheme,
 ) {
@@ -1119,6 +1124,7 @@ private fun RingedScallopAvatar(
         ElevatedAvatar(
             name = name,
             imagePath = imagePath,
+            frame = frame,
             contributorId = contributorId,
             colorScheme = colorScheme,
             shape = cookieScallopShape(),

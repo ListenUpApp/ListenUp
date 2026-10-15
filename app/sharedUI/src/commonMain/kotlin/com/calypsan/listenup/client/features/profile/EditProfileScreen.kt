@@ -43,7 +43,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import com.calypsan.listenup.client.design.image.FramedAlignment
+import com.calypsan.listenup.client.design.image.FramedCrop
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -420,7 +421,8 @@ private fun AvatarPreview(
                         .build(),
                 contentDescription = null,
                 modifier = Modifier.size(size).clip(cookieScallopShape()),
-                contentScale = ContentScale.Crop,
+                contentScale = FramedCrop(avatarChange.frame),
+                alignment = FramedAlignment(avatarChange.frame),
             )
         }
 
@@ -429,12 +431,13 @@ private fun AvatarPreview(
             InitialsScallop(user = user, size = size)
         }
 
-        // No staged change (or only a re-frame, which framing-aware rendering will draw) → resolve the
-        // persisted avatar the same reactive way as every other avatar: a synced change or a completed
-        // download flips it to the photo in real time.
+        // No staged change, or a staged re-frame of the persisted photo → resolve the persisted avatar
+        // the same reactive way as every other avatar (a synced change or a completed download flips it
+        // to the photo in real time), framed by the staged frame when there is one.
         AvatarChange.None, is AvatarChange.Reframe -> {
             val avatarImage = rememberUserAvatarImage(user.id.value)
             if (avatarImage != null) {
+                val frame = (avatarChange as? AvatarChange.Reframe)?.frame ?: avatarImage.frame
                 AsyncImage(
                     model =
                         ImageRequest
@@ -445,7 +448,8 @@ private fun AvatarPreview(
                             .build(),
                     contentDescription = null,
                     modifier = Modifier.size(size).clip(cookieScallopShape()),
-                    contentScale = ContentScale.Crop,
+                    contentScale = FramedCrop(frame),
+                    alignment = FramedAlignment(frame),
                 )
             } else {
                 InitialsScallop(user = user, size = size)

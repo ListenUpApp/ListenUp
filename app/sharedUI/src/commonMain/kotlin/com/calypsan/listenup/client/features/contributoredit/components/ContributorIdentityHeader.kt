@@ -35,7 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
@@ -57,6 +57,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 /**
  * Identity header with large avatar and name field side by side.
  *
+ * @param frame How the shown photo sits in its circle; null is the centre crop.
  * @param actions Top-bar actions (the screen's Save), trailing the back button in the top row.
  */
 @Suppress("LongMethod")
@@ -65,6 +66,7 @@ fun ContributorIdentityHeader(
     contributorId: String,
     imagePath: String?,
     stagingImagePath: String?,
+    frame: ImageFrame?,
     name: String,
     colorScheme: ContributorColorScheme,
     isUploadingImage: Boolean,
@@ -159,7 +161,7 @@ fun ContributorIdentityHeader(
                         imagePath = imagePath,
                         stagingImagePath = stagingImagePath,
                         contentDescription = stringResource(Res.string.contributor_contributor_photo),
-                        contentScale = ContentScale.Crop,
+                        frame = frame,
                         modifier =
                             Modifier
                                 .fillMaxSize()

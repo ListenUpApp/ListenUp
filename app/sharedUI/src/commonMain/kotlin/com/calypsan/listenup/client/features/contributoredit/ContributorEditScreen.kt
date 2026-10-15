@@ -336,6 +336,8 @@ private fun ArtistStudioContent(
             contributorId = state.contributorId,
             imagePath = state.imagePath,
             stagingImagePath = state.stagingImagePath,
+            // A new pick with no frame yet is unframed, never the old photo's frame.
+            frame = state.pendingImageFrame ?: state.imageFrame.takeIf { state.pendingImageData == null },
             name = state.name,
             colorScheme = colorScheme,
             isUploadingImage = state.isUploadingImage,
