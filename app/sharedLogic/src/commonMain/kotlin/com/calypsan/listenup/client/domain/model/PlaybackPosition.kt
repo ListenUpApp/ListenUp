@@ -19,6 +19,7 @@ package com.calypsan.listenup.client.domain.model
  * @property isFinished Whether the book is marked as finished (authoritative from server)
  * @property finishedAtMs When the book was marked finished (epoch ms)
  * @property startedAtMs When the user started this book (epoch ms)
+ * @property finishedCardDismissedAtMs When the reader last dismissed this book's "just finished" card on Home (epoch ms), null when never
  */
 data class PlaybackPosition(
     val bookId: String,
@@ -34,6 +35,7 @@ data class PlaybackPosition(
     val isFinished: Boolean = false,
     val finishedAtMs: Long? = null,
     val startedAtMs: Long? = null,
+    val finishedCardDismissedAtMs: Long? = null,
 ) {
     /**
      * Returns true if this position has pending sync changes.
