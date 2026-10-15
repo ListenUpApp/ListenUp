@@ -215,6 +215,10 @@ class PlaybackPositionRepository(
                 client_op_id = clientOpId,
             )
         }
+        // Monotonic and independent of the write's other columns: null never erases, an older value never lowers.
+        value.finishedCardDismissedAt?.let { at ->
+            db.playbackPositionsQueries.raiseFinishedCardDismissedAt(at = at, id = value.id)
+        }
     }
 
     /**
@@ -242,6 +246,10 @@ class PlaybackPositionRepository(
      * [startedAt] is the day the reader said they STARTED, picked in the same form. On a finish it dates
      * the read's start (`book_reads.started_at`, the Hardcover FINISH); see [resolveStartedAt] for when
      * it is ignored. It never touches the position row or the listen-through.
+     *
+     * [finishedCardDismissedAt] is when the reader dismissed Home's "just finished" card. It merges on its own rule
+     * (latest wins, null never erases) and lands even when this write loses the `lastPlayedAt` guard — see
+     * [raiseDismissal].
      */
     suspend fun recordPosition(
         userId: String,
@@ -258,6 +266,7 @@ class PlaybackPositionRepository(
         hasCustomBoost: Boolean = false,
         startedBookOccurredAt: Long? = null,
         startedAt: Long? = null,
+        finishedCardDismissedAt: Long? = null,
     ): AppResult<PlaybackPositionSyncPayload> =
         recordPositionDetailed(
             userId = userId,
@@ -274,6 +283,7 @@ class PlaybackPositionRepository(
             hasCustomBoost = hasCustomBoost,
             startedBookOccurredAt = startedBookOccurredAt,
             startedAt = startedAt,
+            finishedCardDismissedAt = finishedCardDismissedAt,
         ).map { it.position }
 
     /**
@@ -296,6 +306,7 @@ class PlaybackPositionRepository(
         hasCustomBoost: Boolean = false,
         startedBookOccurredAt: Long? = null,
         startedAt: Long? = null,
+        finishedCardDismissedAt: Long? = null,
     ): AppResult<RecordPositionResult> {
         val now = clock.now().toEpochMilliseconds()
         // Clamp #1 (persisted): a device with a clock set into the future must not be able to plant
@@ -307,6 +318,8 @@ class PlaybackPositionRepository(
         val clampedLastPlayedAt = min(lastPlayedAt, now + SKEW_TOLERANCE_MS)
         val resolvedFinishedAt = resolveFinishedAt(finishedAt, now)
         val resolvedStartedAt = resolveStartedAt(startedAt, finishedAt = resolvedFinishedAt ?: clampedLastPlayedAt, now)
+        // Clamped as lastPlayedAt is: a device clock set ahead must not hide every later re-read's card.
+        val clampedDismissal = finishedCardDismissedAt?.let { min(it, now + SKEW_TOLERANCE_MS) }
 
         val existing = getPosition(userId, bookId)
         // Clamp #2 (comparison-only, never rewrites the stored row): a row poisoned before this
@@ -320,7 +333,12 @@ class PlaybackPositionRepository(
         val existingIsPoisoned = existing != null && existing.lastPlayedAt > now + SKEW_TOLERANCE_MS
         // lastPlayedAt-wins: a stale write is a no-op, returning the stored payload and firing no hooks.
         if (existing != null && !existingIsPoisoned && existing.lastPlayedAt >= clampedLastPlayedAt) {
-            return AppResult.Success(RecordPositionResult(position = existing, accepted = false, serverNowMs = now))
+            val stored =
+                when (val raised = raiseDismissal(existing, clampedDismissal, userId)) {
+                    is AppResult.Success -> raised.data
+                    is AppResult.Failure -> return raised
+                }
+            return AppResult.Success(RecordPositionResult(position = stored, accepted = false, serverNowMs = now))
         }
 
         val priorFinished = existing?.finished == true
@@ -339,6 +357,7 @@ class PlaybackPositionRepository(
                 finishedAt = resolvedFinishedAt,
                 hasCustomSpeed = hasCustomSpeed,
                 hasCustomBoost = hasCustomBoost,
+                finishedCardDismissedAt = clampedDismissal,
                 revision = 0L,
                 updatedAt = 0L,
                 createdAt = 0L,
@@ -386,6 +405,22 @@ class PlaybackPositionRepository(
             }
         }
         return AppResult.Success(RecordPositionResult(position = written, accepted = true, serverNowMs = now))
+    }
+
+    /**
+     * [stored] with [dismissedAt] recorded when it is newer than the dismissal it holds, else [stored] unchanged.
+     * Dismissing Home's "just finished" card is not listening, so it lands even when the write carrying it loses the
+     * `lastPlayedAt` guard; the upsert bumps the revision so every device hears it. No completion or start hook fires.
+     */
+    private suspend fun raiseDismissal(
+        stored: PlaybackPositionSyncPayload,
+        dismissedAt: Long?,
+        userId: String,
+    ): AppResult<PlaybackPositionSyncPayload> {
+        if (dismissedAt == null || dismissedAt <= (stored.finishedCardDismissedAt ?: Long.MIN_VALUE)) {
+            return AppResult.Success(stored)
+        }
+        return upsert(stored.copy(finishedCardDismissedAt = dismissedAt), clientOpId = null, userId = userId)
     }
 
     /**
@@ -681,6 +716,7 @@ class PlaybackPositionRepository(
             finishedAt = finished_at,
             hasCustomSpeed = has_custom_speed == 1L,
             hasCustomBoost = has_custom_boost == 1L,
+            finishedCardDismissedAt = finished_card_dismissed_at,
             revision = revision,
             updatedAt = updated_at,
             createdAt = created_at,

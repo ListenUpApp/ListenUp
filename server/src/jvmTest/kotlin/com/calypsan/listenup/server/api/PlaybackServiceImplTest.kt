@@ -218,6 +218,39 @@ class PlaybackServiceImplTest :
             }
         }
 
+        test("recordPosition forwards a finish-card dismissal") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1")
+                    val service = deps.service(sql, "u1")
+
+                    service.recordPosition(
+                        RecordPositionRequest(
+                            bookId = "b1",
+                            positionMs = 99_000L,
+                            lastPlayedAt = 1_730_000_000_000L,
+                            finished = true,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                            finishedCardDismissedAt = 1_730_000_100_000L,
+                        ),
+                    )
+
+                    val pos =
+                        service
+                            .getPosition(BookId("b1"))
+                            .shouldBeInstanceOf<AppResult.Success<PlaybackPositionSyncPayload?>>()
+                            .data
+                            .shouldNotBeNull()
+                    pos.finishedCardDismissedAt shouldBe 1_730_000_100_000L
+                }
+            }
+        }
+
         test("recordPosition stores the position using the principal's userId, not any request field") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
