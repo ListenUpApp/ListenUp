@@ -5,6 +5,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
@@ -63,7 +66,13 @@ internal fun MiniPlayerLineText(
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier,
+        // Announced once, politely, when the connection drops: the line holds no ticking time in that state.
+        modifier =
+            if (line == MiniPlayerLine.Reconnecting) {
+                modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            } else {
+                modifier
+            },
     )
 }
 

@@ -53,6 +53,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_mini_open
+import listenup.composeapp.generated.resources.player_mini_reconnecting_a11y
 import listenup.composeapp.generated.resources.player_mini_resume
 import listenup.composeapp.generated.resources.player_skip_backward
 import org.jetbrains.compose.resources.stringResource
@@ -163,6 +164,7 @@ fun NowPlayingBar(
                         onClick = onPrimary,
                         size = MiniPhonePlaySize,
                         playLabel = miniPlayLabel(line),
+                        busyLabel = miniBusyLabel(line),
                         onKeepListening = onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
                     )
                 }
@@ -179,6 +181,11 @@ internal fun miniPlayLabel(line: MiniPlayerLine): String? =
     } else {
         null
     }
+
+/** "Reconnecting. Pause" for the busy control while a dropped connection recovers (board `Reconnecting`). */
+@Composable
+internal fun miniBusyLabel(line: MiniPlayerLine): String? =
+    if (line == MiniPlayerLine.Reconnecting) stringResource(Res.string.player_mini_reconnecting_a11y) else null
 
 /**
  * The open target: cover, title and line, one node named "Open Now Playing" (§8). The cover is decorative (the title

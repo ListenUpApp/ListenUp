@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -112,10 +114,12 @@ class NowPlayingBarTest {
     }
 
     @Test
-    fun `a dropped connection reads Reconnecting, busy, with no back, on a flat line`() {
+    fun `a dropped connection reads Reconnecting, once and politely, on the busy control`() {
         bar(loadedPlayerState(phase = PlayerPhase.Reconnecting, primary = PrimaryControl.Busy))
-        composeRule.onNodeWithText("Reconnecting…", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithContentDescription("Loading. Pause").assertExists()
+        composeRule.onNodeWithText("Reconnecting…", useUnmergedTree = true).assert(
+            SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite),
+        )
+        composeRule.onNodeWithContentDescription("Reconnecting. Pause").assertExists()
         backShown(false)
         composeRule.onNodeWithTag(MINI_PROGRESS_FLAT_TAG).assertExists()
     }

@@ -60,6 +60,13 @@ class ReaderNowPlayingStripTest {
     }
 
     @Test
+    fun `a dropped connection names the busy control Reconnecting`() {
+        strip(loadedPlayerState(phase = PlayerPhase.Reconnecting, primary = PrimaryControl.Busy))
+        composeRule.onNodeWithText("Reconnecting…").assertExists()
+        composeRule.onNodeWithContentDescription("Reconnecting. Pause").assertExists()
+    }
+
+    @Test
     fun `the sleep fade offers Keep listening in place of Pause`() {
         strip(loadedPlayerState(phase = PlayerPhase.SleepFading))
         composeRule.onNodeWithContentDescription("Pause").assertDoesNotExist()

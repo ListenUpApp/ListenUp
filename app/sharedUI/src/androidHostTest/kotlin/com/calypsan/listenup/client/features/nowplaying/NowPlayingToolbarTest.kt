@@ -150,6 +150,15 @@ class NowPlayingToolbarTest {
 
     @Test
     @Config(qualifiers = "w1280dp-h800dp")
+    fun `a dropped connection names the busy control Reconnecting`() {
+        toolbar(loadedPlayerState(phase = PlayerPhase.Reconnecting, primary = PrimaryControl.Busy))
+        composeRule.onNodeWithText("Reconnecting…", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription("Reconnecting. Pause").assertExists()
+        composeRule.onNodeWithContentDescription("Skip back 10 seconds").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
     fun `the sleep fade offers Keep listening in place of Pause, and keeps back`() {
         toolbar(loadedPlayerState(phase = PlayerPhase.SleepFading))
         composeRule.onNodeWithContentDescription("Skip back 10 seconds").assertExists()

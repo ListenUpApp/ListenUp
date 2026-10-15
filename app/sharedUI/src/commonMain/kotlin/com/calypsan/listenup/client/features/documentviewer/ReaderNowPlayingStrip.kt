@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
+import com.calypsan.listenup.client.features.nowplaying.miniBusyLabel
 import com.calypsan.listenup.client.features.nowplaying.miniPlayLabel
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
@@ -114,6 +115,7 @@ internal fun ReaderNowPlayingStrip(
                 onClick = onPrimary,
                 size = ReaderStripPlaySize,
                 playLabel = miniPlayLabel(line),
+                busyLabel = miniBusyLabel(line),
                 onKeepListening = onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
             )
         }

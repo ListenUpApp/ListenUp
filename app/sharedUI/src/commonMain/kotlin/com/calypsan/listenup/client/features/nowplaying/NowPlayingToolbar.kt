@@ -207,6 +207,7 @@ private fun RowScope.ToolbarContent(
         onClick = actions.onPrimary,
         size = IconButtonDefaults.mediumContainerSize(IconButtonDefaults.IconButtonWidthOption.Wide),
         playLabel = miniPlayLabel(line),
+        busyLabel = miniBusyLabel(line),
         onKeepListening = actions.onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
     )
     Ctrl(

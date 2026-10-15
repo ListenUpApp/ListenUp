@@ -49,6 +49,7 @@ private val MiniBusyIndicatorSize = 32.dp
  *
  * @param size The play/pause button's container: 56×48 on the phone bar, 72×56 on the tablet toolbar.
  * @param playLabel Overrides "Play" (the background refusal's "Resume").
+ * @param busyLabel Overrides the busy control's "Loading. Pause" (a dropped connection's "Reconnecting. Pause").
  * @param onKeepListening Non-null while the sleep timer fades the book out: the button is then Keep listening, which
  * cancels the timer and restores full volume instead of pausing (Simon, 2026-10-14). Now Playing keeps its Pause; the
  * substitution is the mini player's alone.
@@ -62,6 +63,7 @@ internal fun MiniPrimaryButton(
     size: DpSize,
     modifier: Modifier = Modifier,
     playLabel: String? = null,
+    busyLabel: String? = null,
     onKeepListening: (() -> Unit)? = null,
 ) {
     val haptics = LocalHaptics.current
@@ -101,7 +103,7 @@ internal fun MiniPrimaryButton(
         }
 
         PrimaryControl.Busy -> {
-            val label = stringResource(Res.string.player_mini_busy_a11y)
+            val label = busyLabel ?: stringResource(Res.string.player_mini_busy_a11y)
             IconButton(
                 onClick = onClick,
                 modifier = modifier.size(MinTouchTarget).semantics { contentDescription = label },
