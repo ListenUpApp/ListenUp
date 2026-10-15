@@ -404,6 +404,16 @@ class ContributorDetailPageTest :
             adjust(contributorDetailPage(readyContributor(imagePath = null))) shouldBe null
         }
 
+        test("Adjust photo lines up with the hero's other actions instead of sagging below them") {
+            val host = contributorDetailPage(readyContributor(imagePath = "contributors/k.jpg", canCurateLibrary = true))
+            // The hero's action rules are scoped to the app root's `luw` class, as in the app.
+            host.className = "luw"
+            val edit = host.querySelector(".cd-edit") as HTMLElement
+            val adjust = host.querySelector(".cd-adjust") as HTMLElement
+
+            adjust.getBoundingClientRect().top shouldBe edit.getBoundingClientRect().top
+        }
+
         test("a photo that won't open offers Choose another, which goes to Contributor edit") {
             var edits = 0
             val host = contributorDetailPage(readyContributor(imagePath = "contributors/missing.jpg"), onEdit = { edits++ })

@@ -1024,6 +1024,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .drift-acts { display: flex; justify-content: flex-end; gap: var(--sp-8); }
 
 .luw .cd-match { flex: none; align-self: flex-start; }
+.luw .cd-adjust { flex: none; align-self: flex-start; }
 /* Delete sits with Edit and Match, sized the same: it is one of the hero's actions, not a
    special zone. The warning lives in the confirm dialog's words, per ConfirmDialog's "no red". */
 .luw .cd-delete { flex: none; align-self: flex-start; }
