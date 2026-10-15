@@ -35,14 +35,16 @@ struct ContributorEditView: View {
                             onPicked: { observer.onImagePicked($0) },
                             onRemove: {}
                         ) {
-                            // Non-streaming (streamsContributorPhoto == false): the picked local
-                            // staging file in displayImagePath renders immediately before Save,
-                            // mirroring how BookEditView shows displayCoverPath.
+                            // A staged pick is a local file in displayImagePath and renders from disk
+                            // before Save, as BookEditView shows displayCoverPath; the saved photo streams.
+                            // Either way it wears the frame it will be shown with.
                             ContributorAvatar(
                                 name: observer.name,
                                 imagePath: observer.displayImagePath,
                                 id: contributorId,
-                                fontSize: 40
+                                fontSize: 40,
+                                streamsContributorPhoto: !observer.hasStagedImage,
+                                frame: observer.displayFrame
                             )
                         }
                         .frame(maxWidth: .infinity)

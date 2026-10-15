@@ -39,6 +39,8 @@ final class ContributorDetailObserver {
     private(set) var name: String = ""
     private(set) var bio: String?
     private(set) var imagePath: String?
+    /// How the photo sits in the hero circle; nil is the centre crop.
+    private(set) var imageFrame: ImageFrameValue?
     private(set) var aliases: [String] = []
     private(set) var birthDate: String?
     private(set) var deathDate: String?
@@ -101,6 +103,7 @@ final class ContributorDetailObserver {
             name = contributor.name
             bio = contributor.descriptionText
             imagePath = contributor.imagePath
+            imageFrame = ImageFrameValue(contributor.imageFrame)
             aliases = Array(contributor.aliases)
             birthDate = contributor.birthDate
             deathDate = contributor.deathDate

@@ -176,7 +176,8 @@ struct ContributorDetailView: View {
                 imagePath: observer.imagePath,
                 id: activeContributorId,
                 fontSize: 40,
-                streamsContributorPhoto: true
+                streamsContributorPhoto: true,
+                frame: observer.imageFrame
             )
             .frame(width: 132, height: 132)
             .clipShape(Circle())

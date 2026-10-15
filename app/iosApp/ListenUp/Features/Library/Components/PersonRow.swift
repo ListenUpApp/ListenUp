@@ -63,7 +63,8 @@ struct PersonRow: View {
                 imagePath: contributor.imagePath,
                 id: contributor.id,
                 fontSize: 16,
-                streamsContributorPhoto: true
+                streamsContributorPhoto: true,
+                frame: contributor.imageFrame
             )
             .frame(width: 50, height: 50)
             .heroSource(contributorHeroID(contributor.id))
