@@ -1,8 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import androidx.compose.runtime.Composable
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.PlayerPhase
@@ -130,8 +128,6 @@ class TransportBarTest :
                     onCancelSleepTimer = onCancelSleepTimer,
                 )
             }
-
-        fun notice(content: @Composable () -> Unit): HTMLElement = mounts.mount { content() }
 
         test("a paused book offers Play, and a playing one offers Pause") {
             val paused = bar(loadedPlayerState(phase = PlayerPhase.Paused))
@@ -328,58 +324,6 @@ class TransportBarTest :
             formatElapsed(UNDER_AN_HOUR_MS) shouldNotBe formatElapsed(LONG_BOOK_MS - UNDER_AN_HOUR_MS)
         }
 
-        test("a failed book's notice names the cause and offers Retry") {
-            var retries = 0
-            val host =
-                notice {
-                    PlaybackNotice(
-                        error = PlaybackError.ConnectionLost(),
-                        primary = PrimaryControl.Retry,
-                        onRetry = { retries++ },
-                        onDismiss = {},
-                    )
-                }
-
-            val text = host.querySelector(".tport-note")!!.textContent.orEmpty()
-            text shouldContain "Couldn't play this book."
-            text shouldContain "The connection to your server dropped."
-            host.buttonSaying("Retry").shouldNotBeNull().click()
-            retries shouldBe 1
-        }
-
-        test("a held book's notice names what unlocks it, and offers no Retry") {
-            // The refusal's own words, not the connection-failure notice, which would send the listener checking
-            // a network that is fine. Retrying cannot release a book from the Inbox.
-            var dismissals = 0
-            val held: AppError = BookError.HeldForReview()
-            val host =
-                notice {
-                    PlaybackNotice(error = held, primary = PrimaryControl.Close, onRetry = {}, onDismiss = { dismissals++ })
-                }
-
-            val text = host.querySelector(".tport-note")!!.textContent.orEmpty()
-            text shouldContain held.playerTitle()
-            text shouldNotContain "Couldn't play"
-            host.buttonSaying("Retry").shouldBeNull()
-            (host.querySelector(".tport-note-x") as HTMLButtonElement).click()
-            dismissals shouldBe 1
-        }
-
-        test("a notice with nothing to report renders nothing") {
-            val host = notice { PlaybackNotice(error = null, primary = null, onRetry = {}, onDismiss = {}) }
-
-            host.querySelector(".tport-note") shouldBe null
-        }
-
-        test("the notice reads a failure, or a known reason a book cannot play, and nothing else") {
-            noticeErrorOf(PlayerUiState.NothingLoaded).shouldBeNull()
-            noticeErrorOf(loadedPlayerState(phase = PlayerPhase.Playing)).shouldBeNull()
-            noticeErrorOf(loadedPlayerState(phase = PlayerPhase.Failed(PlaybackError.Stalled()))) shouldBe
-                PlaybackError.Stalled()
-            noticeErrorOf(loadedPlayerState(phase = PlayerPhase.Unavailable(BookError.HeldForReview()))) shouldBe
-                BookError.HeldForReview()
-        }
-
         test("the scrubber steps by a second, not a millisecond, and says the time out loud") {
             // step defaults to 1 on a range input — one millisecond here, so an arrow key would
             // need thirty thousand presses to move half a minute. aria-valuenow is equally raw.
@@ -501,5 +445,58 @@ class TransportBarTest :
             cancels shouldBe 1
             presses shouldBe 0
             host.querySelector(".tport-back")!!.classList.contains("off") shouldBe false
+        }
+
+        test("a failure tints the bar, says why, and offers Retry; no back skip") {
+            var presses = 0
+            val host =
+                bar(
+                    chaptered(phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()), primary = PrimaryControl.Retry),
+                    CHAPTER_PROGRESS,
+                    onPrimary = { presses++ },
+                )
+            val bar = host.querySelector(".tport") as HTMLElement
+            bar.classList.contains("problem") shouldBe true
+            bar.textContent.orEmpty() shouldContain "Couldn't play this book."
+            (host.querySelector(".tport-pill") as HTMLButtonElement).apply { textContent shouldBe "Retry" }.click()
+            presses shouldBe 1
+            host.querySelector(".tport-back")!!.classList.contains("off") shouldBe true
+        }
+
+        test("an unreachable server is not tinted and still offers Retry (S6)") {
+            val host =
+                bar(
+                    chaptered(phase = PlayerPhase.Unavailable(PlaybackError.ServerUnreachable()), primary = PrimaryControl.Retry),
+                    CHAPTER_PROGRESS,
+                )
+            host.querySelector(".tport")!!.classList.contains("problem") shouldBe false
+            host.textContent.orEmpty() shouldContain "Can't reach your server"
+            host.querySelector(".tport-pill")!!.textContent shouldBe "Retry"
+        }
+
+        test("a lapsed session offers Sign in; a revoked book offers Close") {
+            val lapsed =
+                bar(chaptered(phase = PlayerPhase.Unavailable(AuthError.SessionExpired()), primary = PrimaryControl.SignIn), CHAPTER_PROGRESS)
+            lapsed.querySelector(".tport-pill")!!.textContent shouldBe "Sign in"
+            val revoked =
+                bar(
+                    chaptered(phase = PlayerPhase.Unavailable(PlaybackError.NoLongerAvailable()), primary = PrimaryControl.Close),
+                    CHAPTER_PROGRESS,
+                )
+            revoked.querySelector(".tport-close")!!.getAttribute("aria-label") shouldBe "Close book"
+        }
+
+        test("finished offers Listen again, named for the book, and never a different book (F3)") {
+            val host = bar(chaptered(phase = PlayerPhase.Finished, primary = PrimaryControl.ListenAgain), CHAPTER_PROGRESS)
+            val pill = host.querySelector(".tport-pill.quiet") as HTMLElement
+            pill.textContent shouldBe "Listen again"
+            pill.getAttribute("aria-label") shouldBe "Listen again to The Way of Kings"
+            host.textContent.orEmpty() shouldContain "Finished"
+        }
+
+        test("there is no separate notice strip any more") {
+            bar(chaptered(phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()), primary = PrimaryControl.Retry), CHAPTER_PROGRESS)
+                .querySelector(".tport-note")
+                .shouldBeNull()
         }
     })

@@ -109,7 +109,7 @@ private val SMALL_CONTROLS =
         "shelf-notice-x",
         "shelf-grip",
         "ctl-zoom",
-        "tport-note-x",
+        "np-note-x",
         "lset-x",
         "chr-a",
         "bd-pick-x",

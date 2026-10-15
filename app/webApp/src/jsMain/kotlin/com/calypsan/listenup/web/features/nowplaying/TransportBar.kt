@@ -5,7 +5,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -14,8 +13,6 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
-import com.calypsan.listenup.web.design.ButtonKind
-import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.coverUrl
@@ -24,7 +21,6 @@ import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.disabled
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
-import com.calypsan.listenup.web.design.Button as DsButton
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
@@ -81,6 +77,8 @@ fun TransportBar(
     onOpenSeries: (String) -> Unit = {},
     onOpenContributor: (String) -> Unit = {},
     onCloseBook: () -> Unit = {},
+    onRetry: () -> Unit = {},
+    onDismissError: () -> Unit = {},
 ) {
     var chaptersOpen by remember { mutableStateOf(false) }
     var sleepOpen by remember { mutableStateOf(false) }
@@ -150,6 +148,8 @@ fun TransportBar(
             onCloseBook()
         },
         onDismiss = { expandedOpen = false },
+        onRetry = onRetry,
+        onDismissError = onDismissError,
     )
 
     val line = MiniPlayerLines.of(state)
@@ -480,55 +480,6 @@ internal fun formatSpeed(speed: Float): String {
 }
 
 /**
- * A playback failure, or a known "can't play", said out loud: the shared model's typed error in the
- * browser's words, a title and, when there is one, its cause.
- *
- * Rendered beside the bar rather than inside it, so it reads the same whether or not the bar has room.
- * The strip stays until the redesigned mini player takes over its job (PR 2).
- *
- * Retry is offered when, and only when, the main button would retry ([PrimaryControl.Retry]): a dropped
- * connection or a prepare that failed can be tried again, but a held book's or a removed book's refusal
- * cannot, and a Retry there would be a control that cannot keep its promise. Dismiss keeps the bar.
- */
-@Composable
-fun PlaybackNotice(
-    error: AppError?,
-    primary: PrimaryControl?,
-    onRetry: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    if (error == null) return
-
-    Div(attrs = {
-        classes("tport-note")
-        attr("role", "alert")
-    }) {
-        Span(attrs = { classes("tport-note-t") }) {
-            Text(error.playerTitle())
-            error.playerCause()?.let { cause -> Text(" $cause") }
-        }
-        if (primary == PrimaryControl.Retry) {
-            DsButton(kind = ButtonKind.Secondary, size = ButtonSize.Sm, onClick = onRetry) { Text("Retry") }
-        }
-        Button(attrs = {
-            classes("tport-note-x")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Dismiss")
-            attr(ATTR_TITLE, "Dismiss")
-            onClick { onDismiss() }
-        }) {
-            Icon(WebIcon.X, size = NOTICE_ICON_SIZE)
-        }
-    }
-}
-
-/** The error the notice reports for [state]: a failure, or a known reason the book cannot play. */
-internal fun noticeErrorOf(state: PlayerUiState): AppError? {
-    val phase = (state as? PlayerUiState.Loaded)?.phase
-    return (phase as? PlayerPhase.Failed)?.error ?: (phase as? PlayerPhase.Unavailable)?.reason
-}
-
-/**
  * `H:MM:SS` once a position reaches an hour, `M:SS` below it.
  *
  * Dropping the hour field below an hour is not cosmetic: `0:02:05` and `2:05` are the same moment,
@@ -624,8 +575,6 @@ private const val STEP_MS = 1_000L
 private const val TRANSPORT_ICON_SIZE = 18
 
 private const val EXPAND_ICON_SIZE = 18
-
-private const val NOTICE_ICON_SIZE = 15
 
 /** Attribute names, named once: four buttons in this file set the same three. */
 private const val ATTR_TYPE = "type"

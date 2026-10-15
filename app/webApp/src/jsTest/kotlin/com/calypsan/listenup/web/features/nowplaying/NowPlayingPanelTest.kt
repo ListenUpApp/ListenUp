@@ -1,10 +1,12 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
@@ -12,6 +14,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
 
@@ -356,5 +359,39 @@ class NowPlayingPanelTest :
 
             host.querySelector(".tport-wait") shouldBe null
             (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Pause"
+        }
+
+        test("a failed book's panel carries the cause and Dismiss, until PR 3's card replaces them") {
+            var dismissals = 0
+            val host =
+                mounts.mount {
+                    NowPlayingPanel(
+                        open = true,
+                        state = loadedPlayerState(phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()), primary = PrimaryControl.Retry),
+                        progress = playerProgress(),
+                        onPrimary = {},
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onPreviousChapter = {},
+                        onNextChapter = {},
+                        onOpenSpeed = {},
+                        onOpenChapters = {},
+                        onOpenBoost = {},
+                        onOpenSleep = {},
+                        onOpenBook = {},
+                        onOpenSeries = {},
+                        onOpenContributor = {},
+                        onCloseBook = {},
+                        onDismiss = {},
+                        onRetry = {},
+                        onDismissError = { dismissals++ },
+                    )
+                }
+            awaitFrame()
+            host.querySelector(".np-note")!!.textContent.orEmpty() shouldContain "The connection to your server dropped."
+            (host.querySelector(".np-note-x") as HTMLButtonElement).click()
+            dismissals shouldBe 1
+            host.closeDialogs()
         }
     })

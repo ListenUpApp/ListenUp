@@ -151,7 +151,7 @@
    ============================================================ */
 @media (max-width: 759px) {
   /* The two docked strips, named once so every offset below is arithmetic on the same numbers. */
-  :root { --tab-h:58px; --tport-h:84px; --note-h:48px; }
+  :root { --tab-h:58px; --tport-h:84px; }
   .shell { padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom)); }
   /* Toasts are fixed to the viewport and stack from its foot — which on a phone is where the tab
      bar and the player live. They rise above both rather than printing over the controls. */
@@ -209,8 +209,6 @@
      that zeroes the bottom padding has that specificity. */
   .shell-main { --dock:0px; }
   .shell-main:has(> .tport) { --dock:var(--tport-h); }
-  .shell-main:has(> .tport-note) { --dock:var(--note-h); }
-  .shell-main:has(> .tport):has(> .tport-note) { --dock:calc(var(--tport-h) + var(--note-h)); }
   .shell-main, .shell-main:has(> .tport) { padding:14px 14px calc(14px + var(--dock)); scroll-padding-bottom:calc(8px + var(--dock)); }
 
   /* The player bar. Pinned directly above the tab bar, always in reach, in two rows: the scrub
@@ -244,13 +242,6 @@
      finding out by having the book stop is the one way that feature feels broken — so while one
      is running, its control stays on the bar where the eye already is. */
   .tport-sleep.on { display:inline-flex; grid-area:sleep; width:44px; height:44px; }
-
-  /* A failure notice sits on top of whatever is docked, full width, above the player if there is one. */
-  .tport-note, .shell-main > .tport-note {
-    position:fixed; left:0; right:0; z-index:31; margin:0; min-height:var(--note-h);
-    bottom:calc(var(--tab-h) + env(safe-area-inset-bottom)); padding:var(--sp-8) var(--sp-12);
-  }
-  .shell-main:has(> .tport) > .tport-note { bottom:calc(var(--tab-h) + var(--tport-h) + env(safe-area-inset-bottom)); }
 }
 
 /* ---- book detail (Workbench layout, Paper voice) ---- */

@@ -63,17 +63,7 @@ fun TransportBarHost(
         onOpenSeries = onOpenSeries,
         onOpenContributor = onOpenContributor,
         onCloseBook = playback.onCloseBook,
-    )
-}
-
-/** The [PlaybackNotice] for [playback]'s loaded book: a failure or a known "can't play", with Retry when it would. */
-@Composable
-fun PlaybackNoticeHost(playback: PlaybackSession) {
-    val state = playback.state.collectAsState().value
-    PlaybackNotice(
-        error = noticeErrorOf(state),
-        primary = (state as? PlayerUiState.Loaded)?.primary,
         onRetry = playback.onRetry,
-        onDismiss = playback.onDismissError,
+        onDismissError = playback.onDismissError,
     )
 }
