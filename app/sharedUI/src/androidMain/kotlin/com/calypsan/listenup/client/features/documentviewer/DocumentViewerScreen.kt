@@ -137,6 +137,8 @@ internal fun DocumentViewerScreen(
                 nowPlayingState = playerState,
                 nowPlayingProgress = { nowPlayingProgress.value },
                 onPrimary = nowPlayingViewModel::onPrimary,
+                onSkipBack = { nowPlayingViewModel.skipBack() },
+                onKeepListening = nowPlayingViewModel::cancelSleepTimer,
                 wrapper = wrapper,
                 firstVisible = firstVisible,
                 onSeekToIndex = { index -> scope.launch { listState.scrollToItem(index) } },
@@ -344,6 +346,8 @@ private fun ReaderBottomDock(
     nowPlayingState: PlayerUiState,
     nowPlayingProgress: () -> PlayerProgress,
     onPrimary: () -> Unit,
+    onSkipBack: () -> Unit,
+    onKeepListening: () -> Unit,
     wrapper: PdfRendererWrapper?,
     firstVisible: Int,
     onSeekToIndex: (Int) -> Unit,
@@ -358,6 +362,8 @@ private fun ReaderBottomDock(
                 state = nowPlayingState,
                 progress = nowPlayingProgress,
                 onPrimary = onPrimary,
+                onSkipBack = onSkipBack,
+                onKeepListening = onKeepListening,
             )
             if (wrapper != null && wrapper.pageCount > 0) {
                 ReaderPageScrubber(
