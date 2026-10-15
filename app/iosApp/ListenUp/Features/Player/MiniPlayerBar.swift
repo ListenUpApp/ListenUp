@@ -172,8 +172,9 @@ struct MiniPlayerAccessoryContent: View {
         BookCoverImage(bookId: model.bookId, coverPath: model.coverPath, coverHash: model.coverHash)
             .frame(width: coverSide, height: coverSide)
             .clipShape(.concentric(minimum: Radius.s))
+            // The zoom source only takes a rounded rectangle; the full player's cover corner is Radius.s.
             .matchedTransitionSource(id: PlayerTransition.coverID, in: transitionNamespace) { source in
-                source.clipShape(.concentric(minimum: Radius.s))
+                source.clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
             }
             .accessibilityHidden(true)
     }
