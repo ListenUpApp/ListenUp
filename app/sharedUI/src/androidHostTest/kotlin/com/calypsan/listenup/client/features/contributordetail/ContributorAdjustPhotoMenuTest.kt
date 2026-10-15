@@ -29,7 +29,12 @@ class ContributorAdjustPhotoMenuTest {
                 onEditClick = {},
                 onMatchDetails = {},
                 onDeleteClick = {},
-                onAdjustPhoto = if (hasPhoto) ({ adjusted = true }) else null,
+                onAdjustPhoto =
+                    if (hasPhoto) {
+                        { adjusted = true }
+                    } else {
+                        null
+                    },
                 canEditMetadata = canEditMetadata,
                 canCurateLibrary = false,
             )

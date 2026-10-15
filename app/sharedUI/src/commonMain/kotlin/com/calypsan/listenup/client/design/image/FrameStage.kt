@@ -102,11 +102,11 @@ internal fun FrameStage(
 
         val layout =
             frameLayout(
-                image.width.toDouble(),
-                image.height.toDouble(),
-                diameter.toDouble(),
-                diameter.toDouble(),
-                frame,
+                imageWidth = image.width.toDouble(),
+                imageHeight = image.height.toDouble(),
+                viewportWidth = diameter.toDouble(),
+                viewportHeight = diameter.toDouble(),
+                frame = frame,
             )
         // The photo is drawn across the whole stage, positioned as the cut-out will show it, so the dimmed
         // surround keeps the context a pinch needs.
@@ -147,7 +147,7 @@ internal fun FrameStage(
             val ring = Stroke(CUT_OUT_RING.toPx())
             when (shape) {
                 FrameShape.Circle -> {
-                    drawCircle(Color.White, radius = diameter / 2f, center = cut.center, style = ring)
+                    drawCircle(color = Color.White, radius = diameter / 2f, center = cut.center, style = ring)
                 }
 
                 FrameShape.Square -> {

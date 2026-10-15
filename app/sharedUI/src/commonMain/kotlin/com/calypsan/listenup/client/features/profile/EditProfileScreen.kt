@@ -671,9 +671,13 @@ private fun PasswordInputField(
 /** What the platform picker handed back for the avatar, waiting to be framed. */
 sealed interface AvatarPick {
     /** A picked photo, already normalised to JPEG. */
-    class Picked(
+    data class Picked(
         val jpeg: ByteArray,
-    ) : AvatarPick
+    ) : AvatarPick {
+        override fun equals(other: Any?): Boolean = other is Picked && jpeg.contentEquals(other.jpeg)
+
+        override fun hashCode(): Int = jpeg.contentHashCode()
+    }
 
     /** The picked file could not be read as a photo. */
     data object Undecodable : AvatarPick

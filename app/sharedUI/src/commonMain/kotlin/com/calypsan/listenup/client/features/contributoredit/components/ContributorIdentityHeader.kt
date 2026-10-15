@@ -123,102 +123,17 @@ fun ContributorIdentityHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Large editable avatar (120dp) - tappable for upload - with Adjust photo under it
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                ElevatedCard(
-                    onClick = onAvatarClick,
-                    shape = CircleShape,
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
-                    colors =
-                        CardDefaults.elevatedCardColors(
-                            containerColor = colorScheme.primary,
-                        ),
-                    modifier = Modifier.size(120.dp),
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        var imageLoaded by remember(contributorId) { mutableStateOf(false) }
-
-                        if (!imageLoaded) {
-                            Text(
-                                text =
-                                    name
-                                        .trim()
-                                        .split("\\s+".toRegex())
-                                        .let { parts ->
-                                            when {
-                                                parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                                name.length >= 2 -> name.take(2)
-                                                else -> name.take(1)
-                                            }
-                                        }.uppercase(),
-                                style =
-                                    MaterialTheme.typography.displaySmall.copy(
-                                        fontFamily = DisplayFontFamily,
-                                        fontWeight = FontWeight.Bold,
-                                    ),
-                                color = colorScheme.onPrimary,
-                            )
-                        }
-
-                        ContributorCoverImage(
-                            contributorId = contributorId,
-                            imagePath = imagePath,
-                            stagingImagePath = stagingImagePath,
-                            contentDescription = stringResource(Res.string.contributor_contributor_photo),
-                            frame = frame,
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape),
-                            onState = { state ->
-                                if (state is coil3.compose.AsyncImagePainter.State.Success) {
-                                    imageLoaded = true
-                                }
-                            },
-                        )
-
-                        // Loading overlay during upload
-                        if (isUploadingImage) {
-                            CoverScrim(modifier = Modifier.fillMaxSize()) {
-                                ListenUpLoadingIndicatorSmall(color = LocalContentColor.current)
-                            }
-                        } else {
-                            // Edit indicator
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .padding(4.dp)
-                                        .size(32.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                                            shape = CircleShape,
-                                        ),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = stringResource(Res.string.contributor_change_photo),
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
-                            }
-                        }
-                    }
-                }
-                if (onAdjustPhoto != null) {
-                    OutlinedButton(onClick = onAdjustPhoto, enabled = !isUploadingImage) {
-                        Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(8.dp))
-                        Text(stringResource(Res.string.edit_adjust_photo))
-                    }
-                }
-            }
+            EditableAvatar(
+                contributorId = contributorId,
+                imagePath = imagePath,
+                stagingImagePath = stagingImagePath,
+                frame = frame,
+                name = name,
+                colorScheme = colorScheme,
+                isUploadingImage = isUploadingImage,
+                onAvatarClick = onAvatarClick,
+                onAdjustPhoto = onAdjustPhoto,
+            )
 
             // Name field — large editorial hero variant of the canonical text field.
             ListenUpTextField(
@@ -230,6 +145,117 @@ fun ContributorIdentityHeader(
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
+        }
+    }
+}
+
+/** The 120 dp photo (tap to pick another) with its initials fallback, and Adjust photo under it. */
+@Composable
+private fun EditableAvatar(
+    contributorId: String,
+    imagePath: String?,
+    stagingImagePath: String?,
+    frame: ImageFrame?,
+    name: String,
+    colorScheme: ContributorColorScheme,
+    isUploadingImage: Boolean,
+    onAvatarClick: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        ElevatedCard(
+            onClick = onAvatarClick,
+            shape = CircleShape,
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
+            colors =
+                CardDefaults.elevatedCardColors(
+                    containerColor = colorScheme.primary,
+                ),
+            modifier = Modifier.size(120.dp),
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                var imageLoaded by remember(contributorId) { mutableStateOf(false) }
+
+                if (!imageLoaded) {
+                    Text(
+                        text =
+                            name
+                                .trim()
+                                .split("\\s+".toRegex())
+                                .let { parts ->
+                                    when {
+                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                        name.length >= 2 -> name.take(2)
+                                        else -> name.take(1)
+                                    }
+                                }.uppercase(),
+                        style =
+                            MaterialTheme.typography.displaySmall.copy(
+                                fontFamily = DisplayFontFamily,
+                                fontWeight = FontWeight.Bold,
+                            ),
+                        color = colorScheme.onPrimary,
+                    )
+                }
+
+                ContributorCoverImage(
+                    contributorId = contributorId,
+                    imagePath = imagePath,
+                    stagingImagePath = stagingImagePath,
+                    contentDescription = stringResource(Res.string.contributor_contributor_photo),
+                    frame = frame,
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                    onState = { state ->
+                        if (state is coil3.compose.AsyncImagePainter.State.Success) {
+                            imageLoaded = true
+                        }
+                    },
+                )
+
+                // Loading overlay during upload
+                if (isUploadingImage) {
+                    CoverScrim(modifier = Modifier.fillMaxSize()) {
+                        ListenUpLoadingIndicatorSmall(color = LocalContentColor.current)
+                    }
+                } else {
+                    // Edit indicator
+                    Box(
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(4.dp)
+                                .size(32.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                                    shape = CircleShape,
+                                ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = stringResource(Res.string.contributor_change_photo),
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            }
+        }
+        if (onAdjustPhoto != null) {
+            OutlinedButton(onClick = onAdjustPhoto, enabled = !isUploadingImage) {
+                Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text(stringResource(Res.string.edit_adjust_photo))
+            }
         }
     }
 }

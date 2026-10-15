@@ -64,7 +64,7 @@ class FrameEditorFeedbackTest {
                 }
             }
         }
-        repeat(40) {
+        repeat(40) { _ ->
             compose
                 .onNodeWithContentDescription("Photo position")
                 .fetchSemanticsNode()

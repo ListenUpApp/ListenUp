@@ -68,7 +68,7 @@ internal fun EntryProviderScope<NavKey>.profileEntries(
                     scope.launch {
                         val bytes = decodePickedImageAsJpeg(context, selectedUri, AVATAR_QUALITY)
                         // A file that cannot be read opens the editor on "Couldn't open this photo".
-                        pick = bytes?.let(AvatarPick::Picked) ?: AvatarPick.Undecodable
+                        pick = if (bytes != null) AvatarPick.Picked(bytes) else AvatarPick.Undecodable
                     }
                 }
             }

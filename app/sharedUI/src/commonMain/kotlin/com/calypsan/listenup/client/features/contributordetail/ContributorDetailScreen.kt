@@ -167,7 +167,6 @@ fun ContributorDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
     var adjusting by rememberSaveable { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
     // Navigate back when a delete succeeds.
     LaunchedEffect(viewModel) {
@@ -179,28 +178,11 @@ fun ContributorDetailScreen(
     }
 
     // Surface delete errors via snackbar.
-    val deleteError = (state as? ContributorDetailUiState.Ready)?.deleteError
-    LaunchedEffect(deleteError) {
-        if (deleteError != null) {
-            val friendlyMessage =
-                when {
-                    deleteError.contains("not found", ignoreCase = true) -> {
-                        "Could not find metadata for this contributor on Audible"
-                    }
-
-                    deleteError.contains("network", ignoreCase = true) ||
-                        deleteError.contains("connection", ignoreCase = true) -> {
-                        "Network error. Please check your connection and try again."
-                    }
-
-                    else -> {
-                        deleteError
-                    }
-                }
-            snackbarHostState.showSnackbar(friendlyMessage)
-            viewModel.dismissDeleteError()
-        }
-    }
+    DeleteErrorSnackbar(
+        deleteError = (state as? ContributorDetailUiState.Ready)?.deleteError,
+        snackbarHostState = snackbarHostState,
+        onShown = viewModel::dismissDeleteError,
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         when (val current = state) {
@@ -231,7 +213,6 @@ fun ContributorDetailScreen(
             }
 
             is ContributorDetailUiState.Ready -> {
-                // Adjust photo is offered only when there is a photo to frame.
                 val adjustPhoto: (() -> Unit)? = current.contributor.imagePath?.let { { adjusting = true } }
                 val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
                 val useWideLayout =
@@ -281,22 +262,12 @@ fun ContributorDetailScreen(
                 }
 
                 if (adjusting) {
-                    val photoAdjusted = stringResource(Res.string.edit_frame_saved)
-                    ContributorPhotoAdjuster(
-                        contributorId = contributorId,
-                        imagePath = current.contributor.imagePath,
-                        frame = current.contributor.imageFrame,
-                        onSave = { frame ->
-                            adjusting = false
-                            viewModel.adjustPhoto(frame)
-                            // The write lands in Room before any network (offline-first), so it is done now.
-                            scope.launch { snackbarHostState.showSnackbar(photoAdjusted) }
-                        },
-                        onDismiss = { adjusting = false },
-                        onOpenEdit = {
-                            adjusting = false
-                            onEditClick(contributorId)
-                        },
+                    AdjustPhotoFromMenu(
+                        state = current,
+                        viewModel = viewModel,
+                        snackbarHostState = snackbarHostState,
+                        onClose = { adjusting = false },
+                        onOpenEdit = { onEditClick(contributorId) },
                     )
                 }
 
@@ -982,6 +953,68 @@ private fun OverflowMenu(
             }
         }
     }
+}
+
+/** Shows a failed delete in the snackbar, in words a person can act on, then reports it shown. */
+@Composable
+private fun DeleteErrorSnackbar(
+    deleteError: String?,
+    snackbarHostState: SnackbarHostState,
+    onShown: () -> Unit,
+) {
+    LaunchedEffect(deleteError) {
+        if (deleteError != null) {
+            val friendlyMessage =
+                when {
+                    deleteError.contains("not found", ignoreCase = true) -> {
+                        "Could not find metadata for this contributor on Audible"
+                    }
+
+                    deleteError.contains("network", ignoreCase = true) ||
+                        deleteError.contains("connection", ignoreCase = true) -> {
+                        "Network error. Please check your connection and try again."
+                    }
+
+                    else -> {
+                        deleteError
+                    }
+                }
+            snackbarHostState.showSnackbar(friendlyMessage)
+            onShown()
+        }
+    }
+}
+
+/**
+ * The overflow menu's Adjust photo, wired to the screen: Save commits through [viewModel] and says so in
+ * the snackbar (the write lands in Room before any network, so it is done now); "Choose another" closes
+ * the editor and goes to Contributor edit (R6).
+ */
+@Composable
+private fun AdjustPhotoFromMenu(
+    state: ContributorDetailUiState.Ready,
+    viewModel: ContributorDetailViewModel,
+    snackbarHostState: SnackbarHostState,
+    onClose: () -> Unit,
+    onOpenEdit: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val photoAdjusted = stringResource(Res.string.edit_frame_saved)
+    ContributorPhotoAdjuster(
+        contributorId = state.contributor.id.value,
+        imagePath = state.contributor.imagePath,
+        frame = state.contributor.imageFrame,
+        onSave = { frame ->
+            onClose()
+            viewModel.adjustPhoto(frame)
+            scope.launch { snackbarHostState.showSnackbar(photoAdjusted) }
+        },
+        onDismiss = onClose,
+        onOpenEdit = {
+            onClose()
+            onOpenEdit()
+        },
+    )
 }
 
 /**

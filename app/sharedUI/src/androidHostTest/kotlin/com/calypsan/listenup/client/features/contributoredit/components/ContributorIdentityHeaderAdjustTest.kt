@@ -48,7 +48,12 @@ class ContributorIdentityHeaderAdjustTest {
                 isUploadingImage = false,
                 onNameChange = {},
                 onAvatarClick = {},
-                onAdjustPhoto = if (imagePath != null || stagingImagePath != null) ({ adjusted = true }) else null,
+                onAdjustPhoto =
+                    if (imagePath != null || stagingImagePath != null) {
+                        { adjusted = true }
+                    } else {
+                        null
+                    },
                 onBackClick = {},
             )
         }

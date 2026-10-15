@@ -198,13 +198,17 @@ internal fun FrameEditorContent(
 ) {
     val ready = image as? FrameEditorImage.Ready
     val editor =
-        remember(ready?.width, ready?.height) { ready?.let { FrameEditor(it.width, it.height, initialFrame, shape) } }
-    val frame =
-        editor
-            ?.state
-            ?.collectAsStateWithLifecycle()
-            ?.value
-            ?.frame
+        remember(ready?.width, ready?.height) {
+            ready?.let { decoded ->
+                FrameEditor(
+                    imageWidth = decoded.width,
+                    imageHeight = decoded.height,
+                    initialFrame = initialFrame,
+                    shape = shape,
+                )
+            }
+        }
+    val frame = editor?.run { state.collectAsStateWithLifecycle().value.frame }
     val latestOnFrameChanged by rememberUpdatedState(onFrameChanged)
     LaunchedEffect(frame) { frame?.let { latestOnFrameChanged(it) } }
 
@@ -221,10 +225,10 @@ internal fun FrameEditorContent(
     val wide = isWideEditor()
     val stage: @Composable (Modifier) -> Unit = { stageModifier ->
         StageArea(
-            image,
-            editor,
-            frame,
-            shape,
+            image = image,
+            editor = editor,
+            frame = frame,
+            shape = shape,
             isDialog = wide,
             onChooseAnother = onChooseAnother,
             modifier = stageModifier,
@@ -232,13 +236,34 @@ internal fun FrameEditorContent(
     }
     val controls: @Composable () -> Unit = {
         if (editor != null && ready != null && frame != null) {
-            FrameControls(editor, ready, frame, previews, previewLabel, wide)
+            FrameControls(
+                editor = editor,
+                image = ready,
+                frame = frame,
+                previews = previews,
+                previewLabel = previewLabel,
+                isDialog = wide,
+            )
         }
     }
     if (wide) {
-        DialogEditor(confirm, confirmFrame, onCancel, editor, frame, stage, controls)
+        DialogEditor(
+            confirm = confirm,
+            onConfirm = confirmFrame,
+            onCancel = onCancel,
+            editor = editor,
+            frame = frame,
+            stage = stage,
+            controls = controls,
+        )
     } else {
-        FullScreenEditor(confirm, confirmFrame, onCancel, stage, controls)
+        FullScreenEditor(
+            confirm = confirm,
+            onConfirm = confirmFrame,
+            onCancel = onCancel,
+            stage = stage,
+            controls = controls,
+        )
     }
 }
 
@@ -358,10 +383,7 @@ private fun StageArea(
         return
     }
     Box(modifier = modifier.background(MaterialTheme.colorScheme.scrim), contentAlignment = Alignment.Center) {
-        when (image) {
-            FrameEditorImage.CouldNotOpen -> CouldNotOpen(onChooseAnother)
-            else -> ListenUpLoadingIndicator()
-        }
+        if (image == FrameEditorImage.CouldNotOpen) CouldNotOpen(onChooseAnother) else ListenUpLoadingIndicator()
     }
 }
 
@@ -373,7 +395,12 @@ private fun CouldNotOpen(onChooseAnother: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(Icons.Default.BrokenImage, contentDescription = null, modifier = Modifier.size(48.dp), tint = Color.White)
+        Icon(
+            imageVector = Icons.Default.BrokenImage,
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
+            tint = Color.White,
+        )
         Text(
             text = stringResource(Res.string.edit_frame_could_not_open),
             style = MaterialTheme.typography.titleLarge,
@@ -403,7 +430,14 @@ private fun FrameControls(
 ) {
     ZoomRow(editor, frame)
     if (isDialog) {
-        if (previews.isNotEmpty()) FramePreviews(image, frame, previews, previewLabel)
+        if (previews.isNotEmpty()) {
+            FramePreviews(
+                image = image,
+                frame = frame,
+                previews = previews,
+                label = previewLabel,
+            )
+        }
         return
     }
     Row(
@@ -411,7 +445,14 @@ private fun FrameControls(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (previews.isEmpty()) Arrangement.Center else Arrangement.SpaceBetween,
     ) {
-        if (previews.isNotEmpty()) FramePreviews(image, frame, previews, previewLabel)
+        if (previews.isNotEmpty()) {
+            FramePreviews(
+                image = image,
+                frame = frame,
+                previews = previews,
+                label = previewLabel,
+            )
+        }
         OutlinedButton(onClick = editor::reset, enabled = !frame.isCentreCrop()) {
             Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))

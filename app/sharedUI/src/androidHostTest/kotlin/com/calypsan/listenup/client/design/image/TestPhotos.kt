@@ -25,13 +25,13 @@ internal fun pngBytes(
     height: Int = 40,
 ): ByteArray =
     ByteArrayOutputStream()
-        .also {
+        .also { stream ->
             Bitmap
                 .createBitmap(
                     width,
                     height,
                     Bitmap.Config.ARGB_8888,
-                ).compress(Bitmap.CompressFormat.PNG, 100, it)
+                ).compress(Bitmap.CompressFormat.PNG, 100, stream)
         }.toByteArray()
 
 /** [pngBytes] written to a temporary file, deleted when the JVM exits. */

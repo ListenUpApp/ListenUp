@@ -13,9 +13,13 @@ import com.calypsan.listenup.client.design.components.cookieScallopShape
 /** What Adjust photo opens: picked bytes, an existing photo as a Coil model, or a pick that failed to decode. */
 sealed interface FrameEditorSource {
     /** A freshly picked, already-normalised JPEG. */
-    class Bytes(
+    data class Bytes(
         val bytes: ByteArray,
-    ) : FrameEditorSource
+    ) : FrameEditorSource {
+        override fun equals(other: Any?): Boolean = other is Bytes && bytes.contentEquals(other.bytes)
+
+        override fun hashCode(): Int = bytes.contentHashCode()
+    }
 
     /** An existing photo, as any Coil model (a local path, or the contributor's resolved request). */
     data class Model(

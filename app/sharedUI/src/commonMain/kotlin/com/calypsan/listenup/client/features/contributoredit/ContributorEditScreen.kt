@@ -536,10 +536,15 @@ private fun DatesCardContent(
 /** What the open Adjust photo editor is framing, and so what Done stages. */
 internal sealed interface ContributorFrameEdit {
     /** A photo just picked: Done stages it with its frame. */
-    class NewPick(
+    data class NewPick(
         val bytes: ByteArray,
         val filename: String,
-    ) : ContributorFrameEdit
+    ) : ContributorFrameEdit {
+        override fun equals(other: Any?): Boolean =
+            other is NewPick && bytes.contentEquals(other.bytes) && filename == other.filename
+
+        override fun hashCode(): Int = 31 * bytes.contentHashCode() + filename.hashCode()
+    }
 
     /** The photo the form shows (a staged pick, else the saved photo): Done re-stages its frame. */
     data object Existing : ContributorFrameEdit

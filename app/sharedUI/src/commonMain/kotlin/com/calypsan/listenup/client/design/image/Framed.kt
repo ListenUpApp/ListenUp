@@ -36,11 +36,11 @@ class FramedCrop(
         if (!srcSize.isSpecified || srcSize.minDimension <= 0f) return ScaleFactor(1f, 1f)
         val scale =
             frameLayout(
-                srcSize.width.toDouble(),
-                srcSize.height.toDouble(),
-                dstSize.width.toDouble(),
-                dstSize.height.toDouble(),
-                frame,
+                imageWidth = srcSize.width.toDouble(),
+                imageHeight = srcSize.height.toDouble(),
+                viewportWidth = dstSize.width.toDouble(),
+                viewportHeight = dstSize.height.toDouble(),
+                frame = frame,
             ).scale.toFloat()
         return ScaleFactor(scale, scale)
     }
@@ -67,11 +67,11 @@ class FramedAlignment(
     ): IntOffset {
         val layout =
             frameLayout(
-                size.width.toDouble(),
-                size.height.toDouble(),
-                space.width.toDouble(),
-                space.height.toDouble(),
-                frame,
+                imageWidth = size.width.toDouble(),
+                imageHeight = size.height.toDouble(),
+                viewportWidth = space.width.toDouble(),
+                viewportHeight = space.height.toDouble(),
+                frame = frame,
             )
         return IntOffset(layout.offsetX.roundToInt(), layout.offsetY.roundToInt())
     }
