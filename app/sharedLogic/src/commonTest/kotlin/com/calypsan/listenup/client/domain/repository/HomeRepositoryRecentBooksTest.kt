@@ -26,7 +26,9 @@ class HomeRepositoryRecentBooksTest :
                 progress = 0.5f,
                 currentPositionMs = 5_000L,
                 totalDurationMs = 10_000L,
-                lastPlayedAt = "2026-10-10T10:00:00Z",
+                narratorNames = null,
+                lastPlayedAtMs = 1_704_067_200_000L,
+                isDownloaded = false,
             )
 
         /** Records the limit it was asked for and answers with [result]. */

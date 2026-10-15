@@ -31,7 +31,9 @@ internal fun continuing(
                 progress = progress,
                 currentPositionMs = (totalHours * HOUR_MS * progress).toLong(),
                 totalDurationMs = totalHours * HOUR_MS,
-                lastPlayedAt = "2026-08-24T09:00:00Z",
+                narratorNames = null,
+                lastPlayedAtMs = 1_704_067_200_000L,
+                isDownloaded = false,
             ),
     )
 

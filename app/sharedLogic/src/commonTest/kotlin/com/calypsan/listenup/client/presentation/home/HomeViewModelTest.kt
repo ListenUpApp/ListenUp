@@ -131,7 +131,9 @@ class HomeViewModelTest :
                 progress = progress,
                 currentPositionMs = currentPositionMs,
                 totalDurationMs = totalDurationMs,
-                lastPlayedAt = "2024-01-01T00:00:00Z",
+                narratorNames = null,
+                lastPlayedAtMs = 1_704_067_200_000L,
+                isDownloaded = false,
             )
 
         fun createReadyItem(

@@ -350,17 +350,19 @@ fun testContinueListeningBook(
     progress: Float = 0.5f,
     currentPositionMs: Long = 1_800_000, // 30 minutes
     totalDurationMs: Long = 3_600_000, // 1 hour
-    lastPlayedAt: String = "2024-01-15T10:30:00Z",
+    lastPlayedAtMs: Long = 1_705_314_600_000L,
 ): ContinueListeningBook =
     ContinueListeningBook(
         bookId = bookId,
         title = title,
         authorNames = authorNames,
+        narratorNames = null,
         coverPath = null,
         progress = progress,
         currentPositionMs = currentPositionMs,
         totalDurationMs = totalDurationMs,
-        lastPlayedAt = lastPlayedAt,
+        lastPlayedAtMs = lastPlayedAtMs,
+        isDownloaded = false,
     )
 
 /**

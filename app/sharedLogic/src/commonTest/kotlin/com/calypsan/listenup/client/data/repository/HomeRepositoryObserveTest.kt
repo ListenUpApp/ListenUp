@@ -1,12 +1,15 @@
 package com.calypsan.listenup.client.data.repository
 
+import app.cash.turbine.test
 import com.calypsan.listenup.client.TestData
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
+import com.calypsan.listenup.core.BookId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -17,10 +20,10 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlin.time.Clock
 
 /**
  * Kotest FunSpec tests for [HomeRepositoryImpl.observeContinueListening].
@@ -89,7 +92,7 @@ class HomeRepositoryObserveTest :
                 val posFlow = MutableStateFlow(listOf(position("b1", positionMs = 100L, isFinished = true)))
                 val bookFlow = MutableStateFlow(listOf(book("b1")))
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -104,7 +107,7 @@ class HomeRepositoryObserveTest :
                 val posFlow = MutableStateFlow(listOf(position("b1", positionMs = 9_600L, isFinished = true)))
                 val bookFlow = MutableStateFlow(listOf(book("b1", duration = 10_000L)))
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -127,7 +130,7 @@ class HomeRepositoryObserveTest :
                     MutableStateFlow(listOf(position("b1", positionMs = twentyHours * 99 / 100, isFinished = false)))
                 val bookFlow = MutableStateFlow(listOf(book("b1", duration = twentyHours)))
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -144,7 +147,7 @@ class HomeRepositoryObserveTest :
                 val posFlow = MutableStateFlow(listOf(position("b1", positionMs = 10_000L, isFinished = false)))
                 val bookFlow = MutableStateFlow(listOf(book("b1", duration = 10_000L)))
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -164,7 +167,7 @@ class HomeRepositoryObserveTest :
                 val posFlow = MutableStateFlow(positions)
                 val bookFlow = MutableStateFlow((1..3).map { i -> book("b$i") })
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -190,7 +193,7 @@ class HomeRepositoryObserveTest :
                 // Book NOT in the flow yet
                 val bookFlow = MutableStateFlow(emptyList<BookListItem>())
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -207,7 +210,7 @@ class HomeRepositoryObserveTest :
                 val posFlow = MutableStateFlow(listOf(position("b1")))
                 val bookFlow = MutableStateFlow(emptyList<BookListItem>())
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -237,7 +240,7 @@ class HomeRepositoryObserveTest :
                 val posFlow = MutableStateFlow(positions)
                 val bookFlow = MutableStateFlow((1..10).map { i -> book("b$i") })
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -269,7 +272,7 @@ class HomeRepositoryObserveTest :
                         ),
                     )
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -292,7 +295,7 @@ class HomeRepositoryObserveTest :
                 val posFlow = MutableStateFlow(emptyList<PlaybackPositionEntity>())
                 val bookFlow = MutableStateFlow(emptyList<BookListItem>())
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -311,7 +314,7 @@ class HomeRepositoryObserveTest :
                 val posFlow = MutableStateFlow(listOf(position("b1", positionMs = 5_000L)))
                 val bookFlow = MutableStateFlow(listOf(book("b1", duration = 10_000L)))
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -331,7 +334,7 @@ class HomeRepositoryObserveTest :
                 val posFlow = MutableStateFlow(listOf(position("b1", positionMs = 5_000L)))
                 val bookFlow = MutableStateFlow(listOf(book("b1", duration = 0L)))
                 val repo =
-                    HomeRepositoryImpl(
+                    homeRepositoryOf(
                         bookRepository = makeBookRepo(bookFlow),
                         playbackPositionDao = makeDao(posFlow),
                     )
@@ -340,6 +343,68 @@ class HomeRepositoryObserveTest :
                 result shouldHaveSize 1
                 val ready = result.first().shouldBeInstanceOf<ContinueListeningItem.Ready>()
                 ready.book.progress shouldBe 0f
+            }
+        }
+
+        // ====================================================================
+        // H) The card's own facts: narrators, last play in ms, download
+        // ====================================================================
+
+        test("H: a card names its narrators, its last play in ms, and whether it is downloaded") {
+            runTest {
+                val posFlow =
+                    MutableStateFlow(
+                        listOf(
+                            position("b1", lastPlayedAt = 1_700_000_000_000L),
+                            position("b2", lastPlayedAt = 1_600_000_000_000L),
+                        ),
+                    )
+                val bookFlow =
+                    MutableStateFlow(
+                        listOf(
+                            TestData.bookListItem(id = "b1", narratorName = "Michael Kramer", duration = 10_000L),
+                            TestData.bookListItem(id = "b2", duration = 10_000L),
+                        ),
+                    )
+                val downloads = FakeDownloadRepository(mapOf("b1" to BookDownloadStatus.Completed("b1", totalBytes = 10L)))
+                val repo = homeRepositoryOf(makeBookRepo(bookFlow), makeDao(posFlow), downloads)
+
+                val books = repo.observeContinueListening(10).first().map { (it as ContinueListeningItem.Ready).book }
+
+                books[0].narratorNames shouldBe "Michael Kramer"
+                books[0].lastPlayedAtMs shouldBe 1_700_000_000_000L
+                books[0].isDownloaded shouldBe true
+                books[1].isDownloaded shouldBe false
+            }
+        }
+
+        test("H: a download finishing re-marks the card with no new position") {
+            runTest {
+                val posFlow = MutableStateFlow(listOf(position("b1", lastPlayedAt = 1_700_000_000_000L)))
+                val bookFlow = MutableStateFlow(listOf(TestData.bookListItem(id = "b1", duration = 10_000L)))
+                val downloads = FakeDownloadRepository()
+                val repo = homeRepositoryOf(makeBookRepo(bookFlow), makeDao(posFlow), downloads)
+
+                repo.observeContinueListening(10).test {
+                    (awaitItem().single() as ContinueListeningItem.Ready).book.isDownloaded shouldBe false
+                    downloads.setStatus("b1", BookDownloadStatus.Completed("b1", totalBytes = 10L))
+                    (awaitItem().single() as ContinueListeningItem.Ready).book.isDownloaded shouldBe true
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("H: a card with no lastPlayedAt falls back to updatedAt") {
+            runTest {
+                val row = position("b1", lastPlayedAt = null).copy(updatedAt = 1_650_000_000_000L)
+                val repo =
+                    homeRepositoryOf(
+                        makeBookRepo(MutableStateFlow(listOf(TestData.bookListItem(id = "b1", duration = 10_000L)))),
+                        makeDao(MutableStateFlow(listOf(row))),
+                    )
+
+                (repo.observeContinueListening(10).first().single() as ContinueListeningItem.Ready).book.lastPlayedAtMs shouldBe
+                    1_650_000_000_000L
             }
         }
     })

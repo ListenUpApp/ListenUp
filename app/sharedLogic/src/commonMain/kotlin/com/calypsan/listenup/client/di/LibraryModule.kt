@@ -72,6 +72,7 @@ internal val libraryModule: Module =
             HomeRepositoryImpl(
                 bookRepository = get(),
                 playbackPositionDao = get(),
+                downloadRepository = get(),
             )
         }
 

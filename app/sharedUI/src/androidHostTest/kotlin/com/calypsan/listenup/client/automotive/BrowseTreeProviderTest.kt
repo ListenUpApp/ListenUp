@@ -526,7 +526,9 @@ class BrowseTreeProviderTest {
         progress = 0.5f,
         currentPositionMs = 3_600_000L,
         totalDurationMs = 7_200_000L,
-        lastPlayedAt = "2024-01-01T12:00:00Z",
+        narratorNames = null,
+        lastPlayedAtMs = 1_704_067_200_000L,
+        isDownloaded = false,
     )
 
     private fun makeBookListItem(
