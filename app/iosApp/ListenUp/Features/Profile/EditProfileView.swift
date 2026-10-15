@@ -13,6 +13,8 @@ struct EditProfileView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var observer: EditProfileObserver?
+    /// The stored avatar's version and frame, for Adjust Photo on the saved photo.
+    @State private var storedAvatar = AvatarProfileObserver()
     @FocusState private var focusedField: EditProfileFocusField?
 
     var body: some View {
@@ -50,6 +52,7 @@ struct EditProfileView: View {
             Text(observer.lastError ?? "")
         }
         .onChange(of: observer.savedToken) { _, _ in dismiss() }
+        .task(id: observer.user?.idString) { storedAvatar.observe(userId: observer.user?.idString) }
     }
 
     // MARK: - Layout
@@ -76,8 +79,12 @@ struct EditProfileView: View {
                 size: 104,
                 isUploading: observer.isSaving,
                 canRemove: canRemoveAvatar(observer),
-                onPicked: { observer.stageAvatarUpload($0) },
-                onRemove: { observer.stageAvatarRevert() }
+                onPicked: { _ in },
+                onRemove: { observer.stageAvatarRevert() },
+                framing: .init(
+                    onFramed: { observer.stageAvatarUpload($0, frame: $1) },
+                    adjust: adjust(observer)
+                )
             ) {
                 avatarPreview(observer)
             }
@@ -89,8 +96,10 @@ struct EditProfileView: View {
     @ViewBuilder
     private func avatarPreview(_ observer: EditProfileObserver) -> some View {
         switch observer.stagedAvatar {
-        case .image(let data):
-            StagedAvatarPreview(data: data, user: observer.user, size: 104)
+        case .image(let data, let frame):
+            StagedAvatarPreview(data: data, frame: frame, user: observer.user, size: 104)
+        case .reframed(let frame):
+            UserAvatarView(user: observer.user, size: 104, frameOverride: frame)
         case .reverted:
             // Staged revert: show initials NOW. `UserAvatarView(user:)` observes the live
             // public_profiles row, which still says `avatarType = "image"` until Save persists the
@@ -211,6 +220,51 @@ struct EditProfileView: View {
         Self.canRemoveAvatar(staged: observer.stagedAvatar, hasImageAvatar: observer.hasImageAvatar)
     }
 
+    /// Adjust Photo for the avatar shown: the staged pick if there is one, else the saved image avatar. Nil
+    /// (no button) when the avatar is initials.
+    private func adjust(_ observer: EditProfileObserver) -> PhotoFraming.Adjust? {
+        guard Self.canAdjustAvatar(staged: observer.stagedAvatar, hasImageAvatar: observer.hasImageAvatar) else {
+            return nil
+        }
+        let staged = observer.stagedAvatar
+        let userId = observer.user?.idString
+        let version = storedAvatar.version
+        return .init(
+            initial: Self.currentAvatarFrame(staged: staged, stored: storedAvatar.frame),
+            photo: {
+                if case .image(let data, _) = staged { return await FramePhoto.data(data) }
+                guard let userId else { return nil }
+                return await FramePhoto.avatar(userId: userId, version: version)
+            },
+            onAdjusted: { observer.stageAvatarReframe($0) }
+        )
+    }
+
+    /// Adjust Photo is offered when there is an image to frame: a staged pick, a staged re-frame, or a saved
+    /// image avatar. Never for initials. Pure, so it is unit-tested.
+    nonisolated static func canAdjustAvatar(staged: StagedAvatar, hasImageAvatar: Bool) -> Bool {
+        switch staged {
+        case .image, .reframed:
+            return true
+        case .reverted:
+            return false
+        case .none:
+            return hasImageAvatar
+        }
+    }
+
+    /// The frame the avatar is shown with now, which Adjust Photo opens at: a staged one wins over the stored one.
+    nonisolated static func currentAvatarFrame(staged: StagedAvatar, stored: ImageFrameValue?) -> ImageFrameValue? {
+        switch staged {
+        case .image(_, let frame):
+            return frame
+        case .reframed(let frame):
+            return frame
+        case .none, .reverted:
+            return stored
+        }
+    }
+
     /// Remove is offered when there's a real image avatar to clear, or an upload is staged
     /// (so the user can back out of a fresh pick) — never when already reverted. Pure so
     /// the decision is unit-tested without constructing live VM state.
@@ -220,7 +274,7 @@ struct EditProfileView: View {
             return true
         case .reverted:
             return false
-        case .none:
+        case .none, .reframed:
             return hasImageAvatar
         }
     }
@@ -264,6 +318,7 @@ private struct ProfileEditSection<Content: View>: View {
 /// hitched the sheet on every render. Shows the user's current avatar until the decode lands.
 private struct StagedAvatarPreview: View {
     let data: Data
+    let frame: ImageFrameValue?
     let user: User?
     let size: CGFloat
 
@@ -273,17 +328,18 @@ private struct StagedAvatarPreview: View {
     var body: some View {
         Group {
             if let decoded {
-                Image(uiImage: decoded)
-                    .resizable()
-                    .scaledToFill()
+                FramedImage(image: decoded, frame: frame)
             } else {
                 UserAvatarView(user: user, size: size)
             }
         }
         // Keyed on byte count (O(1)) rather than the whole multi-MB Data; re-decodes when a new
-        // image is picked, and the decode is cancelled if the view goes away.
-        .task(id: data.count) {
-            decoded = await Self.decode(data, maxPixelSize: Int((size * displayScale).rounded(.up)))
+        // image is picked or the zoom changes (a closer frame needs more pixels), and the decode is
+        // cancelled if the view goes away.
+        .task(id: "\(data.count):\(frame?.zoom ?? 1)") {
+            let base = (size * displayScale).rounded(.up)
+            let pixels = Int(FramedImageGeometry.targetPixels(base: base, frame: frame))
+            decoded = await Self.decode(data, maxPixelSize: pixels)
         }
     }
 

@@ -4,7 +4,17 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.presentation.profile.AvatarChange
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.awaitPresent
+import com.calypsan.listenup.web.design.awaitEditorReady
+import com.calypsan.listenup.web.design.buttonLabelled
+import com.calypsan.listenup.web.design.closeDialogs
+import com.calypsan.listenup.web.design.pickFile
+import com.calypsan.listenup.web.design.pngFile
+import com.calypsan.listenup.web.readByteArray
+import io.kotest.matchers.doubles.shouldBeGreaterThan
+import io.kotest.matchers.doubles.shouldBeLessThan
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -18,6 +28,8 @@ import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.EventInit
 import org.w3c.dom.asList
 import org.w3c.dom.events.Event
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 
 private val hosts = mutableListOf<HTMLElement>()
 
@@ -67,7 +79,8 @@ private fun page(
     onCurrentPassword: (String) -> Unit = {},
     onNewPassword: (String) -> Unit = {},
     onConfirmPassword: (String) -> Unit = {},
-    onPickAvatar: (ByteArray, String) -> Unit = { _, _ -> },
+    onPickAvatar: (ByteArray, String, ImageFrame?) -> Unit = { _, _, _ -> },
+    onReframeAvatar: (ImageFrame) -> Unit = {},
     onRemoveAvatar: () -> Unit = {},
     onSave: () -> Unit = {},
     onCancel: () -> Unit = {},
@@ -86,6 +99,7 @@ private fun page(
             onNewPassword = onNewPassword,
             onConfirmPassword = onConfirmPassword,
             onPickAvatar = onPickAvatar,
+            onReframeAvatar = onReframeAvatar,
             onRemoveAvatar = onRemoveAvatar,
             onSave = onSave,
             onCancel = onCancel,
@@ -308,5 +322,53 @@ class EditProfilePageTest :
 
             host.textContent shouldContain "No user data available"
             host.querySelector("form").shouldBeNull()
+        }
+
+        test("a photo of your own offers Adjust photo, and it opens the editor") {
+            val host = page(editing(hasImageAvatar = true))
+
+            button(host, "Adjust photo").shouldNotBeNull().click()
+
+            awaitPresent(host, "dialog.fed")
+            closeDialogs(host)
+        }
+
+        test("initials, or a removal staged, leave nothing to adjust") {
+            button(page(editing(hasImageAvatar = false)), "Adjust photo").shouldBeNull()
+            button(page(editing(hasImageAvatar = true, avatarChange = AvatarChange.RevertToAuto)), "Adjust photo").shouldBeNull()
+        }
+
+        test("a picked photo opens the editor first, and Done stages it with its frame") {
+            val picked = mutableListOf<Triple<ByteArray, String, ImageFrame?>>()
+            val host = page(editing(), onPickAvatar = { bytes, type, frame -> picked += Triple(bytes, type, frame) })
+
+            pickFile(host.querySelector("#pedit-photo-input") as HTMLInputElement, pngFile("me.png"))
+            val stage = awaitEditorReady(host)
+            picked shouldBe emptyList()
+            stage.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "ArrowUp", bubbles = true)))
+            awaitFrame()
+            buttonLabelled("Done").shouldNotBeNull().click()
+
+            val (_, type, frame) = picked.single()
+            type shouldBe "image/png"
+            frame.shouldNotBeNull().focusY shouldBeLessThan 0.5
+        }
+
+        test("adjusting a staged upload re-frames it") {
+            val reframed = mutableListOf<ImageFrame>()
+            val bytes = pngFile().readByteArray().shouldNotBeNull()
+            val host =
+                page(
+                    editing(avatarChange = AvatarChange.Upload(bytes, "image/png")),
+                    onReframeAvatar = { reframed += it },
+                )
+
+            button(host, "Adjust photo").shouldNotBeNull().click()
+            val stage = awaitEditorReady(host)
+            stage.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "+", bubbles = true)))
+            awaitFrame()
+            buttonLabelled("Done").shouldNotBeNull().click()
+
+            reframed.single().zoom shouldBeGreaterThan 1.0
         }
     })

@@ -191,6 +191,7 @@ class BookDetailTest :
                                 openPlayback = fixedPlayback(),
                                 observeIsAdmin = { flowOf(false) },
                                 observeCurrentUserId = { flowOf(null) },
+                                observeAvatarFrame = { flowOf(null) },
                             ),
                         onToast = {},
                         onActionToast = { _, _, _ -> },

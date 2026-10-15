@@ -48,6 +48,18 @@ internal fun avatarTintFor(name: String): String =
  */
 internal fun avatarUrl(userId: String): String = "/api/v1/avatars/$userId"
 
+/** Where the server serves a contributor's photo from. 404s for anyone who has none. */
+internal fun contributorPhotoUrl(contributorId: String): String = "/api/v1/contributors/$contributorId/photo"
+
+/**
+ * [contributorPhotoUrl] with `?v=` [imagePath], so a re-scraped photo busts the browser's cache, as
+ * Android's request key does. The server ignores the parameter.
+ */
+internal fun contributorPhotoUrl(
+    contributorId: String,
+    imagePath: String,
+): String = "${contributorPhotoUrl(contributorId)}?v=$imagePath"
+
 private val AVATAR_WHITESPACE = Regex("\\s+")
 
 private const val AVATAR_GRADIENT_ANGLE = 150

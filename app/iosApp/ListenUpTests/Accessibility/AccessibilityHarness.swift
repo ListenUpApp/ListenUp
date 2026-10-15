@@ -11,6 +11,8 @@ struct AccessibilityStop: CustomStringConvertible {
     let hint: String
     let traits: UIAccessibilityTraits
     let inputLabels: [String]
+    /// The names of the stop's custom actions (the rotor's Actions), in order.
+    let customActionNames: [String]
     /// Window coordinates, in points.
     let frame: CGRect
 
@@ -19,7 +21,8 @@ struct AccessibilityStop: CustomStringConvertible {
     var isHeader: Bool { traits.contains(.header) }
 
     var description: String {
-        "\"\(label)\" value=\"\(value)\" traits=\(traits.rawValue) frame=\(frame.integral)"
+        let actions = customActionNames.isEmpty ? "" : " actions=\(customActionNames)"
+        return "\"\(label)\" value=\"\(value)\" traits=\(traits.rawValue) frame=\(frame.integral)\(actions)"
     }
 }
 
@@ -117,6 +120,7 @@ final class HostedView {
                 hint: object.accessibilityHint ?? "",
                 traits: object.accessibilityTraits,
                 inputLabels: object.accessibilityUserInputLabels ?? [],
+                customActionNames: (object.accessibilityCustomActions ?? []).map(\.name),
                 frame: object.accessibilityFrame
             ))
             return

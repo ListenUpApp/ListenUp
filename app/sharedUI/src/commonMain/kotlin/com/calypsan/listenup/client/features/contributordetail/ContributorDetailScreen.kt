@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.contributordetail
 
 import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -54,6 +57,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import listenup.composeapp.generated.resources.edit_adjust_photo
+import listenup.composeapp.generated.resources.edit_frame_saved
+import com.calypsan.listenup.client.design.components.rememberContributorImageRequest
+import com.calypsan.listenup.client.design.image.FrameConfirm
+import com.calypsan.listenup.client.design.image.FrameEditorDialog
+import com.calypsan.listenup.client.design.image.FrameEditorSource
+import com.calypsan.listenup.client.design.image.scallopFramePreviews
+import com.calypsan.listenup.client.presentation.imageframe.FrameShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -153,7 +167,9 @@ fun ContributorDetailScreen(
 
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val screenScope = rememberCoroutineScope()
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
+    var adjusting by rememberSaveable { mutableStateOf(false) }
 
     // Navigate back when a delete succeeds.
     LaunchedEffect(viewModel) {
@@ -165,28 +181,11 @@ fun ContributorDetailScreen(
     }
 
     // Surface delete errors via snackbar.
-    val deleteError = (state as? ContributorDetailUiState.Ready)?.deleteError
-    LaunchedEffect(deleteError) {
-        if (deleteError != null) {
-            val friendlyMessage =
-                when {
-                    deleteError.contains("not found", ignoreCase = true) -> {
-                        "Could not find metadata for this contributor on Audible"
-                    }
-
-                    deleteError.contains("network", ignoreCase = true) ||
-                        deleteError.contains("connection", ignoreCase = true) -> {
-                        "Network error. Please check your connection and try again."
-                    }
-
-                    else -> {
-                        deleteError
-                    }
-                }
-            snackbarHostState.showSnackbar(friendlyMessage)
-            viewModel.dismissDeleteError()
-        }
-    }
+    DeleteErrorSnackbar(
+        deleteError = (state as? ContributorDetailUiState.Ready)?.deleteError,
+        snackbarHostState = snackbarHostState,
+        onShown = viewModel::dismissDeleteError,
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         when (val current = state) {
@@ -217,6 +216,7 @@ fun ContributorDetailScreen(
             }
 
             is ContributorDetailUiState.Ready -> {
+                val adjustPhoto: (() -> Unit)? = current.contributor.imagePath?.let { { adjusting = true } }
                 val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
                 val useWideLayout =
                     windowSizeClass.isWidthAtLeastBreakpoint(
@@ -230,6 +230,7 @@ fun ContributorDetailScreen(
                         onBackClick = onBackClick,
                         onEditClick = { onEditClick(contributorId) },
                         onMatchDetails = { onMatchDetailsClick(contributorId) },
+                        onAdjustPhoto = adjustPhoto,
                         onDeleteClick = { showDeleteConfirmation = true },
                         onBookClick = onBookClick,
                         onViewAllClick = { role -> onViewAllClick(contributorId, role) },
@@ -241,6 +242,7 @@ fun ContributorDetailScreen(
                         onBackClick = onBackClick,
                         onEditClick = { onEditClick(contributorId) },
                         onMatchDetails = { onMatchDetailsClick(contributorId) },
+                        onAdjustPhoto = adjustPhoto,
                         onDeleteClick = { showDeleteConfirmation = true },
                         onBookClick = onBookClick,
                         onViewAllClick = { role -> onViewAllClick(contributorId, role) },
@@ -259,6 +261,17 @@ fun ContributorDetailScreen(
                             showDeleteConfirmation = false
                             viewModel.confirmDelete()
                         },
+                    )
+                }
+
+                if (adjusting) {
+                    AdjustPhotoFromMenu(
+                        contributor = current.contributor,
+                        adjustPhoto = viewModel::adjustPhoto,
+                        snackbarHostState = snackbarHostState,
+                        snackbarScope = screenScope,
+                        onClose = { adjusting = false },
+                        onOpenEdit = { onEditClick(contributorId) },
                     )
                 }
 
@@ -296,6 +309,7 @@ private fun WideContributorPortfolio(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
     onBookClick: (String) -> Unit,
     onViewAllClick: (role: String) -> Unit,
@@ -321,6 +335,7 @@ private fun WideContributorPortfolio(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
             )
         }
@@ -369,6 +384,7 @@ private fun WideHeroHeader(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
 ) {
     val contributor = state.contributor
@@ -390,6 +406,7 @@ private fun WideHeroHeader(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
                 canEditMetadata = state.canEditMetadata,
                 canCurateLibrary = state.canCurateLibrary,
@@ -406,6 +423,7 @@ private fun WideHeroHeader(
                 RingedScallopAvatar(
                     name = contributor.name,
                     imagePath = contributor.imagePath,
+                    frame = contributor.imageFrame,
                     contributorId = contributorId,
                     colorScheme = colorScheme,
                 )
@@ -598,6 +616,7 @@ private fun NarrowContributorPortfolio(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
     onBookClick: (String) -> Unit,
     onViewAllClick: (role: String) -> Unit,
@@ -621,6 +640,7 @@ private fun NarrowContributorPortfolio(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
             )
         }
@@ -677,6 +697,7 @@ private fun NarrowColorHero(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
 ) {
     val ink = MaterialTheme.colorScheme.onPrimaryContainer
@@ -693,6 +714,7 @@ private fun NarrowColorHero(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
                 canEditMetadata = state.canEditMetadata,
                 canCurateLibrary = state.canCurateLibrary,
@@ -704,6 +726,7 @@ private fun NarrowColorHero(
                 RingedScallopAvatar(
                     name = state.contributor.name,
                     imagePath = state.contributor.imagePath,
+                    frame = state.contributor.imageFrame,
                     contributorId = contributorId,
                     colorScheme = colorScheme,
                 )
@@ -799,14 +822,16 @@ private fun NarrowWorkSection(
 // =============================================================================
 
 /**
- * Floating back button and overflow menu. The menu offers only what the user may do — Edit and Match
- * details under Edit metadata, Delete under Curate library — and is absent when that is nothing.
+ * Floating back button and overflow menu. The menu offers only what the user may do — Edit, Match
+ * details and (when there is a photo, [onAdjustPhoto] non-null) Adjust photo under Edit metadata,
+ * Delete under Curate library — and is absent when that is nothing.
  */
 @Composable
 internal fun NavigationBar(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
     canEditMetadata: Boolean,
     canCurateLibrary: Boolean,
@@ -821,6 +846,7 @@ internal fun NavigationBar(
             OverflowMenu(
                 onEditClick = onEditClick,
                 onMatchDetails = onMatchDetails,
+                onAdjustPhoto = onAdjustPhoto,
                 onDeleteClick = onDeleteClick,
                 canEditMetadata = canEditMetadata,
                 canCurateLibrary = canCurateLibrary,
@@ -837,6 +863,7 @@ internal fun NavigationBar(
 private fun OverflowMenu(
     onEditClick: () -> Unit,
     onMatchDetails: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     onDeleteClick: () -> Unit,
     canEditMetadata: Boolean,
     canCurateLibrary: Boolean,
@@ -891,6 +918,18 @@ private fun OverflowMenu(
                     },
                     enabled = actionsEnabled,
                 )
+                if (onAdjustPhoto != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.edit_adjust_photo)) },
+                        leadingIcon = { Icon(Icons.Default.Crop, null) },
+                        onClick = {
+                            haptics.press()
+                            showMenu = false
+                            onAdjustPhoto()
+                        },
+                        enabled = actionsEnabled,
+                    )
+                }
             }
             if (canCurateLibrary) {
                 if (canEditMetadata) HorizontalDivider()
@@ -920,6 +959,97 @@ private fun OverflowMenu(
     }
 }
 
+/** Shows a failed delete in the snackbar, in words a person can act on, then reports it shown. */
+@Composable
+private fun DeleteErrorSnackbar(
+    deleteError: String?,
+    snackbarHostState: SnackbarHostState,
+    onShown: () -> Unit,
+) {
+    LaunchedEffect(deleteError) {
+        if (deleteError != null) {
+            val friendlyMessage =
+                when {
+                    deleteError.contains("not found", ignoreCase = true) -> {
+                        "Could not find metadata for this contributor on Audible"
+                    }
+
+                    deleteError.contains("network", ignoreCase = true) ||
+                        deleteError.contains("connection", ignoreCase = true) -> {
+                        "Network error. Please check your connection and try again."
+                    }
+
+                    else -> {
+                        deleteError
+                    }
+                }
+            snackbarHostState.showSnackbar(friendlyMessage)
+            onShown()
+        }
+    }
+}
+
+/**
+ * The overflow menu's Adjust photo, wired to the screen: Save commits through [viewModel] and says so in
+ * the snackbar (the write lands in Room before any network, so it is done now); "Choose another" closes
+ * the editor and goes to Contributor edit (R6).
+ */
+@Composable
+internal fun AdjustPhotoFromMenu(
+    contributor: Contributor,
+    adjustPhoto: (ImageFrame) -> Unit,
+    snackbarHostState: SnackbarHostState,
+    snackbarScope: CoroutineScope,
+    onClose: () -> Unit,
+    onOpenEdit: () -> Unit,
+) {
+    val photoAdjusted = stringResource(Res.string.edit_frame_saved)
+    ContributorPhotoAdjuster(
+        contributorId = contributor.id.value,
+        imagePath = contributor.imagePath,
+        frame = contributor.imageFrame,
+        onSave = { saved ->
+            onClose()
+            adjustPhoto(saved)
+            // The screen's scope, not this one: closing the editor ends this composable's scope, and the
+            // message would be cancelled before it showed.
+            snackbarScope.launch { snackbarHostState.showSnackbar(photoAdjusted) }
+        },
+        onDismiss = onClose,
+        onOpenEdit = {
+            onClose()
+            onOpenEdit()
+        },
+    )
+}
+
+/**
+ * Adjust photo from the overflow menu: the editor over the photo the screen shows, with the scallop
+ * and list-circle previews, saving straight away (Q2). An existing photo that will not open has no
+ * other photo to choose here, so "Choose another" goes to Contributor edit, where one is picked (R6).
+ */
+@Composable
+internal fun ContributorPhotoAdjuster(
+    contributorId: String,
+    imagePath: String?,
+    frame: ImageFrame?,
+    onSave: (ImageFrame) -> Unit,
+    onDismiss: () -> Unit,
+    onOpenEdit: () -> Unit,
+) {
+    val request = rememberContributorImageRequest(contributorId, imagePath)
+    FrameEditorDialog(
+        source = request?.let(FrameEditorSource::Model) ?: FrameEditorSource.Resolving,
+        initialFrame = frame,
+        shape = FrameShape.Circle,
+        confirm = FrameConfirm.Save,
+        previews = scallopFramePreviews(),
+        onConfirm = onSave,
+        onCancel = onDismiss,
+        onChooseAnother = onOpenEdit,
+    )
+}
+
 /**
  * Elevated avatar (140dp) with contributor image or initials.
  *
@@ -929,6 +1059,7 @@ private fun OverflowMenu(
 private fun ElevatedAvatar(
     name: String,
     imagePath: String?,
+    frame: ImageFrame?,
     contributorId: String,
     colorScheme: ContributorColorScheme,
     shape: Shape = CircleShape,
@@ -983,7 +1114,7 @@ private fun ElevatedAvatar(
                 contributorId = contributorId,
                 imagePath = imagePath,
                 contentDescription = stringResource(Res.string.contributor_name_profile_image, name),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                frame = frame,
                 modifier = Modifier.fillMaxSize(),
                 onState = { state ->
                     if (state is coil3.compose.AsyncImagePainter.State.Success) {
@@ -1064,6 +1195,7 @@ private fun ContributorDetailLoadingFrame(
                 onBackClick = onBackClick,
                 onEditClick = {},
                 onMatchDetails = {},
+                onAdjustPhoto = null,
                 onDeleteClick = {},
                 canEditMetadata = false,
                 canCurateLibrary = false,
@@ -1105,6 +1237,7 @@ private fun ContributorDetailLoadingFrame(
 private fun RingedScallopAvatar(
     name: String,
     imagePath: String?,
+    frame: ImageFrame?,
     contributorId: String,
     colorScheme: ContributorColorScheme,
 ) {
@@ -1119,6 +1252,7 @@ private fun RingedScallopAvatar(
         ElevatedAvatar(
             name = name,
             imagePath = imagePath,
+            frame = frame,
             contributorId = contributorId,
             colorScheme = colorScheme,
             shape = cookieScallopShape(),

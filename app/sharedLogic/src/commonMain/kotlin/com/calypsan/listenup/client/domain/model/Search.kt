@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.core.DurationFormatter
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -61,6 +62,10 @@ data class SearchHit(
      * a top-level series and for every other kind of hit.
      */
     val seriesPath: List<String> = emptyList(),
+    /** For a contributor hit, their photo's path (null when they have none); null for every other kind of hit. */
+    val imagePath: String? = null,
+    /** For a contributor hit, how their photo is framed; null is the centre crop, and null for other kinds of hit. */
+    val imageFrame: ImageFrame? = null,
 ) {
     /**
      * Format duration as human-readable string.

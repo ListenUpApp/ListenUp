@@ -34,7 +34,8 @@ struct SearchBookRow: View {
     }
 }
 
-/// A person hit: circular initials avatar + name + role + book count.
+/// A person hit: their framed photo in a circle (initials until it loads, or when there is none) + name + role +
+/// book count.
 struct SearchPersonRow: View {
     let row: SearchRow
     let onTap: () -> Void
@@ -42,8 +43,14 @@ struct SearchPersonRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                ContributorAvatar(name: row.name, imagePath: row.coverPath, id: row.id, streamsContributorPhoto: true)
-                    .frame(width: 52, height: 52)
+                ContributorAvatar(
+                    name: row.name,
+                    imagePath: row.imagePath,
+                    id: row.id,
+                    streamsContributorPhoto: true,
+                    frame: row.imageFrame
+                )
+                .frame(width: 52, height: 52)
                 SearchRowText(title: row.name, subtitle: row.subtitle)
             }
         }

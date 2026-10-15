@@ -1,3 +1,4 @@
+import Nuke
 import NukeUI
 import SwiftUI
 import Shared
@@ -18,12 +19,16 @@ struct UserAvatarView: View {
     private let userId: String?
     private let fallbackName: String
     private let size: CGFloat
+    /// A frame to show in place of the stored one: Edit Profile's preview of a staged re-frame. Nil shows the
+    /// observed frame.
+    private let frameOverride: ImageFrameValue?
 
     /// Render from a known Kotlin `User`. Used by toolbars / profile screens.
-    init(user: User?, size: CGFloat = 36) {
+    init(user: User?, size: CGFloat = 36, frameOverride: ImageFrameValue? = nil) {
         self.userId = user?.idString
         self.fallbackName = user?.displayName ?? ""
         self.size = size
+        self.frameOverride = frameOverride
     }
 
     /// Render from primitives — for list rows that carry only the user's id (per iOS rule 8,
@@ -33,6 +38,7 @@ struct UserAvatarView: View {
         self.userId = userId
         self.fallbackName = fallbackName
         self.size = size
+        self.frameOverride = nil
     }
 
     /// Observes the user's `public_profiles` row for avatar type + version. Rebound whenever
@@ -51,7 +57,7 @@ struct UserAvatarView: View {
             // image-type avatar. Nuke owns the off-main decode + caching; the version folded into the
             // request identity busts the cache on a re-upload, so it never shows the stale bitmap.
             if let userId, profile.avatarType == Self.imageAvatarType {
-                UserAvatarPhotoLayer(userId: userId, version: profile.version)
+                UserAvatarPhotoLayer(userId: userId, version: profile.version, frame: frameOverride ?? profile.frame)
                     .frame(width: size, height: size)
                     .clipShape(Circle())
             }
@@ -118,27 +124,31 @@ private struct UserAvatarPhotoLayer: View {
     /// The avatar content version (the profile row's `updatedAt`). Folded into the cache key and the
     /// task id so a re-uploaded avatar (new version) re-resolves and busts the cached image.
     let version: Int64
+    /// How the photo sits in the circle; a zoomed frame also asks for a sharper decode.
+    let frame: ImageFrameValue?
 
     @Environment(\.displayScale) private var displayScale
     @State private var request: ImageRequest?
-    @State private var targetMaxPixels: CGFloat = 0
+    /// The box's longest side in pixels, unzoomed.
+    @State private var boxPixels: CGFloat = 0
+
+    /// What to decode: the box, scaled up by the frame's zoom so a zoomed face stays sharp.
+    private var targetMaxPixels: CGFloat { FramedImageGeometry.targetPixels(base: boxPixels, frame: frame) }
 
     var body: some View {
         LazyImage(request: request) { state in
             ZStack {
                 Color.clear
-                if let image = state.image {
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
+                if let uiImage = state.imageContainer?.image {
+                    FramedImage(image: uiImage, frame: frame)
                         .transition(.opacity)
                 }
             }
         }
         .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
             let pixels = (max(size.width, size.height) * displayScale).rounded()
-            if pixels > 0, pixels != targetMaxPixels {
-                targetMaxPixels = pixels
+            if pixels > 0, pixels != boxPixels {
+                boxPixels = pixels
             }
         }
         // Cancelled when the row scrolls away; re-resolves when id/version/size change.
@@ -175,6 +185,8 @@ final class AvatarProfileObserver {
     private(set) var avatarType: String?
     /// The observed row's `updatedAt`, doubling as the avatar's content version.
     private(set) var version: Int64 = 0
+    /// How the avatar is framed, projected once per emission; nil is the centre crop.
+    private(set) var frame: ImageFrameValue?
 
     private let repository: UserProfileRepository = Dependencies.shared.userProfileRepository
     private let bridge = FlowBridge()
@@ -188,10 +200,12 @@ final class AvatarProfileObserver {
         bridge.cancelAll()
         avatarType = nil
         version = 0
+        frame = nil
         guard let userId else { return }
         bridge.bind(repository.observeProfile(userId: userId)) { [weak self] profile in
             self?.avatarType = profile?.avatarType
             self?.version = profile?.updatedAt ?? 0
+            self?.frame = ImageFrameValue(profile?.avatarFrame)
         }
     }
 }

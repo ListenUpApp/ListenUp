@@ -79,6 +79,7 @@ class SharedElementFlightsTest :
             mounts.mount {
                 WebAppSurface {
                     ContributorDetailPage(
+                        onAdjustPhoto = {},
                         state = readyContributor(),
                         onOpenLibrary = {},
                         onOpenContributors = {},

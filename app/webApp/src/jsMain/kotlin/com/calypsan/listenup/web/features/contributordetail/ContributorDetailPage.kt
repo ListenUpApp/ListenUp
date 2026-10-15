@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
@@ -26,7 +27,11 @@ import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.coverUrl
-import com.calypsan.listenup.web.design.initialsFor
+import com.calypsan.listenup.web.design.ContributorPhoto
+import com.calypsan.listenup.web.design.FrameConfirm
+import com.calypsan.listenup.web.design.PhotoFramingDialog
+import com.calypsan.listenup.web.design.contributorPhotoUrl
+import com.calypsan.listenup.web.design.rememberPhotoFraming
 import com.calypsan.listenup.web.design.tintGradient
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
@@ -68,6 +73,13 @@ fun ContributorDetailPage(
      */
     onConfirmDelete: () -> Unit,
     onDismissDeleteError: () -> Unit,
+    /**
+     * Save a new frame for this contributor's photo, at once (decided Q2: from the page, the editor
+     * saves). No default: a defaulted no-op would render a real Adjust photo whose Save does nothing.
+     */
+    onAdjustPhoto: (ImageFrame) -> Unit,
+    /** Say the frame was saved; the route raises the toast. */
+    onPhotoAdjusted: () -> Unit = {},
 ) {
     Div(attrs = { classes("cd") }) {
         // The breadcrumb renders in every state, including the ones with no contributor: a page
@@ -88,6 +100,7 @@ fun ContributorDetailPage(
                     onMatchMetadata,
                     onConfirmDelete,
                     onDismissDeleteError,
+                    PhotoAdjust(onAdjustPhoto, onPhotoAdjusted),
                 )
             }
 
@@ -149,6 +162,7 @@ private fun ReadyContent(
     onMatchMetadata: () -> Unit,
     onConfirmDelete: () -> Unit,
     onDismissDeleteError: () -> Unit,
+    photoAdjust: PhotoAdjust,
 ) {
     // Local, like every picker's visibility on every platform: asking is the page's business and
     // the ViewModel has no step for it. Android's `showDeleteConfirmation` is the same variable.
@@ -172,7 +186,25 @@ private fun ReadyContent(
         }
     }
 
-    Hero(state, onEdit, onMatchMetadata, state.isDeleting) { confirming = true }
+    val framing = rememberPhotoFraming()
+    val photoUrl = state.contributor.imagePath?.let { contributorPhotoUrl(state.contributor.idString, it) }
+    Hero(
+        state = state,
+        onEdit = onEdit,
+        onMatchMetadata = onMatchMetadata,
+        onAdjustPhoto =
+            photoUrl?.let { url ->
+                {
+                    framing.openUrl(url, state.contributor.imageFrame) { frame ->
+                        photoAdjust.save(frame)
+                        photoAdjust.saved()
+                    }
+                }
+            },
+        isDeleting = state.isDeleting,
+    ) { confirming = true }
+    // A photo that won't open can only be replaced, and replacing is Contributor edit's job (R6).
+    PhotoFramingDialog(framing, FrameConfirm.Save, onChooseAnother = onEdit)
 
     ConfirmDialog(
         open = confirming,
@@ -245,6 +277,7 @@ private fun Hero(
     state: ContributorDetailUiState.Ready,
     onEdit: () -> Unit,
     onMatchMetadata: () -> Unit,
+    onAdjustPhoto: (() -> Unit)?,
     isDeleting: Boolean,
     onDeleteClick: () -> Unit,
 ) {
@@ -256,7 +289,14 @@ private fun Hero(
             style { property("background", avatarTintFor(state.contributor.name)) }
             // The arrival half of the avatar's flight from the Contributors list. See [heroTarget].
             heroTarget(contributorHeroKey(state.contributor.idString))
-        }) { Text(initialsFor(state.contributor.name)) }
+        }) {
+            ContributorPhoto(
+                contributorId = state.contributor.idString,
+                name = state.contributor.name,
+                imagePath = state.contributor.imagePath,
+                frame = state.contributor.imageFrame,
+            )
+        }
 
         Div(attrs = { classes("cd-name-block") }) {
             PageHeader(title = state.contributor.name, display = true)
@@ -309,6 +349,19 @@ private fun Hero(
                     classes("cd-match")
                 },
             ) { Icon(WebIcon.Sparkles) }
+
+            // Only over a photo: there is nothing to frame in a monogram.
+            onAdjustPhoto?.let { adjust ->
+                Button(
+                    kind = ButtonKind.Icon,
+                    size = ButtonSize.Lg,
+                    onClick = adjust,
+                    label = "Adjust photo",
+                    attrs = {
+                        classes("cd-adjust")
+                    },
+                ) { Icon(WebIcon.Crop) }
+            }
         }
 
         if (state.canCurateLibrary) {
@@ -467,6 +520,12 @@ private fun SeriesFan(booksInOrder: List<BookListItem>) {
         }
     }
 }
+
+/** What the hero's Adjust photo does with a frame: save it, then say so. */
+private class PhotoAdjust(
+    val save: (ImageFrame) -> Unit,
+    val saved: () -> Unit,
+)
 
 /** "Author" / "Narrator" / … — [ContributorRole.apiValue] capitalized for the hero chip. */
 private fun heroChipLabel(role: String): String = role.replaceFirstChar { it.uppercase() }

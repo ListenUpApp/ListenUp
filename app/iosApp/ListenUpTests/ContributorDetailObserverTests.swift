@@ -9,4 +9,17 @@ struct ContributorDetailObserverTests {
     @Test func startsLoading() {
         #expect(Bool(true))
     }
+
+    @Test func anEditorMayAdjustAPhoto() {
+        #expect(ContributorDetailObserver.canAdjustPhoto(canEditMetadata: true, imagePath: "contributors/abc.jpg"))
+    }
+
+    @Test func noPhotoMeansNothingToAdjust() {
+        #expect(!ContributorDetailObserver.canAdjustPhoto(canEditMetadata: true, imagePath: nil))
+        #expect(!ContributorDetailObserver.canAdjustPhoto(canEditMetadata: true, imagePath: ""))
+    }
+
+    @Test func aMemberWithoutEditMetadataMayNotAdjust() {
+        #expect(!ContributorDetailObserver.canAdjustPhoto(canEditMetadata: false, imagePath: "contributors/abc.jpg"))
+    }
 }

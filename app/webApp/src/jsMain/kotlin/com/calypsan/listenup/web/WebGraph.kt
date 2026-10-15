@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.web.features.admin.AdminSessions
 import com.calypsan.listenup.web.features.admin.OpenAdmin
@@ -148,6 +150,12 @@ class WebGraph(
     val openPlayback: OpenPlayback,
     val observeIsAdmin: () -> Flow<Boolean>,
     val observeCurrentUserId: () -> Flow<String?>,
+    /**
+     * Each user's avatar frame, from their `public_profiles` row; provided to every avatar as
+     * [com.calypsan.listenup.web.design.LocalAvatarFrames]. A defaulted `flowOf(null)` would quietly
+     * draw everyone's picture as the centre crop, whatever they chose.
+     */
+    val observeAvatarFrame: (userId: String) -> Flow<ImageFrame?>,
 )
 
 /** The production graph, built once from the client's dependency graph. */
@@ -210,4 +218,7 @@ fun graphWeb(koin: Koin): WebGraph =
         openPlayback = graphPlayback(koin),
         observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
         observeCurrentUserId = { koin.get<UserRepository>().observeCurrentUser().map { it?.id?.value } },
+        observeAvatarFrame = { userId ->
+            koin.get<UserProfileRepository>().observeProfile(userId).map { it?.avatarFrame }
+        },
     )

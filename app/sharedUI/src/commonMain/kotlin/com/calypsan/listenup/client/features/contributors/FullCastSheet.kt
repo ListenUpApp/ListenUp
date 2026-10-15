@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.components.ContributorPhotoCircle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -188,7 +189,7 @@ private fun FullCastBottomSheet(
         ) {
             itemsIndexed(items = contributors, key = { _, c -> c.id }) { index, contributor ->
                 CastRow(
-                    name = contributor.name,
+                    contributor = contributor,
                     index = index,
                     onClick = { onSelect(contributor.id) },
                 )
@@ -231,7 +232,7 @@ private fun FullCastDialog(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             pair.forEachIndexed { colIndex, contributor ->
                                 CastRow(
-                                    name = contributor.name,
+                                    contributor = contributor,
                                     index = rowIndex * 2 + colIndex,
                                     onClick = { onSelect(contributor.id) },
                                     modifier = Modifier.weight(1f),
@@ -288,10 +289,10 @@ private fun CastHeader(
     }
 }
 
-/** One roster row: an initials avatar and the contributor's name. Every row reads equally. */
+/** One roster row: the contributor's framed photo (or initials) and their name. Every row reads equally. */
 @Composable
-private fun CastRow(
-    name: String,
+internal fun CastRow(
+    contributor: BookContributor,
     index: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -308,9 +309,16 @@ private fun CastRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CastAvatar(name = name, index = index)
+        ContributorPhotoCircle(
+            contributorId = contributor.id,
+            imagePath = contributor.imagePath,
+            frame = contributor.imageFrame,
+            size = CAST_AVATAR_SIZE,
+        ) {
+            CastAvatar(name = contributor.name, index = index)
+        }
         Text(
-            text = name,
+            text = contributor.name,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
@@ -325,7 +333,7 @@ private fun CastRow(
 private fun CastAvatar(
     name: String,
     index: Int,
-    size: Dp = 44.dp,
+    size: Dp = CAST_AVATAR_SIZE,
 ) {
     val (background, foreground) =
         when (index % 3) {
@@ -344,6 +352,8 @@ private fun CastAvatar(
         )
     }
 }
+
+private val CAST_AVATAR_SIZE = 44.dp
 
 /** First + last word initials of [name], uppercased; "?" when [name] yields nothing. */
 private fun castInitials(name: String): String {

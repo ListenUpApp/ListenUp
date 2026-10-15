@@ -12,6 +12,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 
@@ -54,6 +55,12 @@ class FrameEditor(
 
     /** One-shot limit events, on rising edges only. */
     val feedback: Flow<FrameFeedback> = feedbackChannel.receiveAsFlow()
+
+    /**
+     * [feedback] by each event's [FrameFeedback.name], for Swift: Swift Export traps casting the elements of a flow of
+     * Kotlin enum entries. The same events, so a platform collects this or [feedback], never both.
+     */
+    val feedbackNames: Flow<String> = feedback.map { it.name }
 
     private val frame: ImageFrame get() = state.value.frame
     private val imageWidthUnits: Double get() = width.toDouble()

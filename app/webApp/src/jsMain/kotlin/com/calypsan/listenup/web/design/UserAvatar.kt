@@ -1,13 +1,12 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -27,6 +26,9 @@ import org.jetbrains.compose.web.dom.Text
  * letting the fetch fail: Edit Profile has to show what "remove my photo" will leave behind, and a
  * request for a picture the reader has just asked to delete would show the old one until the
  * server answered.
+ *
+ * The picture is framed the way its owner chose, read from [LocalAvatarFrames] rather than passed in,
+ * so no call site has to know a frame exists.
  */
 @Composable
 fun UserAvatar(
@@ -56,14 +58,14 @@ fun UserAvatar(
                 attr("aria-hidden", "true")
             }) { Text(initialsFor(name)) }
         } else {
-            Img(
+            val observeFrame = LocalAvatarFrames.current
+            val frame by remember(userId, observeFrame) { observeFrame(userId) }.collectAsState(initial = null)
+            FramedImg(
                 src = avatarUrl(userId),
-                attrs = {
-                    classes("uav-img")
-                    alt(name)
-                    attr("decoding", "async")
-                    addEventListener("error") { failed = true }
-                },
+                alt = name,
+                frame = frame,
+                classes = listOf("uav-frame"),
+                onError = { failed = true },
             )
         }
     }

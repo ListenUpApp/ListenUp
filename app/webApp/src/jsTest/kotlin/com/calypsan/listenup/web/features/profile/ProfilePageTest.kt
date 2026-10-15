@@ -94,7 +94,7 @@ class ProfilePageTest :
         test("the avatar asks for this user's own picture") {
             val host = page(readyProfile(userId = "u7"))
 
-            (host.querySelector(".uav-img") as HTMLImageElement).src shouldContain "/api/v1/avatars/u7"
+            (host.querySelector(".uav img.framed-img") as HTMLImageElement).src shouldContain "/api/v1/avatars/u7"
         }
 
         test("a tagline nobody wrote is absent, not an empty line") {

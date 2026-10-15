@@ -31,6 +31,7 @@ class ContributorOverflowMenuPermissionTest {
                     onEditClick = {},
                     onMatchDetails = {},
                     onDeleteClick = {},
+                    onAdjustPhoto = null,
                     canEditMetadata = canEditMetadata,
                     canCurateLibrary = canCurateLibrary,
                 )

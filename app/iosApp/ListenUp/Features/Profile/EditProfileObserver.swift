@@ -8,8 +8,10 @@ enum StagedAvatar: Equatable {
     case none
     /// Pending revert to the auto-generated initials avatar.
     case reverted
-    /// Pending upload of a freshly picked image.
-    case image(Data)
+    /// Pending upload of a freshly picked image, framed as the user chose (nil: the centre crop).
+    case image(Data, ImageFrameValue?)
+    /// The current image avatar, re-framed.
+    case reframed(ImageFrameValue)
 }
 
 /// Observes `EditProfileViewModel`, flattening `EditProfileUiState` into `@Observable`
@@ -67,9 +69,16 @@ final class EditProfileObserver {
     func setNewPassword(_ value: String) { viewModel.setNewPassword(value: value) }
     func setConfirmPassword(_ value: String) { viewModel.setConfirmPassword(value: value) }
 
-    func stageAvatarUpload(_ data: Data) {
+    /// Stage a picked photo, framed in Move and Scale.
+    func stageAvatarUpload(_ data: Data, frame: ImageFrameValue) {
         pickedImage = data
-        viewModel.stageAvatarUpload(bytes: data.toKotlinByteArray(), contentType: "image/jpeg", frame: nil)
+        viewModel.stageAvatarUpload(bytes: data.toKotlinByteArray(), contentType: "image/jpeg", frame: frame.kotlin)
+    }
+
+    /// Re-frame the avatar from Adjust Photo: a staged pick takes the frame, otherwise the current image avatar
+    /// is re-framed on Save.
+    func stageAvatarReframe(_ frame: ImageFrameValue) {
+        viewModel.stageAvatarReframe(frame: frame.kotlin)
     }
 
     func stageAvatarRevert() {
@@ -130,11 +139,12 @@ final class EditProfileObserver {
             return .none
         case .revertToAuto:
             return .reverted
-        case .upload:
-            return pickedImage.map(StagedAvatar.image) ?? .none
-        case .reframe:
-            // A re-frame keeps the stored avatar; it shows as stored until framing-aware rendering lands.
-            return .none
+        case .upload(let upload):
+            guard let pickedImage else { return .none }
+            return .image(pickedImage, ImageFrameValue(upload.value.frame))
+        case .reframe(let reframe):
+            // A re-frame keeps the stored avatar and shows it with the new frame.
+            return ImageFrameValue(reframe.value.frame).map(StagedAvatar.reframed) ?? .none
         }
     }
 }

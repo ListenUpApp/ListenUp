@@ -38,6 +38,9 @@ enum class WebIcon(
     ChevronLeft("M15 5l-7 7 7 7"),
     ChevronRight("M9 5l7 7-7 7"),
     Clock("M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M12 7v5.5l3.5 2"),
+
+    // From the image-framing canvas (2026-10-13): Adjust photo, the crop marks.
+    Crop("M7 3v14h14 M3 7h14v14"),
     Cog(
         "M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0 M12 2.5v3 M12 18.5v3 M2.5 12h3 M18.5 12h3 " +
             "M5.1 5.1l2.1 2.1 M16.8 16.8l2.1 2.1 M18.9 5.1l-2.1 2.1 M7.2 16.8l-2.1 2.1",
@@ -121,6 +124,8 @@ enum class WebIcon(
     // Not mirrored from the design project — it carries a lock but no open one. This is
     // [Lock] with the shackle swung clear on the right, which is the standard pairing;
     // reconcile if the design project grows one.
+    // From the image-framing canvas (2026-10-13): the editor's Reset, back to the centre crop.
+    Undo("M4 12a8 8 0 1 0 3-6.2 M4 4v5h5"),
     Unlock("M6 10.5h12v9.5H6z M8.75 10.5V7.5a3.25 3.25 0 0 1 6.5 0"),
     LogIn("M14 3h5v18h-5 M4 12h11 M11 8l4 4-4 4"),
     LogOut("M10 3H5v18h5 M9 12h11 M16 8l4 4-4 4"),

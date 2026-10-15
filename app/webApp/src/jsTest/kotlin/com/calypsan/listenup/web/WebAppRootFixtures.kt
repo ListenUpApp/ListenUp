@@ -323,6 +323,7 @@ internal fun mountAt(
                             openPlayback = openPlayback,
                             observeIsAdmin = { isAdmin },
                             observeCurrentUserId = { currentUserId },
+                            observeAvatarFrame = { flowOf(null) },
                         ),
                     onToast = onToast,
                     onActionToast = onActionToast,

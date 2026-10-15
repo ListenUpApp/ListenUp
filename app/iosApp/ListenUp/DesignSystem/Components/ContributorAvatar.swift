@@ -1,3 +1,4 @@
+import Nuke
 import NukeUI
 import SwiftUI
 import Shared
@@ -24,6 +25,8 @@ struct ContributorAvatar: View {
     let name: String
     let imagePath: String?
     let id: String
+    /// How the photo sits in the circle; nil is today's centre crop.
+    var frame: ImageFrameValue?
 
     /// Font size for initials (auto-calculated based on frame if not specified)
     var initialsFontSize: CGFloat = 16
@@ -39,6 +42,7 @@ struct ContributorAvatar: View {
         self.name = contributor.name
         self.imagePath = contributor.imagePath
         self.id = contributor.idString
+        self.frame = ImageFrameValue(contributor.imageFrame)
         self.initialsFontSize = fontSize
         self.streamsContributorPhoto = true
     }
@@ -50,11 +54,13 @@ struct ContributorAvatar: View {
         imagePath: String?,
         id: String,
         fontSize: CGFloat = 16,
-        streamsContributorPhoto: Bool = false
+        streamsContributorPhoto: Bool = false,
+        frame: ImageFrameValue? = nil
     ) {
         self.name = name
         self.imagePath = imagePath
         self.id = id
+        self.frame = frame
         self.initialsFontSize = fontSize
         self.streamsContributorPhoto = streamsContributorPhoto
     }
@@ -72,9 +78,7 @@ struct ContributorAvatar: View {
                 .fill(avatarColor)
 
             if let fileImage {
-                Image(uiImage: fileImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+                FramedImage(image: fileImage, frame: frame)
                     .clipShape(Circle())
             } else {
                 Text(initials)
@@ -86,17 +90,20 @@ struct ContributorAvatar: View {
             // Streamed contributor photo, layered over the initials placeholder. Nuke
             // owns the off-main decode + caching (scroll-safe, like the cover grid).
             if streamsContributorPhoto {
-                ContributorPhotoLayer(contributorId: id, imagePath: imagePath)
+                ContributorPhotoLayer(contributorId: id, imagePath: imagePath, frame: frame)
                     .clipShape(Circle())
             }
         }
         .clipShape(Circle())
-        // Re-reads only when the path changes; cancelled when the row scrolls away. Skipped when
+        // Re-reads only when the path or the zoom changes; cancelled when the row scrolls away. Skipped when
         // streaming — [ContributorPhotoLayer] owns the image, and `imagePath` is not a durable
         // on-disk path there.
-        .task(id: imagePath) {
+        .task(id: FileImageKey(path: imagePath, zoom: frame?.zoom)) {
             guard !streamsContributorPhoto else { return }
-            fileImage = await Self.loadImage(path: imagePath)
+            fileImage = await Self.loadImage(
+                path: imagePath,
+                maxPixelSize: Int(FramedImageGeometry.targetPixels(base: CGFloat(Self.maxAvatarPixels), frame: frame))
+            )
         }
     }
 
@@ -105,9 +112,15 @@ struct ContributorAvatar: View {
     /// concurrency a plain `nonisolated async` runs on the caller's actor). Decodes a thumbnail, not
     /// the full-resolution photo. Returns `nil` for a missing path or unreadable file.
     @concurrent
-    private nonisolated static func loadImage(path: String?) async -> UIImage? {
+    private nonisolated static func loadImage(path: String?, maxPixelSize: Int) async -> UIImage? {
         guard let path else { return nil }
-        return ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: maxAvatarPixels)
+        return ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: maxPixelSize)
+    }
+
+    /// Identity for the file read: a new path, or a new zoom that needs a sharper decode.
+    private struct FileImageKey: Equatable {
+        let path: String?
+        let zoom: Double?
     }
 
     /// The largest avatar drawn (the contributor hero, about 120pt) at 3x, rounded up.
@@ -147,10 +160,16 @@ private struct ContributorPhotoLayer: View {
     /// local-file branch the disk copy is dropped upstream by `ContributorSyncDomainHandler` when
     /// `imagePath` changes, so the stale file is gone before this re-resolves.
     let imagePath: String?
+    /// How the photo sits in the circle; a zoomed frame also asks for a sharper decode.
+    let frame: ImageFrameValue?
 
     @Environment(\.displayScale) private var displayScale
     @State private var request: ImageRequest?
-    @State private var targetMaxPixels: CGFloat = 0
+    /// The box's longest side in pixels, unzoomed.
+    @State private var boxPixels: CGFloat = 0
+
+    /// What to decode: the box, scaled up by the frame's zoom so a zoomed face stays sharp.
+    private var targetMaxPixels: CGFloat { FramedImageGeometry.targetPixels(base: boxPixels, frame: frame) }
 
     var body: some View {
         LazyImage(request: request) { state in
@@ -162,18 +181,16 @@ private struct ContributorPhotoLayer: View {
             // because its gradient placeholder always fills; this layer had no such base.
             ZStack {
                 Color.clear
-                if let image = state.image {
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
+                if let uiImage = state.imageContainer?.image {
+                    FramedImage(image: uiImage, frame: frame)
                         .transition(.opacity)
                 }
             }
         }
         .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
             let pixels = (max(size.width, size.height) * displayScale).rounded()
-            if pixels > 0, pixels != targetMaxPixels {
-                targetMaxPixels = pixels
+            if pixels > 0, pixels != boxPixels {
+                boxPixels = pixels
             }
         }
         // Cancelled when the row scrolls away; re-resolves when id/imagePath/size change.

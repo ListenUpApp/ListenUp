@@ -29,7 +29,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -226,7 +225,7 @@ internal fun ContributorCard(
                                 Res.string.contributor_name_profile_image,
                                 contributor.name,
                             ),
-                        contentScale = ContentScale.Crop,
+                        frame = contributor.imageFrame,
                         modifier = Modifier.fillMaxSize(),
                         onState = { state ->
                             if (state is coil3.compose.AsyncImagePainter.State.Success) {

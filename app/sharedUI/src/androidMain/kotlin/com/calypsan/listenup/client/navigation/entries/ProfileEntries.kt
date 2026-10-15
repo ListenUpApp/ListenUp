@@ -4,7 +4,12 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.features.profile.AvatarPick
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
@@ -52,6 +57,8 @@ internal fun EntryProviderScope<NavKey>.profileEntries(
         val viewModel: EditProfileViewModel = koinViewModel()
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        // The picked photo waits here for the Adjust photo editor; nothing is staged until Done.
+        var pick by remember { mutableStateOf<AvatarPick?>(null) }
 
         val imagePicker =
             rememberLauncherForActivityResult(
@@ -60,10 +67,8 @@ internal fun EntryProviderScope<NavKey>.profileEntries(
                 uri?.let { selectedUri ->
                     scope.launch {
                         val bytes = decodePickedImageAsJpeg(context, selectedUri, AVATAR_QUALITY)
-                        if (bytes != null) {
-                            viewModel.stageAvatarUpload(bytes, "image/jpeg", frame = null)
-                        }
-                        // Silently drop failed compressions — user can retry by picking again.
+                        // A file that cannot be read opens the editor on "Couldn't open this photo".
+                        pick = if (bytes != null) AvatarPick.Picked(bytes) else AvatarPick.Undecodable
                     }
                 }
             }
@@ -78,6 +83,8 @@ internal fun EntryProviderScope<NavKey>.profileEntries(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                 )
             },
+            pickResult = pick,
+            onPickConsumed = { pick = null },
             viewModel = viewModel,
         )
     }

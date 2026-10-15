@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.web.design.LocalAvatarFrames
 import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.LocalRestrictedBookIds
 import com.calypsan.listenup.web.design.ShowActionToast
@@ -84,7 +85,10 @@ fun WebAppRoot(
     // every one of those deep links keeps Library lit in the sidebar.
     val active = if (page in LIBRARY_DEEP_LINKS) LIBRARY_KEY else page
 
-    CompositionLocalProvider(LocalRestrictedBookIds provides restrictedBookIds) {
+    CompositionLocalProvider(
+        LocalRestrictedBookIds provides restrictedBookIds,
+        LocalAvatarFrames provides graph.observeAvatarFrame,
+    ) {
         Shell(
             sections = listOf(primaryNav(heldCount = inbox.heldCount)),
             active = active,

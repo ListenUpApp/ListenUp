@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.api.dto.image.ImageFraming
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -67,11 +69,14 @@ class SearchRepositoryTest :
         fun contributor(
             id: String = "c1",
             name: String = "Author",
+            imagePath: String? = null,
+            imageFrame: ImageFraming? = null,
         ) = ContributorEntity(
             id = ContributorId(id),
             name = name,
             description = null,
-            imagePath = null,
+            imagePath = imagePath,
+            imageFrame = imageFrame,
             createdAt = Timestamp(0),
             updatedAt = Timestamp(0),
         )
@@ -144,6 +149,36 @@ class SearchRepositoryTest :
                 result.hits.map { it.type } shouldContainExactlyInAnyOrder
                     listOf(SearchHitType.BOOK, SearchHitType.CONTRIBUTOR, SearchHitType.SERIES)
                 result.hits.first { it.type == SearchHitType.BOOK }.name shouldBe "Mistborn"
+            }
+        }
+
+        test("a contributor hit carries the photo and its frame, so the result row shows the framed face") {
+            runTest {
+                val frame = ImageFrame(focusX = 0.5, focusY = 0.25, zoom = 2.2)
+                val repo =
+                    repository {
+                        everySuspend { searchBooks(any(), any()) } returns emptyList()
+                        everySuspend { searchContributors(any(), any()) } returns
+                            listOf(
+                                contributor(
+                                    id = "framed",
+                                    imagePath = "contributors/abc.jpg",
+                                    imageFrame = ImageFraming("abc", frame),
+                                ),
+                                contributor(id = "plain"),
+                            )
+                        everySuspend { searchSeries(any(), any()) } returns emptyList()
+                        everySuspend { searchTags(any(), any()) } returns emptyList()
+                    }
+
+                val hits = repo.search("le guin").hits.filter { it.type == SearchHitType.CONTRIBUTOR }
+
+                val framed = hits.first { it.id == "framed" }
+                framed.imagePath shouldBe "contributors/abc.jpg"
+                framed.imageFrame shouldBe frame
+                val plain = hits.first { it.id == "plain" }
+                plain.imagePath shouldBe null
+                plain.imageFrame shouldBe null
             }
         }
 

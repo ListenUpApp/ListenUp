@@ -39,6 +39,8 @@ final class ContributorDetailObserver {
     private(set) var name: String = ""
     private(set) var bio: String?
     private(set) var imagePath: String?
+    /// How the photo sits in the hero circle; nil is the centre crop.
+    private(set) var imageFrame: ImageFrameValue?
     private(set) var aliases: [String] = []
     private(set) var birthDate: String?
     private(set) var deathDate: String?
@@ -72,6 +74,20 @@ final class ContributorDetailObserver {
         showDeleteConfirmation = false
     }
 
+    /// Adjust Photo is offered to those who may edit the contributor, when there is a photo to adjust.
+    var canAdjustPhoto: Bool { Self.canAdjustPhoto(canEditMetadata: canEditMetadata, imagePath: imagePath) }
+
+    /// Pure, so the menu decision is unit-tested without live Kotlin state.
+    nonisolated static func canAdjustPhoto(canEditMetadata: Bool, imagePath: String?) -> Bool {
+        canEditMetadata && imagePath?.isEmpty == false
+    }
+
+    /// Saves a new frame from the menu's Move and Scale, at once and offline-first. Fire-and-forget: a failure
+    /// reaches the global error alert.
+    func adjustPhoto(_ frame: ImageFrameValue) {
+        viewModel.adjustPhoto(frame: frame.kotlin)
+    }
+
     /// Confirm deletion. `onDeleted` fires once the ViewModel signals completion
     /// via its `navActions` flow.
     func onConfirmDelete(_ onDeleted: @escaping () -> Void) {
@@ -101,6 +117,7 @@ final class ContributorDetailObserver {
             name = contributor.name
             bio = contributor.descriptionText
             imagePath = contributor.imagePath
+            imageFrame = ImageFrameValue(contributor.imageFrame)
             aliases = Array(contributor.aliases)
             birthDate = contributor.birthDate
             deathDate = contributor.deathDate
