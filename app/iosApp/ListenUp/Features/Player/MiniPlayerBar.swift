@@ -264,14 +264,16 @@ struct MiniPlayerPrimaryButton: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         case .pill(let text, let prominent):
+            // A compact capsule inside the accessory's glass, its target still 44pt tall (HIG, Buttons).
             Text(text)
-                .font(.subheadline.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(prominent ? Color.luOnTint : Color.listenUpOrange)
                 .lineLimit(1)
                 .padding(.horizontal, Spacing.s)
-                .frame(minHeight: 44)
+                .padding(.vertical, Spacing.xxs + 2)
                 .background(Capsule().fill(prominent ? Color.listenUpOrange : Color.listenUpOrange.opacity(0.12)))
-                .contentShape(Capsule())
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
         }
     }
 }
