@@ -70,12 +70,18 @@ final class ContributorEditObserver {
     func onDeathDateChanged(_ value: String) {
         viewModel.onEvent(event: ContributorEditUiEventDeathDateChanged(date: value))
     }
-    func onImagePicked(_ data: Data) {
+    /// Stage a picked photo, framed in Move and Scale.
+    func onImagePicked(_ data: Data, frame: ImageFrameValue) {
         viewModel.onEvent(event: ContributorEditUiEventUploadImage(
             imageData: data.toKotlinByteArray(),
             filename: "avatar.jpg",
-            frame: nil
+            frame: frame.kotlin
         ))
+    }
+
+    /// Stage a new frame from Adjust Photo, for the staged pick or the saved photo; it is saved with the form.
+    func onStageFrame(_ frame: ImageFrameValue) {
+        viewModel.onEvent(event: ContributorEditUiEventStageFrame(frame: frame.kotlin))
     }
     func onSave() { viewModel.onEvent(event: ContributorEditUiEventSave.shared) }
     func onCancel() { viewModel.onEvent(event: ContributorEditUiEventCancel.shared) }

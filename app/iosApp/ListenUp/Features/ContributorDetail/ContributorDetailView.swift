@@ -19,6 +19,14 @@ struct ContributorDetailView: View {
     /// instead. (A rename-collision merge soft-deletes the contributor we were opened with; an
     /// alias merge survives in place, so the re-target is a same-id refresh.)
     @State private var mergedIntoContributorId: String?
+    /// Set to open Move and Scale on the contributor's photo, from the menu.
+    @State private var adjustTarget: AdjustPhotoTarget?
+    /// Choose Another was tapped in Move and Scale: open Edit once the editor has gone (R6).
+    @State private var editsAfterAdjust = false
+    /// Bumped on each Save from Move and Scale, to show "Photo adjusted." for a moment.
+    @State private var photoAdjustedCount = 0
+    @State private var showsPhotoAdjusted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The contributor actually on screen — the survivor after a merge, otherwise the one we were
     /// opened with. Re-targeting in place is deliberate: pushing the survivor would leave the
@@ -57,6 +65,17 @@ struct ContributorDetailView: View {
                                 matchTarget = PersonMatchTarget(contributorId: activeContributorId)
                             } label: {
                                 Label(String(localized: "match.menu_item"), systemImage: "sparkles")
+                            }
+                        }
+                        if observer?.canAdjustPhoto == true {
+                            Button {
+                                adjustTarget = AdjustPhotoTarget(
+                                    contributorId: activeContributorId,
+                                    imagePath: observer?.imagePath,
+                                    frame: observer?.imageFrame
+                                )
+                            } label: {
+                                Label(String(localized: "edit.adjust_photo_ios"), systemImage: "crop")
                             }
                         }
                         if observer?.canCurateLibrary == true {
@@ -100,6 +119,41 @@ struct ContributorDetailView: View {
         .personMatchDetails($matchTarget, onMergedInto: { survivor in mergedIntoContributorId = survivor })
         // The receipt Match details leaves behind, with Undo.
         .matchReceipt(contributorId: activeContributorId, name: observer?.name ?? "")
+        .frameEditor(item: $adjustTarget, onDismiss: editIfAsked) { target in
+            FetchedPhotoFrameEditor(
+                fetch: { await FramePhoto.contributor(contributorId: target.contributorId, imagePath: target.imagePath) },
+                initial: target.frame,
+                confirm: .save,
+                onConfirm: { frame in
+                    observer?.adjustPhoto(frame)
+                    adjustTarget = nil
+                    photoAdjustedCount += 1
+                },
+                onCancel: { adjustTarget = nil },
+                onChooseAnother: {
+                    // A saved photo that won't open is replaced from Edit, where a new one is picked (R6).
+                    editsAfterAdjust = true
+                    adjustTarget = nil
+                }
+            )
+        }
+        .safeAreaInset(edge: .bottom) {
+            if showsPhotoAdjusted {
+                PhotoAdjustedCapsule()
+                    .padding(.bottom, Spacing.xs)
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.35), value: showsPhotoAdjusted)
+        .haptic(.commit, trigger: photoAdjustedCount)
+        .task(id: photoAdjustedCount) {
+            guard photoAdjustedCount > 0 else { return }
+            VoiceOverAnnouncement.post(String(localized: "edit.frame_saved"))
+            showsPhotoAdjusted = true
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            showsPhotoAdjusted = false
+        }
         .task(id: activeContributorId) {
             let vm = deps.createContributorDetailViewModel()
             let obs = ContributorDetailObserver(viewModel: vm)
@@ -110,6 +164,13 @@ struct ContributorDetailView: View {
             // Release the observer; its deinit cancels the FlowBridge subscriptions.
             observer = nil
         }
+    }
+
+    /// Opens Edit after Move and Scale has gone, when Choose Another asked for it.
+    private func editIfAsked() {
+        guard editsAfterAdjust else { return }
+        editsAfterAdjust = false
+        showEdit = true
     }
 
     // MARK: - Content
@@ -378,6 +439,26 @@ struct ContributorDetailView: View {
         } description: {
             Text(String(localized: "contributor.no_longer_here_detail"))
         }
+    }
+}
+
+/// Move and Scale opened from the contributor menu, on the photo shown when it was opened.
+private struct AdjustPhotoTarget: Identifiable {
+    let contributorId: String
+    let imagePath: String?
+    let frame: ImageFrameValue?
+    var id: String { contributorId }
+}
+
+/// The moment's confirmation that a frame was saved from the menu: "Photo adjusted." on floating glass.
+private struct PhotoAdjustedCapsule: View {
+    var body: some View {
+        Label(String(localized: "edit.frame_saved"), systemImage: "checkmark.circle.fill")
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, Spacing.s)
+            .glassControl(in: Capsule())
+            .accessibilityHidden(true)
     }
 }
 
