@@ -70,6 +70,10 @@ struct HomeStatsData: Equatable {
     let maxDaySeconds: Int
     let genres: [GenreBar]
     let hasGenreData: Bool
+    /// The header chip's days, or nil when there is no live streak (spec §2.6).
+    let streakChipDays: Int?
+    /// The footer's best streak, or nil when there has never been one.
+    let bestStreakDays: Int?
 
     init(from data: HomeStatsUiStateData) {
         self.listenTimeLabel = data.formattedListenTime
@@ -82,6 +86,8 @@ struct HomeStatsData: Equatable {
         self.maxDaySeconds = Int(data.maxDailySeconds)
         self.genres = data.topGenres.map { GenreBar(name: $0.genreName, seconds: Int($0.totalSeconds)) }
         self.hasGenreData = data.hasGenreData
+        self.streakChipDays = data.streak.chipDays.map { Int($0) }
+        self.bestStreakDays = data.streak.bestDays.map { Int($0) }
     }
 }
 
