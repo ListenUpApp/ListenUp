@@ -34,6 +34,7 @@ actor FakePlaybackEngine: PlaybackEngine {
     private(set) var didDeactivateSession = false
     private(set) var didActivateSession = false
     private(set) var playCount = 0
+    private(set) var volumeCount = 0
     /// Every engine command in arrival order, so a test can assert relative
     /// ordering (e.g. `activate` immediately before the resuming `play`).
     private(set) var commandLog: [String] = []
@@ -85,7 +86,10 @@ actor FakePlaybackEngine: PlaybackEngine {
     func pause() async { didPause = true; commandLog.append("pause"); gate.fire("pause") }
     func seek(toMs positionMs: Int64) async { lastSeekMs = positionMs; commandLog.append("seek"); gate.fire("seek") }
     func setRate(_ newRate: Float) async { lastRate = newRate; gate.fire("setRate") }
-    func setVolume(_ volume: Float) async { lastVolume = volume; commandLog.append("volume"); gate.fire("setVolume") }
+    func setVolume(_ volume: Float) async {
+        lastVolume = volume; volumeCount += 1; commandLog.append("volume")
+        gate.fire("setVolume"); gate.fire("volume-\(volumeCount)")
+    }
     func setGainDb(_ db: Float) async { lastGainDb = db; gate.fire("setGainDb") }
     func currentMeasuredGainDb() async -> Float? {
         gate.fire("measuredGain")
@@ -131,6 +135,9 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// Suspend until `play()` has executed for the `count`-th time. Keyed, because a
     /// predicate closure can't read this actor's state (see AsyncGate lines 46–59).
     func waitForPlayCount(_ count: Int) async { await gate.wait(forKey: "play-\(count)") }
+
+    /// Suspend until `setVolume` has executed for the `count`-th time. Keyed, like `waitForPlayCount`.
+    func waitForVolumeCount(_ count: Int) async { await gate.wait(forKey: "volume-\(count)") }
 
     /// Suspend until `load` has been entered (before it returns / while blocked).
     func waitForLoadEntered() async { await gate.wait(forKey: "load") }
@@ -250,13 +257,23 @@ final class FakeSkipIntervalProviding: SkipIntervalProviding {
 
 // MARK: - Engine seam fakes (the shared player's side of the coordinator)
 
-/// The shared player's ordered instruction stream, driven by the test.
+/// The shared player's instructions, driven by the test: each `send` reaches the coordinator before it returns,
+/// as the production bridge hands each collected command over.
 @MainActor
 final class FakeEngineInstructions: EngineInstructionSource {
-    let instructions: AsyncStream<EngineInstruction>
-    private let continuation: AsyncStream<EngineInstruction>.Continuation
-    init() { (instructions, continuation) = AsyncStream.makeStream(bufferingPolicy: .unbounded) }
-    func send(_ instruction: EngineInstruction) { continuation.yield(instruction) }
+    private var receive: (@MainActor (EngineInstruction) -> Void)?
+    /// Instructions sent before the coordinator started listening, handed over when it does.
+    private var undelivered: [EngineInstruction] = []
+
+    func deliver(to receive: @escaping @MainActor (EngineInstruction) -> Void) {
+        self.receive = receive
+        undelivered.forEach(receive)
+        undelivered.removeAll()
+    }
+
+    func send(_ instruction: EngineInstruction) {
+        if let receive { receive(instruction) } else { undelivered.append(instruction) }
+    }
 }
 
 /// Records every fact the coordinator reports to the shared player.

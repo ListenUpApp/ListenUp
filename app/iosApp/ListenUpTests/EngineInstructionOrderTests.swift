@@ -2,7 +2,7 @@ import Testing
 @testable import ListenUp
 
 /// The shared player's instructions reach AVAudioEngine in the order it issued them (spec risk R2):
-/// one bridge collector feeds one stream that one coordinator task drains.
+/// one bridge collector hands each to the coordinator, whose one task runs them, and each load's start, in order.
 @Suite("Engine instructions run in order")
 @MainActor
 struct EngineInstructionOrderTests {
@@ -41,7 +41,7 @@ struct EngineInstructionOrderTests {
         harness.instructions.send(.load(bookId: "b1", prepared: .fixture()))
         harness.instructions.send(.setVolume(0.2))
         harness.instructions.send(.setVolume(1.0))
-        await awaitUntil { await harness.engine.commandLog.filter { $0 == "volume" }.count == 2 }
+        await harness.engine.waitForVolumeCount(2)
         #expect(await harness.engine.lastVolume == 1.0)
     }
 
