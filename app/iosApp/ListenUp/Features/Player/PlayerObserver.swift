@@ -356,6 +356,14 @@ final class PlayerObserver {
     func togglePlayback() { viewModel.playPause() }
     /// The one main button: play/pause, or Retry / Sign in / Open Inbox / Close as the state decides.
     func primaryAction() { viewModel.onPrimary() }
+    /// The mini player's main button: the shared primary, or the sleep fade's Keep Listening, which cancels the timer
+    /// and restores full volume where the shared primary would pause (Simon, 2026-10-14).
+    func miniPrimary(_ action: MiniPlayerAccessoryModel.PrimaryAction) {
+        switch action {
+        case .shared: viewModel.onPrimary()
+        case .keepListening: viewModel.cancelSleepTimer()
+        }
+    }
     func dismissError() { viewModel.dismissError() }
     func retry() { viewModel.retry() }
     func seekTo(positionMs: Int64) { viewModel.seekTo(positionMs: positionMs) }

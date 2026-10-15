@@ -23,6 +23,13 @@ extension Color {
     /// `exclamationmark.triangle` so the meaning never rests on colour alone.
     static let luWarning = Color(ColorResource.warningAmber)
 
+    /// A player failure the reader has to act on — the `PlayerErrorRed` Color Set: `#C4211A` light, `#FF6961` dark
+    /// (`#8C1D18` / `#FF9A92` under Increase Contrast). The mini player draws its failed line in this red with a
+    /// warning glyph on the plain system glass, never a tinted capsule (HIG, Tab bars: the accessory is system
+    /// chrome). System red is 3.55:1 on white, under the 4.5:1 text floor (HIG, Accessibility), so the light value
+    /// is deepened; the glyph keeps the meaning off colour alone.
+    static let luPlayerError = Color(ColorResource.playerErrorRed)
+
     /// Grouped screen background (`--sys-bg`).
     static let luSurface = Color(.systemGroupedBackground)
     /// Inset-list / card surface (`--sys-bg-2`).
@@ -53,7 +60,7 @@ extension Color {
 
 #Preview("Tokens") {
     let swatches: [(String, Color)] = [
-        ("luTint", .luTint), ("luOnTint", .luOnTint), ("luWarning", .luWarning),
+        ("luTint", .luTint), ("luOnTint", .luOnTint), ("luWarning", .luWarning), ("luPlayerError", .luPlayerError),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),
         ("luLabel3", .luLabel3)
