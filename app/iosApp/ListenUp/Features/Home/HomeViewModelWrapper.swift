@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// Observes `HomeViewModel` — flattens the sealed `HomeUiState` into a SwiftUI-native
