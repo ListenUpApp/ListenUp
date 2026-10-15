@@ -9,6 +9,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,6 +51,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
+import com.calypsan.listenup.client.features.shell.components.NavigationRailWidth
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
@@ -71,8 +73,22 @@ import kotlin.time.Duration.Companion.milliseconds
 /** The narrowest toolbar that holds the whole wide set (§3.5); below it the scrubber and the settings step aside. */
 internal val ToolbarFullSetMinWidth = 840.dp
 
+/** The gap the toolbar floats at, from the window edges and the rail (FloatingToolbar's external padding). */
+internal val ToolbarMargin = 16.dp
+
 /** M3 elevation level 3: the floating toolbar is the one shadow in the player (S5). */
 internal val ToolbarElevation = 6.dp
+
+/**
+ * Where the toolbar floats: beside the rail when the shell shows one, else across the window, [ToolbarMargin] clear of
+ * every edge. Shared by `NowPlayingHost` and the rail test, so the contract "never under the rail" is one value.
+ */
+internal fun nowPlayingToolbarPadding(besideRail: Boolean): PaddingValues =
+    PaddingValues(
+        start = if (besideRail) NavigationRailWidth + ToolbarMargin else ToolbarMargin,
+        end = ToolbarMargin,
+        bottom = ToolbarMargin,
+    )
 
 /** The body's width beside the scrubber (`Mini-AndroidTablet`); below the full set it takes the spare width. */
 private val ToolbarBodyWidth = 248.dp

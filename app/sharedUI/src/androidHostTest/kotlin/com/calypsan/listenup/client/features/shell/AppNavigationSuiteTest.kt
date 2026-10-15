@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,8 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import com.calypsan.listenup.client.design.components.CountBadge
-import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingToolbar
+import com.calypsan.listenup.client.features.nowplaying.nowPlayingToolbarPadding
 import com.calypsan.listenup.client.features.shell.components.AppNavigationSuite
 import com.calypsan.listenup.client.features.nowplaying.loadedPlayerState
 import com.calypsan.listenup.client.features.nowplaying.samplePlayerProgress
@@ -130,49 +131,51 @@ class AppNavigationSuiteTest {
     }
 
     /**
-     * On a tablet the docked mini-player spans the whole window bottom, rail included. The rail must
-     * end above it, or its bottom-pinned Logout sits under the bar: unseen, and unreachable.
+     * On a tablet the mini player floats beside the rail, never under it, so the rail's bottom-pinned Logout can
+     * never sit under the bar (the regression the old docked-bar test guarded, kept under the new layout).
      */
     @Test
     @Config(manifest = Config.NONE, sdk = [34], qualifiers = "w1280dp-h800dp")
-    fun railLogoutStaysAboveTheDockedNowPlayingBar() {
+    fun railLogoutIsNeverUnderTheNowPlayingToolbar() {
         composeRule.setContent {
             MaterialTheme {
-                ProvideNowPlayingInsets(barVisible = true, latchedFootprint = 120.dp) {
-                    Box(Modifier.fillMaxSize()) {
-                        AppNavigationSuite(
-                            navType = ShellNavType.RailExpanded,
-                            currentDestination = ShellDestination.Home,
-                            onDestinationSelected = {},
-                            onSignOutRequest = {},
-                            modifier = Modifier.fillMaxHeight(),
-                        )
-                        NowPlayingToolbar(
-                            state = dockedState,
-                            progress = { dockedProgress },
-                            isExpanded = false,
-                            onTap = {},
-                            onPrimary = {},
-                            onSkipBack = {},
-                            onSkipForward = {},
-                            onSeek = {},
-                            onSpeedClick = {},
-                            onSleepClick = {},
-                            onChaptersClick = {},
-                            onKeepListening = {},
-                            skipBackwardSec = 15,
-                            skipForwardSec = 30,
-                            modifier = Modifier.align(Alignment.BottomCenter).testTag(DOCKED_BAR),
-                        )
-                    }
+                Box(Modifier.fillMaxSize()) {
+                    AppNavigationSuite(
+                        navType = ShellNavType.RailExpanded,
+                        currentDestination = ShellDestination.Home,
+                        onDestinationSelected = {},
+                        onSignOutRequest = {},
+                        modifier = Modifier.fillMaxHeight(),
+                    )
+                    NowPlayingToolbar(
+                        state = dockedState,
+                        progress = { dockedProgress },
+                        isExpanded = false,
+                        onTap = {},
+                        onPrimary = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onSeek = {},
+                        onSpeedClick = {},
+                        onSleepClick = {},
+                        onChaptersClick = {},
+                        onKeepListening = {},
+                        skipBackwardSec = 15,
+                        skipForwardSec = 30,
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(nowPlayingToolbarPadding(besideRail = true))
+                                .testTag(DOCKED_BAR),
+                    )
                 }
             }
         }
 
         val logout = composeRule.onNodeWithText("Logout")
         logout.assertIsDisplayed()
-        val barTop = composeRule.onNodeWithTag(DOCKED_BAR).getUnclippedBoundsInRoot().top
-        logout.getUnclippedBoundsInRoot().bottom shouldBeLessThanOrEqualTo barTop
+        val toolbarLeft = composeRule.onNodeWithTag(DOCKED_BAR).getUnclippedBoundsInRoot().left
+        logout.getUnclippedBoundsInRoot().right shouldBeLessThanOrEqualTo toolbarLeft
     }
 
     @Test

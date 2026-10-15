@@ -1147,7 +1147,7 @@ private fun BoxScope.AuthenticatedNavOverlays(
     // Pass viewModel explicitly to ensure NowPlayingHost shares the same instance
     // as NowPlayingBar in AppShell - prevents state divergence between screens
     NowPlayingHost(
-        hasBottomNav = backStack.lastOrNull() == Shell,
+        isShellShowing = backStack.lastOrNull() == Shell,
         snackbarHostState = snackbarHostState,
         onNavigateToBook = { bookId ->
             backStack.add(BookDetail(bookId))
