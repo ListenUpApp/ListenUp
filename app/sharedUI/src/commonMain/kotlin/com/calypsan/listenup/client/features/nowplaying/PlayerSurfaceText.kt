@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.nowplaying
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.playback.PlayerPhase
-import com.calypsan.listenup.client.presentation.error.playerTitle
 import com.calypsan.listenup.client.presentation.player.PlayerBook
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
@@ -29,18 +28,6 @@ internal val PlayerBook.authorLine: String
 internal fun PlayerUiState.Loaded.chapterLine(): String =
     chapter.title.takeUnless { chapter.isWholeBook }?.takeIf { it.isNotBlank() }
         ?: stringResource(Res.string.player_chapter_number, chapter.number)
-
-/**
- * The mini player's second line: what went wrong when the book cannot play (gap 6, §11 row 1), otherwise the
- * chapter.
- */
-@Composable
-internal fun PlayerUiState.Loaded.statusLine(): String =
-    when (val p = phase) {
-        is PlayerPhase.Failed -> p.error.playerTitle()
-        is PlayerPhase.Unavailable -> p.reason.playerTitle()
-        else -> chapterLine()
-    }
 
 /** The shared contributor rows and full-cast sheet take [BookContributor]s. */
 internal fun List<PlayerContributor>.asBookContributors(): List<BookContributor> =

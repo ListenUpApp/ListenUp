@@ -181,6 +181,8 @@ import com.calypsan.listenup.web.features.nowplaying.loadedPlayerState
 import com.calypsan.listenup.web.features.nowplaying.playerProgress
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
@@ -270,7 +272,7 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
-import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
+import com.calypsan.listenup.web.features.nowplaying.PlayerProblemNote
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SearchUiState
@@ -1412,7 +1414,7 @@ class ClassContractTest :
                             },
                         )
                         AccountMenu(onSignOut = {})
-                        PlaybackNotice(
+                        PlayerProblemNote(
                             error = PlaybackError.ConnectionLost(),
                             primary = PrimaryControl.Retry,
                             onRetry = {},
@@ -2149,6 +2151,25 @@ private fun playerShapes(): List<@Composable () -> Unit> =
                 onSkipForward = {},
                 onSetSpeed = {},
             )
+            // The bar's other faces: a failure to fix (tinted, Retry), the end (Listen again), an armed sleep
+            // timer (the gold countdown), a revoked book (✕ Close) and the sleep fade (Keep listening).
+            listOf(
+                loadedPlayerState(phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()), primary = PrimaryControl.Retry),
+                loadedPlayerState(phase = PlayerPhase.Finished, primary = PrimaryControl.ListenAgain),
+                loadedPlayerState(sleepTimer = SleepTimerState.Active(SleepTimerMode.Duration(30), 1_380_000, 1_800_000, 0)),
+                loadedPlayerState(phase = PlayerPhase.Unavailable(PlaybackError.NoLongerAvailable()), primary = PrimaryControl.Close),
+                loadedPlayerState(phase = PlayerPhase.SleepFading),
+            ).forEach { face ->
+                TransportBar(
+                    state = face,
+                    progress = playerProgress(),
+                    onPrimary = {},
+                    onSeek = {},
+                    onSkipBack = {},
+                    onSkipForward = {},
+                    onSetSpeed = {},
+                )
+            }
             // The expanded player, rendered open. It cannot ride the bar above into
             // this contract — it appears only after a click, and this harness renders
             // without gesturing — so a class invented in there would go unchecked.

@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.testing.AtFontScale
@@ -33,6 +33,7 @@ class MiniPlayerLargeTextTest {
                         onTap = {},
                         onPrimary = {},
                         onSkipBack = {},
+                        onKeepListening = {},
                         skipBackwardSec = 15,
                     )
                 }
@@ -43,13 +44,13 @@ class MiniPlayerLargeTextTest {
     @Test
     fun `at the largest font the cover steps aside for the title`() {
         bar(fontScale = 2f)
-        composeRule.onNodeWithContentDescription("Book cover").assertDoesNotExist()
+        composeRule.onNodeWithTag(MINI_COVER_TAG, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
     fun `at the default font the cover stays`() {
         bar(fontScale = 1f)
-        composeRule.onNodeWithContentDescription("Book cover").assertExists()
+        composeRule.onNodeWithTag(MINI_COVER_TAG, useUnmergedTree = true).assertExists()
     }
 
     private companion object {

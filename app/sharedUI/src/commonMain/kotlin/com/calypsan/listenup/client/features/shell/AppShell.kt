@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.union
+import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -390,9 +394,9 @@ fun AppShell(
         )
     } else {
         // Tablet / desktop layout: wide rail beside the content pane.
-        // The mini-player is NOT rendered here — on these device types NowPlayingHost
-        // already shows a root-level DockedNowPlayingBar, so adding nowPlayingContent()
-        // would double it. The compact branch keeps the stacked mini-player above the bar.
+        // The mini-player is NOT rendered here — on these widths NowPlayingHost floats a
+        // root-level NowPlayingToolbar beside the rail, so adding nowPlayingContent() would
+        // double it. The content pane clears that toolbar instead (railContentInsets).
         Row(modifier = Modifier.fillMaxSize()) {
             AppNavigationSuite(
                 navType = navType,
@@ -404,6 +408,7 @@ fun AppShell(
             Scaffold(
                 modifier = Modifier.weight(1f),
                 containerColor = Color.Transparent,
+                contentWindowInsets = railContentInsets(),
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 content = shellContent,
             )
@@ -435,3 +440,11 @@ private fun SearchResultsOverlayHost(
         modifier = modifier,
     )
 }
+
+/**
+ * The rail layout's content insets: the system's, plus the floating mini player's footprint, so the end of Home,
+ * Library and Discover scrolls clear of the toolbar (the phone layout gets this from its Scaffold's bottomBar).
+ */
+@Composable
+internal fun railContentInsets(): WindowInsets =
+    ScaffoldDefaults.contentWindowInsets.union(LocalNowPlayingInsets.current)

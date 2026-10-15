@@ -207,6 +207,11 @@ dialog.dlg .dlg-close { align-self: flex-start; }
    a cover, a byline and a transport at once; every other one is a list of choices. */
 .np-dlg { width: 560px; max-width: min(560px, calc(100vw - 32px)); }
 .np-body { display:flex; gap:20px; align-items:flex-start; padding:var(--sp-4) 0 var(--sp-16); }
+/* A problem's cause and Dismiss inside Now Playing (PlayerProblemNote), until PR 3's error card. */
+.np-note { display:flex; align-items:center; gap:10px; margin:0 0 var(--sp-16); padding:10px 14px; border-radius:var(--r-sm); background:var(--player-err-container); color:var(--player-err-ink); font-size:var(--fs-ui); font-weight:600; }
+.np-note-t { flex:1; min-width:0; }
+.np-note-x { width:44px; height:44px; flex:none; border:none; border-radius:var(--r-sm); background:transparent; color:inherit; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .np-note-x:hover { background:var(--surface-2); } }
 .np-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:var(--sp-8); }
 .np-t { font-size:1.25rem; font-weight:800; letter-spacing:-.02em; color:var(--ink); line-height:1.2; }
 .np-by { font-size:var(--fs-ui); font-weight:600; color:var(--ink-2); }
@@ -313,13 +318,6 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .boost-opt:active { transform: translateY(1px); }
 .boost-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral-text); }
 .boost-reset { margin-top: 14px; }
-
-/* An armed timer, said on the control itself rather than only inside the dialog. */
-.tport-sleep.on { color: var(--coral-text); }
-
-/* A boost in force, same idea: it changes how the book sounds, so it has to be visible without
-   opening a panel to ask. */
-.tport-boost.on { color: var(--coral-text); }
 
 /* ---- banners ---- */
 .banner { display:flex; align-items:center; gap:11px; padding:0 var(--sp-16); min-height:44px; font-size:var(--fs-ui); font-weight:600; border-bottom:1px solid; }

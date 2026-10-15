@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase
 import com.calypsan.listenup.client.playback.PlayerSessionRig
 import com.calypsan.listenup.client.test.fake.FakeUserRepository
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
@@ -17,8 +18,10 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.test.TestScope
 
 /** A [PlayerViewModel] over a [PlayerSessionRig]'s fakes, plus the Room reads only the projection makes. */
@@ -39,9 +42,14 @@ internal class PlayerViewModelRig(
     /** Every loaded book's listener ratings. */
     val ratingList = MutableStateFlow<List<ListenerRating>>(emptyList())
 
+    /** Per book: while a gate is open (incomplete), the book's documents, and so its `PlayerBook`, have not loaded yet. */
+    val documentGates = mutableMapOf<String, CompletableDeferred<Unit>>()
+
     val documents =
         mock<DocumentRepository> {
-            every { observeDocuments(any()) } returns documentList
+            every { observeDocuments(any()) } calls { (id: BookId) ->
+                documentList.onStart { documentGates[id.value]?.await() }
+            }
             everySuspend { ensureLocal(any(), any()) } calls { ensureLocalResult }
         }
     val contributors =

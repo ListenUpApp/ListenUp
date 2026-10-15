@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
@@ -28,7 +29,6 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
-import com.calypsan.listenup.client.features.shell.components.NavigationBarHeight
 import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -46,11 +46,14 @@ private val SnackbarHeight = 48.dp
  * Should be placed in the app shell, rendered above other content.
  *
  * Uses spring animations for natural, physical-feeling motion as per M3 Expressive.
+ *
+ * @param isShellShowing Whether the shell is the top destination: on a phone its bottom navigation is showing (and
+ * the shell draws the bar itself); on a wide window its rail is, and the toolbar floats beside it.
  */
 @Suppress("LongMethod")
 @Composable
 fun NowPlayingHost(
-    hasBottomNav: Boolean,
+    isShellShowing: Boolean,
     snackbarHostState: SnackbarHostState?,
     onNavigateToBook: (String) -> Unit,
     onNavigateToSeries: (String) -> Unit,
@@ -99,9 +102,8 @@ fun NowPlayingHost(
     val deviceContext = LocalDeviceContext.current
     val isTv = deviceContext.isLeanback
     // Pick the bar by the *live* window width, not a static device label: a foldable folded to its
-    // cover screen is compact and should get the slim floating bar, not the wide docked one. TV always
-    // docks (leanback never shows the floating pill).
-    val useDockedBar =
+    // cover screen is compact and gets the phone bar, not the floating toolbar. TV always gets the toolbar.
+    val useToolbar =
         isTv ||
             currentWindowAdaptiveInfoV2()
                 .windowSizeClass
@@ -166,9 +168,10 @@ fun NowPlayingHost(
             }
         }
 
-        // Mini player — docked bar for TV/Desktop/Tablet, floating pill for phone
-        if (useDockedBar) {
-            DockedNowPlayingBar(
+        // Mini player: the floating toolbar on wide windows and TV, the docked phone bar otherwise.
+        if (useToolbar) {
+            val density = LocalDensity.current
+            NowPlayingToolbar(
                 state = state,
                 progress = provideProgress,
                 isExpanded = isExpanded,
@@ -178,30 +181,34 @@ fun NowPlayingHost(
                 onSkipForward = { viewModel.skipForward() },
                 onSeek = viewModel::seekWithinChapter,
                 onSpeedClick = viewModel::showSpeedPicker,
+                onSleepClick = viewModel::showSleepTimer,
+                onChaptersClick = viewModel::showChapterPicker,
+                onKeepListening = viewModel::cancelSleepTimer,
                 skipBackwardSec = skipBackwardSec,
                 skipForwardSec = skipForwardSec,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        // Measured outside its margins and the gesture inset, so LocalNowPlayingInsets spans from the
+                        // window's bottom to the toolbar's top (the footprint the old docked bar never reported).
+                        .onSizeChanged { size -> onBarFootprintChanged(with(density) { size.height.toDp() }) }
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        // TV's leanback shell places its own rail; the toolbar spans the window there (M18).
+                        .padding(nowPlayingToolbarPadding(besideRail = isShellShowing && !isTv)),
             )
-        } else if (!hasBottomNav) {
-            // Only render floating mini bar on detail screens (not Shell)
-            // When hasBottomNav=true, the mini bar is rendered inside AppShell's bottomBar
-            val navBarInsets = WindowInsets.navigationBars
-            val density = LocalDensity.current
-            val systemNavBarHeight = with(density) { navBarInsets.getBottom(density).toDp() }
+        } else if (!isShellShowing) {
+            // Detail screens: no navigation bar under it, so the docked bar sits at the bottom edge and runs under the
+            // gesture area, padding its own row clear of it. Its measured footprint therefore already includes that
+            // inset, which is what LocalNowPlayingInsets must span for ListenUpScaffold to clear it. (On the shell the
+            // bar lives in AppShell's bottomBar, above the navigation bar, which pads the tab content itself.)
             val snackbarPadding = if (isSnackbarVisible) SnackbarHeight + 8.dp else 0.dp
-            val targetBottomPadding =
-                if (hasBottomNav) {
-                    NavigationBarHeight + systemNavBarHeight + snackbarPadding
-                } else {
-                    systemNavBarHeight + 8.dp + snackbarPadding
-                }
             val bottomPadding by animateDpAsState(
-                targetValue = targetBottomPadding,
+                targetValue = snackbarPadding,
                 // Matches ProvideNowPlayingInsets, so content clears the bar in step with it.
                 animationSpec = motion.defaultSpatialSpec(),
                 label = "miniPlayerPosition",
             )
-
+            val density = LocalDensity.current
             NowPlayingBar(
                 state = state,
                 progress = provideProgress,
@@ -209,20 +216,16 @@ fun NowPlayingHost(
                 onTap = viewModel::expand,
                 onPrimary = viewModel::onPrimary,
                 onSkipBack = { viewModel.skipBack() },
+                onKeepListening = viewModel::cancelSleepTimer,
                 skipBackwardSec = skipBackwardSec,
+                bottomInset = WindowInsets.navigationBars,
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
                         .onSizeChanged { size ->
-                            // Report the bar's FULL resting footprint — its own height *plus* the
-                            // nav-bar + 8dp offset it floats above — by measuring outside the
-                            // .padding below. LocalNowPlayingInsets must span from the screen bottom
-                            // to the bar's top edge so ListenUpScaffold's union with the system bars
-                            // clears a docked bottomBar (e.g. Save Changes); measuring inside the
-                            // padding under-reported by exactly that offset and let the bar overlap.
-                            // A visible snackbar lifts the bar (snackbarPadding) — reporting that
-                            // would reflow every detail screen up for the snackbar's duration, so we
-                            // skip those measurements.
+                            // Measured outside the snackbar lift below. A visible snackbar lifts the bar; reporting
+                            // that would reflow every detail screen for the snackbar's lifetime, so those
+                            // measurements are skipped.
                             if (!isSnackbarVisible) {
                                 onBarFootprintChanged(with(density) { size.height.toDp() })
                             }

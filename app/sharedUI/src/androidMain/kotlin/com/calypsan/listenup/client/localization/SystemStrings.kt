@@ -129,7 +129,7 @@ data class SystemStrings(
                 carForward = "Forward %1\$ss",
                 playerPreviousChapter = "Previous chapter",
                 playerNextChapter = "Next chapter",
-                playerSkipBackward = "Skip backward %1\$s seconds",
+                playerSkipBackward = "Skip back %1\$s seconds",
                 playerSkipForward = "Skip forward %1\$s seconds",
                 playerPlay = "Play",
                 playerPause = "Pause",

@@ -94,6 +94,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onTap = nowPlayingViewModel::expand,
                         onPrimary = nowPlayingViewModel::onPrimary,
                         onSkipBack = { nowPlayingViewModel.skipBack() },
+                        onKeepListening = nowPlayingViewModel::cancelSleepTimer,
                         skipBackwardSec = (playerState as? PlayerUiState.Loaded)?.run { settings.skipBackSec } ?: 0,
                     )
                 },

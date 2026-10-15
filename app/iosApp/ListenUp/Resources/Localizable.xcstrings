@@ -19311,6 +19311,276 @@
         }
       }
     },
+    "player.mini_auth_session_expired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed out · place saved"
+          }
+        }
+      }
+    },
+    "player.mini_book_held_for_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not playable"
+          }
+        }
+      }
+    },
+    "player.mini_busy_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading. Pause"
+          }
+        }
+      }
+    },
+    "player.mini_chapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d"
+          }
+        }
+      }
+    },
+    "player.mini_fading_out": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep timer · fading out"
+          }
+        }
+      }
+    },
+    "player.mini_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished"
+          }
+        }
+      }
+    },
+    "player.mini_keep_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep listening"
+          }
+        }
+      }
+    },
+    "player.mini_keep_listening_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep Listening"
+          }
+        }
+      }
+    },
+    "player.mini_listen_again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listen again"
+          }
+        }
+      }
+    },
+    "player.mini_listen_again_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listen again to %1$@"
+          }
+        }
+      }
+    },
+    "player.mini_listen_again_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listen Again"
+          }
+        }
+      }
+    },
+    "player.mini_loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading…"
+          }
+        }
+      }
+    },
+    "player.mini_open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Now Playing"
+          }
+        }
+      }
+    },
+    "player.mini_open_inbox": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Inbox"
+          }
+        }
+      }
+    },
+    "player.mini_paused": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused"
+          }
+        }
+      }
+    },
+    "player.mini_playback_autoplay_blocked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap Play to start"
+          }
+        }
+      }
+    },
+    "player.mini_playback_blocked_in_background": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to keep listening"
+          }
+        }
+      }
+    },
+    "player.mini_playback_no_longer_available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No longer in your library"
+          }
+        }
+      }
+    },
+    "player.mini_playback_offline_not_downloaded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't play offline"
+          }
+        }
+      }
+    },
+    "player.mini_playback_server_unreachable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't reach your server"
+          }
+        }
+      }
+    },
+    "player.mini_playing_on": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playing on %1$@"
+          }
+        }
+      }
+    },
+    "player.mini_reconnecting_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnecting. Pause"
+          }
+        }
+      }
+    },
+    "player.mini_resume": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "player.mini_sleep": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep · %1$@"
+          }
+        }
+      }
+    },
+    "player.mini_sleep_left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep timer, %1$@ left"
+          }
+        }
+      }
+    },
+    "player.mini_starting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting…"
+          }
+        }
+      }
+    },
+    "player.mini_whole_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whole book"
+          }
+        }
+      }
+    },
     "player.more_options": {
       "localizations": {
         "en": {
@@ -19526,7 +19796,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Skip backward %1$@ seconds"
+            "value": "Skip back %1$@ seconds"
           }
         }
       }

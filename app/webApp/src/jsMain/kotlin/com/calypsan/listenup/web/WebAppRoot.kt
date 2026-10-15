@@ -11,7 +11,6 @@ import com.calypsan.listenup.web.design.LocalAvatarFrames
 import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.LocalRestrictedBookIds
 import com.calypsan.listenup.web.design.ShowActionToast
-import com.calypsan.listenup.web.features.nowplaying.PlaybackNoticeHost
 import com.calypsan.listenup.web.features.nowplaying.TransportBarHost
 import com.calypsan.listenup.web.features.sync.DeadLetterNotice
 import com.calypsan.listenup.web.motion.PageArrival
@@ -136,7 +135,7 @@ fun WebAppRoot(
                 )
             }
 
-            // Above the playback notices, and unlike them it is not dismissible: a failed edit stays
+            // Above the player bar, and unlike a playback problem it is not dismissible: a failed edit stays
             // until the reader retries or accepts the server's version. See [DeadLetterNotice].
             val deadLetters = rememberSession { graph.openDeadLetters() }
             DeadLetterNotice(
@@ -147,10 +146,8 @@ fun WebAppRoot(
                 onDismissAll = deadLetters.onDismissAll,
             )
 
-            // Both last inside the content region, so they sit under whatever page is showing and
-            // stay put as the reader moves between them. The notice sits above the bar it explains.
-            // Each in its own scope, so neither the tick nor a phase change re-runs this lambda.
-            PlaybackNoticeHost(playback)
+            // Last inside the content region, so it sits under whatever page is showing and stays put as the
+            // reader moves between them. It says what is wrong itself; the cause and Dismiss are in Now Playing.
             // Its own scope: the playback tick recomposes the bar, not this lambda. See the host.
             TransportBarHost(
                 playback = playback,

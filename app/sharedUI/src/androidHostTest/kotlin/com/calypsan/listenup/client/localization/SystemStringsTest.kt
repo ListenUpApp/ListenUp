@@ -41,7 +41,7 @@ class SystemStringsTest {
 
             // The skip labels joined this group in #1300: the seconds are the user's synced
             // setting, read at render time, so the loader must NOT bake a number in here.
-            loaded.playerSkipBackward shouldBe "Skip backward %1\$s seconds"
+            loaded.playerSkipBackward shouldBe "Skip back %1\$s seconds"
             loaded.playerSkipForward shouldBe "Skip forward %1\$s seconds"
             loaded.carBack shouldBe "Back %1\$ss"
             loaded.carForward shouldBe "Forward %1\$ss"

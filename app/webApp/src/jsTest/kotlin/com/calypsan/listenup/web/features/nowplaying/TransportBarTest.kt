@@ -1,11 +1,13 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import androidx.compose.runtime.Composable
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
+import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
@@ -25,6 +27,7 @@ import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.asList
 import org.w3c.dom.events.Event
 import org.w3c.dom.url.URL
 
@@ -58,6 +61,38 @@ private const val HALF_SPEED = 0.5f
 
 private const val TRIPLE_SPEED = 3.0f
 
+/** Two titled chapters, the second current, 300 s each: the bar's chapter-scoped controls read these. */
+private fun chaptered(
+    phase: PlayerPhase = PlayerPhase.Playing,
+    primary: PrimaryControl? = null,
+    sleepTimer: SleepTimerState = SleepTimerState.Inactive,
+): PlayerUiState.Loaded =
+    loadedPlayerState(
+        title = "The Way of Kings",
+        phase = phase,
+        primary =
+            primary ?: if (phase == PlayerPhase.Playing || phase == PlayerPhase.SleepFading) PrimaryControl.Pause else PrimaryControl.Play,
+        authors = listOf(PlayerContributor("c1", "Brandon Sanderson", 1)),
+        durationMs = 600_000,
+        chapters =
+            listOf(
+                PlayerChapterRow(0, 1, "Prelude", 0, 300_000, isCurrent = false),
+                PlayerChapterRow(1, 2, "Bridge Four", 300_000, 300_000, isCurrent = false),
+            ),
+        currentChapterIndex = 1,
+        skipBackSec = 10,
+        skipForwardSec = 30,
+        sleepTimer = sleepTimer,
+        showsSkipBack = phase == PlayerPhase.Playing || phase == PlayerPhase.Paused || phase == PlayerPhase.SleepFading,
+    )
+
+/** 60 s into the second chapter: 4 minutes left in it. */
+private val CHAPTER_PROGRESS =
+    PlayerProgress(chapterPositionMs = 60_000, chapterDurationMs = 300_000, bookPositionMs = 360_000, bookDurationMs = 600_000)
+
+/** The body's accessible name over [chaptered] at [CHAPTER_PROGRESS]. */
+private const val KINGS_BODY_LABEL = "Open Now Playing: The Way of Kings, Bridge Four, 4 minutes left in the chapter"
+
 /**
  * The transport bar's own contract, over the shared model's state.
  *
@@ -80,6 +115,7 @@ class TransportBarTest :
             onSkipBack: () -> Unit = {},
             onSkipForward: () -> Unit = {},
             onSetSpeed: (Float) -> Unit = {},
+            onCancelSleepTimer: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 TransportBar(
@@ -90,10 +126,9 @@ class TransportBarTest :
                     onSkipBack = onSkipBack,
                     onSkipForward = onSkipForward,
                     onSetSpeed = onSetSpeed,
+                    onCancelSleepTimer = onCancelSleepTimer,
                 )
             }
-
-        fun notice(content: @Composable () -> Unit): HTMLElement = mounts.mount { content() }
 
         test("a paused book offers Play, and a playing one offers Pause") {
             val paused = bar(loadedPlayerState(phase = PlayerPhase.Paused))
@@ -119,9 +154,9 @@ class TransportBarTest :
 
             host.textContent.orEmpty() shouldContain "Words of Radiance"
             host.querySelector(".tport-wait").shouldNotBeNull()
-            host.querySelector(".tport-b")!!.getAttribute("aria-label") shouldBe "Loading"
-            // §3.5: there is no settled position to go back from yet.
-            host.querySelector("[aria-label^='Back ']").shouldBeNull()
+            host.querySelector(".tport-b")!!.getAttribute("aria-label") shouldBe "Loading. Pause"
+            // §3.5: there is no settled position to go back from yet; the control keeps its slot, hidden.
+            host.querySelector(".tport-back")!!.classList.contains("off") shouldBe true
         }
 
         test("a refused autoplay offers Play with a ring, and the press goes to the model") {
@@ -149,8 +184,8 @@ class TransportBarTest :
 
             val skips = host.querySelectorAll(".tport-skip")
             skips.length shouldBe 2
-            (skips.item(0) as HTMLElement).getAttribute("aria-label") shouldBe "Back $CUSTOM_SKIP_BACK_SEC seconds"
-            (skips.item(1) as HTMLElement).getAttribute("aria-label") shouldBe "Forward $CUSTOM_SKIP_FORWARD_SEC seconds"
+            (skips.item(0) as HTMLElement).getAttribute("aria-label") shouldBe "Skip back $CUSTOM_SKIP_BACK_SEC seconds"
+            (skips.item(1) as HTMLElement).getAttribute("aria-label") shouldBe "Skip forward $CUSTOM_SKIP_FORWARD_SEC seconds"
             host.querySelectorAll(".tport-skip-n").let { numerals ->
                 (numerals.item(0) as HTMLElement).textContent shouldBe CUSTOM_SKIP_BACK_SEC.toString()
                 (numerals.item(1) as HTMLElement).textContent shouldBe CUSTOM_SKIP_FORWARD_SEC.toString()
@@ -179,7 +214,7 @@ class TransportBarTest :
 
             host.querySelector(".tport-speed")!!.textContent shouldBe "$FASTER_SPEED\u00D7"
             // The visible text is terse by necessity; the label is what a screen reader gets.
-            host.querySelector(".tport-speed")!!.getAttribute("aria-label") shouldContain FASTER_SPEED.toString()
+            host.querySelector(".tport-speed")!!.getAttribute("aria-label") shouldBe "Playback speed, ${formatSpeed(FASTER_SPEED)} times"
         }
 
         test("the speed control opens the picker rather than changing the rate under you") {
@@ -271,7 +306,7 @@ class TransportBarTest :
             URL.revokeObjectURL(segment.url)
         }
 
-        test("the bar renders elapsed on the left of the scrubber and total on the right") {
+        test("the bar renders elapsed on the left of the scrubber and the chapter's remaining on the right") {
             // The two labels are deliberately different values, and asserted in order. Counting
             // them proves nothing: swapping position and duration at the call site renders
             // two labels too, and would tell every listener their book was nearly over.
@@ -285,61 +320,9 @@ class TransportBarTest :
             val times = host.querySelectorAll(".tport-time")
             times.length shouldBe 2
             times.item(0)!!.textContent shouldBe formatElapsed(UNDER_AN_HOUR_MS)
-            times.item(1)!!.textContent shouldBe formatElapsed(LONG_BOOK_MS)
+            times.item(1)!!.textContent shouldBe "\u2212" + formatElapsed(LONG_BOOK_MS - UNDER_AN_HOUR_MS)
             // …and not the same string, or the assertions above would survive a swap.
-            formatElapsed(UNDER_AN_HOUR_MS) shouldNotBe formatElapsed(LONG_BOOK_MS)
-        }
-
-        test("a failed book's notice names the cause and offers Retry") {
-            var retries = 0
-            val host =
-                notice {
-                    PlaybackNotice(
-                        error = PlaybackError.ConnectionLost(),
-                        primary = PrimaryControl.Retry,
-                        onRetry = { retries++ },
-                        onDismiss = {},
-                    )
-                }
-
-            val text = host.querySelector(".tport-note")!!.textContent.orEmpty()
-            text shouldContain "Couldn't play this book."
-            text shouldContain "The connection to your server dropped."
-            host.buttonSaying("Retry").shouldNotBeNull().click()
-            retries shouldBe 1
-        }
-
-        test("a held book's notice names what unlocks it, and offers no Retry") {
-            // The refusal's own words, not the connection-failure notice, which would send the listener checking
-            // a network that is fine. Retrying cannot release a book from the Inbox.
-            var dismissals = 0
-            val held: AppError = BookError.HeldForReview()
-            val host =
-                notice {
-                    PlaybackNotice(error = held, primary = PrimaryControl.Close, onRetry = {}, onDismiss = { dismissals++ })
-                }
-
-            val text = host.querySelector(".tport-note")!!.textContent.orEmpty()
-            text shouldContain held.playerTitle()
-            text shouldNotContain "Couldn't play"
-            host.buttonSaying("Retry").shouldBeNull()
-            (host.querySelector(".tport-note-x") as HTMLButtonElement).click()
-            dismissals shouldBe 1
-        }
-
-        test("a notice with nothing to report renders nothing") {
-            val host = notice { PlaybackNotice(error = null, primary = null, onRetry = {}, onDismiss = {}) }
-
-            host.querySelector(".tport-note") shouldBe null
-        }
-
-        test("the notice reads a failure, or a known reason a book cannot play, and nothing else") {
-            noticeErrorOf(PlayerUiState.NothingLoaded).shouldBeNull()
-            noticeErrorOf(loadedPlayerState(phase = PlayerPhase.Playing)).shouldBeNull()
-            noticeErrorOf(loadedPlayerState(phase = PlayerPhase.Failed(PlaybackError.Stalled()))) shouldBe
-                PlaybackError.Stalled()
-            noticeErrorOf(loadedPlayerState(phase = PlayerPhase.Unavailable(BookError.HeldForReview()))) shouldBe
-                BookError.HeldForReview()
+            formatElapsed(UNDER_AN_HOUR_MS) shouldNotBe formatElapsed(LONG_BOOK_MS - UNDER_AN_HOUR_MS)
         }
 
         test("the scrubber steps by a second, not a millisecond, and says the time out loud") {
@@ -352,5 +335,185 @@ class TransportBarTest :
             // Where you are, against the whole: "3:30 of 10:00", not a bare "3:30".
             scrubber.getAttribute("aria-valuetext") shouldBe
                 "${formatElapsed(SEEK_TARGET_MS)} of ${formatElapsed(SHORT_BOOK_MS)}"
+        }
+
+        test("the body is one button that opens Now Playing, named for the book and its line") {
+            val host = bar(chaptered(), CHAPTER_PROGRESS)
+            val body = host.querySelector(".tport-body") as HTMLButtonElement
+            body.getAttribute("aria-label") shouldBe KINGS_BODY_LABEL
+            host.querySelector(".tport-sub.desk")!!.textContent shouldBe "Bridge Four · Brandon Sanderson"
+            body.click()
+            awaitFrame()
+            host.querySelector("dialog.np-dlg[open]").shouldNotBeNull()
+            host.closeDialogs()
+        }
+
+        test("the bar's focus order is pinned: body, back, play, forward, scrubber, speed, sleep, chapters, open") {
+            // ⛔ PR 5 must not change this order (spec §11). PR 6's Shortcuts is the one sanctioned insertion,
+            // between Chapters and Open.
+            val host = bar(chaptered(), CHAPTER_PROGRESS)
+            val bar = host.querySelector(".tport") as HTMLElement
+            val order =
+                bar
+                    .querySelectorAll("button, input")
+                    .asList()
+                    .map { it as HTMLElement }
+                    .filter { it.tabIndex >= 0 }
+                    .map { it.getAttribute("aria-label") }
+            order shouldBe
+                listOf(
+                    KINGS_BODY_LABEL,
+                    "Skip back 10 seconds",
+                    "Pause",
+                    "Skip forward 30 seconds",
+                    "Chapter position",
+                    "Playback speed, 1 times",
+                    "Sleep timer",
+                    "Chapters",
+                    "Open Now Playing",
+                )
+        }
+
+        test("a hidden back N keeps its slot, so the main button never moves, and leaves the tab order") {
+            val host = bar(chaptered(phase = PlayerPhase.Buffering, primary = PrimaryControl.Busy), CHAPTER_PROGRESS)
+            val back = host.querySelector(".tport-back") as HTMLButtonElement
+            back.classList.contains("off") shouldBe true
+            back.getAttribute("aria-hidden") shouldBe "true"
+            back.tabIndex shouldBe -1
+            back.disabled shouldBe true
+            host.querySelector(".tport-b")!!.getAttribute("aria-label") shouldBe "Loading. Pause"
+        }
+
+        test("the scrubber is the chapter's: its range is the chapter, and a release seeks from the chapter's start") {
+            var sought: Long? = null
+            val host = bar(chaptered(), CHAPTER_PROGRESS, onSeek = { sought = it })
+            val range = host.querySelector(".tport-head input") as HTMLInputElement
+            range.getAttribute("aria-label") shouldBe "Chapter position"
+            range.getAttribute("max") shouldBe "300000"
+            range.value shouldBe "60000"
+            range.value = "120000"
+            range.dispatchEvent(Event("input"))
+            range.dispatchEvent(Event("change"))
+            sought shouldBe 420_000L
+        }
+
+        test("the right-hand time is the chapter's remaining, signed") {
+            val host = bar(chaptered(), CHAPTER_PROGRESS)
+            val times = host.querySelectorAll(".tport-head .tport-time").asList().map { it.textContent.orEmpty() }
+            times shouldBe listOf("1:00", "\u22124:00")
+        }
+
+        test("volume boost is not on the bar") {
+            bar(chaptered(), CHAPTER_PROGRESS).querySelector(".tport-boost").shouldBeNull()
+        }
+
+        test("an armed timer shows its countdown on the sleep control, in gold") {
+            val timer = SleepTimerState.Active(SleepTimerMode.Duration(30), remainingMs = 1_380_000, totalMs = 1_800_000, startedAt = 0)
+            val host = bar(chaptered(sleepTimer = timer), CHAPTER_PROGRESS)
+            val sleep = host.querySelector(".tport-sleep") as HTMLElement
+            sleep.classList.contains("armed") shouldBe true
+            sleep.textContent.orEmpty() shouldContain "23:00"
+            sleep.getAttribute("aria-label") shouldBe "Sleep timer, 23:00 left"
+        }
+
+        test("Open is a chevron that says whether Now Playing is open") {
+            val host = bar(chaptered(), CHAPTER_PROGRESS)
+            val open = host.querySelector(".tport-expand") as HTMLButtonElement
+            open.getAttribute("aria-label") shouldBe "Open Now Playing"
+            open.getAttribute("aria-expanded") shouldBe "false"
+            open.click()
+            awaitFrame()
+            open.getAttribute("aria-expanded") shouldBe "true"
+            host.closeDialogs()
+        }
+
+        test("during the sleep fade the main button is Keep listening, which cancels the timer; back N stays") {
+            // Simon 2026-10-14: the fade's way out sits on the mini player itself, not one tap away in Now Playing.
+            var cancels = 0
+            var presses = 0
+            val host =
+                bar(
+                    chaptered(phase = PlayerPhase.SleepFading),
+                    CHAPTER_PROGRESS,
+                    onPrimary = { presses++ },
+                    onCancelSleepTimer = { cancels++ },
+                )
+            host.querySelector(".tport-sub.desk")!!.textContent shouldBe "Sleep timer · fading out"
+            host.querySelector(".tport-b").shouldBeNull()
+            val keep = host.querySelector(".tport-pill") as HTMLButtonElement
+            keep.textContent shouldBe "Keep listening"
+            keep.click()
+            cancels shouldBe 1
+            presses shouldBe 0
+            host.querySelector(".tport-back")!!.classList.contains("off") shouldBe false
+        }
+
+        test("a failure tints the bar, says why, and offers Retry; no back skip") {
+            var presses = 0
+            val host =
+                bar(
+                    chaptered(phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()), primary = PrimaryControl.Retry),
+                    CHAPTER_PROGRESS,
+                    onPrimary = { presses++ },
+                )
+            val bar = host.querySelector(".tport") as HTMLElement
+            bar.classList.contains("problem") shouldBe true
+            bar.textContent.orEmpty() shouldContain "Couldn't play this book."
+            (host.querySelector(".tport-pill") as HTMLButtonElement).apply { textContent shouldBe "Retry" }.click()
+            presses shouldBe 1
+            host.querySelector(".tport-back")!!.classList.contains("off") shouldBe true
+        }
+
+        test("an unreachable server is not tinted and still offers Retry (S6)") {
+            val host =
+                bar(
+                    chaptered(phase = PlayerPhase.Unavailable(PlaybackError.ServerUnreachable()), primary = PrimaryControl.Retry),
+                    CHAPTER_PROGRESS,
+                )
+            host.querySelector(".tport")!!.classList.contains("problem") shouldBe false
+            host.textContent.orEmpty() shouldContain "Can't reach your server"
+            host.querySelector(".tport-pill")!!.textContent shouldBe "Retry"
+        }
+
+        test("a lapsed session offers Sign in; a revoked book offers Close") {
+            val lapsed =
+                bar(
+                    chaptered(phase = PlayerPhase.Unavailable(AuthError.SessionExpired()), primary = PrimaryControl.SignIn),
+                    CHAPTER_PROGRESS,
+                )
+            lapsed.querySelector(".tport-pill")!!.textContent shouldBe "Sign in"
+            val revoked =
+                bar(
+                    chaptered(phase = PlayerPhase.Unavailable(PlaybackError.NoLongerAvailable()), primary = PrimaryControl.Close),
+                    CHAPTER_PROGRESS,
+                )
+            revoked.querySelector(".tport-close")!!.getAttribute("aria-label") shouldBe "Close book"
+        }
+
+        test("finished offers Listen again, named for the book, and never a different book (F3)") {
+            val host = bar(chaptered(phase = PlayerPhase.Finished, primary = PrimaryControl.ListenAgain), CHAPTER_PROGRESS)
+            val pill = host.querySelector(".tport-pill.quiet") as HTMLElement
+            pill.textContent shouldBe "Listen again"
+            pill.getAttribute("aria-label") shouldBe "Listen again to The Way of Kings"
+            host.textContent.orEmpty() shouldContain "Finished"
+        }
+
+        test("there is no separate notice strip any more") {
+            bar(chaptered(phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()), primary = PrimaryControl.Retry), CHAPTER_PROGRESS)
+                .querySelector(".tport-note")
+                .shouldBeNull()
+        }
+
+        test("a dropped connection says Reconnecting in the line and once in a status region; back keeps its slot") {
+            val host = bar(chaptered(phase = PlayerPhase.Reconnecting, primary = PrimaryControl.Busy), CHAPTER_PROGRESS)
+            host.querySelector(".tport-sub.desk")!!.textContent shouldBe "Reconnecting…"
+            host.querySelector(".tport [role=status]")!!.textContent shouldBe "Reconnecting…"
+            host.querySelector(".tport-b")!!.getAttribute("aria-label") shouldBe "Reconnecting. Pause"
+            host.querySelector(".tport-back")!!.classList.contains("off") shouldBe true
+        }
+
+        test("the status region is empty in every other state, so it speaks only when reconnecting starts") {
+            val host = bar(chaptered(), CHAPTER_PROGRESS)
+            host.querySelector(".tport [role=status]")!!.textContent shouldBe ""
         }
     })

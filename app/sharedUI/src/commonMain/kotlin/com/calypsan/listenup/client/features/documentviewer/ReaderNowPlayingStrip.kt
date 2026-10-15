@@ -3,16 +3,9 @@ package com.calypsan.listenup.client.features.documentviewer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -20,119 +13,111 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.features.nowplaying.components.wayOut
+import com.calypsan.listenup.client.features.nowplaying.MiniPlayerGlyphSize
+import com.calypsan.listenup.client.features.nowplaying.authorLine
+import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
+import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
+import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
+import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
+import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
+import com.calypsan.listenup.client.features.nowplaying.miniBusyLabel
+import com.calypsan.listenup.client.features.nowplaying.miniPlayLabel
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
-import com.calypsan.listenup.client.presentation.player.PrimaryControl
-import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.player_cover_a11y
-import listenup.composeapp.generated.resources.player_pause
-import listenup.composeapp.generated.resources.player_play
+import listenup.composeapp.generated.resources.player_skip_backward
 import org.jetbrains.compose.resources.stringResource
 
+/** The strip's cover. */
+private val ReaderStripCoverSize = 44.dp
+
+/** The strip's main button: a plain 48dp target, the reader's dock being slimmer than the bar. */
+private val ReaderStripPlaySize = DpSize(48.dp, 48.dp)
+
 /**
- * Slim now-playing strip for the reader dock.
+ * Slim now-playing strip for the reader dock (M19): the mini player's rules, in the reader's dock.
  *
- * Shows: small cover · chapter/title + time-left · filled play/pause button.
- * Renders only while a book is loaded ([PlayerUiState.Loaded]); no-ops otherwise. The button is the shared
- * primary: play/pause, or the way out of a failure (Retry, Sign in, …).
- *
- * Intentionally minimal — no transport skip, no speed pill, no expand button.
+ * Intentionally minimal: cover · title · the mini line (chapter time left) · back N · the main button. No forward,
+ * no speed, no expand. Renders only while a book is loaded ([PlayerUiState.Loaded]); no-ops otherwise. The main button
+ * is the shared primary (play/pause, or a problem's way out), and Keep listening during the sleep fade.
  * The reader dock pairs this above a [ReaderPageScrubber].
  *
- * @param progress reads the playback position. Only the time-left line calls it, so a position
- *   tick redraws that line and nothing else in the strip.
+ * @param progress reads the playback position. Only the line's time left calls it, so a position tick redraws that
+ *   line and nothing else in the strip.
+ * @param onKeepListening The main button's action during the sleep fade: cancel the timer and restore the volume.
  */
 @Composable
 internal fun ReaderNowPlayingStrip(
     state: PlayerUiState,
     progress: () -> PlayerProgress,
     onPrimary: () -> Unit,
+    onSkipBack: () -> Unit,
+    onKeepListening: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHaptics.current
     if (state !is PlayerUiState.Loaded) return
     val book = state.book
+    val line = MiniPlayerLines.of(state)
+    val skipBackSec = state.settings.skipBackSec
 
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             BookCoverImage(
                 bookId = book.id,
                 coverPath = book.coverPath,
                 coverHash = book.coverHash,
-                contentDescription = stringResource(Res.string.player_cover_a11y),
+                // The title beside it names the book; the cover is decorative.
+                contentDescription = null,
                 title = book.title,
-                author = book.authors.joinToString(", ") { it.name },
+                author = book.authorLine,
                 modifier =
                     Modifier
-                        .size(44.dp)
-                        .clip(MaterialTheme.shapes.extraSmall),
+                        .size(ReaderStripCoverSize)
+                        .clip(MaterialTheme.shapes.medium)
+                        .clearAndSetSemantics {},
             )
-
-            Spacer(Modifier.width(10.dp))
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center,
-            ) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text =
-                        state.chapter.title
-                            .takeUnless { state.chapter.isWholeBook }
-                            ?.takeIf { it.isNotBlank() } ?: book.title,
+                    text = book.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                TimeLeft(progress)
+                MiniPlayerLineText(line = line, progress = progress, fit = MiniLineFit.WithTimeLeft)
             }
-
-            Spacer(Modifier.width(8.dp))
-
-            IconButton(
-                onClick = {
-                    haptics.press()
-                    onPrimary()
-                },
-            ) {
-                val isPause = state.primary == PrimaryControl.Pause
-                val way = state.primary.wayOut()
-                Icon(
-                    imageVector = way?.first ?: if (isPause) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription =
-                        stringResource(
-                            way?.second ?: if (isPause) Res.string.player_pause else Res.string.player_play,
-                        ),
-                    tint = MaterialTheme.colorScheme.primary,
+            if (state.showsSkipBack) {
+                Ctrl(
+                    icon = SkipGlyphs.backward(skipBackSec),
+                    contentDescription = stringResource(Res.string.player_skip_backward, skipBackSec),
+                    onClick = onSkipBack,
+                    size = MinTouchTarget,
+                    iconSize = MiniPlayerGlyphSize,
                 )
             }
+            MiniPrimaryButton(
+                primary = state.primary,
+                bookTitle = book.title,
+                onClick = onPrimary,
+                size = ReaderStripPlaySize,
+                playLabel = miniPlayLabel(line),
+                busyLabel = miniBusyLabel(line),
+                onKeepListening = onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
+            )
         }
     }
-}
-
-/** The time left in the book: the only part of the strip that moves with the playhead. */
-@Composable
-private fun TimeLeft(progress: () -> PlayerProgress) {
-    Text(
-        text = DurationFormatter.timeLeft(progress().bookRemainingMs.milliseconds),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-    )
 }

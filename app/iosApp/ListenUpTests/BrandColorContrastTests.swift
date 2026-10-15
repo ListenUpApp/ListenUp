@@ -125,6 +125,32 @@ struct BrandColorContrastTests {
         }
     }
 
+    @Test("the player's error red reads as text on every surface, in every appearance")
+    func playerErrorRed() {
+        let red = UIColor(named: "PlayerErrorRed")
+        #expect(red != nil)
+        guard let red else { return }
+        for traits in Traits.colorAppearances {
+            let ratio = SRGBColor(red, resolvedFor: traits).minimumContrastRatio(against: surfaces(traits))
+            let style = traits.userInterfaceStyle.rawValue
+            #expect(ratio >= ContrastMinimum.text, "player error text \(ratio) in \(style)")
+        }
+    }
+
+    @Test("a tinted capsule's coral ink reads as text on its 12% tint, in every appearance")
+    func coralInkOnTint() {
+        let ink = UIColor(named: "CoralInk")
+        #expect(ink != nil)
+        guard let ink else { return }
+        for traits in Traits.colorAppearances {
+            for base in [UIColor.systemBackground, .secondarySystemGroupedBackground] {
+                let tint = coral(traits).composited(opacity: 0.12, over: surface(base, traits))
+                let ratio = SRGBColor(ink, resolvedFor: traits).contrastRatio(against: tint)
+                #expect(ratio >= ContrastMinimum.text, "coral ink \(ratio) in \(traits.userInterfaceStyle.rawValue)")
+            }
+        }
+    }
+
     @Test("the warning amber is visibly not the brand coral")
     func warningIsNotCoral() {
         func hue(_ color: UIColor) -> Double {

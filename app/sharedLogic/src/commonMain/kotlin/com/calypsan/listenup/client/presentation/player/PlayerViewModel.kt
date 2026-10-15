@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -169,7 +170,7 @@ class PlayerViewModel(
             Surroundings(settings = settings, source = source, sleepTimer = sleep, isAdmin = isAdmin)
         }
 
-    /** What every player surface renders. Never re-emits on a position tick. */
+    /** What every player surface renders. Never re-emits on a position tick, and never blinks out on a book switch. */
     val uiState: StateFlow<PlayerUiState> =
         combine(
             flow = loadedSession,
@@ -178,24 +179,36 @@ class PlayerViewModel(
             flow4 = surroundings,
             flow5 = finished,
         ) { loaded, book, (chapter, rows), around, finishedInfo ->
-            if (loaded == null || book == null || book.id != loaded.bookId.value) {
-                PlayerUiState.NothingLoaded
-            } else {
-                PlayerUiState.Loaded(
-                    book = book,
-                    phase = loaded.phase,
-                    chapter = chapter,
-                    chapters = rows,
-                    source = around.source,
-                    settings = around.settings,
-                    sleepTimer = around.sleepTimer,
-                    primary = primaryControlFor(loaded.phase, around.isAdmin),
-                    showsSkipBack = showsSkipBackFor(loaded.phase),
-                    canSkipToNextChapter = !chapter.isWholeBook && chapter.number < chapter.total,
-                    finished = finishedInfo.takeIf { loaded.phase == PlayerPhase.Finished },
-                )
+            when {
+                loaded == null || book == null -> {
+                    PlayerUiState.NothingLoaded
+                }
+
+                // The session moved to a new book before Room answered for it. Hold the last frame (null is dropped
+                // below) rather than emit NothingLoaded, which unmounts the bar for a frame on every switch (§3.6).
+                book.id != loaded.bookId.value -> {
+                    null
+                }
+
+                else -> {
+                    PlayerUiState.Loaded(
+                        book = book,
+                        phase = loaded.phase,
+                        chapter = chapter,
+                        chapters = rows,
+                        source = around.source,
+                        settings = around.settings,
+                        sleepTimer = around.sleepTimer,
+                        primary = primaryControlFor(loaded.phase, around.isAdmin),
+                        showsSkipBack = showsSkipBackFor(loaded.phase),
+                        canSkipToNextChapter = !chapter.isWholeBook && chapter.number < chapter.total,
+                        finished = finishedInfo.takeIf { loaded.phase == PlayerPhase.Finished },
+                    )
+                }
             }
-        }.distinctUntilChanged().stateIn(viewModelScope, WhileSubscribedForUi, PlayerUiState.NothingLoaded)
+        }.filterNotNull()
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, WhileSubscribedForUi, PlayerUiState.NothingLoaded)
 
     /** The fast-changing, chapter-scoped position (~4 Hz). */
     val progress: StateFlow<PlayerProgress> =

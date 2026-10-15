@@ -7,17 +7,13 @@ enum PlayerTransition {
     static let coverID = "player-cover"
 }
 
-/// The mini player — the content of `MainTabView`'s `tabViewBottomAccessory`.
+/// The mini player: `MainTabView`'s `tabViewBottomAccessory`.
 ///
-/// The system draws the Liquid Glass capsule, keeps the bar above the tab bar, moves it inline
-/// when the tab bar minimizes on scroll, and reserves its space in every tab's safe area — HIG,
-/// Tab bars: "For tab bars with an attached accessory, like the MiniPlayer in Music, you can
-/// choose to minimize the tab bar and move the accessory inline with it". So this view draws no
-/// glass or shadow of its own; it only lays out its contents for the current
-/// `tabViewBottomAccessoryPlacement`.
-///
-/// Two sibling controls, never one nested in the other: the book (cover + titles) opens the full
-/// player, and play/pause toggles playback.
+/// The system draws the Liquid Glass capsule, keeps the bar above the tab bar, moves it inline when the tab bar
+/// minimises on scroll, and reserves its space in every tab's safe area (HIG, Tab bars: "For tab bars with an
+/// attached accessory, like the MiniPlayer in Music, you can choose to minimize the tab bar and move the accessory
+/// inline with it"). So this draws no glass of its own: it reads the placement and the width, builds the model, and
+/// lays it out.
 struct MiniPlayerBar: View {
     let observer: PlayerObserver
     /// The namespace the cover registers in as the full player's zoom source.
@@ -25,38 +21,101 @@ struct MiniPlayerBar: View {
     let onOpen: () -> Void
 
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
-
-    /// Counts user taps on play/pause so the haptic fires only on a deliberate tap — not on
-    /// programmatic `isPlaying` changes (audio-session interruptions, route changes, end of book).
-    @State private var playPauseTapCount = 0
-    /// The state the tap *moves to*, captured at tap time. Reading `isPlaybackActive` in the
-    /// modifier would race the Kotlin StateFlow's trip through FlowBridge, so the verb could
-    /// describe the state we just left. Mirrors Compose's `haptics.toggle(on = !isPlaying)`.
-    @State private var playPauseWillBeActive = false
-
-    /// Inline (beside the minimized tab bar) the accessory is short: title only, smaller cover.
-    private var isInline: Bool { placement == .inline }
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Group {
-            if observer.isErrored {
-                errorRow
-            } else {
-                playerRow
-            }
+        let isInline = placement == .inline
+        let model = MiniPlayerAccessoryModel.make(
+            snapshot: observer.snapshot,
+            chapterRemainingMs: max(0, observer.chapterDurationMs - observer.displayChapterPositionMs),
+            chapterFraction: chapterFraction,
+            isInline: isInline,
+            isWide: sizeClass == .regular)
+        MiniPlayerBookSwitchTransition(key: model.switchKey, reduceMotion: reduceMotion) {
+            MiniPlayerAccessoryContent(
+                model: model, isInline: isInline, transitionNamespace: transitionNamespace,
+                onOpen: onOpen,
+                onSkipBack: { observer.skipBackward() },
+                onSkipForward: { observer.skipForward() },
+                onPrimary: { observer.miniPrimary(model.primaryAction) })
         }
-        // The accessory is system chrome of a fixed height, like the tab bar: its text stops
-        // growing rather than clipping, and the large content viewer shows the title instead
-        // (HIG, Accessibility — the pattern bars use).
-        .dynamicTypeSize(...DynamicTypeSize.xLarge)
+        // Said once, politely, when a dropped connection starts recovering; never per second (HIG, Accessibility).
+        .onChange(of: model.isReconnecting) { _, isReconnecting in
+            guard isReconnecting else { return }
+            AccessibilityNotification.Announcement(String(localized: "player.reconnecting")).post()
+        }
     }
 
-    // MARK: - Player row
+    /// Chapter progress off the COARSE clock, so the hairline redraws about once a second, not per frame.
+    private var chapterFraction: Float {
+        let duration = observer.chapterDurationMs
+        guard duration > 0 else { return observer.displayBookProgress }
+        return min(1, Float(observer.displayChapterPositionMs) / Float(duration))
+    }
+}
 
-    private var playerRow: some View {
-        HStack(spacing: 8) {
+/// How the mini player moves on a book switch (Simon, 2026-10-14): the old book goes out and the new one comes in,
+/// so the change reads as deliberate rather than a one-frame flicker. Reduce Motion swaps instantly.
+enum MiniPlayerBookSwitch {
+    /// The two ways a switch can look.
+    enum Style: Equatable {
+        /// The system's content-replacement transition (`.blurReplace`), on the system's smooth spring.
+        case replace
+        /// No transition: the new book simply takes the old one's place.
+        case instant
+    }
+
+    static func style(reduceMotion: Bool) -> Style { reduceMotion ? .instant : .replace }
+
+    static func animation(reduceMotion: Bool) -> Animation? {
+        switch style(reduceMotion: reduceMotion) {
+        case .replace: .smooth
+        case .instant: nil
+        }
+    }
+
+    static func transition(reduceMotion: Bool) -> AnyTransition {
+        switch style(reduceMotion: reduceMotion) {
+        case .replace: AnyTransition(.blurReplace)
+        case .instant: .identity
+        }
+    }
+}
+
+/// Re-identifies its content by `key` (the book), so a switch transitions the old content out and the new in. The
+/// two overlap in one `ZStack` while it runs, so the bar is never empty for a frame; a change that keeps the key (a
+/// pause, a tick) is an ordinary update and never animates as a switch.
+struct MiniPlayerBookSwitchTransition<Content: View>: View {
+    let key: String?
+    let reduceMotion: Bool
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ZStack {
+            content()
+                .id(key)
+                .transition(MiniPlayerBookSwitch.transition(reduceMotion: reduceMotion))
+        }
+        .animation(MiniPlayerBookSwitch.animation(reduceMotion: reduceMotion), value: key)
+    }
+}
+
+/// The accessory's layout, from a value: the book (one button) · back N · the main button · forward (iPad). Pure, so
+/// the accessibility tests and the review snapshots host it directly.
+struct MiniPlayerAccessoryContent: View {
+    let model: MiniPlayerAccessoryModel
+    let isInline: Bool
+    let transitionNamespace: Namespace.ID
+    let onOpen: () -> Void
+    let onSkipBack: () -> Void
+    let onSkipForward: () -> Void
+    let onPrimary: () -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
             Button(action: onOpen) {
-                HStack(spacing: 10) {
+                HStack(spacing: coverGap) {
                     cover
                     titles
                     Spacer(minLength: 0)
@@ -64,103 +123,81 @@ struct MiniPlayerBar: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel([model.title, model.line].compactMap(\.self).joined(separator: ", "))
             .accessibilityHint(String(localized: "player.opens_player_hint"))
-            .accessibilityShowsLargeContentViewer {
-                Label(observer.bookTitle, systemImage: "book")
-            }
+            .accessibilityShowsLargeContentViewer { Label(model.title, systemImage: "book") }
 
-            playPauseButton
+            if model.showsSkipBack {
+                skip(symbol: PlayerGlyphs.skipBackward(seconds: model.skipBackSec),
+                     label: String(format: String(localized: "player.skip_backward"), "\(model.skipBackSec)"),
+                     action: onSkipBack)
+            }
+            MiniPlayerPrimaryButton(model: model, action: onPrimary)
+            if model.showsSkipForward {
+                skip(symbol: PlayerGlyphs.skipForward(seconds: model.skipForwardSec),
+                     label: String(format: String(localized: "player.skip_forward"), "\(model.skipForwardSec)"),
+                     action: onSkipForward)
+                    .disabled(!model.canSkipForward)
+            }
         }
-        .padding(.leading, isInline ? Spacing.xs : Spacing.s)
-        .padding(.trailing, Spacing.xxs)
-        .overlay(alignment: .bottom) {
-            if !isInline { progressLine }
-        }
+        .padding(.leading, leadingInset)
+        // A labelled capsule that ends the row sits concentric inside the accessory's end cap: the same 12pt clear on
+        // its end as above and below it. A glyph, or a capsule followed by iPad's forward, keeps the tight inset, so
+        // forward holds one position in every state.
+        .padding(.trailing, model.primary.isPill && !model.showsSkipForward ? Spacing.s : Spacing.xxs)
+        .containerShape(Capsule())
+        .overlay(alignment: .bottom) { if model.showsProgress { progressLine } }
+        // The accessory is system chrome of a fixed height, like the tab bar: its text stops growing at xLarge, and
+        // the large content viewer shows each control instead (HIG, Accessibility). MiniPlayerAccessibilityTests
+        // pins the height.
+        .dynamicTypeSize(...DynamicTypeSize.xLarge)
     }
+
+    private var leadingInset: CGFloat { isInline ? Spacing.xs : Spacing.s }
+    private var coverSide: CGFloat { isInline ? 28 : 34 }
+    /// The gap between the cover and the titles.
+    private let coverGap: CGFloat = 10
 
     private var titles: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(observer.bookTitle)
-                .font(.subheadline.weight(.medium))
+            Text(model.title)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-            if !isInline {
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .lineLimit(1)
-            }
+            MiniPlayerLineText(model: model)
         }
+        // Lifts the text clear of the progress hairline: the line's descenders keep 2pt of glass above it, up to the
+        // xLarge cap (MiniPlayerAccessibilityTests pins the gap).
+        .padding(.bottom, Spacing.xxs)
     }
 
-    /// Never-stranded failure surface: the bar keeps the book and shows why it can't play, with the
-    /// shared player's primary action (Retry, Sign in, Open Inbox or Close). Dismissing keeps the bar.
-    private var errorRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Color.listenUpOrange)
-                .accessibilityHidden(true)
-
-            Text(observer.errorMessage ?? String(localized: "common.something_went_wrong"))
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-
-            Spacer(minLength: 4)
-
-            Button { observer.primaryAction() } label: {
-                Text(observer.primary.errorActionTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.listenUpOrange)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            Button { observer.dismissError() } label: {
-                Image(systemName: "xmark")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(String(localized: "common.dismiss"))
-        }
-        .padding(.leading, Spacing.s)
-        .padding(.trailing, Spacing.xxs)
-    }
-
-    /// "{Chapter} · {time left}" when a chapter is known, otherwise just the time left.
-    /// Chapter-scoped, like every other now-playing surface (full player scrubber, lock screen,
-    /// CarPlay), and read off the COARSE clock so the bar re-renders ~1×/s, not every frame.
-    private var subtitle: String {
-        if let chapter = observer.chapterTitle, !chapter.isEmpty {
-            let remainingMs = max(0, observer.chapterDurationMs - observer.displayChapterPositionMs)
-            return "\(chapter) · \(formatTimeLeft(remainingMs: remainingMs))"
-        }
-        return formatTimeLeft(remainingMs: observer.bookDurationMs - observer.displayBookPositionMs)
-    }
-
+    /// The cover sits concentric with the accessory's capsule (HIG, Layout: concentric corners inside Liquid Glass).
     private var cover: some View {
-        let side: CGFloat = isInline ? 28 : 36
-        return BookCoverImage(
-            bookId: observer.currentBookId,
-            coverPath: observer.coverPath,
-            coverHash: observer.coverHash
-        )
-            .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
+        BookCoverImage(bookId: model.bookId, coverPath: model.coverPath, coverHash: model.coverHash)
+            .frame(width: coverSide, height: coverSide)
+            .clipShape(.concentric(minimum: Radius.s))
+            // The zoom source only takes a rounded rectangle; the full player's cover corner is Radius.s.
             .matchedTransitionSource(id: PlayerTransition.coverID, in: transitionNamespace) { source in
                 source.clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
             }
             .accessibilityHidden(true)
     }
 
-    /// Chapter progress as a hairline along the capsule's lower edge, inset clear of its rounded
-    /// ends. Chapter-scoped to match the subtitle (whole-book for chapterless books). Decorative:
-    /// the subtitle already says the time left.
+    private func skip(symbol: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.title3)
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityShowsLargeContentViewer()
+    }
+
+    /// Chapter progress as a 2pt hairline inside the capsule, clear of its rounded ends. Decorative: the line says
+    /// the time left.
     private var progressLine: some View {
         GeometryReader { geometry in
             Capsule()
@@ -168,58 +205,112 @@ struct MiniPlayerBar: View {
                 .overlay(alignment: .leading) {
                     Capsule()
                         .fill(Color.listenUpOrange)
-                        .frame(width: geometry.size.width * CGFloat(chapterProgress))
+                        .frame(width: geometry.size.width * CGFloat(model.chapterFraction))
                 }
         }
         .frame(height: 2)
-        .padding(.horizontal, Spacing.xl)
-        .padding(.bottom, 3)
+        // It starts at the text column, so it never crosses the cover.
+        .padding(.leading, leadingInset + coverSide + coverGap)
+        .padding(.trailing, Spacing.xl)
+        .padding(.bottom, 1)
         .accessibilityHidden(true)
     }
+}
 
-    /// Fraction of the current chapter completed, `displayBookProgress` when chapterless.
-    private var chapterProgress: Float {
-        let durationMs = observer.chapterDurationMs
-        guard durationMs > 0 else { return observer.displayBookProgress }
-        return min(1, Float(observer.displayChapterPositionMs) / Float(durationMs))
-    }
+/// The accessory's one main button, shared with the reader's strip: the coral glyph (HIG, Playing audio: no fill), a
+/// `ProgressView` while busy, a labelled capsule for a way out (or Keep Listening, Listen Again), or ✕.
+struct MiniPlayerPrimaryButton: View {
+    let model: MiniPlayerAccessoryModel
+    let action: () -> Void
 
-    private var playPauseButton: some View {
+    /// Counts deliberate taps, so the haptic never fires on a programmatic change (an interruption, a route change).
+    @State private var taps = 0
+    /// The state a tap moves to, captured at tap time: reading the model in the modifier would race the shared
+    /// state's trip through FlowBridge and could name the state just left.
+    @State private var tapStartsPlayback = false
+
+    var body: some View {
         Button {
-            playPauseWillBeActive = !observer.isPlaybackActive
-            playPauseTapCount += 1
-            observer.primaryAction()
+            tapStartsPlayback = model.primary != .pause
+            taps += 1
+            action()
         } label: {
-            Group {
-                // isPreparing piggybacks on the same buffering spinner: a play request in flight
-                // (e.g. the user tapped a different book while this bar was still showing the
-                // previous one) is visual feedback the user asked for, without a new affordance.
-                if observer.isBuffering || observer.isPreparing {
-                    // Honest buffering: a spinner while the stream loads, matching the full player
-                    // and Android — not a pause glyph implying audio is already flowing.
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(Color.listenUpOrange)
-                } else {
-                    // `isPlaybackActive` here means "playing" (buffering handled above); reads
-                    // "pause" while playing because a tap pauses.
-                    Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
-                        .font(.title3)
-                        .foregroundStyle(Color.listenUpOrange)
-                        .contentTransition(.symbolEffect(.replace.downUp))
-                }
-            }
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
+            label
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(
-            observer.isPreparing
-                ? String(localized: "book.detail_preparing")
-                : (observer.isPlaybackActive
-                    ? String(localized: "player.pause")
-                    : String(localized: "player.play"))
-        )
-        .haptic(playPauseWillBeActive ? .toggleOn : .toggleOff, trigger: playPauseTapCount)
+        .accessibilityLabel(model.primaryLabel)
+        .accessibilityShowsLargeContentViewer()
+        .haptic(tapStartsPlayback ? .toggleOn : .toggleOff, trigger: taps)
+    }
+
+    @ViewBuilder
+    private var label: some View {
+        switch model.primary {
+        case .play, .pause:
+            Image(systemName: model.primary == .pause ? "pause.fill" : "play.fill")
+                .font(.title3)
+                .foregroundStyle(Color.listenUpOrange)
+                .contentTransition(.symbolEffect(.replace.downUp))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        case .busy:
+            ProgressView()
+                .controlSize(.small)
+                .tint(Color.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        case .close:
+            Image(systemName: "xmark")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        case .pill(let text, let prominent):
+            // A compact capsule inside the accessory's glass, its target still 44pt tall (HIG, Buttons).
+            Text(text)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(prominent ? Color.luOnTint : Color.luTintInk)
+                .lineLimit(1)
+                .padding(.horizontal, Spacing.s)
+                .padding(.vertical, Spacing.xxs + 2)
+                .background(Capsule().fill(prominent ? Color.listenUpOrange : Color.listenUpOrange.opacity(0.12)))
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+        }
+    }
+}
+
+/// The mini line as two parts: the lead ("Paused · Bridge Four") truncates first, and the tail ("8 mins left") keeps
+/// its full width, so the time left is never the part that disappears. A failure is a red glyph and red words on the
+/// plain glass (Simon, 2026-10-14): the capsule is the system's and stays untinted, and the glyph keeps the meaning off
+/// colour alone. Shared with the reader's strip.
+struct MiniPlayerLineText: View {
+    let model: MiniPlayerAccessoryModel
+
+    var body: some View {
+        if let lead = model.lineLead {
+            HStack(spacing: 0) {
+                if model.isFailure {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .imageScale(.small)
+                        .padding(.trailing, 3)
+                        .accessibilityHidden(true)
+                }
+                Text(lead)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if let tail = model.lineTail {
+                    Text(" · \(tail)")
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .fixedSize()
+                        .layoutPriority(1)
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(model.isFailure ? Color.luPlayerError : Color.secondary)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(model.line ?? lead)
+        }
     }
 }

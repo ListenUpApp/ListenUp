@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
@@ -36,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.ShellNavType
@@ -47,7 +45,6 @@ import listenup.composeapp.generated.resources.brand_mark
 import listenup.composeapp.generated.resources.common_listenup
 import listenup.composeapp.generated.resources.shell_logout
 
-private val RailWidth = 100.dp
 private val BrandTile = 52.dp
 private val HELD_BADGE_MIN_SIZE = 18.dp
 private val HELD_BADGE_RING_WIDTH = 2.dp
@@ -62,9 +59,7 @@ private const val HELD_BADGE_MAX_COUNT = 99
  * with a coral selected-indicator, and a Logout action pinned to the bottom. Secondary actions
  * (settings, admin, profile) live in the top-bar account menu, not here.
  *
- * On these widths the docked mini-player spans the full window bottom, under the rail, so the
- * rail's content ends above it ([LocalNowPlayingInsets]) — the same clearance the content pane
- * takes — and the pinned Logout is never hidden behind the bar.
+ * The mini player floats beside the rail (`nowPlayingToolbarPadding`), so the rail runs the full height.
  *
  * @param navType which surface to render for the current window size
  * @param currentDestination the selected destination (null guarded to Home)
@@ -120,10 +115,10 @@ fun AppNavigationSuite(
 
         ShellNavType.RailCollapsed, ShellNavType.RailExpanded -> {
             NavigationRail(
-                modifier = modifier.width(RailWidth),
+                modifier = modifier.width(NavigationRailWidth),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 header = { RailBrandMark() },
-                windowInsets = NavigationRailDefaults.windowInsets.union(LocalNowPlayingInsets.current),
+                windowInsets = NavigationRailDefaults.windowInsets,
             ) {
                 Spacer(Modifier.height(8.dp))
                 ShellDestination.entries.forEach { destination ->

@@ -67,10 +67,19 @@ internal fun NowPlayingPanel(
     onOpenContributor: (String) -> Unit,
     onCloseBook: () -> Unit,
     onDismiss: () -> Unit,
+    onRetry: () -> Unit = {},
+    onDismissError: () -> Unit = {},
 ) {
     val book = state.book
     val settings = state.settings
     PlayerDialog(open = open, title = "Now playing", panelClass = "np-dlg", onDismiss = onDismiss) {
+        // Above the book, so the cause is the first thing read; PR 3's error card takes its place.
+        PlayerProblemNote(
+            error = problemErrorOf(state),
+            primary = state.primary,
+            onRetry = onRetry,
+            onDismiss = onDismissError,
+        )
         Div(attrs = { classes("np-body") }) {
             Cover(
                 title = book.title,
