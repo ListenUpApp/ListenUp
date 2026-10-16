@@ -32,9 +32,6 @@ import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
-/** Cover size for a Continue Listening card, in px. Square, like the artwork. */
-private const val CONTINUE_COVER_WIDTH = 168
-
 /**
  * Home — the root route, and the first thing a reader sees after signing in.
  *
@@ -82,7 +79,7 @@ fun HomePage(
             is HomeUiState.Ready -> {
                 PageHeader(title = homeGreeting(state.timeOfDay, state.firstName), documentTitle = null, display = true)
                 LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
-                ContinueListening(state.alsoInProgress, actions.onOpenBook, actions.onOpenLibrary, selection)
+                if (state.alsoInProgress.isNotEmpty()) AlsoInProgress(state.alsoInProgress, isWide, actions, selection)
                 MyShelves(state.myShelves, actions.onOpenShelf, actions.onCreateShelf)
                 LastSevenDays(stats, actions.onRetryStats)
             }
@@ -91,93 +88,6 @@ fun HomePage(
 }
 
 private const val PERCENT = 100
-
-@Composable
-private fun ContinueListening(
-    items: List<ContinueListeningItem>,
-    onOpenBook: (String) -> Unit,
-    onOpenLibrary: () -> Unit,
-    selection: BookSelection?,
-) {
-    Div(attrs = { classes("home-section") }) {
-        H2(attrs = { classes("home-section-h") }) { Text("Continue listening") }
-        UnderHeading(level = SECTION_HEADING_LEVEL) {
-            if (items.isEmpty()) {
-                EmptyState(title = "Nothing on the go", body = "Start a book and it will wait for you here.") {
-                    Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) { Text("Browse library") }
-                }
-            } else {
-                Div(attrs = { classes("home-continue") }) {
-                    items.forEach { item ->
-                        key(item.bookId) {
-                            ContinueCard(item, onOpenBook, selection)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * One Continue Listening card.
- *
- * A [ContinueListeningItem.Loading] renders a skeleton of the SAME size in the SAME slot rather
- * than being dropped: its position row has already arrived, so the book is genuinely coming, and
- * hiding it would shrink the row and then grow it again mid-sync.
- */
-@Composable
-private fun ContinueCard(
-    item: ContinueListeningItem,
-    onOpenBook: (String) -> Unit,
-    selection: BookSelection?,
-) {
-    when (item) {
-        is ContinueListeningItem.Loading -> {
-            Div(attrs = { classes("home-card", "is-loading") }) {
-                Div(attrs = { classes("skel", "home-card-cover-skel") })
-                Div(attrs = { classes("skel", "home-skel-line") })
-            }
-        }
-
-        is ContinueListeningItem.Ready -> {
-            val book = item.book
-            // While selecting, a press picks instead of opening — one gesture, two jobs, decided
-            // by the mode, exactly as the library grid does it.
-            val press = { selection.press(book.bookId) { onOpenBook(book.bookId) } }
-            Div(attrs = {
-                classes("home-card")
-                if (selection?.isSelected(book.bookId) == true) classes("is-sel")
-                tabIndex(0)
-                attr("role", "button")
-                onKeyDown { event ->
-                    if (event.key == "Enter" || event.key == " ") {
-                        event.preventDefault()
-                        press()
-                    }
-                }
-                onClick { press() }
-            }) {
-                Cover(
-                    title = book.title,
-                    imageUrl = coverUrl(book.bookId, book.coverHash, width = CONTINUE_COVER_WIDTH),
-                    size = CONTINUE_COVER_WIDTH,
-                    decorative = true,
-                    overlay = { RestrictedMarker(book.bookId) },
-                )
-                // The time left under the title says it in words; the rail is its picture.
-                ProgressBar(
-                    value = book.progressPercent / PERCENT.toFloat(),
-                    look = ProgressLook.Rail,
-                    decorative = true,
-                    attrs = { classes("home-card-progress") },
-                )
-                Span(attrs = { classes("home-card-t") }) { Text(book.title) }
-                Span(attrs = { classes("home-card-sub") }) { Text(book.timeRemainingFormatted) }
-            }
-        }
-    }
-}
 
 @Composable
 private fun LastSevenDays(

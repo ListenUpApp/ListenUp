@@ -22,6 +22,7 @@ internal fun continuing(
     title: String,
     progress: Float = 0.5f,
     totalHours: Long = 10,
+    narrators: String? = null,
 ): ContinueListeningItem.Ready =
     ContinueListeningItem.Ready(
         bookId = id,
@@ -35,7 +36,7 @@ internal fun continuing(
                 progress = progress,
                 currentPositionMs = (totalHours * HOUR_MS * progress).toLong(),
                 totalDurationMs = totalHours * HOUR_MS,
-                narratorNames = null,
+                narratorNames = narrators,
                 lastPlayedAtMs = 1_704_067_200_000L,
                 isDownloaded = false,
             ),

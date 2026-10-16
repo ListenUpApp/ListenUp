@@ -563,12 +563,24 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-card:focus { outline: none; }
 .luw .home-card:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 @media (hover: hover) { .luw .home-card:hover .home-card-t { color: var(--coral-text); } }
-.luw .home-card-progress { width: 100%; }
 .luw .home-card-t {
   font-size: var(--fs-body); font-weight: 700; letter-spacing: -0.01em; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.luw .home-card-sub { font-size: var(--fs-small); color: var(--ink-2); font-weight: 500; }
+/* Also in progress: the section can sit in a wide row, and its heading carries no margin of its own. */
+.luw .home-also { min-width: 0; }
+.luw .home-also-h { margin: 0; }
+.luw .home-card-a, .luw .home-card-n {
+  font-size: var(--fs-small); color: var(--ink-2); font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Time left in the action colour (spec §2.5); --coral-text clears 4.5:1 on paper. */
+.luw .home-card-sub { font-size: var(--fs-small); font-weight: 700; color: var(--coral-text); }
+@media (max-width: 759px) {
+  .luw .home-continue { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.1rem 0.9rem; }
+  /* C10: a phone shows four; display:none also takes the rest out of the tab order. */
+  .luw .home-continue > .home-card:nth-child(n+5) { display: none; }
+}
 
 .luw .home-stats {
   display: flex; gap: 2rem; flex-wrap: wrap;

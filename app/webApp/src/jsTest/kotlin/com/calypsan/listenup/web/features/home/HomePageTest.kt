@@ -80,7 +80,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(
-                        continueListening = listOf(continuing("b1", "The Institute", progress = 0.5f, totalHours = 10)),
+                        alsoInProgress = listOf(continuing("b1", "The Institute", progress = 0.5f, totalHours = 10)),
                     ),
                 )
 
@@ -95,7 +95,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(
-                        continueListening =
+                        alsoInProgress =
                             listOf(
                                 continuing("b1", "The Institute"),
                                 ContinueListeningItem.Loading("b2"),
@@ -111,7 +111,7 @@ class HomePageTest :
             var opened: String? = null
             val host =
                 homePage(
-                    readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
+                    readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
                     actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                 )
 
@@ -124,7 +124,7 @@ class HomePageTest :
             var opened: String? = null
             val host =
                 homePage(
-                    readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
+                    readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
                     actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                 )
 
@@ -133,13 +133,40 @@ class HomePageTest :
             opened shouldBe "b1"
         }
 
-        test("nothing on the go offers a way into the library rather than a dead end") {
-            var browsed = false
-            val host = homePage(readyHome(continueListening = emptyList()), actions = HomeActions.None.copy(onOpenLibrary = { browsed = true }))
+        test("Also in progress names each card once, with author, percent and time left (§2.5, §8.2)") {
+            val host =
+                homePage(readyHome(alsoInProgress = listOf(continuing("b1", "Babel", progress = 0.11f, totalHours = 21))))
+            val card = host.querySelector(".home-card") as HTMLElement
+            card.getAttribute("aria-label") shouldBe "Babel, by A. Writer, 11% listened, 18h 41m left"
+            card.querySelector(".home-card-a")?.textContent shouldBe "A. Writer"
+            (card.querySelector(".progress") as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
+        }
 
-            (host.querySelector(".empty .btn-primary") as HTMLElement).click()
+        test("the header says Also in progress and In Library leaves for the Library") {
+            var opened = false
+            val host =
+                homePage(
+                    readyHome(alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
+                )
+            host.textOf(".home-also-h") shouldBe "Also in progress"
+            host.buttonsLabelled("In Library →").single().click()
+            opened shouldBe true
+        }
 
-            browsed shouldBe true
+        test("only a wide page says who reads each book") {
+            val narrated = continuing("b1", "Babel", narrators = "Chris Lew Kum Hoi")
+            homePage(readyHome(alsoInProgress = listOf(narrated)), isWide = true).textOf(".home-card-n") shouldBe
+                "Read by Chris Lew Kum Hoi"
+            homePage(readyHome(alsoInProgress = listOf(narrated)), isWide = false).count(".home-card-n") shouldBe 0
+        }
+
+        test("a loaded book's absence means no Also in progress section at all") {
+            homePage(readyHome(alsoInProgress = emptyList())).count(".home-also") shouldBe 0
+        }
+
+        test("at most six cards") {
+            homePage(readyHome(alsoInProgress = (1..9).map { continuing("b$it", "Book $it") })).count(".home-card") shouldBe 6
         }
 
         // ── the two honesty guards ──────────────────────────────────────────────
@@ -429,6 +456,6 @@ private fun selecting(
 ) = BookSelection(isSelecting = true, selectedIds = selected, onToggle = onToggle, onStart = {})
 
 /** A Home with exactly one Continue Listening card, which is what the selection specs press. */
-private fun withOneBook() = readyHome(continueListening = listOf(continuing(CONTINUE_BOOK_ID, "Elantris")))
+private fun withOneBook() = readyHome(alsoInProgress = listOf(continuing(CONTINUE_BOOK_ID, "Elantris")))
 
 private const val CONTINUE_BOOK_ID = "b7"
