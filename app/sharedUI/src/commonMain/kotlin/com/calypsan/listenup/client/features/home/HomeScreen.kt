@@ -41,7 +41,6 @@ import com.calypsan.listenup.client.features.home.components.HomeStatsSection
 import com.calypsan.listenup.client.features.home.components.MyShelvesRow
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
 import com.calypsan.listenup.client.presentation.error.localized
@@ -54,7 +53,6 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_try_again
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -92,10 +90,6 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // Observe the currently-playing book so its Continue Listening card gets the now-playing frame.
-    val playback: PlaybackManager = koinInject()
-    val playingBookId by playback.currentBookId.collectAsStateWithLifecycle()
 
     // A Continue Listening failure is on the state now (spec §4.1). Home PR 4 draws it inline; until then, a snackbar.
     val continueListeningError = (state as? HomeUiState.Ready)?.continueListeningError
@@ -158,7 +152,6 @@ fun HomeScreen(
                 HomeContent(
                     state = s,
                     isWide = isWide,
-                    playingBookId = playingBookId?.value,
                     multiSelect = multiSelect,
                     appHeader = appHeader,
                     onRefresh = {
@@ -182,7 +175,6 @@ fun HomeScreen(
 private fun HomeContent(
     state: HomeUiState.Ready,
     isWide: Boolean,
-    playingBookId: String?,
     multiSelect: BookMultiSelectViewModel,
     appHeader: AppHeaderSlot,
     onRefresh: () -> Unit,
@@ -234,7 +226,6 @@ private fun HomeContent(
                         onBookClick = { bookId ->
                             if (isInSelectionMode) multiSelect.toggleSelection(bookId) else onBookClick(bookId)
                         },
-                        playingBookId = playingBookId,
                         isInSelectionMode = isInSelectionMode,
                         selectedBookIds = selectedBookIds,
                         onBookLongPress = multiSelect::enterSelectionMode,

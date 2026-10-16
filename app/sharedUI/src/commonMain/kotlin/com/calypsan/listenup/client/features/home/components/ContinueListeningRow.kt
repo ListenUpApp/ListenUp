@@ -38,7 +38,6 @@ private val ContinueCardWidth = 176.dp
  * @param items List of [ContinueListeningItem] — Ready or Loading
  * @param onBookClick Callback when a ready book card is clicked
  * @param modifier Optional modifier
- * @param playingBookId The bookId of the currently playing book, if any
  * @param isInSelectionMode Whether multi-select mode is active
  * @param selectedBookIds Set of bookIds that are currently selected
  * @param onBookLongPress Callback when a book card is long-pressed (enters selection mode)
@@ -48,7 +47,6 @@ fun ContinueListeningRow(
     items: List<ContinueListeningItem>,
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    playingBookId: String? = null,
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
     onBookLongPress: ((String) -> Unit)? = null,
@@ -75,7 +73,6 @@ fun ContinueListeningRow(
                         onClick = { onBookClick(item.bookId) },
                         progress = item.book.progress,
                         timeRemaining = item.book.timeRemainingFormatted,
-                        isPlaying = item.book.bookId == playingBookId,
                         cardWidth = ContinueCardWidth,
                         isInSelectionMode = isInSelectionMode,
                         isSelected = item.bookId in selectedBookIds,

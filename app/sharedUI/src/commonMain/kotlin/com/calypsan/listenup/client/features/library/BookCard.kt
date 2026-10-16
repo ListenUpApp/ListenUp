@@ -1,8 +1,12 @@
 package com.calypsan.listenup.client.features.library
 
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import listenup.composeapp.generated.resources.selection_select
@@ -79,7 +83,6 @@ import listenup.composeapp.generated.resources.library_card_read_by
 import listenup.composeapp.generated.resources.common_completed
 import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.library_has_documents_badge
-import listenup.composeapp.generated.resources.player_now_playing_wide
 
 /** Test tag on a Library card's progress mark: the linear indicator (the wave is for the book playing now). */
 internal const val LIBRARY_CARD_PROGRESS_TAG = "library-card-progress"
@@ -106,7 +109,7 @@ data class AvatarOverlayData(
  *
  * Supports all book card variants:
  * - Library grid: progress, completion badge, selection, focus border
- * - Continue Listening: progress overlay with time remaining
+ * - Home: a Library card with one accessible label
  * - Currently Listening: avatar overlay showing who's listening
  * - Discover: basic cover with optional subtitle (e.g. series name)
  * - Recently Added: basic cover with title/author
@@ -133,6 +136,8 @@ data class AvatarOverlayData(
  *   finished badge and last line, and overrides [duration], [progress], [timeRemaining] and [isFinished].
  * @param progressUnderTitle Compact Library grid (Android phone, board `Main`): a wavy indicator under
  *   the title instead of a progress mark on the art.
+ * @param accessibilityLabel When non-null the card is one accessibility element announced by this text (spec §8.2):
+ *   its title, author, progress and time left stop being separate stops. Click and long-press stay actions on it.
  * @param modifier Optional modifier for the card
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -146,7 +151,6 @@ fun BookCard(
     progress: Float? = null,
     timeRemaining: String? = null,
     isFinished: Boolean = false,
-    isPlaying: Boolean = false,
     avatarOverlay: AvatarOverlayData? = null,
     hasDocuments: Boolean = false,
     isHeld: Boolean = false,
@@ -157,6 +161,7 @@ fun BookCard(
     narrators: String? = null,
     libraryStatus: BookCardStatus? = null,
     progressUnderTitle: Boolean = false,
+    accessibilityLabel: String? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -249,6 +254,26 @@ fun BookCard(
                 ).then(
                     // In multi-select a tap toggles the book, so its selection is state, not just a border.
                     if (isInSelectionMode) Modifier.semantics { selected = isSelected } else Modifier,
+                ).then(
+                    if (accessibilityLabel != null) {
+                        Modifier.clearAndSetSemantics {
+                            contentDescription = accessibilityLabel
+                            role = Role.Button
+                            onClick {
+                                onClick()
+                                true
+                            }
+                            onLongPress?.let { longPress ->
+                                onLongClick(label = selectLabel) {
+                                    longPress()
+                                    true
+                                }
+                            }
+                            if (isInSelectionMode) selected = isSelected
+                        }
+                    } else {
+                        Modifier
+                    },
                 ),
     ) {
         // Cover with optional overlays and indicators
@@ -267,8 +292,6 @@ fun BookCard(
                     stringResource(Res.string.library_card_progress_a11y, (it.fraction * 100).roundToInt())
                 }
 
-            // The now-playing book gets a coral frame; selection/focus still win when active.
-            val playingBorder = MaterialTheme.colorScheme.primary
             BookCardCover(
                 bookId = cover.bookId,
                 coverPath = cover.coverPath,
@@ -281,14 +304,8 @@ fun BookCard(
                 timeRemaining = if (isCompleted || libraryStatus != null) null else timeRemaining,
                 avatarOverlay = avatarOverlay,
                 isHovered = isHovered,
-                isSelected = isSelected || isFocused || isPlaying,
-                borderColor =
-                    when {
-                        isSelected -> borderColor
-                        isFocused -> focusBorderColor
-                        isPlaying -> playingBorder
-                        else -> focusBorderColor
-                    },
+                isSelected = isSelected || isFocused,
+                borderColor = if (isSelected) borderColor else focusBorderColor,
                 modifier =
                     if (cardWidth != null) {
                         Modifier.aspectRatio(1f)
@@ -297,14 +314,12 @@ fun BookCard(
                     },
             )
 
-            // Selection checkbox takes precedence over completion / now-playing / documents badges.
+            // Selection checkbox takes precedence over completion / documents badges.
             if (isInSelectionMode) {
                 SelectionIndicator(
                     isSelected = isSelected || isFocused,
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                 )
-            } else if (isPlaying) {
-                NowPlayingBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             } else if (isCompleted) {
                 CompletionBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             } else if (hasDocuments) {
@@ -476,26 +491,6 @@ private fun DocumentsBadge(modifier: Modifier = Modifier) {
             imageVector = Icons.AutoMirrored.Outlined.MenuBook,
             contentDescription = stringResource(Res.string.library_has_documents_badge),
             tint = MaterialTheme.colorScheme.onSecondary,
-            modifier = Modifier.size(16.dp),
-        )
-    }
-}
-
-/** Scallop badge with an equalizer glyph, shown on the cover of the currently-playing book. */
-@Composable
-private fun NowPlayingBadge(modifier: Modifier = Modifier) {
-    Box(
-        modifier =
-            modifier
-                .size(28.dp)
-                .clip(cookieScallopShape())
-                .background(MaterialTheme.colorScheme.primary),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.GraphicEq,
-            contentDescription = stringResource(Res.string.player_now_playing_wide),
-            tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(16.dp),
         )
     }
