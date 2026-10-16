@@ -185,7 +185,7 @@ struct HomeView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 16) {
                         ForEach(items) { item in
-                            ContinueCard(item: item, width: continueCardWidth, selection: selection)
+                            ContinueCard(item: item, width: continueCardWidth, showsNarrator: false, selection: selection)
                         }
                     }
                     .padding(.horizontal, horizontalInset)

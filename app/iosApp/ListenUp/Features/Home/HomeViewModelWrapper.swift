@@ -121,6 +121,9 @@ struct ContinueItem: Identifiable, Equatable {
     let progress: Double
     let progressPercent: Int
     let timeLeft: String
+    /// What is left to hear, and the whole length (the hero's "11% of 45 hr, 30 min").
+    let remainingMs: Int64
+    let totalMs: Int64
     /// The narrators joined with ", ", or nil when the book names none.
     let narrators: String?
     /// When the reader last played it; nil for a skeleton.
@@ -158,6 +161,8 @@ struct ContinueItem: Identifiable, Equatable {
         progress: Double,
         progressPercent: Int,
         timeLeft: String,
+        remainingMs: Int64 = 0,
+        totalMs: Int64 = 0,
         narrators: String? = nil,
         lastPlayedAt: Date? = nil,
         isDownloaded: Bool = false,
@@ -171,6 +176,8 @@ struct ContinueItem: Identifiable, Equatable {
         self.progress = progress
         self.progressPercent = progressPercent
         self.timeLeft = timeLeft
+        self.remainingMs = remainingMs
+        self.totalMs = totalMs
         self.narrators = narrators
         self.lastPlayedAt = lastPlayedAt
         self.isDownloaded = isDownloaded
@@ -187,6 +194,8 @@ struct ContinueItem: Identifiable, Equatable {
             progress: Double(book.progress),
             progressPercent: Int(book.progressPercent),
             timeLeft: book.timeRemainingFormatted,
+            remainingMs: book.timeRemainingMs,
+            totalMs: book.totalDurationMs,
             narrators: book.narratorNames,
             lastPlayedAt: Date(timeIntervalSince1970: TimeInterval(book.lastPlayedAtMs) / 1000),
             isDownloaded: book.isDownloaded,

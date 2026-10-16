@@ -40,4 +40,9 @@ struct DurationFormattingTests {
     @Test func clockWithoutHoursUsesMinuteSecondForm() {
         #expect(DurationFormatting.clock(ms: Int64((5 * 60) + 9) * 1000) == "5:09")
     }
+
+    @Test func timeLeftReadsInHoursAndMinutesAsBookDetailDoes() {
+        #expect(DurationFormatting.timeLeft(ms: 145_860_000) == "40 hr, 31 min left")
+        #expect(DurationFormatting.abbreviated(ms: 163_800_000) == "45 hr, 30 min")
+    }
 }

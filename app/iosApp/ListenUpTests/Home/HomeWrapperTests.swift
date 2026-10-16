@@ -41,6 +41,8 @@ struct HomeWrapperTests {
         #expect(item.narrators == "Michael Kramer, Kate Reading")
         #expect(item.isDownloaded == true)
         #expect(item.lastPlayedAt == Date(timeIntervalSince1970: 1_760_000_000))
+        #expect(item.remainingMs == 9_000)
+        #expect(item.totalMs == 10_000)
     }
 
     // MARK: - ContinueItem (Loading skeleton)
