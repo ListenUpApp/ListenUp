@@ -2,7 +2,9 @@ package com.calypsan.listenup.web.features.discover
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardSnapshot
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
@@ -46,6 +48,26 @@ internal fun pickBook(
     seq: String?,
     ms: Long = 88_740_000,
 ) = DiscoverUiBook(id, "Book $id", "Brandon Sanderson", null, null, series, seq, ms)
+
+/** [count] people ranked 1..count on time, "Person N" with id "uN"; [youAt] is the reader's rank. */
+internal fun leaders(
+    count: Int = 9,
+    youAt: Int? = null,
+) = (1..count).map {
+    LeaderboardEntry(
+        rank = it,
+        userId = "u$it",
+        displayName = "Person $it",
+        totalSeconds = (count + 1L - it) * 3_600L,
+        booksFinished = 0,
+        currentStreakDays = 0,
+        longestStreakDays = 0,
+        isYou = it == youAt,
+    )
+}
+
+/** A loaded board whose three categories all rank [entries]. */
+internal fun board(entries: List<LeaderboardEntry>) = LeaderboardUiState.Data(LeaderboardSnapshot(entries, entries, entries))
 
 /** A Ready listeners state over [sessions]. */
 internal fun listening(vararg sessions: CurrentlyListeningUiSession) =

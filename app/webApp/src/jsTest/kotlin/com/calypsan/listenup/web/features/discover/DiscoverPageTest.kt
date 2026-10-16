@@ -285,9 +285,9 @@ class DiscoverPageTest :
                     )
                 }
 
-            val on = host.querySelectorAll(".disc-chip.is-on")
-            (on.item(0) as HTMLElement).textContent shouldBe "7 days"
-            (host.querySelectorAll(".disc-chip").item(3) as HTMLElement).click()
+            val on = host.querySelectorAll("[role=radio][aria-checked=true]")
+            (on.item(0) as HTMLElement).textContent shouldBe "Week"
+            (host.querySelectorAll("[role=radio]").item(3) as HTMLElement).click()
             period shouldBe LeaderboardPeriod.AllTime
         }
 
@@ -337,15 +337,15 @@ class DiscoverPageTest :
                     )
                 }
 
-            val on = host.querySelectorAll(".disc-chip.is-on")
+            val on = host.querySelectorAll("[role=radio][aria-checked=true]")
             // Exactly one period and one category, never two of either.
             on.length shouldBe 2
-            (on.item(0) as HTMLElement).textContent shouldBe "30 days"
+            (on.item(0) as HTMLElement).textContent shouldBe "Month"
             (on.item(1) as HTMLElement).textContent shouldBe "Time"
-            (on.item(0) as HTMLElement).getAttribute("aria-pressed") shouldBe "true"
+            host.querySelectorAll("[role=radio][aria-checked=false]").length shouldBe 5
         }
 
-        test("the periods say what they count: four trailing windows, in order, read out in full") {
+        test("the periods are one word each, the same on every platform: Week, Month, Year, All time") {
             val host =
                 mounts.mount {
                     page(
@@ -357,11 +357,9 @@ class DiscoverPageTest :
                     )
                 }
 
-            val chips = host.querySelectorAll(".disc-chip")
+            val chips = host.querySelectorAll("[role=radio]")
             val periods = (0 until 4).map { chips.item(it) as HTMLElement }
-            periods.map { it.textContent } shouldBe listOf("7 days", "30 days", "12 months", "All time")
-            periods.map { it.getAttribute("aria-label") } shouldBe
-                listOf("Last 7 days", "Last 30 days", "Last 12 months", "All time")
+            periods.map { it.textContent } shouldBe listOf("Week", "Month", "Year", "All time")
         }
 
         test("pressing a period and a category reports each once, and not the other") {
@@ -380,8 +378,8 @@ class DiscoverPageTest :
                     )
                 }
 
-            val chips = host.querySelectorAll(".disc-chip")
-            // Periods first (7 days, 30 days, 12 months, All time), then the three categories.
+            val chips = host.querySelectorAll("[role=radio]")
+            // Periods first (Week, Month, Year, All time), then the three categories.
             (chips.item(2) as HTMLElement).click()
             period shouldBe LeaderboardPeriod.Year
             category shouldBe null
@@ -533,7 +531,7 @@ class DiscoverPageTest :
                 }
 
             host
-                .querySelectorAll(".disc-person")
+                .querySelectorAll("a[href^='/profile/'], button.disc-person")
                 .asList()
                 .filterIsInstance<HTMLElement>()
                 .forEach { it.click() }
