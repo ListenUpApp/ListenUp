@@ -5,41 +5,62 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.presentation.home.TimeOfDay
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.home_greeting_afternoon
+import listenup.composeapp.generated.resources.home_greeting_evening
+import listenup.composeapp.generated.resources.home_greeting_lead
+import listenup.composeapp.generated.resources.home_greeting_morning
+import listenup.composeapp.generated.resources.home_greeting_night
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
- * Header for the Home screen — a muted time-of-day line over the user's name as an emphasized hero,
- * matching the design's two-line greeting. Scales up on wide windows to anchor the desktop layout.
+ * Home's greeting (spec §3.1): "Good evening," over the first name as the screen's one display moment. The name is the
+ * screen's heading; without a name the greeting stands alone.
  *
- * @param timeGreeting Time-of-day line, e.g. "Good evening".
- * @param userName The user's first name; when blank, only the greeting line shows.
- * @param isWide Whether the current window is medium+ (drives the display size).
+ * @param timeOfDay the part of the day the shared state chose (H2).
+ * @param firstName the reader's first name, or null.
+ * @param isWide true at medium widths and wider, where the name grows to `displayLarge`.
  * @param modifier Optional modifier.
  */
 @Composable
 fun HomeHeader(
-    timeGreeting: String,
-    userName: String,
+    timeOfDay: TimeOfDay,
+    firstName: String?,
     isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
-        Text(
-            text = if (userName.isNotBlank()) "$timeGreeting," else timeGreeting,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (userName.isNotBlank()) {
+    val greeting = stringResource(timeOfDay.greetingRes())
+    Column(modifier = modifier.semantics(mergeDescendants = true) { heading() }) {
+        if (firstName.isNullOrBlank()) {
             Text(
-                text = userName,
+                text = greeting,
                 style =
-                    (if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineMedium)
-                        .copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = if (isWide) (-1.5).sp else (-1).sp,
-                        ),
+                    if (isWide) {
+                        MaterialTheme.typography.displayMediumEmphasized
+                    } else {
+                        MaterialTheme.typography.headlineLargeEmphasized
+                    },
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        } else {
+            Text(
+                text = stringResource(Res.string.home_greeting_lead, greeting),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = firstName,
+                style =
+                    if (isWide) {
+                        MaterialTheme.typography.displayLargeEmphasized
+                    } else {
+                        MaterialTheme.typography.displayMediumEmphasized
+                    },
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -47,3 +68,12 @@ fun HomeHeader(
         }
     }
 }
+
+/** The catalog words for a part of the day. */
+internal fun TimeOfDay.greetingRes(): StringResource =
+    when (this) {
+        TimeOfDay.Morning -> Res.string.home_greeting_morning
+        TimeOfDay.Afternoon -> Res.string.home_greeting_afternoon
+        TimeOfDay.Evening -> Res.string.home_greeting_evening
+        TimeOfDay.Night -> Res.string.home_greeting_night
+    }

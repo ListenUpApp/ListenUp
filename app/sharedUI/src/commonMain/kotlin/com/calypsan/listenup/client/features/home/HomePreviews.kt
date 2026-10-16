@@ -30,6 +30,7 @@ import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.home.components.HomeStatsContent
 import com.calypsan.listenup.client.features.home.components.MyShelvesRow
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
+import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import androidx.compose.ui.tooling.preview.Preview
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
@@ -159,7 +160,7 @@ private fun StatsCardPreview(
 @Composable
 private fun GreetingPreview() =
     PreviewSurface {
-        HomeHeader(timeGreeting = "Good evening", userName = PREVIEW_USER_NAME, isWide = false)
+        HomeHeader(timeOfDay = TimeOfDay.Evening, firstName = PREVIEW_USER_NAME, isWide = false)
     }
 
 @Preview
@@ -208,7 +209,7 @@ fun HomePreviewGallery() {
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             GalleryLabel("Greeting")
-            HomeHeader(timeGreeting = "Good evening", userName = PREVIEW_USER_NAME, isWide = false)
+            HomeHeader(timeOfDay = TimeOfDay.Evening, firstName = PREVIEW_USER_NAME, isWide = false)
 
             GalleryLabel("Continue Listening")
             ContinueListeningRow(items = mockContinue(), onBookClick = {})

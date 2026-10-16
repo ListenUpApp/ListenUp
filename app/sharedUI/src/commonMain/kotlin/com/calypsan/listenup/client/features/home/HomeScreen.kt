@@ -217,7 +217,7 @@ private fun HomeContent(
             ) {
                 // The shell header scrolls away with the page; the greeting is its leading hero.
                 appHeader {
-                    HomeHeader(timeGreeting = state.timeGreeting, userName = state.userName, isWide = isWide)
+                    HomeHeader(timeOfDay = state.timeOfDay, firstName = state.firstName, isWide = isWide)
                 }
 
                 if (state.hasContinueListening) {
