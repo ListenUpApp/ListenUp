@@ -31,7 +31,8 @@ private const val PLAY_ICON_SIZE = 18
 /**
  * The Resume kind (spec §2.3): nothing is loaded and this is the book last played. The cover and title are one button
  * into the book (H15, one tab stop); Resume is a separate primary button that plays from the saved position (C18).
- * The surface is Book Detail's neutral hero wash until the cover wash lands (spec D3).
+ * The surface is Book Detail's neutral hero wash until the cover wash lands (spec D3). The author is plain text and
+ * there is no series line: the shared state carries neither a series nor an author link (open question 4).
  */
 @Composable
 internal fun ResumeHero(
