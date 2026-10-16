@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.UnderHeading
-import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
@@ -18,32 +17,6 @@ import org.w3c.dom.HTMLElement
 
 /** Cover size for a discovery card, in px. Square, like the artwork. */
 internal const val CARD_COVER_WIDTH = 140
-
-/**
- * A person's name, as the way to reach them.
- *
- * A `<button>` rather than the `<span>` these all used to be: it is a real control, so it is
- * focusable, announced, and reachable without a mouse. It keeps the span's class so the surrounding
- * layout is unchanged — only the element and its behaviour differ.
- */
-@Composable
-internal fun PersonLink(
-    name: String,
-    userId: String,
-    onOpenProfile: (String) -> Unit,
-    styleClass: String,
-) {
-    Button(attrs = {
-        classes(styleClass, "disc-person")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        onClick { event ->
-            // The listener card around this is itself a button that opens the book. Without this
-            // the browser would run both and the reader would land on the book they did not click.
-            event.stopPropagation()
-            onOpenProfile(userId)
-        }
-    }) { Text(name) }
-}
 
 /** A listener card's avatar, in px. */
 internal const val LISTENER_AVATAR = 30
@@ -120,10 +93,6 @@ internal fun SectionError(
         ) { Text("Try again") }
     }
 }
-
-internal const val ATTR_TYPE = "type"
-
-internal const val VALUE_BUTTON = "button"
 
 /** A section's own heading is an H2, so anything headed inside it is an H3. */
 internal const val SECTION_HEADING_LEVEL = 2

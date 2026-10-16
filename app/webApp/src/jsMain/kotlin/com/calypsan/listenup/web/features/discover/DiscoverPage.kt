@@ -68,6 +68,8 @@ fun DiscoverPage(
     onRefreshActivity: () -> Unit,
     /** Draws ten different picks for Something new. */
     onShuffle: () -> Unit,
+    /** Opens the Library's Books sorted newest first, for this visit (Recently added's link). */
+    onOpenLibraryNewest: () -> Unit,
 ) {
     Div(attrs = { classes("disc") }) {
         PageHeader(title = "Discover")
@@ -91,8 +93,8 @@ fun DiscoverPage(
                 )
                 ActivityFeedSection(activity, nowMs, onOpenBook, onOpenShelf, onOpenProfile, onRefreshActivity)
             }
-            SharedShelvesSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
-            RecentlyAddedSection(recentlyAdded, onOpenBook, selection, onRefresh)
+            ShelvesByOthersSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
+            RecentlyAddedSection(recentlyAdded, nowMs, onOpenBook, onOpenLibraryNewest, selection, onRefresh)
         }
     }
 }

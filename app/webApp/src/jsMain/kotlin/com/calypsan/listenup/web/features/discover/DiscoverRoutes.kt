@@ -55,6 +55,7 @@ internal fun DiscoverRoute(
             onRefreshLeaderboard = session.onRefreshLeaderboard,
             onRefreshActivity = session.onRefreshActivity,
             onShuffle = session.onShuffle,
+            onOpenLibraryNewest = { router.navigate(Routes.libraryNewestFirst) },
             selection = selection,
         )
     }

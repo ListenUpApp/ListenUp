@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.discover
 
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
+import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -130,5 +131,59 @@ class DiscoverMainTest :
             card.getAttribute("href") shouldBe "/book/p1"
             card.click()
             opened shouldBe "p1"
+        }
+
+        test("an owner's header is one link to them, with their face and how many shelves") {
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        shelves = shelvesOf(owner("u1", "Maya Chen", shelf("s1", "Cosy mysteries", 8), shelf("s2", "Hugo winners", 12))),
+                    )
+                }
+            val head = host.querySelector(".disc-owner") as HTMLElement
+            head.tagName shouldBe "A"
+            head.getAttribute("href") shouldBe "/profile/u1"
+            head.textContent.orEmpty() shouldContain "Maya Chen"
+            head.textContent.orEmpty() shouldContain "2 shelves"
+            head.querySelector(".uav") shouldNotBe null
+        }
+
+        test("a shelf card is a link with its mosaic, name and count") {
+            val host = mounts.mount { discoverPage(shelves = shelvesOf(owner("u1", "Maya Chen", shelf("s1", "Cosy mysteries", 8, covers = 3)))) }
+            val card = host.querySelector(".disc-shelf") as HTMLElement
+            card.getAttribute("href") shouldBe "/shelf/s1"
+            card.querySelectorAll(".mosaic-tile").length shouldBe 4
+            card.textContent.orEmpty() shouldContain "8 books"
+        }
+
+        test("recently added is last, says when, and links to the Library newest first") {
+            var opened = 0
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        recentlyAdded = RecentlyAddedUiState.Ready(listOf(recentBook("r1", createdAt = DISCOVER_NOW_MS - DISCOVER_TWO_DAYS_MS))),
+                        onOpenLibraryNewest = { opened++ },
+                    )
+                }
+            val headings = host.querySelectorAll(".disc-section-h").asList().map { it.textContent }
+            headings.last() shouldBe "Recently added"
+            host.textContent.orEmpty() shouldContain "Added 2 days ago"
+            val link = host.querySelector(".disc-newest") as HTMLElement
+            link.getAttribute("href") shouldBe "/library?sort=added-desc"
+            link.textContent shouldBe "Newest in Library →"
+            link.click()
+            opened shouldBe 1
+        }
+
+        test("a recently added book is a link to it") {
+            var opened: String? = null
+            val host =
+                mounts.mount {
+                    discoverPage(recentlyAdded = RecentlyAddedUiState.Ready(listOf(recentBook("r1"))), onOpenBook = { opened = it })
+                }
+            val card = host.querySelector(".disc-recent .disc-card") as HTMLElement
+            card.getAttribute("href") shouldBe "/book/r1"
+            card.click()
+            opened shouldBe "r1"
         }
     })

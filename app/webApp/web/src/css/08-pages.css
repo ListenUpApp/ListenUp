@@ -438,15 +438,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-shelf-t { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
 .luw .home-shelf-sub { font-size: var(--fs-small); color: var(--ink-3); }
 
-/* Discover's shared shelves, grouped by owner */
-.luw .disc-shelf-owner { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-.luw .disc-shelf-who { font-size: 0.85rem; font-weight: 700; color: var(--ink-2); }
-.luw .disc-shelves { display: flex; gap: 0.8rem; flex-wrap: wrap; }
-.luw .disc-shelf {
-  display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start;
-  padding: 0.7rem 1rem; border-radius: 14px; cursor: pointer; text-align: left;
-  background: var(--surface); border: 1px solid var(--line);
-}
+/* Discover's shelf card text (layout in 34-discover.css) */
 @media (hover: hover) { .luw .disc-shelf:hover { border-color: var(--coral-ring); } }
 @media (hover: hover) { .luw .disc-shelf:hover .disc-shelf-t { color: var(--coral-text); } }
 .luw .disc-shelf-t { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
@@ -467,11 +459,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* The failed row's way back — Library's "Try again", spaced the same. */
 .luw .disc-retry { margin-top: var(--sp-8); }
 
-/* Book grids — Something new, Recently added. Auto-fill so the row count follows the viewport
-   rather than a breakpoint table. */
-.luw .disc-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1.4rem 1.1rem;
-}
 .luw .disc-card {
   display: flex; flex-direction: column; gap: 0.45rem; align-items: flex-start;
   padding: 0; border: none; background: transparent; cursor: pointer; text-align: left;

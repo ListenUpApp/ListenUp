@@ -10,10 +10,15 @@ import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
+import com.calypsan.listenup.client.domain.model.ShelfCover
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
 import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
+import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import com.calypsan.listenup.web.features.books.BookSelection
 
@@ -101,6 +106,30 @@ internal fun act(
 /** A Ready feed over [rows]. */
 internal fun feed(vararg rows: ActivityUiModel) = ActivityFeedUiState.Ready(rows.toList())
 
+/** A shelf with [count] books and [covers] cover tiles. */
+internal fun shelf(
+    id: String,
+    name: String,
+    count: Int,
+    covers: Int = 4,
+) = DiscoverShelfUi(id, name, null, count, 0, (1..covers).map { ShelfCover("$id-b$it", null, null) })
+
+/** One owner's shelves. */
+internal fun owner(
+    id: String,
+    name: String,
+    vararg shelves: DiscoverShelfUi,
+) = DiscoverUserShelves(DiscoverShelfOwner(id, name), shelves.toList())
+
+/** A Ready shelves state over [owners]. */
+internal fun shelvesOf(vararg owners: DiscoverUserShelves) = DiscoverShelvesUiState.Ready(owners.toList())
+
+/** A recently added book, added at [createdAt]. */
+internal fun recentBook(
+    id: String,
+    createdAt: Long = DISCOVER_NOW_MS,
+) = RecentlyAddedUiBook(id, "Book $id", "Kaliane Bradley", null, null, createdAt)
+
 /** A Ready listeners state over [sessions]. */
 internal fun listening(vararg sessions: CurrentlyListeningUiSession) =
     CurrentlyListeningUiState.Ready(sessions.toList(), observedAtMs = null, isStale = false)
@@ -121,6 +150,7 @@ internal fun discoverPage(
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
     onShuffle: () -> Unit = {},
+    onOpenLibraryNewest: () -> Unit = {},
     selection: BookSelection? = null,
 ) {
     DiscoverPage(
@@ -141,6 +171,7 @@ internal fun discoverPage(
         onRefreshLeaderboard = {},
         onRefreshActivity = {},
         onShuffle = onShuffle,
+        onOpenLibraryNewest = onOpenLibraryNewest,
         selection = selection,
     )
 }

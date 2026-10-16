@@ -60,6 +60,9 @@ internal object DiscoverWords {
     /** "Show all 9". */
     fun showAll(count: Int): String = "Show all $count"
 
+    /** "1 shelf", "2 shelves". */
+    fun shelfCount(count: Int): String = if (count == 1) "1 shelf" else "$count shelves"
+
     /** "Added 2 days ago". */
     fun added(whenText: String): String = "Added $whenText"
 
