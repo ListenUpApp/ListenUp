@@ -5,11 +5,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.toCoverModel
@@ -18,10 +16,8 @@ import com.calypsan.listenup.client.features.library.AvatarOverlayData
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
-import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.util.relativeLastActive
 import kotlin.time.Clock
-import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_listening_now
@@ -37,31 +33,6 @@ import listenup.composeapp.generated.resources.discover_what_others_are_listenin
  *
  * The server owns the split and the order (live by session start, then recent by last-played), and
  * the Room mirror preserves it — this composable renders the list as given.
- */
-@Composable
-fun CurrentlyListeningSection(
-    onBookClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    isInSelectionMode: Boolean = false,
-    selectedBookIds: Set<String> = emptySet(),
-    onBookLongPress: ((String) -> Unit)? = null,
-    viewModel: DiscoverViewModel = koinViewModel(),
-) {
-    val state by viewModel.currentlyListeningState.collectAsStateWithLifecycle()
-
-    CurrentlyListeningSection(
-        state = state,
-        onBookClick = onBookClick,
-        modifier = modifier,
-        isInSelectionMode = isInSelectionMode,
-        selectedBookIds = selectedBookIds,
-        onBookLongPress = onBookLongPress,
-    )
-}
-
-/**
- * Stateless half of [CurrentlyListeningSection] — the renderable unit, so the live/recent marker
- * can be asserted without a ViewModel.
  *
  * @param nowMs the instant relative times are measured against. Read once per composition (the
  *   `DevicesScreen` pattern) so a recomposition cannot make "3 days ago" flicker to "4 days ago"

@@ -17,12 +17,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
-import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
+import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
-import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_could_not_load_leaderboard
@@ -32,7 +31,7 @@ import listenup.composeapp.generated.resources.discover_start_listening_to_join_
 /**
  * Discover screen leaderboard section.
  *
- * Renders a sealed [LeaderboardUiState] from [LeaderboardViewModel]:
+ * Renders a sealed [LeaderboardUiState]:
  * The title and the period selector ([LeaderboardHeader]) sit above the board's card, at the screen
  * margins; the card holds the board for the state:
  * - [LeaderboardUiState.Loading] — a loading placeholder.
@@ -44,17 +43,16 @@ import listenup.composeapp.generated.resources.discover_start_listening_to_join_
  *
  * @param onUserClick Callback when a user row is clicked (navigates to profile).
  * @param modifier Modifier from parent.
- * @param viewModel LeaderboardViewModel injected via Koin.
  */
 @Composable
-fun DiscoverLeaderboardSection(
+internal fun DiscoverLeaderboardSection(
+    state: LeaderboardUiState,
+    selection: LeaderboardSelection,
+    onSelectPeriod: (LeaderboardPeriod) -> Unit,
+    onSelectCategory: (LeaderboardCategory) -> Unit,
     onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: LeaderboardViewModel = koinViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val selection by viewModel.selection.collectAsStateWithLifecycle()
-
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -63,12 +61,12 @@ fun DiscoverLeaderboardSection(
         // padding, "12 months" has no room on a phone.
         LeaderboardHeader(
             selectedPeriod = selection.period,
-            onPeriodSelected = viewModel::selectPeriod,
+            onPeriodSelected = onSelectPeriod,
         )
         LeaderboardCard(
             state = state,
             category = selection.category,
-            onCategorySelected = viewModel::selectCategory,
+            onCategorySelected = onSelectCategory,
             onUserClick = onUserClick,
         )
     }
