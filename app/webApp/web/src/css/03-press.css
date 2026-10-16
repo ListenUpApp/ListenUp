@@ -111,7 +111,7 @@
 .luw .disc-card:active,
 .luw .home-shelf:active,
 .luw .disc-shelf:active,
-.luw .disc-listener:active,
+.luw .disc-listener-book:active,
 .luw .shelf-book-open:active,
 .luw .prof-book:active,
 .cd-series-card:active { transform: scale(0.985); }

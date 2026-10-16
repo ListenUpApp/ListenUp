@@ -483,20 +483,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 }
 .luw .disc-card-sub { font-size: var(--fs-small); color: var(--ink-2); font-weight: 500; }
 
-/* Listener rows — the section that makes this a shared library. Horizontal scroll rather than a
-   wrap: the order is meaningful (live listeners lead), and wrapping buries that below the fold. */
-.luw .disc-listeners { display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 0.4rem; }
-.luw .disc-listener {
-  display: flex; gap: 0.7rem; align-items: center; flex: none; max-width: 19rem;
-  padding: 0.6rem 0.9rem 0.6rem 0.6rem; border-radius: 14px; cursor: pointer; text-align: left;
-  background: var(--surface); border: 1px solid var(--line);
-}
-@media (hover: hover) { .luw .disc-listener:hover { border-color: var(--coral-ring); } }
-.luw .disc-listener-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.luw .disc-listener-who { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
-.luw .disc-listener-book {
-  font-size: var(--fs-small); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
 /* The live marker earns the brand colour: it is the only thing on this page that is true *now*. */
 .luw .disc-live { font-size: 0.75rem; font-weight: 700; color: var(--coral-text); }
 .luw .disc-when { font-size: 0.75rem; color: var(--ink-3); }
