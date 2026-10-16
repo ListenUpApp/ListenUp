@@ -71,7 +71,7 @@ struct HomeView: View {
     /// "Good evening, Simon" once Home has loaded; nothing while it loads.
     private var greetingSubtitle: String {
         guard case .ready(let ready) = home?.phase else { return "" }
-        return HomeTitle.subtitle(greeting: ready.timeGreeting, userName: ready.userName)
+        return HomeTitle.subtitle(timeOfDay: ready.timeOfDay, firstName: ready.firstName)
     }
 
     // MARK: - Content
