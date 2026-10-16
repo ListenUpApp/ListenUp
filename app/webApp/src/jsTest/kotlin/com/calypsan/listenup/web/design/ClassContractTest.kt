@@ -255,6 +255,7 @@ import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
+import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.domain.GenreShare
@@ -263,6 +264,7 @@ import com.calypsan.listenup.web.features.home.HomeActions
 import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.home.continuing
 import com.calypsan.listenup.web.features.home.readyHome
+import com.calypsan.listenup.web.features.home.resumeSlot
 import com.calypsan.listenup.web.features.home.scanning
 import com.calypsan.listenup.web.features.home.weekStats
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
@@ -1234,6 +1236,26 @@ class ClassContractTest :
                             readyHome(myShelves = listOf(shelf("Finished"))),
                             weekStats(),
                             HomeActions.None,
+                        )
+                        // Resume, alone and beside the stats on a wide page, with and without a stream; the
+                        // interim empty state; and a private shelf with its lock and mosaic.
+                        HomePage(readyHome(slot = resumeSlot("wok")), weekStats(), HomeActions.None)
+                        HomePage(
+                            readyHome(slot = resumeSlot("wok", canPlay = false), alsoInProgress = emptyList()),
+                            weekStats(),
+                            HomeActions.None,
+                            isWide = true,
+                        )
+                        HomePage(
+                            readyHome(slot = HomeSlot.NothingInProgress(candidate = null)),
+                            weekStats(),
+                            HomeActions.None,
+                        )
+                        HomePage(
+                            readyHome(myShelves = listOf(shelf("Road trip", isPrivate = true, seconds = 3_600L))),
+                            weekStats(currentStreakDays = 3, longestStreakDays = 9),
+                            HomeActions.None,
+                            isWide = true,
                         )
                         // Discover joins by hand for the same reason Home does. Every section is
                         // listed in all four of its shapes, because a state nobody renders here is

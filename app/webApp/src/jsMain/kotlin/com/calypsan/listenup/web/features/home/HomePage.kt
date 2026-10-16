@@ -1,55 +1,32 @@
 package com.calypsan.listenup.web.features.home
 
-import com.calypsan.listenup.web.design.RestrictedMarker
-import com.calypsan.listenup.web.design.ProgressLook
-import com.calypsan.listenup.web.design.ProgressBar
-import com.calypsan.listenup.web.design.ButtonKind
-import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
-import com.calypsan.listenup.client.domain.model.ContinueListeningItem
-import com.calypsan.listenup.client.domain.model.Shelf
+import androidx.compose.runtime.remember
+import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
-import com.calypsan.listenup.client.presentation.home.WeekChartColumn
-import com.calypsan.listenup.client.presentation.home.genreShareBars
-import com.calypsan.listenup.client.presentation.home.weekChartColumns
-import com.calypsan.listenup.web.design.UnderHeading
+import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.BookSelection
-import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.features.library.LibraryStatus
-import com.calypsan.listenup.web.design.Cover
-import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.design.coverUrl
-import com.calypsan.listenup.web.features.shelf.bookCountLabel
-import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import kotlin.time.Clock
 
 /**
  * Home — the root route, and the first thing a reader sees after signing in.
  *
- * Renders two independent upstreams side by side: [state] carries the greeting, what you are part
- * way through, and whether the library is still arriving; [stats] carries the last 7 days' listening.
- * They load and fail separately on purpose (see [HomeSession]), so a slow stats query never holds
- * back the row someone actually opened this page for.
+ * Renders two independent upstreams: [state] carries the slot, what else you are part way through, your
+ * shelves and whether the library is still arriving; [stats] carries the last 7 days' listening. They load and fail
+ * separately on purpose (see [HomeSession]), so a slow stats query never holds back the rest.
  *
- * Pure, like every other page here: no routing decisions, no session lifetime. Every gesture leaves
- * as one of the callbacks.
+ * The loaded book is never drawn here — the player bar has it (spec §2.1). With nothing loaded, Resume leads.
+ * [homeBlocks] decides the sections and their order from the slot and [isWide]; the page draws them in that order.
  *
- * **Deliberately not rendered**, because the data does not back it or the destination does not
- * exist:
- * - No "See all" over Continue Listening. There is no in-progress screen to see all of, and the
- *   Compose clients do not offer one either — the design sheet's action is a canvas convenience.
- * - No "See all" over My Shelves. Every shelf the reader owns is already in the row, so the
- *   control would lead to a longer version of a complete list. The section itself arrived with the
- *   shelf screens it needed.
+ * Pure, like every other page here: no routing decisions, no session lifetime. Every gesture leaves through
+ * [actions]. There is no "See all" anywhere: the My shelves list arrives with Home PR 4 (open question 1).
  */
 @Composable
 fun HomePage(
@@ -57,6 +34,7 @@ fun HomePage(
     stats: HomeStatsUiState,
     actions: HomeActions,
     isWide: Boolean = false,
+    nowMs: Long = remember { Clock.System.now().toEpochMilliseconds() },
     selection: BookSelection? = null,
 ) {
     Div(attrs = { classes("home") }) {
@@ -79,14 +57,65 @@ fun HomePage(
             is HomeUiState.Ready -> {
                 PageHeader(title = homeGreeting(state.timeOfDay, state.firstName), documentTitle = null, display = true)
                 LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
-                if (state.alsoInProgress.isNotEmpty()) AlsoInProgress(state.alsoInProgress, isWide, actions, selection)
-                MyShelves(state.myShelves, actions)
-                LastSevenDays(stats, actions)
+                homeBlocks(state.slot, state.alsoInProgress.isNotEmpty(), isWide).forEach { block ->
+                    HomeBlockContent(block, state, stats, actions, isWide, nowMs, selection)
+                }
             }
         }
     }
 }
 
-private const val PERCENT = 100
-
 private const val HOME = "Home"
+
+/** One block of [homeBlocks], drawn. */
+@Composable
+private fun HomeBlockContent(
+    block: HomeBlock,
+    state: HomeUiState.Ready,
+    stats: HomeStatsUiState,
+    actions: HomeActions,
+    isWide: Boolean,
+    nowMs: Long,
+    selection: BookSelection?,
+) {
+    val isOnlyBook = state.slot is HomeSlot.Resume && state.alsoInProgress.isEmpty()
+    val resume = state.slot as? HomeSlot.Resume
+    when (block) {
+        HomeBlock.Resume -> {
+            resume?.let { ResumeHero(it, isOnlyBook, nowMs, actions.onOpenBook, actions.onPlay) }
+        }
+
+        HomeBlock.ResumeBesideStats -> {
+            Div(attrs = { classes("home-row") }) {
+                resume?.let { ResumeHero(it, isOnlyBook, nowMs, actions.onOpenBook, actions.onPlay) }
+                LastSevenDays(stats, actions)
+            }
+        }
+
+        HomeBlock.NothingToResume -> {
+            // Interim for NothingInProgress and NewListener until Home PR 4 draws them (open question 5).
+            EmptyState(title = "Nothing on the go", body = "Start a book and it will wait for you here.") {
+                Button(kind = ButtonKind.Primary, onClick = { actions.onOpenLibrary() }) { Text("Browse the Library") }
+            }
+        }
+
+        HomeBlock.AlsoInProgress -> {
+            AlsoInProgress(state.alsoInProgress, isWide, actions, selection)
+        }
+
+        HomeBlock.Stats -> {
+            LastSevenDays(stats, actions)
+        }
+
+        HomeBlock.Shelves -> {
+            MyShelves(state.myShelves, actions)
+        }
+
+        HomeBlock.StatsBesideShelves -> {
+            Div(attrs = { classes("home-row") }) {
+                LastSevenDays(stats, actions)
+                MyShelves(state.myShelves, actions)
+            }
+        }
+    }
+}

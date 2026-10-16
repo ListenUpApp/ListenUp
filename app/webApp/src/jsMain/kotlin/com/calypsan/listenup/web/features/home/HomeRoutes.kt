@@ -53,6 +53,7 @@ internal fun HomeRoute(
             state = session.state.collectAsState().value,
             stats = session.stats.collectAsState().value,
             actions = actions,
+            isWide = rememberHomeIsWide(),
             selection = selection,
         )
     }

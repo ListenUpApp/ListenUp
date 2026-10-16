@@ -4,12 +4,14 @@ import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldNotContain
@@ -169,6 +171,71 @@ class HomePageTest :
 
         test("at most six cards") {
             homePage(readyHome(alsoInProgress = (1..9).map { continuing("b$it", "Book $it") })).count(".home-card") shouldBe 6
+        }
+
+        // ── the blocks (§2.1, §3.4) ─────────────────────────────────────────────
+
+        test("nothing loaded on a wide page sets Resume beside the stats, before Also in progress (§3.4)") {
+            val host =
+                homePage(
+                    readyHome(slot = resumeSlot("wok"), alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    stats = weekStats(),
+                    isWide = true,
+                )
+            val row = host.querySelector(".home-row") as HTMLElement
+            row.querySelector(".home-hero") shouldNotBe null
+            row.querySelector(".home-stats-card") shouldNotBe null
+            val order = host.querySelectorAll(".home-row, .home-also, .home-shelves-section")
+            (0 until order.length).map { (order.item(it) as HTMLElement).className.split(" ").first() } shouldBe
+                listOf("home-row", "home-section", "home-section")
+        }
+
+        test("a phone keeps the fixed order: Resume, Also in progress, stats, shelves") {
+            val host =
+                homePage(
+                    readyHome(slot = resumeSlot("wok"), alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    stats = weekStats(),
+                )
+            host.count(".home-row") shouldBe 0
+            val sections = host.querySelectorAll(".home-hero, .home-also, .home-stats-card, .home-shelves-section")
+            (0 until sections.length).map { index ->
+                val classes = (sections.item(index) as HTMLElement).classList
+                when {
+                    classes.contains("home-hero") -> "resume"
+                    classes.contains("home-also") -> "also"
+                    classes.contains("home-stats-card") -> "stats"
+                    else -> "shelves"
+                }
+            } shouldBe listOf("resume", "also", "stats", "shelves")
+        }
+
+        test("a loaded book on a wide page sets stats beside shelves after Also in progress") {
+            val host =
+                homePage(
+                    readyHome(slot = HomeSlot.Absent, alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    stats = weekStats(),
+                    isWide = true,
+                )
+            host.count(".home-hero") shouldBe 0
+            (host.querySelector(".home-row") as HTMLElement).querySelector(".home-shelves-section") shouldNotBe null
+        }
+
+        test("Resume on the page plays the book through the play entry") {
+            var played: String? = null
+            homePage(
+                readyHome(slot = resumeSlot("wok")),
+                actions = HomeActions.None.copy(onPlay = { played = it }),
+            ).let { (it.querySelector(".home-hero-resume") as HTMLElement).click() }
+            played shouldBe "wok"
+        }
+
+        test("until PR 4, nothing in progress offers a way into the library") {
+            var opened = false
+            homePage(
+                readyHome(slot = HomeSlot.NothingInProgress(candidate = null), alsoInProgress = emptyList()),
+                actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
+            ).buttonsLabelled("Browse the Library").single().click()
+            opened shouldBe true
         }
 
         // ── the two honesty guards ──────────────────────────────────────────────
