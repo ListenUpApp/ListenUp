@@ -40,4 +40,18 @@ struct HomeTextTests {
     @Test func percentOfLength() {
         #expect(ResumeHeroText.progressOfLength(percent: 11, totalMs: 163_800_000) == "11% of 45 hr, 30 min")
     }
+
+    @Test func theStreakChipAndTheBestStreakReadInTheCatalogsWords() {
+        #expect(HomeStatsText.streakChip(days: 5) == "5-day streak")
+        #expect(HomeStatsText.bestStreak(days: 12) == "Best streak 12 days")
+        #expect(HomeStatsText.bestStreak(days: 1) == "Best streak 1 day")
+    }
+
+    @Test func theChartSummaryReadsOldestToToday() {
+        let days = [DayBar(dayOffset: 0, seconds: 4_800), DayBar(dayOffset: 1, seconds: 0)]
+            + (2...6).map { DayBar(dayOffset: $0, seconds: 600) }
+        let summary = HomeStatsText.chartSummary(days: days)
+        #expect(summary.hasPrefix("Listening per day, oldest to today: "))
+        #expect(summary.hasSuffix("today 1 hour, 20 minutes"))
+    }
 }

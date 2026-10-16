@@ -110,9 +110,8 @@ struct HomeWrapperTests {
         // listenTimeLabel is the KMP computed `formattedListenTime` (9000s = 2h 30m).
         #expect(mapped.listenTimeLabel == data.formattedListenTime)
         #expect(mapped.listenTimeLabel == "2h 30m")
-        #expect(mapped.currentStreak == 3)
-        #expect(mapped.longestStreak == 5)
-        #expect(mapped.hasStreak == true)
+        #expect(mapped.streakChipDays == 3)
+        #expect(mapped.bestStreakDays == 5)
 
         #expect(mapped.days.count == 2)
         #expect(mapped.days[0].dayOffset == 0)
@@ -124,6 +123,8 @@ struct HomeWrapperTests {
         #expect(mapped.genres.count == 2)
         #expect(mapped.genres[0].name == "Fantasy")
         #expect(mapped.genres[0].seconds == 6_000)
+        #expect(mapped.genres[0].percent == 66)
+        #expect(mapped.genres[1].percent == 33)
         #expect(mapped.hasGenreData == true)
     }
 
@@ -138,13 +139,13 @@ struct HomeWrapperTests {
         let mapped = HomeStatsData(from: data)
 
         #expect(mapped.hasGenreData == false)
-        #expect(mapped.hasStreak == false)
+        #expect(mapped.streakChipDays == nil)
+        #expect(mapped.bestStreakDays == nil)
         #expect(mapped.maxDaySeconds == 0)
     }
 
-    /// A lapsed streak (current 0, longest > 0) still surfaces `hasStreak`, and the past-best
-    /// value survives the map — so `StreakBadge` can render the "Best: N day streak" variant
-    /// instead of a misleading "0 day streak". Regression guard for the past-streak badge bug.
+    /// A lapsed streak (current 0, longest > 0) shows no chip, and the past best survives the map for the footer's
+    /// "Best streak 9 days" — never a misleading "0-day streak".
     @Test func homeStatsDataCarriesPastStreakWhenCurrentIsZero() {
         let data = HomeStatsUiStateData(
             totalSecondsThisWeek: 0,
@@ -155,10 +156,8 @@ struct HomeWrapperTests {
         )
         let mapped = HomeStatsData(from: data)
 
-        #expect(mapped.currentStreak == 0)
-        #expect(mapped.longestStreak == 9)
-        // hasStreak is true because a past best exists — the badge appears, with "Best:" text.
-        #expect(mapped.hasStreak == true)
+        #expect(mapped.streakChipDays == nil)
+        #expect(mapped.bestStreakDays == 9)
     }
 
     // MARK: - HomeReady greeting

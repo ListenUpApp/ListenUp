@@ -44,3 +44,23 @@ enum ResumeHeroText {
         )
     }
 }
+
+/// What the stats card says (spec §2.6, C15).
+enum HomeStatsText {
+    static func streakChip(days: Int) -> String { String(format: String(localized: "home.streak_chip"), days) }
+
+    static func bestStreak(days: Int) -> String {
+        days == 1
+            ? String(localized: "home.best_streak_one_day")
+            : String(format: String(localized: "home.best_streak_days"), days)
+    }
+
+    /// "Listening per day, oldest to today: …, today 1 hour, 20 minutes".
+    static func chartSummary(days: [DayBar]) -> String {
+        let parts = days.sorted { $0.dayOffset > $1.dayOffset }.map { day in
+            let amount = DurationFormatting.accessibleHoursMinutes(seconds: day.seconds)
+            return day.dayOffset == 0 ? String(format: String(localized: "home.chart_today_a11y"), amount) : amount
+        }
+        return String(format: String(localized: "home.chart_a11y"), parts.joined(separator: ", "))
+    }
+}
