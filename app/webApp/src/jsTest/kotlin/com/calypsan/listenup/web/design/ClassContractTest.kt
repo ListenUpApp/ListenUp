@@ -2298,6 +2298,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                 onRefresh = {},
                 onRefreshLeaderboard = {},
                 onRefreshActivity = {},
+                onShuffle = {},
             )
         }
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.discover
 
+import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -80,5 +81,54 @@ class DiscoverMainTest :
                 }
             (host.querySelector(".disc-listener-book") as HTMLElement).getAttribute("aria-label") shouldBe
                 "The Institute, Ada listened 2 days ago"
+        }
+
+        test("Something new names what it draws, and Shuffle asks once") {
+            var shuffles = 0
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        books = DiscoverBooksUiState.Ready(listOf(pickBook("p1", series = "Mistborn", seq = "1"))),
+                        onShuffle = { shuffles++ },
+                    )
+                }
+            host.textContent.orEmpty() shouldContain "Books you haven't started, first in their series"
+            val shuffle = host.querySelector("[aria-label='Shuffle: draw ten different books']") as HTMLElement
+            shuffle.textContent.orEmpty() shouldContain "Shuffle"
+            shuffle.click()
+            shuffles shouldBe 1
+        }
+
+        test("a pick reads its series and length on one line") {
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        books =
+                            DiscoverBooksUiState.Ready(
+                                listOf(
+                                    pickBook("p1", series = "Mistborn", seq = "1", ms = 88_740_000),
+                                    pickBook("p2", series = null, seq = null, ms = 36_960_000),
+                                ),
+                            ),
+                    )
+                }
+            val lines = host.querySelectorAll(".disc-pick-meta").asList().map { it.textContent }
+            lines shouldBe listOf("Book 1 of Mistborn · 24h 39m", "Standalone · 10h 16m")
+        }
+
+        test("a pick is a link to its book") {
+            var opened: String? = null
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        books = DiscoverBooksUiState.Ready(listOf(pickBook("p1", series = null, seq = null))),
+                        onOpenBook = { opened = it },
+                    )
+                }
+            val card = host.querySelector(".disc-picks .disc-card") as HTMLElement
+            card.tagName shouldBe "A"
+            card.getAttribute("href") shouldBe "/book/p1"
+            card.click()
+            opened shouldBe "p1"
         }
     })

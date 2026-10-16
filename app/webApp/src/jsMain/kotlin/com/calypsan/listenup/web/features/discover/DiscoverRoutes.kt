@@ -54,6 +54,7 @@ internal fun DiscoverRoute(
             onRefresh = session.onRefresh,
             onRefreshLeaderboard = session.onRefreshLeaderboard,
             onRefreshActivity = session.onRefreshActivity,
+            onShuffle = session.onShuffle,
             selection = selection,
         )
     }
