@@ -149,7 +149,12 @@ class DiscoverMainTest :
         }
 
         test("a shelf card is a link with its mosaic, name and count") {
-            val host = mounts.mount { discoverPage(shelves = shelvesOf(owner("u1", "Maya Chen", shelf("s1", "Cosy mysteries", 8, covers = 3)))) }
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        shelves = shelvesOf(owner("u1", "Maya Chen", shelf("s1", "Cosy mysteries", 8, covers = 3))),
+                    )
+                }
             val card = host.querySelector(".disc-shelf") as HTMLElement
             card.getAttribute("href") shouldBe "/shelf/s1"
             card.querySelectorAll(".mosaic-tile").length shouldBe 4
@@ -161,7 +166,16 @@ class DiscoverMainTest :
             val host =
                 mounts.mount {
                     discoverPage(
-                        recentlyAdded = RecentlyAddedUiState.Ready(listOf(recentBook("r1", createdAt = DISCOVER_NOW_MS - DISCOVER_TWO_DAYS_MS))),
+                        recentlyAdded =
+                            RecentlyAddedUiState.Ready(
+                                listOf(
+                                    recentBook(
+                                        "r1",
+                                        createdAt =
+                                            DISCOVER_NOW_MS - DISCOVER_TWO_DAYS_MS,
+                                    ),
+                                ),
+                            ),
                         onOpenLibraryNewest = { opened++ },
                     )
                 }

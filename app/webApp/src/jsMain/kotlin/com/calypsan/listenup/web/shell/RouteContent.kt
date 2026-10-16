@@ -201,12 +201,7 @@ internal fun RouteContent(
             onActionToast = onActionToast,
         )
     } else if (active == DISCOVER_KEY) {
-        DiscoverRoute(
-            router,
-            graph.openDiscover,
-            feeds,
-            landOnLeaderboard = route.query[SECTION_QUERY_KEY] == LEADERBOARD_SECTION,
-        )
+        DiscoverRoute(router, graph.openDiscover, feeds, route.query[SECTION_QUERY_KEY] == LEADERBOARD_SECTION)
     } else {
         NotFoundPage(onGoHome = { router.navigate(Routes.home) })
     }

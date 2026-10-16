@@ -73,7 +73,8 @@ internal fun leaders(
 }
 
 /** A loaded board whose three categories all rank [entries]. */
-internal fun board(entries: List<LeaderboardEntry>) = LeaderboardUiState.Data(LeaderboardSnapshot(entries, entries, entries))
+internal fun board(entries: List<LeaderboardEntry>) =
+    LeaderboardUiState.Data(LeaderboardSnapshot(entries, entries, entries))
 
 /** An activity row by Ada (u1) about "The Institute" (b1), unless a spec says otherwise. */
 internal fun act(
