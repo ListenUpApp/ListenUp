@@ -72,7 +72,7 @@ fun DiscoverPage(
     onOpenLibraryNewest: () -> Unit,
 ) {
     Div(attrs = { classes("disc") }) {
-        PageHeader(title = "Discover")
+        PageHeader(title = "Discover", subtitle = DiscoverWords.PAGE_SUBTITLE)
 
         // One DOM in spec order (§2.8): the CSS grid places the Community aside beside the main
         // column where there is room, and leaves it in reading order where there is not.

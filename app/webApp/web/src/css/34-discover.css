@@ -42,10 +42,28 @@
   font-size: 0.85rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* Page body: the sections in reading order, and the Community aside (leaderboard + activity). */
-.luw .disc-body { display: flex; flex-direction: column; gap: 2.2rem; }
-.luw .disc-aside { display: flex; flex-direction: column; gap: 2.2rem; min-width: 0; }
-.luw .disc-a-listen, .luw .disc-a-new, .luw .disc-a-shelves, .luw .disc-a-recent { min-width: 0; }
+/* Page body: one DOM, spec order (§2.8). The Community aside (leaderboard + activity) joins the main
+   column's side only where it has room: 1280px, the nearest allowed breakpoint to the board's ~1100
+   that leaves the main column ≥ 560px beside a 340–400px aside once the sidebar is taken (plan D3). */
+.luw .disc-body {
+  display: grid; gap: 2.2rem; grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "listen" "new" "aside" "shelves" "recent";
+}
+.luw .disc-a-listen { grid-area: listen; min-width: 0; }
+.luw .disc-a-new { grid-area: new; min-width: 0; }
+.luw .disc-aside { grid-area: aside; display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
+.luw .disc-a-shelves { grid-area: shelves; min-width: 0; }
+.luw .disc-a-recent { grid-area: recent; min-width: 0; }
+@media (min-width: 1280px) {
+  .luw .disc-body {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+    grid-template-areas: "listen aside" "new aside" "shelves aside" "recent aside";
+    /* A tall aside lengthens the last row, never the gaps between the main sections. */
+    grid-template-rows: auto auto auto 1fr;
+    align-items: start; column-gap: 2rem;
+  }
+}
+@media (max-width: 759px) { .luw .disc .page-sub { display: none; } }
 
 /* Something new: two up on a phone, the board's four (the rest stay in the DOM for a wider window);
    every pick with room. */
@@ -88,11 +106,6 @@
 .luw .disc-lb-stat { flex: none; font-size: 0.85rem; font-weight: 700; color: var(--ink-2); }
 .luw .disc-show-all { align-self: center; }
 @media (pointer: coarse) { .luw .disc-lb-row > a { min-height: 48px; } }
-
-/* One DOM, two caps (plan C7): rows past a phone's cap show only beside the main column, and a
-   toggle that would reveal nothing there shows only on narrower screens. */
-@media (max-width: 1279px) { .luw .disc-aside-extra { display: none; } }
-@media (min-width: 1280px) { .luw .disc-phone-only { display: none; } }
 
 /* Activity: a face (a link to the person), the sentence with its own links, when, and the cover. */
 .luw .disc-feed { display: flex; flex-direction: column; }
@@ -148,3 +161,9 @@
 }
 @media (hover: hover) { .luw a.disc-newest:hover { text-decoration: underline; } }
 .luw a.disc-newest:active { opacity: 0.75; }
+
+/* One DOM, two caps (plan C7): rows past a phone's cap show only beside the main column, and a
+   toggle that would reveal nothing there shows only on narrower screens. Last in the file and one
+   class stronger than any row's own display, so it always wins. */
+@media (max-width: 1279px) { .luw .disc .disc-aside-extra { display: none; } }
+@media (min-width: 1280px) { .luw .disc .disc-phone-only { display: none; } }
