@@ -118,9 +118,9 @@ struct LeaderboardObserverTests {
     }
 
     @Test func periodOptionMapsEveryKotlinPeriod() {
-        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodWeek.shared) == .sevenDays)
-        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodMonth.shared) == .thirtyDays)
-        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodYear.shared) == .twelveMonths)
+        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodWeek.shared) == .week)
+        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodMonth.shared) == .month)
+        #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodYear.shared) == .year)
         #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodAllTime.shared) == .allTime)
     }
 
@@ -145,16 +145,21 @@ struct LeaderboardObserverTests {
     }
 }
 
-// MARK: - Activity phrase mapping
+// MARK: - Activity row mapping
 
-@Suite("Activity phrase mapping")
+/// iOS reads the shared activity sentence (`activityParts`), pinned phrase by phrase in Kotlin's
+/// `ActivityProjectionsTest`. These pin that iOS *uses* it, says "You" on your own row, and sends
+/// every row somewhere.
+@Suite("Activity row mapping")
 struct ActivityFeedObserverTests {
 
     private func model(
         type: String,
         isReread: Bool = false,
-        book: String? = "Dune",
-        durationMs: Int64 = 0
+        bookId: String? = "b1",
+        shelfId: String? = nil,
+        durationMs: Int64 = 0,
+        isYou: Bool = false
     ) -> ActivityUiModel {
         ActivityUiModel(
             id: "a1",
@@ -162,48 +167,48 @@ struct ActivityFeedObserverTests {
             type: type,
             occurredAt: 1_609_459_200_000,
             userDisplayName: "Marcus Lee",
-            bookId: book == nil ? nil : "b1",
-            bookTitle: book,
-            bookAuthorName: "Frank Herbert",
+            bookId: bookId,
+            bookTitle: bookId == nil ? nil : "Dune",
+            bookAuthorName: bookId == nil ? nil : "Frank Herbert",
             bookCoverPath: nil,
             bookCoverHash: nil,
             isReread: isReread,
             durationMs: durationMs,
             milestoneValue: 30,
             milestoneUnit: "days",
-            shelfId: nil,
-            shelfName: nil,
-            isYou: false
+            shelfId: shelfId,
+            shelfName: shelfId == nil ? nil : "Sci-fi",
+            isYou: isYou
         )
     }
 
-    @Test func startedBookMapsToStarted() {
-        #expect(ActivityRowItem.action(for: model(type: "started_book")) == "started")
+    @Test func aRowReadsTheSharedSentence() {
+        let row = ActivityRowItem(from: model(type: "listening_session", durationMs: 2_880_000))
+        #expect(row.predicate == "listened to 48 minutes of")
+        #expect(row.highlight == "Dune")
+        #expect(row.suffix == " by Frank Herbert")
     }
 
-    @Test func startedRereadMapsToReread() {
-        #expect(ActivityRowItem.action(for: model(type: "started_book", isReread: true)) == "started re-reading")
+    @Test func yourRowReadsYou() {
+        let row = ActivityRowItem(from: model(type: "finished_book", isYou: true))
+        #expect(row.who == "You")
+        #expect(row.isYou)
+        #expect(row.actorName == "Marcus Lee")
     }
 
-    @Test func finishedBookMapsToFinished() {
-        #expect(ActivityRowItem.action(for: model(type: "finished_book")) == "finished")
-    }
-
-    @Test func streakMilestoneMapsToStreakPhrase() {
-        #expect(ActivityRowItem.action(for: model(type: "streak_milestone")) == "hit a listening streak")
-    }
-
-    @Test func unknownTypeFallsBack() {
-        #expect(ActivityRowItem.action(for: model(type: "wat")) == "did something awesome")
+    @Test func eachRowLeadsToItsSubject() {
+        #expect(ActivityRowItem(from: model(type: "finished_book")).destination == .book("b1"))
+        let shelfRow = ActivityRowItem(from: model(type: "shelf_created", bookId: nil, shelfId: "sh1"))
+        #expect(shelfRow.destination == .shelf("sh1"))
+        #expect(ActivityRowItem(from: model(type: "user_joined", bookId: nil)).destination == .profile("u1"))
     }
 
     @Test func rowItemCarriesBookAndActor() {
         let item = ActivityRowItem(from: model(type: "finished_book"))
         #expect(item.who == "Marcus Lee")
-        #expect(item.initials == "ML")
-        #expect(item.book == "Dune")
+        #expect(item.highlight == "Dune")
         #expect(item.bookId == "b1")
-        #expect(item.action == "finished")
+        #expect(item.predicate == "finished")
     }
 
     @Test func rowItemCarriesTheBookCover() {
@@ -222,46 +227,10 @@ struct ActivityFeedObserverTests {
     }
 
     @Test func bookLessActivityHasNoBook() {
-        let item = ActivityRowItem(from: model(type: "user_joined", book: nil))
-        #expect(item.book == nil)
+        let item = ActivityRowItem(from: model(type: "user_joined", bookId: nil))
+        #expect(item.highlight == nil)
         #expect(item.bookId == nil)
-        #expect(item.action == "joined the server")
-    }
-
-    @Test func listeningSessionWeavesDurationIntoPhrase() {
-        // 1h 5m = 65 minutes = 3_900_000 ms — Android reads "listened to 1 hour 5 minutes of <book>".
-        #expect(
-            ActivityRowItem.action(for: model(type: "listening_session", durationMs: 3_900_000))
-                == "listened to 1 hour 5 minutes of"
-        )
-    }
-
-    @Test func listeningSessionUnderAnHourReadsMinutesOnly() {
-        // 54m = 3_240_000 ms
-        #expect(
-            ActivityRowItem.action(for: model(type: "listening_session", durationMs: 3_240_000))
-                == "listened to 54 minutes of"
-        )
-    }
-
-    @Test func listeningSessionRoundsToWholeHour() {
-        // Exactly 2h = 7_200_000 ms — no trailing "0 minutes", singular unit.
-        #expect(
-            ActivityRowItem.action(for: model(type: "listening_session", durationMs: 7_200_000))
-                == "listened to 2 hours of"
-        )
-    }
-
-    @Test func zeroDurationListeningSessionReadsSeconds() {
-        #expect(
-            ActivityRowItem.action(for: model(type: "listening_session", durationMs: 0))
-                == "listened to 0 seconds of"
-        )
-    }
-
-    @Test func nonListeningActivityIgnoresDurationEvenWithMs() {
-        #expect(ActivityRowItem.action(for: model(type: "started_book", durationMs: 3_900_000)) == "started")
-        #expect(ActivityRowItem.action(for: model(type: "finished_book", durationMs: 3_900_000)) == "finished")
+        #expect(item.predicate == "joined the server")
     }
 }
 
