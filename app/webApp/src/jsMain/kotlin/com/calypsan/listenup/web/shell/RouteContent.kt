@@ -30,6 +30,7 @@ import com.calypsan.listenup.web.nav.CONTRIBUTOR_KEY
 import com.calypsan.listenup.web.nav.DISCOVER_KEY
 import com.calypsan.listenup.web.nav.EDIT_KEY
 import com.calypsan.listenup.web.nav.HOME_KEY
+import com.calypsan.listenup.web.nav.LEADERBOARD_SECTION
 import com.calypsan.listenup.web.nav.LIBRARY_KEY
 import com.calypsan.listenup.web.nav.NOTIFICATIONS_KEY
 import com.calypsan.listenup.web.nav.PROFILE_KEY
@@ -37,7 +38,9 @@ import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.SEARCH_KEY
+import com.calypsan.listenup.web.nav.SECTION_QUERY_KEY
 import com.calypsan.listenup.web.nav.SERIES_KEY
+import com.calypsan.listenup.web.nav.SORT_QUERY_KEY
 import com.calypsan.listenup.web.nav.browseTarget
 import com.calypsan.listenup.web.nav.bulkEditIds
 import com.calypsan.listenup.web.nav.editTargetOf
@@ -168,6 +171,7 @@ internal fun RouteContent(
             heroBookId = heroBookId,
             onHeroBookIdChange = onHeroBookIdChange,
             onToast = onToast,
+            sortQuery = route.query[SORT_QUERY_KEY],
         )
     } else if (page == SEARCH_KEY) {
         SearchRouteContent(router = router, route = route, openSearch = graph.openSearch, openSeeAll = graph.openSeeAll)
@@ -197,7 +201,12 @@ internal fun RouteContent(
             onActionToast = onActionToast,
         )
     } else if (active == DISCOVER_KEY) {
-        DiscoverRoute(router, graph.openDiscover, feeds)
+        DiscoverRoute(
+            router,
+            graph.openDiscover,
+            feeds,
+            landOnLeaderboard = route.query[SECTION_QUERY_KEY] == LEADERBOARD_SECTION,
+        )
     } else {
         NotFoundPage(onGoHome = { router.navigate(Routes.home) })
     }

@@ -1,6 +1,11 @@
 package com.calypsan.listenup.web.features.discover
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
@@ -70,7 +75,16 @@ fun DiscoverPage(
     onShuffle: () -> Unit,
     /** Opens the Library's Books sorted newest first, for this visit (Recently added's link). */
     onOpenLibraryNewest: () -> Unit,
+    /**
+     * Arrived at `/discover?section=leaderboard` (the stats card's footer link): select Week, then
+     * bring the leaderboard into view and focus its heading (spec §6.4).
+     */
+    landOnLeaderboard: Boolean = false,
 ) {
+    // Spent on the first landing, as Admin's pending landing is: a later period pick is the reader's own.
+    var landing by remember(landOnLeaderboard) { mutableStateOf(landOnLeaderboard) }
+    LaunchedEffect(landOnLeaderboard) { if (landOnLeaderboard) onSelectPeriod(LeaderboardPeriod.Week) }
+
     Div(attrs = { classes("disc") }) {
         PageHeader(title = "Discover", subtitle = DiscoverWords.PAGE_SUBTITLE)
 
@@ -90,6 +104,8 @@ fun DiscoverPage(
                     onSelectCategory,
                     onOpenProfile,
                     onRefreshLeaderboard,
+                    land = landing,
+                    onLanded = { landing = false },
                 )
                 ActivityFeedSection(activity, nowMs, onOpenBook, onOpenShelf, onOpenProfile, onRefreshActivity)
             }

@@ -30,6 +30,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldBeEmpty
 import com.calypsan.listenup.web.awaitFrame
 import org.w3c.dom.asList
+import kotlinx.browser.document
 
 /** A day in milliseconds — far enough back that the relative time is stable to read. */
 private const val TWO_DAYS_MS = 172_800_000L
@@ -117,6 +118,7 @@ private fun page(
     onRefresh: () -> Unit = {},
     onRefreshLeaderboard: () -> Unit = {},
     onRefreshActivity: () -> Unit = {},
+    landOnLeaderboard: Boolean = false,
     selection: BookSelection? = null,
 ) {
     DiscoverPage(
@@ -138,6 +140,7 @@ private fun page(
         onRefreshActivity = onRefreshActivity,
         onShuffle = {},
         onOpenLibraryNewest = {},
+        landOnLeaderboard = landOnLeaderboard,
         selection = selection,
     )
 }
@@ -657,6 +660,31 @@ class DiscoverPageTest :
 
             opened shouldBe FEED_BOOK_ID
             picked shouldBe emptyList()
+        }
+
+        test("landing on the leaderboard selects Week once and focuses its heading") {
+            val periods = mutableListOf<LeaderboardPeriod>()
+            mounts.mount {
+                page(
+                    leaderboard =
+                        LeaderboardUiState.Data(snapshot = LeaderboardSnapshot(listOf(entry("Ada")), emptyList(), emptyList())),
+                    leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Year, LeaderboardCategory.Time),
+                    onSelectPeriod = { periods += it },
+                    landOnLeaderboard = true,
+                )
+            }
+            awaitFrame()
+
+            periods shouldBe listOf(LeaderboardPeriod.Week)
+            document.activeElement?.textContent shouldBe "Leaderboard"
+        }
+
+        test("without a landing, nothing is selected for the reader and focus stays put") {
+            val periods = mutableListOf<LeaderboardPeriod>()
+            mounts.mount { page(onSelectPeriod = { periods += it }) }
+            awaitFrame()
+
+            periods.shouldBeEmpty()
         }
     })
 

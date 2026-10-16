@@ -45,7 +45,9 @@ class RoutesTest :
                 "contributorEdit" to Routes.Contributor.edit(id),
                 "contributorMatch" to Routes.Contributor.match(id),
                 "genre" to Routes.genre(id),
+                "discoverLeaderboard" to Routes.discoverLeaderboard,
                 "library" to Routes.library,
+                "libraryNewestFirst" to Routes.libraryNewestFirst,
                 "libraryContributors" to Routes.libraryContributors,
                 "librarySeries" to Routes.librarySeries,
                 "mood" to Routes.mood(id),
@@ -79,5 +81,10 @@ class RoutesTest :
             built.forEach { (name, route) ->
                 Route.parse(route.toUrl()).isServed() shouldBe true
             }
+        }
+
+        test("the leaderboard landing and the newest-first library are served URLs") {
+            Routes.discoverLeaderboard.toUrl() shouldBe "/discover?section=leaderboard"
+            Routes.libraryNewestFirst.toUrl() shouldBe "/library?sort=added-desc"
         }
     })

@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
+import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.web.design.LibraryFacet
@@ -26,6 +27,7 @@ import com.calypsan.listenup.web.features.shelf.ShelfRouteContent
 import com.calypsan.listenup.web.nav.CONTRIBUTORS_KEY
 import com.calypsan.listenup.web.nav.LIBRARY_KEY
 import com.calypsan.listenup.web.nav.NARRATOR_ROLE_VALUE
+import com.calypsan.listenup.web.nav.NEWEST_SORT
 import com.calypsan.listenup.web.nav.ROLE_QUERY_KEY
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -70,7 +72,9 @@ internal fun LibraryRouteContent(
     heroBookId: String?,
     onHeroBookIdChange: (String) -> Unit,
     onToast: (String) -> Unit,
+    sortQuery: String? = null,
 ) {
+    LibrarySortLanding(sortQuery, librarySession.onEvent)
     BookSelectionScaffold(openMultiSelect, router, onToast) { selection ->
         LibraryPage(
             state = animatedLibrary(librarySession),
@@ -88,6 +92,20 @@ internal fun LibraryRouteContent(
             inbox = inbox,
             onOpenInbox = { router.navigate(Routes.Admin.inbox) },
         )
+    }
+}
+
+/**
+ * `/library?sort=added-desc` (Discover's "Newest in Library →"): the Books, newest first, for this
+ * visit only; the reader's saved sort is untouched (plan Q6). Any other value, or none, asks nothing.
+ */
+@Composable
+internal fun LibrarySortLanding(
+    sortQuery: String?,
+    onEvent: (LibraryUiEvent) -> Unit,
+) {
+    LaunchedEffect(sortQuery) {
+        if (sortQuery == NEWEST_SORT) onEvent(LibraryUiEvent.BooksShownNewestFirst)
     }
 }
 

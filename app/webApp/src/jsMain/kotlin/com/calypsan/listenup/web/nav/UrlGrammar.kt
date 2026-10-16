@@ -52,6 +52,9 @@ internal object Routes {
     val libraryContributors: Route get() = Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))
     val librarySeries: Route get() = Route(listOf(LIBRARY_KEY, SERIES_KEY))
 
+    /** `/discover?section=leaderboard`: Discover with its leaderboard in view on Week (spec §6.4). */
+    val discoverLeaderboard: Route get() = Route(listOf(DISCOVER_KEY), mapOf(SECTION_QUERY_KEY to LEADERBOARD_SECTION))
+
     /** `/library?sort=added-desc`: the Books grid, newest first, for this visit (spec §6.4, plan Q6). */
     val libraryNewestFirst: Route get() = Route(listOf(LIBRARY_KEY), mapOf(SORT_QUERY_KEY to NEWEST_SORT))
 
@@ -297,6 +300,9 @@ internal const val SORT_QUERY_KEY = "sort"
 internal const val NEWEST_SORT = "added-desc"
 
 internal const val PENDING_SECTION = "pending"
+
+/** [SECTION_QUERY_KEY]'s value for Discover's leaderboard landing. */
+internal const val LEADERBOARD_SECTION = "leaderboard"
 
 internal const val LIBRARY_KEY = "library"
 
