@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.testTag
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -23,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.presentation.home.weekChartColumns
+
+/** Test tag on the week chart's canvas; the caller supplies its text alternative. */
+internal const val HOME_STATS_CHART_TAG = "home-stats-chart"
 
 /**
  * 7-day bar chart showing daily listening time.
@@ -65,7 +69,8 @@ fun DailyListeningChart(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(chartHeight),
+                .height(chartHeight)
+                .testTag(HOME_STATS_CHART_TAG),
     ) {
         val labelHeight = 16.dp.toPx()
         val plotHeight = size.height - labelHeight - 4.dp.toPx()
