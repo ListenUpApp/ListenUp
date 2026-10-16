@@ -172,7 +172,8 @@ struct ActivityFeedObserverTests {
             milestoneValue: 30,
             milestoneUnit: "days",
             shelfId: nil,
-            shelfName: nil
+            shelfName: nil,
+            isYou: false
         )
     }
 
@@ -212,7 +213,8 @@ struct ActivityFeedObserverTests {
             userDisplayName: base.userDisplayName, bookId: base.bookId, bookTitle: base.bookTitle,
             bookAuthorName: base.bookAuthorName, bookCoverPath: "/c/b1.jpg", bookCoverHash: "h1",
             isReread: base.isReread, durationMs: base.durationMs, milestoneValue: base.milestoneValue,
-            milestoneUnit: base.milestoneUnit, shelfId: base.shelfId, shelfName: base.shelfName
+            milestoneUnit: base.milestoneUnit, shelfId: base.shelfId, shelfName: base.shelfName,
+            isYou: false
         )
         let row = ActivityRowItem(from: withCover)
         #expect(row.coverPath == "/c/b1.jpg")
