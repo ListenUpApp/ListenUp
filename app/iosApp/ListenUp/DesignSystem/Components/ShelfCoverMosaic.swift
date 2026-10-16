@@ -7,7 +7,7 @@ struct ShelfCoverMosaic: View {
     let covers: [DiscoverShelfCover]
 
     /// Pure: always four tiles, the covers first, then empty tiles.
-    static func tiles(for covers: [DiscoverShelfCover]) -> [DiscoverShelfCover?] {
+    nonisolated static func tiles(for covers: [DiscoverShelfCover]) -> [DiscoverShelfCover?] {
         (0..<4).map { covers.indices.contains($0) ? covers[$0] : nil }
     }
 
