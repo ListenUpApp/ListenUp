@@ -493,9 +493,9 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .let {
-                        it.timeOfDay shouldBe TimeOfDay.Morning
-                        it.firstName shouldBe "Alice"
+                    .let { ready ->
+                        ready.timeOfDay shouldBe TimeOfDay.Morning
+                        ready.firstName shouldBe "Alice"
                     }
             }
         }
@@ -511,9 +511,9 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .let {
-                        it.timeOfDay shouldBe TimeOfDay.Afternoon
-                        it.firstName shouldBe null
+                    .let { ready ->
+                        ready.timeOfDay shouldBe TimeOfDay.Afternoon
+                        ready.firstName shouldBe null
                     }
             }
         }

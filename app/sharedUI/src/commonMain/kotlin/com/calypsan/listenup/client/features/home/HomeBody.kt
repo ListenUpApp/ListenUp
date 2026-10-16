@@ -50,7 +50,15 @@ internal fun HomeBody(
         // The shell header scrolls away with the page; the greeting is its leading content.
         appHeader { HomeHeader(state.timeOfDay, state.firstName, isWide = width != HomeWidth.Compact) }
         homeBlocks(state.slot, state.alsoInProgress.isNotEmpty(), width).forEach { block ->
-            HomeBlockContent(block, state, stats, width, actions, selection, onRetryStats)
+            HomeBlockContent(
+                block = block,
+                state = state,
+                stats = stats,
+                width = width,
+                actions = actions,
+                selection = selection,
+                onRetryStats = onRetryStats,
+            )
         }
         Spacer(Modifier.height(Spacing.lg))
     }

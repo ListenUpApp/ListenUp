@@ -160,7 +160,8 @@ private fun ReadyCard(
 }
 
 /** "18h 40m left" — Library's wording on every card, whatever its length (open question 6: no "Almost done"). */
-internal fun timeLeftText(remainingMs: Long): String = "${DurationFormatter.hoursMinutes(remainingMs.milliseconds)} left"
+internal fun timeLeftText(remainingMs: Long): String =
+    "${DurationFormatter.hoursMinutes(remainingMs.milliseconds)} left"
 
 /** "Babel, by R. F. Kuang, 11% listened, 18h 40m left" (§2.5); wide pages add ", read by …". */
 internal fun homeCardLabel(
