@@ -8,13 +8,16 @@ import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.AppLink
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.RestrictedMarker
+import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.features.shelf.bookCountLabel
+import com.calypsan.listenup.web.nav.Routes
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -26,14 +29,14 @@ import org.jetbrains.compose.web.dom.Text
  */
 
 /**
- * "What others are listening to" — the section that makes this a shared library rather than a
- * private one, which is why it leads.
+ * "Listening now", the section that makes this a shared library rather than a private one, which is
+ * why it leads. A count line says how many are live and how many more in the last two weeks.
  *
- * Two kinds of row in one list: anyone with a live session, marked "Listening now", then everyone
+ * Two kinds of card in one list: anyone with a live session, wearing "Live" on the art, then everyone
  * else on the book they last played. [CurrentlyListeningUiSession.isLive] says which.
  */
 @Composable
-internal fun CurrentlyListeningSection(
+internal fun ListeningNowSection(
     state: CurrentlyListeningUiState,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
@@ -41,7 +44,12 @@ internal fun CurrentlyListeningSection(
     selection: BookSelection?,
     onRefresh: () -> Unit,
 ) {
-    Section("What others are listening to") {
+    val ready = state as? CurrentlyListeningUiState.Ready
+    Section(
+        DiscoverWords.LISTENING_NOW,
+        subtitle = ready?.let { DiscoverWords.listeningCount(it.liveCount, it.recentCount) },
+        styleClass = "disc-a-listen",
+    ) {
         when (state) {
             is CurrentlyListeningUiState.Loading -> {
                 SectionSkeleton()
@@ -68,6 +76,10 @@ internal fun CurrentlyListeningSection(
     }
 }
 
+/**
+ * A listener: the art and title are one link to the book, named for the book and the person; the
+ * person row under it is a sibling link to their profile. Never one link inside another.
+ */
 @Composable
 internal fun ListenerCard(
     session: CurrentlyListeningUiSession,
@@ -76,30 +88,42 @@ internal fun ListenerCard(
     onOpenProfile: (String) -> Unit,
     selection: BookSelection?,
 ) {
-    Button(attrs = {
+    val whenText = relativeLastActive(session.lastActiveAt, nowMs)
+    Div(attrs = {
         classes("disc-listener")
         if (selection?.isSelected(session.bookId) == true) classes("is-sel")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        attr("aria-label", "${session.displayName} — ${session.bookTitle}")
-        onClick { selection.press(session.bookId) { onOpenBook(session.bookId) } }
     }) {
-        Cover(
-            title = session.bookTitle,
-            imageUrl = coverUrl(session.bookId, session.coverHash, width = LISTENER_COVER_WIDTH),
-            size = LISTENER_COVER_WIDTH,
-            decorative = true,
-            overlay = { RestrictedMarker(session.bookId, compact = true) },
-        )
-        Div(attrs = { classes("disc-listener-text") }) {
-            // ⛔ The name, not the card: the card opens the book, and a second click target inside
-            // a button is not one — so the name is a sibling of the card, rendered as a link.
-            PersonLink(session.displayName, session.userId, onOpenProfile, "disc-listener-who")
-            Span(attrs = { classes("disc-listener-book") }) { Text(session.bookTitle) }
-            Span(attrs = {
-                // The live marker is the one thing on this page that changes while you watch it.
-                classes(if (session.isLive) "disc-live" else "disc-when")
-            }) {
-                Text(if (session.isLive) "Listening now" else relativeLastActive(session.lastActiveAt, nowMs))
+        AppLink(
+            href = Routes.Book.detail(session.bookId).toUrl(),
+            onOpen = { selection.press(session.bookId) { onOpenBook(session.bookId) } },
+            attrs = {
+                classes("disc-listener-book")
+                attr("aria-label", DiscoverWords.listenerLabel(session.bookTitle, session.displayName, session.isLive, whenText))
+            },
+        ) {
+            Cover(
+                title = session.bookTitle,
+                imageUrl = coverUrl(session.bookId, session.coverHash, width = CARD_COVER_WIDTH),
+                size = null,
+                decorative = true,
+                overlay = {
+                    RestrictedMarker(session.bookId)
+                    if (session.isLive) Span(attrs = { classes("disc-live-chip") }) { Text(DiscoverWords.LIVE) }
+                },
+            )
+            Span(attrs = { classes("disc-card-t") }) { Text(session.bookTitle) }
+        }
+        AppLink(
+            href = Routes.profile(session.userId).toUrl(),
+            onOpen = { onOpenProfile(session.userId) },
+            attrs = { classes("disc-person") },
+        ) {
+            UserAvatar(userId = session.userId, name = session.displayName, size = LISTENER_AVATAR)
+            Span(attrs = { classes("disc-person-text") }) {
+                Span(attrs = { classes("disc-person-name") }) { Text(session.displayName) }
+                Span(attrs = { classes(if (session.isLive) "disc-live" else "disc-when") }) {
+                    Text(if (session.isLive) DiscoverWords.LISTENING_NOW else whenText)
+                }
             }
         }
     }
@@ -113,7 +137,7 @@ internal fun DiscoverBooksSection(
     selection: BookSelection?,
     onRefresh: () -> Unit,
 ) {
-    Section("Something new") {
+    Section("Something new", styleClass = "disc-a-new") {
         when (state) {
             is DiscoverBooksUiState.Loading -> {
                 SectionSkeleton()
@@ -148,7 +172,7 @@ internal fun RecentlyAddedSection(
     selection: BookSelection?,
     onRefresh: () -> Unit,
 ) {
-    Section("Recently added") {
+    Section("Recently added", styleClass = "disc-a-recent") {
         when (state) {
             is RecentlyAddedUiState.Loading -> {
                 SectionSkeleton()
@@ -216,7 +240,7 @@ internal fun SharedShelvesSection(
     onOpenProfile: (String) -> Unit,
     onRefresh: () -> Unit,
 ) {
-    Section("Shelves from others") {
+    Section("Shelves from others", styleClass = "disc-a-shelves") {
         when (state) {
             is DiscoverShelvesUiState.Loading -> {
                 SectionSkeleton()

@@ -159,7 +159,7 @@ class DiscoverPageTest :
 
             val headings = host.querySelectorAll(".disc-section-h")
             headings.length shouldBe DISCOVER_SECTIONS
-            host.textContent.orEmpty() shouldContain "What others are listening to"
+            host.textContent.orEmpty() shouldContain "Listening now"
             host.textContent.orEmpty() shouldContain "Leaderboard"
             host.textContent.orEmpty() shouldContain "Shelves from others"
         }
@@ -543,8 +543,8 @@ class DiscoverPageTest :
         }
 
         test("opening a listener's profile does not also open the book they are on") {
-            // ⛔ The name sits inside the card, and the card is itself a button that opens the book.
-            // Without stopping propagation the browser runs both and the reader lands on the book.
+            // ⛔ The name sits under the book link on the card. They are siblings, never one inside
+            // the other, so opening the person cannot also open the book.
             val profiles = mutableListOf<String>()
             val books = mutableListOf<String>()
             val host =
@@ -557,14 +557,14 @@ class DiscoverPageTest :
                     )
                 }
 
-            (host.querySelector(".disc-listener-who") as HTMLElement).click()
+            (host.querySelector(".disc-listener .disc-person") as HTMLElement).click()
             awaitFrame()
 
             profiles shouldContainExactly listOf("u1")
             books.shouldBeEmpty()
         }
 
-        test("a name is a control, not text that happens to respond") {
+        test("a name is a link, not text that happens to respond") {
             val host =
                 mounts.mount {
                     page(
@@ -573,8 +573,8 @@ class DiscoverPageTest :
                     )
                 }
 
-            val name = host.querySelector(".disc-listener-who") as HTMLElement
-            name.tagName.lowercase() shouldBe "button"
+            val name = host.querySelector(".disc-listener .disc-person") as HTMLElement
+            name.tagName.lowercase() shouldBe "a"
         }
 
         // ⛔ The idle state production always renders — the scaffold supplies a BookSelection even

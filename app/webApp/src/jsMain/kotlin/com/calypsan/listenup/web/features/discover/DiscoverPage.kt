@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.BookSelection
+import org.jetbrains.compose.web.dom.Aside
 import org.jetbrains.compose.web.dom.Div
 
 /**
@@ -69,18 +70,30 @@ fun DiscoverPage(
     Div(attrs = { classes("disc") }) {
         PageHeader(title = "Discover")
 
-        CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection, onRefresh)
-        DiscoverBooksSection(books, onOpenBook, selection, onRefresh)
-        RecentlyAddedSection(recentlyAdded, onOpenBook, selection, onRefresh)
-        SharedShelvesSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
-        LeaderboardSection(
-            leaderboard,
-            leaderboardSelection,
-            onSelectPeriod,
-            onSelectCategory,
-            onOpenProfile,
-            onRefreshLeaderboard,
-        )
-        ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile, onRefreshActivity)
+        // One DOM in spec order (§2.8): the CSS grid places the Community aside beside the main
+        // column where there is room, and leaves it in reading order where there is not.
+        Div(attrs = { classes("disc-body") }) {
+            ListeningNowSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection, onRefresh)
+            DiscoverBooksSection(books, onOpenBook, selection, onRefresh)
+            Aside(attrs = {
+                classes("disc-aside")
+                attr("aria-label", COMMUNITY_LABEL)
+            }) {
+                LeaderboardSection(
+                    leaderboard,
+                    leaderboardSelection,
+                    onSelectPeriod,
+                    onSelectCategory,
+                    onOpenProfile,
+                    onRefreshLeaderboard,
+                )
+                ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile, onRefreshActivity)
+            }
+            SharedShelvesSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
+            RecentlyAddedSection(recentlyAdded, onOpenBook, selection, onRefresh)
+        }
     }
 }
+
+/** The aside's landmark name: the leaderboard and the activity feed are the community record. */
+private const val COMMUNITY_LABEL = "Community"

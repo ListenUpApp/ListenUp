@@ -1,0 +1,48 @@
+/* ---- Discover (PR 5): people first. One DOM in spec order; see DiscoverPage. ---- */
+
+/* Section heading row: the H2 and its quiet line, with the section's own action at the end. */
+.luw .disc-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.luw .disc-section-titles { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.luw .disc-sub { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
+.luw .disc-section-actions { display: flex; align-items: center; gap: 0.5rem; flex: none; }
+
+/* Listening now: a rail on a phone (order is meaningful: live listeners lead), a grid with room. */
+.luw .disc-listeners {
+  display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 0.4rem;
+}
+.luw .disc-listeners > .disc-listener { flex: 0 0 156px; scroll-snap-align: start; }
+@media (min-width: 760px) {
+  .luw .disc-listeners {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+    overflow: visible; gap: 1.2rem 1rem;
+  }
+}
+.luw .disc-listener { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.luw .disc-listener-book {
+  display: flex; flex-direction: column; gap: 0.45rem; color: inherit; text-decoration: none; border-radius: 12px;
+}
+@media (hover: hover) { .luw .disc-listener-book:hover .disc-card-t { color: var(--coral-text); } }
+.luw .disc-listener-book:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+
+/* "Live" on the art: a white pill with a coral dot at the top end, the same in both themes. */
+.luw .disc-live-chip {
+  position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 9px 0 7px; border-radius: var(--r-pill); background: #FFFFFF; color: #C11D00;
+  font-size: 0.6875rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.luw .disc-live-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #E2603A; }
+
+/* The person under a card: a sibling link, never inside the book link. */
+.luw a.disc-person {
+  display: flex; align-items: center; gap: 0.5rem; min-height: 44px; min-width: 0;
+  color: inherit; text-decoration: none; border-radius: var(--r-xs);
+}
+.luw .disc-person-text { display: flex; flex-direction: column; gap: 0.05rem; min-width: 0; }
+.luw .disc-person-name {
+  font-size: 0.85rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Page body: the sections in reading order, and the Community aside (leaderboard + activity). */
+.luw .disc-body { display: flex; flex-direction: column; gap: 2.2rem; }
+.luw .disc-aside { display: flex; flex-direction: column; gap: 2.2rem; min-width: 0; }
+.luw .disc-a-listen, .luw .disc-a-new, .luw .disc-a-shelves, .luw .disc-a-recent { min-width: 0; }
