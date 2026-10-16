@@ -13,9 +13,9 @@ import kotlin.time.Duration.Companion.seconds
  *
  * Owner identity (`ownerId`, `ownerDisplayName`) is populated from the current
  * user for the caller's own shelves and from the server for discovered shelves.
- * `coverPaths` and `totalDurationSeconds` are derived from the shelf's member
- * books in the local Room mirror — discovered (other-user) shelves carry empty
- * covers and zero duration because their member books never enter the mirror.
+ * `covers` and `totalDurationSeconds` are derived from the shelf's member books in the local Room mirror — for the
+ * reader's own shelves from the junction rows, for discovered shelves from the server's cover ids. Discovered shelves
+ * carry zero duration because their member books never enter the mirror.
  *
  * @property id Unique identifier (typed [ShelfId])
  * @property name Display name (e.g., "To Read", "Favorites")
@@ -27,9 +27,7 @@ import kotlin.time.Duration.Companion.seconds
  * @property totalDurationSeconds Total duration of all books in seconds
  * @property createdAtMs Creation timestamp
  * @property updatedAtMs Last update timestamp
- * @property coverPaths Cover hashes for the shelf's first few member books, in sort order
- * @property covers The cover mosaic of a shelf discovered from another reader, resolved on this device
- *   from the server's cover ids; empty for the reader's own shelves, whose covers are [coverPaths]
+ * @property covers Up to four cover tiles, in shelf order, resolved on this device
  */
 data class Shelf(
     val id: ShelfId,
@@ -42,7 +40,6 @@ data class Shelf(
     val totalDurationSeconds: Long,
     val createdAtMs: Long,
     val updatedAtMs: Long,
-    val coverPaths: List<String> = emptyList(),
     val covers: List<ShelfCover> = emptyList(),
 ) {
     /** The shelf id as a plain String for Swift, where the value class crosses as a wrapper object. */

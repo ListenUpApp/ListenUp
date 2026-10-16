@@ -44,13 +44,13 @@ struct ShelfCard: View {
     /// Up to three covers fanned left-to-right; falls back to a single placeholder tile when the
     /// shelf has no cover art.
     private var coverStack: some View {
-        let covers = Array(shelf.coverPaths.prefix(3))
+        let covers = Array(shelf.covers.prefix(3))
         return ZStack(alignment: .leading) {
             if covers.isEmpty {
                 placeholderTile(offset: 0)
             } else {
-                ForEach(Array(covers.enumerated()), id: \.offset) { index, path in
-                    BookCoverImage(coverPath: path)
+                ForEach(Array(covers.enumerated()), id: \.offset) { index, cover in
+                    BookCoverImage(bookId: cover.bookId, coverPath: cover.coverPath, coverHash: cover.coverHash)
                         .frame(width: coverSize, height: coverSize)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                         .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
@@ -151,12 +151,22 @@ struct MyShelvesRow: View {
 extension ShelfItem {
     /// Memberwise initializer for previews — `HomeViewModelWrapper` defines only `init(from:)`,
     /// which suppresses the synthesized one.
-    init(id: String, name: String, bookCount: Int, durationLabel: String, coverPaths: [String]) {
+    init(
+        id: String,
+        name: String,
+        bookCount: Int,
+        durationLabel: String,
+        covers: [DiscoverShelfCover] = [],
+        isPrivate: Bool = false,
+        totalSeconds: Int = 0
+    ) {
         self.id = id
         self.name = name
         self.bookCount = bookCount
         self.durationLabel = durationLabel
-        self.coverPaths = coverPaths
+        self.covers = covers
+        self.isPrivate = isPrivate
+        self.totalSeconds = totalSeconds
     }
 }
 
@@ -167,15 +177,13 @@ extension ShelfItem {
                 id: "1",
                 name: "To Read",
                 bookCount: 7,
-                durationLabel: "2h 30m",
-                coverPaths: ["/a.jpg", "/b.jpg", "/c.jpg"]
+                durationLabel: "2h 30m"
             ))
             ShelfCard(shelf: ShelfItem(
                 id: "2",
                 name: "A Very Long Shelf Name That Truncates Nicely",
                 bookCount: 1,
-                durationLabel: "",
-                coverPaths: []
+                durationLabel: ""
             ))
         }
         .padding()
@@ -184,8 +192,8 @@ extension ShelfItem {
 
 #Preview("My Shelves Row") {
     MyShelvesRow(shelves: [
-        ShelfItem(id: "1", name: "To Read", bookCount: 7, durationLabel: "2h 30m", coverPaths: ["/a.jpg", "/b.jpg"]),
-        ShelfItem(id: "2", name: "Favorites", bookCount: 12, durationLabel: "18h 04m", coverPaths: ["/c.jpg"]),
-        ShelfItem(id: "3", name: "Mystery", bookCount: 3, durationLabel: "9h 12m", coverPaths: [])
+        ShelfItem(id: "1", name: "To Read", bookCount: 7, durationLabel: "2h 30m"),
+        ShelfItem(id: "2", name: "Favorites", bookCount: 12, durationLabel: "18h 04m"),
+        ShelfItem(id: "3", name: "Mystery", bookCount: 3, durationLabel: "9h 12m")
     ])
 }

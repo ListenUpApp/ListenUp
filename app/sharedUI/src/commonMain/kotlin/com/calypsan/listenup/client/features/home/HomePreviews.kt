@@ -85,7 +85,6 @@ private fun mockShelf(
     totalDurationSeconds = 0L,
     createdAtMs = 0L,
     updatedAtMs = 0L,
-    coverPaths = emptyList(),
 )
 
 private fun mockShelves() =

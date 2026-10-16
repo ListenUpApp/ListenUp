@@ -72,8 +72,7 @@ struct HomeWrapperTests {
             totalDurationSeconds: 9_000,
             createdAtMs: 0,
             updatedAtMs: 0,
-            coverPaths: ["/a.jpg", "/b.jpg"],
-            covers: []
+            covers: [ShelfCover(bookId: "b1", coverPath: "/a.jpg", coverHash: "h1")]
         )
         let item = ShelfItem(from: shelf)
 
@@ -83,7 +82,9 @@ struct HomeWrapperTests {
         // durationLabel is the KMP computed `formattedDuration` (9000s = 2h 30m).
         #expect(item.durationLabel == shelf.formattedDuration)
         #expect(item.durationLabel == "2h 30m")
-        #expect(item.coverPaths == ["/a.jpg", "/b.jpg"])
+        #expect(item.covers.map(\.bookId) == ["b1"])
+        #expect(item.isPrivate == false)
+        #expect(item.totalSeconds == 9_000)
     }
 
     // MARK: - HomeStatsData

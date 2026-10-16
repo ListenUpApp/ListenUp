@@ -49,16 +49,16 @@ class ShelfDaoHeldExclusionTest :
             }
         }
 
-        test("coverHashesFor, bookCountFor and totalDurationMsFor — the one-shot card reads") {
+        test("coverRowsForShelf, bookCountFor and totalDurationMsFor — the one-shot card reads") {
             withHeldBookDb { db ->
                 seedShelf(db)
-                db.shelfDao().coverHashesFor("s1") shouldContainExactly listOf("cover-visible")
+                db.shelfDao().coverRowsForShelf("s1").map { it.coverHash } shouldContainExactly listOf("cover-visible")
                 db.shelfDao().bookCountFor("s1") shouldBe 1
                 db.shelfDao().totalDurationMsFor("s1") shouldBe 1_000L
 
                 HeldBookFixture.applyReleaseEcho(db, "held")
 
-                db.shelfDao().coverHashesFor("s1") shouldContainExactly listOf("cover-visible", "cover-held")
+                db.shelfDao().coverRowsForShelf("s1").map { it.coverHash } shouldContainExactly listOf("cover-visible", "cover-held")
                 db.shelfDao().bookCountFor("s1") shouldBe 2
                 db.shelfDao().totalDurationMsFor("s1") shouldBe 3_000L
             }

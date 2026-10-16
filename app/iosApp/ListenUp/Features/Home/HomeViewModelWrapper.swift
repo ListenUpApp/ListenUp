@@ -203,14 +203,18 @@ struct ShelfItem: Identifiable, Equatable {
     let name: String
     let bookCount: Int
     let durationLabel: String
-    let coverPaths: [String]
+    let covers: [DiscoverShelfCover]
+    let isPrivate: Bool
+    let totalSeconds: Int
 
     init(from shelf: Shelf) {
         self.id = shelf.idString
         self.name = shelf.name
         self.bookCount = Int(shelf.bookCount)
         self.durationLabel = shelf.formattedDuration
-        self.coverPaths = shelf.coverPaths
+        self.covers = shelf.covers.map(DiscoverShelfCover.init(from:))
+        self.isPrivate = shelf.isPrivate
+        self.totalSeconds = Int(shelf.totalDurationSeconds)
     }
 }
 

@@ -98,16 +98,15 @@ internal interface ShelfDao {
     fun observeShelvesContainingBookWithBookCount(bookId: String): Flow<List<ShelfWithBookCount>>
 
     /**
-     * Cover hashes for the first few live books on a shelf, in sort order.
+     * The cover tiles for the first few live books on one of the reader's own shelves, in sort order.
      *
-     * Used to render the shelf-card cover grid offline. Joins the live junction rows to
-     * the local `books` mirror; only books present in Room with a non-null cover are returned.
-     *
-     * Books held for review ([HELD_BOOK_IDS_SQL]) are excluded on an admin's device, matching the shelf detail.
+     * The shelf card's 2×2 mosaic, drawn offline. Only books present in Room with a cover are returned, and books
+     * held for review ([HELD_BOOK_IDS_SQL]) are excluded on an admin's device, matching the shelf detail. The same
+     * row shape as [coverRowsFor], so an own shelf and a discovered one resolve their tiles one way.
      */
     @Query(
         """
-        SELECT b.coverHash
+        SELECT b.id AS bookId, b.coverHash AS coverHash, b.coverDownloadedAt AS coverDownloadedAt
         FROM shelf_books sb
         JOIN books b ON sb.bookId = b.id
         WHERE sb.shelfId = :shelfId AND sb.deletedAt IS NULL AND sb.bookId NOT IN ($HELD_BOOK_IDS_SQL)
@@ -116,14 +115,14 @@ internal interface ShelfDao {
         LIMIT 4
     """,
     )
-    suspend fun coverHashesFor(shelfId: String): List<String>
+    suspend fun coverRowsForShelf(shelfId: String): List<ShelfCoverRow>
 
     /**
      * Per-book cover hashes for a shelf's live books present in the local mirror.
      *
      * The shelf-detail RPC view carries no cover info, so the detail mapper joins each
      * [ShelfBook][com.calypsan.listenup.client.domain.model.ShelfBook] to its local cover hash
-     * here. Books not yet synced to Room are simply absent. Unlike [coverHashesFor] (a LIMIT-4
+     * here. Books not yet synced to Room are simply absent. Unlike [coverRowsForShelf] (a LIMIT-4
      * cover-grid helper) this returns one row per live book and includes null hashes.
      */
     @Query(

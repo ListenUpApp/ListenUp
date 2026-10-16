@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
+import com.calypsan.listenup.client.data.local.db.ShelfCoverRow
 import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
@@ -43,7 +44,7 @@ import kotlinx.coroutines.flow.map
  *
  * Own-shelf reads (`observeMyShelves`, `observeById`, `getById`) come from the local Room
  * mirror, which the sync engine populates via the substrate firehose stream and the shelf sync
- * handlers. `bookCount` is JOIN-derived; `coverPaths` and `totalDurationSeconds` are derived
+ * handlers. `bookCount` is JOIN-derived; `covers` and `totalDurationSeconds` are derived
  * from the shelf's member books present in the local `books` mirror; owner fields are filled
  * from the current user (the local mirror holds only the caller's own shelves).
  *
@@ -107,20 +108,17 @@ internal class ShelfRepositoryImpl(
                 val ids = discovered.flatMap { it.coverBookIds }.distinct()
                 val rows = if (ids.isEmpty()) emptyMap() else dao.coverRowsFor(ids).associateBy { it.bookId }
                 discovered.map { shelf ->
-                    shelf.toDomain(
-                        covers =
-                            shelf.coverBookIds.mapNotNull { id ->
-                                rows[id]?.let { row ->
-                                    ShelfCover(
-                                        bookId = id,
-                                        coverPath = imageStorage.coverPathFor(BookId(id), row.coverDownloadedAt),
-                                        coverHash = row.coverHash,
-                                    )
-                                }
-                            },
-                    )
+                    shelf.toDomain(covers = shelf.coverBookIds.mapNotNull { id -> rows[id]?.toShelfCover() })
                 }
             }
+
+    /** A cover row as the tile every shelf card draws: the local file when there is one, the hash either way. */
+    private fun ShelfCoverRow.toShelfCover(): ShelfCover =
+        ShelfCover(
+            bookId = bookId,
+            coverPath = imageStorage.coverPathFor(BookId(bookId), coverDownloadedAt),
+            coverHash = coverHash,
+        )
 
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
@@ -374,7 +372,7 @@ internal class ShelfRepositoryImpl(
     ): Shelf =
         entity.toDomain(
             owner = userDao.getCurrentUser(),
-            coverPaths = dao.coverHashesFor(entity.id),
+            covers = dao.coverRowsForShelf(entity.id).map { it.toShelfCover() },
             totalDurationMs = dao.totalDurationMsFor(entity.id),
             bookCount = bookCount ?: dao.bookCountFor(entity.id),
         )
@@ -405,7 +403,7 @@ internal class ShelfRepositoryImpl(
 /** Pure entity -> domain mapping; every fact not on the row arrives as a parameter. */
 private fun ShelfEntity.toDomain(
     owner: UserEntity?,
-    coverPaths: List<String>,
+    covers: List<ShelfCover>,
     totalDurationMs: Long,
     bookCount: Int,
 ): Shelf =
@@ -420,7 +418,7 @@ private fun ShelfEntity.toDomain(
         totalDurationSeconds = totalDurationMs / 1000,
         createdAtMs = createdAt,
         updatedAtMs = updatedAt,
-        coverPaths = coverPaths,
+        covers = covers,
     )
 
 private fun com.calypsan.listenup.api.dto.shelf.Shelf.toDomain(): Shelf =
