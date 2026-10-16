@@ -221,6 +221,7 @@ struct HomeWrapperTests {
         #expect(resume.chapterNumber == 6)
         #expect(resume.chapterTitle == "Bridge Four")
         #expect(resume.canPlay == false)
+        #expect(slot.shape == .resume)
     }
 
     @Test func slotMapsJustFinished() {

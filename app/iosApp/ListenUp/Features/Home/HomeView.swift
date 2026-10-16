@@ -129,14 +129,14 @@ struct HomeView: View {
 
         continueSection(ready.continueItems, layout: layout)
 
-        if case .statsBesideShelves(let statsWidth) = layout.arrangement, !ready.shelves.isEmpty {
+        if case .wide(let statsWidth) = layout.arrangement, !ready.shelves.isEmpty {
             HStack(alignment: .top, spacing: 24) {
-                MyShelvesRow(shelves: ready.shelves, margin: layout.margin)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 HomeStatsCard(statsPhase: stats.statsPhase)
                     .frame(width: statsWidth)
+                MyShelvesRow(shelves: ready.shelves, margin: layout.margin)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.trailing, layout.margin)
+            .padding(.leading, layout.margin)
         } else {
             HomeStatsCard(statsPhase: stats.statsPhase)
                 .padding(.horizontal, layout.margin)
@@ -169,7 +169,7 @@ struct HomeView: View {
     @ViewBuilder
     private func continueSection(_ items: [ContinueItem], layout: HomeLayout) -> some View {
         let horizontalInset = layout.margin
-        let continueCardWidth = layout.continueCardWidth
+        let continueCardWidth = HomeLayout.phoneCardWidth
         if items.isEmpty {
             EmptyContinueListening()
                 .frame(maxWidth: .infinity)
