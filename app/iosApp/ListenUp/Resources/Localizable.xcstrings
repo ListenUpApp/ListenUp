@@ -10641,92 +10641,12 @@
         }
       }
     },
-    "discover.activity_did_something": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "did something awesome"
-          }
-        }
-      }
-    },
-    "discover.activity_feed": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activity feed"
-          }
-        }
-      }
-    },
-    "discover.activity_finished": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "finished"
-          }
-        }
-      }
-    },
-    "discover.activity_joined": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "joined the server"
-          }
-        }
-      }
-    },
-    "discover.activity_listened_milestone": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "reached a listening milestone"
-          }
-        }
-      }
-    },
-    "discover.activity_listened_to": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "listened to"
-          }
-        }
-      }
-    },
     "discover.activity_profile_a11y": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@'s profile"
-          }
-        }
-      }
-    },
-    "discover.activity_reread": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "started re-reading"
-          }
-        }
-      }
-    },
-    "discover.activity_shelf_created": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "created a shelf"
           }
         }
       }
@@ -10751,26 +10671,6 @@
         }
       }
     },
-    "discover.activity_started": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "started"
-          }
-        }
-      }
-    },
-    "discover.activity_streak": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "hit a listening streak"
-          }
-        }
-      }
-    },
     "discover.activity_you": {
       "localizations": {
         "en": {
@@ -10791,32 +10691,12 @@
         }
       }
     },
-    "discover.book_1_of_series": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book 1 of %1$@"
-          }
-        }
-      }
-    },
     "discover.could_not_load_leaderboard": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Could not load leaderboard."
-          }
-        }
-      }
-    },
-    "discover.discover_something_new": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discover something new"
           }
         }
       }
@@ -10877,66 +10757,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Start listening to climb the rankings."
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_12_months": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "12 months"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_12_months_description": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last 12 months"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_30_days": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "30 days"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_30_days_description": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last 30 days"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_7_days": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7 days"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_7_days_description": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last 7 days"
           }
         }
       }
@@ -11147,16 +10967,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Loading leaderboard..."
-          }
-        }
-      }
-    },
-    "discover.new_for_you": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New for You"
           }
         }
       }
@@ -11431,32 +11241,12 @@
         }
       }
     },
-    "discover.what_others_are_listening_to": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What others are listening to"
-          }
-        }
-      }
-    },
     "discover.when_other_users_create_shelves": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "When other users create shelves with books you can access, they'll appear here."
-          }
-        }
-      }
-    },
-    "discover.x_is_listening_to_y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ is listening to %2$@"
           }
         }
       }
