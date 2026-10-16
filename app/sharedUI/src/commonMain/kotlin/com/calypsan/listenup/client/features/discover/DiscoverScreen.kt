@@ -14,6 +14,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
+import com.calypsan.listenup.client.features.shell.LocalShellLandings
+import com.calypsan.listenup.client.features.shell.ShellLanding
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
@@ -55,6 +57,7 @@ fun DiscoverScreen(
     val leaderboardSelection by leaderboardViewModel.selection.collectAsStateWithLifecycle()
     val activityState by activityFeedViewModel.state.collectAsStateWithLifecycle()
     val haptics = LocalHaptics.current
+    val landings = LocalShellLandings.current
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isInSelectionMode = selectionMode is SelectionMode.Active
     val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
@@ -102,7 +105,7 @@ fun DiscoverScreen(
                         onShuffle = viewModel::shuffle,
                         onSelectPeriod = leaderboardViewModel::selectPeriod,
                         onSelectCategory = leaderboardViewModel::selectCategory,
-                        onOpenLibraryNewest = {}, // wired in Task 13
+                        onOpenLibraryNewest = { landings?.request(ShellLanding.LibraryNewestFirst) },
                         onBookLongPress = multiSelect::enterSelectionMode,
                     ),
                 appHeader = appHeader,

@@ -161,6 +161,7 @@ internal fun DiscoverLayout(
             RecentlyAddedSection(
                 state = state.recentlyAdded,
                 onBookClick = actions.onBookClick,
+                onOpenLibraryNewest = actions.onOpenLibraryNewest,
                 isInSelectionMode = isInSelectionMode,
                 selectedBookIds = selectedBookIds,
                 onBookLongPress = actions.onBookLongPress,
