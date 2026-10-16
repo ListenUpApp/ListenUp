@@ -60,4 +60,56 @@ class CommunityAsideTest :
             val host = mounts.mount { discoverPage(leaderboard = board(leaders(count = 6))) }
             (host.querySelector(".disc-show-all") as HTMLElement).classList.contains("disc-phone-only") shouldBe true
         }
+
+        test("the heading is Activity, and a row's avatar is a link named for the person") {
+            val host = mounts.mount { discoverPage(activity = feed(act("a1", "finished_book"))) }
+            host.querySelectorAll(".disc-section-h").asList().any { it.textContent == "Activity" } shouldBe true
+            val avatar = host.querySelector(".disc-feed-avatar") as HTMLElement
+            avatar.tagName shouldBe "A"
+            avatar.getAttribute("aria-label") shouldBe "Ada's profile"
+            avatar.getAttribute("href") shouldBe "/profile/u1"
+        }
+
+        test("the sentence names the book as a link, ends by its author, and shows the cover") {
+            val host = mounts.mount { discoverPage(activity = feed(act("a1", "listening_session"))) }
+            val line = host.querySelector(".disc-feed-line") as HTMLElement
+            line.textContent shouldBe "Ada listened to 48 minutes of The Institute by Stephen King"
+            (line.querySelector("a[href='/book/b1']") as HTMLElement).textContent shouldBe "The Institute"
+            host.querySelectorAll(".disc-feed-cover").length shouldBe 1
+        }
+
+        test("a created shelf links the shelf") {
+            var opened: String? = null
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        activity = feed(act("a1", "shelf_created", bookId = null, shelfId = "sh1", shelfName = "Sci-fi")),
+                        onOpenShelf = { opened = it },
+                    )
+                }
+            val link = host.querySelector(".disc-feed-line a[href='/shelf/sh1']") as HTMLElement
+            link.textContent shouldBe "Sci-fi"
+            link.click()
+            opened shouldBe "sh1"
+            host.querySelectorAll(".disc-feed-cover").length shouldBe 0
+        }
+
+        test("your own row reads You, and its avatar is Your profile") {
+            val host = mounts.mount { discoverPage(activity = feed(act("a1", "finished_book", isYou = true))) }
+            (host.querySelector(".disc-feed-line") as HTMLElement).textContent.orEmpty().startsWith("You finished") shouldBe true
+            (host.querySelector(".disc-feed-avatar") as HTMLElement).getAttribute("aria-label") shouldBe "Your profile"
+        }
+
+        test("eight rows render, the last two desktop-only; See all activity shows the rest") {
+            val rows = (1..12).map { act("a$it", "finished_book") }.toTypedArray()
+            val host = mounts.mount { discoverPage(activity = feed(*rows)) }
+            host.querySelectorAll(".disc-feed-row").length shouldBe 8
+            host.querySelectorAll(".disc-feed-row.disc-aside-extra").length shouldBe 2
+            val more = host.querySelector(".disc-see-all") as HTMLElement
+            more.textContent shouldBe "See all activity →"
+            more.click()
+            awaitFrame()
+            host.querySelectorAll(".disc-feed-row").length shouldBe 12
+            (host.querySelector(".disc-see-all") as HTMLElement).textContent shouldBe "Show less"
+        }
     })

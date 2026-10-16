@@ -487,25 +487,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .disc-live { font-size: 0.75rem; font-weight: 700; color: var(--coral-text); }
 .luw .disc-when { font-size: 0.75rem; color: var(--ink-3); }
 
-/* Activity feed */
-.luw .disc-feed {
-  display: flex; flex-direction: column;
-  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); overflow: hidden;
-}
-.luw .disc-feed-row {
-  display: flex; align-items: baseline; gap: 0.8rem; justify-content: space-between;
-  padding: 0.7rem 1.1rem; border-bottom: 1px solid var(--line);
-  background: transparent; border-left: none; border-right: none; border-top: none;
-  width: 100%; text-align: left; font: inherit; color: inherit;
-}
-.luw .disc-feed-row:last-child { border-bottom: none; }
-/* Only rows that lead somewhere say so. A streak or a join is plain text by construction. */
-.luw .disc-feed-row.is-open { cursor: pointer; }
-@media (hover: hover) { .luw .disc-feed-row.is-open:hover { background: var(--surface-2); } }
-.luw .disc-feed-line { font-size: 0.9rem; color: var(--ink-2); line-height: 1.45; min-width: 0; }
-.luw .disc-feed-who { font-weight: 700; color: var(--ink); }
-.luw .disc-feed-hi { font-weight: 700; color: var(--coral-text); }
-
 .luw .home-section { display: flex; flex-direction: column; gap: 0.9rem; }
 .luw .home-section-h {
   margin: 0; font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.03em; color: var(--ink);

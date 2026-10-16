@@ -93,3 +93,25 @@
    toggle that would reveal nothing there shows only on narrower screens. */
 @media (max-width: 1279px) { .luw .disc-aside-extra { display: none; } }
 @media (min-width: 1280px) { .luw .disc-phone-only { display: none; } }
+
+/* Activity: a face (a link to the person), the sentence with its own links, when, and the cover. */
+.luw .disc-feed { display: flex; flex-direction: column; }
+.luw .disc-feed-row {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line-2);
+}
+.luw .disc-feed-row:last-child { border-bottom: none; }
+.luw .disc-feed-avatar {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; border-radius: 50%;
+}
+.luw .disc-feed-avatar:focus-visible { outline: 2px solid var(--coral); outline-offset: 1px; }
+.luw .disc-feed-body { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 0; }
+.luw .disc-feed-line { font-size: 0.9rem; color: var(--ink-2); line-height: 1.45; min-width: 0; }
+.luw .disc-feed-who { font-weight: 700; color: var(--ink); text-decoration: none; }
+.luw .disc-feed-hi { font-weight: 700; color: var(--coral-text); text-decoration: none; }
+@media (hover: hover) {
+  .luw .disc-feed-who:hover, .luw .disc-feed-hi:hover { text-decoration: underline; }
+}
+.luw .disc-feed-who:active, .luw .disc-feed-hi:active { opacity: 0.75; }
+.luw .disc-feed-cover { flex: none; width: 36px; height: 36px; border-radius: 8px; object-fit: cover; background: var(--surface-2); }
+.luw .disc-see-all { align-self: center; }
