@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardSnapshot
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
+import com.calypsan.listenup.client.domain.model.ShelfCover
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
@@ -15,8 +16,11 @@ import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
+import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
@@ -149,3 +153,23 @@ internal fun noActions(
     onShuffle: () -> Unit = {},
     onOpenLibraryNewest: () -> Unit = {},
 ) = DiscoverActions(onBookClick, onShelfClick, onUserClick, onShuffle, {}, {}, onOpenLibraryNewest, null)
+
+internal fun shelf(
+    id: String,
+    name: String,
+    bookCount: Int = 8,
+    coverCount: Int = 4,
+) = DiscoverShelfUi(
+    id = id,
+    name = name,
+    description = null,
+    bookCount = bookCount,
+    totalDurationSeconds = 0,
+    covers = (1..coverCount).map { ShelfCover("$id-b$it", "/tmp/$id-$it.webp", null) },
+)
+
+internal fun shelfOwner(
+    id: String,
+    name: String,
+    vararg shelves: DiscoverShelfUi,
+) = DiscoverUserShelves(DiscoverShelfOwner(id, name), shelves.toList())
