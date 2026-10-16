@@ -57,6 +57,16 @@ struct DiscoverObserverTests {
         #expect(row.shelves.first?.bookCount == 4)
     }
 
+    @Test func mosaicFillsFourTilesCoversFirst() {
+        let covers = [
+            DiscoverShelfCover(bookId: "b1", coverPath: nil, coverHash: nil),
+            DiscoverShelfCover(bookId: "b2", coverPath: nil, coverHash: nil)
+        ]
+        let tiles = ShelfCoverMosaic.tiles(for: covers)
+        #expect(tiles.count == 4)
+        #expect(tiles.compactMap { $0 }.map(\.bookId) == ["b1", "b2"])
+    }
+
     // MARK: - RecentlyAddedBook
 
     @Test func recentlyAddedBookMapsFieldsAndDate() {
@@ -237,6 +247,12 @@ struct ActivityFeedObserverTests {
         #expect(item.highlight == nil)
         #expect(item.bookId == nil)
         #expect(item.predicate == "joined the server")
+    }
+
+    @Test func activityCapsAtSix() {
+        #expect(ActivitySectionView.visibleCount(total: 9, expanded: false) == 6)
+        #expect(ActivitySectionView.visibleCount(total: 9, expanded: true) == 9)
+        #expect(ActivitySectionView.visibleCount(total: 4, expanded: false) == 4)
     }
 }
 
