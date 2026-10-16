@@ -1,7 +1,10 @@
 package com.calypsan.listenup.web.features.discover
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.browser.document
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,18 +65,15 @@ internal fun LeaderboardSection(
     land: Boolean = false,
     onLanded: () -> Unit = {},
 ) {
-    Section(
-        DiscoverWords.LEADERBOARD,
-        id = LEADERBOARD_SECTION_ID,
-        styleClass = "disc-lb-card",
-        onMounted = { section ->
-            if (land) {
-                section.scrollIntoView()
-                (section.querySelector("h2") as? HTMLElement)?.let(::focusAsLanding)
-                onLanded()
-            }
-        },
-    ) {
+    val currentOnLanded by rememberUpdatedState(onLanded)
+    LaunchedEffect(land) {
+        if (!land) return@LaunchedEffect
+        val section = document.getElementById(LEADERBOARD_SECTION_ID) as? HTMLElement ?: return@LaunchedEffect
+        section.scrollIntoView()
+        (section.querySelector("h2") as? HTMLElement)?.let(::focusAsLanding)
+        currentOnLanded()
+    }
+    Section(DiscoverWords.LEADERBOARD, id = LEADERBOARD_SECTION_ID, styleClass = "disc-lb-card") {
         ChipRadioGroup(DiscoverWords.PERIOD_GROUP, PERIOD_OPTIONS, selection.period, onSelectPeriod)
         ChipRadioGroup(
             DiscoverWords.CATEGORY_GROUP,

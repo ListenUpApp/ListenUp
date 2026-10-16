@@ -29,6 +29,7 @@ internal fun DiscoverRoute(
     router: Router,
     openDiscover: OpenDiscover,
     feeds: FeedSelection,
+    landOnLeaderboard: Boolean = false,
 ) {
     val session = rememberSession { openDiscover() }
     val nowMs = remember { currentEpochMilliseconds() }
@@ -56,6 +57,7 @@ internal fun DiscoverRoute(
             onRefreshActivity = session.onRefreshActivity,
             onShuffle = session.onShuffle,
             onOpenLibraryNewest = { router.navigate(Routes.libraryNewestFirst) },
+            landOnLeaderboard = landOnLeaderboard,
             selection = selection,
         )
     }

@@ -8,7 +8,6 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
-import org.w3c.dom.HTMLElement
 
 /*
  * Discover's section furniture: the heading-and-body frame every section shares, its loading and
@@ -27,8 +26,7 @@ internal const val LISTENER_AVATAR = 30
  * A Discover section: its H2, an optional quiet line under it ([subtitle]), optional [actions] at the
  * heading's end (Shuffle, "Newest in Library →"), then its body.
  *
- * [styleClass] places it (a grid area, or the leaderboard's card); [id] makes it a fragment target;
- * [onMounted] hands the section element to a landing that must scroll it into view.
+ * [styleClass] places it (a grid area, or the leaderboard's card); [id] is what a landing scrolls to.
  */
 @Composable
 internal fun Section(
@@ -37,19 +35,12 @@ internal fun Section(
     id: String? = null,
     styleClass: String? = null,
     actions: (@Composable () -> Unit)? = null,
-    onMounted: ((HTMLElement) -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Div(attrs = {
         classes("disc-section")
         styleClass?.let { classes(it) }
         id?.let { id(it) }
-        onMounted?.let { mounted ->
-            ref { element ->
-                mounted(element)
-                onDispose {}
-            }
-        }
     }) {
         Div(attrs = { classes("disc-section-head") }) {
             Div(attrs = { classes("disc-section-titles") }) {
