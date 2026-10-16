@@ -1,58 +1,66 @@
 import SwiftUI
 
-/// An activity-feed row: an initials avatar, "**who** *action* **book**" with the book in
-/// coral, and a relative timestamp ("2h ago"). When the activity carries a book the row is
-/// tappable and navigates to the book's detail.
+/// An activity-feed row: the actor's avatar (its own link to their profile), then the shared sentence —
+/// "**who** predicate **highlight** suffix", the highlight in coral — over a relative time, as one link
+/// to the row's subject: its book, its shelf, or for a row about neither, the actor (spec X27–X32).
+/// A book row shows the book's cover trailing.
 struct ActivityRow: View {
     let item: ActivityRowItem
-
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter
-    }()
+    var now = Date()
 
     /// Relative timestamp, floored to the past. A just-created event whose server `occurredAt` sits a
     /// few seconds ahead of the device clock would otherwise read "in 3 seconds"; we clamp sub-minute
     /// ages to "Just now" and never let the formatter phrase a future instant — matching Android's
     /// floored `relativeTime`.
     private var timeLabel: String {
-        let now = Date()
         if item.occurredAt >= now.addingTimeInterval(-60) {
             return String(localized: "discover.time_ago_now")
         }
-        return Self.relativeFormatter.localizedString(for: min(item.occurredAt, now), relativeTo: now)
+        return DiscoverCopy.lastActive(item.occurredAt, relativeTo: now)
+    }
+
+    private var profileLabel: String {
+        item.isYou
+            ? String(localized: "discover.activity_your_profile_a11y")
+            : String(format: String(localized: "discover.activity_profile_a11y"), item.who)
     }
 
     var body: some View {
-        HStack(spacing: 13) {
+        HStack(spacing: Spacing.s) {
             // The avatar is its own tap target → the actor's profile. Kept a sibling of (not nested
-            // inside) the book link below, since nested NavigationLinks don't compose.
+            // inside) the subject link below, since nested NavigationLinks don't compose.
             NavigationLink(value: ProfileDestination(userId: item.userId)) {
-                UserAvatarView(userId: item.userId, fallbackName: item.who)
+                UserAvatarView(userId: item.userId, fallbackName: item.actorName)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(item.who)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(profileLabel)
+            .accessibilityAddTraits(.isLink)
 
             detail
         }
-        .padding(.vertical, Spacing.xs)
+        .padding(.vertical, Spacing.xxs)
     }
 
-    /// The phrase + timestamp → the book's detail when the activity carries a book; otherwise plain.
+    /// The sentence → the row's subject. `NavigationLink(value:)` needs one concrete type per branch.
     @ViewBuilder private var detail: some View {
-        if let bookId = item.bookId {
-            NavigationLink(value: BookDestination(id: bookId)) {
-                detailContent
-            }
-            .buttonStyle(.pressScaleRow)
-        } else {
-            detailContent
+        switch item.destination {
+        case .book(let id):
+            NavigationLink(value: BookDestination(id: id)) { detailContent }
+                .buttonStyle(.pressScaleRow)
+        case .shelf(let id):
+            NavigationLink(value: ShelfDestination(id: id)) { detailContent }
+                .buttonStyle(.pressScaleRow)
+        case .profile(let userId):
+            NavigationLink(value: ProfileDestination(userId: userId)) { detailContent }
+                .buttonStyle(.pressScaleRow)
         }
     }
 
     private var detailContent: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: Spacing.s) {
             VStack(alignment: .leading, spacing: 2) {
                 phrase
                     .font(.subheadline)
@@ -64,27 +72,38 @@ struct ActivityRow: View {
             }
 
             Spacer(minLength: 0)
+
+            if let bookId = item.bookId {
+                BookCoverImage(bookId: bookId, coverPath: item.coverPath, coverHash: item.coverHash)
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                    .accessibilityHidden(true)
+            }
         }
+        .frame(minHeight: 44)
         .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }
 
-    /// "**who** action **book**" — actor semibold, book in coral semibold.
+    /// "**who** predicate **highlight** suffix" — actor semibold, highlight in coral semibold.
     private var phrase: Text {
         let who = Text(item.who).fontWeight(.semibold).foregroundStyle(.primary)
-        let action = Text(" \(item.action) ").foregroundStyle(.primary)
-        if let book = item.book, !book.isEmpty {
-            let title = Text(book).fontWeight(.semibold).foregroundStyle(Color.luTint)
-            return Text("\(who)\(action)\(title)")
+        let predicate = Text(" \(item.predicate)").foregroundStyle(.primary)
+        let suffix = Text(item.suffix).foregroundStyle(.primary)
+        if let highlight = item.highlight, !highlight.isEmpty {
+            let title = Text(highlight).fontWeight(.semibold).foregroundStyle(Color.luTint)
+            return Text("\(who)\(predicate) \(title)\(suffix)")
         }
-        return Text("\(who)\(action)")
+        return Text("\(who)\(predicate)\(suffix)")
     }
 
-    private var accessibilityText: String {
-        if let book = item.book, !book.isEmpty {
-            return "\(item.who) \(item.action) \(book), \(timeLabel)"
+    var sentence: String {
+        if let highlight = item.highlight, !highlight.isEmpty {
+            return "\(item.who) \(item.predicate) \(highlight)\(item.suffix)"
         }
-        return "\(item.who) \(item.action), \(timeLabel)"
+        return "\(item.who) \(item.predicate)\(item.suffix)"
     }
+
+    private var accessibilityText: String { "\(sentence), \(timeLabel)" }
 }

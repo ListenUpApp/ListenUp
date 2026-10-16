@@ -1,34 +1,27 @@
 import SwiftUI
 
-/// A cover card in the "Recently Added" rail: a rounded cover with the title below and a
-/// calmer relative "added" caption ("2d ago"). Tapping navigates to the book's detail.
-/// Width is width-driven by the caller (wider on iPad) so the rail reads as a real layout
-/// at every size.
+/// A Recently Added card: a rounded cover with the title, the author and when it was added
+/// ("Added 2 days ago") beneath it. Tapping navigates to the book's detail. `width` nil fills the grid
+/// cell it is given.
 ///
 /// When `selection` is supplied and selecting, the cover shows a selection circle and a tap toggles
 /// selection instead of navigating; a long-press is the secondary entry. `nil` = navigation only.
 struct RecentlyAddedCard: View {
     let book: RecentlyAddedBook
-    let width: CGFloat
+    let width: CGFloat?
     var selection: BookSelectionObserver?
 
     @Environment(\.restrictedBooks) private var restrictedBooks
 
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter
-    }()
-
     private var addedLabel: String {
-        Self.relativeFormatter.localizedString(for: book.addedAt, relativeTo: Date())
+        DiscoverCopy.added(book.addedAt, relativeTo: Date())
     }
 
     var body: some View {
         SelectableBookCard(bookId: book.id, selection: selection) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
-                    .frame(width: width, height: width)
+                    .aspectRatio(1, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.l))
                     .restrictedMarker(bookId: book.id, isSelecting: selection?.isSelecting ?? false)
                     .coverHoverEffect(cornerRadius: Radius.l)
@@ -41,9 +34,17 @@ struct RecentlyAddedCard: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
+                    if let author = book.author, !author.isEmpty {
+                        Text(author)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
                     Text(addedLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
             .frame(width: width, alignment: .leading)
@@ -51,7 +52,10 @@ struct RecentlyAddedCard: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            RestrictedMarker.label(book.title, isRestricted: restrictedBooks?.isRestricted(book.id) == true)
+            RestrictedMarker.label(
+                [book.title, book.author].compactMap { $0 }.joined(separator: ", "),
+                isRestricted: restrictedBooks?.isRestricted(book.id) == true
+            )
         )
         .accessibilityValue(addedLabel)
     }

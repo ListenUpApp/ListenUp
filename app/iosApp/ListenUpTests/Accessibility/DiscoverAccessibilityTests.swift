@@ -60,4 +60,26 @@ struct DiscoverAccessibilityTests {
         #expect(hosted.stop(labelled: "Rank 2, You, 8h 12m") != nil, "\(hosted.tree)")
         #expect(hosted.stops(labelContaining: "Simon Hull").isEmpty, "\(hosted.tree)")
     }
+
+    @Test func activityAvatarIsNamedForTheProfile() async throws {
+        let item = ActivityRowItem(
+            id: "a1", userId: "u1", who: "Maya Chen", predicate: "finished", highlight: "Piranesi",
+            suffix: " by Susanna Clarke", bookId: "b1", occurredAt: now.addingTimeInterval(-7_200)
+        )
+        let hosted = await host(ActivityRow(item: item, now: now), height: 120)
+        defer { hosted.close() }
+        #expect(hosted.stop(labelled: "Maya Chen's profile") != nil, "\(hosted.tree)")
+        let sentence = hosted.stops(labelContaining: "Maya Chen finished Piranesi by Susanna Clarke")
+        #expect(!sentence.isEmpty, "\(hosted.tree)")
+    }
+
+    @Test func yourActivityAvatarIsYourProfile() async throws {
+        let item = ActivityRowItem(
+            id: "a1", userId: "me", who: "You", predicate: "finished", highlight: "Piranesi",
+            bookId: "b1", occurredAt: now.addingTimeInterval(-7_200), isYou: true, actorName: "Simon Hull"
+        )
+        let hosted = await host(ActivityRow(item: item, now: now), height: 120)
+        defer { hosted.close() }
+        #expect(hosted.stop(labelled: "Your profile") != nil, "\(hosted.tree)")
+    }
 }
