@@ -85,36 +85,36 @@ fun DiscoverScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             DiscoverLanding(onSelectPeriod = leaderboardViewModel::selectPeriod) { listState ->
-            DiscoverLayout(
-                state =
-                    DiscoverState(
-                        listening = listeningState,
-                        picks = picksState,
-                        leaderboard = leaderboardState,
-                        leaderboardSelection = leaderboardSelection,
-                        activity = activityState,
-                        shelves = shelvesState,
-                        recentlyAdded = recentState,
-                    ),
-                actions =
-                    DiscoverActions(
-                        onBookClick = { id ->
-                            if (isInSelectionMode) multiSelect.toggleSelection(id) else onBookClick(id)
-                        },
-                        onShelfClick = onShelfClick,
-                        onUserClick = onUserProfileClick,
-                        onShuffle = viewModel::shuffle,
-                        onSelectPeriod = leaderboardViewModel::selectPeriod,
-                        onSelectCategory = leaderboardViewModel::selectCategory,
-                        onOpenLibraryNewest = { landings?.request(ShellLanding.LibraryNewestFirst) },
-                        onBookLongPress = multiSelect::enterSelectionMode,
-                    ),
-                appHeader = appHeader,
-                contentPadding = contentPadding,
-                isInSelectionMode = isInSelectionMode,
-                selectedBookIds = selectedBookIds,
-                listState = listState,
-            )
+                DiscoverLayout(
+                    state =
+                        DiscoverState(
+                            listening = listeningState,
+                            picks = picksState,
+                            leaderboard = leaderboardState,
+                            leaderboardSelection = leaderboardSelection,
+                            activity = activityState,
+                            shelves = shelvesState,
+                            recentlyAdded = recentState,
+                        ),
+                    actions =
+                        DiscoverActions(
+                            onBookClick = { id ->
+                                if (isInSelectionMode) multiSelect.toggleSelection(id) else onBookClick(id)
+                            },
+                            onShelfClick = onShelfClick,
+                            onUserClick = onUserProfileClick,
+                            onShuffle = viewModel::shuffle,
+                            onSelectPeriod = leaderboardViewModel::selectPeriod,
+                            onSelectCategory = leaderboardViewModel::selectCategory,
+                            onOpenLibraryNewest = { landings?.request(ShellLanding.LibraryNewestFirst) },
+                            onBookLongPress = multiSelect::enterSelectionMode,
+                        ),
+                    appHeader = appHeader,
+                    contentPadding = contentPadding,
+                    isInSelectionMode = isInSelectionMode,
+                    selectedBookIds = selectedBookIds,
+                    listState = listState,
+                )
             }
         }
 

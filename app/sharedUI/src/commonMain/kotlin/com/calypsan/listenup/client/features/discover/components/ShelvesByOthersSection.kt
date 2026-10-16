@@ -103,7 +103,12 @@ internal fun ShelvesByOthersSection(
                         ) {
                             pair.forEach { userShelves ->
                                 key(userShelves.user.id) {
-                                    WideUserShelves(userShelves, onShelfClick, onUserClick, Modifier.weight(1f))
+                                    WideUserShelves(
+                                        userShelves = userShelves,
+                                        onShelfClick = onShelfClick,
+                                        onUserClick = onUserClick,
+                                        modifier = Modifier.weight(1f),
+                                    )
                                 }
                             }
                             // An odd owner out keeps half the width, so their cards match their neighbours'.

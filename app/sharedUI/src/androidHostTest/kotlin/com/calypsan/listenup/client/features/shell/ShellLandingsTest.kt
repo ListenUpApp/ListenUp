@@ -85,6 +85,6 @@ class ShellLandingsTest {
         composeRule.waitForIdle()
         composeRule.mainClock.advanceTimeBy(200)
         composeRule.waitForIdle()
-        assertTrue("started=$started frames=$frames pending=${landings.pending}", finished)
+        assertTrue("started=$started frames=$frames", finished)
     }
 }

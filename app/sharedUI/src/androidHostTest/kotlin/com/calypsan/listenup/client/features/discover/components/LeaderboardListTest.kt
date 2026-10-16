@@ -69,8 +69,10 @@ class LeaderboardListTest {
         val first = composeRule.onNode(hasText("Person 1") and hasClickAction())
         first.assert(
             SemanticsMatcher("rank read first") { node ->
-                node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().firstOrNull()?.startsWith("Rank 1") == true ||
-                    node.config.getOrNull(SemanticsProperties.Text).orEmpty().firstOrNull()?.text?.startsWith("Rank 1") == true
+                val description = node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+                val text = node.config.getOrNull(SemanticsProperties.Text).orEmpty()
+                val firstRead = description.firstOrNull() ?: text.firstOrNull()?.text
+                firstRead.orEmpty().startsWith("Rank 1")
             },
         )
         first.performClick()

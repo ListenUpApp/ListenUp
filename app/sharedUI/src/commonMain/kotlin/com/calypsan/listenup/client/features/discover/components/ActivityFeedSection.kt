@@ -111,7 +111,12 @@ internal fun ActivityFeedSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    ActivityRows(s.activities, onBookClick, onShelfClick, onUserClick)
+                    ActivityRows(
+                        activities = s.activities,
+                        onBookClick = onBookClick,
+                        onShelfClick = onShelfClick,
+                        onUserClick = onUserClick,
+                    )
                 }
             }
         }
@@ -129,7 +134,12 @@ private fun ActivityRows(
     val visible = if (expanded) activities else activities.take(ACTIVITY_CAP)
     visible.forEachIndexed { index, activity ->
         if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        ActivityItem(activity, onBookClick, onShelfClick, onUserClick)
+        ActivityItem(
+            activity = activity,
+            onBookClick = onBookClick,
+            onShelfClick = onShelfClick,
+            onUserClick = onUserClick,
+        )
     }
     if (activities.size > ACTIVITY_CAP) {
         TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
@@ -168,7 +178,10 @@ private fun ActivityItem(
 
     val bodyColor = MaterialTheme.colorScheme.onSurface
     val highlightColor = MaterialTheme.colorScheme.primary
-    val line = remember(actor, parts, bodyColor, highlightColor) { activityLine(actor, parts, bodyColor, highlightColor) }
+    val line =
+        remember(actor, parts, bodyColor, highlightColor) {
+            activityLine(actor = actor, parts = parts, bodyColor = bodyColor, highlightColor = highlightColor)
+        }
 
     val bookId = activity.bookId
     val shelfId = activity.shelfId

@@ -50,7 +50,13 @@ internal fun LeaderboardPeriodChips(
                 label = { Text(label) },
                 leadingIcon =
                     if (isSelected) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                        {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(FilterChipDefaults.IconSize),
+                            )
+                        }
                     } else {
                         null
                     },
