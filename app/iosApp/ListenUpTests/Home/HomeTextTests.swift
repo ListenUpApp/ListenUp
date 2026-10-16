@@ -54,4 +54,10 @@ struct HomeTextTests {
         #expect(summary.hasPrefix("Listening per day, oldest to today: "))
         #expect(summary.hasSuffix("today 1 hour, 20 minutes"))
     }
+
+    @Test func aShelfSaysHowManyBooksAndHowLong() {
+        #expect(HomeShelfText.meta(bookCount: 6, totalSeconds: 266_400) == "6 books · 74 hr")
+        #expect(HomeShelfText.meta(bookCount: 1, totalSeconds: 0) == "1 book")
+        #expect(HomeShelfText.meta(bookCount: 3, totalSeconds: 0) == "3 books")
+    }
 }

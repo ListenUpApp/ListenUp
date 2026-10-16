@@ -64,3 +64,21 @@ enum HomeStatsText {
         return String(format: String(localized: "home.chart_a11y"), parts.joined(separator: ", "))
     }
 }
+
+/// "6 books · 74 hr" (spec §2.7).
+enum HomeShelfText {
+    static func meta(bookCount: Int, totalSeconds: Int) -> String {
+        let length = totalSeconds > 0
+            ? Duration.seconds(totalSeconds).formatted(
+                .units(allowed: [.hours, .minutes], width: .abbreviated, maximumUnitCount: 1)
+            )
+            : nil
+        switch (bookCount, length) {
+        case (1, let length?): return String(format: String(localized: "home.shelf_one_book_duration"), length)
+        case (1, nil): return String(localized: "home.shelf_one_book")
+        case (_, let length?):
+            return String(format: String(localized: "home.shelf_books_count_duration"), bookCount, length)
+        case (_, nil): return String(format: String(localized: "home.shelf_books_count"), bookCount)
+        }
+    }
+}

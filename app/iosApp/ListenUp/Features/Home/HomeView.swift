@@ -133,7 +133,7 @@ struct HomeView: View {
             HStack(alignment: .top, spacing: 24) {
                 HomeStatsCard(statsPhase: stats.statsPhase)
                     .frame(width: statsWidth)
-                MyShelvesRow(shelves: ready.shelves, margin: layout.margin)
+                MyShelvesSection(shelves: ready.shelves, layout: layout, inset: false)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.leading, layout.margin)
@@ -142,7 +142,7 @@ struct HomeView: View {
                 .padding(.horizontal, layout.margin)
 
             if !ready.shelves.isEmpty {
-                MyShelvesRow(shelves: ready.shelves, margin: layout.margin)
+                MyShelvesSection(shelves: ready.shelves, layout: layout)
             }
         }
     }
