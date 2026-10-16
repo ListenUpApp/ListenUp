@@ -32,7 +32,13 @@ class ShelvesByOthersSectionTest {
         stopKoin()
     }
 
-    private val maya = shelfOwner("maya", "Maya Chen", shelf("sh1", "Cosy mysteries", bookCount = 8), shelf("sh2", "Space", bookCount = 3, coverCount = 2))
+    private val maya =
+        shelfOwner(
+            "maya",
+            "Maya Chen",
+            shelf("sh1", "Cosy mysteries", bookCount = 8),
+            shelf("sh2", "Space", bookCount = 3, coverCount = 2),
+        )
 
     private fun show(
         users: List<DiscoverUserShelves>,

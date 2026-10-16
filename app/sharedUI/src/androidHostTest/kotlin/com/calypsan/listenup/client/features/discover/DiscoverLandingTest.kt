@@ -50,11 +50,12 @@ class DiscoverLandingTest {
                         DiscoverLanding(onSelectPeriod = { periods += it }) { listState ->
                             DiscoverLayout(
                                 discoverState(
-                                    listening = CurrentlyListeningUiState.Ready(
-                                        (1..4).map { listener("u$it", "Book $it", isLive = true) },
-                                        null,
-                                        false,
-                                    ),
+                                    listening =
+                                        CurrentlyListeningUiState.Ready(
+                                            (1..4).map { listener("u$it", "Book $it", isLive = true) },
+                                            null,
+                                            false,
+                                        ),
                                     picks = DiscoverBooksUiState.Ready(many),
                                     selection = LeaderboardSelection(LeaderboardPeriod.Year, LeaderboardCategory.Time),
                                     recentlyAdded = RecentlyAddedUiState.Ready(emptyList()),
