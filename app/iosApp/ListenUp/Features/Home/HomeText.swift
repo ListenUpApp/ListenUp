@@ -18,3 +18,29 @@ enum HomeCardText {
         .joined(separator: ", ")
     }
 }
+
+/// What the Resume hero says (spec §2.3).
+enum ResumeHeroText {
+    /// "Up Next · 2 hr. ago" (C14: the system's relative phrasing).
+    static func eyebrow(lastPlayedAt: Date?, now: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        let when = lastPlayedAt.map { formatter.localizedString(for: $0, relativeTo: now) } ?? ""
+        return String(format: String(localized: "home.up_next_ios"), when)
+    }
+
+    /// "Ch. 6 · Bridge Four", or nil for a book without chapters.
+    static func chapter(number: Int?, title: String?) -> String? {
+        guard let number, let title else { return nil }
+        return String(format: String(localized: "book.detail_chapter_label"), number, title)
+    }
+
+    /// "11% of 45 hr, 30 min".
+    static func progressOfLength(percent: Int, totalMs: Int64) -> String {
+        String(
+            format: String(localized: "home.progress_of_length"),
+            String(format: String(localized: "common.percent"), percent),
+            DurationFormatting.abbreviated(ms: totalMs)
+        )
+    }
+}

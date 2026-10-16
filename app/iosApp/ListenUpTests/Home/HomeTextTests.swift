@@ -24,4 +24,20 @@ struct HomeTextTests {
         #expect(!label.contains("by ,"))
         #expect(label.hasPrefix("Babel, 11 percent"))
     }
+
+    @Test func theEyebrowSaysWhenYouLastListened() {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let eyebrow = ResumeHeroText.eyebrow(lastPlayedAt: now.addingTimeInterval(-7_200), now: now)
+        #expect(eyebrow.hasPrefix("Up Next · "))
+        #expect(eyebrow.contains("2 hr"))
+    }
+
+    @Test func theChapterLineIsBookDetails() {
+        #expect(ResumeHeroText.chapter(number: 6, title: "Bridge Four") == "Ch. 6 · Bridge Four")
+        #expect(ResumeHeroText.chapter(number: nil, title: nil) == nil)
+    }
+
+    @Test func percentOfLength() {
+        #expect(ResumeHeroText.progressOfLength(percent: 11, totalMs: 163_800_000) == "11% of 45 hr, 30 min")
+    }
 }
