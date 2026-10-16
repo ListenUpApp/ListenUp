@@ -18,9 +18,9 @@ import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
-import com.calypsan.listenup.client.features.discover.components.CurrentlyListeningSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverLeaderboardSection
+import com.calypsan.listenup.client.features.discover.components.ListeningNowSection
 import com.calypsan.listenup.client.features.discover.components.RecentlyAddedSection
 import com.calypsan.listenup.client.features.discover.components.ShelvesByOthersSection
 import com.calypsan.listenup.client.features.shell.ShellDestination
@@ -82,30 +82,21 @@ internal fun DiscoverLayout(
             }
         }
 
+        item(key = DiscoverItemKey.LISTENING) {
+            ListeningNowSection(
+                state = state.listening,
+                onBookClick = actions.onBookClick,
+                onUserClick = actions.onUserClick,
+                isInSelectionMode = isInSelectionMode,
+                selectedBookIds = selectedBookIds,
+                onBookLongPress = actions.onBookLongPress,
+            )
+        }
+
         item(key = DiscoverItemKey.PICKS) {
             DiscoverBooksSection(
                 state = state.picks,
                 onShuffle = actions.onShuffle,
-                onBookClick = actions.onBookClick,
-                isInSelectionMode = isInSelectionMode,
-                selectedBookIds = selectedBookIds,
-                onBookLongPress = actions.onBookLongPress,
-            )
-        }
-
-        item(key = DiscoverItemKey.RECENT) {
-            RecentlyAddedSection(
-                state = state.recentlyAdded,
-                onBookClick = actions.onBookClick,
-                isInSelectionMode = isInSelectionMode,
-                selectedBookIds = selectedBookIds,
-                onBookLongPress = actions.onBookLongPress,
-            )
-        }
-
-        item(key = DiscoverItemKey.LISTENING) {
-            CurrentlyListeningSection(
-                state = state.listening,
                 onBookClick = actions.onBookClick,
                 isInSelectionMode = isInSelectionMode,
                 selectedBookIds = selectedBookIds,
@@ -163,6 +154,16 @@ internal fun DiscoverLayout(
                 state = state.shelves,
                 onShelfClick = actions.onShelfClick,
                 onUserClick = actions.onUserClick,
+            )
+        }
+
+        item(key = DiscoverItemKey.RECENT) {
+            RecentlyAddedSection(
+                state = state.recentlyAdded,
+                onBookClick = actions.onBookClick,
+                isInSelectionMode = isInSelectionMode,
+                selectedBookIds = selectedBookIds,
+                onBookLongPress = actions.onBookLongPress,
             )
         }
     }

@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -55,16 +54,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.HeldLabel
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.design.components.BookCoverModel
+import com.calypsan.listenup.client.design.components.LiveChip
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.CoverScrimDefaults
 import com.calypsan.listenup.client.design.components.ProgressOverlay
-import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
@@ -88,16 +86,6 @@ internal const val LIBRARY_CARD_PROGRESS_TAG = "library-card-progress"
 private const val HOVER_STATE_LAYER_ALPHA = 0.08f
 
 /**
- * Data for an avatar overlay on a book cover.
- *
- * Only the user id is needed: the canonical [UserAvatar] resolves the image, initials, and colour
- * reactively by id from `public_profiles`, so no avatar fields are threaded through here.
- */
-data class AvatarOverlayData(
-    val userId: String,
-)
-
-/**
  * Unified floating book card with editorial design.
  *
  * Cover art is the hero. No container boxing.
@@ -107,7 +95,7 @@ data class AvatarOverlayData(
  * Supports all book card variants:
  * - Library grid: progress, completion badge, selection, focus border
  * - Continue Listening: progress overlay with time remaining
- * - Currently Listening: avatar overlay showing who's listening
+ * - Currently Listening: a Live chip on the art
  * - Discover: basic cover with optional subtitle (e.g. series name)
  * - Recently Added: basic cover with title/author
  *
@@ -119,7 +107,8 @@ data class AvatarOverlayData(
  * @param progress Optional progress (0.0-1.0). Shows progress overlay when not finished.
  * @param timeRemaining Optional formatted time remaining (e.g., "2h 15m left")
  * @param isFinished Authoritative completion status. Shows completion badge when true.
- * @param avatarOverlay Optional avatar overlay data for "currently listening" display
+ * @param isLive Draws a [LiveChip] on the art's top-end corner: the reader on it is listening right now.
+ * @param captions Quiet one-line facts under the author (e.g. "Book 1 of Mistborn", "24h 39m", "Added 2 days ago").
  * @param hasDocuments Whether this book has at least one PDF document attached.
  * @param isHeld Whether this book is held for review in the admin inbox — draws [HeldLabel] at the
  *   cover's top-leading corner.
@@ -147,7 +136,7 @@ fun BookCard(
     timeRemaining: String? = null,
     isFinished: Boolean = false,
     isPlaying: Boolean = false,
-    avatarOverlay: AvatarOverlayData? = null,
+    isLive: Boolean = false,
     hasDocuments: Boolean = false,
     isHeld: Boolean = false,
     isInSelectionMode: Boolean = false,
@@ -157,6 +146,7 @@ fun BookCard(
     narrators: String? = null,
     libraryStatus: BookCardStatus? = null,
     progressUnderTitle: Boolean = false,
+    captions: List<String> = emptyList(),
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -279,7 +269,6 @@ fun BookCard(
                 progress = artProgress,
                 progressDescription = artProgressLabel,
                 timeRemaining = if (isCompleted || libraryStatus != null) null else timeRemaining,
-                avatarOverlay = avatarOverlay,
                 isHovered = isHovered,
                 isSelected = isSelected || isFocused || isPlaying,
                 borderColor =
@@ -303,6 +292,8 @@ fun BookCard(
                     isSelected = isSelected || isFocused,
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                 )
+            } else if (isLive) {
+                LiveChip(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             } else if (isPlaying) {
                 NowPlayingBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             } else if (isCompleted) {
@@ -361,6 +352,16 @@ fun BookCard(
                 Text(
                     text = stringResource(Res.string.library_card_read_by, names),
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            captions.forEach { caption ->
+                Text(
+                    text = caption,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -507,7 +508,6 @@ private fun NowPlayingBadge(modifier: Modifier = Modifier) {
  * Supports:
  * - BookCoverImage with gradient placeholder fallback (no cover)
  * - Progress overlay (when progress != null and > 0)
- * - Avatar overlay (when avatarOverlay != null)
  * - Selection/focus border
  */
 @Composable
@@ -521,7 +521,6 @@ private fun BookCardCover(
     progress: Float? = null,
     progressDescription: String? = null,
     timeRemaining: String? = null,
-    avatarOverlay: AvatarOverlayData? = null,
     isHovered: Boolean = false,
     isSelected: Boolean = false,
     borderColor: Color = Color.Transparent,
@@ -606,27 +605,6 @@ private fun BookCardCover(
                     progress = progress,
                     timeRemaining = timeRemaining,
                     modifier = Modifier.align(Alignment.BottomCenter),
-                )
-            }
-        }
-
-        // Avatar overlay in bottom-right corner
-        if (avatarOverlay != null) {
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(x = (-4).dp, y = (-4).dp)
-                        .size(36.dp)
-                        .shadow(elevation = 4.dp, shape = CircleShape)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(2.dp),
-            ) {
-                // Mini badge on a book cover — Small fills the 32dp inner area
-                UserAvatar(
-                    userId = avatarOverlay.userId,
-                    size = AvatarSize.Small,
                 )
             }
         }
