@@ -108,7 +108,10 @@ internal fun ListenerCard(
             onOpen = { selection.press(session.bookId) { onOpenBook(session.bookId) } },
             attrs = {
                 classes("disc-listener-book")
-                attr("aria-label", DiscoverWords.listenerLabel(session.bookTitle, session.displayName, session.isLive, whenText))
+                attr(
+                    "aria-label",
+                    DiscoverWords.listenerLabel(session.bookTitle, session.displayName, session.isLive, whenText),
+                )
             },
         ) {
             Cover(
@@ -245,7 +248,11 @@ internal fun RecentlyAddedSection(
         DiscoverWords.RECENTLY_ADDED,
         styleClass = "disc-a-recent",
         actions = {
-            AppLink(Routes.libraryNewestFirst.toUrl(), onOpen = onOpenLibraryNewest, attrs = { classes("disc-newest") }) {
+            AppLink(
+                Routes.libraryNewestFirst.toUrl(),
+                onOpen = onOpenLibraryNewest,
+                attrs = { classes("disc-newest") },
+            ) {
                 Text(DiscoverWords.NEWEST_IN_LIBRARY)
             }
         },
@@ -266,7 +273,12 @@ internal fun RecentlyAddedSection(
                     Div(attrs = { classes("disc-recent") }) {
                         state.books.forEach { book ->
                             key(book.id) {
-                                RecentCard(book, DiscoverWords.added(relativeLastActiveInSentence(book.createdAt, nowMs)), onOpenBook, selection)
+                                RecentCard(
+                                    book,
+                                    DiscoverWords.added(relativeLastActiveInSentence(book.createdAt, nowMs)),
+                                    onOpenBook,
+                                    selection,
+                                )
                             }
                         }
                     }
@@ -342,10 +354,16 @@ internal fun ShelvesByOthersSection(
                                     onOpen = { onOpenProfile(owner.user.id) },
                                     attrs = { classes("disc-owner") },
                                 ) {
-                                    UserAvatar(userId = owner.user.id, name = owner.user.displayName, size = OWNER_AVATAR)
+                                    UserAvatar(
+                                        userId = owner.user.id,
+                                        name = owner.user.displayName,
+                                        size = OWNER_AVATAR,
+                                    )
                                     Span(attrs = { classes("disc-person-text") }) {
                                         Span(attrs = { classes("disc-person-name") }) { Text(owner.user.displayName) }
-                                        Span(attrs = { classes("disc-when") }) { Text(DiscoverWords.shelfCount(owner.shelves.size)) }
+                                        Span(
+                                            attrs = { classes("disc-when") },
+                                        ) { Text(DiscoverWords.shelfCount(owner.shelves.size)) }
                                     }
                                 }
                                 Div(attrs = { classes("disc-shelves") }) {
@@ -359,7 +377,9 @@ internal fun ShelvesByOthersSection(
                                                 ShelfMosaic(shelf.covers)
                                                 Span(attrs = { classes("disc-shelf-text") }) {
                                                     Span(attrs = { classes("disc-shelf-t") }) { Text(shelf.name) }
-                                                    Span(attrs = { classes("disc-shelf-sub") }) { Text(bookCountLabel(shelf.bookCount)) }
+                                                    Span(
+                                                        attrs = { classes("disc-shelf-sub") },
+                                                    ) { Text(bookCountLabel(shelf.bookCount)) }
                                                 }
                                             }
                                         }

@@ -124,40 +124,72 @@ private fun LeaderboardRows(
     Ol(attrs = { classes("disc-lb") }) {
         shown.forEachIndexed { index, entry ->
             key(entry.userId) {
-                Li(attrs = {
-                    classes("disc-lb-row")
-                    if (entry.isYou) classes("is-you")
-                    if (!expanded && index >= PHONE_LEADERS) classes("disc-aside-extra")
-                }) {
-                    AppLink(Routes.profile(entry.userId).toUrl(), onOpen = { onOpenProfile(entry.userId) }) {
-                        Span(attrs = {
-                            classes("disc-rank")
-                            if (entry.rank <= PODIUM) classes("is-medal", "medal-${entry.rank}")
-                        }) {
-                            Span(attrs = { classes("sr-only") }) { Text(DiscoverWords.RANK) }
-                            Text("${entry.rank}")
-                        }
-                        UserAvatar(userId = entry.userId, name = entry.displayName, size = LEADER_AVATAR)
-                        Span(attrs = { classes("disc-lb-name") }) {
-                            Text(if (entry.isYou) DiscoverWords.YOU else entry.displayName)
-                        }
-                        Span(attrs = { classes("disc-lb-stat", "mono") }) { Text(leaderboardLabel(entry, category)) }
-                    }
-                }
+                LeaderRow(entry, category, onOpenProfile, asideOnly = !expanded && index >= PHONE_LEADERS)
             }
         }
     }
     if (entries.size > PHONE_LEADERS) {
-        Button(
-            kind = ButtonKind.Ghost,
-            onClick = { expanded = !expanded },
-            attrs = {
-                classes("disc-show-all")
-                // At exactly six the desktop aside already shows everyone; the toggle is for phones only.
-                if (!expanded && entries.size <= ASIDE_LEADERS) classes("disc-phone-only")
-            },
-        ) { Text(if (expanded) DiscoverWords.SHOW_LESS else DiscoverWords.showAll(entries.size)) }
+        // At exactly six the desktop aside already shows everyone; the toggle is for phones only.
+        ShowMoreToggle(
+            styleClass = "disc-show-all",
+            expanded = expanded,
+            phoneOnly = !expanded && entries.size <= ASIDE_LEADERS,
+            collapsedLabel = DiscoverWords.showAll(entries.size),
+            onToggle = { expanded = !expanded },
+        )
     }
+}
+
+/** One ranked person: a link to them, read "Rank N" first, with a medal on the podium and You on your row. */
+@Composable
+private fun LeaderRow(
+    entry: LeaderboardEntry,
+    category: LeaderboardCategory,
+    onOpenProfile: (String) -> Unit,
+    asideOnly: Boolean,
+) {
+    Li(attrs = {
+        classes("disc-lb-row")
+        if (entry.isYou) classes("is-you")
+        if (asideOnly) classes("disc-aside-extra")
+    }) {
+        AppLink(Routes.profile(entry.userId).toUrl(), onOpen = { onOpenProfile(entry.userId) }) {
+            Span(attrs = {
+                classes("disc-rank")
+                if (entry.rank <= PODIUM) classes("is-medal", "medal-${entry.rank}")
+            }) {
+                Span(attrs = { classes("sr-only") }) { Text(DiscoverWords.RANK) }
+                Text("${entry.rank}")
+            }
+            UserAvatar(userId = entry.userId, name = entry.displayName, size = LEADER_AVATAR)
+            Span(attrs = { classes("disc-lb-name") }) {
+                Text(if (entry.isYou) DiscoverWords.YOU else entry.displayName)
+            }
+            Span(attrs = { classes("disc-lb-stat", "mono") }) { Text(leaderboardLabel(entry, category)) }
+        }
+    }
+}
+
+/**
+ * "Show all N" / "See all activity →", then "Show less": a section's in-place expansion. [phoneOnly]
+ * hides it beside the main column, where the wider cap already shows every row.
+ */
+@Composable
+private fun ShowMoreToggle(
+    styleClass: String,
+    expanded: Boolean,
+    phoneOnly: Boolean,
+    collapsedLabel: String,
+    onToggle: () -> Unit,
+) {
+    Button(
+        kind = ButtonKind.Ghost,
+        onClick = onToggle,
+        attrs = {
+            classes(styleClass)
+            if (phoneOnly) classes("disc-phone-only")
+        },
+    ) { Text(if (expanded) DiscoverWords.SHOW_LESS else collapsedLabel) }
 }
 
 /**
@@ -225,15 +257,14 @@ private fun ActivityRows(
         }
     }
     if (activities.size > PHONE_ACTIVITY) {
-        Button(
-            kind = ButtonKind.Ghost,
-            onClick = { expanded = !expanded },
-            attrs = {
-                classes("disc-see-all")
-                // Seven or eight rows all show beside the main column; the toggle is for phones only.
-                if (!expanded && activities.size <= ASIDE_ACTIVITY) classes("disc-phone-only")
-            },
-        ) { Text(if (expanded) DiscoverWords.SHOW_LESS else DiscoverWords.SEE_ALL_ACTIVITY) }
+        // Seven or eight rows all show beside the main column; the toggle is for phones only.
+        ShowMoreToggle(
+            styleClass = "disc-see-all",
+            expanded = expanded,
+            phoneOnly = !expanded && activities.size <= ASIDE_ACTIVITY,
+            collapsedLabel = DiscoverWords.SEE_ALL_ACTIVITY,
+            onToggle = { expanded = !expanded },
+        )
     }
 }
 

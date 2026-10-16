@@ -29,7 +29,10 @@ class ChipRadioGroupTest :
         @Composable
         fun Chips(onPick: (String) -> Unit = {}) {
             var selected by remember { mutableStateOf("Week") }
-            ChipRadioGroup("Leaderboard period", PERIODS, selected, { selected = it; onPick(it) })
+            ChipRadioGroup("Leaderboard period", PERIODS, selected, {
+                selected = it
+                onPick(it)
+            })
         }
 
         fun radios(host: HTMLElement) = host.querySelectorAll("[role=radio]").asList().map { it as HTMLElement }
