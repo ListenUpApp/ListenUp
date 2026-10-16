@@ -12,7 +12,7 @@ enum HomeCardText {
             author.isEmpty ? nil : String(format: String(localized: "home.card_by_author"), author),
             narrators.flatMap { $0.isEmpty ? nil : String(format: String(localized: "library.card_read_by"), $0) },
             String(format: String(localized: "library.card_progress_a11y"), percent),
-            timeLeft(remainingMs: remainingMs),
+            timeLeft(remainingMs: remainingMs)
         ]
         .compactMap { $0 }
         .joined(separator: ", ")

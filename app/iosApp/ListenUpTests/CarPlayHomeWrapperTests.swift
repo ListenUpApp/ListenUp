@@ -14,7 +14,7 @@ struct CarPlayHomeWrapperTests {
         )
         let items = CarPlayHomeWrapper.items(from: [
             ContinueListeningItemReady(bookId: "a", book: book),
-            ContinueListeningItemLoading(bookId: "b"),
+            ContinueListeningItemLoading(bookId: "b")
         ])
         #expect(items.map(\.id) == ["a", "b"])
         #expect(items[1].isLoading)
