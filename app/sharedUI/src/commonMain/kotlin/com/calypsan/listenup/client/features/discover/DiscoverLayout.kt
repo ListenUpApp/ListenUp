@@ -18,11 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
-import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverLeaderboardSection
 import com.calypsan.listenup.client.features.discover.components.ListeningNowSection
 import com.calypsan.listenup.client.features.discover.components.RecentlyAddedSection
 import com.calypsan.listenup.client.features.discover.components.ShelvesByOthersSection
+import com.calypsan.listenup.client.features.discover.components.SomethingNewSection
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 
@@ -94,7 +94,7 @@ internal fun DiscoverLayout(
         }
 
         item(key = DiscoverItemKey.PICKS) {
-            DiscoverBooksSection(
+            SomethingNewSection(
                 state = state.picks,
                 onShuffle = actions.onShuffle,
                 onBookClick = actions.onBookClick,

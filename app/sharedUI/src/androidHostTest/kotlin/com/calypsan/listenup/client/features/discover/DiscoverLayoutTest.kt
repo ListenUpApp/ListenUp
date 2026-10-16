@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /** Section headings top to bottom; each section's task adds its own as it takes the spec's wording. */
-private val DISCOVER_HEADINGS_IN_ORDER = listOf("Listening now", "Leaderboard", "Recently added")
+private val DISCOVER_HEADINGS_IN_ORDER = listOf("Listening now", "Something new", "Leaderboard", "Recently added")
 
 /** Discover is one stateless layout: every section draws from [DiscoverState] alone, in reading order. */
 @RunWith(RobolectricTestRunner::class)
