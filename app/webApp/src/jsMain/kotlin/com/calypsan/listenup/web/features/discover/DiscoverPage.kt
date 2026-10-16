@@ -66,6 +66,8 @@ fun DiscoverPage(
     onRefreshLeaderboard: () -> Unit,
     /** Re-runs a failed activity feed — its own ViewModel's refresh, not Discover's. */
     onRefreshActivity: () -> Unit,
+    /** Draws ten different picks for Something new. */
+    onShuffle: () -> Unit,
 ) {
     Div(attrs = { classes("disc") }) {
         PageHeader(title = "Discover")
@@ -74,7 +76,7 @@ fun DiscoverPage(
         // column where there is room, and leaves it in reading order where there is not.
         Div(attrs = { classes("disc-body") }) {
             ListeningNowSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection, onRefresh)
-            DiscoverBooksSection(books, onOpenBook, selection, onRefresh)
+            SomethingNewSection(books, onOpenBook, onShuffle, selection, onRefresh)
             Aside(attrs = {
                 classes("disc-aside")
                 attr("aria-label", COMMUNITY_LABEL)

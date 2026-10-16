@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSe
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -38,6 +39,14 @@ internal fun listenerOf(
     isLive = live,
 )
 
+/** A pick: [seq] of [series] (or standalone), [ms] long. */
+internal fun pickBook(
+    id: String,
+    series: String?,
+    seq: String?,
+    ms: Long = 88_740_000,
+) = DiscoverUiBook(id, "Book $id", "Brandon Sanderson", null, null, series, seq, ms)
+
 /** A Ready listeners state over [sessions]. */
 internal fun listening(vararg sessions: CurrentlyListeningUiSession) =
     CurrentlyListeningUiState.Ready(sessions.toList(), observedAtMs = null, isStale = false)
@@ -57,6 +66,7 @@ internal fun discoverPage(
     onOpenProfile: (String) -> Unit = {},
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
+    onShuffle: () -> Unit = {},
     selection: BookSelection? = null,
 ) {
     DiscoverPage(
@@ -76,6 +86,7 @@ internal fun discoverPage(
         onRefresh = {},
         onRefreshLeaderboard = {},
         onRefreshActivity = {},
+        onShuffle = onShuffle,
         selection = selection,
     )
 }

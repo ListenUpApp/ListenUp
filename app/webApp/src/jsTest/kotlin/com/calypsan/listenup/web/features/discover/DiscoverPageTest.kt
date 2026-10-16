@@ -136,6 +136,7 @@ private fun page(
         onRefresh = onRefresh,
         onRefreshLeaderboard = onRefreshLeaderboard,
         onRefreshActivity = onRefreshActivity,
+        onShuffle = {},
         selection = selection,
     )
 }
