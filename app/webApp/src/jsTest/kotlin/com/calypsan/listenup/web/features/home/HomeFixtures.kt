@@ -5,8 +5,10 @@ import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.client.presentation.home.HeroChapter
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
@@ -41,6 +43,46 @@ internal fun continuing(
                 isDownloaded = false,
             ),
     )
+
+/**
+ * The Resume kind for [id]: 11% through 45h 30m, read by two narrators, in chapter 6, with Words of Radiance next.
+ */
+internal fun resumeSlot(
+    id: String,
+    canPlay: Boolean = true,
+    lastPlayedAtMs: Long = 1_759_990_000_000L,
+): HomeSlot.Resume {
+    val total = 163_800_000L
+    return HomeSlot.Resume(
+        book =
+            ContinueListeningBook(
+                bookId = id,
+                title = "The Way of Kings",
+                authorNames = "Brandon Sanderson",
+                coverPath = null,
+                coverHash = null,
+                progress = 0.11f,
+                currentPositionMs = (total * 0.11).toLong(),
+                totalDurationMs = total,
+                narratorNames = "Michael Kramer, Kate Reading",
+                lastPlayedAtMs = lastPlayedAtMs,
+                isDownloaded = false,
+            ),
+        next =
+            NextInSeries(
+                bookId = "wor",
+                title = "Words of Radiance",
+                coverPath = null,
+                coverHash = null,
+                narratorNames = "Michael Kramer, Kate Reading",
+                seriesName = "The Stormlight Archive",
+                sequenceLabel = "2",
+                durationMs = 173_700_000L,
+            ),
+        chapter = HeroChapter(number = 6, title = "Bridge Four"),
+        canPlay = canPlay,
+    )
+}
 
 /** A Home state that is loaded and quiet — nothing syncing, nothing scanning. */
 internal fun readyHome(

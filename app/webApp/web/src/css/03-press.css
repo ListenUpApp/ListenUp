@@ -107,6 +107,8 @@
 /* Cards and tiles — big targets where 1px would be invisible. */
 .luw .set-link:active,
 .luw .home-card:active,
+.luw .home-hero-id:active,
+.luw .home-hero-next:active,
 .luw .disc-card:active,
 .luw .home-shelf:active,
 .luw .disc-shelf:active,

@@ -582,6 +582,35 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   .luw .home-continue > .home-card:nth-child(n+5) { display: none; }
 }
 
+/* The Resume kind (spec §2.3): nothing is loaded, so the book last played leads. */
+.luw .home-hero {
+  display: flex; flex-direction: column; gap: var(--sp-12);
+  padding: var(--sp-16); border-radius: var(--r-xl); background: var(--bd-hero-wash);
+}
+.luw .home-hero-id {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  background: none; border: 0; padding: 0; color: inherit; cursor: pointer; border-radius: var(--r-md);
+  font: inherit;
+}
+.luw .home-hero-id:focus-visible, .luw .home-hero-next:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.luw .home-hero.is-only .home-hero-id { flex-direction: column; text-align: center; }
+.luw .home-hero-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.luw .home-hero-eyebrow { font-size: var(--fs-small); font-weight: 600; color: var(--ink-2); }
+.luw .home-hero-t { font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.luw .home-hero-a { font-size: var(--fs-ui); font-weight: 600; }
+.luw .home-hero-n, .luw .home-hero-of { font-size: var(--fs-small); color: var(--ink-2); }
+.luw .home-hero-progress { display: flex; flex-direction: column; gap: 6px; }
+.luw .home-hero-line { display: flex; justify-content: space-between; gap: var(--sp-12); font-size: var(--fs-ui); font-weight: 700; }
+.luw .home-hero-left { font-size: var(--fs-small); color: var(--coral-text); }
+.luw .home-hero-next {
+  display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; font: inherit;
+  padding: 6px 8px; border: 0; border-radius: var(--r-md); background: var(--surface); color: inherit;
+}
+.luw .home-hero-next-text { display: flex; flex-direction: column; }
+.luw .home-hero-next-k { font-size: var(--fs-caption); color: var(--ink-2); }
+.luw .home-hero-next-t { font-size: var(--fs-ui); font-weight: 700; }
+.luw .home-hero-why { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
+
 .luw .home-stats {
   display: flex; gap: 2rem; flex-wrap: wrap;
   padding: 1.5rem; border-radius: var(--r-lg);
