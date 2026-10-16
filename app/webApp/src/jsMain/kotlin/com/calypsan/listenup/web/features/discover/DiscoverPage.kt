@@ -89,7 +89,7 @@ fun DiscoverPage(
                     onOpenProfile,
                     onRefreshLeaderboard,
                 )
-                ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile, onRefreshActivity)
+                ActivityFeedSection(activity, nowMs, onOpenBook, onOpenShelf, onOpenProfile, onRefreshActivity)
             }
             SharedShelvesSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
             RecentlyAddedSection(recentlyAdded, onOpenBook, selection, onRefresh)

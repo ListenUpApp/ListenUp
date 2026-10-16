@@ -29,7 +29,9 @@ import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.EmptyState
-import org.jetbrains.compose.web.dom.Button as DomButton
+import com.calypsan.listenup.web.design.coverUrl
+import org.jetbrains.compose.web.dom.B
+import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -158,16 +160,23 @@ private fun LeaderboardRows(
     }
 }
 
-/** The feed: who did what, most recent first. */
+/**
+ * "Activity": who did what, most recent first, in the one shared sentence ([activityParts]).
+ *
+ * Six rows on a phone, eight beside the main column (rows past six wear `disc-aside-extra`), then
+ * "See all activity →". Until PR 6's See all screen exists, that link expands the section in place to
+ * the full feed and then reads "Show less"; PR 6 swaps it for navigation (plan Q1).
+ */
 @Composable
 internal fun ActivityFeedSection(
     state: ActivityFeedUiState,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
+    onOpenShelf: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
     onRefresh: () -> Unit,
 ) {
-    Section("Recent activity") {
+    Section(DiscoverWords.ACTIVITY) {
         when (state) {
             is ActivityFeedUiState.Loading -> {
                 SectionSkeleton()
@@ -184,62 +193,131 @@ internal fun ActivityFeedSection(
                         body = "Activity from everyone on this server shows up here.",
                     )
                 } else {
-                    Div(attrs = { classes("disc-feed") }) {
-                        state.activities.forEach { item ->
-                            key(item.id) {
-                                ActivityRow(item, nowMs, onOpenBook, onOpenProfile)
-                            }
-                        }
-                    }
+                    ActivityRows(state.activities, nowMs, onOpenBook, onOpenShelf, onOpenProfile)
                 }
             }
         }
     }
 }
 
+@Composable
+private fun ActivityRows(
+    activities: List<ActivityUiModel>,
+    nowMs: Long,
+    onOpenBook: (String) -> Unit,
+    onOpenShelf: (String) -> Unit,
+    onOpenProfile: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val shown = if (expanded) activities else activities.take(ASIDE_ACTIVITY)
+    Div(attrs = { classes("disc-feed") }) {
+        shown.forEachIndexed { index, item ->
+            key(item.id) {
+                ActivityRow(
+                    item = item,
+                    nowMs = nowMs,
+                    onOpenBook = onOpenBook,
+                    onOpenShelf = onOpenShelf,
+                    onOpenProfile = onOpenProfile,
+                    asideOnly = !expanded && index >= PHONE_ACTIVITY,
+                )
+            }
+        }
+    }
+    if (activities.size > PHONE_ACTIVITY) {
+        Button(
+            kind = ButtonKind.Ghost,
+            onClick = { expanded = !expanded },
+            attrs = {
+                classes("disc-see-all")
+                // Seven or eight rows all show beside the main column; the toggle is for phones only.
+                if (!expanded && activities.size <= ASIDE_ACTIVITY) classes("disc-phone-only")
+            },
+        ) { Text(if (expanded) DiscoverWords.SHOW_LESS else DiscoverWords.SEE_ALL_ACTIVITY) }
+    }
+}
+
 /**
- * One activity, as a sentence.
- *
- * A row with a book is clickable; one without (a streak, a join) is a plain div, because a control
- * that looks pressable and does nothing is worse than plain text.
+ * One activity: the person's avatar (a link to them), then the sentence, whose actor is a link to them
+ * and whose subject is a link to the book or the shelf, and when; a book row ends with its cover.
+ * A row about neither (a join, a milestone) leaves the person as its only link.
  */
 @Composable
 internal fun ActivityRow(
     item: ActivityUiModel,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
+    onOpenShelf: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
+    asideOnly: Boolean = false,
 ) {
     val parts = activityParts(item)
     val bookId = item.bookId
+    val shelfId = item.shelfId
+    val profileHref = Routes.profile(item.userId).toUrl()
+    Div(attrs = {
+        classes("disc-feed-row")
+        if (asideOnly) classes("disc-aside-extra")
+    }) {
+        AppLink(profileHref, onOpen = { onOpenProfile(item.userId) }, attrs = {
+            classes("disc-feed-avatar")
+            attr("aria-label", DiscoverWords.profileLabel(item.userDisplayName, item.isYou))
+        }) { UserAvatar(userId = item.userId, name = item.userDisplayName, size = FEED_AVATAR) }
+        Span(attrs = { classes("disc-feed-body") }) {
+            Span(attrs = { classes("disc-feed-line") }) {
+                AppLink(profileHref, onOpen = { onOpenProfile(item.userId) }, attrs = { classes("disc-feed-who") }) {
+                    Text(if (item.isYou) DiscoverWords.YOU else item.userDisplayName)
+                }
+                Text(" ${parts.predicate}")
+                parts.highlight?.let { highlight ->
+                    Text(" ")
+                    when {
+                        bookId != null -> {
+                            AppLink(
+                                Routes.Book.detail(bookId).toUrl(),
+                                onOpen = { onOpenBook(bookId) },
+                                attrs = { classes("disc-feed-hi") },
+                            ) { Text(highlight) }
+                        }
 
-    val body: @Composable () -> Unit = {
-        Span(attrs = { classes("disc-feed-line") }) {
-            PersonLink(item.userDisplayName, item.userId, onOpenProfile, "disc-feed-who")
-            Text(" ${parts.predicate}")
-            parts.highlight?.let { highlight ->
-                Text(" ")
-                Span(attrs = { classes("disc-feed-hi") }) { Text(highlight) }
+                        shelfId != null -> {
+                            AppLink(
+                                Routes.shelf(shelfId).toUrl(),
+                                onOpen = { onOpenShelf(shelfId) },
+                                attrs = { classes("disc-feed-hi") },
+                            ) { Text(highlight) }
+                        }
+
+                        else -> {
+                            B { Text(highlight) }
+                        }
+                    }
+                }
+                if (parts.suffix.isNotEmpty()) Text(parts.suffix)
             }
-            if (parts.suffix.isNotEmpty()) {
-                Text(parts.suffix)
-            }
+            Span(attrs = { classes("disc-when") }) { Text(relativeLastActive(item.occurredAt, nowMs)) }
         }
-        Span(attrs = { classes("disc-when") }) { Text(relativeLastActive(item.occurredAt, nowMs)) }
-    }
-
-    if (bookId == null) {
-        Div(attrs = { classes("disc-feed-row") }) { body() }
-    } else {
-        DomButton(attrs = {
-            classes("disc-feed-row", "is-open")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { onOpenBook(bookId) }
-        }) {
-            body()
+        bookId?.let {
+            Img(src = coverUrl(it, item.bookCoverHash, width = FEED_COVER), alt = "", attrs = {
+                classes("disc-feed-cover")
+                attr("aria-hidden", "true")
+                attr("loading", "lazy")
+            })
         }
     }
 }
+
+/** Activity rows shown on a phone before "See all activity". */
+private const val PHONE_ACTIVITY = 6
+
+/** Activity rows shown beside the main column (≥ 1280px) before "See all activity". */
+private const val ASIDE_ACTIVITY = 8
+
+/** An activity row's avatar, in px. */
+private const val FEED_AVATAR = 32
+
+/** An activity row's cover, in px. */
+private const val FEED_COVER = 36
 
 /** Leaders shown on a phone before "Show all". */
 private const val PHONE_LEADERS = 5

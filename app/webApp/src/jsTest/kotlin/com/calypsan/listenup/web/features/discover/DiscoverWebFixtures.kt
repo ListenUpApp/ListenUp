@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardSnapshot
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
+import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
@@ -68,6 +69,37 @@ internal fun leaders(
 
 /** A loaded board whose three categories all rank [entries]. */
 internal fun board(entries: List<LeaderboardEntry>) = LeaderboardUiState.Data(LeaderboardSnapshot(entries, entries, entries))
+
+/** An activity row by Ada (u1) about "The Institute" (b1), unless a spec says otherwise. */
+internal fun act(
+    id: String,
+    type: String,
+    bookId: String? = "b1",
+    shelfId: String? = null,
+    shelfName: String? = null,
+    isYou: Boolean = false,
+) = ActivityUiModel(
+    id = id,
+    userId = "u1",
+    type = type,
+    occurredAt = DISCOVER_NOW_MS,
+    userDisplayName = "Ada",
+    bookId = bookId,
+    bookTitle = "The Institute",
+    bookAuthorName = "Stephen King",
+    bookCoverPath = null,
+    bookCoverHash = null,
+    isReread = false,
+    durationMs = 2_880_000,
+    milestoneValue = 7,
+    milestoneUnit = null,
+    shelfId = shelfId,
+    shelfName = shelfName,
+    isYou = isYou,
+)
+
+/** A Ready feed over [rows]. */
+internal fun feed(vararg rows: ActivityUiModel) = ActivityFeedUiState.Ready(rows.toList())
 
 /** A Ready listeners state over [sessions]. */
 internal fun listening(vararg sessions: CurrentlyListeningUiSession) =

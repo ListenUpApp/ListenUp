@@ -411,8 +411,9 @@ class DiscoverPageTest :
             host.querySelector(".disc-lb-stat")!!.textContent shouldBe "90 days"
         }
 
-        test("an activity about a book opens it; one about nothing is not pressable") {
-            // A control that looks tappable and does nothing is worse than plain text.
+        test("a row's subject opens its book; a row with neither book nor shelf leaves the person as its link") {
+            // A control that looks tappable and does nothing is worse than plain text: a join has
+            // no subject to open, so its only links are the person's.
             var opened: String? = null
             val host =
                 mounts.mount {
@@ -425,10 +426,12 @@ class DiscoverPageTest :
 
             val rows = host.querySelectorAll(".disc-feed-row")
             rows.length shouldBe 2
-            (rows.item(0) as HTMLElement).tagName shouldBe "BUTTON"
-            (rows.item(1) as HTMLElement).tagName shouldBe "DIV"
+            (rows.item(0) as HTMLElement).querySelectorAll(".disc-feed-hi").length shouldBe 1
+            (rows.item(1) as HTMLElement).querySelectorAll("a").asList().all {
+                (it as HTMLElement).getAttribute("href") == "/profile/u1"
+            } shouldBe true
 
-            (rows.item(0) as HTMLElement).click()
+            ((rows.item(0) as HTMLElement).querySelector(".disc-feed-hi") as HTMLElement).click()
             opened shouldBe "b1"
         }
 
@@ -537,8 +540,8 @@ class DiscoverPageTest :
                 .forEach { it.click() }
             awaitFrame()
 
-            // The listener card, the leaderboard row and the activity line — each its own person.
-            opened shouldContainExactly listOf("u1", "u-Grace", "u1")
+            // The listener card, the leaderboard row, and the activity row's avatar and name — each its own person.
+            opened shouldContainExactly listOf("u1", "u-Grace", "u1", "u1")
         }
 
         test("opening a listener's profile does not also open the book they are on") {
@@ -649,7 +652,7 @@ class DiscoverPageTest :
                     )
                 }
 
-            (host.querySelector(".disc-feed-row.is-open") as HTMLElement).click()
+            (host.querySelector(".disc-feed-hi") as HTMLElement).click()
 
             opened shouldBe FEED_BOOK_ID
             picked shouldBe emptyList()
