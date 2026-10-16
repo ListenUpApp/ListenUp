@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AdaptiveCardGrid
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -50,6 +52,8 @@ import listenup.composeapp.generated.resources.discover_when_other_users_create_
 import org.jetbrains.compose.resources.stringResource
 
 private val SHELF_CARD_WIDTH = 156.dp
+private val SHELF_MIN_CELL = 120.dp
+private const val OWNERS_PER_ROW = 2
 
 /**
  * "Shelves by others": other people's public shelves, grouped under whoever made them. A spinner before
@@ -62,6 +66,7 @@ internal fun ShelvesByOthersSection(
     onShelfClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    wide: Boolean = false,
 ) {
     val ready = state as? DiscoverShelvesUiState.Ready
     val users = ready?.users.orEmpty()
@@ -88,13 +93,32 @@ internal fun ShelvesByOthersSection(
                     title = stringResource(Res.string.discover_shelves_by_others),
                     modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 )
-                users.forEach { userShelves ->
-                    key(userShelves.user.id) {
-                        UserShelvesSection(
-                            userShelves = userShelves,
-                            onShelfClick = onShelfClick,
-                            onUserClick = onUserClick,
-                        )
+                if (wide) {
+                    // Owners in pairs, each column's shelves a wrapping grid (board Discover-AndroidTablet).
+                    users.chunked(OWNERS_PER_ROW).forEach { pair ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            pair.forEach { userShelves ->
+                                key(userShelves.user.id) {
+                                    WideUserShelves(userShelves, onShelfClick, onUserClick, Modifier.weight(1f))
+                                }
+                            }
+                            // An odd owner out keeps half the width, so their cards match their neighbours'.
+                            if (pair.size < OWNERS_PER_ROW) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                } else {
+                    users.forEach { userShelves ->
+                        key(userShelves.user.id) {
+                            UserShelvesSection(
+                                userShelves = userShelves,
+                                onShelfClick = onShelfClick,
+                                onUserClick = onUserClick,
+                            )
+                        }
                     }
                 }
             }
@@ -157,6 +181,26 @@ private fun UserShelvesSection(
             key = { it.id },
         ) { shelf ->
             DiscoverShelfCard(shelf = shelf, width = SHELF_CARD_WIDTH, onClick = { onShelfClick(shelf.id) })
+        }
+    }
+}
+
+/** One owner in a wide layout's column: their header over a wrapping grid of their shelves. */
+@Composable
+private fun WideUserShelves(
+    userShelves: DiscoverUserShelves,
+    onShelfClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        ShelfOwnerHeader(userShelves = userShelves, onUserClick = onUserClick)
+        AdaptiveCardGrid(
+            items = userShelves.shelves,
+            minCellWidth = SHELF_MIN_CELL,
+            key = { it.id },
+        ) { shelf, width ->
+            DiscoverShelfCard(shelf = shelf, width = width, onClick = { onShelfClick(shelf.id) })
         }
     }
 }
