@@ -3,11 +3,13 @@ package com.calypsan.listenup.client.presentation.discover
 import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Activity
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
@@ -51,11 +53,13 @@ class ActivityFeedViewModelTest :
             val activityRepository: ActivityRepository = mock()
             val activitiesFlow = MutableStateFlow<List<Activity>>(emptyList())
             val syncRepository = RecordingSyncRepository()
+            val auth = FakeAuthSession(userId = "me")
 
             fun build(): ActivityFeedViewModel =
                 ActivityFeedViewModel(
                     activityRepository = activityRepository,
                     syncRepository = syncRepository,
+                    authSession = auth,
                 )
         }
 
@@ -124,6 +128,40 @@ class ActivityFeedViewModelTest :
         }
 
         // ========== Reactive Observation Tests ==========
+
+        test("a row is yours exactly when you are its actor") {
+            runTest {
+                val fixture = createFixture()
+                fixture.activitiesFlow.value =
+                    listOf(createActivity(id = "a1", userId = "me"), createActivity(id = "a2", userId = "maya"))
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val rows =
+                    viewModel.state.value
+                        .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                        .activities
+                rows.map { it.id to it.isYou } shouldBe listOf("a1" to true, "a2" to false)
+            }
+        }
+
+        test("signed out, no row is yours") {
+            runTest {
+                val fixture = createFixture()
+                fixture.auth.authState.value = AuthState.Initializing
+                fixture.activitiesFlow.value = listOf(createActivity(userId = "me"))
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                    .activities
+                    .single()
+                    .isYou shouldBe false
+            }
+        }
 
         test("Ready state emitted when repository flow emits activities") {
             runTest {

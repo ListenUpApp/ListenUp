@@ -606,6 +606,7 @@ internal val discoverPresentationModule =
             ActivityFeedViewModel(
                 activityRepository = get(),
                 syncRepository = get(),
+                authSession = get(),
             )
         }
     }

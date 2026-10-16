@@ -2266,6 +2266,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             milestoneUnit = null,
             shelfId = null,
             shelfName = null,
+            isYou = false,
         )
     // A row with no book: the plain-text variant, which renders a different element entirely.
     val joined = activity.copy(id = "a2", type = "user_joined", bookId = null, bookTitle = null)

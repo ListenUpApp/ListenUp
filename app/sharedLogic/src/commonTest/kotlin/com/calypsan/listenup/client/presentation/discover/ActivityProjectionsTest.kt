@@ -28,6 +28,7 @@ private fun activity(
     milestoneUnit = null,
     shelfId = null,
     shelfName = shelfName,
+    isYou = false,
 )
 
 /**

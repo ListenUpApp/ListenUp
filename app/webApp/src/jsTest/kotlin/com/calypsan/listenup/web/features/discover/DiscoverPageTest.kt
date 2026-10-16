@@ -96,6 +96,7 @@ private fun activity(
     milestoneUnit = null,
     shelfId = null,
     shelfName = null,
+    isYou = false,
 )
 
 @Composable

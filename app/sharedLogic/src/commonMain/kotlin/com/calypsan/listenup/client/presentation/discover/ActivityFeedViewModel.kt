@@ -3,7 +3,9 @@ package com.calypsan.listenup.client.presentation.discover
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.model.Activity
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.core.error.ErrorMapper
@@ -13,6 +15,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -35,12 +39,19 @@ private const val MAX_ACTIVITIES = 100
  * changes.
  *
  * @property activityRepository Repository for activity feed reads (the local mirror).
+ * @param authSession The signed-in reader, so each row knows whether it is theirs ([ActivityUiModel.isYou]).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ActivityFeedViewModel internal constructor(
     private val activityRepository: ActivityRepository,
     private val syncRepository: SyncRepository,
+    authSession: AuthSession,
 ) : ViewModel() {
+    private val currentUserId: Flow<String?> =
+        authSession.authState
+            .map { auth -> if (auth is AuthState.Authenticated) auth.userId.value else null }
+            .distinctUntilChanged()
+
     /**
      * Bumped by [refresh] to re-run a failed observation.
      *
@@ -65,21 +76,21 @@ class ActivityFeedViewModel internal constructor(
             )
 
     private fun observeFeed(): Flow<ActivityFeedUiState> =
-        activityRepository
-            .observeRecent(limit = MAX_ACTIVITIES)
-            .map<_, ActivityFeedUiState> { activities ->
-                // One sitting reads as one line: the server records an activity per closed playback
-                // span, so an interrupted evening otherwise arrives as a wall of entries.
-                // …and a sitting too short to be news (an accidental tap) is not announced at all.
-                ActivityFeedUiState.Ready(
-                    activities =
-                        activities
-                            .map {
-                                it.toUiModel()
-                            }.coalesceListeningSessions()
-                            .withoutFleetingSittings(),
-                )
-            }.onStart { emit(ActivityFeedUiState.Loading) }
+        combine(activityRepository.observeRecent(limit = MAX_ACTIVITIES), currentUserId) { activities, me ->
+            activities to me
+        }.map<_, ActivityFeedUiState> { (activities, me) ->
+            // One sitting reads as one line: the server records an activity per closed playback
+            // span, so an interrupted evening otherwise arrives as a wall of entries.
+            // …and a sitting too short to be news (an accidental tap) is not announced at all.
+            ActivityFeedUiState.Ready(
+                activities =
+                    activities
+                        .map {
+                            it.toUiModel(me)
+                        }.coalesceListeningSessions()
+                        .withoutFleetingSittings(),
+            )
+        }.onStart { emit(ActivityFeedUiState.Loading) }
             .fallbackTo { e ->
                 logger.error(e) { "Error observing activity feed" }
                 ActivityFeedUiState.Error(ErrorMapper.map(e))
@@ -102,7 +113,7 @@ class ActivityFeedViewModel internal constructor(
 /**
  * Convert Activity domain model to UI model.
  */
-private fun Activity.toUiModel(): ActivityUiModel =
+private fun Activity.toUiModel(currentUserId: String?): ActivityUiModel =
     ActivityUiModel(
         id = id,
         userId = userId,
@@ -120,6 +131,7 @@ private fun Activity.toUiModel(): ActivityUiModel =
         milestoneUnit = milestoneUnit,
         shelfId = shelfId,
         shelfName = shelfName,
+        isYou = currentUserId != null && userId == currentUserId,
     )
 
 /**
@@ -128,6 +140,7 @@ private fun Activity.toUiModel(): ActivityUiModel =
  *
  * @property bookCoverPath The book's local cover file, or null when not downloaded on this device.
  * @property bookCoverHash The book's cover content version, or null when it has no cover.
+ * @property isYou True when the signed-in reader is the actor; the row then reads "You".
  */
 data class ActivityUiModel(
     val id: String,
@@ -146,6 +159,7 @@ data class ActivityUiModel(
     val milestoneUnit: String?,
     val shelfId: String?,
     val shelfName: String?,
+    val isYou: Boolean,
 )
 
 /**
