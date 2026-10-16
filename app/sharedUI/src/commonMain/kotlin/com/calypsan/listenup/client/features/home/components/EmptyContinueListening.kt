@@ -17,20 +17,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.SectionTitle
-import com.calypsan.listenup.client.design.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_browse_library
-import listenup.composeapp.generated.resources.home_continue_listening
 import listenup.composeapp.generated.resources.home_nothing_playing_yet
 import listenup.composeapp.generated.resources.home_start_listening_to_an_audiobook
 
 /**
- * Empty state for the Continue Listening section.
- *
- * Shown when the user has no books in progress.
- * Provides a call-to-action to browse the library.
+ * Nothing playing yet, with a way to the Library. Interim for the NothingInProgress and NewListener kinds until Home
+ * PR 4 draws them.
  *
  * @param onBrowseLibrary Callback when browse button is clicked
  * @param modifier Optional modifier
@@ -41,13 +36,6 @@ fun EmptyContinueListening(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        SectionTitle(
-            title = stringResource(Res.string.home_continue_listening),
-            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.xl))
-
         // Empty state content
         Column(
             modifier =

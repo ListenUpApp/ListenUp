@@ -10,12 +10,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.testTag
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -66,11 +66,13 @@ fun DailyListeningChart(
     }
 
     Canvas(
+        // The tag goes first: a caller's clearAndSetSemantics would otherwise swallow it.
         modifier =
-            modifier
+            Modifier
+                .testTag(HOME_STATS_CHART_TAG)
+                .then(modifier)
                 .fillMaxWidth()
-                .height(chartHeight)
-                .testTag(HOME_STATS_CHART_TAG),
+                .height(chartHeight),
     ) {
         val labelHeight = 16.dp.toPx()
         val plotHeight = size.height - labelHeight - 4.dp.toPx()
