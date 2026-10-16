@@ -87,7 +87,7 @@ struct MainTabView: View {
             libraryTabs
 
             SwiftUI.Tab(ShellTab.discover.title, systemImage: "sparkles", value: ShellTab.discover) {
-                tabStack(.discover) { DiscoverView() }
+                tabStack(.discover) { DiscoverView(leaderboardLandingRequest: shell.leaderboardLandingRequest) }
             }
             .customizationID("listenup.discover")
 
@@ -181,6 +181,8 @@ struct MainTabView: View {
         .onChange(of: usesSidebar, initial: true) { _, usesSidebar in
             shell.adaptToLayout(usesSidebar: usesSidebar)
         }
+        // Discover's "Recently Added" link: Books newest first, for this session only (plan Q6).
+        .onChange(of: shell.libraryNewestRequest) { _, _ in libraryObserver?.showNewestFirst() }
         .onChange(of: shell.selectedTab) { _, _ in saveNavigation() }
         .onChange(of: shell.paths) { _, _ in saveNavigation() }
         // Every window's shell observes the one router; the claim hands a link to the front window
@@ -297,6 +299,8 @@ struct MainTabView: View {
         // sheets they present inherit it — lets the Cast & Credits sheet push a contributor onto
         // THIS tab's main stack (a full page) instead of navigating inside the sheet.
         .environment(\.navigateToContributor, { shell.open(ContributorDestination(id: $0)) })
+        .environment(\.openLibraryNewestFirst, { shell.openLibraryNewestFirst() })
+        .environment(\.openDiscoverLeaderboard, { shell.landOnLeaderboard() })
         .environment(\.heroNamespace, heroNamespace)
         .modifier(TabBarSectionsProbe(isShowingSections: $isTabBarShowingSections))
     }
@@ -376,6 +380,14 @@ extension EnvironmentValues {
     /// by `MainTabView`; used by modally-presented content (the Cast & Credits sheet) to open a
     /// contributor as a full page instead of pushing inside the sheet's own stack.
     @Entry var navigateToContributor: (String) -> Void = { _ in }
+
+    /// Open the Library's Books sorted Added, newest first, for this session. Provided by
+    /// `MainTabView`; Discover's Recently Added heading uses it.
+    @Entry var openLibraryNewestFirst: () -> Void = {}
+
+    /// Open Discover at its leaderboard, on Week (spec §6.4). Provided by `MainTabView`; the stats
+    /// card's leaderboard link (Home) uses it.
+    @Entry var openDiscoverLeaderboard: () -> Void = {}
 }
 
 // MARK: - Navigation Destinations

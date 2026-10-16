@@ -55,6 +55,10 @@ final class MainShellModel {
     var librarySection: LibraryTab = .books
     /// Bumped by ⌘F; the Search screen focuses its field on every change.
     private(set) var searchFocusRequest = 0
+    /// Bumped by the stats card's leaderboard link; Discover lands on Week with the board in view (spec §6.4).
+    private(set) var leaderboardLandingRequest = 0
+    /// Bumped by Discover's "Recently Added" link; Library shows Books newest first for this session.
+    private(set) var libraryNewestRequest = 0
     /// Whether the window shows the sidebar (one entry per Library section) or the compact tab bar.
     private(set) var usesSidebar = false
 
@@ -97,6 +101,23 @@ final class MainShellModel {
         isPlayerPresented = false
         selectedTab = .search
         searchFocusRequest += 1
+    }
+
+    // MARK: - Landings
+
+    /// Opens Discover at its leaderboard, on Week (spec §6.4). Discover answers each bump once.
+    func landOnLeaderboard() {
+        isPlayerPresented = false
+        selectedTab = .discover
+        leaderboardLandingRequest += 1
+    }
+
+    /// Opens the Library's Books sorted Added, newest first, for this session (spec §6.3, plan Q6).
+    func openLibraryNewestFirst() {
+        isPlayerPresented = false
+        librarySection = .books
+        selectedTab = usesSidebar ? .librarySection(.books) : .library
+        libraryNewestRequest += 1
     }
 
     // MARK: - Library section
