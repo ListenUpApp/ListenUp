@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.shell
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,5 +58,33 @@ class ShellLandingsTest {
 
         assertEquals(1, landed)
         assertNull(landings.pending)
+    }
+
+    @Test
+    fun aSuspendingLandingRunsToTheEndAfterItIsConsumed() {
+        // Consuming clears the pending landing; that must not cancel the landing's own work (a scroll).
+        val landings = ShellLandings {}
+        var finished = false
+        var started = false
+        var frames = 0
+        composeRule.setContent {
+            CompositionLocalProvider(LocalShellLandings provides landings) {
+                LandingEffect(ShellLanding.DiscoverLeaderboard) {
+                    // Several frames, as a scroll animation takes.
+                    started = true
+                    repeat(5) {
+                        withFrameNanos { }
+                        frames++
+                    }
+                    finished = true
+                }
+            }
+        }
+        composeRule.runOnIdle { landings.request(ShellLanding.DiscoverLeaderboard) }
+
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(200)
+        composeRule.waitForIdle()
+        assertTrue("started=$started frames=$frames pending=${landings.pending}", finished)
     }
 }

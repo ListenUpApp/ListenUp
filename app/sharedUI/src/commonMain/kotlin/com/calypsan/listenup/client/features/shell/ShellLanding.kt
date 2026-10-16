@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /** A place inside a tab, other than its top, that a link elsewhere can open (spec §6.4). */
@@ -50,7 +51,12 @@ class ShellLandings(
 /** The shell's landings; null outside the shell (previews, tests, the frozen desktop's other roots). */
 val LocalShellLandings = staticCompositionLocalOf<ShellLandings?> { null }
 
-/** Runs [onLand] once each time [landing] is requested while this composable is on screen. */
+/**
+ * Runs [onLand] once each time [landing] is requested while this composable is on screen.
+ *
+ * One long-lived collector rather than an effect keyed on [ShellLandings.pending]: consuming clears
+ * the pending landing, and a keyed effect would restart on that change and cancel [onLand] mid-scroll.
+ */
 @Composable
 fun LandingEffect(
     landing: ShellLanding,
@@ -58,7 +64,9 @@ fun LandingEffect(
 ) {
     val landings = LocalShellLandings.current ?: return
     val currentOnLand by rememberUpdatedState(onLand)
-    LaunchedEffect(landings.pending) {
-        if (landings.consume(landing)) currentOnLand()
+    LaunchedEffect(landings, landing) {
+        snapshotFlow { landings.pending }.collect {
+            if (landings.consume(landing)) currentOnLand()
+        }
     }
 }
