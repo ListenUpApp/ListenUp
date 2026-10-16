@@ -25,12 +25,14 @@ enum DiscoverCopy {
         Duration.milliseconds(ms).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
     }
 
-    private static let relative: RelativeDateTimeFormatter = {
+    /// Made per call, as `LastMatch` does: a formatter is not `Sendable`, so a shared static one is not
+    /// concurrency-safe, and these run once per rendered row.
+    private static var relative: RelativeDateTimeFormatter {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         formatter.dateTimeStyle = .named
         return formatter
-    }()
+    }
 
     /// "Added 2 days ago", never phrased in the future.
     static func added(_ date: Date, relativeTo now: Date) -> String {
@@ -40,11 +42,11 @@ enum DiscoverCopy {
         )
     }
 
-    private static let abbreviated: RelativeDateTimeFormatter = {
+    private static var abbreviated: RelativeDateTimeFormatter {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter
-    }()
+    }
 
     /// How long ago, in the activity feed's abbreviated form ("2 hr. ago"); never in the future.
     static func lastActive(_ date: Date, relativeTo now: Date) -> String {
