@@ -1,17 +1,24 @@
 package com.calypsan.listenup.client.features.discover
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.core.context.stopKoin
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+
+/** Section headings top to bottom; each section's task adds its own as it takes the spec's wording. */
+private val DISCOVER_HEADINGS_IN_ORDER = listOf("Listening now", "Leaderboard", "Recently added")
 
 /** Discover is one stateless layout: every section draws from [DiscoverState] alone, in reading order. */
 @RunWith(RobolectricTestRunner::class)
@@ -38,6 +45,15 @@ class DiscoverLayoutTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun discoverLeadsWithPeopleAndEndsWithRecentlyAdded() {
+        render(discoverState())
+        val tops =
+            DISCOVER_HEADINGS_IN_ORDER
+                .map { composeRule.onNode(hasText(it) and isHeading()).getUnclippedBoundsInRoot().top }
+        assertEquals(tops.sorted(), tops)
     }
 
     @Test

@@ -68,7 +68,7 @@ fun DiscoverScreen(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceContainerLow),
+                .background(MaterialTheme.colorScheme.surface),
     ) {
         PullToRefreshBox(
             isRefreshing = shelvesState is DiscoverShelvesUiState.Loading,
