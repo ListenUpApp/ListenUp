@@ -172,7 +172,7 @@ internal fun RouteContent(
     } else if (page == SEARCH_KEY) {
         SearchRouteContent(router = router, route = route, openSearch = graph.openSearch, openSeeAll = graph.openSeeAll)
     } else if (active == HOME_KEY) {
-        HomeRoute(router, graph.openHome, feeds)
+        HomeRoute(router, graph.openHome, feeds, playback)
     } else if (shelfRoute != null) {
         ShelfRouteContent(
             shelfRoute = shelfRoute,

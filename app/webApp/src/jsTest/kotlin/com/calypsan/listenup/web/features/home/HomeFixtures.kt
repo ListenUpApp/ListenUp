@@ -53,6 +53,9 @@ internal fun readyHome(
     slot: HomeSlot = HomeSlot.Absent,
     connectivity: HomeConnectivity = HomeConnectivity.Online,
     continueListeningError: AppError? = null,
+    timeOfDay: TimeOfDay = TimeOfDay.Afternoon,
+    firstName: String? = "Simon",
+    alsoInProgress: List<ContinueListeningItem> = continueListening,
 ): HomeUiState.Ready =
     HomeUiState.Ready(
         userName = userName,
@@ -62,10 +65,10 @@ internal fun readyHome(
         isSyncing = isSyncing,
         isBuildingInitialLibrary = isBuildingInitialLibrary,
         scanProgress = scanProgress,
-        timeOfDay = TimeOfDay.Afternoon,
-        firstName = userName.ifBlank { null },
+        timeOfDay = timeOfDay,
+        firstName = firstName,
         slot = slot,
-        alsoInProgress = continueListening,
+        alsoInProgress = alsoInProgress,
         connectivity = connectivity,
         continueListeningError = continueListeningError,
     )

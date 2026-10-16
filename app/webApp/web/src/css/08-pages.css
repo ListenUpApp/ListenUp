@@ -3,16 +3,6 @@
    ============================================================ */
 .luw .home { display: flex; flex-direction: column; gap: 2rem; }
 
-.luw .home-search {
-  display: inline-flex; align-items: center; gap: 0.55rem;
-  height: 44px; padding: 0 0.7rem 0 0.85rem; border-radius: var(--r-md);
-  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-2);
-  font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
-  box-shadow: var(--field-shadow);
-}
-@media (hover: hover) { .luw .home-search:hover { border-color: var(--coral); color: var(--ink); } }
-.luw .home-search-label { white-space: nowrap; }
-
 .luw .home-skel-line { width: 8rem; height: 0.95rem; border-radius: 6px; }
 
 /* The library-still-arriving strip, shared by Home and Library. On Home it sits between the

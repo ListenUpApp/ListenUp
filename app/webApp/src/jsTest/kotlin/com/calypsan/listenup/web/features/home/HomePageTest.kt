@@ -1,12 +1,12 @@
 package com.calypsan.listenup.web.features.home
 
 import com.calypsan.listenup.api.error.UnexpectedClientError
-import com.calypsan.listenup.web.design.paletteShortcutLabel
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -54,34 +54,26 @@ class HomePageTest :
         fun homePage(
             state: HomeUiState,
             stats: HomeStatsUiState = HomeStatsUiState.Loading,
-            onOpenBook: (String) -> Unit = {},
-            onOpenSearch: () -> Unit = {},
-            onOpenLibrary: () -> Unit = {},
-            onOpenShelf: (String) -> Unit = {},
-            onCreateShelf: () -> Unit = {},
-            onRetry: () -> Unit = {},
-            onRetryStats: () -> Unit = {},
+            actions: HomeActions = HomeActions.None,
+            isWide: Boolean = false,
             selection: BookSelection? = null,
         ): HTMLElement =
             mounts.mount {
-                HomePage(
-                    state = state,
-                    stats = stats,
-                    onOpenBook = onOpenBook,
-                    onOpenSearch = onOpenSearch,
-                    onOpenLibrary = onOpenLibrary,
-                    onOpenShelf = onOpenShelf,
-                    onCreateShelf = onCreateShelf,
-                    onRetry = onRetry,
-                    onRetryStats = onRetryStats,
-                    selection = selection,
-                )
+                HomePage(state, stats, actions, isWide = isWide, selection = selection)
             }
 
-        test("the greeting is the ViewModel's, not one assembled in the page") {
-            val host = homePage(readyHome(userName = "Simon", timeGreeting = "Good evening"))
+        test("the greeting is worded here from the time of day and the first name (H2)") {
+            homePage(readyHome(timeOfDay = TimeOfDay.Evening, firstName = "Simon")).textOf(".page-t") shouldBe
+                "Good evening, Simon"
+            homePage(readyHome(timeOfDay = TimeOfDay.Morning, firstName = null)).textOf(".page-t") shouldBe
+                "Good morning"
+        }
 
-            host.textOf(".page-t") shouldBe "Good evening, Simon"
+        test("Home has no search field of its own: search is the shell's (H3)") {
+            val host = homePage(readyHome())
+            host.count(".home-search") shouldBe 0
+            host.querySelectorAll("input").length shouldBe 0
+            host.buttonsLabelled("Search your library").size shouldBe 0
         }
 
         test("a Continue Listening card shows the book's own title and time remaining") {
@@ -120,7 +112,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
-                    onOpenBook = { opened = it },
+                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                 )
 
             (host.querySelector(".home-card") as HTMLElement).click()
@@ -133,7 +125,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
-                    onOpenBook = { opened = it },
+                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                 )
 
             (host.querySelector(".home-card") as HTMLElement).press("Enter")
@@ -143,26 +135,11 @@ class HomePageTest :
 
         test("nothing on the go offers a way into the library rather than a dead end") {
             var browsed = false
-            val host = homePage(readyHome(continueListening = emptyList()), onOpenLibrary = { browsed = true })
+            val host = homePage(readyHome(continueListening = emptyList()), actions = HomeActions.None.copy(onOpenLibrary = { browsed = true }))
 
             (host.querySelector(".empty .btn-primary") as HTMLElement).click()
 
             browsed shouldBe true
-        }
-
-        test("the search affordance names the shortcut as this keyboard labels it") {
-            val host = homePage(readyHome())
-
-            host.querySelector(".home-search .kbd")?.textContent shouldBe paletteShortcutLabel()
-        }
-
-        test("the search affordance leaves as the caller's event") {
-            var searched = false
-            val host = homePage(readyHome(), onOpenSearch = { searched = true })
-
-            (host.querySelector(".home-search") as HTMLElement).click()
-
-            searched shouldBe true
         }
 
         // ── the two honesty guards ──────────────────────────────────────────────
@@ -196,7 +173,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(myShelves = listOf(shelf("Finished"), shelf("Want to Listen"))),
-                    onOpenShelf = { opened = it },
+                    actions = HomeActions.None.copy(onOpenShelf = { opened = it }),
                 )
 
             (host.querySelectorAll(".home-shelf").item(1) as HTMLElement).click()
@@ -295,8 +272,7 @@ class HomePageTest :
                 homePage(
                     readyHome(),
                     stats = HomeStatsUiState.Error(isRetryable = true),
-                    onRetry = { homeRetries++ },
-                    onRetryStats = { statsRetries++ },
+                    actions = HomeActions.None.copy(onRetry = { homeRetries++ }, onRetryStats = { statsRetries++ }),
                 )
 
             val retries = host.buttonsLabelled("Try again")
@@ -315,7 +291,7 @@ class HomePageTest :
 
         test("a failed Home offers Try again, and pressing it asks Home to reload") {
             var retries = 0
-            val host = homePage(HomeUiState.Error(UnexpectedClientError()), onRetry = { retries++ })
+            val host = homePage(HomeUiState.Error(UnexpectedClientError()), actions = HomeActions.None.copy(onRetry = { retries++ }))
 
             val retry = host.buttonsLabelled("Try again")
             retry.size shouldBe 1
@@ -381,7 +357,7 @@ class HomePageTest :
         // the mode — the same rule the library grid follows, now that Home is selectable too.
         test("a continue card opens the book when nothing is being selected") {
             var opened: String? = null
-            val host = homePage(withOneBook(), onOpenBook = { opened = it }, selection = null)
+            val host = homePage(withOneBook(), actions = HomeActions.None.copy(onOpenBook = { opened = it }), selection = null)
 
             (host.querySelector(".home-card") as HTMLElement).click()
 
@@ -398,7 +374,7 @@ class HomePageTest :
             val host =
                 homePage(
                     withOneBook(),
-                    onOpenBook = { opened = it },
+                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                     selection = idleSelection(onToggle = { picked += it }),
                 )
 
@@ -414,7 +390,7 @@ class HomePageTest :
             val host =
                 homePage(
                     withOneBook(),
-                    onOpenBook = { opened = it },
+                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                     selection = selecting(onToggle = { picked += it }),
                 )
 

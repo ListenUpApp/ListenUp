@@ -259,6 +259,7 @@ import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.web.features.home.HomeActions
 import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.home.continuing
 import com.calypsan.listenup.web.features.home.readyHome
@@ -1197,78 +1198,42 @@ class ClassContractTest :
                         // and the loaded page across a live scan, a bare sync, an empty shelf and
                         // all four stats states. It joins this contract by hand like the pages
                         // above — a state nobody lists here is a state whose classes go unchecked.
-                        HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
+                        HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, HomeActions.None)
                         HomePage(
                             HomeUiState.Error(UnexpectedClientError()),
                             HomeStatsUiState.Loading,
-                            {},
-                            {},
-                            {},
-                            {},
-                            {},
-                            onRetry = {},
-                            onRetryStats = {},
+                            HomeActions.None,
                         )
-                        HomePage(readyHome(), HomeStatsUiState.Loading, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
-                        HomePage(readyHome(), HomeStatsUiState.Empty, {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
+                        HomePage(readyHome(), HomeStatsUiState.Loading, HomeActions.None)
+                        HomePage(readyHome(), HomeStatsUiState.Empty, HomeActions.None)
                         HomePage(
                             readyHome(),
                             HomeStatsUiState.Error(isRetryable = true),
-                            {},
-                            {},
-                            {},
-                            {},
-                            {},
-                            onRetry = {},
-                            onRetryStats = {},
+                            HomeActions.None,
                         )
                         HomePage(
                             readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
                             weekStats(topGenres = listOf(GenreShare("Fiction", 3), GenreShare("Sci-Fi", 1))),
-                            {},
-                            {},
-                            {},
-                            {},
-                            {},
-                            onRetry = {},
-                            onRetryStats = {},
+                            HomeActions.None,
                         )
                         // A slot whose book has not synced yet — the skeleton card's own classes.
                         HomePage(
                             readyHome(continueListening = listOf(ContinueListeningItem.Loading("b2"))),
                             weekStats(),
-                            {},
-                            {},
-                            {},
-                            {},
-                            {},
-                            onRetry = {},
-                            onRetryStats = {},
+                            HomeActions.None,
                         )
                         HomePage(
                             readyHome(isBuildingInitialLibrary = true),
                             weekStats(),
-                            {},
-                            {},
-                            {},
-                            {},
-                            {},
-                            onRetry = {},
-                            onRetryStats = {},
+                            HomeActions.None,
                         )
-                        HomePage(readyHome(scanProgress = scanning()), weekStats(), {}, {}, {}, {}, {}, onRetry = {}, onRetryStats = {})
+                        HomePage(readyHome(scanProgress = scanning()), weekStats(), HomeActions.None)
                         // With shelves, so the row's own classes are checked, and without,
                         // so its empty state's are.
                         HomePage(
                             readyHome(myShelves = listOf(shelf("Finished"))),
                             weekStats(),
-                            {},
-                            {},
-                            {},
-                            {},
-                            {},
-                            onRetry = {},
-                            onRetryStats = {},
+                            HomeActions.None,
                         )
                         // Discover joins by hand for the same reason Home does. Every section is
                         // listed in all four of its shapes, because a state nobody renders here is

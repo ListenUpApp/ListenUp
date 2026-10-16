@@ -54,6 +54,8 @@ internal object Routes {
 
     val search: Route get() = Route(listOf(SEARCH_KEY))
 
+    val discover: Route get() = Route(listOf(DISCOVER_KEY))
+
     val settings: Route get() = Route(listOf(SETTINGS_KEY))
     val settingsCategories: Route get() = Route(listOf(SETTINGS_KEY, CATEGORIES_KEY))
     val settingsDevices: Route get() = Route(listOf(SETTINGS_KEY, DEVICES_KEY))

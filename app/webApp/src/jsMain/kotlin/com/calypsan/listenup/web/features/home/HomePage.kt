@@ -1,7 +1,6 @@
 package com.calypsan.listenup.web.features.home
 
 import com.calypsan.listenup.web.design.RestrictedMarker
-import com.calypsan.listenup.web.design.paletteShortcutLabel
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonKind
@@ -59,15 +58,8 @@ private const val CONTINUE_COVER_WIDTH = 168
 fun HomePage(
     state: HomeUiState,
     stats: HomeStatsUiState,
-    onOpenBook: (String) -> Unit,
-    onOpenSearch: () -> Unit,
-    onOpenLibrary: () -> Unit,
-    onOpenShelf: (String) -> Unit,
-    onCreateShelf: () -> Unit,
-    /** Re-runs a failed Home. Offered only on the failed page — web has no page-level refresh. */
-    onRetry: () -> Unit,
-    /** Re-runs failed stats, without touching the rest of the page. */
-    onRetryStats: () -> Unit,
+    actions: HomeActions,
+    isWide: Boolean = false,
     selection: BookSelection? = null,
 ) {
     Div(attrs = { classes("home") }) {
@@ -83,44 +75,20 @@ fun HomePage(
             is HomeUiState.Error -> {
                 PageHeader(title = HOME, documentTitle = null)
                 EmptyState(title = "Home is unavailable", body = state.error.message) {
-                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
+                    Button(kind = ButtonKind.Primary, onClick = { actions.onRetry() }) { Text("Try again") }
                 }
             }
 
             is HomeUiState.Ready -> {
-                HomeHeader(greeting = state.greeting, onOpenSearch = onOpenSearch)
+                PageHeader(title = homeGreeting(state.timeOfDay, state.firstName), documentTitle = null, display = true)
                 LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
-                ContinueListening(state.continueListening, onOpenBook, onOpenLibrary, selection)
-                MyShelves(state.myShelves, onOpenShelf, onCreateShelf)
-                LastSevenDays(stats, onRetryStats)
+                ContinueListening(state.alsoInProgress, actions.onOpenBook, actions.onOpenLibrary, selection)
+                MyShelves(state.myShelves, actions.onOpenShelf, actions.onCreateShelf)
+                LastSevenDays(stats, actions.onRetryStats)
             }
         }
     }
 }
-
-@Composable
-private fun HomeHeader(
-    greeting: String,
-    onOpenSearch: () -> Unit,
-) {
-    PageHeader(title = greeting, documentTitle = null, display = true) {
-        // A search affordance on the landing page, even though the sidebar and the palette shortcut both reach the
-        // same place — this is where someone arrives, and "where do I type?" should not need a
-        // shortcut to answer. The hint teaches the shortcut rather than replacing it.
-        Button(attrs = {
-            classes("home-search")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            attr("aria-label", "Search your library")
-            onClick { onOpenSearch() }
-        }) {
-            Icon(WebIcon.Search, size = SEARCH_ICON_SIZE)
-            Span(attrs = { classes("home-search-label") }) { Text("Search your library") }
-            Span(attrs = { classes("kbd") }) { Text(paletteShortcutLabel()) }
-        }
-    }
-}
-
-private const val SEARCH_ICON_SIZE = 18
 
 private const val PERCENT = 100
 
