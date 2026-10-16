@@ -137,6 +137,7 @@ private fun page(
         onRefreshLeaderboard = onRefreshLeaderboard,
         onRefreshActivity = onRefreshActivity,
         onShuffle = {},
+        onOpenLibraryNewest = {},
         selection = selection,
     )
 }
@@ -162,7 +163,7 @@ class DiscoverPageTest :
             headings.length shouldBe DISCOVER_SECTIONS
             host.textContent.orEmpty() shouldContain "Listening now"
             host.textContent.orEmpty() shouldContain "Leaderboard"
-            host.textContent.orEmpty() shouldContain "Shelves from others"
+            host.textContent.orEmpty() shouldContain "Shelves by others"
         }
 
         test("one section failing costs exactly that section") {
@@ -435,7 +436,7 @@ class DiscoverPageTest :
             opened shouldBe "b1"
         }
 
-        test("a shared shelf opens, grouped under whoever made it") {
+        test("a shared shelf is a link, grouped under whoever made it") {
             var opened: String? = null
             val host =
                 mounts.mount {
@@ -457,8 +458,8 @@ class DiscoverPageTest :
                     )
                 }
 
-            host.textContent.orEmpty() shouldContain "Ada"
-            host.querySelectorAll(".disc-shelf").length shouldBe 2
+            (host.querySelector(".disc-owner") as HTMLElement).textContent.orEmpty() shouldContain "Ada"
+            host.querySelectorAll("a.disc-shelf").length shouldBe 2
             // The second one, so a mis-wired click handler cannot pass by always reporting the first.
             (host.querySelectorAll(".disc-shelf").item(1) as HTMLElement).click()
             opened shouldBe "s2"

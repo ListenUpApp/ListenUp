@@ -7,8 +7,10 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSt
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
+import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.client.util.relativeLastActiveInSentence
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.web.design.AppLink
 import com.calypsan.listenup.web.design.Button
@@ -18,6 +20,7 @@ import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.RestrictedMarker
+import com.calypsan.listenup.web.design.ShelfMosaic
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
@@ -226,15 +229,28 @@ internal fun PickCard(
 /** The Shuffle glyph, in px. */
 private const val SHUFFLE_ICON = 16
 
-/** "Recently added" — what the library gained while the reader was away. */
+/**
+ * "Recently added", Discover's last section: the newest books on the server, each saying when it was
+ * added, and "Newest in Library →", which opens the Library sorted newest first.
+ */
 @Composable
 internal fun RecentlyAddedSection(
     state: RecentlyAddedUiState,
+    nowMs: Long,
     onOpenBook: (String) -> Unit,
+    onOpenLibraryNewest: () -> Unit,
     selection: BookSelection?,
     onRefresh: () -> Unit,
 ) {
-    Section("Recently added", styleClass = "disc-a-recent") {
+    Section(
+        DiscoverWords.RECENTLY_ADDED,
+        styleClass = "disc-a-recent",
+        actions = {
+            AppLink(Routes.libraryNewestFirst.toUrl(), onOpen = onOpenLibraryNewest, attrs = { classes("disc-newest") }) {
+                Text(DiscoverWords.NEWEST_IN_LIBRARY)
+            }
+        },
+    ) {
         when (state) {
             is RecentlyAddedUiState.Loading -> {
                 SectionSkeleton()
@@ -248,10 +264,10 @@ internal fun RecentlyAddedSection(
                 if (state.isEmpty) {
                     EmptyState(title = "Nothing new yet", body = "Books appear here as they are added to the library.")
                 } else {
-                    Div(attrs = { classes("disc-grid") }) {
+                    Div(attrs = { classes("disc-recent") }) {
                         state.books.forEach { book ->
                             key(book.id) {
-                                BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
+                                RecentCard(book, DiscoverWords.added(relativeLastActiveInSentence(book.createdAt, nowMs)), onOpenBook, selection)
                             }
                         }
                     }
@@ -261,48 +277,51 @@ internal fun RecentlyAddedSection(
     }
 }
 
+/** A recently added book: one link to it, its cover, title, author and when it was added. */
 @Composable
-internal fun BookCard(
-    bookId: String,
-    title: String,
-    authorName: String?,
-    coverHash: String?,
+private fun RecentCard(
+    book: RecentlyAddedUiBook,
+    addedText: String,
     onOpenBook: (String) -> Unit,
     selection: BookSelection?,
 ) {
-    Button(attrs = {
-        classes("disc-card")
-        if (selection?.isSelected(bookId) == true) classes("is-sel")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        onClick { selection.press(bookId) { onOpenBook(bookId) } }
-    }) {
+    AppLink(
+        href = Routes.Book.detail(book.id).toUrl(),
+        onOpen = { selection.press(book.id) { onOpenBook(book.id) } },
+        attrs = {
+            classes("disc-card")
+            if (selection?.isSelected(book.id) == true) classes("is-sel")
+        },
+    ) {
         Cover(
-            title = title,
-            imageUrl = coverUrl(bookId, coverHash, width = CARD_COVER_WIDTH),
-            size = CARD_COVER_WIDTH,
+            title = book.title,
+            imageUrl = coverUrl(book.id, book.coverHash, width = CARD_COVER_WIDTH),
+            size = null,
             decorative = true,
-            overlay = { RestrictedMarker(bookId) },
+            overlay = { RestrictedMarker(book.id) },
         )
-        Span(attrs = { classes("disc-card-t") }) { Text(title) }
-        authorName?.let { Span(attrs = { classes("disc-card-sub") }) { Text(it) } }
+        Span(attrs = { classes("disc-card-t") }) { Text(book.title) }
+        book.authorName?.let { Span(attrs = { classes("disc-card-sub") }) { Text(it) } }
+        Span(attrs = { classes("disc-pick-meta") }) { Text(addedText) }
     }
 }
 
 /**
- * Other people's shelves, grouped under the person who made them.
+ * "Shelves by others": other people's public shelves, grouped under the person who made them. Each
+ * owner is one link to them (face, name, how many shelves); each shelf a link with its cover mosaic.
  *
  * Only public shelves reach here — the server filters, so this renders whatever it is given without
  * a privacy branch of its own. A client-side filter would be a second opinion about a question the
  * server has already answered, and the wrong place to be wrong.
  */
 @Composable
-internal fun SharedShelvesSection(
+internal fun ShelvesByOthersSection(
     state: DiscoverShelvesUiState,
     onOpenShelf: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
     onRefresh: () -> Unit,
 ) {
-    Section("Shelves from others", styleClass = "disc-a-shelves") {
+    Section(DiscoverWords.SHELVES_BY_OTHERS, styleClass = "disc-a-shelves") {
         when (state) {
             is DiscoverShelvesUiState.Loading -> {
                 SectionSkeleton()
@@ -318,24 +337,30 @@ internal fun SharedShelvesSection(
                 } else {
                     state.users.forEach { owner ->
                         key(owner.user.id) {
-                            Div(attrs = { classes("disc-shelf-owner") }) {
-                                PersonLink(
-                                    owner.user.displayName,
-                                    owner.user.id,
-                                    onOpenProfile,
-                                    "disc-shelf-who",
-                                )
+                            Div(attrs = { classes("disc-owner-block") }) {
+                                AppLink(
+                                    Routes.profile(owner.user.id).toUrl(),
+                                    onOpen = { onOpenProfile(owner.user.id) },
+                                    attrs = { classes("disc-owner") },
+                                ) {
+                                    UserAvatar(userId = owner.user.id, name = owner.user.displayName, size = OWNER_AVATAR)
+                                    Span(attrs = { classes("disc-person-text") }) {
+                                        Span(attrs = { classes("disc-person-name") }) { Text(owner.user.displayName) }
+                                        Span(attrs = { classes("disc-when") }) { Text(DiscoverWords.shelfCount(owner.shelves.size)) }
+                                    }
+                                }
                                 Div(attrs = { classes("disc-shelves") }) {
                                     owner.shelves.forEach { shelf ->
                                         key(shelf.id) {
-                                            Button(attrs = {
-                                                classes("disc-shelf")
-                                                attr(ATTR_TYPE, VALUE_BUTTON)
-                                                onClick { onOpenShelf(shelf.id) }
-                                            }) {
-                                                Span(attrs = { classes("disc-shelf-t") }) { Text(shelf.name) }
-                                                Span(attrs = { classes("disc-shelf-sub") }) {
-                                                    Text(bookCountLabel(shelf.bookCount))
+                                            AppLink(
+                                                Routes.shelf(shelf.id).toUrl(),
+                                                onOpen = { onOpenShelf(shelf.id) },
+                                                attrs = { classes("disc-shelf") },
+                                            ) {
+                                                ShelfMosaic(shelf.covers)
+                                                Span(attrs = { classes("disc-shelf-text") }) {
+                                                    Span(attrs = { classes("disc-shelf-t") }) { Text(shelf.name) }
+                                                    Span(attrs = { classes("disc-shelf-sub") }) { Text(bookCountLabel(shelf.bookCount)) }
                                                 }
                                             }
                                         }
@@ -349,3 +374,6 @@ internal fun SharedShelvesSection(
         }
     }
 }
+
+/** A shelf owner's avatar, in px. */
+private const val OWNER_AVATAR = 32

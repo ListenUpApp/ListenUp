@@ -52,6 +52,9 @@ internal object Routes {
     val libraryContributors: Route get() = Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))
     val librarySeries: Route get() = Route(listOf(LIBRARY_KEY, SERIES_KEY))
 
+    /** `/library?sort=added-desc`: the Books grid, newest first, for this visit (spec §6.4, plan Q6). */
+    val libraryNewestFirst: Route get() = Route(listOf(LIBRARY_KEY), mapOf(SORT_QUERY_KEY to NEWEST_SORT))
+
     val search: Route get() = Route(listOf(SEARCH_KEY))
 
     val discover: Route get() = Route(listOf(DISCOVER_KEY))
@@ -286,6 +289,12 @@ internal const val COMPARE_VIEW = "compare"
  * keys on the path treats it as Admin, and a plain `/admin` link still opens at the top.
  */
 internal const val SECTION_QUERY_KEY = "section"
+
+/** The Library's one-visit sort: `/library?sort=added-desc`. */
+internal const val SORT_QUERY_KEY = "sort"
+
+/** [SORT_QUERY_KEY]'s value for "Added, newest first". */
+internal const val NEWEST_SORT = "added-desc"
 
 internal const val PENDING_SECTION = "pending"
 
