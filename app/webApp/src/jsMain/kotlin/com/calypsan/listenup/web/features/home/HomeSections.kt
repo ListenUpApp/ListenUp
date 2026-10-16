@@ -5,11 +5,21 @@ import androidx.compose.runtime.key
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
+import com.calypsan.listenup.client.presentation.home.WeekChartColumn
+import com.calypsan.listenup.client.presentation.home.genreShareBars
+import com.calypsan.listenup.client.presentation.home.weekChartColumns
+import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.RestrictedMarker
+import com.calypsan.listenup.web.design.UnderHeading
+import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.press
@@ -19,6 +29,7 @@ import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /** Spec §2.5 caps: desktop one row of up to six; the phone CSS shows the first four (C10). */
 internal const val ALSO_IN_PROGRESS_CAP = 6
@@ -27,6 +38,11 @@ internal const val ALSO_IN_PROGRESS_CAP = 6
 private const val CARD_COVER_RUNG = 168
 
 private const val PERCENT = 100
+
+private const val STREAK_ICON_SIZE = 16
+
+/** A section's own heading is an H2, so anything headed inside it is an H3. */
+internal const val SECTION_HEADING_LEVEL = 2
 
 /** "Also in progress" with its header link. Absent when there is nothing else in progress (§2.1). */
 @Composable
@@ -152,3 +168,146 @@ internal fun homeCardLabel(
         "${book.progressPercent}% listened",
         timeLeftText(book.timeRemainingMs),
     ).joinToString(", ")
+
+/**
+ * "Your last 7 days" (spec §2.6): one card with its heading inside. Loading, Empty and Error keep their current words
+ * until Home PR 4 designs them (C16).
+ */
+@Composable
+internal fun LastSevenDays(
+    stats: HomeStatsUiState,
+    actions: HomeActions,
+) {
+    Section(attrs = {
+        classes("home-stats-card")
+        attr("aria-labelledby", "home-stats-h")
+    }) {
+        H2(attrs = {
+            id("home-stats-h")
+            classes("home-stats-h")
+        }) { Text("Your last 7 days") }
+        UnderHeading(level = SECTION_HEADING_LEVEL) {
+            when (stats) {
+                is HomeStatsUiState.Loading -> {
+                    Div(attrs = { classes("skel", "home-stats-skel") })
+                }
+
+                is HomeStatsUiState.Empty -> {
+                    EmptyState(title = "No listening yet", body = "Your last 7 days fill in as you listen.")
+                }
+
+                is HomeStatsUiState.Error -> {
+                    StatsError(stats, actions.onRetryStats)
+                }
+
+                is HomeStatsUiState.Data -> {
+                    StatsBody(stats, actions.onOpenDiscover)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatsError(
+    stats: HomeStatsUiState.Error,
+    onRetry: () -> Unit,
+) {
+    if (stats.isRetryable) {
+        EmptyState(title = "Stats are unavailable", body = "Your last 7 days could not be read just now.") {
+            Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
+        }
+    } else {
+        EmptyState(title = "Stats are unavailable", body = "Your listening history could not be read.")
+    }
+}
+
+@Composable
+private fun StatsBody(
+    stats: HomeStatsUiState.Data,
+    onOpenDiscover: () -> Unit,
+) {
+    val streak = stats.streak
+    Div(attrs = { classes("home-stats-top") }) {
+        Span(attrs = { classes("home-stats-total") }) { Text(stats.formattedListenTime) }
+        streak.chipDays?.let { days ->
+            Span(attrs = { classes("home-streak-chip") }) {
+                Icon(WebIcon.Flame, size = STREAK_ICON_SIZE)
+                Text("$days-day streak")
+            }
+        }
+    }
+    WeekChart(weekChartColumns(stats.dailyBuckets), stats.maxDailySeconds)
+    if (stats.hasGenreData) TopGenres(stats)
+    Div(attrs = { classes("home-stats-foot") }) {
+        Span(attrs = { classes("home-stats-best") }) {
+            streak.bestDays?.let { Text(if (it == 1) "Best streak 1 day" else "Best streak $it days") }
+        }
+        // PR 5 adds Discover's Week focus; until then the link opens Discover at the top (spec §11).
+        LinkButton(label = "7-day leaderboard →", onClick = onOpenDiscover)
+    }
+}
+
+/** "Listening per day, oldest to today: 1h 10m, …, today 1m" (C15): the chart's words, for one image. */
+internal fun weekChartLabel(columns: List<WeekChartColumn>): String =
+    "Listening per day, oldest to today: " +
+        columns.joinToString(", ") { column ->
+            val amount = DurationFormatter.hoursMinutes(column.totalSeconds.seconds)
+            if (column.isToday) "today $amount" else amount
+        }
+
+@Composable
+private fun WeekChart(
+    columns: List<WeekChartColumn>,
+    maxSeconds: Long,
+) {
+    // Scale against the busiest day, floored at 1 so an all-zero week divides cleanly and every
+    // column falls back to the empty nub rather than a full-height bar.
+    val scale = maxSeconds.coerceAtLeast(1L).toDouble()
+    Div(attrs = {
+        classes("home-chart")
+        attr("role", "img")
+        attr("aria-label", weekChartLabel(columns))
+    }) {
+        columns.forEach { column ->
+            Div(attrs = {
+                classes("home-chart-col")
+                attr("aria-hidden", "true")
+            }) {
+                Div(attrs = {
+                    classes("home-bar")
+                    if (column.isToday) classes("is-today")
+                    if (column.totalSeconds <= 0L) classes("is-empty")
+                    style {
+                        property("height", "${(column.totalSeconds / scale * PERCENT).toInt()}%")
+                    }
+                })
+                Span(attrs = {
+                    classes("home-bar-label")
+                    if (column.isToday) classes("is-today")
+                }) { Text(column.label) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopGenres(stats: HomeStatsUiState.Data) {
+    Div(attrs = { classes("home-genres") }) {
+        Span(attrs = { classes("home-genres-h") }) { Text("Top genres") }
+        genreShareBars(stats.topGenres).forEach { bar ->
+            key(bar.genreName) {
+                Div(attrs = { classes("home-genre") }) {
+                    Span(attrs = { classes("home-genre-name") }) { Text(bar.genreName) }
+                    Div(attrs = { classes("home-genre-track") }) {
+                        Div(attrs = {
+                            classes("home-genre-fill")
+                            style { property("width", "${bar.percent}%") }
+                        })
+                    }
+                    Span(attrs = { classes("home-genre-pct") }) { Text("${bar.percent}%") }
+                }
+            }
+        }
+    }
+}

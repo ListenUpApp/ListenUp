@@ -11,7 +11,9 @@ import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.string.shouldStartWith
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
@@ -227,16 +229,6 @@ class HomePageTest :
             (bars.item(0) as HTMLElement).className shouldNotContain "is-today"
         }
 
-        test("the stats section is headed with the window it counts, not a calendar week") {
-            // The total is today plus the previous six days, not Monday-to-Sunday: "This week" promised
-            // the wrong thing, and it no longer matched the leaderboard's labels either.
-            val host = homePage(readyHome(), stats = weekStats())
-
-            val headings = host.querySelectorAll(".home-section-h")
-            (0 until headings.length).map { (headings.item(it) as HTMLElement).textContent }.contains("Last 7 days") shouldBe true
-            host.textContent.orEmpty() shouldNotContain "This week"
-        }
-
         test("a day with no listening still draws, so the week reads as seven days") {
             val host = homePage(readyHome(), stats = weekStats())
 
@@ -257,10 +249,43 @@ class HomePageTest :
             host.textOf(".home-genre .home-genre-pct") shouldBe "75%"
         }
 
-        test("the streak section is absent when there is no streak to report") {
-            val host = homePage(readyHome(), stats = weekStats(currentStreakDays = 0, longestStreakDays = 0))
+        test("a live streak is a chip, and the best is in the footer (§2.6)") {
+            val host = homePage(readyHome(), stats = weekStats(currentStreakDays = 5, longestStreakDays = 14))
+            host.textOf(".home-streak-chip") shouldBe "5-day streak"
+            host.textOf(".home-stats-best") shouldBe "Best streak 14 days"
+        }
 
-            host.count(".home-streak") shouldBe 0
+        test("a lapsed streak is only the best, and never a 0-day streak") {
+            val host = homePage(readyHome(), stats = weekStats(currentStreakDays = 0, longestStreakDays = 14))
+            host.count(".home-streak-chip") shouldBe 0
+            host.textContent.orEmpty() shouldNotContain "0-day"
+            host.textOf(".home-stats-best") shouldBe "Best streak 14 days"
+        }
+
+        test("no streak says nothing about streaks") {
+            homePage(readyHome(), stats = weekStats(currentStreakDays = 0, longestStreakDays = 0))
+                .textContent
+                .orEmpty() shouldNotContain "streak"
+        }
+
+        test("the stats heading is the window it counts, inside the card") {
+            homePage(readyHome(), stats = weekStats()).textOf(".home-stats-h") shouldBe "Your last 7 days"
+        }
+
+        test("the chart is one image whose words list every day, ending with today") {
+            val chart = homePage(readyHome(), stats = weekStats(todaySeconds = 60)).querySelector(".home-chart") as HTMLElement
+            chart.getAttribute("role") shouldBe "img"
+            chart.getAttribute("aria-label")!! shouldStartWith "Listening per day, oldest to today: "
+            chart.getAttribute("aria-label")!! shouldEndWith "today 1m"
+        }
+
+        test("the leaderboard link leaves for Discover") {
+            var opened = false
+            homePage(readyHome(), stats = weekStats(), actions = HomeActions.None.copy(onOpenDiscover = { opened = true }))
+                .buttonsLabelled("7-day leaderboard →")
+                .single()
+                .click()
+            opened shouldBe true
         }
 
         // ── stats states ────────────────────────────────────────────────────────
