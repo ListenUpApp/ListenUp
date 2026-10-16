@@ -124,6 +124,12 @@ struct LeaderboardObserverTests {
         #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodAllTime.shared) == .allTime)
     }
 
+    @Test func topFiveThenShowAll() {
+        #expect(LeaderboardSectionView.visibleCount(total: 9, expanded: false) == 5)
+        #expect(LeaderboardSectionView.visibleCount(total: 9, expanded: true) == 9)
+        #expect(LeaderboardSectionView.visibleCount(total: 4, expanded: false) == 4)
+    }
+
     @Test func metricMapsEveryKotlinCategory() {
         for metric in LeaderboardMetric.allCases {
             #expect(LeaderboardMetric(kmp: metric.kmpCategory) == metric)

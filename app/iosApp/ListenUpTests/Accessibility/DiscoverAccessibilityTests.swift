@@ -41,4 +41,23 @@ struct DiscoverAccessibilityTests {
         defer { hosted.close() }
         #expect(hosted.stop(labelled: "Shuffle: draw ten different books") != nil, "\(hosted.tree)")
     }
+
+    @Test func aRowIsReadRankFirst() async throws {
+        let row = LeaderboardRow(
+            id: "u1", rank: 1, displayName: "Maya Chen", initials: "MC", value: "14h 20m", isCurrentUser: false
+        )
+        let hosted = await host(LeaderRow(row: row), height: 120)
+        defer { hosted.close() }
+        #expect(hosted.stop(labelled: "Rank 1, Maya Chen, 14h 20m") != nil, "\(hosted.tree)")
+    }
+
+    @Test func yourRowReadsYou() async throws {
+        let row = LeaderboardRow(
+            id: "me", rank: 2, displayName: "Simon Hull", initials: "SH", value: "8h 12m", isCurrentUser: true
+        )
+        let hosted = await host(LeaderRow(row: row), height: 120)
+        defer { hosted.close() }
+        #expect(hosted.stop(labelled: "Rank 2, You, 8h 12m") != nil, "\(hosted.tree)")
+        #expect(hosted.stops(labelContaining: "Simon Hull").isEmpty, "\(hosted.tree)")
+    }
 }
