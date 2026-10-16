@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -18,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /** Section headings top to bottom; each section's task adds its own as it takes the spec's wording. */
-private val DISCOVER_HEADINGS_IN_ORDER = listOf("Listening now", "Something new", "Leaderboard", "Activity", "Recently added")
+private val DISCOVER_HEADINGS_IN_ORDER = listOf("Listening now", "Something new", "Leaderboard", "Activity", "Shelves by others", "Recently added")
 
 /** Discover is one stateless layout: every section draws from [DiscoverState] alone, in reading order. */
 @RunWith(RobolectricTestRunner::class)
@@ -49,7 +50,7 @@ class DiscoverLayoutTest {
 
     @Test
     fun discoverLeadsWithPeopleAndEndsWithRecentlyAdded() {
-        render(discoverState())
+        render(discoverState(shelves = DiscoverShelvesUiState.Ready(listOf(shelfOwner("maya", "Maya Chen", shelf("sh1", "Space"))))))
         val tops =
             DISCOVER_HEADINGS_IN_ORDER
                 .map { composeRule.onNode(hasText(it) and isHeading()).getUnclippedBoundsInRoot().top }
