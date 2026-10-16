@@ -1214,13 +1214,13 @@ class ClassContractTest :
                             HomeActions.None,
                         )
                         HomePage(
-                            readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
+                            readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
                             weekStats(topGenres = listOf(GenreShare("Fiction", 3), GenreShare("Sci-Fi", 1))),
                             HomeActions.None,
                         )
                         // A slot whose book has not synced yet — the skeleton card's own classes.
                         HomePage(
-                            readyHome(continueListening = listOf(ContinueListeningItem.Loading("b2"))),
+                            readyHome(alsoInProgress = listOf(ContinueListeningItem.Loading("b2"))),
                             weekStats(),
                             HomeActions.None,
                         )

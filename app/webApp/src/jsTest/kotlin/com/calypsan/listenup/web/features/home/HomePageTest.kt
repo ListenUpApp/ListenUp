@@ -244,7 +244,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(
-                        continueListening = listOf(continuing("b1", "The Institute")),
+                        alsoInProgress = listOf(continuing("b1", "The Institute")),
                         myShelves = listOf(shelf("Finished")),
                     ),
                     stats = weekStats(),
@@ -388,7 +388,7 @@ class HomePageTest :
         test("failing stats do not take the rest of Home down with them") {
             val host =
                 homePage(
-                    readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
+                    readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
                     stats = HomeStatsUiState.Error(isRetryable = true),
                 )
 

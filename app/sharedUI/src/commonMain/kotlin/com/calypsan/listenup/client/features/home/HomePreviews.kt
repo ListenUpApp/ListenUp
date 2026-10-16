@@ -149,9 +149,6 @@ private fun mockResume() =
 
 private fun mockReady(slot: HomeSlot) =
     HomeUiState.Ready(
-        userName = PREVIEW_USER_NAME,
-        timeGreeting = "",
-        continueListening = mockContinue(),
         myShelves = mockShelves(),
         isSyncing = false,
         isBuildingInitialLibrary = false,

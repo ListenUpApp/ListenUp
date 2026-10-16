@@ -1336,10 +1336,8 @@ One beautiful library.</string>
     <string name="hardcover_your_code">Your code</string>
     <string name="home_also_in_progress">Also in progress</string>
     <string name="home_also_in_progress_ios">Also in Progress</string>
-    <string name="home_best_day_streak">Best: %1$d day streak</string>
     <string name="home_best_streak_days">Best streak %1$d days</string>
     <string name="home_best_streak_one_day">Best streak 1 day</string>
-    <string name="home_best_value">Best: %1$s</string>
     <string name="home_browse_library">Browse the Library</string>
     <string name="home_card_by_author">by %1$s</string>
     <string name="home_chart_a11y">Listening per day, oldest to today: %1$s</string>
@@ -1347,7 +1345,6 @@ One beautiful library.</string>
     <string name="home_continue_listening">Continue listening</string>
     <string name="home_couldnt_load">We couldn't load your Listen Now.</string>
     <string name="home_couldnt_load_stats">Couldn't load your stats.</string>
-    <string name="home_day_streak">%1$d day streak</string>
     <string name="home_greeting_afternoon">Good afternoon</string>
     <string name="home_greeting_evening">Good evening</string>
     <string name="home_greeting_lead">%1$s,</string>
@@ -1356,9 +1353,7 @@ One beautiful library.</string>
     <string name="home_greeting_with_name">%1$s, %2$s</string>
     <string name="home_hours_minutes">%1$dh %2$dm</string>
     <string name="home_in_library">In Library</string>
-    <string name="home_last_7_days">Last 7 days</string>
     <string name="home_leaderboard">Leaderboard</string>
-    <string name="home_listened">listened</string>
     <string name="home_my_shelves">My shelves</string>
     <string name="home_my_shelves_ios">My Shelves</string>
     <string name="home_new_shelf">New shelf</string>
@@ -1370,7 +1365,6 @@ One beautiful library.</string>
     <string name="home_opens_book">Opens book</string>
     <string name="home_private_shelf">Private shelf</string>
     <string name="home_progress_of_length">%1$s of %2$s</string>
-    <string name="home_progress_percent">%1$d percent</string>
     <string name="home_resume_unavailable_offline">Can't reach your server. This book isn't downloaded, so it can't play right now.</string>
     <string name="home_shelf_books_count">%1$d books</string>
     <string name="home_shelf_books_count_duration">%1$d books · %2$s</string>

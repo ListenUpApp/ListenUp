@@ -54,7 +54,7 @@ import kotlinx.coroutines.test.setMain
  * - Initial state and reactive observation
  * - Continue listening observation (reactive updates)
  * - User observation and name extraction
- * - Greeting generation (userName updates)
+ * - The first name and the part of the day (each platform words the greeting)
  * - State derived properties
  * - The slot, typed errors and the finish-card actions
  *
@@ -208,12 +208,13 @@ class HomeViewModelTest :
 
         test("observeContinueListening updates state when flow emits") {
             runTest {
-                // Given
+                // Given - a loaded book that is not in the list, so the slot is Absent and the rail is the whole list
                 val fixture = createFixture()
+                fixture.rig.loaded.value = LoadedBook.Loaded("elsewhere", isPlaying = false, isFinished = false)
                 val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
                 val initial = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                initial.continueListening.isEmpty() shouldBe true
+                initial.alsoInProgress.isEmpty() shouldBe true
 
                 // When - flow emits new data
                 val items =
@@ -227,15 +228,16 @@ class HomeViewModelTest :
                 // Then - state should update reactively
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
                 ready.isLoading shouldBe false
-                ready.continueListening.size shouldBe 2
-                (ready.continueListening[0] as ContinueListeningItem.Ready).book.title shouldBe "Book 1"
+                ready.alsoInProgress.size shouldBe 2
+                (ready.alsoInProgress[0] as ContinueListeningItem.Ready).book.title shouldBe "Book 1"
             }
         }
 
-        test("continueListening updates reactively when new book is played") {
+        test("Also in progress updates reactively when a new book is played") {
             runTest {
-                // Given - start with one book
+                // Given - start with one book, and a loaded book that is not in the list
                 val fixture = createFixture()
+                fixture.rig.loaded.value = LoadedBook.Loaded("elsewhere", isPlaying = false, isFinished = false)
                 fixture.continueListeningFlow.value =
                     listOf(
                         createReadyItem(bookId = "book-1", title = "Original Book"),
@@ -244,7 +246,7 @@ class HomeViewModelTest :
                 advanceUntilIdle()
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .continueListening.size shouldBe 1
+                    .alsoInProgress.size shouldBe 1
 
                 // When - new book is played (Flow emits updated list)
                 fixture.continueListeningFlow.value =
@@ -256,14 +258,14 @@ class HomeViewModelTest :
 
                 // Then - UI updates immediately without manual refresh
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                ready.continueListening.size shouldBe 2
-                (ready.continueListening[0] as ContinueListeningItem.Ready).book.title shouldBe "New Book"
+                ready.alsoInProgress.size shouldBe 2
+                (ready.alsoInProgress[0] as ContinueListeningItem.Ready).book.title shouldBe "New Book"
             }
         }
 
         // ========== User Observation Tests ==========
 
-        test("observeUser updates userName from displayName") {
+        test("observeUser updates firstName from displayName") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -271,7 +273,7 @@ class HomeViewModelTest :
                 advanceUntilIdle()
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .userName shouldBe ""
+                    .firstName shouldBe null
 
                 // When
                 fixture.userFlow.value = createUser(displayName = "John Smith")
@@ -280,7 +282,7 @@ class HomeViewModelTest :
                 // Then - first name extracted
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .userName shouldBe "John"
+                    .firstName shouldBe "John"
             }
         }
 
@@ -298,7 +300,7 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .userName shouldBe "Jane"
+                    .firstName shouldBe "Jane"
             }
         }
 
@@ -311,7 +313,7 @@ class HomeViewModelTest :
                 advanceUntilIdle()
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .userName shouldBe "John"
+                    .firstName shouldBe "John"
 
                 // When
                 fixture.userFlow.value = null
@@ -320,7 +322,7 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .userName shouldBe ""
+                    .firstName shouldBe null
             }
         }
 
@@ -338,7 +340,7 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .userName shouldBe ""
+                    .firstName shouldBe null
             }
         }
 
@@ -356,7 +358,7 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .userName shouldBe "Madonna"
+                    .firstName shouldBe "Madonna"
             }
         }
 
@@ -422,7 +424,7 @@ class HomeViewModelTest :
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                ready.userName shouldBe "Jane"
+                ready.firstName shouldBe "Jane"
             }
         }
 
@@ -431,6 +433,7 @@ class HomeViewModelTest :
             // the screen — and that fallback, too, used to be the row's last word.
             runTest {
                 val fixture = createFixture()
+                fixture.rig.loaded.value = LoadedBook.Loaded("elsewhere", isPlaying = false, isFinished = false)
                 everySuspend { fixture.syncRepository.sync() } returns AppResult.Success(Unit)
                 var collections = 0
                 every { fixture.homeRepository.observeContinueListening(any()) } returns
@@ -443,14 +446,14 @@ class HomeViewModelTest :
                 advanceUntilIdle()
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .continueListening
+                    .alsoInProgress
                     .isEmpty() shouldBe true
 
                 viewModel.refresh()
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                ready.continueListening.map { it.bookId } shouldBe listOf("book-1")
+                ready.alsoInProgress.map { it.bookId } shouldBe listOf("book-1")
             }
         }
 
@@ -478,37 +481,7 @@ class HomeViewModelTest :
 
         // ========== State Derived Properties Tests ==========
 
-        test("hasContinueListening is true when list not empty") {
-            runTest {
-                // Given
-                val fixture = createFixture()
-                fixture.continueListeningFlow.value = listOf(createReadyItem())
-                val viewModel = fixture.build().also { keepStateHot(it) }
-                advanceUntilIdle()
-
-                // Then
-                viewModel.state.value
-                    .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .hasContinueListening shouldBe true
-            }
-        }
-
-        test("hasContinueListening is false when list empty") {
-            runTest {
-                // Given
-                val fixture = createFixture()
-                fixture.continueListeningFlow.value = emptyList()
-                val viewModel = fixture.build().also { keepStateHot(it) }
-                advanceUntilIdle()
-
-                // Then
-                viewModel.state.value
-                    .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .hasContinueListening shouldBe false
-            }
-        }
-
-        test("greeting includes userName when available") {
+        test("the first name and the part of the day are separate fields") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -520,12 +493,14 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .greeting shouldBe
-                    "Good morning, Alice"
+                    .let {
+                        it.timeOfDay shouldBe TimeOfDay.Morning
+                        it.firstName shouldBe "Alice"
+                    }
             }
         }
 
-        test("greeting without userName is time-only") {
+        test("no name leaves firstName null and the part of the day intact") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -536,8 +511,10 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .greeting shouldBe
-                    "Good afternoon"
+                    .let {
+                        it.timeOfDay shouldBe TimeOfDay.Afternoon
+                        it.firstName shouldBe null
+                    }
             }
         }
 
@@ -584,7 +561,7 @@ class HomeViewModelTest :
 
         // ========== Time-Based Greeting Tests ==========
 
-        test("greeting is morning between 5 and 11") {
+        test("8 o'clock is morning") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -595,12 +572,11 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .greeting shouldBe
-                    "Good morning"
+                    .timeOfDay shouldBe TimeOfDay.Morning
             }
         }
 
-        test("greeting is afternoon between 12 and 16") {
+        test("14 o'clock is afternoon") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -611,12 +587,11 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .greeting shouldBe
-                    "Good afternoon"
+                    .timeOfDay shouldBe TimeOfDay.Afternoon
             }
         }
 
-        test("greeting is evening between 17 and 20") {
+        test("19 o'clock is evening") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -627,12 +602,11 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .greeting shouldBe
-                    "Good evening"
+                    .timeOfDay shouldBe TimeOfDay.Evening
             }
         }
 
-        test("greeting is night after 21") {
+        test("23 o'clock is night") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -643,12 +617,11 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .greeting shouldBe
-                    "Good night"
+                    .timeOfDay shouldBe TimeOfDay.Night
             }
         }
 
-        test("greeting is night before 5") {
+        test("3 o'clock is night") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -659,8 +632,7 @@ class HomeViewModelTest :
                 // Then
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .greeting shouldBe
-                    "Good night"
+                    .timeOfDay shouldBe TimeOfDay.Night
             }
         }
 
@@ -693,7 +665,6 @@ class HomeViewModelTest :
                     .shouldBeInstanceOf<HomeSlot.Resume>()
                     .book.bookId shouldBe "a"
                 ready.alsoInProgress.map { it.bookId } shouldBe listOf("b")
-                ready.continueListening.map { it.bookId } shouldBe listOf("a", "b")
                 ready.timeOfDay shouldBe TimeOfDay.Morning
                 ready.firstName shouldBe "John"
                 ready.connectivity shouldBe HomeConnectivity.Online

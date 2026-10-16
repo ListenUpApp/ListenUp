@@ -34,9 +34,6 @@ internal fun homeReady(
     alsoInProgress: List<ContinueListeningItem>,
     shelves: List<Shelf> = emptyList(),
 ) = HomeUiState.Ready(
-    userName = "Simon",
-    timeGreeting = "",
-    continueListening = alsoInProgress,
     myShelves = shelves,
     isSyncing = false,
     isBuildingInitialLibrary = false,

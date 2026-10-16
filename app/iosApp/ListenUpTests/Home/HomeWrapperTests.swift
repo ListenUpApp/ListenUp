@@ -160,16 +160,12 @@ struct HomeWrapperTests {
         #expect(mapped.bestStreakDays == 9)
     }
 
-    // MARK: - HomeReady greeting
+    // MARK: - HomeReady
 
-    /// The Home header shows the bare time-of-day greeting and the name as a separate hero, so
-    /// `HomeReady` must carry `timeGreeting` ("Good evening"), *not* the KMP `greeting` getter
-    /// ("Good evening, Simon"). Regression guard for the double-name bug.
-    @Test func homeReadyMapsBareTimeGreeting() {
+    /// The greeting is worded on iOS from the part of the day and the first name; `HomeReady` carries those two,
+    /// never a pre-worded string (H2).
+    @Test func homeReadyMapsTimeOfDayAndFirstName() {
         let ready = HomeUiStateReady(
-            userName: "Simon",
-            timeGreeting: "Good evening",
-            continueListening: [],
             myShelves: [],
             isSyncing: false,
             isBuildingInitialLibrary: false,
@@ -183,11 +179,6 @@ struct HomeWrapperTests {
         )
         let mapped = HomeReady(from: ready)
 
-        #expect(mapped.timeGreeting == "Good evening")
-        #expect(mapped.userName == "Simon")
-        // The KMP getter combines them; the wrapper must NOT carry the combined form.
-        #expect(mapped.timeGreeting != ready.greeting)
-        #expect(ready.greeting == "Good evening, Simon")
         #expect(mapped.timeOfDay == .evening)
         #expect(mapped.firstName == "Simon")
         #expect(mapped.slot == .absent)
@@ -262,7 +253,7 @@ struct HomeWrapperTests {
 
     @Test func readyCarriesTheContinueListeningErrorMessage() {
         let ready = HomeUiStateReady(
-            userName: "", timeGreeting: "Good morning", continueListening: [], myShelves: [], isSyncing: false,
+            myShelves: [], isSyncing: false,
             isBuildingInitialLibrary: false, scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
             slot: HomeSlotAbsent.shared, alsoInProgress: [ContinueListeningItemReady(bookId: "b", book: clBook("b"))],
             connectivity: HomeConnectivity.ServerUnreachable,

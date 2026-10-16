@@ -13351,16 +13351,6 @@
         }
       }
     },
-    "home.best_day_streak": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Best: %1$d day streak"
-          }
-        }
-      }
-    },
     "home.best_streak_days": {
       "localizations": {
         "en": {
@@ -13377,16 +13367,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Best streak 1 day"
-          }
-        }
-      }
-    },
-    "home.best_value": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Best: %1$@"
           }
         }
       }
@@ -13457,16 +13437,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't load your stats."
-          }
-        }
-      }
-    },
-    "home.day_streak": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d day streak"
           }
         }
       }
@@ -13551,32 +13521,12 @@
         }
       }
     },
-    "home.last_7_days": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last 7 days"
-          }
-        }
-      }
-    },
     "home.leaderboard": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Leaderboard"
-          }
-        }
-      }
-    },
-    "home.listened": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "listened"
           }
         }
       }
@@ -13687,16 +13637,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ of %2$@"
-          }
-        }
-      }
-    },
-    "home.progress_percent": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d percent"
           }
         }
       }

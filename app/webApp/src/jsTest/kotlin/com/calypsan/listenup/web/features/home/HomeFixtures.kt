@@ -87,9 +87,6 @@ internal fun resumeSlot(
 
 /** A Home state that is loaded and quiet — nothing syncing, nothing scanning. */
 internal fun readyHome(
-    userName: String = "Simon",
-    timeGreeting: String = "Good afternoon",
-    continueListening: List<ContinueListeningItem> = emptyList(),
     myShelves: List<Shelf> = emptyList(),
     isSyncing: Boolean = false,
     isBuildingInitialLibrary: Boolean = false,
@@ -99,12 +96,9 @@ internal fun readyHome(
     continueListeningError: AppError? = null,
     timeOfDay: TimeOfDay = TimeOfDay.Afternoon,
     firstName: String? = "Simon",
-    alsoInProgress: List<ContinueListeningItem> = continueListening,
+    alsoInProgress: List<ContinueListeningItem> = emptyList(),
 ): HomeUiState.Ready =
     HomeUiState.Ready(
-        userName = userName,
-        timeGreeting = timeGreeting,
-        continueListening = continueListening,
         myShelves = myShelves,
         isSyncing = isSyncing,
         isBuildingInitialLibrary = isBuildingInitialLibrary,
