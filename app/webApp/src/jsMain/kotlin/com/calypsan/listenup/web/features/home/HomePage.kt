@@ -80,7 +80,7 @@ fun HomePage(
                 PageHeader(title = homeGreeting(state.timeOfDay, state.firstName), documentTitle = null, display = true)
                 LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
                 if (state.alsoInProgress.isNotEmpty()) AlsoInProgress(state.alsoInProgress, isWide, actions, selection)
-                MyShelves(state.myShelves, actions.onOpenShelf, actions.onCreateShelf)
+                MyShelves(state.myShelves, actions)
                 LastSevenDays(stats, actions)
             }
         }
@@ -88,58 +88,5 @@ fun HomePage(
 }
 
 private const val PERCENT = 100
-
-/**
- * The reader's own shelves.
- *
- * Cut from Home's first version because there was nowhere for a card to lead; it arrives now with
- * the shelf screens. The data never went anywhere — `HomeUiState.Ready.myShelves` has been
- * populated since the beginning, which is why this is a rendering change and not a plumbing one.
- *
- * The empty state offers to make the first shelf rather than explaining what shelves are: someone
- * who has none learns more from making one than from a paragraph about them.
- */
-@Composable
-private fun MyShelves(
-    shelves: List<Shelf>,
-    onOpenShelf: (String) -> Unit,
-    onCreateShelf: () -> Unit,
-) {
-    Div(attrs = { classes("home-section") }) {
-        Div(attrs = { classes("home-section-row") }) {
-            H2(attrs = { classes("home-section-h") }) { Text("My shelves") }
-            Button(kind = ButtonKind.Secondary, onClick = { onCreateShelf() }) { Text("New shelf") }
-        }
-        UnderHeading(level = SECTION_HEADING_LEVEL) {
-            if (shelves.isEmpty()) {
-                EmptyState(
-                    title = "No shelves yet",
-                    body = "A shelf is a way to group books — a series, a mood, a plan for the winter.",
-                )
-            } else {
-                Div(attrs = { classes("home-shelves") }) {
-                    shelves.forEach { shelf ->
-                        key(shelf.idString) {
-                            Button(attrs = {
-                                classes("home-shelf")
-                                attr(ATTR_TYPE, VALUE_BUTTON)
-                                onClick { onOpenShelf(shelf.idString) }
-                            }) {
-                                Span(attrs = { classes("home-shelf-t") }) { Text(shelf.name) }
-                                Span(attrs = { classes("home-shelf-sub") }) {
-                                    Text(bookCountLabel(shelf.bookCount))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private const val ATTR_TYPE = "type"
-
-private const val VALUE_BUTTON = "button"
 
 private const val HOME = "Home"

@@ -417,16 +417,25 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 
 /* Home's shelf row */
 .luw .home-section-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.luw .home-shelves { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.luw .home-shelves { display: grid; gap: var(--sp-16); grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
 .luw .home-shelf {
-  display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start;
-  padding: 0.8rem 1.1rem; border-radius: 14px; cursor: pointer; text-align: left;
-  background: var(--surface); border: 1px solid var(--line);
+  display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; font: inherit;
+  padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: inherit;
 }
 @media (hover: hover) { .luw .home-shelf:hover { border-color: var(--coral-ring); } }
 @media (hover: hover) { .luw .home-shelf:hover .home-shelf-t { color: var(--coral-text); } }
-.luw .home-shelf-t { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
-.luw .home-shelf-sub { font-size: var(--fs-small); color: var(--ink-3); }
+.luw .home-shelf .mosaic { width: 84px; flex-shrink: 0; }
+.luw .home-shelf-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.luw .home-shelf-t { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
+.luw .home-shelf-lock { display: inline-flex; color: var(--ink-2); }
+.luw .home-shelf-sub { font-size: var(--fs-small); color: var(--ink-2); }
+.luw .home-shelves-section { min-width: 0; }
+.luw .home-shelves-invite { margin: 0; font-size: var(--fs-ui); color: var(--ink-2); }
+/* A shelf's 2×2 cover mosaic (design/CoverMosaic.kt). */
+.luw .mosaic { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden; }
+.luw .mosaic-tile { aspect-ratio: 1 / 1; }
+.luw .mosaic-tile.is-empty { background: var(--surface-3); }
+@media (max-width: 759px) { .luw .home-shelf .mosaic { width: 64px; } }
 
 /* Discover's shared shelves, grouped by owner */
 .luw .disc-shelf-owner { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }

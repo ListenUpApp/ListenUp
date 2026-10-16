@@ -5,6 +5,7 @@ import androidx.compose.runtime.key
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.WeekChartColumn
 import com.calypsan.listenup.client.presentation.home.genreShareBars
@@ -12,6 +13,7 @@ import com.calypsan.listenup.client.presentation.home.weekChartColumns
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.CoverMosaic
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LinkButton
@@ -25,11 +27,13 @@ import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.press
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
+import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import org.jetbrains.compose.web.dom.Button as DomButton
 
 /** Spec §2.5 caps: desktop one row of up to six; the phone CSS shows the first four (C10). */
 internal const val ALSO_IN_PROGRESS_CAP = 6
@@ -40,6 +44,8 @@ private const val CARD_COVER_RUNG = 168
 private const val PERCENT = 100
 
 private const val STREAK_ICON_SIZE = 16
+
+private const val LOCK_ICON_SIZE = 13
 
 /** A section's own heading is an H2, so anything headed inside it is an H3. */
 internal const val SECTION_HEADING_LEVEL = 2
@@ -309,5 +315,77 @@ private fun TopGenres(stats: HomeStatsUiState.Data) {
                 }
             }
         }
+    }
+}
+
+/**
+ * "My shelves" (spec §2.7): the header always offers New shelf, so the first shelf is one press away; the shelves are a
+ * grid of mosaic cards, or, with none yet, a line inviting the first. No See all until the My shelves list exists
+ * (open question 1).
+ */
+@Composable
+internal fun MyShelves(
+    shelves: List<Shelf>,
+    actions: HomeActions,
+) {
+    Section(attrs = {
+        classes("home-section", "home-shelves-section")
+        attr("aria-labelledby", "home-shelves-h")
+    }) {
+        Div(attrs = { classes("home-section-row") }) {
+            H2(attrs = {
+                id("home-shelves-h")
+                classes("home-section-h")
+            }) { Text("My shelves") }
+            Button(kind = ButtonKind.Secondary, onClick = { actions.onCreateShelf() }) { Text("New shelf") }
+        }
+        if (shelves.isEmpty()) {
+            P(attrs = { classes("home-shelves-invite") }) {
+                Text("A shelf is your own list of audiobooks — a series, a mood, a plan for the winter.")
+            }
+        } else {
+            Div(attrs = { classes("home-shelves") }) {
+                shelves.forEach { shelf ->
+                    key(shelf.idString) { ShelfCard(shelf, actions.onOpenShelf) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShelfCard(
+    shelf: Shelf,
+    onOpenShelf: (String) -> Unit,
+) {
+    DomButton(attrs = {
+        classes("home-shelf")
+        attr("type", "button")
+        onClick { onOpenShelf(shelf.idString) }
+    }) {
+        CoverMosaic(shelf.covers)
+        Span(attrs = { classes("home-shelf-text") }) {
+            Span(attrs = { classes("home-shelf-t") }) {
+                Text(shelf.name)
+                if (shelf.isPrivate) {
+                    Span(attrs = {
+                        classes("home-shelf-lock")
+                        attr("role", "img")
+                        attr("aria-label", "Private")
+                    }) { Icon(WebIcon.Lock, size = LOCK_ICON_SIZE) }
+                }
+            }
+            Span(attrs = { classes("home-shelf-sub") }) { Text(shelfMeta(shelf)) }
+        }
+    }
+}
+
+/** "6 books · 74h", "1 book", "1 book · 31h" (spec §2.7). */
+internal fun shelfMeta(shelf: Shelf): String {
+    val count = if (shelf.bookCount == 1) "1 book" else "${shelf.bookCount} books"
+    return if (shelf.totalDurationSeconds > 0) {
+        "$count · ${DurationFormatter.hoursMinutesCompact(shelf.totalDurationSeconds.seconds)}"
+    } else {
+        count
     }
 }

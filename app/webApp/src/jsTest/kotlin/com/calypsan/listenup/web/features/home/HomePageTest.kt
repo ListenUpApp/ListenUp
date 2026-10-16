@@ -210,10 +210,24 @@ class HomePageTest :
             opened shouldBe "shelf-Want to Listen"
         }
 
-        test("someone with no shelves is offered one rather than shown an empty row") {
-            val host = homePage(readyHome(myShelves = emptyList()))
+        test("a shelf card is a mosaic, its name, and how many books and how long") {
+            val host = homePage(readyHome(myShelves = listOf(shelf("Winter reads", books = 6, seconds = 266_400L))))
+            host.count(".home-shelf .mosaic-tile") shouldBe 4
+            host.textOf(".home-shelf-sub") shouldBe "6 books · 74h"
+        }
 
-            host.textContent.orEmpty() shouldContain "No shelves yet"
+        test("a private shelf says so to everyone") {
+            val host =
+                homePage(readyHome(myShelves = listOf(shelf("Road trip", books = 1, seconds = 0L, isPrivate = true))))
+            (host.querySelector(".home-shelf-lock") as HTMLElement).getAttribute("aria-label") shouldBe "Private"
+            host.textOf(".home-shelf-sub") shouldBe "1 book"
+        }
+
+        test("no shelves is an invitation beside New shelf") {
+            val host = homePage(readyHome(myShelves = emptyList()))
+            host.textContent.orEmpty() shouldContain
+                "A shelf is your own list of audiobooks — a series, a mood, a plan for the winter."
+            host.buttonsLabelled("New shelf").size shouldBe 1
             host.count(".home-shelf") shouldBe 0
         }
 

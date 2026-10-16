@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.client.domain.model.ShelfCover
 import com.calypsan.listenup.client.presentation.home.HeroChapter
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
@@ -116,19 +117,26 @@ internal fun readyHome(
         continueListeningError = continueListeningError,
     )
 
-/** A shelf with enough shape for Home to render a row for it. */
-internal fun shelf(name: String): Shelf =
+/** A shelf with enough shape for Home to render a card for it. */
+internal fun shelf(
+    name: String,
+    books: Int = 12,
+    seconds: Long = 0L,
+    isPrivate: Boolean = false,
+    covers: List<ShelfCover> = emptyList(),
+): Shelf =
     Shelf(
         id = ShelfId("shelf-$name"),
         name = name,
         description = null,
-        isPrivate = false,
+        isPrivate = isPrivate,
         ownerId = "user-1",
         ownerDisplayName = "Simon",
-        bookCount = 12,
-        totalDurationSeconds = 0,
+        bookCount = books,
+        totalDurationSeconds = seconds,
         createdAtMs = 0,
         updatedAtMs = 0,
+        covers = covers,
     )
 
 /**
