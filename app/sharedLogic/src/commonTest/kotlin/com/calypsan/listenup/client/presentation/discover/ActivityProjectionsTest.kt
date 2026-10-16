@@ -79,6 +79,14 @@ class ActivityProjectionsTest :
                 "listened to 2 hours 1 minute of"
         }
 
+        test("a listening session ends with its author, like every other book row") {
+            val parts = activityParts(activity("listening_session", durationMs = 2_880_000))
+
+            parts.predicate shouldBe "listened to 48 minutes of"
+            parts.highlight shouldBe "Dune"
+            parts.suffix shouldBe " by Frank Herbert"
+        }
+
         test("milestones and joins carry no highlight, because there is nothing to link to") {
             activityParts(activity("streak_milestone", milestoneValue = 7)).let { parts ->
                 parts.predicate shouldBe "reached a 7-day listening streak"
