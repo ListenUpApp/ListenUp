@@ -5,18 +5,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.BookCard
-import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
-import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_recently_added
@@ -28,16 +24,14 @@ import listenup.composeapp.generated.resources.discover_recently_added
  * Data comes from Room database via the sync firehose - no API calls.
  */
 @Composable
-fun RecentlyAddedSection(
+internal fun RecentlyAddedSection(
+    state: RecentlyAddedUiState,
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
     onBookLongPress: ((String) -> Unit)? = null,
-    viewModel: DiscoverViewModel = koinViewModel(),
 ) {
-    val state by viewModel.recentlyAddedState.collectAsStateWithLifecycle()
-
     // Only render the Ready-with-data case; Loading, Error, and empty Ready render nothing.
     val ready = state as? RecentlyAddedUiState.Ready ?: return
     if (ready.isEmpty) return

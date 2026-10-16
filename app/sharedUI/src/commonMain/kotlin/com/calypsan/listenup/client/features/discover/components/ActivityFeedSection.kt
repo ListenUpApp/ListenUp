@@ -15,7 +15,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AvatarSize
@@ -35,7 +33,6 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
-import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.ActivityParts
 import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
@@ -43,7 +40,6 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_activity_feed
 import listenup.composeapp.generated.resources.discover_no_activity_yet_start_listening
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.viewmodel.koinViewModel
 
 /** Cap the section to the most recent few activities. */
 private const val ACTIVITY_LIMIT = 5
@@ -63,18 +59,15 @@ private const val ACTIVITY_LIMIT = 5
  * @param onShelfClick Callback when a shelf is clicked
  * @param onUserClick Callback when a user's avatar is clicked (navigates to their profile)
  * @param modifier Modifier from parent
- * @param viewModel ActivityFeedViewModel injected via Koin
  */
 @Composable
-fun ActivityFeedSection(
+internal fun ActivityFeedSection(
+    state: ActivityFeedUiState,
     onBookClick: (String) -> Unit,
     onShelfClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ActivityFeedViewModel = koinViewModel(),
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-
     Card(
         modifier =
             modifier.fillMaxWidth(),

@@ -12,18 +12,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
-import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
-import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_refresh
@@ -38,16 +34,15 @@ import listenup.composeapp.generated.resources.discover_discover_something_new
  * Features a refresh button to get a new random selection.
  */
 @Composable
-fun DiscoverBooksSection(
+internal fun DiscoverBooksSection(
+    state: DiscoverBooksUiState,
+    onShuffle: () -> Unit,
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
     onBookLongPress: ((String) -> Unit)? = null,
-    viewModel: DiscoverViewModel = koinViewModel(),
 ) {
-    val state by viewModel.discoverBooksState.collectAsStateWithLifecycle()
-
     // Only render the Ready-with-data case; Loading, Error, and empty Ready render nothing.
     val ready = state as? DiscoverBooksUiState.Ready ?: return
     if (ready.isEmpty) return
@@ -59,7 +54,7 @@ fun DiscoverBooksSection(
             modifier = Modifier.padding(horizontal = Spacing.screenMargin),
             trailing = {
                 IconButton(
-                    onClick = { viewModel.shuffle() },
+                    onClick = onShuffle,
                     modifier = Modifier.compactTouchTarget(footprint = 32.dp),
                 ) {
                     Icon(
