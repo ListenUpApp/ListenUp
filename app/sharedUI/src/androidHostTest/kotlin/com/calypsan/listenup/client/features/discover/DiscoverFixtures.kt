@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
+import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
@@ -173,3 +174,29 @@ internal fun shelfOwner(
     name: String,
     vararg shelves: DiscoverShelfUi,
 ) = DiscoverUserShelves(DiscoverShelfOwner(id, name), shelves.toList())
+
+internal fun activityRow(
+    id: String,
+    type: String,
+    userId: String = "maya",
+    name: String = "Maya Chen",
+    bookId: String? = "b-$id",
+) = ActivityUiModel(
+    id = id,
+    userId = userId,
+    type = type,
+    occurredAt = NOW_MS,
+    userDisplayName = name,
+    bookId = bookId,
+    bookTitle = "Piranesi",
+    bookAuthorName = "Susanna Clarke",
+    bookCoverPath = "/tmp/$id.webp",
+    bookCoverHash = null,
+    isReread = false,
+    durationMs = 2_880_000,
+    milestoneValue = 30,
+    milestoneUnit = null,
+    shelfId = null,
+    shelfName = null,
+    isYou = false,
+)

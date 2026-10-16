@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
@@ -23,7 +24,10 @@ import com.calypsan.listenup.client.features.discover.components.ListeningNowSec
 import com.calypsan.listenup.client.features.discover.components.RecentlyAddedSection
 import com.calypsan.listenup.client.features.discover.components.ShelvesByOthersSection
 import com.calypsan.listenup.client.features.discover.components.SomethingNewSection
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
+import com.calypsan.listenup.client.features.shell.LandingEffect
 import com.calypsan.listenup.client.features.shell.ShellDestination
+import com.calypsan.listenup.client.features.shell.ShellLanding
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 
 /** Stable `LazyColumn` keys for Discover's sections; the landing scrolls by them (Task 14). */
@@ -33,9 +37,31 @@ internal object DiscoverItemKey {
     const val PICKS = "picks"
     const val LEADERBOARD = "leaderboard"
     const val ACTIVITY = "activity"
-    const val COMMUNITY = "community" // [Leaderboard | Activity] in one row on wide layouts
     const val SHELVES = "shelves"
     const val RECENT = "recent"
+
+    /**
+     * Item order. Every section item is always emitted, even when its section draws nothing, so an
+     * index here is stable; on wide layouts the [Leaderboard | Activity] row takes [LEADERBOARD]'s slot.
+     */
+    val ORDER = listOf(HEADER, LISTENING, PICKS, LEADERBOARD, ACTIVITY, SHELVES, RECENT)
+}
+
+/**
+ * Holds Discover's list state and answers the shell's leaderboard landing (spec §6.4): Week, then the
+ * leaderboard scrolled into view. Selecting first means the board arrives already on the right period.
+ */
+@Composable
+internal fun DiscoverLanding(
+    onSelectPeriod: (LeaderboardPeriod) -> Unit,
+    content: @Composable (LazyListState) -> Unit,
+) {
+    val listState = rememberLazyListState()
+    LandingEffect(ShellLanding.DiscoverLeaderboard) {
+        onSelectPeriod(LeaderboardPeriod.Week)
+        listState.animateScrollToItem(DiscoverItemKey.ORDER.indexOf(DiscoverItemKey.LEADERBOARD))
+    }
+    content(listState)
 }
 
 /**
@@ -53,10 +79,10 @@ internal fun DiscoverLayout(
     selectedBookIds: Set<String>,
     listState: LazyListState = rememberLazyListState(),
 ) {
-    val isWide =
-        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
-            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
-        )
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    // ≥ 600dp: the community sits side by side. ≥ 840dp (spec §3.4): every section uses the width.
+    val isWide = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+    val isExpanded = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 
     LazyColumn(
         state = listState,
@@ -90,6 +116,7 @@ internal fun DiscoverLayout(
                 isInSelectionMode = isInSelectionMode,
                 selectedBookIds = selectedBookIds,
                 onBookLongPress = actions.onBookLongPress,
+                wide = isExpanded,
             )
         }
 
@@ -101,14 +128,17 @@ internal fun DiscoverLayout(
                 isInSelectionMode = isInSelectionMode,
                 selectedBookIds = selectedBookIds,
                 onBookLongPress = actions.onBookLongPress,
+                wide = isExpanded,
             )
         }
 
         if (isWide) {
-            item(key = DiscoverItemKey.COMMUNITY) {
+            // The [Leaderboard | Activity] row takes the leaderboard's key, so the landing's index holds.
+            item(key = DiscoverItemKey.LEADERBOARD) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                    horizontalArrangement = Arrangement.spacedBy(if (isExpanded) 20.dp else Spacing.lg),
+                    verticalAlignment = Alignment.Top,
                 ) {
                     DiscoverLeaderboardSection(
                         state = state.leaderboard,
@@ -118,12 +148,13 @@ internal fun DiscoverLayout(
                         onUserClick = actions.onUserClick,
                         modifier = Modifier.weight(1f),
                     )
+                    // Board Discover-AndroidTablet: 1fr : 1.25fr.
                     ActivityFeedSection(
                         state = state.activity,
                         onBookClick = actions.onBookClick,
                         onShelfClick = actions.onShelfClick,
                         onUserClick = actions.onUserClick,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(if (isExpanded) ACTIVITY_WEIGHT_EXPANDED else 1f),
                     )
                 }
             }
@@ -154,6 +185,7 @@ internal fun DiscoverLayout(
                 state = state.shelves,
                 onShelfClick = actions.onShelfClick,
                 onUserClick = actions.onUserClick,
+                wide = isExpanded,
             )
         }
 
@@ -165,7 +197,11 @@ internal fun DiscoverLayout(
                 isInSelectionMode = isInSelectionMode,
                 selectedBookIds = selectedBookIds,
                 onBookLongPress = actions.onBookLongPress,
+                wide = isExpanded,
             )
         }
     }
 }
+
+/** The activity column's share beside the leaderboard's 1 on an expanded window. */
+private const val ACTIVITY_WEIGHT_EXPANDED = 1.25f

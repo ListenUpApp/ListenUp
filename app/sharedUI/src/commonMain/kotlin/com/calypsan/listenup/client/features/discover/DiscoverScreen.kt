@@ -84,6 +84,7 @@ fun DiscoverScreen(
             },
             modifier = Modifier.fillMaxSize(),
         ) {
+            DiscoverLanding(onSelectPeriod = leaderboardViewModel::selectPeriod) { listState ->
             DiscoverLayout(
                 state =
                     DiscoverState(
@@ -112,7 +113,9 @@ fun DiscoverScreen(
                 contentPadding = contentPadding,
                 isInSelectionMode = isInSelectionMode,
                 selectedBookIds = selectedBookIds,
+                listState = listState,
             )
+            }
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
