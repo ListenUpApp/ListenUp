@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.features.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +25,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -132,20 +136,23 @@ private fun ShelfTile(
     shelf: Shelf,
     onOpen: () -> Unit,
 ) {
-    Column(
-        Modifier.width(ShelfTileWidth).clip(MaterialTheme.shapes.large).clickable(onClick = onOpen),
-        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.extraLarge)
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .padding(ShelfTileInset),
-        ) {
-            CoverMosaic(shelf.covers)
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(Modifier.width(ShelfTileWidth).clickable(interactionSource, indication = null, onClick = onOpen)) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.extraLarge)
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .padding(ShelfTileInset),
+            ) {
+                CoverMosaic(shelf.covers)
+            }
+            ShelfText(shelf)
         }
-        ShelfText(shelf)
+        // Only the ripple is rounded. Clipping the whole tile cut the meta line's first glyphs on the
+        // bottom-start arc, so the shape lives on an overlay that draws the press and nothing else.
+        Box(Modifier.matchParentSize().clip(MaterialTheme.shapes.large).indication(interactionSource, ripple()))
     }
 }
 
