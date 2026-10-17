@@ -651,8 +651,11 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-chart {
   display: flex; align-items: flex-end; gap: 0.6rem; height: 150px;
 }
+/* `min-width: 0` keeps the seven columns, and so the seven bars, one width: without it "Today" widens
+   its own column on a narrow phone at large text. The word is centred under its bar and may overhang
+   the bar row into the card's padding there, as a chart's axis labels do; it never reaches the edge. */
 .luw .home-chart-col {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
   height: 100%; justify-content: flex-end;
 }
 /* The bar's height is a percentage of the column, so an empty day still needs a visible floor —
@@ -663,7 +666,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 }
 .luw .home-bar.is-empty { background: var(--surface-3); }
 .luw .home-bar.is-today { background: var(--coral); }
-.luw .home-bar-label { font-size: 0.75rem; font-weight: 600; color: var(--ink-3); }
+.luw .home-bar-label { font-size: 0.75rem; font-weight: 600; color: var(--ink-3); white-space: nowrap; }
 .luw .home-bar-label.is-today { font-weight: 800; color: var(--ink); }
 
 .luw .home-genres { display: flex; flex-direction: column; gap: 0.7rem; }

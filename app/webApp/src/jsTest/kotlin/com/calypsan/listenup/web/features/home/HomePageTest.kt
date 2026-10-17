@@ -310,6 +310,13 @@ class HomePageTest :
             (bars.item(0) as HTMLElement).className shouldNotContain "is-today"
         }
 
+        // ⛔ "Today" is sharedUI's `home_today` verbatim: Compose resources do not reach Compose HTML.
+        test("the last bar is labelled Today, and only the last (§2.6)") {
+            val labels = homePage(readyHome(), stats = weekStats()).querySelectorAll(".home-bar-label")
+            (labels.item(labels.length - 1) as HTMLElement).textContent shouldBe "Today"
+            (0 until labels.length - 1).count { (labels.item(it) as HTMLElement).textContent == "Today" } shouldBe 0
+        }
+
         test("a day with no listening still draws, so the week reads as seven days") {
             val host = homePage(readyHome(), stats = weekStats())
 

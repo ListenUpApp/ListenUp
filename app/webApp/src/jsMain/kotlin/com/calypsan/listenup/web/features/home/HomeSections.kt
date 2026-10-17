@@ -35,6 +35,9 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import org.jetbrains.compose.web.dom.Button as DomButton
 
+/** The last bar's label (spec §2.6), sharedUI's `home_today` verbatim: the others keep their weekday letter. */
+private const val TODAY_LABEL = "Today"
+
 /** Spec §2.5 caps: desktop one row of up to six; the phone CSS shows the first four (C10). */
 internal const val ALSO_IN_PROGRESS_CAP = 6
 
@@ -292,7 +295,7 @@ private fun WeekChart(
                 Span(attrs = {
                     classes("home-bar-label")
                     if (column.isToday) classes("is-today")
-                }) { Text(column.label) }
+                }) { Text(if (column.isToday) TODAY_LABEL else column.label) }
             }
         }
     }

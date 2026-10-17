@@ -16,6 +16,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -24,9 +26,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.presentation.home.weekChartColumns
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.home_today
+import org.jetbrains.compose.resources.stringResource
 
 /** Test tag on the week chart's canvas; the caller supplies its text alternative. */
 internal const val HOME_STATS_CHART_TAG = "home-stats-chart"
+
+/**
+ * The day labels the chart draws under its bars, oldest first. Canvas text is invisible to semantics, so the chart
+ * states it here; it sits before the caller's modifier, where a `clearAndSetSemantics` cannot swallow it.
+ */
+internal val WeekChartDayLabels = SemanticsPropertyKey<List<String>>("WeekChartDayLabels")
+
+/** The day labels' type size. */
+internal val WeekChartLabelSize = 11.sp
+
+/** The gap between neighbouring bars. */
+internal val WeekChartBarSpacing = 8.dp
 
 /**
  * 7-day bar chart showing daily listening time.
@@ -55,8 +72,11 @@ fun DailyListeningChart(
     val chartData =
         remember(dailyBuckets) { weekChartColumns(dailyBuckets) }
 
+    // The last bar reads "Today" (spec §2.6), as iOS draws it; the others keep their weekday letter.
+    val todayLabel = stringResource(Res.string.home_today)
+    val dayLabels = chartData.map { if (it.isToday) todayLabel else it.label }
     val maxSeconds = chartData.maxOf { it.totalSeconds }.coerceAtLeast(1L).toFloat()
-    val labelStyle = TextStyle(fontSize = 11.sp, color = labelColor)
+    val labelStyle = TextStyle(fontSize = WeekChartLabelSize, color = labelColor)
 
     // Bars grow up from the baseline on screen entry, rippling left-to-right (today rises last).
     val growth = remember { Animatable(0f) }
@@ -70,6 +90,7 @@ fun DailyListeningChart(
         modifier =
             Modifier
                 .testTag(HOME_STATS_CHART_TAG)
+                .semantics { this[WeekChartDayLabels] = dayLabels }
                 .then(modifier)
                 .fillMaxWidth()
                 .height(chartHeight),
@@ -77,9 +98,10 @@ fun DailyListeningChart(
         val labelHeight = 16.dp.toPx()
         val plotHeight = size.height - labelHeight - 4.dp.toPx()
         val barCount = chartData.size
-        val barSpacing = 8.dp.toPx()
-        val totalSpacing = barSpacing * (barCount - 1)
-        val barWidth = ((size.width - totalSpacing) / barCount).coerceAtLeast(12.dp.toPx())
+        val barSpacing = WeekChartBarSpacing.toPx()
+        val barWidth = weekChartBarWidth(size.width, barCount, barSpacing, MinBarWidth.toPx())
+        val labelResults = dayLabels.map { textMeasurer.measure(it, labelStyle) }
+        val labelSpans = weekChartLabelSpans(labelResults.map { it.size.width.toFloat() }, size.width, barWidth, barSpacing)
 
         val stubSize = emptyDayStubSize(barWidth, EmptyStubMaxWidth.toPx(), EmptyStubHeight.toPx())
         // Each bar opens a little after the one to its left, so the row ripples up on entry.
@@ -111,14 +133,39 @@ fun DailyListeningChart(
                 cornerRadius = CornerRadius(markWidth / 2f),
             )
 
-            // Draw day label centered below bar
-            val labelResult = textMeasurer.measure(bar.label, labelStyle)
-            val labelX = x + (barWidth - labelResult.size.width) / 2
             val labelY = plotHeight + 4.dp.toPx()
-            drawText(labelResult, topLeft = Offset(labelX, labelY))
+            drawText(labelResults[index], topLeft = Offset(labelSpans[index].start, labelY))
         }
     }
 }
+
+/** The narrowest a bar gets, however narrow the chart. */
+private val MinBarWidth = 12.dp
+
+/** Each bar's width: the chart's width shared across [barCount] bars and the gaps between them. */
+internal fun weekChartBarWidth(
+    chartWidth: Float,
+    barCount: Int,
+    barSpacing: Float,
+    minBarWidth: Float,
+): Float = ((chartWidth - barSpacing * (barCount - 1)) / barCount).coerceAtLeast(minBarWidth)
+
+/**
+ * Where each day label is drawn, left to right, given each label's measured width: centred under its bar, but never
+ * past either edge of the chart. "Today" under the last bar outgrows a narrow phone's column at large text, so it
+ * slides inward to end flush with the chart rather than being cut by the card.
+ */
+internal fun weekChartLabelSpans(
+    labelWidths: List<Float>,
+    chartWidth: Float,
+    barWidth: Float,
+    barSpacing: Float,
+): List<ClosedFloatingPointRange<Float>> =
+    labelWidths.mapIndexed { index, labelWidth ->
+        val centred = index * (barWidth + barSpacing) + (barWidth - labelWidth) / 2f
+        val left = centred.coerceIn(0f, (chartWidth - labelWidth).coerceAtLeast(0f))
+        left..(left + labelWidth)
+    }
 
 /** How tall an empty day's stub stands on the baseline. */
 private val EmptyStubHeight = 6.dp
