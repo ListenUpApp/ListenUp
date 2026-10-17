@@ -9,7 +9,7 @@ package com.calypsan.listenup.client.presentation.discover
  *
  * @property predicate What they did — "finished", "listened to 30 minutes of".
  * @property highlight The book or shelf name, or null when the event names nothing.
- * @property suffix Trailing plain text, e.g. " by Frank Herbert". Empty when there is none.
+ * @property suffix Trailing plain text: " by Frank Herbert" on every row about a book. Empty when there is none.
  */
 data class ActivityParts(
     val predicate: String,
@@ -44,7 +44,7 @@ fun activityParts(activity: ActivityUiModel): ActivityParts {
             ActivityParts(
                 "listened to ${formatDurationMinutes(activity.durationMs)} of",
                 activity.bookTitle ?: A_BOOK,
-                "",
+                authorSuffix,
             )
         }
 

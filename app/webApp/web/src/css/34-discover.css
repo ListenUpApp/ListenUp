@@ -1,0 +1,174 @@
+/* ---- Discover (PR 5): people first. The DOM is the focus order; see DiscoverPage. ---- */
+
+/* Section heading row: the H2 and its quiet line, with the section's own action at the end. */
+.luw .disc-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.luw .disc-section-titles { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.luw .disc-sub { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
+.luw .disc-section-actions { display: flex; align-items: center; gap: 0.5rem; flex: none; }
+
+/* Listening now: a rail on a phone (order is meaningful: live listeners lead), a grid with room. */
+.luw .disc-listeners {
+  display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 0.4rem;
+}
+.luw .disc-listeners > .disc-listener { flex: 0 0 156px; scroll-snap-align: start; }
+@media (min-width: 760px) {
+  .luw .disc-listeners {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+    overflow: visible; gap: 1.2rem 1rem;
+  }
+}
+.luw .disc-listener { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.luw .disc-listener-book {
+  display: flex; flex-direction: column; gap: 0.45rem; color: inherit; text-decoration: none; border-radius: 12px;
+}
+@media (hover: hover) { .luw .disc-listener-book:hover .disc-card-t { color: var(--coral-text); } }
+.luw .disc-listener-book:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+
+/* "Live" on the art: a white pill with a coral dot at the top end, the same in both themes. */
+.luw .disc-live-chip {
+  position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 9px 0 7px; border-radius: var(--r-pill); background: #FFFFFF; color: #C11D00;
+  font-size: 0.6875rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.luw .disc-live-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #E2603A; }
+
+/* The person under a card: a sibling link, never inside the book link. */
+.luw a.disc-person {
+  display: flex; align-items: center; gap: 0.5rem; min-height: 44px; min-width: 0;
+  color: inherit; text-decoration: none; border-radius: var(--r-xs);
+}
+.luw .disc-person-text { display: flex; flex-direction: column; gap: 0.05rem; min-width: 0; }
+.luw .disc-person-name {
+  font-size: 0.85rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Page body (§2.8). The Community aside (leaderboard + activity) joins the main column's side only
+   where it has room. DiscoverPage orders the DOM to match (aside last when wide, DISCOVER_WIDE_QUERY),
+   so the focus order is the visual order; the grid areas place it. 1280px, the nearest allowed breakpoint to the board's ~1100
+   that leaves the main column ≥ 560px beside a 340–400px aside once the sidebar is taken (plan D3). */
+.luw .disc-body {
+  display: grid; gap: 2.2rem; grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "listen" "new" "aside" "shelves" "recent";
+}
+.luw .disc-a-listen { grid-area: listen; min-width: 0; }
+.luw .disc-a-new { grid-area: new; min-width: 0; }
+.luw .disc-aside { grid-area: aside; display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
+.luw .disc-a-shelves { grid-area: shelves; min-width: 0; }
+.luw .disc-a-recent { grid-area: recent; min-width: 0; }
+@media (min-width: 1280px) {
+  .luw .disc-body {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+    grid-template-areas: "listen aside" "new aside" "shelves aside" "recent aside";
+    /* A tall aside lengthens the last row, never the gaps between the main sections. */
+    grid-template-rows: auto auto auto 1fr;
+    align-items: start; column-gap: 2rem;
+  }
+}
+@media (max-width: 759px) { .luw .disc .page-sub { display: none; } }
+
+/* Something new: two up on a phone, the board's four (the rest stay in the DOM for a wider window);
+   every pick with room. */
+.luw a.disc-card { color: inherit; text-decoration: none; }
+.luw a.disc-card:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; border-radius: 12px; }
+.luw .disc-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem 1rem; }
+@media (max-width: 759px) { .luw .disc-picks > :nth-child(n+5) { display: none; } }
+@media (min-width: 760px) {
+  .luw .disc-picks { grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); }
+}
+.luw .disc-pick-meta { font-size: 0.75rem; color: var(--ink-3); }
+
+/* Leaderboard: one bordered card on paper at every width. */
+.luw .disc-lb-card {
+  padding: 1.1rem 1.1rem 0.6rem; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line);
+}
+.luw .disc-lb { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.luw .disc-lb-row > a {
+  display: flex; align-items: center; gap: 0.7rem; min-height: 46px; padding: 0 0.6rem;
+  border-radius: 12px; color: inherit; text-decoration: none;
+}
+@media (hover: hover) { .luw .disc-lb-row > a:hover { background: var(--surface-2); } }
+.luw .disc-lb-row > a:active { background: var(--surface-3); }
+.luw .disc-lb-row > a:focus-visible { outline: 2px solid var(--coral); outline-offset: 1px; }
+.luw .disc-lb-row.is-you > a { background: var(--you-tint); font-weight: 700; }
+.luw .disc-lb-row.is-you .disc-lb-name { font-weight: 700; }
+.luw .disc-rank {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
+  border-radius: 50%; font-size: 0.75rem; font-weight: 800; color: var(--ink-2); background: var(--surface-2);
+  font-variant-numeric: tabular-nums;
+}
+.luw .disc-rank.is-medal { color: var(--medal-ink); }
+.luw .disc-rank.medal-1 { background: var(--medal-gold); }
+.luw .disc-rank.medal-2 { background: var(--medal-silver); }
+.luw .disc-rank.medal-3 { background: var(--medal-bronze); }
+.luw .disc-lb-name {
+  flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.luw .disc-lb-stat { flex: none; font-size: 0.85rem; font-weight: 700; color: var(--ink-2); }
+.luw .disc-show-all { align-self: center; }
+@media (pointer: coarse) { .luw .disc-lb-row > a { min-height: 48px; } }
+
+/* Activity: a face (a link to the person), then one body link: the sentence, when, and the cover. */
+.luw .disc-feed { display: flex; flex-direction: column; }
+.luw .disc-feed-row {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line-2);
+}
+.luw .disc-feed-row:last-child { border-bottom: none; }
+.luw .disc-feed-avatar {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; border-radius: 50%;
+}
+.luw .disc-feed-avatar:focus-visible { outline: 2px solid var(--coral); outline-offset: 1px; }
+/* The body: one link holding the sentence, when, and the cover, to what the sentence is about. */
+.luw a.disc-feed-link {
+  flex: 1; min-width: 0; min-height: 48px; display: flex; align-items: center; gap: 0.75rem;
+  color: inherit; text-decoration: none; border-radius: var(--r-xs);
+}
+.luw a.disc-feed-link:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .disc-feed-body { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 0; }
+.luw .disc-feed-line { font-size: 0.9rem; color: var(--ink-2); line-height: 1.45; min-width: 0; }
+.luw .disc-feed-who { font-weight: 700; color: var(--ink); }
+.luw .disc-feed-hi { font-weight: 700; color: var(--coral-text); }
+@media (hover: hover) { .luw a.disc-feed-link:hover .disc-feed-hi { text-decoration: underline; } }
+.luw a.disc-feed-link:active { opacity: 0.75; }
+.luw .disc-feed-cover { flex: none; width: 36px; height: 36px; border-radius: 8px; object-fit: cover; background: var(--surface-2); }
+.luw .disc-see-all { align-self: center; }
+
+/* Shelves by others: an owner's link (face, name, how many) over their shelves as mosaic cards. */
+.luw .disc-owner-block { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; }
+.luw a.disc-owner {
+  display: inline-flex; align-items: center; gap: 0.6rem; min-height: 44px; align-self: flex-start;
+  color: inherit; text-decoration: none; border-radius: var(--r-xs);
+}
+@media (hover: hover) { .luw a.disc-owner:hover .disc-person-name { color: var(--coral-text); } }
+.luw a.disc-owner:active { opacity: 0.8; }
+.luw a.disc-owner:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .disc-shelves { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 0.8rem; }
+.luw a.disc-shelf {
+  display: flex; flex-direction: row; align-items: center; gap: 0.8rem; padding: 0.6rem; --mosaic-size: 72px;
+  border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: inherit; text-decoration: none;
+}
+.luw a.disc-shelf:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .disc-shelf-text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+@media (max-width: 759px) { .luw a.disc-shelf { --mosaic-size: 56px; } }
+
+/* Recently added: a rail on a phone, a grid with room. */
+.luw .disc-recent { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 0.4rem; }
+.luw .disc-recent > .disc-card { flex: 0 0 132px; scroll-snap-align: start; }
+@media (min-width: 760px) {
+  .luw .disc-recent {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(120px, 100%), 1fr)); overflow: visible; gap: 1.2rem 1rem;
+  }
+}
+.luw a.disc-newest {
+  display: inline-flex; align-items: center; min-height: 44px; font-size: var(--fs-small); font-weight: 700;
+  color: var(--coral-text); text-decoration: none;
+}
+@media (hover: hover) { .luw a.disc-newest:hover { text-decoration: underline; } }
+.luw a.disc-newest:active { opacity: 0.75; }
+
+/* One DOM, two caps (plan C7): rows past a phone's cap show only beside the main column, and a
+   toggle that would reveal nothing there shows only on narrower screens. Last in the file and one
+   class stronger than any row's own display, so it always wins. */
+@media (max-width: 1279px) { .luw .disc .disc-aside-extra { display: none; } }
+@media (min-width: 1280px) { .luw .disc .disc-phone-only { display: none; } }

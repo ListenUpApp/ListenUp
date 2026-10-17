@@ -8971,6 +8971,16 @@
         }
       }
     },
+    "common.in_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Library"
+          }
+        }
+      }
+    },
     "common.inbox": {
       "localizations": {
         "en": {
@@ -10631,112 +10641,52 @@
         }
       }
     },
-    "discover.activity_did_something": {
+    "discover.activity_profile_a11y": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "did something awesome"
+            "value": "%1$@'s profile"
           }
         }
       }
     },
-    "discover.activity_feed": {
+    "discover.activity_show_less": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activity feed"
+            "value": "Show less"
           }
         }
       }
     },
-    "discover.activity_finished": {
+    "discover.activity_show_less_ios": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "finished"
+            "value": "Show Less"
           }
         }
       }
     },
-    "discover.activity_joined": {
+    "discover.activity_you": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "joined the server"
+            "value": "You"
           }
         }
       }
     },
-    "discover.activity_listened_milestone": {
+    "discover.activity_your_profile_a11y": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "reached a listening milestone"
-          }
-        }
-      }
-    },
-    "discover.activity_listened_to": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "listened to"
-          }
-        }
-      }
-    },
-    "discover.activity_reread": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "started re-reading"
-          }
-        }
-      }
-    },
-    "discover.activity_shelf_created": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "created a shelf"
-          }
-        }
-      }
-    },
-    "discover.activity_started": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "started"
-          }
-        }
-      }
-    },
-    "discover.activity_streak": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "hit a listening streak"
-          }
-        }
-      }
-    },
-    "discover.book_1_of_series": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book 1 of %1$@"
+            "value": "Your profile"
           }
         }
       }
@@ -10747,16 +10697,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Could not load leaderboard."
-          }
-        }
-      }
-    },
-    "discover.discover_something_new": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discover something new"
           }
         }
       }
@@ -10777,6 +10717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Books"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_category_group": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rank by"
           }
         }
       }
@@ -10811,72 +10761,22 @@
         }
       }
     },
-    "discover.leaderboard_period_12_months": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "12 months"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_12_months_description": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last 12 months"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_30_days": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "30 days"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_30_days_description": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last 30 days"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_7_days": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7 days"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_period_7_days_description": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last 7 days"
-          }
-        }
-      }
-    },
     "discover.leaderboard_period_all_time": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "All time"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_all_time_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Time"
           }
         }
       }
@@ -10891,12 +10791,62 @@
         }
       }
     },
+    "discover.leaderboard_period_month": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Month"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_week": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Week"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_year": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Year"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_rank_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rank %1$d"
+          }
+        }
+      }
+    },
     "discover.leaderboard_show_all": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Show all %1$d"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_show_all_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show All %1$d"
           }
         }
       }
@@ -10911,6 +10861,76 @@
         }
       }
     },
+    "discover.leaderboard_show_less_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Less"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You"
+          }
+        }
+      }
+    },
+    "discover.listener_live_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ is listening now"
+          }
+        }
+      }
+    },
+    "discover.listener_recent_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ listened %3$@"
+          }
+        }
+      }
+    },
+    "discover.listening_count_both": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d listening now · %2$d more in the last two weeks"
+          }
+        }
+      }
+    },
+    "discover.listening_count_live": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d listening now"
+          }
+        }
+      }
+    },
+    "discover.listening_count_recent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d in the last two weeks"
+          }
+        }
+      }
+    },
     "discover.listening_now": {
       "localizations": {
         "en": {
@@ -10921,22 +10941,32 @@
         }
       }
     },
+    "discover.listening_now_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening Now"
+          }
+        }
+      }
+    },
+    "discover.live": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live"
+          }
+        }
+      }
+    },
     "discover.loading_leaderboard": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Loading leaderboard..."
-          }
-        }
-      }
-    },
-    "discover.new_for_you": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New for You"
           }
         }
       }
@@ -10991,12 +11021,72 @@
         }
       }
     },
+    "discover.pick_series_line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "discover.pick_standalone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standalone"
+          }
+        }
+      }
+    },
     "discover.recently_added": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Recently added"
+          }
+        }
+      }
+    },
+    "discover.recently_added_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recently Added"
+          }
+        }
+      }
+    },
+    "discover.recently_added_when": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added %1$@"
+          }
+        }
+      }
+    },
+    "discover.see_all_activity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See all activity"
+          }
+        }
+      }
+    },
+    "discover.see_all_activity_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See All Activity"
           }
         }
       }
@@ -11011,12 +11101,92 @@
         }
       }
     },
+    "discover.shelves_by_others": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shelves by others"
+          }
+        }
+      }
+    },
+    "discover.shelves_by_others_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shelves by Others"
+          }
+        }
+      }
+    },
     "discover.shelves_count": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$d shelves"
+          }
+        }
+      }
+    },
+    "discover.show_newest_in_library_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the newest books in the Library"
+          }
+        }
+      }
+    },
+    "discover.shuffle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shuffle"
+          }
+        }
+      }
+    },
+    "discover.shuffle_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shuffle: draw ten different books"
+          }
+        }
+      }
+    },
+    "discover.something_new": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something new"
+          }
+        }
+      }
+    },
+    "discover.something_new_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something New"
+          }
+        }
+      }
+    },
+    "discover.something_new_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books you haven't started, first in their series"
           }
         }
       }
@@ -11071,32 +11241,12 @@
         }
       }
     },
-    "discover.what_others_are_listening_to": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What others are listening to"
-          }
-        }
-      }
-    },
     "discover.when_other_users_create_shelves": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "When other users create shelves with books you can access, they'll appear here."
-          }
-        }
-      }
-    },
-    "discover.x_is_listening_to_y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ is listening to %2$@"
           }
         }
       }

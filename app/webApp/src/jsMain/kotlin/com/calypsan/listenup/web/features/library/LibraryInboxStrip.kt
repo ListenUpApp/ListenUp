@@ -6,7 +6,7 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.admin.InboxBadgeState
-import com.calypsan.listenup.web.shell.isPlainPrimaryClick
+import com.calypsan.listenup.web.design.isPlainPrimaryClick
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text

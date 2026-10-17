@@ -1,24 +1,24 @@
 import SwiftUI
 import Shared
 
-/// Discover — the social landing screen for finding new audiobooks and seeing the community.
+/// Discover — the social landing screen: the people on this server, and something new for you.
 ///
-/// Five sections, wired to three shared ViewModels via native observers:
-/// - **New for You** (`DiscoverObserver.newForYou`) — a horizontal cover rail.
-/// - **Recently Added** (`DiscoverObserver.recentlyAdded`) — a horizontal cover rail.
-/// - **What Others Are Listening To** (`DiscoverObserver.currentlyListening`) — a horizontal
-///   rail of people-and-their-current-book cards, one per user.
-/// - **Leaderboard** (`LeaderboardObserver`) — ranked rows with a Week / Month / All control.
-/// - **Activity** (`ActivityFeedObserver`) — the community feed.
+/// Reads, top to bottom (spec §2.8): **Listening Now** → **Something New** → **Leaderboard** →
+/// **Activity** → **Shelves by Others** → **Recently Added**, from three shared ViewModels via native
+/// observers. `DiscoverSection` holds that order and how a regular-width window pairs the
+/// Leaderboard with Activity side by side (§3.7).
 ///
 /// Because Discover is a persistent tab root, the observers are lazily constructed in
 /// `.onAppear` and kept for the screen's lifetime — tearing them down on `.onDisappear`
 /// would permanently cancel their flows when the user pushes a book detail and pops back.
 /// This mirrors `HomeView`/`LibraryView`.
 ///
-/// Layout is width-responsive: a single scrolling column at compact width (iPhone); at
-/// regular width (iPad) the rail cards grow and Leaderboard + Activity sit side-by-side.
+/// `leaderboardLandingRequest` is the shell's landing (`MainShellModel.landOnLeaderboard`): each bump
+/// selects Week, scrolls the leaderboard into view, and moves VoiceOver to its heading (§6.4).
 struct DiscoverView: View {
+    /// The shell's leaderboard-landing counter; Discover answers each new value once.
+    var leaderboardLandingRequest = 0
+
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dependencies) private var deps
@@ -29,11 +29,14 @@ struct DiscoverView: View {
     /// One observer shared across all of Discover's book rails → screen-wide selection (de-dup by
     /// id is automatic via the shared `Set` in the VM).
     @State private var selection: BookSelectionObserver?
+    /// The last landing request answered, so a re-render never lands twice.
+    @State private var handledLanding = 0
+    @AccessibilityFocusState private var leaderboardFocused: Bool
 
     private var user: User? { userObserver.user }
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
     private var horizontalInset: CGFloat { isRegularWidth ? 32 : 20 }
-    private var railCardWidth: CGFloat { isRegularWidth ? 170 : 144 }
+    private var railCardWidth: CGFloat { 150 }
 
     var body: some View {
         Group {
@@ -77,61 +80,118 @@ struct DiscoverView: View {
         leaderboard: LeaderboardObserver,
         activity: ActivityFeedObserver
     ) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                // The rails manage their own horizontal insets so cards can bleed to the edge.
-                NewForYouSection(
-                    phase: discover.newForYou,
-                    cardWidth: railCardWidth,
-                    horizontalInset: horizontalInset,
-                    selection: selection
-                )
-
-                RecentlyAddedSection(
-                    phase: discover.recentlyAdded,
-                    cardWidth: railCardWidth,
-                    horizontalInset: horizontalInset,
-                    selection: selection
-                )
-
-                CurrentlyListeningSection(
-                    phase: discover.currentlyListening,
-                    cardWidth: railCardWidth,
-                    horizontalInset: horizontalInset,
-                    selection: selection
-                )
-
-                socialSections(leaderboard: leaderboard, activity: activity)
-                    .padding(.horizontal, horizontalInset)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    if isRegularWidth {
+                        ForEach(DiscoverSection.regularRows, id: \.self) { row in
+                            regularRow(row, discover: discover, leaderboard: leaderboard, activity: activity)
+                        }
+                    } else {
+                        ForEach(DiscoverSection.compactOrder, id: \.self) { section in
+                            self.section(section, discover: discover, leaderboard: leaderboard, activity: activity)
+                                .id(section)
+                        }
+                    }
+                }
+                .padding(.vertical, Spacing.xs)
             }
-            .padding(.vertical, Spacing.xs)
-        }
-        .refreshable {
-            discover.refresh()
-            leaderboard.refresh()
-            activity.refresh()
+            .refreshable {
+                discover.refresh()
+                leaderboard.refresh()
+                activity.refresh()
+            }
+            .onAppear { landIfRequested(proxy, leaderboard: leaderboard) }
+            .onChange(of: leaderboardLandingRequest) { _, _ in landIfRequested(proxy, leaderboard: leaderboard) }
         }
     }
 
-    /// Leaderboard + Activity: stacked at compact width, side-by-side at regular width.
+    /// A regular-width row: one section across the width, or the Leaderboard and Activity side by side,
+    /// split about 1 : 1.15 as the board pairs them (`DiscoverPairedColumns`).
     @ViewBuilder
-    private func socialSections(
+    private func regularRow(
+        _ row: [DiscoverSection],
+        discover: DiscoverObserver,
         leaderboard: LeaderboardObserver,
         activity: ActivityFeedObserver
     ) -> some View {
-        if isRegularWidth {
-            HStack(alignment: .top, spacing: 28) {
-                LeaderboardSectionView(observer: leaderboard)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                ActivitySectionView(observer: activity)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+        if row.count == 2 {
+            DiscoverPairedColumns(spacing: 22) {
+                ForEach(row, id: \.self) { section in
+                    self.section(section, discover: discover, leaderboard: leaderboard, activity: activity)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .id(section)
+                }
             }
-        } else {
-            VStack(alignment: .leading, spacing: 28) {
-                LeaderboardSectionView(observer: leaderboard)
-                ActivitySectionView(observer: activity)
-            }
+            .padding(.horizontal, horizontalInset)
+        } else if let only = row.first {
+            section(only, discover: discover, leaderboard: leaderboard, activity: activity)
+                .id(only)
         }
+    }
+
+    /// One section. The rails manage their own horizontal insets so cards can bleed to the edge; the
+    /// Leaderboard and Activity are inset here at compact width and by their row at regular width.
+    @ViewBuilder
+    private func section(
+        _ section: DiscoverSection,
+        discover: DiscoverObserver,
+        leaderboard: LeaderboardObserver,
+        activity: ActivityFeedObserver
+    ) -> some View {
+        let communityInset: CGFloat = isRegularWidth ? 0 : horizontalInset
+        switch section {
+        case .listeningNow:
+            ListeningNowSection(
+                phase: discover.currentlyListening,
+                summary: discover.listeningSummary,
+                cardWidth: railCardWidth,
+                horizontalInset: horizontalInset,
+                isRegular: isRegularWidth,
+                selection: selection
+            )
+        case .somethingNew:
+            SomethingNewSection(
+                phase: discover.newForYou,
+                cardWidth: railCardWidth,
+                horizontalInset: horizontalInset,
+                isRegular: isRegularWidth,
+                selection: selection,
+                onShuffle: { discover.shuffle() }
+            )
+        case .leaderboard:
+            LeaderboardSectionView(observer: leaderboard, headerFocus: $leaderboardFocused)
+                .padding(.horizontal, communityInset)
+        case .activity:
+            ActivitySectionView(observer: activity)
+                .padding(.horizontal, communityInset)
+        case .shelvesByOthers:
+            ShelvesByOthersSection(
+                phase: discover.shelves,
+                horizontalInset: horizontalInset,
+                isRegular: isRegularWidth
+            )
+        case .recentlyAdded:
+            RecentlyAddedSection(
+                phase: discover.recentlyAdded,
+                cardWidth: 132,
+                horizontalInset: horizontalInset,
+                isRegular: isRegularWidth,
+                selection: selection
+            )
+        }
+    }
+
+    // MARK: - Landing
+
+    /// Answers the shell's leaderboard landing once: Week first, so the board arrives on the right
+    /// period, then the board scrolled to the top, then VoiceOver focus on its heading (spec §6.4).
+    private func landIfRequested(_ proxy: ScrollViewProxy, leaderboard: LeaderboardObserver) {
+        guard leaderboardLandingRequest > handledLanding else { return }
+        handledLanding = leaderboardLandingRequest
+        leaderboard.selectPeriod(.week)
+        withAnimation { proxy.scrollTo(DiscoverSection.leaderboard, anchor: .top) }
+        leaderboardFocused = true
     }
 }
 
@@ -139,7 +199,7 @@ struct DiscoverView: View {
 
 // Note: `DiscoverView` @State-constructs its observers from `Dependencies`, which requires the
 // app's Koin graph. The preview compiles and lays out chrome; live data needs the running app.
-// Preview sub-components (`LeaderRow`, `ActivityRow`, `DiscoverCoverCard`) for data-driven previews.
+// Preview sub-components (`LeaderRow`, `ActivityRow`, `PickCard`) for data-driven previews.
 #Preview {
     NavigationStack {
         DiscoverView()

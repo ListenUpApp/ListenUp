@@ -2,10 +2,10 @@ import Foundation
 import Shared
 
 /// Observes `DiscoverViewModel` — flattens its sealed states into SwiftUI-native phases:
-/// `newForYou` (the "New for You" rail), `recentlyAdded` (the "Recently Added" rail),
-/// `currentlyListening` (the "What Others Are Listening To" rail, from
-/// `SocialService.currentlyListening`) with its `listeningSummary`, `shelves` (Shelves by
-/// Others) and `communitySize` (who else is on the server, for the only-you treatments).
+/// `newForYou` (Something New), `recentlyAdded` (Recently Added), `currentlyListening` (Listening
+/// Now, from `SocialService.currentlyListening`) with its `listeningSummary`, `shelves` (Shelves by
+/// Others, drawn by `ShelvesByOthersSection`) and `communitySize` (who else is on the server, for
+/// the only-you treatments).
 ///
 /// Thin over `FlowBridge`; all mapping logic lives in pure, testable initializers/helpers.
 @Observable
@@ -228,7 +228,7 @@ struct DiscoverShelfRow: Identifiable, Equatable {
     }
 }
 
-/// One mosaic tile.
+/// One mosaic tile: a member book's cover, in shelf order.
 struct DiscoverShelfCover: Equatable {
     let bookId: String
     let coverPath: String?
@@ -238,6 +238,12 @@ struct DiscoverShelfCover: Equatable {
         self.bookId = cover.bookId
         self.coverPath = cover.coverPath
         self.coverHash = cover.coverHash
+    }
+
+    init(bookId: String, coverPath: String?, coverHash: String?) {
+        self.bookId = bookId
+        self.coverPath = coverPath
+        self.coverHash = coverHash
     }
 }
 

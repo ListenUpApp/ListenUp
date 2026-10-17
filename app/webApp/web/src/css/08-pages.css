@@ -438,15 +438,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-shelf-t { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
 .luw .home-shelf-sub { font-size: var(--fs-small); color: var(--ink-3); }
 
-/* Discover's shared shelves, grouped by owner */
-.luw .disc-shelf-owner { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-.luw .disc-shelf-who { font-size: 0.85rem; font-weight: 700; color: var(--ink-2); }
-.luw .disc-shelves { display: flex; gap: 0.8rem; flex-wrap: wrap; }
-.luw .disc-shelf {
-  display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start;
-  padding: 0.7rem 1rem; border-radius: 14px; cursor: pointer; text-align: left;
-  background: var(--surface); border: 1px solid var(--line);
-}
+/* Discover's shelf card text (layout in 34-discover.css) */
 @media (hover: hover) { .luw .disc-shelf:hover { border-color: var(--coral-ring); } }
 @media (hover: hover) { .luw .disc-shelf:hover .disc-shelf-t { color: var(--coral-text); } }
 .luw .disc-shelf-t { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
@@ -467,11 +459,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* The failed row's way back — Library's "Try again", spaced the same. */
 .luw .disc-retry { margin-top: var(--sp-8); }
 
-/* Book grids — Something new, Recently added. Auto-fill so the row count follows the viewport
-   rather than a breakpoint table. */
-.luw .disc-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1.4rem 1.1rem;
-}
 .luw .disc-card {
   display: flex; flex-direction: column; gap: 0.45rem; align-items: flex-start;
   padding: 0; border: none; background: transparent; cursor: pointer; text-align: left;
@@ -483,75 +470,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 }
 .luw .disc-card-sub { font-size: var(--fs-small); color: var(--ink-2); font-weight: 500; }
 
-/* Listener rows — the section that makes this a shared library. Horizontal scroll rather than a
-   wrap: the order is meaningful (live listeners lead), and wrapping buries that below the fold. */
-.luw .disc-listeners { display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 0.4rem; }
-.luw .disc-listener {
-  display: flex; gap: 0.7rem; align-items: center; flex: none; max-width: 19rem;
-  padding: 0.6rem 0.9rem 0.6rem 0.6rem; border-radius: 14px; cursor: pointer; text-align: left;
-  background: var(--surface); border: 1px solid var(--line);
-}
-@media (hover: hover) { .luw .disc-listener:hover { border-color: var(--coral-ring); } }
-.luw .disc-listener-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.luw .disc-listener-who { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
-.luw .disc-listener-book {
-  font-size: var(--fs-small); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
 /* The live marker earns the brand colour: it is the only thing on this page that is true *now*. */
 .luw .disc-live { font-size: 0.75rem; font-weight: 700; color: var(--coral-text); }
 .luw .disc-when { font-size: 0.75rem; color: var(--ink-3); }
-
-/* Leaderboard */
-.luw .disc-lb-controls { display: flex; flex-wrap: wrap; gap: 0.9rem; justify-content: space-between; }
-.luw .disc-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-.luw .disc-chip {
-  padding: 0.35rem 0.8rem; border-radius: var(--r-pill); cursor: pointer;
-  font-size: var(--fs-small); font-weight: 600; color: var(--ink-2);
-  background: transparent; border: 1px solid var(--line);
-}
-@media (hover: hover) { .luw .disc-chip:hover { color: var(--ink); background: var(--surface-2); } }
-.luw .disc-chip.is-on { color: var(--on-coral); background: var(--coral-fill); border-color: var(--coral-fill); }
-.luw .disc-lb {
-  display: flex; flex-direction: column;
-  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); overflow: hidden;
-}
-.luw .disc-lb-row {
-  display: flex; align-items: center; gap: 0.9rem; padding: 0.7rem 1.1rem;
-  border-bottom: 1px solid var(--line);
-}
-.luw .disc-lb-row:last-child { border-bottom: none; }
-.luw .disc-lb-rank {
-  flex: none; width: 1.6rem; font-size: 0.85rem; font-weight: 800; color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-.luw .disc-lb-name {
-  flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 600; color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.luw .disc-lb-stat { flex: none; font-size: 0.85rem; font-weight: 700; color: var(--ink-2); }
-
-/* Activity feed */
-.luw .disc-feed {
-  display: flex; flex-direction: column;
-  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); overflow: hidden;
-}
-.luw .disc-feed-row {
-  display: flex; align-items: baseline; gap: 0.8rem; justify-content: space-between;
-  padding: 0.7rem 1.1rem; border-bottom: 1px solid var(--line);
-  background: transparent; border-left: none; border-right: none; border-top: none;
-  width: 100%; text-align: left; font: inherit; color: inherit;
-}
-.luw .disc-feed-row:last-child { border-bottom: none; }
-/* Only rows that lead somewhere say so. A streak or a join is plain text by construction. */
-.luw .disc-feed-row.is-open { cursor: pointer; }
-@media (hover: hover) { .luw .disc-feed-row.is-open:hover { background: var(--surface-2); } }
-.luw .disc-feed-line { font-size: 0.9rem; color: var(--ink-2); line-height: 1.45; min-width: 0; }
-.luw .disc-feed-who { font-weight: 700; color: var(--ink); }
-.luw .disc-feed-hi { font-weight: 700; color: var(--coral-text); }
-
-@media (max-width: 759px) {
-  .luw .disc-lb-controls { justify-content: flex-start; }
-}
 
 .luw .home-section { display: flex; flex-direction: column; gap: 0.9rem; }
 .luw .home-section-h {

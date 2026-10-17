@@ -20,7 +20,18 @@ import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import dev.mokkery.MockMode
+import dev.mokkery.answering.returns
+import dev.mokkery.every
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.flow.flowOf
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
 
@@ -84,5 +95,24 @@ class DiscoverPresentationModuleVerifyTest :
                         Function1::class,
                     ),
             )
+        }
+
+        test("ActivityFeedViewModel resolves with the signed-in session it marks rows by") {
+            // Its constructor is internal, which verify() cannot see: resolve it for real.
+            val app =
+                koinApplication {
+                    modules(
+                        discoverPresentationModule,
+                        module {
+                            single<ActivityRepository> {
+                                mock { every { observeRecent(any()) } returns flowOf(emptyList()) }
+                            }
+                            single<SyncRepository> { mock(MockMode.autoUnit) }
+                            single<AuthSession> { FakeAuthSession() }
+                        },
+                    )
+                }
+            app.koin.get<ActivityFeedViewModel>() shouldNotBe null
+            app.close()
         }
     })

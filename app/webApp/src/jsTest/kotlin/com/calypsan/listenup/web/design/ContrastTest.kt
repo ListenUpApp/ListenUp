@@ -88,6 +88,20 @@ class ContrastTest :
                 palette.assertContrast("--on-danger", "--danger-fill", AA_TEXT)
             }
 
+            test("$theme: a leaderboard medal's rank reads at 4.5:1 on gold, silver and bronze") {
+                val palette = palette(theme)
+
+                listOf("--medal-gold", "--medal-silver", "--medal-bronze").forEach {
+                    palette.assertContrast("--medal-ink", it, AA_TEXT)
+                }
+            }
+
+            test("$theme: your own leaderboard row's words read at 4.5:1 on its tint") {
+                val palette = palette(theme)
+
+                listOf("--ink", "--ink-2").forEach { palette.assertContrast(it, "--you-tint", AA_TEXT) }
+            }
+
             test("$theme: a warning reads at 4.5:1 on its own wash") {
                 palette(theme).assertContrast("--warn", "--warn-soft", AA_TEXT)
             }

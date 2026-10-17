@@ -451,6 +451,10 @@ class LibraryViewModel(
                 persistBooksSort()
             }
 
+            is LibraryUiEvent.BooksShownNewestFirst -> {
+                intent.update { it.copy(booksSortState = SortState(SortCategory.ADDED, SortDirection.DESCENDING)) }
+            }
+
             // Series tab sort events
             is LibraryUiEvent.SeriesCategoryChanged -> {
                 intent.update { it.copy(seriesSortState = it.seriesSortState.withCategory(event.category)) }
@@ -810,6 +814,12 @@ sealed interface LibraryUiEvent {
     ) : LibraryUiEvent
 
     data object BooksDirectionToggled : LibraryUiEvent
+
+    /**
+     * Discover's "In Library" link: Books sorted Added, newest first, for this session only. Unlike a
+     * sort the reader picks, it is not saved, so the next launch opens on their own sort (spec §6.3).
+     */
+    data object BooksShownNewestFirst : LibraryUiEvent
 
     data object ToggleIgnoreTitleArticles : LibraryUiEvent
 

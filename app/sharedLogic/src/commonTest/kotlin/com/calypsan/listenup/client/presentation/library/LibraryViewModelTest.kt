@@ -36,6 +36,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -435,6 +436,37 @@ class LibraryViewModelTest :
 
                 // Then
                 verifySuspend { fixture.libraryPreferences.setBooksSortState("year:descending") }
+            }
+        }
+
+        test("BooksShownNewestFirst sorts the books by Added, newest first") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                viewModel.onEvent(LibraryUiEvent.BooksShownNewestFirst)
+                advanceUntilIdle()
+
+                val loaded = viewModel.uiState.value as LibraryUiState.Loaded
+                loaded.booksSortState.category shouldBe SortCategory.ADDED
+                loaded.booksSortState.direction shouldBe SortDirection.DESCENDING
+            }
+        }
+
+        test("BooksShownNewestFirst is for this session: the saved sort is left alone") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.libraryPreferences.setBooksSortState(any()) } returns Unit
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                viewModel.onEvent(LibraryUiEvent.BooksShownNewestFirst)
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.not) { fixture.libraryPreferences.setBooksSortState(any()) }
             }
         }
 

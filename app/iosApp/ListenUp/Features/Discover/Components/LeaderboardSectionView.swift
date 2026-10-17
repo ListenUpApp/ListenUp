@@ -1,25 +1,95 @@
 import SwiftUI
 
-/// The Discover leaderboard section: a title, a 7 days / 30 days / 12 months / All time period control, a
-/// Time / Books / Streak metric control, and flat ranked rows. Renders loading / empty /
-/// data / error from the observer's phase.
+/// The Discover leaderboard, in a grouped card: the title, the period (Week / Month / Year / All Time)
+/// always in view, the metric (Time / Books / Streak), and the top five rows with Show All for the
+/// rest. Two segmented controls, not chips (HIG, Segmented controls) — menus at accessibility text
+/// sizes (`LeaderboardPickerForm`). Renders loading / empty / data /
+/// error from the observer's phase; those treatments are PR 6's to restyle.
 struct LeaderboardSectionView: View {
     let observer: LeaderboardObserver
+    /// Set by Discover's landing so VoiceOver lands on the heading where a sighted reader lands.
+    var headerFocus: AccessibilityFocusState<Bool>.Binding?
+
+    @State private var expanded = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// How many rows show before Show All.
+    static let collapsedCount = 5
+
+    /// Pure: every row when expanded, otherwise the top five.
+    static func visibleCount(total: Int, expanded: Bool) -> Int {
+        expanded ? total : min(total, collapsedCount)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             header
             periodPicker
             metricPicker
             content
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Spacing.m)
+        .background(
+            Color(.secondarySystemBackground),
+            in: RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous)
+        )
+    }
+
+    // MARK: - Header
+
+    @ViewBuilder private var header: some View {
+        let title = Text(String(localized: "discover.leaderboard"))
+            .font(.title2.bold())
+            .accessibilityAddTraits(.isHeader)
+        if let headerFocus {
+            title.accessibilityFocused(headerFocus)
+        } else {
+            title
+        }
+    }
+
+    // MARK: - Period control
+
+    /// The period, always in view, in the form `LeaderboardPickerForm` picks for the text size.
+    private var periodPicker: some View {
+        styled(periodChoices)
+    }
+
+    /// Applies the form both pickers share: segmented at standard sizes, a menu at accessibility sizes.
+    @ViewBuilder
+    private func styled(_ picker: some View) -> some View {
+        switch LeaderboardPickerForm(dynamicTypeSize) {
+        case .segmented: picker.pickerStyle(.segmented)
+        case .menu: picker.pickerStyle(.menu)
+        }
+    }
+
+    private var periodChoices: some View {
+        Picker(
+            String(localized: "discover.leaderboard_period_group"),
+            selection: Binding(
+                get: { observer.selectedPeriod },
+                set: { observer.selectPeriod($0) }
+            )
+        ) {
+            ForEach(LeaderboardPeriodOption.allCases) { option in
+                Text(String(localized: option.titleKey)).tag(option)
+            }
+        }
+        .labelsHidden()
+        .accessibilityLabel(String(localized: "discover.leaderboard_period_group"))
     }
 
     // MARK: - Metric control
 
     private var metricPicker: some View {
+        styled(metricChoices)
+    }
+
+    private var metricChoices: some View {
         Picker(
-            String(localized: "discover.leaderboard"),
+            String(localized: "discover.leaderboard_category_group"),
             selection: Binding(
                 get: { observer.selectedMetric },
                 set: { observer.selectMetric($0) }
@@ -29,38 +99,8 @@ struct LeaderboardSectionView: View {
                 Text(String(localized: metric.titleKey)).tag(metric)
             }
         }
-        .pickerStyle(.segmented)
         .labelsHidden()
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        Text(String(localized: "discover.leaderboard"))
-            .font(.title2.bold())
-            .accessibilityAddTraits(.isHeader)
-    }
-
-    // MARK: - Period control
-
-    /// Full width, on its own row: four segments beside the title would not fit "12 months" on a
-    /// compact phone.
-    private var periodPicker: some View {
-        Picker(
-            String(localized: "discover.leaderboard"),
-            selection: Binding(
-                get: { observer.selectedPeriod },
-                set: { observer.selectPeriod($0) }
-            )
-        ) {
-            ForEach(LeaderboardPeriodOption.allCases) { option in
-                Text(String(localized: option.titleKey))
-                    .accessibilityLabel(Text(String(localized: option.accessibilityKey)))
-                    .tag(option)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
+        .accessibilityLabel(String(localized: "discover.leaderboard_category_group"))
     }
 
     // MARK: - Content
@@ -75,18 +115,30 @@ struct LeaderboardSectionView: View {
         case .empty:
             sectionMessage(String(localized: "discover.leaderboard_empty"))
         case .data(let rows):
+            let shown = Array(rows.prefix(Self.visibleCount(total: rows.count, expanded: expanded)))
             VStack(spacing: 0) {
-                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, row in
                     LeaderRow(row: row)
-                    if index < rows.count - 1, !row.isCurrentUser {
+                    if index < shown.count - 1, !row.isCurrentUser, !shown[index + 1].isCurrentUser {
                         Divider().padding(.leading, 60)
                     }
                 }
+            }
+            if rows.count > Self.collapsedCount {
+                Button(expanded ? String(localized: "discover.leaderboard_show_less_ios") : showAll(rows.count)) {
+                    withAnimation { expanded.toggle() }
+                }
+                .buttonStyle(.borderless)
+                .frame(minHeight: 44)
             }
         case .error:
             // Retry is offered at the screen level via pull-to-refresh.
             sectionMessage(String(localized: "discover.could_not_load_leaderboard"))
         }
+    }
+
+    private func showAll(_ count: Int) -> String {
+        String(format: String(localized: "discover.leaderboard_show_all_ios"), Int32(count))
     }
 
     private func sectionMessage(_ text: String) -> some View {
@@ -95,5 +147,17 @@ struct LeaderboardSectionView: View {
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, Spacing.s)
+    }
+}
+
+/// How the leaderboard's period and metric pickers draw (plan Q3). Equal segments at standard text
+/// sizes; at accessibility sizes, where "All Time" no longer fits a quarter of the card, the HIG's
+/// compact form — a menu that still shows the current value. Keyed on the text size, not on measured
+/// width, so both pickers switch together and the choice is the same on every width.
+enum LeaderboardPickerForm: Equatable {
+    case segmented, menu
+
+    init(_ size: DynamicTypeSize) {
+        self = size.isAccessibilitySize ? .menu : .segmented
     }
 }
