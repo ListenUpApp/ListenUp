@@ -342,11 +342,12 @@ private fun activitySentence(
     predicate: String,
     highlight: String?,
     suffix: String,
-): String = buildString {
-    append(who).append(' ').append(predicate)
-    highlight?.let { append(' ').append(it) }
-    append(suffix)
-}
+): String =
+    buildString {
+        append(who).append(' ').append(predicate)
+        highlight?.let { append(' ').append(it) }
+        append(suffix)
+    }
 
 /** Activity rows shown on a phone before "See all activity". */
 private const val PHONE_ACTIVITY = 6

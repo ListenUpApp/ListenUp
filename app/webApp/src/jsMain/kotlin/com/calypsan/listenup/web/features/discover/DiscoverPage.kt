@@ -107,7 +107,14 @@ fun DiscoverPage(
                 key(block) {
                     when (block) {
                         DiscoverBlock.ListeningNow -> {
-                            ListeningNowSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection, onRefresh)
+                            ListeningNowSection(
+                                currentlyListening,
+                                nowMs,
+                                onOpenBook,
+                                onOpenProfile,
+                                selection,
+                                onRefresh,
+                            )
                         }
 
                         DiscoverBlock.SomethingNew -> {
@@ -129,7 +136,14 @@ fun DiscoverPage(
                                     land = landing,
                                     onLanded = { landing = false },
                                 )
-                                ActivityFeedSection(activity, nowMs, onOpenBook, onOpenShelf, onOpenProfile, onRefreshActivity)
+                                ActivityFeedSection(
+                                    activity,
+                                    nowMs,
+                                    onOpenBook,
+                                    onOpenShelf,
+                                    onOpenProfile,
+                                    onRefreshActivity,
+                                )
                             }
                         }
 
@@ -138,7 +152,14 @@ fun DiscoverPage(
                         }
 
                         DiscoverBlock.RecentlyAdded -> {
-                            RecentlyAddedSection(recentlyAdded, nowMs, onOpenBook, onOpenLibraryNewest, selection, onRefresh)
+                            RecentlyAddedSection(
+                                recentlyAdded,
+                                nowMs,
+                                onOpenBook,
+                                onOpenLibraryNewest,
+                                selection,
+                                onRefresh,
+                            )
                         }
                     }
                 }
