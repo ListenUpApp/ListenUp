@@ -50,9 +50,9 @@ fun UserAvatar(
             if (showMonogram) property("background", avatarColor ?: avatarTintFor(name))
         }
     }) {
+        // Decorative, photo and monogram alike: the person's name is beside this in every call site,
+        // so a screen reader reading "BS", or the name a second time, would only add noise.
         if (showMonogram) {
-            // Decorative: the person's name is beside this in every call site, so a screen reader
-            // reading "BS" after "Brandon Sanderson" would only add noise.
             Div(attrs = {
                 classes("uav-mono")
                 attr("aria-hidden", "true")
@@ -62,7 +62,7 @@ fun UserAvatar(
             val frame by remember(userId, observeFrame) { observeFrame(userId) }.collectAsState(initial = null)
             FramedImg(
                 src = avatarUrl(userId),
-                alt = name,
+                alt = "",
                 frame = frame,
                 classes = listOf("uav-frame"),
                 onError = { failed = true },
