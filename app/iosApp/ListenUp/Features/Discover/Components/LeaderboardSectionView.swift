@@ -2,7 +2,8 @@ import SwiftUI
 
 /// The Discover leaderboard, in a grouped card: the title, the period (Week / Month / Year / All Time)
 /// always in view, the metric (Time / Books / Streak), and the top five rows with Show All for the
-/// rest. Two segmented controls, not chips (HIG, Segmented controls). Renders loading / empty / data /
+/// rest. Two segmented controls, not chips (HIG, Segmented controls) — menus at accessibility text
+/// sizes (`LeaderboardPickerForm`). Renders loading / empty / data /
 /// error from the observer's phase; those treatments are PR 6's to restyle.
 struct LeaderboardSectionView: View {
     let observer: LeaderboardObserver
@@ -10,6 +11,7 @@ struct LeaderboardSectionView: View {
     var headerFocus: AccessibilityFocusState<Bool>.Binding?
 
     @State private var expanded = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// How many rows show before Show All.
     static let collapsedCount = 5
@@ -49,13 +51,17 @@ struct LeaderboardSectionView: View {
 
     // MARK: - Period control
 
-    /// The period, always in view. Four equal segments while they fit; at accessibility text sizes,
-    /// where "All Time" no longer fits a quarter of the width, the HIG's compact form — a menu that
-    /// still shows the current value (plan Q3). A different answer to Q3 is a change to this property.
+    /// The period, always in view, in the form `LeaderboardPickerForm` picks for the text size.
     private var periodPicker: some View {
-        ViewThatFits(in: .horizontal) {
-            periodChoices.pickerStyle(.segmented)
-            periodChoices.pickerStyle(.menu)
+        styled(periodChoices)
+    }
+
+    /// Applies the form both pickers share: segmented at standard sizes, a menu at accessibility sizes.
+    @ViewBuilder
+    private func styled(_ picker: some View) -> some View {
+        switch LeaderboardPickerForm(dynamicTypeSize) {
+        case .segmented: picker.pickerStyle(.segmented)
+        case .menu: picker.pickerStyle(.menu)
         }
     }
 
@@ -78,6 +84,10 @@ struct LeaderboardSectionView: View {
     // MARK: - Metric control
 
     private var metricPicker: some View {
+        styled(metricChoices)
+    }
+
+    private var metricChoices: some View {
         Picker(
             String(localized: "discover.leaderboard_category_group"),
             selection: Binding(
@@ -89,7 +99,6 @@ struct LeaderboardSectionView: View {
                 Text(String(localized: metric.titleKey)).tag(metric)
             }
         }
-        .pickerStyle(.segmented)
         .labelsHidden()
         .accessibilityLabel(String(localized: "discover.leaderboard_category_group"))
     }
@@ -138,5 +147,17 @@ struct LeaderboardSectionView: View {
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, Spacing.s)
+    }
+}
+
+/// How the leaderboard's period and metric pickers draw (plan Q3). Equal segments at standard text
+/// sizes; at accessibility sizes, where "All Time" no longer fits a quarter of the card, the HIG's
+/// compact form — a menu that still shows the current value. Keyed on the text size, not on measured
+/// width, so both pickers switch together and the choice is the same on every width.
+enum LeaderboardPickerForm: Equatable {
+    case segmented, menu
+
+    init(_ size: DynamicTypeSize) {
+        self = size.isAccessibilitySize ? .menu : .segmented
     }
 }

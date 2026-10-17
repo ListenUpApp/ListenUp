@@ -29,4 +29,12 @@ struct DiscoverLayoutTests {
         #expect(ActivityRow.placesCoverBelow(at: .accessibility1))
         #expect(ActivityRow.placesCoverBelow(at: .accessibility5))
     }
+
+    /// Both leaderboard pickers turn into menus at accessibility text sizes, whatever the width (Q3).
+    @Test func leaderboardPickersAreMenusAtAccessibilitySizes() {
+        #expect(LeaderboardPickerForm(.large) == .segmented)
+        #expect(LeaderboardPickerForm(.xxxLarge) == .segmented)
+        #expect(LeaderboardPickerForm(.accessibility1) == .menu)
+        #expect(LeaderboardPickerForm(.accessibility5) == .menu)
+    }
 }
