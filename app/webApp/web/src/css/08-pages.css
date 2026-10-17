@@ -625,7 +625,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-hero-next-k { font-size: var(--fs-caption); color: var(--ink-2); }
 .luw .home-hero-next-t { font-size: var(--fs-ui); font-weight: 700; }
 /* Resume spans the hero, one size on every width (spec §2.3). */
-.luw .home-hero-resume { align-self: stretch; }
+/* Spec §2.4: Resume is a 52px pill (`.btn-lg`'s height), not the rounded rectangle every other button is. */
+.luw .home-hero-resume { align-self: stretch; border-radius: var(--r-pill); }
 .luw .home-hero-why { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
 
 .luw .home-stats-card {

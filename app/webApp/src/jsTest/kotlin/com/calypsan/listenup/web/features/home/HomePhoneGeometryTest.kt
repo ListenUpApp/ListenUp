@@ -8,11 +8,15 @@ import com.calypsan.listenup.web.ViewportFrames
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.plusOrMinus
+import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.doubles.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 
 /** A reader's default font at 1.3× — what the browser's own text-size setting changes. */
 private const val LARGE_TEXT_ROOT = "20.8px"
+
+/** Spec §2.4's Resume height. */
+private const val RESUME_HEIGHT = 52.0
 
 /** Rounding slack for comparing two laid-out edges. */
 private const val EDGE_SLACK = 0.5
@@ -35,6 +39,27 @@ class HomePhoneGeometryTest :
                 .documentElement!!
                 .asDynamic()
                 .style.fontSize = LARGE_TEXT_ROOT
+        }
+
+        test("Resume is a 52px pill (§2.4)") {
+            val frame =
+                frames.mount(PHONE) {
+                    InShell {
+                        HomePage(
+                            readyHome(slot = resumeSlot("wok")),
+                            weekStats(),
+                            HomeActions.None,
+                            isWide = false,
+                            selection = null,
+                        )
+                    }
+                }
+            val resume = frame.find(".home-hero-resume")
+            val height = frame.rect(resume).height
+            val radius = frame.css(resume, "border-top-left-radius").removeSuffix("px").toDouble()
+
+            height shouldBe (RESUME_HEIGHT plusOrMinus EDGE_SLACK)
+            withClue("a ${radius}px corner on a ${height}px button") { radius shouldBeGreaterThanOrEqual height / 2 }
         }
 
         listOf(SMALL_PHONE, PHONE).forEach { width ->
