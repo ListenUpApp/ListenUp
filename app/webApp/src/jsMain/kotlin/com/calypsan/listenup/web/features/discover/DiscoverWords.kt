@@ -57,6 +57,12 @@ internal object DiscoverWords {
         whenText: String,
     ): String = if (isLive) "$book, $name is listening now" else "$book, $name listened $whenText"
 
+    /** An activity row's body link: what happened, then when ("Ada finished Dune by Frank Herbert, 2 hours ago"). */
+    fun activityLabel(
+        sentence: String,
+        whenText: String,
+    ): String = "$sentence, $whenText"
+
     /** "Show all 9". */
     fun showAll(count: Int): String = "Show all $count"
 

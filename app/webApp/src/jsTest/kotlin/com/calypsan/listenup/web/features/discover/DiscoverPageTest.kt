@@ -544,8 +544,9 @@ class DiscoverPageTest :
                 .forEach { it.click() }
             awaitFrame()
 
-            // The listener card, the leaderboard row, and the activity row's avatar and name — each its own person.
-            opened shouldContainExactly listOf("u1", "u-Grace", "u1", "u1")
+            // The listener card, the leaderboard row, and the activity row's avatar — each its own person. The
+            // activity row's body opens its book, so the person is not linked twice in one row.
+            opened shouldContainExactly listOf("u1", "u-Grace", "u1")
         }
 
         test("opening a listener's profile does not also open the book they are on") {
