@@ -19,6 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,9 +41,13 @@ import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.client.util.relativeLastActiveInSentence
 import kotlin.time.Clock
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.discover_listener_live_a11y
+import listenup.composeapp.generated.resources.discover_listener_recent_a11y
 import listenup.composeapp.generated.resources.discover_listening_now
+import listenup.composeapp.generated.resources.selection_select
 import org.jetbrains.compose.resources.stringResource
 
 private val LISTENER_CARD_WIDTH = 156.dp
@@ -132,11 +141,41 @@ private fun ListenerCard(
         } else {
             relativeLastActive(session.lastActiveAt, nowMs)
         }
+    val bookLabel =
+        if (session.isLive) {
+            stringResource(Res.string.discover_listener_live_a11y, session.bookTitle, session.displayName)
+        } else {
+            stringResource(
+                Res.string.discover_listener_recent_a11y,
+                session.bookTitle,
+                session.displayName,
+                relativeLastActiveInSentence(session.lastActiveAt, nowMs),
+            )
+        }
+    val selectLabel = stringResource(Res.string.selection_select)
     Column(Modifier.width(width), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         BookCard(
             // The board draws no author under a listener's title: the person row is the second line.
             cover = session.toCoverModel().copy(author = null),
             onClick = { onBookClick(session.bookId) },
+            // One label per card (spec §8.2): the book and who is on it, not the art's title, the
+            // caption and the Live chip read one after another. The person row stays its own stop.
+            modifier =
+                Modifier.clearAndSetSemantics {
+                    contentDescription = bookLabel
+                    role = Role.Button
+                    onClick {
+                        onBookClick(session.bookId)
+                        true
+                    }
+                    onBookLongPress?.let { longPress ->
+                        onLongClick(selectLabel) {
+                            longPress(session.bookId)
+                            true
+                        }
+                    }
+                    if (isInSelectionMode) selected = isSelected
+                },
             isLive = session.isLive,
             cardWidth = width,
             isInSelectionMode = isInSelectionMode,
