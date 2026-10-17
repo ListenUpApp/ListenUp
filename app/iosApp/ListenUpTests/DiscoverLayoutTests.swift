@@ -47,4 +47,19 @@ struct DiscoverLayoutTests {
         #expect(Grid.regularColumns(count: 5, spacing: 18).count == 5)
         #expect(Grid.regularColumns(count: 6, spacing: 16).count == 6)
     }
+
+    /// The Leaderboard and Activity share an iPad row about 1 : 1.15, after the gap (§3.7).
+    @Test func thePairedRowSplitsOneToOnePointOneFive() {
+        #expect(DiscoverPairedColumns.boardWeights == [1, 1.15])
+        let widths = DiscoverPairedColumns.columnWidths(
+            total: 1_000, spacing: 22, weights: DiscoverPairedColumns.boardWeights
+        )
+        #expect(widths.count == 2)
+        #expect(abs(widths.reduce(0, +) - 978) < 0.001)
+        #expect(abs(widths[1] / widths[0] - 1.15) < 0.001)
+    }
+
+    @Test func aPairedRowNarrowerThanItsGapGivesNoWidth() {
+        #expect(DiscoverPairedColumns.columnWidths(total: 10, spacing: 22, weights: [1, 1.15]) == [0, 0])
+    }
 }
