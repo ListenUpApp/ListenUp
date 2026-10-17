@@ -2,7 +2,10 @@ package com.calypsan.listenup.client.features.discover.components
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -17,6 +20,7 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSe
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
@@ -132,13 +136,33 @@ class ListeningNowSectionTest {
             onUserClick = { openedUser = it },
         )
 
-        // The book link: one node whose merged text holds the title.
-        composeRule.onNode(hasText("Mistborn", substring = true) and hasClickAction()).performClick()
+        // The book link: one node whose single label leads with the title.
+        composeRule.onNode(hasContentDescription("Mistborn", substring = true) and hasClickAction()).performClick()
         assertEquals("book-a", openedBook)
         assertNull(openedUser)
 
         // The person row: its own node, never inside the book link.
         composeRule.onNode(hasText("Name a", substring = true) and hasClickAction()).performClick()
         assertEquals("a", openedUser)
+    }
+
+    @Test
+    fun aLiveBookStopIsOneButtonNamingTheBookAndWhoIsListening() {
+        show(listOf(listener("a", "Mistborn", isLive = true)))
+        val book =
+            composeRule
+                .onNode(hasContentDescription("Mistborn, Name a is listening now") and hasClickAction())
+                .fetchSemanticsNode()
+        // One label per card (spec 8.2): the art's title, the caption and the Live chip are not read on top of it.
+        assertFalse(book.config.contains(SemanticsProperties.Text))
+        assertEquals(Role.Button, book.config[SemanticsProperties.Role])
+    }
+
+    @Test
+    fun aRecentBookStopSaysWhenTheyListened() {
+        show(listOf(listener("c", "Piranesi", isLive = false, lastActiveAt = NOW_MS - 3 * DAY_MS)))
+        composeRule
+            .onNode(hasContentDescription("Piranesi, Name c listened 3 days ago") and hasClickAction())
+            .assertExists()
     }
 }
