@@ -73,6 +73,7 @@ import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PlayerViewModel
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.desktop.nowplaying.DesktopNowPlayingBar
 import com.calypsan.listenup.desktop.nowplaying.DesktopNowPlayingScreen
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -306,13 +307,15 @@ private fun DesktopAuthenticatedNavigation() {
                         onUserProfileClick = { userId ->
                             navigateTo(DetailDestination.UserProfile(userId))
                         },
-                        homeContent = { padding, appHeader, onNavigateToLibrary ->
+                        homeContent = { padding, appHeader, onNavigateToLibrary, onNavigateToDiscover ->
                             HomeScreen(
                                 appHeader = appHeader,
                                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
+                                onPlayBook = { nowPlayingViewModel.playBook(BookId(it)) },
                                 onNavigateToLibrary = onNavigateToLibrary,
+                                onNavigateToDiscover = onNavigateToDiscover,
                                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
-                                onSeeAllShelves = onNavigateToLibrary,
+                                onCreateShelf = { navigateTo(DetailDestination.ShelfCreate) },
                                 onEditSelected = openBulkEdit,
                                 modifier = Modifier.padding(padding),
                             )

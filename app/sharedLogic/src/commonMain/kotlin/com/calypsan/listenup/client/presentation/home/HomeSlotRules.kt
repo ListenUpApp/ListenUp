@@ -178,20 +178,32 @@ internal data class DecisionPoint(
     val loaded: LoadedKey,
 )
 
-/** The kind Home shows, and the decision point it was chosen at. */
+/**
+ * The kind Home shows, and the decision point it was chosen at. [isProvisional] when it was chosen while the leading
+ * Continue Listening book was still arriving, so the data it was chosen from was not yet the reader's.
+ */
 internal data class LatchedSlot(
     val point: DecisionPoint,
     val kind: SlotKind,
+    val isProvisional: Boolean = false,
 )
 
-/** Spec §2.1: hold [previous] until a decision point passes; a FirstSync skeleton resolves in place (rule 4). Pure. */
+/** Whether the most recent book in progress is still arriving: its position has synced and its book has not. Pure. */
+internal fun isStillArriving(continueListening: List<ContinueListeningItem>): Boolean =
+    continueListening.firstOrNull() is ContinueListeningItem.Loading
+
+/**
+ * Spec §2.1: hold [previous] until a decision point passes. A FirstSync skeleton resolves in place (rule 4), and so
+ * does a provisional decision — a first sign-in can settle on "nothing in progress" before its books land. Pure.
+ */
 internal fun latch(
     previous: LatchedSlot?,
     point: DecisionPoint,
     fresh: SlotKind,
+    isProvisional: Boolean = false,
 ): LatchedSlot =
-    if (previous == null || previous.point != point || previous.kind == SlotKind.FirstSync) {
-        LatchedSlot(point, fresh)
+    if (previous == null || previous.point != point || previous.kind == SlotKind.FirstSync || previous.isProvisional) {
+        LatchedSlot(point, fresh, isProvisional)
     } else {
         previous
     }

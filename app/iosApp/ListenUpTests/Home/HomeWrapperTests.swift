@@ -41,6 +41,8 @@ struct HomeWrapperTests {
         #expect(item.narrators == "Michael Kramer, Kate Reading")
         #expect(item.isDownloaded == true)
         #expect(item.lastPlayedAt == Date(timeIntervalSince1970: 1_760_000_000))
+        #expect(item.remainingMs == 9_000)
+        #expect(item.totalMs == 10_000)
     }
 
     // MARK: - ContinueItem (Loading skeleton)
@@ -72,8 +74,7 @@ struct HomeWrapperTests {
             totalDurationSeconds: 9_000,
             createdAtMs: 0,
             updatedAtMs: 0,
-            coverPaths: ["/a.jpg", "/b.jpg"],
-            covers: []
+            covers: [ShelfCover(bookId: "b1", coverPath: "/a.jpg", coverHash: "h1")]
         )
         let item = ShelfItem(from: shelf)
 
@@ -83,7 +84,9 @@ struct HomeWrapperTests {
         // durationLabel is the KMP computed `formattedDuration` (9000s = 2h 30m).
         #expect(item.durationLabel == shelf.formattedDuration)
         #expect(item.durationLabel == "2h 30m")
-        #expect(item.coverPaths == ["/a.jpg", "/b.jpg"])
+        #expect(item.covers.map(\.bookId) == ["b1"])
+        #expect(item.isPrivate == false)
+        #expect(item.totalSeconds == 9_000)
     }
 
     // MARK: - HomeStatsData
@@ -107,9 +110,8 @@ struct HomeWrapperTests {
         // listenTimeLabel is the KMP computed `formattedListenTime` (9000s = 2h 30m).
         #expect(mapped.listenTimeLabel == data.formattedListenTime)
         #expect(mapped.listenTimeLabel == "2h 30m")
-        #expect(mapped.currentStreak == 3)
-        #expect(mapped.longestStreak == 5)
-        #expect(mapped.hasStreak == true)
+        #expect(mapped.streakChipDays == 3)
+        #expect(mapped.bestStreakDays == 5)
 
         #expect(mapped.days.count == 2)
         #expect(mapped.days[0].dayOffset == 0)
@@ -121,6 +123,8 @@ struct HomeWrapperTests {
         #expect(mapped.genres.count == 2)
         #expect(mapped.genres[0].name == "Fantasy")
         #expect(mapped.genres[0].seconds == 6_000)
+        #expect(mapped.genres[0].percent == 66)
+        #expect(mapped.genres[1].percent == 33)
         #expect(mapped.hasGenreData == true)
     }
 
@@ -135,13 +139,13 @@ struct HomeWrapperTests {
         let mapped = HomeStatsData(from: data)
 
         #expect(mapped.hasGenreData == false)
-        #expect(mapped.hasStreak == false)
+        #expect(mapped.streakChipDays == nil)
+        #expect(mapped.bestStreakDays == nil)
         #expect(mapped.maxDaySeconds == 0)
     }
 
-    /// A lapsed streak (current 0, longest > 0) still surfaces `hasStreak`, and the past-best
-    /// value survives the map — so `StreakBadge` can render the "Best: N day streak" variant
-    /// instead of a misleading "0 day streak". Regression guard for the past-streak badge bug.
+    /// A lapsed streak (current 0, longest > 0) shows no chip, and the past best survives the map for the footer's
+    /// "Best streak 9 days" — never a misleading "0-day streak".
     @Test func homeStatsDataCarriesPastStreakWhenCurrentIsZero() {
         let data = HomeStatsUiStateData(
             totalSecondsThisWeek: 0,
@@ -152,22 +156,16 @@ struct HomeWrapperTests {
         )
         let mapped = HomeStatsData(from: data)
 
-        #expect(mapped.currentStreak == 0)
-        #expect(mapped.longestStreak == 9)
-        // hasStreak is true because a past best exists — the badge appears, with "Best:" text.
-        #expect(mapped.hasStreak == true)
+        #expect(mapped.streakChipDays == nil)
+        #expect(mapped.bestStreakDays == 9)
     }
 
-    // MARK: - HomeReady greeting
+    // MARK: - HomeReady
 
-    /// The Home header shows the bare time-of-day greeting and the name as a separate hero, so
-    /// `HomeReady` must carry `timeGreeting` ("Good evening"), *not* the KMP `greeting` getter
-    /// ("Good evening, Simon"). Regression guard for the double-name bug.
-    @Test func homeReadyMapsBareTimeGreeting() {
+    /// The greeting is worded on iOS from the part of the day and the first name; `HomeReady` carries those two,
+    /// never a pre-worded string (H2).
+    @Test func homeReadyMapsTimeOfDayAndFirstName() {
         let ready = HomeUiStateReady(
-            userName: "Simon",
-            timeGreeting: "Good evening",
-            continueListening: [],
             myShelves: [],
             isSyncing: false,
             isBuildingInitialLibrary: false,
@@ -181,11 +179,6 @@ struct HomeWrapperTests {
         )
         let mapped = HomeReady(from: ready)
 
-        #expect(mapped.timeGreeting == "Good evening")
-        #expect(mapped.userName == "Simon")
-        // The KMP getter combines them; the wrapper must NOT carry the combined form.
-        #expect(mapped.timeGreeting != ready.greeting)
-        #expect(ready.greeting == "Good evening, Simon")
         #expect(mapped.timeOfDay == .evening)
         #expect(mapped.firstName == "Simon")
         #expect(mapped.slot == .absent)
@@ -220,6 +213,7 @@ struct HomeWrapperTests {
         #expect(resume.chapterNumber == 6)
         #expect(resume.chapterTitle == "Bridge Four")
         #expect(resume.canPlay == false)
+        #expect(slot.shape == .resume)
     }
 
     @Test func slotMapsJustFinished() {
@@ -259,7 +253,7 @@ struct HomeWrapperTests {
 
     @Test func readyCarriesTheContinueListeningErrorMessage() {
         let ready = HomeUiStateReady(
-            userName: "", timeGreeting: "Good morning", continueListening: [], myShelves: [], isSyncing: false,
+            myShelves: [], isSyncing: false,
             isBuildingInitialLibrary: false, scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
             slot: HomeSlotAbsent.shared, alsoInProgress: [ContinueListeningItemReady(bookId: "b", book: clBook("b"))],
             connectivity: HomeConnectivity.ServerUnreachable,

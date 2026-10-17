@@ -1,19 +1,13 @@
 import SwiftUI
 
-/// A Continue-Listening carousel card: a cover with a small progress ring overlaid in the
-/// corner, the title/author beneath, and the time-left caption. Tapping navigates to the
-/// book's detail. Width is width-driven by the caller (wider on iPad) so the rail reads as a
-/// real layout at every size.
-///
-/// When `item.isLoading` is true the card renders a shimmer skeleton instead of real content —
-/// a sync is in flight and the book's data hasn't landed yet.
-///
-/// When `selection` is supplied and selecting, the cover shows a selection circle and a tap toggles
-/// selection instead of navigating; a long-press is the secondary entry. `nil` = navigation only.
-/// Loading skeletons never participate in selection.
+/// A Home card (spec §2.5): square art with a white progress line on it (the ring retired), the title, the author,
+/// "Read by …" on wide layouts, and the time left in the action colour. One accessibility element with one label
+/// (§8.2). A loading item is a same-size shimmer. While selecting, a tap toggles selection.
 struct ContinueCard: View {
     let item: ContinueItem
-    let width: CGFloat
+    /// A rail card's fixed width, or nil to fill a row column.
+    let width: CGFloat?
+    let showsNarrator: Bool
     var selection: BookSelectionObserver?
 
     @Environment(\.restrictedBooks) private var restrictedBooks
@@ -22,78 +16,86 @@ struct ContinueCard: View {
         if item.isLoading {
             skeleton
         } else {
-            SelectableBookCard(bookId: item.id, selection: selection) {
-                content
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(
-                RestrictedMarker.label(
-                    "\(item.title), \(item.author)",
-                    isRestricted: restrictedBooks?.isRestricted(item.id) == true
+            SelectableBookCard(bookId: item.id, selection: selection) { content }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    RestrictedMarker.label(
+                        HomeCardText.label(
+                            title: item.title,
+                            author: item.author,
+                            narrators: showsNarrator ? item.narrators : nil,
+                            percent: item.progressPercent,
+                            remainingMs: item.remainingMs
+                        ),
+                        isRestricted: restrictedBooks?.isRestricted(item.id) == true
+                    )
                 )
-            )
-            .accessibilityValue(String(format: String(localized: "home.progress_percent"), item.progressPercent))
-            .accessibilityHint(String(localized: "home.opens_book"))
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(String(localized: "home.opens_book"))
         }
     }
 
-    // MARK: - Content
-
     private var content: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             BookCoverImage(bookId: item.id, coverPath: item.coverPath, coverHash: item.coverHash)
-                .frame(width: width, height: width)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.l))
+                .aspectRatio(1, contentMode: .fit)
+                .frame(width: width)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
+                .overlay(alignment: .bottom) { ArtProgressLine(progress: item.progress) }
                 .restrictedMarker(bookId: item.id, isSelecting: selection?.isSelecting ?? false)
-                .coverHoverEffect(cornerRadius: Radius.l)
-                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
-                .overlay(alignment: .bottomTrailing) {
-                    CircularProgressRing(progress: item.progress, lineWidth: 4, showPercentLabel: true)
-                        .frame(width: 38, height: 38)
-                        .padding(Spacing.xs)
-                        .background(.regularMaterial, in: Circle())
-                        .padding(Spacing.xs)
-                }
+                .coverHoverEffect(cornerRadius: Radius.s)
+                .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
                 .bookSelectionCircle(bookId: item.id, selection: selection)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                if !item.timeLeft.isEmpty {
-                    Text(item.timeLeft)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                } else {
-                    Text(item.author)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.title).font(.subheadline).lineLimit(1)
+                if !item.author.isEmpty {
+                    Text(item.author).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
                 }
+                if showsNarrator, let narrators = item.narrators, !narrators.isEmpty {
+                    Text(String(format: String(localized: "library.card_read_by"), narrators))
+                        .font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Text(HomeCardText.timeLeft(remainingMs: item.remainingMs))
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.luTintInk)
+                    .lineLimit(1)
             }
         }
         .frame(width: width, alignment: .leading)
         .contentShape(Rectangle())
     }
 
-    // MARK: - Skeleton
-
     private var skeleton: some View {
         VStack(alignment: .leading, spacing: 8) {
-            RoundedRectangle(cornerRadius: Radius.l)
+            RoundedRectangle(cornerRadius: Radius.s)
                 .fill(Color.gray.opacity(0.2))
-                .frame(width: width, height: width)
+                .aspectRatio(1, contentMode: .fit)
                 .shimmer()
-
             RoundedRectangle(cornerRadius: Radius.xs)
                 .fill(Color.gray.opacity(0.2))
-                .frame(width: width * 0.8, height: 14)
+                .frame(height: 14)
                 .shimmer()
         }
         .frame(width: width, alignment: .leading)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The white progress line on a card's art (spec §2.5, iOS). Decorative: the card's label carries the percent.
+private struct ArtProgressLine: View {
+    let progress: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.4))
+                Capsule().fill(.white).frame(width: geometry.size.width * min(max(progress, 0), 1))
+            }
+        }
+        .frame(height: 4)
+        .padding(.horizontal, Spacing.xs)
+        .padding(.bottom, Spacing.xs)
         .accessibilityHidden(true)
     }
 }

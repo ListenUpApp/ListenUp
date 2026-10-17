@@ -1,17 +1,21 @@
 package com.calypsan.listenup.web.features.home
 
 import com.calypsan.listenup.api.error.UnexpectedClientError
-import com.calypsan.listenup.web.design.paletteShortcutLabel
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.string.shouldStartWith
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
@@ -54,41 +58,33 @@ class HomePageTest :
         fun homePage(
             state: HomeUiState,
             stats: HomeStatsUiState = HomeStatsUiState.Loading,
-            onOpenBook: (String) -> Unit = {},
-            onOpenSearch: () -> Unit = {},
-            onOpenLibrary: () -> Unit = {},
-            onOpenShelf: (String) -> Unit = {},
-            onCreateShelf: () -> Unit = {},
-            onRetry: () -> Unit = {},
-            onRetryStats: () -> Unit = {},
+            actions: HomeActions = HomeActions.None,
+            isWide: Boolean = false,
             selection: BookSelection? = null,
         ): HTMLElement =
             mounts.mount {
-                HomePage(
-                    state = state,
-                    stats = stats,
-                    onOpenBook = onOpenBook,
-                    onOpenSearch = onOpenSearch,
-                    onOpenLibrary = onOpenLibrary,
-                    onOpenShelf = onOpenShelf,
-                    onCreateShelf = onCreateShelf,
-                    onRetry = onRetry,
-                    onRetryStats = onRetryStats,
-                    selection = selection,
-                )
+                HomePage(state, stats, actions, isWide = isWide, selection = selection)
             }
 
-        test("the greeting is the ViewModel's, not one assembled in the page") {
-            val host = homePage(readyHome(userName = "Simon", timeGreeting = "Good evening"))
+        test("the greeting is worded here from the time of day and the first name (H2)") {
+            homePage(readyHome(timeOfDay = TimeOfDay.Evening, firstName = "Simon")).textOf(".page-t") shouldBe
+                "Good evening, Simon"
+            homePage(readyHome(timeOfDay = TimeOfDay.Morning, firstName = null)).textOf(".page-t") shouldBe
+                "Good morning"
+        }
 
-            host.textOf(".page-t") shouldBe "Good evening, Simon"
+        test("Home has no search field of its own: search is the shell's (H3)") {
+            val host = homePage(readyHome())
+            host.count(".home-search") shouldBe 0
+            host.querySelectorAll("input").length shouldBe 0
+            host.buttonsLabelled("Search your library").size shouldBe 0
         }
 
         test("a Continue Listening card shows the book's own title and time remaining") {
             val host =
                 homePage(
                     readyHome(
-                        continueListening = listOf(continuing("b1", "The Institute", progress = 0.5f, totalHours = 10)),
+                        alsoInProgress = listOf(continuing("b1", "The Institute", progress = 0.5f, totalHours = 10)),
                     ),
                 )
 
@@ -103,7 +99,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(
-                        continueListening =
+                        alsoInProgress =
                             listOf(
                                 continuing("b1", "The Institute"),
                                 ContinueListeningItem.Loading("b2"),
@@ -119,8 +115,8 @@ class HomePageTest :
             var opened: String? = null
             val host =
                 homePage(
-                    readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
-                    onOpenBook = { opened = it },
+                    readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
+                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                 )
 
             (host.querySelector(".home-card") as HTMLElement).click()
@@ -132,8 +128,8 @@ class HomePageTest :
             var opened: String? = null
             val host =
                 homePage(
-                    readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
-                    onOpenBook = { opened = it },
+                    readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
+                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                 )
 
             (host.querySelector(".home-card") as HTMLElement).press("Enter")
@@ -141,28 +137,105 @@ class HomePageTest :
             opened shouldBe "b1"
         }
 
-        test("nothing on the go offers a way into the library rather than a dead end") {
-            var browsed = false
-            val host = homePage(readyHome(continueListening = emptyList()), onOpenLibrary = { browsed = true })
-
-            (host.querySelector(".empty .btn-primary") as HTMLElement).click()
-
-            browsed shouldBe true
+        test("Also in progress names each card once, with author, percent and time left (§2.5, §8.2)") {
+            val host =
+                homePage(readyHome(alsoInProgress = listOf(continuing("b1", "Babel", progress = 0.11f, totalHours = 21))))
+            val card = host.querySelector(".home-card") as HTMLElement
+            card.getAttribute("aria-label") shouldBe "Babel, by A. Writer, 11% listened, 18h 41m left"
+            card.querySelector(".home-card-a")?.textContent shouldBe "A. Writer"
+            (card.querySelector(".progress") as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
         }
 
-        test("the search affordance names the shortcut as this keyboard labels it") {
-            val host = homePage(readyHome())
-
-            host.querySelector(".home-search .kbd")?.textContent shouldBe paletteShortcutLabel()
+        test("the header says Also in progress and In Library leaves for the Library") {
+            var opened = false
+            val host =
+                homePage(
+                    readyHome(alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
+                )
+            host.textOf(".home-also-h") shouldBe "Also in progress"
+            host.buttonsLabelled("In Library →").single().click()
+            opened shouldBe true
         }
 
-        test("the search affordance leaves as the caller's event") {
-            var searched = false
-            val host = homePage(readyHome(), onOpenSearch = { searched = true })
+        test("only a wide page says who reads each book") {
+            val narrated = continuing("b1", "Babel", narrators = "Chris Lew Kum Hoi")
+            homePage(readyHome(alsoInProgress = listOf(narrated)), isWide = true).textOf(".home-card-n") shouldBe
+                "Read by Chris Lew Kum Hoi"
+            homePage(readyHome(alsoInProgress = listOf(narrated)), isWide = false).count(".home-card-n") shouldBe 0
+        }
 
-            (host.querySelector(".home-search") as HTMLElement).click()
+        test("a loaded book's absence means no Also in progress section at all") {
+            homePage(readyHome(alsoInProgress = emptyList())).count(".home-also") shouldBe 0
+        }
 
-            searched shouldBe true
+        test("at most six cards") {
+            homePage(readyHome(alsoInProgress = (1..9).map { continuing("b$it", "Book $it") })).count(".home-card") shouldBe 6
+        }
+
+        // ── the blocks (§2.1, §3.4) ─────────────────────────────────────────────
+
+        test("nothing loaded on a wide page sets Resume beside the stats, before Also in progress (§3.4)") {
+            val host =
+                homePage(
+                    readyHome(slot = resumeSlot("wok"), alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    stats = weekStats(),
+                    isWide = true,
+                )
+            val row = host.querySelector(".home-row") as HTMLElement
+            row.querySelector(".home-hero") shouldNotBe null
+            row.querySelector(".home-stats-card") shouldNotBe null
+            val order = host.querySelectorAll(".home-row, .home-also, .home-shelves-section")
+            (0 until order.length).map { (order.item(it) as HTMLElement).className.split(" ").first() } shouldBe
+                listOf("home-row", "home-section", "home-section")
+        }
+
+        test("a phone keeps the fixed order: Resume, Also in progress, stats, shelves") {
+            val host =
+                homePage(
+                    readyHome(slot = resumeSlot("wok"), alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    stats = weekStats(),
+                )
+            host.count(".home-row") shouldBe 0
+            val sections = host.querySelectorAll(".home-hero, .home-also, .home-stats-card, .home-shelves-section")
+            (0 until sections.length).map { index ->
+                val classes = (sections.item(index) as HTMLElement).classList
+                when {
+                    classes.contains("home-hero") -> "resume"
+                    classes.contains("home-also") -> "also"
+                    classes.contains("home-stats-card") -> "stats"
+                    else -> "shelves"
+                }
+            } shouldBe listOf("resume", "also", "stats", "shelves")
+        }
+
+        test("a loaded book on a wide page sets stats beside shelves after Also in progress") {
+            val host =
+                homePage(
+                    readyHome(slot = HomeSlot.Absent, alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    stats = weekStats(),
+                    isWide = true,
+                )
+            host.count(".home-hero") shouldBe 0
+            (host.querySelector(".home-row") as HTMLElement).querySelector(".home-shelves-section") shouldNotBe null
+        }
+
+        test("Resume on the page plays the book through the play entry") {
+            var played: String? = null
+            homePage(
+                readyHome(slot = resumeSlot("wok")),
+                actions = HomeActions.None.copy(onPlay = { played = it }),
+            ).let { (it.querySelector(".home-hero-resume") as HTMLElement).click() }
+            played shouldBe "wok"
+        }
+
+        test("until PR 4, nothing in progress offers a way into the library") {
+            var opened = false
+            homePage(
+                readyHome(slot = HomeSlot.NothingInProgress(candidate = null), alsoInProgress = emptyList()),
+                actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
+            ).buttonsLabelled("Browse the Library").single().click()
+            opened shouldBe true
         }
 
         // ── the two honesty guards ──────────────────────────────────────────────
@@ -171,7 +244,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(
-                        continueListening = listOf(continuing("b1", "The Institute")),
+                        alsoInProgress = listOf(continuing("b1", "The Institute")),
                         myShelves = listOf(shelf("Finished")),
                     ),
                     stats = weekStats(),
@@ -196,7 +269,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(myShelves = listOf(shelf("Finished"), shelf("Want to Listen"))),
-                    onOpenShelf = { opened = it },
+                    actions = HomeActions.None.copy(onOpenShelf = { opened = it }),
                 )
 
             (host.querySelectorAll(".home-shelf").item(1) as HTMLElement).click()
@@ -204,10 +277,24 @@ class HomePageTest :
             opened shouldBe "shelf-Want to Listen"
         }
 
-        test("someone with no shelves is offered one rather than shown an empty row") {
-            val host = homePage(readyHome(myShelves = emptyList()))
+        test("a shelf card is a mosaic, its name, and how many books and how long") {
+            val host = homePage(readyHome(myShelves = listOf(shelf("Winter reads", books = 6, seconds = 266_400L))))
+            host.count(".home-shelf .mosaic-tile") shouldBe 4
+            host.textOf(".home-shelf-sub") shouldBe "6 books · 74h"
+        }
 
-            host.textContent.orEmpty() shouldContain "No shelves yet"
+        test("a private shelf says so to everyone") {
+            val host =
+                homePage(readyHome(myShelves = listOf(shelf("Road trip", books = 1, seconds = 0L, isPrivate = true))))
+            (host.querySelector(".home-shelf-lock") as HTMLElement).getAttribute("aria-label") shouldBe "Private"
+            host.textOf(".home-shelf-sub") shouldBe "1 book"
+        }
+
+        test("no shelves is an invitation beside New shelf") {
+            val host = homePage(readyHome(myShelves = emptyList()))
+            host.textContent.orEmpty() shouldContain
+                "A shelf is your own list of audiobooks — a series, a mood, a plan for the winter."
+            host.buttonsLabelled("New shelf").size shouldBe 1
             host.count(".home-shelf") shouldBe 0
         }
 
@@ -223,14 +310,16 @@ class HomePageTest :
             (bars.item(0) as HTMLElement).className shouldNotContain "is-today"
         }
 
-        test("the stats section is headed with the window it counts, not a calendar week") {
-            // The total is today plus the previous six days, not Monday-to-Sunday: "This week" promised
-            // the wrong thing, and it no longer matched the leaderboard's labels either.
-            val host = homePage(readyHome(), stats = weekStats())
+        // ⛔ "Today" is sharedUI's `home_today` verbatim: Compose resources do not reach Compose HTML.
+        test("the last bar is labelled Today, and only the last (§2.6)") {
+            val labels = homePage(readyHome(), stats = weekStats()).querySelectorAll(".home-bar-label")
+            (labels.item(labels.length - 1) as HTMLElement).textContent shouldBe "Today"
+            (0 until labels.length - 1).count { (labels.item(it) as HTMLElement).textContent == "Today" } shouldBe 0
+        }
 
-            val headings = host.querySelectorAll(".home-section-h")
-            (0 until headings.length).map { (headings.item(it) as HTMLElement).textContent }.contains("Last 7 days") shouldBe true
-            host.textContent.orEmpty() shouldNotContain "This week"
+        test("a week under an hour totals in minutes alone, never 0h") {
+            homePage(readyHome(), stats = weekStats(todaySeconds = 0, peakSeconds = 2_400))
+                .textOf(".home-stats-total") shouldBe "40m"
         }
 
         test("a day with no listening still draws, so the week reads as seven days") {
@@ -253,10 +342,43 @@ class HomePageTest :
             host.textOf(".home-genre .home-genre-pct") shouldBe "75%"
         }
 
-        test("the streak section is absent when there is no streak to report") {
-            val host = homePage(readyHome(), stats = weekStats(currentStreakDays = 0, longestStreakDays = 0))
+        test("a live streak is a chip, and the best is in the footer (§2.6)") {
+            val host = homePage(readyHome(), stats = weekStats(currentStreakDays = 5, longestStreakDays = 14))
+            host.textOf(".home-streak-chip") shouldBe "5-day streak"
+            host.textOf(".home-stats-best") shouldBe "Best streak 14 days"
+        }
 
-            host.count(".home-streak") shouldBe 0
+        test("a lapsed streak is only the best, and never a 0-day streak") {
+            val host = homePage(readyHome(), stats = weekStats(currentStreakDays = 0, longestStreakDays = 14))
+            host.count(".home-streak-chip") shouldBe 0
+            host.textContent.orEmpty() shouldNotContain "0-day"
+            host.textOf(".home-stats-best") shouldBe "Best streak 14 days"
+        }
+
+        test("no streak says nothing about streaks") {
+            homePage(readyHome(), stats = weekStats(currentStreakDays = 0, longestStreakDays = 0))
+                .textContent
+                .orEmpty() shouldNotContain "streak"
+        }
+
+        test("the stats heading is the window it counts, inside the card") {
+            homePage(readyHome(), stats = weekStats()).textOf(".home-stats-h") shouldBe "Your last 7 days"
+        }
+
+        test("the chart is one image whose words list every day, ending with today") {
+            val chart = homePage(readyHome(), stats = weekStats(todaySeconds = 60)).querySelector(".home-chart") as HTMLElement
+            chart.getAttribute("role") shouldBe "img"
+            chart.getAttribute("aria-label")!! shouldStartWith "Listening per day, oldest to today: "
+            chart.getAttribute("aria-label")!! shouldEndWith "today 1m"
+        }
+
+        test("the leaderboard link leaves for Discover") {
+            var opened = false
+            homePage(readyHome(), stats = weekStats(), actions = HomeActions.None.copy(onOpenDiscover = { opened = true }))
+                .buttonsLabelled("7-day leaderboard →")
+                .single()
+                .click()
+            opened shouldBe true
         }
 
         // ── stats states ────────────────────────────────────────────────────────
@@ -278,7 +400,7 @@ class HomePageTest :
         test("failing stats do not take the rest of Home down with them") {
             val host =
                 homePage(
-                    readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
+                    readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
                     stats = HomeStatsUiState.Error(isRetryable = true),
                 )
 
@@ -295,8 +417,7 @@ class HomePageTest :
                 homePage(
                     readyHome(),
                     stats = HomeStatsUiState.Error(isRetryable = true),
-                    onRetry = { homeRetries++ },
-                    onRetryStats = { statsRetries++ },
+                    actions = HomeActions.None.copy(onRetry = { homeRetries++ }, onRetryStats = { statsRetries++ }),
                 )
 
             val retries = host.buttonsLabelled("Try again")
@@ -315,7 +436,7 @@ class HomePageTest :
 
         test("a failed Home offers Try again, and pressing it asks Home to reload") {
             var retries = 0
-            val host = homePage(HomeUiState.Error(UnexpectedClientError()), onRetry = { retries++ })
+            val host = homePage(HomeUiState.Error(UnexpectedClientError()), actions = HomeActions.None.copy(onRetry = { retries++ }))
 
             val retry = host.buttonsLabelled("Try again")
             retry.size shouldBe 1
@@ -381,7 +502,7 @@ class HomePageTest :
         // the mode — the same rule the library grid follows, now that Home is selectable too.
         test("a continue card opens the book when nothing is being selected") {
             var opened: String? = null
-            val host = homePage(withOneBook(), onOpenBook = { opened = it }, selection = null)
+            val host = homePage(withOneBook(), actions = HomeActions.None.copy(onOpenBook = { opened = it }), selection = null)
 
             (host.querySelector(".home-card") as HTMLElement).click()
 
@@ -398,7 +519,7 @@ class HomePageTest :
             val host =
                 homePage(
                     withOneBook(),
-                    onOpenBook = { opened = it },
+                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                     selection = idleSelection(onToggle = { picked += it }),
                 )
 
@@ -414,7 +535,7 @@ class HomePageTest :
             val host =
                 homePage(
                     withOneBook(),
-                    onOpenBook = { opened = it },
+                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                     selection = selecting(onToggle = { picked += it }),
                 )
 
@@ -453,6 +574,6 @@ private fun selecting(
 ) = BookSelection(isSelecting = true, selectedIds = selected, onToggle = onToggle, onStart = {})
 
 /** A Home with exactly one Continue Listening card, which is what the selection specs press. */
-private fun withOneBook() = readyHome(continueListening = listOf(continuing(CONTINUE_BOOK_ID, "Elantris")))
+private fun withOneBook() = readyHome(alsoInProgress = listOf(continuing(CONTINUE_BOOK_ID, "Elantris")))
 
 private const val CONTINUE_BOOK_ID = "b7"

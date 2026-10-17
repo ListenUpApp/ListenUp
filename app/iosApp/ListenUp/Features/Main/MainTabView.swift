@@ -80,7 +80,7 @@ struct MainTabView: View {
         @Bindable var shell = shell
         TabView(selection: $shell.selectedTab) {
             SwiftUI.Tab(ShellTab.home.title, systemImage: "house.fill", value: ShellTab.home) {
-                tabStack(.home) { HomeView() }
+                tabStack(.home) { HomeView(onSelectTab: { shell.select($0) }) }
             }
             .customizationID("listenup.home")
 

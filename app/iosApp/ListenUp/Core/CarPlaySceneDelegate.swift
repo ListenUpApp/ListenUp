@@ -34,9 +34,9 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     /// Valid only between connect and disconnect, so it is held weakly and every use is optional.
     private weak var interfaceController: CPInterfaceController?
 
-    /// Built on connect and released on disconnect: their bridges clear the underlying
-    /// Kotlin ViewModels, whose stream jobs would otherwise outlive the car session (#1192).
-    private var home: HomeViewModelWrapper?
+    /// Built on connect and released on disconnect: their bridges cancel the underlying streams
+    /// (and clear the Library's Kotlin ViewModel), which would otherwise outlive the car session (#1192).
+    private var home: CarPlayHomeWrapper?
     private var library: CarPlayLibraryWrapper?
 
     private let homeTemplate: CPListTemplate = {
@@ -68,7 +68,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     ) {
         self.interfaceController = interfaceController
 
-        let home = HomeViewModelWrapper()
+        let home = CarPlayHomeWrapper()
         self.home = home
         observeHome(home)
 
@@ -100,15 +100,15 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         Log.info("CarPlay disconnected")
     }
 
-    /// Re-render the Home list whenever the shared Home state changes.
+    /// Re-render the Home list whenever the books in progress change.
     ///
     /// `withObservationTracking` fires once per change, so it re-arms itself — the Observation
     /// equivalent of what SwiftUI does implicitly for a view body. There is no view here to do
     /// it for us, and without re-arming the car would show whatever the library looked like at
     /// the moment the driver plugged in.
-    private func observeHome(_ home: HomeViewModelWrapper) {
+    private func observeHome(_ home: CarPlayHomeWrapper) {
         withObservationTracking {
-            render(home.phase)
+            render(home)
         } onChange: { [weak self, weak home] in
             Task { @MainActor in
                 guard let self, let home else { return }
@@ -117,19 +117,16 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
     }
 
-    private func render(_ phase: HomePhase) {
+    private func render(_ home: CarPlayHomeWrapper) {
         let items: [CPListItem]
-        switch phase {
-        case .loading:
-            items = []
-        case .ready(let ready):
-            items = CarPlayRows.continueListening(from: ready.continueItems).map(listItem(for:))
-        case .error(let message):
+        if let message = home.failureMessage {
             // Honest over silent: a driver seeing an empty list cannot tell "nothing to resume"
             // from "we failed to load". Untappable, so it cannot lead anywhere.
             let row = CPListItem(text: message, detailText: nil)
             row.handler = { _, completion in completion() }
             items = [row]
+        } else {
+            items = CarPlayRows.continueListening(from: home.items).map(listItem(for:))
         }
         homeTemplate.updateSections([CPListSection(items: items)])
     }

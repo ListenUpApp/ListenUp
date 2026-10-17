@@ -24,7 +24,7 @@ import kotlinx.coroutines.test.runTest
  * - [WeeklyStats.isEverEmpty] == true → [HomeStatsUiState.Empty]
  * - Non-empty stats → [HomeStatsUiState.Data] with correct field mapping
  * - Reactive updates when the flow re-emits
- * - Display helpers on [HomeStatsUiState.Data] (formattedListenTime, hasStreak, etc.)
+ * - Display helpers on [HomeStatsUiState.Data] (formattedListenTime, streak, etc.)
  * - Upstream error → [HomeStatsUiState.Error] with isRetryable = true
  *
  * Uses Turbine for Flow assertions and fake StatsRepository implementations
@@ -292,7 +292,7 @@ class HomeStatsViewModelTest :
             }
         }
 
-        test("hasStreak: false when both streaks are zero") {
+        test("streak: no chip and no best when both streaks are zero") {
             runTest {
                 val data =
                     HomeStatsUiState.Data(
@@ -302,11 +302,11 @@ class HomeStatsViewModelTest :
                         dailyBuckets = emptyList(),
                         topGenres = emptyList(),
                     )
-                data.hasStreak shouldBe false
+                data.streak shouldBe StreakDisplay(chipDays = null, bestDays = null)
             }
         }
 
-        test("hasStreak: true when longestStreakDays > 0") {
+        test("streak: a lapsed streak keeps only its best") {
             runTest {
                 val data =
                     HomeStatsUiState.Data(
@@ -316,7 +316,7 @@ class HomeStatsViewModelTest :
                         dailyBuckets = emptyList(),
                         topGenres = emptyList(),
                     )
-                data.hasStreak shouldBe true
+                data.streak shouldBe StreakDisplay(chipDays = null, bestDays = 7)
             }
         }
 

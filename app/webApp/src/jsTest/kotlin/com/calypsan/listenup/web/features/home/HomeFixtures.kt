@@ -5,8 +5,11 @@ import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.client.domain.model.ShelfCover
+import com.calypsan.listenup.client.presentation.home.HeroChapter
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
@@ -22,6 +25,7 @@ internal fun continuing(
     title: String,
     progress: Float = 0.5f,
     totalHours: Long = 10,
+    narrators: String? = null,
 ): ContinueListeningItem.Ready =
     ContinueListeningItem.Ready(
         bookId = id,
@@ -35,17 +39,54 @@ internal fun continuing(
                 progress = progress,
                 currentPositionMs = (totalHours * HOUR_MS * progress).toLong(),
                 totalDurationMs = totalHours * HOUR_MS,
-                narratorNames = null,
+                narratorNames = narrators,
                 lastPlayedAtMs = 1_704_067_200_000L,
                 isDownloaded = false,
             ),
     )
 
+/**
+ * The Resume kind for [id]: 11% through 45h 30m, read by two narrators, in chapter 6, with Words of Radiance next.
+ */
+internal fun resumeSlot(
+    id: String,
+    canPlay: Boolean = true,
+    lastPlayedAtMs: Long = 1_759_990_000_000L,
+): HomeSlot.Resume {
+    val total = 163_800_000L
+    return HomeSlot.Resume(
+        book =
+            ContinueListeningBook(
+                bookId = id,
+                title = "The Way of Kings",
+                authorNames = "Brandon Sanderson",
+                coverPath = null,
+                coverHash = null,
+                progress = 0.11f,
+                currentPositionMs = (total * 0.11).toLong(),
+                totalDurationMs = total,
+                narratorNames = "Michael Kramer, Kate Reading",
+                lastPlayedAtMs = lastPlayedAtMs,
+                isDownloaded = false,
+            ),
+        next =
+            NextInSeries(
+                bookId = "wor",
+                title = "Words of Radiance",
+                coverPath = null,
+                coverHash = null,
+                narratorNames = "Michael Kramer, Kate Reading",
+                seriesName = "The Stormlight Archive",
+                sequenceLabel = "2",
+                durationMs = 173_700_000L,
+            ),
+        chapter = HeroChapter(number = 6, title = "Bridge Four"),
+        canPlay = canPlay,
+    )
+}
+
 /** A Home state that is loaded and quiet — nothing syncing, nothing scanning. */
 internal fun readyHome(
-    userName: String = "Simon",
-    timeGreeting: String = "Good afternoon",
-    continueListening: List<ContinueListeningItem> = emptyList(),
     myShelves: List<Shelf> = emptyList(),
     isSyncing: Boolean = false,
     isBuildingInitialLibrary: Boolean = false,
@@ -53,36 +94,43 @@ internal fun readyHome(
     slot: HomeSlot = HomeSlot.Absent,
     connectivity: HomeConnectivity = HomeConnectivity.Online,
     continueListeningError: AppError? = null,
+    timeOfDay: TimeOfDay = TimeOfDay.Afternoon,
+    firstName: String? = "Simon",
+    alsoInProgress: List<ContinueListeningItem> = emptyList(),
 ): HomeUiState.Ready =
     HomeUiState.Ready(
-        userName = userName,
-        timeGreeting = timeGreeting,
-        continueListening = continueListening,
         myShelves = myShelves,
         isSyncing = isSyncing,
         isBuildingInitialLibrary = isBuildingInitialLibrary,
         scanProgress = scanProgress,
-        timeOfDay = TimeOfDay.Afternoon,
-        firstName = userName.ifBlank { null },
+        timeOfDay = timeOfDay,
+        firstName = firstName,
         slot = slot,
-        alsoInProgress = continueListening,
+        alsoInProgress = alsoInProgress,
         connectivity = connectivity,
         continueListeningError = continueListeningError,
     )
 
-/** A shelf with enough shape for Home to render a row for it. */
-internal fun shelf(name: String): Shelf =
+/** A shelf with enough shape for Home to render a card for it. */
+internal fun shelf(
+    name: String,
+    books: Int = 12,
+    seconds: Long = 0L,
+    isPrivate: Boolean = false,
+    covers: List<ShelfCover> = emptyList(),
+): Shelf =
     Shelf(
         id = ShelfId("shelf-$name"),
         name = name,
         description = null,
-        isPrivate = false,
+        isPrivate = isPrivate,
         ownerId = "user-1",
         ownerDisplayName = "Simon",
-        bookCount = 12,
-        totalDurationSeconds = 0,
+        bookCount = books,
+        totalDurationSeconds = seconds,
         createdAtMs = 0,
         updatedAtMs = 0,
+        covers = covers,
     )
 
 /**

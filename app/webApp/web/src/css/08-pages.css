@@ -3,16 +3,6 @@
    ============================================================ */
 .luw .home { display: flex; flex-direction: column; gap: 2rem; }
 
-.luw .home-search {
-  display: inline-flex; align-items: center; gap: 0.55rem;
-  height: 44px; padding: 0 0.7rem 0 0.85rem; border-radius: var(--r-md);
-  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-2);
-  font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
-  box-shadow: var(--field-shadow);
-}
-@media (hover: hover) { .luw .home-search:hover { border-color: var(--coral); color: var(--ink); } }
-.luw .home-search-label { white-space: nowrap; }
-
 .luw .home-skel-line { width: 8rem; height: 0.95rem; border-radius: 6px; }
 
 /* The library-still-arriving strip, shared by Home and Library. On Home it sits between the
@@ -427,16 +417,25 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 
 /* Home's shelf row */
 .luw .home-section-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.luw .home-shelves { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.luw .home-shelves { display: grid; gap: var(--sp-16); grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
 .luw .home-shelf {
-  display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start;
-  padding: 0.8rem 1.1rem; border-radius: 14px; cursor: pointer; text-align: left;
-  background: var(--surface); border: 1px solid var(--line);
+  display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; font: inherit;
+  padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: inherit;
 }
 @media (hover: hover) { .luw .home-shelf:hover { border-color: var(--coral-ring); } }
 @media (hover: hover) { .luw .home-shelf:hover .home-shelf-t { color: var(--coral-text); } }
-.luw .home-shelf-t { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
-.luw .home-shelf-sub { font-size: var(--fs-small); color: var(--ink-3); }
+.luw .home-shelf .mosaic { width: 84px; flex-shrink: 0; }
+.luw .home-shelf-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.luw .home-shelf-t { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
+.luw .home-shelf-lock { display: inline-flex; color: var(--ink-2); }
+.luw .home-shelf-sub { font-size: var(--fs-small); color: var(--ink-2); }
+.luw .home-shelves-section { min-width: 0; }
+.luw .home-shelves-invite { margin: 0; font-size: var(--fs-ui); color: var(--ink-2); }
+/* A shelf's 2×2 cover mosaic (design/CoverMosaic.kt). */
+.luw .mosaic { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden; }
+.luw .mosaic-tile { aspect-ratio: 1 / 1; }
+.luw .mosaic-tile.is-empty { background: var(--surface-3); }
+@media (max-width: 759px) { .luw .home-shelf .mosaic { width: 64px; } }
 
 /* Discover's shared shelves, grouped by owner */
 .luw .disc-shelf-owner { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
@@ -573,34 +572,91 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-card:focus { outline: none; }
 .luw .home-card:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 @media (hover: hover) { .luw .home-card:hover .home-card-t { color: var(--coral-text); } }
-.luw .home-card-progress { width: 100%; }
 .luw .home-card-t {
   font-size: var(--fs-body); font-weight: 700; letter-spacing: -0.01em; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.luw .home-card-sub { font-size: var(--fs-small); color: var(--ink-2); font-weight: 500; }
+/* Also in progress: the section can sit in a wide row, and its heading carries no margin of its own. */
+.luw .home-also { min-width: 0; }
+.luw .home-also-h { margin: 0; }
+.luw .home-card-a, .luw .home-card-n {
+  font-size: var(--fs-small); color: var(--ink-2); font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Time left in the action colour (spec §2.5); --coral-text clears 4.5:1 on paper. */
+.luw .home-card-sub { font-size: var(--fs-small); font-weight: 700; color: var(--coral-text); }
+@media (max-width: 759px) {
+  .luw .home-continue { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.1rem 0.9rem; }
+  /* C10: a phone shows four; display:none also takes the rest out of the tab order. */
+  .luw .home-continue > .home-card:nth-child(n+5) { display: none; }
+}
 
-.luw .home-stats {
-  display: flex; gap: 2rem; flex-wrap: wrap;
-  padding: 1.5rem; border-radius: var(--r-lg);
-  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card);
+/* Wide Home (spec §3.4): two sections share a row, wrapping with no fixed widths below ~1100px. */
+.luw .home-row { display: flex; gap: var(--sp-24); flex-wrap: wrap; align-items: flex-start; }
+.luw .home-row > .home-hero { flex: 2 1 520px; min-width: 0; }
+.luw .home-row > .home-stats-card { flex: 1 1 300px; min-width: 0; }
+.luw .home-row > .home-shelves-section { flex: 2 1 520px; min-width: 0; }
+
+/* The Resume kind (spec §2.3): nothing is loaded, so the book last played leads. */
+.luw .home-hero {
+  display: flex; flex-direction: column; gap: var(--sp-12);
+  padding: var(--sp-16); border-radius: var(--r-xl); background: var(--bd-hero-wash);
 }
+.luw .home-hero-id {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  background: none; border: 0; padding: 0; color: inherit; cursor: pointer; border-radius: var(--r-md);
+  font: inherit;
+}
+.luw .home-hero-id:focus-visible, .luw .home-hero-next:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.luw .home-hero.is-only .home-hero-id { flex-direction: column; text-align: center; }
+.luw .home-hero-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.luw .home-hero-eyebrow { font-size: var(--fs-small); font-weight: 600; color: var(--ink-2); }
+.luw .home-hero-t { font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.luw .home-hero-a { font-size: var(--fs-ui); font-weight: 600; }
+.luw .home-hero-n, .luw .home-hero-of { font-size: var(--fs-small); color: var(--ink-2); }
+.luw .home-hero-progress { display: flex; flex-direction: column; gap: 6px; }
+.luw .home-hero-line { display: flex; justify-content: space-between; gap: var(--sp-12); font-size: var(--fs-ui); font-weight: 700; }
+.luw .home-hero-left { font-size: var(--fs-small); color: var(--coral-text); }
+.luw .home-hero-next {
+  display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; font: inherit;
+  padding: 6px 8px; border: 0; border-radius: var(--r-md); background: var(--surface); color: inherit;
+}
+.luw .home-hero-next-text { display: flex; flex-direction: column; }
+.luw .home-hero-next-k { font-size: var(--fs-caption); color: var(--ink-2); }
+.luw .home-hero-next-t { font-size: var(--fs-ui); font-weight: 700; }
+/* Resume spans the hero, one size on every width (spec §2.3). */
+/* Spec §2.4: Resume is a 52px pill (`.btn-lg`'s height), not the rounded rectangle every other button is. */
+.luw .home-hero-resume { align-self: stretch; border-radius: var(--r-pill); }
+.luw .home-hero-why { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
+
+.luw .home-stats-card {
+  display: flex; flex-direction: column; gap: var(--sp-12);
+  padding: 1.25rem; border-radius: var(--r-xl); background: var(--surface); border: 1px solid var(--line);
+}
+.luw .home-stats-h { margin: 0; font-size: var(--fs-ui); font-weight: 600; color: var(--ink-2); }
 .luw .home-stats-skel { height: 12rem; border-radius: var(--r-lg); }
-.luw .home-stats-main { flex: 1.4 1 20rem; min-width: 0; }
-.luw .home-stats-side {
-  flex: 1 1 15rem; min-width: 0;
-  display: flex; flex-direction: column; gap: 1.4rem; justify-content: center;
+.luw .home-stats-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-12); }
+.luw .home-streak-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px 0 8px;
+  border-radius: var(--r-pill); background: var(--streak-fill); color: var(--streak-ink);
+  font-size: var(--fs-ui); font-weight: 700; white-space: nowrap;
 }
+.luw .home-stats-foot {
+  display: flex; align-items: center; gap: var(--sp-12); border-top: 1px solid var(--line); min-height: 44px;
+}
+.luw .home-stats-best { flex: 1; font-size: var(--fs-small); color: var(--ink-2); }
 .luw .home-stats-total {
   font-size: 2.6rem; font-weight: 800; letter-spacing: -0.04em; color: var(--ink);
 }
-.luw .home-stats-unit { font-size: 0.9rem; color: var(--ink-2); font-weight: 500; margin-left: 0.4rem; }
 
 .luw .home-chart {
-  display: flex; align-items: flex-end; gap: 0.6rem; height: 150px; margin-top: 1.1rem;
+  display: flex; align-items: flex-end; gap: 0.6rem; height: 150px;
 }
+/* `min-width: 0` keeps the seven columns, and so the seven bars, one width: without it "Today" widens
+   its own column on a narrow phone at large text. The word is centred under its bar and may overhang
+   the bar row into the card's padding there, as a chart's axis labels do; it never reaches the edge. */
 .luw .home-chart-col {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
   height: 100%; justify-content: flex-end;
 }
 /* The bar's height is a percentage of the column, so an empty day still needs a visible floor —
@@ -611,20 +667,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 }
 .luw .home-bar.is-empty { background: var(--surface-3); }
 .luw .home-bar.is-today { background: var(--coral); }
-.luw .home-bar-label { font-size: 0.75rem; font-weight: 600; color: var(--ink-3); }
+.luw .home-bar-label { font-size: 0.75rem; font-weight: 600; color: var(--ink-3); white-space: nowrap; }
 .luw .home-bar-label.is-today { font-weight: 800; color: var(--ink); }
-
-.luw .home-streak { display: flex; align-items: center; gap: 0.8rem; }
-.luw .home-streak-mark {
-  width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--coral-soft); color: var(--coral-text);
-}
-.luw .home-streak-text { display: flex; flex-direction: column; }
-.luw .home-streak-t {
-  font-size: var(--fs-title); font-weight: 800; letter-spacing: -0.02em; color: var(--ink);
-}
-.luw .home-streak-sub { font-size: var(--fs-small); color: var(--ink-2); font-weight: 500; }
 
 .luw .home-genres { display: flex; flex-direction: column; gap: 0.7rem; }
 .luw .home-genres-h {

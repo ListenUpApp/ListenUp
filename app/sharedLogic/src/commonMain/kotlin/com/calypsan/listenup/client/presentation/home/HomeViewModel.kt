@@ -45,19 +45,9 @@ sealed interface HomeUiState {
     /** Before the first emission, and while the loaded book is still being restored (spec §4.1 loading guard). */
     data object Loading : HomeUiState
 
-    /**
-     * Home ready.
-     *
-     * [userName], [timeGreeting] and [continueListening] keep today's screens compiling and retire in Home PR 3 (spec
-     * R9). New screens read [firstName], [timeOfDay] and [alsoInProgress].
-     */
+    /** Home ready: the slot, the other books in progress, the reader's shelves and the shell's state. */
     data class Ready(
-        /** The first name, or empty. Retires in Home PR 3 for [firstName]. */
-        val userName: String,
-        /** English time-of-day words. Retires in Home PR 3 for [timeOfDay]. */
-        val timeGreeting: String,
-        /** Every book in progress, the loaded and slot books included. Retires in Home PR 3 for [alsoInProgress]. */
-        val continueListening: List<ContinueListeningItem>,
+        /** The reader's own shelves, each with its cover tiles. */
         val myShelves: List<Shelf>,
         /**
          * Whether a sync PASS is running.
@@ -89,12 +79,7 @@ sealed interface HomeUiState {
         /** Why Continue Listening could not load while the rest of Home did, or null (spec §3.3). */
         val continueListeningError: AppError?,
     ) : HomeUiState {
-        val greeting: String
-            get() = if (userName.isNotBlank()) "$timeGreeting, $userName" else timeGreeting
-        val hasContinueListening: Boolean
-            get() = continueListening.isNotEmpty()
-        val hasMyShelves: Boolean
-            get() = myShelves.isNotEmpty()
+        /** Whether pull-to-refresh shows as running: a sync pass is. */
         val isLoading: Boolean
             get() = isSyncing
     }
@@ -212,9 +197,6 @@ class HomeViewModel internal constructor(
                     val timeOfDay = timeOfDayAt(currentHour())
                     val firstName = firstNameOf(user?.displayName)
                     HomeUiState.Ready(
-                        userName = firstName.orEmpty(),
-                        timeGreeting = timeOfDay.englishGreeting(),
-                        continueListening = read.items,
                         myShelves = shelves,
                         isSyncing = shell.isSyncing,
                         isBuildingInitialLibrary = shell.isBuildingInitialLibrary,
@@ -294,12 +276,3 @@ private data class HomeShell(
     val scanProgress: ScanProgressState?,
     val connectivity: HomeConnectivity,
 )
-
-// English words for Ready.timeGreeting only; retires with it in Home PR 3 (spec R9).
-private fun TimeOfDay.englishGreeting(): String =
-    when (this) {
-        TimeOfDay.Morning -> "Good morning"
-        TimeOfDay.Afternoon -> "Good afternoon"
-        TimeOfDay.Evening -> "Good evening"
-        TimeOfDay.Night -> "Good night"
-    }

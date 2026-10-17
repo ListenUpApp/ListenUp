@@ -93,7 +93,8 @@ private val logger = KotlinLogging.logger {}
  * @param onNotificationsClick Callback when the header's notification bell is clicked
  * @param onSignOut Signs out, once the user has confirmed the shell's sign-out question
  * @param onUserProfileClick Callback when a user profile is clicked
- * @param homeContent Content composable for Home destination
+ * @param homeContent Content composable for Home destination: the insets, the header slot, and the ways to open
+ *   Library and Discover
  * @param libraryContent Content composable for Library destination
  * @param discoverContent Content composable for Discover destination
  * @param searchRequests Asks from outside the shell (the `/` keyboard shortcut) to open search and
@@ -114,7 +115,12 @@ fun AppShell(
     onNotificationsClick: () -> Unit,
     onSignOut: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
-    homeContent: @Composable (PaddingValues, appHeader: AppHeaderSlot, onNavigateToLibrary: () -> Unit) -> Unit,
+    homeContent: @Composable (
+        PaddingValues,
+        appHeader: AppHeaderSlot,
+        onNavigateToLibrary: () -> Unit,
+        onNavigateToDiscover: () -> Unit,
+    ) -> Unit,
     libraryContent: @Composable (PaddingValues, appHeader: AppHeaderSlot) -> Unit,
     nowPlayingContent: @Composable () -> Unit = {},
     discoverContent: @Composable (PaddingValues, appHeader: AppHeaderSlot) -> Unit,
@@ -333,6 +339,7 @@ fun AppShell(
                             padding,
                             appHeader,
                             { onDestinationChange(ShellDestination.Library) },
+                            { onDestinationChange(ShellDestination.Discover) },
                         )
                     }
 

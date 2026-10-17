@@ -72,9 +72,7 @@ struct ResumeUnit: View {
 
     /// "40 hr, 31 min left" in the reader's locale.
     static func timeLeftText(remainingMs: Int64) -> String {
-        let remaining = Duration.milliseconds(max(0, remainingMs))
-            .formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
-        return String(format: String(localized: "book.time_left"), remaining)
+        DurationFormatting.timeLeft(ms: remainingMs)
     }
 
     /// "Finished · 12 Feb – 3 Mar 2026", or "Finished · 3 Mar 2026" with no recorded start.
