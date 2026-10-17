@@ -37,4 +37,14 @@ struct DiscoverLayoutTests {
         #expect(LeaderboardPickerForm(.accessibility1) == .menu)
         #expect(LeaderboardPickerForm(.accessibility5) == .menu)
     }
+
+    /// The iPad grids carry the board's column counts: five, five, and six for recently added (§3.7).
+    @Test func regularGridsUseTheBoardsColumnCounts() {
+        #expect(ListeningNowSection.regularColumnCount == 5)
+        #expect(SomethingNewSection.regularColumnCount == 5)
+        #expect(RecentlyAddedSection.regularColumnCount == 6)
+        typealias Grid = DiscoverCardGrid<DiscoverBook, EmptyView>
+        #expect(Grid.regularColumns(count: 5, spacing: 18).count == 5)
+        #expect(Grid.regularColumns(count: 6, spacing: 16).count == 6)
+    }
 }

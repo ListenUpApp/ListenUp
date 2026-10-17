@@ -1,12 +1,15 @@
 import SwiftUI
 
 /// Something New: books the reader has not started, first in their series (spec X4–X7), with a
-/// Shuffle that draws ten different ones. A rail at compact width; an adaptive grid of every pick at
+/// Shuffle that draws ten different ones. A rail at compact width; a grid of every pick at
 /// regular width.
 ///
 /// Shuffle is a glass button (HIG, Buttons): an icon-only circle on iPhone, labelled on iPad; both are
 /// named for what they do. Loading and error keep today's treatments (PR 6 owns their copy).
 struct SomethingNewSection: View {
+    /// Cards per row in the regular-width grid: five picks, as the board lays them (spec §3.7).
+    static let regularColumnCount = 5
+
     let phase: DiscoverBooksPhase
     let cardWidth: CGFloat
     let horizontalInset: CGFloat
@@ -64,7 +67,7 @@ struct SomethingNewSection: View {
                     items: books,
                     isRegular: isRegular,
                     cardWidth: cardWidth,
-                    minimumCardWidth: 150,
+                    regularColumnCount: Self.regularColumnCount,
                     horizontalInset: horizontalInset,
                     spacing: 18
                 ) { book, width in
