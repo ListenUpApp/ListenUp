@@ -74,7 +74,7 @@ class CommunityAsideTest :
             val host = mounts.mount { discoverPage(activity = feed(act("a1", "listening_session"))) }
             val line = host.querySelector(".disc-feed-line") as HTMLElement
             line.textContent shouldBe "Ada listened to 48 minutes of The Institute by Stephen King"
-            (line.querySelector("a[href='/book/b1']") as HTMLElement).textContent shouldBe "The Institute"
+            (line.closest("a") as HTMLElement).getAttribute("href") shouldBe "/book/b1"
             host.querySelectorAll(".disc-feed-cover").length shouldBe 1
         }
 
@@ -87,11 +87,36 @@ class CommunityAsideTest :
                         onOpenShelf = { opened = it },
                     )
                 }
-            val link = host.querySelector(".disc-feed-line a[href='/shelf/sh1']") as HTMLElement
-            link.textContent shouldBe "Sci-fi"
+            val link = host.querySelector("a.disc-feed-link[href='/shelf/sh1']") as HTMLElement
+            link.textContent.orEmpty() shouldContain "Sci-fi"
             link.click()
             opened shouldBe "sh1"
             host.querySelectorAll(".disc-feed-cover").length shouldBe 0
+        }
+
+        test("a row is two links: the face, and one body link named by the whole sentence and when") {
+            val host = mounts.mount { discoverPage(activity = feed(act("a1", "listening_session"))) }
+            val row = host.querySelector(".disc-feed-row") as HTMLElement
+            val links = row.querySelectorAll("a").asList().map { it as HTMLElement }
+            links.map { it.getAttribute("href") } shouldBe listOf("/profile/u1", "/book/b1")
+            links[1].getAttribute("aria-label") shouldBe
+                "Ada listened to 48 minutes of The Institute by Stephen King, just now"
+        }
+
+        test("the body link opens the book, else the shelf, else the person") {
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        activity =
+                            feed(
+                                act("a1", "finished_book"),
+                                act("a2", "shelf_created", bookId = null, shelfId = "sh1", shelfName = "Sci-fi"),
+                                act("a3", "user_joined", bookId = null),
+                            ),
+                    )
+                }
+            host.querySelectorAll("a.disc-feed-link").asList().map { (it as HTMLElement).getAttribute("href") } shouldBe
+                listOf("/book/b1", "/shelf/sh1", "/profile/u1")
         }
 
         test("your own row reads You, and its avatar is Your profile") {

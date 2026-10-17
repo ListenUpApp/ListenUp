@@ -31,6 +31,7 @@ import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.client.util.relativeLastActiveInSentence
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.B
@@ -269,9 +270,10 @@ private fun ActivityRows(
 }
 
 /**
- * One activity: the person's avatar (a link to them), then the sentence, whose actor is a link to them
- * and whose subject is a link to the book or the shelf, and when; a book row ends with its cover.
- * A row about neither (a join, a milestone) leaves the person as its only link.
+ * One activity, as two links: the person's avatar (to them), then the body — the sentence, when, and
+ * a book row's cover — as ONE link to what the sentence is about: the book, else the shelf, else the
+ * person (spec X27–X33). The body is named by the whole sentence and its time, so a screen reader
+ * hears one stop that says what happened, not three fragments and a name it already passed.
  */
 @Composable
 internal fun ActivityRow(
@@ -285,7 +287,14 @@ internal fun ActivityRow(
     val parts = activityParts(item)
     val bookId = item.bookId
     val shelfId = item.shelfId
+    val who = if (item.isYou) DiscoverWords.YOU else item.userDisplayName
     val profileHref = Routes.profile(item.userId).toUrl()
+    val (bodyHref, openBody) =
+        when {
+            bookId != null -> Routes.Book.detail(bookId).toUrl() to { onOpenBook(bookId) }
+            shelfId != null -> Routes.shelf(shelfId).toUrl() to { onOpenShelf(shelfId) }
+            else -> profileHref to { onOpenProfile(item.userId) }
+        }
     Div(attrs = {
         classes("disc-feed-row")
         if (asideOnly) classes("disc-aside-extra")
@@ -294,48 +303,49 @@ internal fun ActivityRow(
             classes("disc-feed-avatar")
             attr("aria-label", DiscoverWords.profileLabel(item.userDisplayName, item.isYou))
         }) { UserAvatar(userId = item.userId, name = item.userDisplayName, size = FEED_AVATAR) }
-        Span(attrs = { classes("disc-feed-body") }) {
-            Span(attrs = { classes("disc-feed-line") }) {
-                AppLink(profileHref, onOpen = { onOpenProfile(item.userId) }, attrs = { classes("disc-feed-who") }) {
-                    Text(if (item.isYou) DiscoverWords.YOU else item.userDisplayName)
-                }
-                Text(" ${parts.predicate}")
-                parts.highlight?.let { highlight ->
-                    Text(" ")
-                    when {
-                        bookId != null -> {
-                            AppLink(
-                                Routes.Book.detail(bookId).toUrl(),
-                                onOpen = { onOpenBook(bookId) },
-                                attrs = { classes("disc-feed-hi") },
-                            ) { Text(highlight) }
-                        }
-
-                        shelfId != null -> {
-                            AppLink(
-                                Routes.shelf(shelfId).toUrl(),
-                                onOpen = { onOpenShelf(shelfId) },
-                                attrs = { classes("disc-feed-hi") },
-                            ) { Text(highlight) }
-                        }
-
-                        else -> {
-                            B { Text(highlight) }
-                        }
+        AppLink(bodyHref, onOpen = openBody, attrs = {
+            classes("disc-feed-link")
+            attr(
+                "aria-label",
+                DiscoverWords.activityLabel(
+                    sentence = activitySentence(who, parts.predicate, parts.highlight, parts.suffix),
+                    whenText = relativeLastActiveInSentence(item.occurredAt, nowMs),
+                ),
+            )
+        }) {
+            Span(attrs = { classes("disc-feed-body") }) {
+                Span(attrs = { classes("disc-feed-line") }) {
+                    B(attrs = { classes("disc-feed-who") }) { Text(who) }
+                    Text(" ${parts.predicate}")
+                    parts.highlight?.let { highlight ->
+                        Text(" ")
+                        B(attrs = { classes("disc-feed-hi") }) { Text(highlight) }
                     }
+                    if (parts.suffix.isNotEmpty()) Text(parts.suffix)
                 }
-                if (parts.suffix.isNotEmpty()) Text(parts.suffix)
+                Span(attrs = { classes("disc-when") }) { Text(relativeLastActive(item.occurredAt, nowMs)) }
             }
-            Span(attrs = { classes("disc-when") }) { Text(relativeLastActive(item.occurredAt, nowMs)) }
-        }
-        bookId?.let {
-            Img(src = coverUrl(it, item.bookCoverHash, width = FEED_COVER), alt = "", attrs = {
-                classes("disc-feed-cover")
-                attr("aria-hidden", "true")
-                attr("loading", "lazy")
-            })
+            bookId?.let {
+                Img(src = coverUrl(it, item.bookCoverHash, width = FEED_COVER), alt = "", attrs = {
+                    classes("disc-feed-cover")
+                    attr("aria-hidden", "true")
+                    attr("loading", "lazy")
+                })
+            }
         }
     }
+}
+
+/** The row's sentence as it reads on screen: "Ada finished The Institute by Stephen King". */
+private fun activitySentence(
+    who: String,
+    predicate: String,
+    highlight: String?,
+    suffix: String,
+): String = buildString {
+    append(who).append(' ').append(predicate)
+    highlight?.let { append(' ').append(it) }
+    append(suffix)
 }
 
 /** Activity rows shown on a phone before "See all activity". */
