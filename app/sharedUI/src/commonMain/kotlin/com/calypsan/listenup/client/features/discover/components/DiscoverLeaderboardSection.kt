@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -40,6 +42,7 @@ import org.jetbrains.compose.resources.stringResource
  *
  * @param onUserClick Opens a person's profile.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun DiscoverLeaderboardSection(
     state: LeaderboardUiState,
@@ -65,6 +68,12 @@ internal fun DiscoverLeaderboardSection(
                 selected = selection.category,
                 onSelect = onSelectCategory,
                 groupLabel = stringResource(Res.string.discover_leaderboard_category_group),
+                // The card is surfaceContainer, the group's default unselected colour: lift the
+                // unselected segments a tone so each one shows (board AndroidPhone).
+                colors =
+                    ToggleButtonDefaults.toggleButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    ),
             )
             when (state) {
                 is LeaderboardUiState.Loading -> {
