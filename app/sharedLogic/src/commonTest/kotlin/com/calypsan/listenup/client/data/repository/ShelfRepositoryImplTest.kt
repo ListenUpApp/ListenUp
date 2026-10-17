@@ -116,7 +116,7 @@ class ShelfRepositoryImplTest :
             updatedAt = 100L,
         )
 
-        test("observeMyShelves maps Room rows to domain with bookCount, owner, and isPrivate") {
+        test("observeMyShelves maps Room rows to domain with bookCount, owner, isPrivate and cover tiles") {
             runTest {
                 val dao =
                     mock<ShelfDao> {
@@ -124,18 +124,47 @@ class ShelfRepositoryImplTest :
                             flowOf(
                                 listOf(ShelfWithBookCount(shelfEntity("s1", "Alpha", isPrivate = true), bookCount = 5)),
                             )
-                        everySuspend { coverHashesFor("s1") } returns listOf("hash1")
+                        everySuspend { coverRowsForShelf("s1") } returns
+                            listOf(ShelfCoverRow(bookId = "b1", coverHash = "hash1", coverDownloadedAt = Timestamp(10L)))
                         everySuspend { totalDurationMsFor("s1") } returns 7_200_000L
                     }
-                val result = repo(shelfDao = dao).observeMyShelves("owner1").first()
-                result.map { it.id.value } shouldContainExactly listOf("s1")
-                val shelf = result.first()
+                val shelf =
+                    repo(shelfDao = dao)
+                        .observeMyShelves("owner1")
+                        .first()
+                        .single()
+
                 shelf.bookCount shouldBe 5
                 shelf.isPrivate shouldBe true
                 shelf.ownerId shouldBe "owner1"
                 shelf.ownerDisplayName shouldBe "Owner"
-                shelf.coverPaths shouldContainExactly listOf("hash1")
+                shelf.covers shouldContainExactly
+                    listOf(ShelfCover(bookId = "b1", coverPath = "/covers/b1.jpg", coverHash = "hash1"))
                 shelf.totalDurationSeconds shouldBe 7_200L
+            }
+        }
+
+        test("an own shelf's cover tile for art not yet on this device still names its hash") {
+            runTest {
+                val dao =
+                    mock<ShelfDao> {
+                        every { observeMyShelvesWithBookCount() } returns
+                            flowOf(listOf(ShelfWithBookCount(shelfEntity("s1", "Alpha"), bookCount = 1)))
+                        everySuspend { coverRowsForShelf("s1") } returns
+                            listOf(ShelfCoverRow(bookId = "b1", coverHash = "hash1", coverDownloadedAt = null))
+                        everySuspend { totalDurationMsFor("s1") } returns 0L
+                    }
+
+                val cover =
+                    repo(shelfDao = dao)
+                        .observeMyShelves("owner1")
+                        .first()
+                        .single()
+                        .covers
+                        .single()
+
+                // The platform image loaders fetch from the server by hash when there is no local path.
+                cover shouldBe ShelfCover(bookId = "b1", coverPath = null, coverHash = "hash1")
             }
         }
 
@@ -227,13 +256,13 @@ class ShelfRepositoryImplTest :
             }
         }
 
-        test("observeById bookCount comes from bookCountFor, not coverHashesFor size") {
+        test("observeById bookCount comes from bookCountFor, not the cover tiles") {
             runTest {
                 // Cover grid is LIMIT 4 but the shelf has 7 live books — bookCount must be 7.
                 val dao =
                     mock<ShelfDao> {
                         every { observeById("s1") } returns flowOf(shelfEntity("s1", "Crowded"))
-                        everySuspend { coverHashesFor("s1") } returns listOf("h1", "h2", "h3", "h4")
+                        everySuspend { coverRowsForShelf("s1") } returns (1..4).map { ShelfCoverRow("b$it", "h$it", null) }
                         everySuspend { bookCountFor("s1") } returns 7
                         everySuspend { totalDurationMsFor("s1") } returns 0L
                     }
@@ -289,7 +318,7 @@ class ShelfRepositoryImplTest :
                             flowOf(
                                 listOf(ShelfWithBookCount(shelfEntity("s1", "Alpha", isPrivate = false), bookCount = 3)),
                             )
-                        everySuspend { coverHashesFor("s1") } returns listOf("hash1")
+                        everySuspend { coverRowsForShelf("s1") } returns listOf(ShelfCoverRow("b1", "hash1", null))
                         everySuspend { totalDurationMsFor("s1") } returns 3_600_000L
                     }
                 val result = repo(shelfDao = dao).observeShelvesContainingBook(BookId("b1")).first()

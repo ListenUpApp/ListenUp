@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Top-genres breakdown: one row per genre, each a name plus a coral bar whose width is
-/// proportional to that genre's listening time relative to the heaviest genre.
+/// Top-genres breakdown: one row per genre, each a name, a coral bar whose width is proportional to
+/// that genre's listening time relative to the heaviest genre, and its share as a percent (spec §2.6).
 ///
 /// Shown only when there is genre data. Each row is a single VoiceOver element reading the
-/// genre name and a human duration.
+/// genre name and its percent.
 struct GenreBreakdownBars: View {
     let genres: [GenreBar]
 
@@ -42,10 +42,16 @@ struct GenreBreakdownBars: View {
                 }
             }
             .frame(height: 10)
+
+            Text(String(format: String(localized: "common.percent"), genre.percent))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .frame(minWidth: 36, alignment: .trailing)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(genre.name)
-        .accessibilityValue(DurationFormatting.accessibleHoursMinutes(seconds: genre.seconds))
+        .accessibilityValue(String(format: String(localized: "common.percent"), genre.percent))
     }
 }
 
@@ -53,9 +59,9 @@ struct GenreBreakdownBars: View {
 
 #Preview("Genre Bars") {
     GenreBreakdownBars(genres: [
-        GenreBar(name: "Fantasy", seconds: 18_000),
-        GenreBar(name: "Science Fiction", seconds: 9_000),
-        GenreBar(name: "History", seconds: 3_600)
+        GenreBar(name: "Fantasy", seconds: 18_000, percent: 58),
+        GenreBar(name: "Science Fiction", seconds: 9_000, percent: 29),
+        GenreBar(name: "History", seconds: 3_600, percent: 11)
     ])
     .padding()
 }

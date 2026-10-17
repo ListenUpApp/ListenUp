@@ -77,12 +77,6 @@ enum HomePhase: Equatable {
 
 /// Everything the Home screen renders when `HomeUiState.Ready` is active.
 struct HomeReady: Equatable {
-    /// The bare time-of-day greeting ("Good evening") — *not* combined with the name. The KMP
-    /// `Ready.greeting` getter appends the name; the header renders the name separately as a hero,
-    /// so we map the bare `timeGreeting` here to avoid showing the name twice.
-    let timeGreeting: String
-    let userName: String
-    let continueItems: [ContinueItem]
     let shelves: [ShelfItem]
     let isSyncing: Bool
     let timeOfDay: HomeTimeOfDay
@@ -94,9 +88,6 @@ struct HomeReady: Equatable {
     let continueListeningError: String?
 
     init(from ready: HomeUiStateReady) {
-        self.timeGreeting = ready.timeGreeting
-        self.userName = ready.userName
-        self.continueItems = ready.continueListening.map(ContinueItem.init(from:))
         self.shelves = ready.myShelves.map(ShelfItem.init(from:))
         self.isSyncing = ready.isSyncing
         self.timeOfDay = HomeTimeOfDay(kmp: ready.timeOfDay)
@@ -121,6 +112,9 @@ struct ContinueItem: Identifiable, Equatable {
     let progress: Double
     let progressPercent: Int
     let timeLeft: String
+    /// What is left to hear, and the whole length (the hero's "11% of 45 hr, 30 min").
+    let remainingMs: Int64
+    let totalMs: Int64
     /// The narrators joined with ", ", or nil when the book names none.
     let narrators: String?
     /// When the reader last played it; nil for a skeleton.
@@ -158,6 +152,8 @@ struct ContinueItem: Identifiable, Equatable {
         progress: Double,
         progressPercent: Int,
         timeLeft: String,
+        remainingMs: Int64 = 0,
+        totalMs: Int64 = 0,
         narrators: String? = nil,
         lastPlayedAt: Date? = nil,
         isDownloaded: Bool = false,
@@ -171,6 +167,8 @@ struct ContinueItem: Identifiable, Equatable {
         self.progress = progress
         self.progressPercent = progressPercent
         self.timeLeft = timeLeft
+        self.remainingMs = remainingMs
+        self.totalMs = totalMs
         self.narrators = narrators
         self.lastPlayedAt = lastPlayedAt
         self.isDownloaded = isDownloaded
@@ -187,6 +185,8 @@ struct ContinueItem: Identifiable, Equatable {
             progress: Double(book.progress),
             progressPercent: Int(book.progressPercent),
             timeLeft: book.timeRemainingFormatted,
+            remainingMs: book.timeRemainingMs,
+            totalMs: book.totalDurationMs,
             narrators: book.narratorNames,
             lastPlayedAt: Date(timeIntervalSince1970: TimeInterval(book.lastPlayedAtMs) / 1000),
             isDownloaded: book.isDownloaded,
@@ -203,14 +203,18 @@ struct ShelfItem: Identifiable, Equatable {
     let name: String
     let bookCount: Int
     let durationLabel: String
-    let coverPaths: [String]
+    let covers: [DiscoverShelfCover]
+    let isPrivate: Bool
+    let totalSeconds: Int
 
     init(from shelf: Shelf) {
         self.id = shelf.idString
         self.name = shelf.name
         self.bookCount = Int(shelf.bookCount)
         self.durationLabel = shelf.formattedDuration
-        self.coverPaths = shelf.coverPaths
+        self.covers = shelf.covers.map(DiscoverShelfCover.init(from:))
+        self.isPrivate = shelf.isPrivate
+        self.totalSeconds = Int(shelf.totalDurationSeconds)
     }
 }
 

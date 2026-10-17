@@ -91,7 +91,7 @@ class ShelfDaoTest :
         test("bookCountFor returns the true live junction count, not capped to the cover-grid limit") {
             runTest {
                 shelfDao.upsert(shelf("s1", "Big Shelf"))
-                // 6 live books — more than the LIMIT 4 used by coverHashesFor
+                // 6 live books — more than the LIMIT 4 used by coverRowsForShelf
                 repeat(6) { i -> shelfBookDao.upsert(member("s1", "b$i", sortOrder = i)) }
                 // 1 tombstoned book — must NOT be counted
                 shelfBookDao.upsert(member("s1", "b_deleted", sortOrder = 99, deletedAt = 10L))

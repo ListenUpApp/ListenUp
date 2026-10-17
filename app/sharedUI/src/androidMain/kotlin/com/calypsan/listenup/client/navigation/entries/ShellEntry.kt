@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.navigation.AdminInbox
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.BulkEdit
+import com.calypsan.listenup.client.navigation.CreateShelf
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.Notifications
 import com.calypsan.listenup.client.navigation.SeriesDetail
@@ -33,6 +34,7 @@ import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
+import com.calypsan.listenup.core.BookId
 import org.koin.compose.viewmodel.koinViewModel
 
 /** Shell (root) navigation entry — the main app scaffold with bottom nav. */
@@ -126,13 +128,16 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                 onUserProfileClick = { userId ->
                     backStack.add(UserProfile(userId))
                 },
-                homeContent = { padding, appHeader, onNavigateToLibrary ->
+                homeContent = { padding, appHeader, onNavigateToLibrary, onNavigateToDiscover ->
                     com.calypsan.listenup.client.features.home.HomeScreen(
                         appHeader = appHeader,
                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
+                        // P-R5: the same play entry Book Detail and the mini player use (C18).
+                        onPlayBook = { bookId -> nowPlayingViewModel.playBook(BookId(bookId)) },
                         onNavigateToLibrary = onNavigateToLibrary,
+                        onNavigateToDiscover = onNavigateToDiscover,
                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
-                        onSeeAllShelves = onNavigateToLibrary,
+                        onCreateShelf = { backStack.add(CreateShelf) },
                         onEditSelected = { bookIds, endSelection ->
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))

@@ -33,4 +33,15 @@ enum DurationFormatting {
             .units(allowed: [.hours, .minutes], width: .wide)
         )
     }
+
+    /// "45 hr, 30 min" in the reader's locale — the length Home's hero and Book Detail print.
+    static func abbreviated(ms: Int64) -> String {
+        Duration.milliseconds(max(0, ms)).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
+    }
+
+    /// "40 hr, 31 min left" — Book Detail's and Home's time left (spec §6.2). Library's cards keep "40h 31m left"
+    /// (open question 3).
+    static func timeLeft(ms: Int64) -> String {
+        String(format: String(localized: "book.time_left"), abbreviated(ms: ms))
+    }
 }

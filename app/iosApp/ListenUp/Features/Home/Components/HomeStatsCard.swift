@@ -1,14 +1,13 @@
 import SwiftUI
 
-/// The Home "Last 7 days" stats card — a Screen-Time-style breakdown of the user's listening.
-///
-/// A glass-backed surface carrying a "Last 7 days" header with the
-/// total listen time, an optional streak badge, the 7-day chart, and the top-genre bars. The card
-/// is pure — it renders whatever `StatsPhase` it's handed, so Task 5 simply passes
-/// `observer.statsPhase`. Each phase has its own quiet surface: a loading placeholder, a gentle
-/// empty note, the content, or an unobtrusive inline error (no alert, no global error bus).
+/// Home's "Your Last 7 Days" card (spec §2.6): the week's total, the gold streak chip when a streak is live, the chart
+/// read aloud as one summary, the top genres with their share, and a footer with the best streak and the Leaderboard
+/// link. The card is pure — it renders whatever `StatsPhase` it's handed. Loading, empty and error keep their quiet
+/// surfaces until Home PR 4 designs them (C16).
 struct HomeStatsCard: View {
     let statsPhase: StatsPhase
+    /// The footer's Leaderboard link. PR 5 adds Discover's Week focus; until then it opens Discover.
+    var onOpenLeaderboard: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -40,46 +39,55 @@ struct HomeStatsCard: View {
     // MARK: - Data
 
     private func dataContent(_ data: HomeStatsData) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            header(listenTimeLabel: data.listenTimeLabel)
-
-            if data.hasStreak {
-                StreakBadge(currentStreak: data.currentStreak, longestStreak: data.longestStreak)
-            }
-
-            DailyListeningChart(days: data.days, maxDaySeconds: data.maxDaySeconds)
-
-            if data.hasGenreData {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(String(localized: "home.top_genres").uppercased())
-                        .font(.caption2.weight(.bold))
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "home.your_last_7_days_ios"))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
-                        .accessibilityHidden(true)
-
+                        .accessibilityAddTraits(.isHeader)
+                    Text(data.listenTimeLabel)
+                        .font(.largeTitle.bold())
+                        .lineLimit(1)
+                }
+                Spacer(minLength: Spacing.xs)
+                if let days = data.streakChipDays { StreakChip(days: days) }
+            }
+            DailyListeningChart(days: data.days, maxDaySeconds: data.maxDaySeconds)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(HomeStatsText.chartSummary(days: data.days))
+            if data.hasGenreData {
+                Divider()
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text(String(localized: "home.top_genres"))
+                        .font(.subheadline.weight(.semibold))
                     GenreBreakdownBars(genres: data.genres)
                 }
             }
+            Divider()
+            footer(bestStreakDays: data.bestStreakDays)
         }
     }
 
-    private func header(listenTimeLabel: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(String(localized: "home.last_7_days").uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(listenTimeLabel)
-                    .font(.largeTitle.weight(.bold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                Text(String(localized: "home.listened"))
-                    .font(.subheadline)
+    private func footer(bestStreakDays: Int?) -> some View {
+        HStack {
+            if let best = bestStreakDays {
+                Text(HomeStatsText.bestStreak(days: best))
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+            Spacer()
+            Button(action: onOpenLeaderboard) {
+                HStack(spacing: 4) {
+                    Text(String(localized: "home.leaderboard"))
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .accessibilityHidden(true)
+                }
+            }
+            .foregroundStyle(Color.luTintInk)
+            .frame(minHeight: 44)
         }
-        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Other phases
@@ -96,9 +104,10 @@ struct HomeStatsCard: View {
 
     private var emptyNote: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(String(localized: "home.last_7_days").uppercased())
-                .font(.caption.weight(.semibold))
+            Text(String(localized: "home.your_last_7_days_ios"))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
 
             Text(String(localized: "home.start_listening_to_see_your"))
                 .font(.subheadline)
@@ -115,6 +124,20 @@ struct HomeStatsCard: View {
     }
 }
 
+/// The gold streak chip (spec §2.6), read as its words.
+private struct StreakChip: View {
+    let days: Int
+
+    var body: some View {
+        Label(HomeStatsText.streakChip(days: days), systemImage: "flame.fill")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Color.luStreakInk)
+            .padding(.horizontal, Spacing.s)
+            .frame(minHeight: 32)
+            .background(Color.luStreakFill, in: Capsule())
+    }
+}
+
 // MARK: - Preview
 
 extension HomeStatsData {
@@ -122,9 +145,6 @@ extension HomeStatsData {
     /// which suppresses the synthesized one, so previews need an explicit way to build samples.
     init(
         listenTimeLabel: String,
-        currentStreak: Int,
-        longestStreak: Int,
-        hasStreak: Bool,
         days: [DayBar],
         maxDaySeconds: Int,
         genres: [GenreBar],
@@ -133,9 +153,6 @@ extension HomeStatsData {
         bestStreakDays: Int? = nil
     ) {
         self.listenTimeLabel = listenTimeLabel
-        self.currentStreak = currentStreak
-        self.longestStreak = longestStreak
-        self.hasStreak = hasStreak
         self.days = days
         self.maxDaySeconds = maxDaySeconds
         self.genres = genres
@@ -148,9 +165,6 @@ extension HomeStatsData {
 #Preview("Stats Card") {
     let sample = HomeStatsData(
         listenTimeLabel: "8h 12m",
-        currentStreak: 7,
-        longestStreak: 14,
-        hasStreak: true,
         days: [
             DayBar(dayOffset: 6, seconds: 1_800),
             DayBar(dayOffset: 5, seconds: 3_600),
@@ -162,11 +176,13 @@ extension HomeStatsData {
         ],
         maxDaySeconds: 5_400,
         genres: [
-            GenreBar(name: "Fantasy", seconds: 18_000),
-            GenreBar(name: "Science Fiction", seconds: 9_000),
-            GenreBar(name: "History", seconds: 3_600)
+            GenreBar(name: "Fantasy", seconds: 18_000, percent: 58),
+            GenreBar(name: "Science Fiction", seconds: 9_000, percent: 29),
+            GenreBar(name: "History", seconds: 3_600, percent: 11)
         ],
-        hasGenreData: true
+        hasGenreData: true,
+        streakChipDays: 7,
+        bestStreakDays: 14
     )
 
     return ScrollView {

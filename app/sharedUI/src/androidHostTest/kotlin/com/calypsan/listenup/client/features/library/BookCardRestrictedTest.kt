@@ -12,8 +12,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Every BookCard — library, contributor, facet, genre, shelf, search grid, Continue Listening,
- * Discover — wears the lock for a restricted book, alongside its listening badge, and the *Held*
+ * Every BookCard — library, contributor, facet, genre, shelf, search grid, Home, Discover — wears
+ * the lock for a restricted book, alongside its listening badge, and the *Held*
  * label always wins the shared top-start corner.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -28,10 +28,16 @@ class BookCardRestrictedTest {
     }
 
     @Test
-    fun `the lock sits beside the now-playing badge rather than replacing it`() {
-        setContent(restricted = setOf("b1"), isPlaying = true)
+    fun `the lock sits beside the finished badge rather than replacing it`() {
+        setContent(restricted = setOf("b1"), isFinished = true)
         composeRule.onNodeWithContentDescription(RESTRICTED_A11Y, useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithContentDescription(NOW_PLAYING_A11Y, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription(COMPLETED_A11Y, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `no card wears a now-playing marker`() {
+        setContent(restricted = emptySet())
+        composeRule.onNodeWithContentDescription(NOW_PLAYING_A11Y, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
@@ -49,7 +55,7 @@ class BookCardRestrictedTest {
 
     private fun setContent(
         restricted: Set<String>,
-        isPlaying: Boolean = false,
+        isFinished: Boolean = false,
         isHeld: Boolean = false,
     ) {
         composeRule.setContent {
@@ -65,7 +71,7 @@ class BookCardRestrictedTest {
                                 coverHash = null,
                             ),
                         onClick = {},
-                        isPlaying = isPlaying,
+                        isFinished = isFinished,
                         isHeld = isHeld,
                     )
                 }
@@ -77,5 +83,6 @@ class BookCardRestrictedTest {
         const val RESTRICTED_A11Y = "In a collection, so only people it is shared with can see it."
         const val HELD_A11Y = "Held for review, hidden from all members"
         const val NOW_PLAYING_A11Y = "Now playing"
+        const val COMPLETED_A11Y = "Completed"
     }
 }

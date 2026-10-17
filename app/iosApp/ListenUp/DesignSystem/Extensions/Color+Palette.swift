@@ -18,6 +18,19 @@ extension Color {
     static let luLicenseApache = Color.legible(red: 0.165, green: 0.435, blue: 0.859)
     static let luLicenseMIT = Color.legible(red: 0.122, green: 0.541, blue: 0.357)
 
+    /// The streak chip's gold (spec §2.6, board #FFE08A on #241A00); a deep gold with pale ink in dark mode. The pair
+    /// is a fill and its ink, so it is set by hand rather than clamped as text on a system surface.
+    static let luStreakFill = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.36, green: 0.29, blue: 0.0, alpha: 1)
+            : UIColor(red: 1.0, green: 0.878, blue: 0.541, alpha: 1)
+    })
+    static let luStreakInk = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 1.0, green: 0.878, blue: 0.541, alpha: 1)
+            : UIColor(red: 0.141, green: 0.102, blue: 0.0, alpha: 1)
+    })
+
     private static func legible(red: Double, green: Double, blue: Double) -> Color {
         CoverTint.clamp(red: red, green: green, blue: blue).color
     }

@@ -1,148 +1,148 @@
 import SwiftUI
 
-/// A single "My Shelves" card: a fanned stack of cover art, the shelf name, and a count/duration
-/// subtitle. Glass-backed to match `HomeStatsCard`.
-///
-/// Pure visual tile — `MyShelvesRow` wraps it in a `NavigationLink(value:)` so the tap pushes the
-/// shelf's detail onto the Home stack, matching how book/series covers route elsewhere.
+/// A "My Shelves" card (spec §2.7): a 2×2 mosaic of the shelf's covers, its name (with a lock when it is private) and
+/// "6 books · 74 hr". `.tile` is the iPhone rail's square card; `.row` is the iPad list's horizontal card. One
+/// accessibility element. Pure visual — `MyShelvesSection` wraps it in a `NavigationLink(value:)`.
 struct ShelfCard: View {
-    let shelf: ShelfItem
+    enum Style { case tile, row }
 
-    private let cardWidth: CGFloat = 200
-    private let coverSize: CGFloat = 64
+    let shelf: ShelfItem
+    let style: Style
+
+    static let tileWidth: CGFloat = 150
+    static let rowMosaicSide: CGFloat = 76
+
+    private var meta: String { HomeShelfText.meta(bookCount: shelf.bookCount, totalSeconds: shelf.totalSeconds) }
+
+    private var label: String {
+        let base = "\(shelf.name), \(meta)"
+        return shelf.isPrivate ? base + ", " + String(localized: "home.private_shelf") : base
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            coverStack
+        Group {
+            switch style {
+            case .tile: tile
+            case .row: row
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+    }
 
-            VStack(alignment: .leading, spacing: 2) {
+    private var tile: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            CoverMosaic(covers: shelf.covers)
+                .padding(Spacing.xs)
+                .frame(width: Self.tileWidth, height: Self.tileWidth)
+                .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
+            texts
+        }
+        .frame(width: Self.tileWidth, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private var row: some View {
+        HStack(spacing: Spacing.s) {
+            CoverMosaic(covers: shelf.covers, spacing: 3)
+                .frame(width: Self.rowMosaicSide, height: Self.rowMosaicSide)
+            texts
+            Spacer(minLength: 0)
+        }
+        .padding(Spacing.xs)
+        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+        .contentShape(Rectangle())
+    }
+
+    private var texts: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
                 Text(shelf.name)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
-                    .truncationMode(.tail)
-                    .foregroundStyle(.primary)
-
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-        }
-        .padding(Spacing.m)
-        .frame(width: cardWidth, alignment: .leading)
-        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.xl))
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.xl)
-                .strokeBorder(Color.luSeparator, lineWidth: 0.5)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(shelf.name), \(subtitle)")
-    }
-
-    // MARK: - Cover stack
-
-    /// Up to three covers fanned left-to-right; falls back to a single placeholder tile when the
-    /// shelf has no cover art.
-    private var coverStack: some View {
-        let covers = Array(shelf.coverPaths.prefix(3))
-        return ZStack(alignment: .leading) {
-            if covers.isEmpty {
-                placeholderTile(offset: 0)
-            } else {
-                ForEach(Array(covers.enumerated()), id: \.offset) { index, path in
-                    BookCoverImage(coverPath: path)
-                        .frame(width: coverSize, height: coverSize)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.s))
-                        .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
-                        .offset(x: CGFloat(index) * 22)
-                        .zIndex(Double(covers.count - index))
+                if shelf.isPrivate {
+                    Image(systemName: "lock.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-        }
-        .frame(height: coverSize, alignment: .leading)
-        .accessibilityHidden(true)
-    }
-
-    private func placeholderTile(offset: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: Radius.s)
-            .fill(Color.gray.opacity(0.2))
-            .frame(width: coverSize, height: coverSize)
-            .overlay {
-                // Dynamic Type exclusion: fixed-box glyph inside a 64×64 cover placeholder tile
-                Image(systemName: "books.vertical.fill")
-                    .font(.system(size: 22)) // decorative fixed size
-                    .foregroundStyle(.secondary)
-            }
-            .offset(x: offset)
-    }
-
-    // MARK: - Subtitle
-
-    /// "N books" — appends the duration when the shelf reports one.
-    private var subtitle: String {
-        if shelf.durationLabel.isEmpty {
-            String(format: String(localized: "home.shelf_books_count"), shelf.bookCount)
-        } else {
-            String(
-                format: String(localized: "home.shelf_books_count_duration"),
-                shelf.bookCount,
-                shelf.durationLabel
-            )
+            Text(meta)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
     }
 }
 
-// MARK: - My Shelves row
+// MARK: - My Shelves section
 
-/// The "My Shelves" section: a localized header over a horizontally-scrolling row of `ShelfCard`s.
-/// The caller hides the whole section when there are no shelves.
-struct MyShelvesRow: View {
+/// The "My Shelves" section (spec §2.7): a header with New Shelf (always there, so the first shelf is one tap away),
+/// then the reader's shelves — a scrolling rail of tiles in one column, a grid of row cards when Home is wide — or,
+/// with none yet, a line inviting the first. No See all until the My Shelves list exists (open question 1).
+struct MyShelvesSection: View {
     let shelves: [ShelfItem]
-    /// The screen's side margin (`HomeLayout.margin`): the header aligns to it, the rail scrolls under it.
-    var margin: CGFloat = 20
+    let layout: HomeLayout
+    /// Whether the section pads its own header and rail to `layout.margin` (false beside the stats card).
+    var inset = true
 
     @State private var isCreatingShelf = false
 
+    private var margin: CGFloat { inset ? layout.margin : 0 }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(String(localized: "home.my_shelves"))
-                    .font(.title3.weight(.semibold))
-                    .accessibilityAddTraits(.isHeader)
-                    .foregroundStyle(.primary)
-                Spacer()
-                // A new shelf is a small self-contained task, so it is a sheet over Home rather
-                // than a page pushed onto it (HIG, Sheets) — and the sheet brings its own bar.
-                Button {
-                    isCreatingShelf = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(Color.luTint)
-                        // The glyph draws ~20pt; the finger gets 44 (the accessibility audit
-                        // flagged the bare glyph's hit area as too small).
-                        .minimumTapTarget(visualSize: 20)
-                        .accessibilityLabel(String(localized: "shelf.create_shelf_title"))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, margin)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    ForEach(shelves) { shelf in
-                        NavigationLink(value: ShelfDestination(id: shelf.id)) {
-                            ShelfCard(shelf: shelf)
-                        }
-                        .buttonStyle(.plain)
-                    }
+            header.padding(.horizontal, margin)
+            if shelves.isEmpty {
+                Text(String(localized: "home.shelves_invitation"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, margin)
+            } else if layout.isWide {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
+                    ForEach(shelves) { shelf in link(shelf, style: .row) }
                 }
                 .padding(.horizontal, margin)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(shelves) { shelf in link(shelf, style: .tile) }
+                    }
+                    .padding(.horizontal, margin)
+                }
             }
         }
+        // A new shelf is a small self-contained task, so it is a sheet over Home rather than a page pushed onto it
+        // (HIG, Sheets) — and the sheet brings its own bar.
         .sheet(isPresented: $isCreatingShelf) {
             CreateEditShelfView(shelfId: nil)
         }
+    }
+
+    private var header: some View {
+        HStack {
+            Text(String(localized: "home.my_shelves_ios"))
+                .font(.title3.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            Button {
+                isCreatingShelf = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.luTint)
+                    // The glyph draws ~20pt; the finger gets 44.
+                    .minimumTapTarget(visualSize: 20)
+                    .accessibilityLabel(String(localized: "home.new_shelf_ios"))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func link(_ shelf: ShelfItem, style: ShelfCard.Style) -> some View {
+        NavigationLink(value: ShelfDestination(id: shelf.id)) {
+            ShelfCard(shelf: shelf, style: style)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -151,41 +151,53 @@ struct MyShelvesRow: View {
 extension ShelfItem {
     /// Memberwise initializer for previews — `HomeViewModelWrapper` defines only `init(from:)`,
     /// which suppresses the synthesized one.
-    init(id: String, name: String, bookCount: Int, durationLabel: String, coverPaths: [String]) {
+    init(
+        id: String,
+        name: String,
+        bookCount: Int,
+        durationLabel: String,
+        covers: [DiscoverShelfCover] = [],
+        isPrivate: Bool = false,
+        totalSeconds: Int = 0
+    ) {
         self.id = id
         self.name = name
         self.bookCount = bookCount
         self.durationLabel = durationLabel
-        self.coverPaths = coverPaths
+        self.covers = covers
+        self.isPrivate = isPrivate
+        self.totalSeconds = totalSeconds
     }
 }
 
-#Preview("Shelf Cards") {
-    ScrollView(.horizontal) {
-        HStack(spacing: 14) {
-            ShelfCard(shelf: ShelfItem(
-                id: "1",
-                name: "To Read",
-                bookCount: 7,
-                durationLabel: "2h 30m",
-                coverPaths: ["/a.jpg", "/b.jpg", "/c.jpg"]
-            ))
-            ShelfCard(shelf: ShelfItem(
-                id: "2",
-                name: "A Very Long Shelf Name That Truncates Nicely",
-                bookCount: 1,
-                durationLabel: "",
-                coverPaths: []
-            ))
-        }
-        .padding()
+private let previewShelves = [
+    ShelfItem(id: "1", name: "To Read", bookCount: 7, durationLabel: "", totalSeconds: 9_000),
+    ShelfItem(id: "2", name: "Favorites", bookCount: 12, durationLabel: "", isPrivate: true, totalSeconds: 65_040),
+    ShelfItem(id: "3", name: "Mystery", bookCount: 1, durationLabel: "")
+]
+
+#Preview("Shelf cards") {
+    VStack(alignment: .leading, spacing: 16) {
+        ShelfCard(shelf: previewShelves[0], style: .tile)
+        ShelfCard(shelf: previewShelves[1], style: .row)
+    }
+    .padding()
+}
+
+#Preview("My Shelves, iPhone") {
+    NavigationStack {
+        MyShelvesSection(shelves: previewShelves, layout: .forWidth(390))
     }
 }
 
-#Preview("My Shelves Row") {
-    MyShelvesRow(shelves: [
-        ShelfItem(id: "1", name: "To Read", bookCount: 7, durationLabel: "2h 30m", coverPaths: ["/a.jpg", "/b.jpg"]),
-        ShelfItem(id: "2", name: "Favorites", bookCount: 12, durationLabel: "18h 04m", coverPaths: ["/c.jpg"]),
-        ShelfItem(id: "3", name: "Mystery", bookCount: 3, durationLabel: "9h 12m", coverPaths: [])
-    ])
+#Preview("My Shelves, iPad") {
+    NavigationStack {
+        MyShelvesSection(shelves: previewShelves, layout: .forWidth(1032))
+    }
+}
+
+#Preview("My Shelves, none yet") {
+    NavigationStack {
+        MyShelvesSection(shelves: [], layout: .forWidth(390))
+    }
 }

@@ -3,13 +3,12 @@ package com.calypsan.listenup.client.features.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -25,11 +24,15 @@ import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.core.ShelfId
-import com.calypsan.listenup.client.features.home.components.ContinueListeningRow
+import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.features.home.components.HomeHeader
-import com.calypsan.listenup.client.features.home.components.HomeStatsContent
-import com.calypsan.listenup.client.features.home.components.MyShelvesRow
+import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
+import com.calypsan.listenup.client.presentation.home.HeroChapter
+import com.calypsan.listenup.client.presentation.home.HomeConnectivity
+import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
+import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import androidx.compose.ui.tooling.preview.Preview
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
@@ -85,7 +88,6 @@ private fun mockShelf(
     totalDurationSeconds = 0L,
     createdAtMs = 0L,
     updatedAtMs = 0L,
-    coverPaths = emptyList(),
 )
 
 private fun mockShelves() =
@@ -127,6 +129,43 @@ private val zeroStats =
         topGenres = emptyList(),
     )
 
+private fun mockResume() =
+    HomeSlot.Resume(
+        book = mockBook(id = "wok", title = "The Way of Kings", author = "Brandon Sanderson", progress = 0.11f),
+        next =
+            NextInSeries(
+                bookId = "wor",
+                title = "Words of Radiance",
+                coverPath = null,
+                coverHash = null,
+                narratorNames = "Michael Kramer, Kate Reading",
+                seriesName = "The Stormlight Archive",
+                sequenceLabel = "2",
+                durationMs = 172_800_000L,
+            ),
+        chapter = HeroChapter(number = 6, title = "Bridge Four"),
+        canPlay = true,
+    )
+
+private fun mockReady(slot: HomeSlot) =
+    HomeUiState.Ready(
+        myShelves = mockShelves(),
+        isSyncing = false,
+        isBuildingInitialLibrary = false,
+        scanProgress = null,
+        timeOfDay = TimeOfDay.Evening,
+        firstName = PREVIEW_USER_NAME,
+        slot = slot,
+        alsoInProgress = mockContinue(),
+        connectivity = HomeConnectivity.Online,
+        continueListeningError = null,
+    )
+
+/** The shell header stands in as a plain row: the greeting and nothing else. */
+private val previewHeader: AppHeaderSlot = { leading ->
+    Box(Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin)) { leading() }
+}
+
 // ── Preview harness ─────────────────────────────────────────────────────────
 
 @Composable
@@ -139,62 +178,97 @@ private fun PreviewSurface(
     }
 }
 
-/** The stats body wrapped in the same card the real section uses, for an accurate preview. */
 @Composable
-private fun StatsCardPreview(
-    state: HomeStatsUiState.Data,
-    isWide: Boolean,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Box(Modifier.padding(if (isWide) 28.dp else 22.dp)) { HomeStatsContent(state) }
+private fun BodyPreview(
+    slot: HomeSlot,
+    width: HomeWidth,
+) = ListenUpTheme(dynamicColor = false) {
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        HomeBody(
+            state = mockReady(slot),
+            stats = mockStats(),
+            width = width,
+            actions = HomeActions.None,
+            selection = HomeSelection.None,
+            appHeader = previewHeader,
+            contentPadding = PaddingValues(),
+        )
     }
 }
 
 // ── Previews ──────────────────────────────────────────────────────────────────
 
+@Preview(heightDp = 1400)
+@Composable
+private fun HomeLoadedCompactPreview() = BodyPreview(HomeSlot.Absent, HomeWidth.Compact)
+
+@Preview(heightDp = 1600)
+@Composable
+private fun HomeResumeCompactPreview() = BodyPreview(mockResume(), HomeWidth.Compact)
+
+@Preview(widthDp = 1280, heightDp = 1000)
+@Composable
+private fun HomeResumeExpandedPreview() = BodyPreview(mockResume(), HomeWidth.Expanded)
+
 @Preview
 @Composable
 private fun GreetingPreview() =
     PreviewSurface {
-        HomeHeader(timeGreeting = "Good evening", userName = PREVIEW_USER_NAME, isWide = false)
+        HomeHeader(timeOfDay = TimeOfDay.Evening, firstName = PREVIEW_USER_NAME, isWide = false)
     }
 
 @Preview
 @Composable
-private fun ContinueListeningPreview() =
+private fun ResumeHeroPreview() =
     PreviewSurface {
-        ContinueListeningRow(items = mockContinue(), onBookClick = {})
+        HomeResumeHero(
+            resume = mockResume(),
+            isOnlyBook = false,
+            onOpenBook = {},
+            onResume = {},
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+        )
     }
 
 @Preview
 @Composable
-private fun StatsCardCompactPreview() = PreviewSurface { StatsCardPreview(mockStats(), isWide = false) }
+private fun StatsCardCompactPreview() = PreviewSurface { StatsCard(mockStats(), isWide = false) }
 
 @Preview(widthDp = 900)
 @Composable
-private fun StatsCardWidePreview() = PreviewSurface { StatsCardPreview(mockStats(), isWide = true) }
+private fun StatsCardWidePreview() = PreviewSurface { StatsCard(mockStats(), isWide = true) }
 
 @Preview
 @Composable
-private fun StatsCardZeroPreview() = PreviewSurface { StatsCardPreview(zeroStats, isWide = false) }
+private fun StatsCardZeroPreview() = PreviewSurface { StatsCard(zeroStats, isWide = false) }
 
 @Preview
 @Composable
-private fun ShelvesCompactPreview() =
-    PreviewSurface { MyShelvesRow(shelves = mockShelves(), isWide = false, onShelfClick = {}, onSeeAllClick = {}) }
-
-@Preview(widthDp = 360)
-@Composable
-private fun ShelvesWidePreview() =
-    PreviewSurface { MyShelvesRow(shelves = mockShelves(), isWide = true, onShelfClick = {}, onSeeAllClick = {}) }
+private fun StatsCardDarkPreview() = PreviewSurface(dark = true) { StatsCard(mockStats(), isWide = false) }
 
 @Preview
 @Composable
-private fun StatsCardDarkPreview() = PreviewSurface(dark = true) { StatsCardPreview(mockStats(), isWide = false) }
+private fun ShelvesCompactPreview() = PreviewSurface { Shelves(HomeWidth.Compact) }
+
+@Preview(widthDp = 900)
+@Composable
+private fun ShelvesWidePreview() = PreviewSurface { Shelves(HomeWidth.Expanded) }
+
+@Composable
+private fun StatsCard(
+    stats: HomeStatsUiState,
+    isWide: Boolean,
+) = HomeStatsCard(
+    stats = stats,
+    isWide = isWide,
+    onOpenLeaderboard = {},
+    onRetry = {},
+    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+)
+
+@Composable
+private fun Shelves(width: HomeWidth) =
+    MyShelvesSection(shelves = mockShelves(), width = width, onOpenShelf = {}, onCreateShelf = {})
 
 /**
  * On-device gallery of the Home components rendered with mock data — a fallback for validating the
@@ -209,25 +283,40 @@ fun HomePreviewGallery() {
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             GalleryLabel("Greeting")
-            HomeHeader(timeGreeting = "Good evening", userName = PREVIEW_USER_NAME, isWide = false)
+            HomeHeader(timeOfDay = TimeOfDay.Evening, firstName = PREVIEW_USER_NAME, isWide = false)
 
-            GalleryLabel("Continue Listening")
-            ContinueListeningRow(items = mockContinue(), onBookClick = {})
+            GalleryLabel("Resume")
+            HomeResumeHero(
+                resume = mockResume(),
+                isOnlyBook = false,
+                onOpenBook = {},
+                onResume = {},
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+            )
 
-            GalleryLabel("This week — populated (compact)")
-            StatsCardPreview(mockStats(), isWide = false)
+            GalleryLabel("Also in progress")
+            AlsoInProgressSection(
+                items = mockContinue(),
+                width = HomeWidth.Compact,
+                selection = HomeSelection.None,
+                onOpenBook = {},
+                onOpenLibrary = {},
+            )
 
-            GalleryLabel("This week — populated (wide)")
-            StatsCardPreview(mockStats(), isWide = true)
+            GalleryLabel("Your last 7 days — populated (compact)")
+            StatsCard(mockStats(), isWide = false)
 
-            GalleryLabel("This week — zero state")
-            StatsCardPreview(zeroStats, isWide = false)
+            GalleryLabel("Your last 7 days — populated (wide)")
+            StatsCard(mockStats(), isWide = true)
 
-            GalleryLabel("My Shelves (compact)")
-            MyShelvesRow(shelves = mockShelves(), isWide = false, onShelfClick = {}, onSeeAllClick = {})
+            GalleryLabel("Your last 7 days — zero state")
+            StatsCard(zeroStats, isWide = false)
 
-            GalleryLabel("My Shelves (wide)")
-            MyShelvesRow(shelves = mockShelves(), isWide = true, onShelfClick = {}, onSeeAllClick = {})
+            GalleryLabel("My shelves (compact)")
+            Shelves(HomeWidth.Compact)
+
+            GalleryLabel("My shelves (wide)")
+            Shelves(HomeWidth.Expanded)
 
             HorizontalDivider()
         }

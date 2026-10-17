@@ -63,9 +63,6 @@ enum StatsPhase: Equatable {
 /// Everything the Home stats section renders when `HomeStatsUiState.Data` is active.
 struct HomeStatsData: Equatable {
     let listenTimeLabel: String
-    let currentStreak: Int
-    let longestStreak: Int
-    let hasStreak: Bool
     let days: [DayBar]
     let maxDaySeconds: Int
     let genres: [GenreBar]
@@ -77,14 +74,14 @@ struct HomeStatsData: Equatable {
 
     init(from data: HomeStatsUiStateData) {
         self.listenTimeLabel = data.formattedListenTime
-        self.currentStreak = Int(data.currentStreakDays)
-        self.longestStreak = Int(data.longestStreakDays)
-        self.hasStreak = data.hasStreak
         self.days = data.dailyBuckets.map {
             DayBar(dayOffset: Int($0.dayOffsetFromToday), seconds: Int($0.totalSeconds))
         }
         self.maxDaySeconds = Int(data.maxDailySeconds)
-        self.genres = data.topGenres.map { GenreBar(name: $0.genreName, seconds: Int($0.totalSeconds)) }
+        let genreTotal = data.topGenres.reduce(0) { $0 + Int($1.totalSeconds) }
+        self.genres = data.topGenres.map {
+            GenreBar(name: $0.genreName, seconds: Int($0.totalSeconds), total: genreTotal)
+        }
         self.hasGenreData = data.hasGenreData
         self.streakChipDays = data.streak.chipDays.map { Int($0) }
         self.bestStreakDays = data.streak.bestDays.map { Int($0) }
@@ -103,4 +100,16 @@ struct GenreBar: Identifiable, Equatable {
     var id: String { name }
     let name: String
     let seconds: Int
+    /// Its whole-number share of the genres shown, as the shared `genreShareBars` computes it.
+    let percent: Int
+
+    init(name: String, seconds: Int, percent: Int) {
+        self.name = name
+        self.seconds = seconds
+        self.percent = percent
+    }
+
+    init(name: String, seconds: Int, total: Int) {
+        self.init(name: name, seconds: seconds, percent: total > 0 ? Int(Double(seconds) / Double(total) * 100) : 0)
+    }
 }

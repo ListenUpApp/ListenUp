@@ -1,18 +1,11 @@
 package com.calypsan.listenup.client.features.home
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +13,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,71 +23,64 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
-import com.calypsan.listenup.client.features.home.components.ContinueListeningRow
-import com.calypsan.listenup.client.features.home.components.EmptyContinueListening
-import com.calypsan.listenup.client.features.home.components.HomeHeader
-import com.calypsan.listenup.client.features.home.components.HomeStatsSection
-import com.calypsan.listenup.client.features.home.components.MyShelvesRow
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.error.localizedString
+import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_try_again
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Home screen - personalized landing page.
+ * Home screen: resolves Home's two ViewModels and draws [HomeBody] (C12). Pull-to-refresh, multi-select and the
+ * Continue Listening snackbar live here; everything Home draws lives in [HomeBody].
  *
- * Adaptive layout:
- * - Compact: single column (header, continue listening, stats, shelves)
- * - Medium+: stats and shelves render side-by-side below continue listening
- *
- * @param onBookClick Callback when a book is clicked
- * @param onNavigateToLibrary Callback to navigate to the library
- * @param onShelfClick Callback when a shelf is clicked
- * @param onSeeAllShelves Callback when "See All" is clicked for shelves
+ * @param appHeader The shell header slot; the greeting is its leading content.
+ * @param onBookClick Opens a book.
+ * @param onPlayBook The player's play entry, from the saved position (P-R5, C18).
+ * @param onNavigateToLibrary Opens the Library.
+ * @param onNavigateToDiscover Opens Discover (the stats footer's leaderboard link; PR 5 adds the Week focus).
+ * @param onShelfClick Opens a shelf.
+ * @param onCreateShelf Starts a new shelf.
  * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection,
  *   with a callback that ends the selection once an apply has landed
  *   (null = this host has no route to the editor, so the action is not offered)
+ * @param contentPadding The shell's insets, applied inside the scroll.
  * @param modifier Modifier from parent
  * @param viewModel HomeViewModel injected via Koin
+ * @param multiSelect Multi-select state shared with Library
+ * @param statsViewModel HomeStatsViewModel injected via Koin
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     appHeader: AppHeaderSlot,
     onBookClick: (String) -> Unit,
+    onPlayBook: (String) -> Unit,
     onNavigateToLibrary: () -> Unit,
+    onNavigateToDiscover: () -> Unit,
     onShelfClick: (String) -> Unit,
-    onSeeAllShelves: () -> Unit,
+    onCreateShelf: () -> Unit,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel(),
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
-    // The same instance HomeStatsSection resolves: one store owner, one key.
     statsViewModel: HomeStatsViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val stats by statsViewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // Observe the currently-playing book so its Continue Listening card gets the now-playing frame.
-    val playback: PlaybackManager = koinInject()
-    val playingBookId by playback.currentBookId.collectAsStateWithLifecycle()
 
     // A Continue Listening failure is on the state now (spec §4.1). Home PR 4 draws it inline; until then, a snackbar.
     val continueListeningError = (state as? HomeUiState.Ready)?.continueListeningError
@@ -103,10 +88,14 @@ fun HomeScreen(
         continueListeningError?.let { snackbarHostState.showSnackbar(it.localizedString()) }
     }
 
-    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
-    val isWide =
-        windowSizeClass.isWidthAtLeastBreakpoint(
-            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+    val actions =
+        HomeActions(
+            onOpenBook = onBookClick,
+            onPlay = onPlayBook,
+            onOpenLibrary = onNavigateToLibrary,
+            onOpenLeaderboard = onNavigateToDiscover,
+            onOpenShelf = onShelfClick,
+            onCreateShelf = onCreateShelf,
         )
 
     Scaffold(
@@ -120,10 +109,7 @@ fun HomeScreen(
         when (val s = state) {
             is HomeUiState.Loading -> {
                 Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
@@ -131,44 +117,21 @@ fun HomeScreen(
             }
 
             is HomeUiState.Error -> {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = s.error.localized(),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        // The pull-to-refresh lives in the Ready content, so the failed screen
-                        // carries its own way back.
-                        ListenUpButton(
-                            text = stringResource(Res.string.common_try_again),
-                            onClick = { viewModel.refresh() },
-                            modifier = Modifier.padding(top = 16.dp),
-                        )
-                    }
-                }
+                HomeError(s, onRetry = viewModel::refresh, modifier = Modifier.padding(paddingValues))
             }
 
             is HomeUiState.Ready -> {
-                HomeContent(
+                HomeReady(
                     state = s,
-                    isWide = isWide,
-                    playingBookId = playingBookId?.value,
+                    stats = stats,
+                    actions = actions,
                     multiSelect = multiSelect,
                     appHeader = appHeader,
                     onRefresh = {
                         viewModel.refresh()
                         statsViewModel.refresh()
                     },
-                    onBookClick = onBookClick,
-                    onNavigateToLibrary = onNavigateToLibrary,
-                    onShelfClick = onShelfClick,
-                    onSeeAllShelves = onSeeAllShelves,
+                    onRetryStats = statsViewModel::refresh,
                     onEditSelected = onEditSelected,
                     contentPadding = contentPadding,
                 )
@@ -177,34 +140,56 @@ fun HomeScreen(
     }
 }
 
+@Composable
+private fun HomeError(
+    state: HomeUiState.Error,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = state.error.localized(), color = MaterialTheme.colorScheme.error)
+            // The pull-to-refresh lives in the Ready content, so the failed screen carries its own way back.
+            ListenUpButton(
+                text = stringResource(Res.string.common_try_again),
+                onClick = onRetry,
+                modifier = Modifier.padding(top = 16.dp),
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeContent(
+private fun HomeReady(
     state: HomeUiState.Ready,
-    isWide: Boolean,
-    playingBookId: String?,
+    stats: HomeStatsUiState,
+    actions: HomeActions,
     multiSelect: BookMultiSelectViewModel,
     appHeader: AppHeaderSlot,
     onRefresh: () -> Unit,
-    onBookClick: (String) -> Unit,
-    onNavigateToLibrary: () -> Unit,
-    onShelfClick: (String) -> Unit,
-    onSeeAllShelves: () -> Unit,
+    onRetryStats: () -> Unit,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)?,
-    contentPadding: PaddingValues = PaddingValues(),
-    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues,
 ) {
     val haptics = LocalHaptics.current
+    val width = rememberHomeWidth()
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
-    val isInSelectionMode = selectionMode is SelectionMode.Active
-    val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
+    val active = selectionMode as? SelectionMode.Active
+    val selection =
+        HomeSelection(
+            isActive = active != null,
+            selectedIds = active?.selectedIds.orEmpty(),
+            onToggle = multiSelect::toggleSelection,
+            onEnter = multiSelect::enterSelectionMode,
+        )
 
-    // Handle back press to exit selection mode.
-    PlatformBackHandler(enabled = isInSelectionMode) {
+    // Back exits selection mode.
+    PlatformBackHandler(enabled = selection.isActive) {
         multiSelect.exitSelectionMode()
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(
             isRefreshing = state.isLoading,
             onRefresh = {
@@ -213,101 +198,19 @@ private fun HomeContent(
             },
             modifier = Modifier.fillMaxSize(),
         ) {
-            // The shell's system-bar/nav insets are applied *inside* the scroll so content scrolls
-            // edge-to-edge under the bars and rests clear of them — not clipped by an outer pad.
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
-            ) {
-                // The shell header scrolls away with the page; the greeting is its leading hero.
-                appHeader {
-                    HomeHeader(timeGreeting = state.timeGreeting, userName = state.userName, isWide = isWide)
-                }
-
-                if (state.hasContinueListening) {
-                    ContinueListeningRow(
-                        items = state.continueListening,
-                        onBookClick = { bookId ->
-                            if (isInSelectionMode) multiSelect.toggleSelection(bookId) else onBookClick(bookId)
-                        },
-                        playingBookId = playingBookId,
-                        isInSelectionMode = isInSelectionMode,
-                        selectedBookIds = selectedBookIds,
-                        onBookLongPress = multiSelect::enterSelectionMode,
-                    )
-                } else {
-                    EmptyContinueListening(onBrowseLibrary = onNavigateToLibrary)
-                }
-
-                if (isWide) {
-                    HomeContentWide(
-                        state = state,
-                        onShelfClick = onShelfClick,
-                        onSeeAllShelves = onSeeAllShelves,
-                    )
-                } else {
-                    HomeContentCompact(
-                        state = state,
-                        onShelfClick = onShelfClick,
-                        onSeeAllShelves = onSeeAllShelves,
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            HomeBody(
+                state = state,
+                stats = stats,
+                width = width,
+                actions = actions,
+                selection = selection,
+                appHeader = appHeader,
+                contentPadding = contentPadding,
+                onRetryStats = onRetryStats,
+            )
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
         BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected)
-    }
-}
-
-@Composable
-private fun HomeContentWide(
-    state: HomeUiState.Ready,
-    onShelfClick: (String) -> Unit,
-    onSeeAllShelves: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
-    ) {
-        HomeStatsSection(isWide = true, modifier = Modifier.weight(1.7f))
-        if (state.hasMyShelves) {
-            MyShelvesRow(
-                shelves = state.myShelves,
-                isWide = true,
-                onShelfClick = onShelfClick,
-                onSeeAllClick = onSeeAllShelves,
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeContentCompact(
-    state: HomeUiState.Ready,
-    onShelfClick: (String) -> Unit,
-    onSeeAllShelves: () -> Unit,
-) {
-    HomeStatsSection(
-        isWide = false,
-        modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-    )
-
-    if (state.hasMyShelves) {
-        // The parent Column already spaces siblings by sectionGap; an extra Spacer here would
-        // triple the stats→shelves gap.
-        MyShelvesRow(
-            shelves = state.myShelves,
-            isWide = false,
-            onShelfClick = onShelfClick,
-            onSeeAllClick = onSeeAllShelves,
-        )
     }
 }

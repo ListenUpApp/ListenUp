@@ -13331,22 +13331,42 @@
         }
       }
     },
-    "home.best_day_streak": {
+    "home.also_in_progress": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Best: %1$d day streak"
+            "value": "Also in progress"
           }
         }
       }
     },
-    "home.best_value": {
+    "home.also_in_progress_ios": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Best: %1$@"
+            "value": "Also in Progress"
+          }
+        }
+      }
+    },
+    "home.best_streak_days": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best streak %1$d days"
+          }
+        }
+      }
+    },
+    "home.best_streak_one_day": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best streak 1 day"
           }
         }
       }
@@ -13356,7 +13376,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Browse library"
+            "value": "Browse the Library"
+          }
+        }
+      }
+    },
+    "home.card_by_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "by %1$@"
+          }
+        }
+      }
+    },
+    "home.chart_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening per day, oldest to today: %1$@"
+          }
+        }
+      }
+    },
+    "home.chart_today_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "today %1$@"
           }
         }
       }
@@ -13391,12 +13441,52 @@
         }
       }
     },
-    "home.day_streak": {
+    "home.greeting_afternoon": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$d day streak"
+            "value": "Good afternoon"
+          }
+        }
+      }
+    },
+    "home.greeting_evening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good evening"
+          }
+        }
+      }
+    },
+    "home.greeting_lead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@,"
+          }
+        }
+      }
+    },
+    "home.greeting_morning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good morning"
+          }
+        }
+      }
+    },
+    "home.greeting_night": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good night"
           }
         }
       }
@@ -13421,22 +13511,32 @@
         }
       }
     },
-    "home.last_7_days": {
+    "home.in_library": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Last 7 days"
+            "value": "In Library"
           }
         }
       }
     },
-    "home.listened": {
+    "home.leaderboard": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "listened"
+            "value": "Leaderboard"
+          }
+        }
+      }
+    },
+    "home.minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$dm"
           }
         }
       }
@@ -13447,6 +13547,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "My shelves"
+          }
+        }
+      }
+    },
+    "home.my_shelves_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My Shelves"
+          }
+        }
+      }
+    },
+    "home.new_shelf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New shelf"
+          }
+        }
+      }
+    },
+    "home.new_shelf_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Shelf"
+          }
+        }
+      }
+    },
+    "home.next_in_series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next in the series"
+          }
+        }
+      }
+    },
+    "home.next_in_series_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next in the Series"
           }
         }
       }
@@ -13491,12 +13641,22 @@
         }
       }
     },
-    "home.progress_percent": {
+    "home.progress_of_length": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$d percent"
+            "value": "%1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "home.resume_unavailable_offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't reach your server. This book isn't downloaded, so it can't play right now."
           }
         }
       }
@@ -13521,6 +13681,36 @@
         }
       }
     },
+    "home.shelf_one_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book"
+          }
+        }
+      }
+    },
+    "home.shelf_one_book_duration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book · %1$@"
+          }
+        }
+      }
+    },
+    "home.shelves_invitation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A shelf is your own list of audiobooks — a series, a mood, a plan for the winter."
+          }
+        }
+      }
+    },
     "home.start_listening_to_an_audiobook": {
       "localizations": {
         "en": {
@@ -13541,6 +13731,16 @@
         }
       }
     },
+    "home.streak_chip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d-day streak"
+          }
+        }
+      }
+    },
     "home.today": {
       "localizations": {
         "en": {
@@ -13557,6 +13757,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Top genres"
+          }
+        }
+      }
+    },
+    "home.up_next": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up next · %1$@"
+          }
+        }
+      }
+    },
+    "home.up_next_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up Next · %1$@"
+          }
+        }
+      }
+    },
+    "home.your_last_7_days": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your last 7 days"
+          }
+        }
+      }
+    },
+    "home.your_last_7_days_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Last 7 Days"
           }
         }
       }

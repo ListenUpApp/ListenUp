@@ -1,14 +1,20 @@
 import Foundation
 
-/// Home's navigation subtitle: the time-of-day greeting and the listener's name, both pre-formatted
-/// by the shared `HomeReady`.
+/// Home's navigation subtitle (spec §3.1): the part of the day the shared state chose, worded from the catalog, and
+/// the listener's first name.
 enum HomeTitle {
-    nonisolated static func subtitle(greeting: String, userName: String) -> String {
-        switch (greeting.isEmpty, userName.isEmpty) {
-        case (false, false): String(format: String(localized: "home.greeting_with_name"), greeting, userName)
-        case (false, true): greeting
-        case (true, false): userName
-        case (true, true): ""
+    nonisolated static func greeting(_ timeOfDay: HomeTimeOfDay) -> String {
+        switch timeOfDay {
+        case .morning: String(localized: "home.greeting_morning")
+        case .afternoon: String(localized: "home.greeting_afternoon")
+        case .evening: String(localized: "home.greeting_evening")
+        case .night: String(localized: "home.greeting_night")
         }
+    }
+
+    nonisolated static func subtitle(timeOfDay: HomeTimeOfDay, firstName: String?) -> String {
+        let greeting = greeting(timeOfDay)
+        guard let firstName, !firstName.isEmpty else { return greeting }
+        return String(format: String(localized: "home.greeting_with_name"), greeting, firstName)
     }
 }

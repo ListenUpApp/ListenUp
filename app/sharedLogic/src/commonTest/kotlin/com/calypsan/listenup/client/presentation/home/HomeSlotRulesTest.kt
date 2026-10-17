@@ -164,6 +164,18 @@ class HomeSlotRulesTest :
                 val held = LatchedSlot(point, SlotKind.FirstSync)
                 latch(held, point, SlotKind.Resume("a")) shouldBe LatchedSlot(point, SlotKind.Resume("a"))
             }
+
+            test("a decision made while the leading book was still arriving resolves in place too") {
+                val held = LatchedSlot(point, SlotKind.NothingInProgress, isProvisional = true)
+                latch(held, point, SlotKind.Resume("a")) shouldBe LatchedSlot(point, SlotKind.Resume("a"))
+            }
+
+            test("a decision is provisional only while the leading book is still arriving") {
+                latch(previous = null, point = point, fresh = SlotKind.NothingInProgress, isProvisional = true).isProvisional shouldBe true
+                isStillArriving(listOf(loading("a"), ready("b"))) shouldBe true
+                isStillArriving(listOf(ready("a"), loading("b"))) shouldBe false
+                isStillArriving(emptyList()) shouldBe false
+            }
         }
 
         context("the loaded view") {
