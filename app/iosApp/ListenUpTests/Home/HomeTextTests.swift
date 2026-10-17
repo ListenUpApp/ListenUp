@@ -28,8 +28,11 @@ struct HomeTextTests {
     @Test func theEyebrowSaysWhenYouLastListened() {
         let now = Date(timeIntervalSince1970: 1_760_000_000)
         let eyebrow = ResumeHeroText.eyebrow(lastPlayedAt: now.addingTimeInterval(-7_200), now: now)
-        #expect(eyebrow.hasPrefix("Up Next · "))
-        #expect(eyebrow.contains("2 hr"))
+        // The system phrases the time ("2h ago" on iOS 27), so pin the composition, not its words.
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        let when = formatter.localizedString(for: now.addingTimeInterval(-7_200), relativeTo: now)
+        #expect(eyebrow == "Up Next · \(when)")
     }
 
     @Test func theChapterLineIsBookDetails() {
