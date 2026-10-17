@@ -96,12 +96,23 @@ class DailyListeningChartTest {
                 .toFloat()
         val (barWidth, spacing) =
             with(density) {
-                weekChartBarWidth(chartWidth, labels.size, WeekChartBarSpacing.toPx(), 12.dp.toPx()) to
+                weekChartBarWidth(
+                    chartWidth = chartWidth,
+                    barCount = labels.size,
+                    barSpacing = WeekChartBarSpacing.toPx(),
+                    minBarWidth = 12.dp.toPx(),
+                ) to
                     WeekChartBarSpacing.toPx()
             }
         val widths =
-            labels.map { measurer.measure(it, TextStyle(fontSize = WeekChartLabelSize)).size.width.toFloat() }
-        val spans = weekChartLabelSpans(widths, chartWidth, barWidth, spacing)
+            labels.map { label ->
+                measurer
+                    .measure(label, TextStyle(fontSize = WeekChartLabelSize))
+                    .size.width
+                    .toFloat()
+            }
+        val spans =
+            weekChartLabelSpans(labelWidths = widths, chartWidth = chartWidth, barWidth = barWidth, barSpacing = spacing)
 
         val today = spans.last()
         withClue("Today spans $today in a ${chartWidth}px chart") {

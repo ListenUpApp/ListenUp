@@ -78,13 +78,18 @@ class HomePhoneGeometryTest :
                     today.right shouldBeLessThanOrEqual inside + EDGE_SLACK
                 }
                 withClue("Today ${today.left}..${today.right} centred under its bar ${lastBar.left}..${lastBar.right}") {
-                    ((today.left + today.right) / 2) shouldBe ((lastBar.left + lastBar.right) / 2 plusOrMinus EDGE_SLACK)
+                    val todayCentre = (today.left + today.right) / 2
+                    todayCentre shouldBe ((lastBar.left + lastBar.right) / 2 plusOrMinus EDGE_SLACK)
                 }
                 withClue("Today starts at ${today.left}; the day before ends at ${dayBefore.right}") {
                     dayBefore.right shouldBeLessThanOrEqual today.left
                 }
                 withClue("every bar keeps one width, Today's included") {
-                    frame.findAll(".home-bar").map { frame.rect(it).width }.distinct().size shouldBe 1
+                    frame
+                        .findAll(".home-bar")
+                        .map { frame.rect(it).width }
+                        .distinct()
+                        .size shouldBe 1
                 }
             }
         }

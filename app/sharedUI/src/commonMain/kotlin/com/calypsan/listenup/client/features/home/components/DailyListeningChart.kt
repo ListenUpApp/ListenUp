@@ -99,9 +99,21 @@ fun DailyListeningChart(
         val plotHeight = size.height - labelHeight - 4.dp.toPx()
         val barCount = chartData.size
         val barSpacing = WeekChartBarSpacing.toPx()
-        val barWidth = weekChartBarWidth(size.width, barCount, barSpacing, MinBarWidth.toPx())
+        val barWidth =
+            weekChartBarWidth(
+                chartWidth = size.width,
+                barCount = barCount,
+                barSpacing = barSpacing,
+                minBarWidth = MinBarWidth.toPx(),
+            )
         val labelResults = dayLabels.map { textMeasurer.measure(it, labelStyle) }
-        val labelSpans = weekChartLabelSpans(labelResults.map { it.size.width.toFloat() }, size.width, barWidth, barSpacing)
+        val labelSpans =
+            weekChartLabelSpans(
+                labelWidths = labelResults.map { it.size.width.toFloat() },
+                chartWidth = size.width,
+                barWidth = barWidth,
+                barSpacing = barSpacing,
+            )
 
         val stubSize = emptyDayStubSize(barWidth, EmptyStubMaxWidth.toPx(), EmptyStubHeight.toPx())
         // Each bar opens a little after the one to its left, so the row ripples up on entry.
