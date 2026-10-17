@@ -106,7 +106,8 @@ struct DiscoverView: View {
         }
     }
 
-    /// A regular-width row: one section across the width, or the Leaderboard and Activity side by side.
+    /// A regular-width row: one section across the width, or the Leaderboard and Activity side by side,
+    /// split about 1 : 1.15 as the board pairs them (`DiscoverPairedColumns`).
     @ViewBuilder
     private func regularRow(
         _ row: [DiscoverSection],
@@ -115,7 +116,7 @@ struct DiscoverView: View {
         activity: ActivityFeedObserver
     ) -> some View {
         if row.count == 2 {
-            HStack(alignment: .top, spacing: 22) {
+            DiscoverPairedColumns(spacing: 22) {
                 ForEach(row, id: \.self) { section in
                     self.section(section, discover: discover, leaderboard: leaderboard, activity: activity)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
