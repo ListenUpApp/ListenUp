@@ -3,10 +3,16 @@ import SwiftUI
 /// An activity-feed row: the actor's avatar (its own link to their profile), then the shared sentence —
 /// "**who** predicate **highlight** suffix", the highlight in coral — over a relative time, as one link
 /// to the row's subject: its book, its shelf, or for a row about neither, the actor (spec X27–X32).
-/// A book row shows the book's cover trailing.
+/// A book row shows the book's cover trailing — or, at accessibility text sizes, under the sentence, so
+/// the sentence keeps the row's width (spec §2.8 item 4).
 struct ActivityRow: View {
     let item: ActivityRowItem
     var now = Date()
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Pure: the cover moves under the sentence once text reaches the accessibility sizes.
+    static func placesCoverBelow(at size: DynamicTypeSize) -> Bool { size.isAccessibilitySize }
 
     /// Relative timestamp, floored to the past. A just-created event whose server `occurredAt` sits a
     /// few seconds ahead of the device clock would otherwise read "in 3 seconds"; we clamp sub-minute
@@ -60,18 +66,22 @@ struct ActivityRow: View {
     }
 
     private var detailContent: some View {
-        HStack(spacing: Spacing.s) {
+        let coverBelow = Self.placesCoverBelow(at: dynamicTypeSize)
+        let layout = coverBelow
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.xs))
+            : AnyLayout(HStackLayout(spacing: Spacing.s))
+        return layout {
             VStack(alignment: .leading, spacing: 2) {
+                // The whole sentence, never clamped: its " by {Author}" ending is the point (D5).
                 phrase
                     .font(.subheadline)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(timeLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if let bookId = item.bookId {
                 BookCoverImage(bookId: bookId, coverPath: item.coverPath, coverHash: item.coverHash)
