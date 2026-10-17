@@ -139,7 +139,13 @@ internal class HomeSlotPresenter(
                             isBuildingInitialLibrary = c.building,
                         ),
                     )
-                val latched = latch(previous?.latched, DecisionPoint(c.runs, c.view.key), fresh)
+                val latched =
+                    latch(
+                        previous = previous?.latched,
+                        point = DecisionPoint(c.runs, c.view.key),
+                        fresh = fresh,
+                        isProvisional = isStillArriving(c.items),
+                    )
                 Decided(latched, c.items, alsoInProgressOf(c.items, c.view.key, latched.kind))
             }
         }

@@ -278,6 +278,24 @@ class HomeSlotPresenterTest :
             }
         }
 
+        test("a decision made while the leading book is still arriving resolves in place when it lands") {
+            runTest {
+                val rig = HomeSlotRig()
+                rig.play("a", hoursAgo = 2)
+                rig.continueListening.value =
+                    listOf(
+                        com.calypsan.listenup.client.domain.model.ContinueListeningItem
+                            .Loading("a"),
+                    )
+                rig.slots().test {
+                    awaitSlot<HomeSlot.NothingInProgress>()
+                    rig.continueListening.value = listOf(readyItem("a"))
+                    awaitSlot<HomeSlot.Resume>().book.bookId shouldBe "a"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         test("NothingInProgress offers the next unstarted book of the newest finished series") {
             runTest {
                 val rig = HomeSlotRig()
