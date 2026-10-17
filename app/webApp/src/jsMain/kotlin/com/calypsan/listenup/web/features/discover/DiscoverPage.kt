@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.discover
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -17,8 +18,10 @@ import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.BookSelection
+import com.calypsan.listenup.web.features.match.TwoPaneWatch
 import org.jetbrains.compose.web.dom.Aside
 import org.jetbrains.compose.web.dom.Div
+import org.w3c.dom.HTMLElement
 
 /**
  * Discover — the social half of the app, and the only screen that shows the reader other people.
@@ -88,32 +91,91 @@ fun DiscoverPage(
     Div(attrs = { classes("disc") }) {
         PageHeader(title = "Discover", subtitle = DiscoverWords.PAGE_SUBTITLE)
 
-        // One DOM in spec order (§2.8): the CSS grid places the Community aside beside the main
-        // column where there is room, and leaves it in reading order where there is not.
-        Div(attrs = { classes("disc-body") }) {
-            ListeningNowSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection, onRefresh)
-            SomethingNewSection(books, onOpenBook, onShuffle, selection, onRefresh)
-            Aside(attrs = {
-                classes("disc-aside")
-                attr("aria-label", COMMUNITY_LABEL)
-            }) {
-                LeaderboardSection(
-                    leaderboard,
-                    leaderboardSelection,
-                    onSelectPeriod,
-                    onSelectCategory,
-                    onOpenProfile,
-                    onRefreshLeaderboard,
-                    land = landing,
-                    onLanded = { landing = false },
-                )
-                ActivityFeedSection(activity, nowMs, onOpenBook, onOpenShelf, onOpenProfile, onRefreshActivity)
+        // The DOM is the reading order, and so the Tab order: spec order in one column, and the main
+        // column before the Community aside once the grid sets the aside beside it (plan D3).
+        var body by remember { mutableStateOf<HTMLElement?>(null) }
+        var isWide by remember { mutableStateOf(false) }
+        TwoPaneWatch(body, useTwoPane = { isWide = it }, twoPaneQuery = DISCOVER_WIDE_QUERY)
+        Div(attrs = {
+            classes("disc-body")
+            ref { element ->
+                body = element
+                onDispose { body = null }
             }
-            ShelvesByOthersSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
-            RecentlyAddedSection(recentlyAdded, nowMs, onOpenBook, onOpenLibraryNewest, selection, onRefresh)
+        }) {
+            discoverReadingOrder(isWide).forEach { block ->
+                key(block) {
+                    when (block) {
+                        DiscoverBlock.ListeningNow -> {
+                            ListeningNowSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection, onRefresh)
+                        }
+
+                        DiscoverBlock.SomethingNew -> {
+                            SomethingNewSection(books, onOpenBook, onShuffle, selection, onRefresh)
+                        }
+
+                        DiscoverBlock.Community -> {
+                            Aside(attrs = {
+                                classes("disc-aside")
+                                attr("aria-label", COMMUNITY_LABEL)
+                            }) {
+                                LeaderboardSection(
+                                    leaderboard,
+                                    leaderboardSelection,
+                                    onSelectPeriod,
+                                    onSelectCategory,
+                                    onOpenProfile,
+                                    onRefreshLeaderboard,
+                                    land = landing,
+                                    onLanded = { landing = false },
+                                )
+                                ActivityFeedSection(activity, nowMs, onOpenBook, onOpenShelf, onOpenProfile, onRefreshActivity)
+                            }
+                        }
+
+                        DiscoverBlock.ShelvesByOthers -> {
+                            ShelvesByOthersSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
+                        }
+
+                        DiscoverBlock.RecentlyAdded -> {
+                            RecentlyAddedSection(recentlyAdded, nowMs, onOpenBook, onOpenLibraryNewest, selection, onRefresh)
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+/** Discover's page-body blocks; the Community aside is the leaderboard and the activity feed together. */
+internal enum class DiscoverBlock { ListeningNow, SomethingNew, Community, ShelvesByOthers, RecentlyAdded }
+
+/**
+ * The blocks in DOM order, which is the focus order. One column follows the spec (§2.8, D3): the
+ * aside straight after Something new. Wide, the grid sets the aside in its own column, so the DOM
+ * runs down the main column first and Tab never jumps across and back.
+ */
+internal fun discoverReadingOrder(isWide: Boolean): List<DiscoverBlock> =
+    if (isWide) {
+        listOf(
+            DiscoverBlock.ListeningNow,
+            DiscoverBlock.SomethingNew,
+            DiscoverBlock.ShelvesByOthers,
+            DiscoverBlock.RecentlyAdded,
+            DiscoverBlock.Community,
+        )
+    } else {
+        listOf(
+            DiscoverBlock.ListeningNow,
+            DiscoverBlock.SomethingNew,
+            DiscoverBlock.Community,
+            DiscoverBlock.ShelvesByOthers,
+            DiscoverBlock.RecentlyAdded,
+        )
+    }
+
+/** Where the aside moves beside the main column. Must match the `.disc-body` media query in 34-discover.css. */
+internal const val DISCOVER_WIDE_QUERY = "(min-width: 1280px)"
 
 /** The aside's landmark name: the leaderboard and the activity feed are the community record. */
 private const val COMMUNITY_LABEL = "Community"
