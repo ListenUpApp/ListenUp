@@ -78,6 +78,19 @@ class HomeStatsCardTest {
     }
 
     @Test
+    fun `a week under an hour totals in minutes alone, never 0h`() {
+        show(week(current = 1, best = 1).copy(dailyBuckets = listOf(2_400L, 0L, 0L, 0L, 0L, 0L, 0L).mapIndexed(::DayBucket)))
+        composeRule.onNodeWithText("40m").assertIsDisplayed()
+        composeRule.onAllNodesWithText("0h", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a week of an hour or more totals in hours and minutes`() {
+        show(week(current = 5, best = 12))
+        composeRule.onNodeWithText("8h 12m").assertIsDisplayed()
+    }
+
+    @Test
     fun `Leaderboard leaves for Discover`() {
         var opened = false
         show(week(current = 5, best = 12), onOpenLeaderboard = { opened = true })

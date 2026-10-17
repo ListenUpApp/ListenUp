@@ -41,6 +41,7 @@ import listenup.composeapp.generated.resources.home_chart_today_a11y
 import listenup.composeapp.generated.resources.home_couldnt_load_stats
 import listenup.composeapp.generated.resources.home_hours_minutes
 import listenup.composeapp.generated.resources.home_leaderboard
+import listenup.composeapp.generated.resources.home_minutes
 import listenup.composeapp.generated.resources.home_start_listening_to_see_your
 import listenup.composeapp.generated.resources.home_streak_chip
 import listenup.composeapp.generated.resources.home_top_genres
@@ -128,12 +129,7 @@ private fun StatsData(
         Column(Modifier.weight(1f)) {
             StatsHeading()
             Text(
-                text =
-                    stringResource(
-                        Res.string.home_hours_minutes,
-                        (totalSeconds / SECONDS_PER_HOUR).toInt(),
-                        (totalSeconds % SECONDS_PER_HOUR / SECONDS_PER_MINUTE).toInt(),
-                    ),
+                text = weekTotal(totalSeconds),
                 style = MaterialTheme.typography.displaySmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -182,6 +178,18 @@ private fun StatsFooter(
             Text(stringResource(Res.string.home_leaderboard))
             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
         }
+    }
+}
+
+/** "8h 12m", or "40m" for a week under an hour — never "0h 40m". */
+@Composable
+private fun weekTotal(totalSeconds: Long): String {
+    val hours = (totalSeconds / SECONDS_PER_HOUR).toInt()
+    val minutes = (totalSeconds % SECONDS_PER_HOUR / SECONDS_PER_MINUTE).toInt()
+    return if (hours == 0) {
+        stringResource(Res.string.home_minutes, minutes)
+    } else {
+        stringResource(Res.string.home_hours_minutes, hours, minutes)
     }
 }
 

@@ -1354,6 +1354,7 @@ One beautiful library.</string>
     <string name="home_hours_minutes">%1$dh %2$dm</string>
     <string name="home_in_library">In Library</string>
     <string name="home_leaderboard">Leaderboard</string>
+    <string name="home_minutes">%1$dm</string>
     <string name="home_my_shelves">My shelves</string>
     <string name="home_my_shelves_ios">My Shelves</string>
     <string name="home_new_shelf">New shelf</string>

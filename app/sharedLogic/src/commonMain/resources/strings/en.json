@@ -1080,6 +1080,7 @@
     "couldnt_load": "We couldn't load your Listen Now.",
     "couldnt_load_stats": "Couldn't load your stats.",
     "hours_minutes": "%1$dh %2$dm",
+    "minutes": "%1$dm",
     "private_shelf": "Private shelf",
     "my_shelves": "My shelves",
     "no_listening": "No listening",

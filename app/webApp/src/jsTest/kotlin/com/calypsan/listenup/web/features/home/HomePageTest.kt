@@ -317,6 +317,11 @@ class HomePageTest :
             (0 until labels.length - 1).count { (labels.item(it) as HTMLElement).textContent == "Today" } shouldBe 0
         }
 
+        test("a week under an hour totals in minutes alone, never 0h") {
+            homePage(readyHome(), stats = weekStats(todaySeconds = 0, peakSeconds = 2_400))
+                .textOf(".home-stats-total") shouldBe "40m"
+        }
+
         test("a day with no listening still draws, so the week reads as seven days") {
             val host = homePage(readyHome(), stats = weekStats())
 
