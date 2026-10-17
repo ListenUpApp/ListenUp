@@ -3,7 +3,10 @@ package com.calypsan.listenup.web.features.discover
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
+import com.calypsan.listenup.web.ViewportFrame
 import com.calypsan.listenup.web.ViewportFrames
+import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.awaitPresent
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.doubles.shouldBeGreaterThan
@@ -48,6 +51,28 @@ class DiscoverLayoutTest :
             frame.rect(frame.find(".disc-aside")).left shouldBe (frame.rect(frame.find(".disc-a-new")).left plusOrMinus 1.0)
         }
 
+        test("at 1440 the DOM (and so Tab) runs down the main column, then into the Community aside") {
+            val frame = frames.mount(width = 1440, height = 2400) { fullPage() }
+            // The width is read once the body is in the frame, so the reorder lands a composition later.
+            runCatching { awaitPresent(frame.host, ".disc-body > .disc-aside:last-child") }
+            frame.sectionOrder() shouldBe
+                listOf("disc-a-listen", "disc-a-new", "disc-a-shelves", "disc-a-recent", "disc-aside")
+        }
+
+        test("at 1024 the DOM keeps spec order: the aside straight after Something new") {
+            val frame = frames.mount(width = 1024, height = 2400) { fullPage() }
+            awaitFrame()
+            frame.sectionOrder() shouldBe
+                listOf("disc-a-listen", "disc-a-new", "disc-aside", "disc-a-shelves", "disc-a-recent")
+        }
+
+        test("the aside is a complementary landmark named Community") {
+            val frame = frames.mount(width = 1440, height = 2400) { fullPage() }
+            val aside = frame.find(".disc-aside")
+            aside.tagName.lowercase() shouldBe "aside"
+            aside.getAttribute("aria-label") shouldBe "Community"
+        }
+
         test("at 390 the aside's extra rows are hidden, and nothing scrolls sideways") {
             val frame = frames.mount(width = 390, height = 2400) { fullPage() }
             val extras = frame.findAll(".disc-aside-extra")
@@ -63,3 +88,13 @@ class DiscoverLayoutTest :
             phone.isShown(phone.find(".page-sub")) shouldBe false
         }
     })
+
+/** The page body's sections in DOM order, each named by its placement class. */
+private fun ViewportFrame.sectionOrder(): List<String> {
+    val placements = listOf("disc-a-listen", "disc-a-new", "disc-aside", "disc-a-shelves", "disc-a-recent")
+    val body = find(".disc-body")
+    return (0 until body.children.length).mapNotNull { index ->
+        val child = body.children.item(index)!!
+        placements.firstOrNull { child.classList.contains(it) }
+    }
+}

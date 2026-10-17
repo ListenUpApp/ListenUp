@@ -1,4 +1,4 @@
-/* ---- Discover (PR 5): people first. One DOM in spec order; see DiscoverPage. ---- */
+/* ---- Discover (PR 5): people first. The DOM is the focus order; see DiscoverPage. ---- */
 
 /* Section heading row: the H2 and its quiet line, with the section's own action at the end. */
 .luw .disc-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
@@ -42,8 +42,9 @@
   font-size: 0.85rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* Page body: one DOM, spec order (§2.8). The Community aside (leaderboard + activity) joins the main
-   column's side only where it has room: 1280px, the nearest allowed breakpoint to the board's ~1100
+/* Page body (§2.8). The Community aside (leaderboard + activity) joins the main column's side only
+   where it has room. DiscoverPage orders the DOM to match (aside last when wide, DISCOVER_WIDE_QUERY),
+   so the focus order is the visual order; the grid areas place it. 1280px, the nearest allowed breakpoint to the board's ~1100
    that leaves the main column ≥ 560px beside a 340–400px aside once the sidebar is taken (plan D3). */
 .luw .disc-body {
   display: grid; gap: 2.2rem; grid-template-columns: minmax(0, 1fr);
