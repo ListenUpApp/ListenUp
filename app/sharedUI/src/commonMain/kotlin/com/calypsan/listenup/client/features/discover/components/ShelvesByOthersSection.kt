@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.discover.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,8 +19,10 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -258,7 +262,12 @@ private fun ShelfOwnerHeader(
     }
 }
 
-/** A discoverable shelf: its cover mosaic, name and book count, as one link to the shelf. */
+/**
+ * A discoverable shelf: its cover mosaic, name and book count, as one link to the shelf.
+ *
+ * Only the press ripple is clipped to the card's rounded shape. Clipping the card itself let the large
+ * corner's arc cut the leading digit off the book count, which sits flush in the bottom-left corner.
+ */
 @Composable
 internal fun DiscoverShelfCard(
     shelf: DiscoverShelfUi,
@@ -266,15 +275,31 @@ internal fun DiscoverShelfCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
         modifier =
             modifier
                 .width(width)
-                .clip(MaterialTheme.shapes.large)
-                .clickable(role = Role.Button, onClick = onClick)
-                .semantics(mergeDescendants = true) {},
-        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = onClick,
+                ),
     ) {
+        DiscoverShelfCardContent(shelf)
+        Box(
+            Modifier
+                .matchParentSize()
+                .clip(MaterialTheme.shapes.large)
+                .indication(interactionSource, ripple()),
+        )
+    }
+}
+
+@Composable
+private fun DiscoverShelfCardContent(shelf: DiscoverShelfUi) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         ShelfCoverMosaic(covers = shelf.covers, modifier = Modifier.fillMaxWidth())
         Text(
             text = shelf.name,
