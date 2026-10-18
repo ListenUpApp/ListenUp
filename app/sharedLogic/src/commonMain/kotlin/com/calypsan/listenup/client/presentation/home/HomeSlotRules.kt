@@ -199,7 +199,9 @@ internal fun isStillArriving(continueListening: List<ContinueListeningItem>): Bo
 
 /**
  * Spec §2.1: hold [previous] until a decision point passes. A FirstSync skeleton resolves in place (rule 4), and so
- * does a provisional decision — a first sign-in can settle on "nothing in progress" before its books land. Pure.
+ * does a provisional decision — a first sign-in can settle on "nothing in progress" before its books land. So does the
+ * welcome: any playback position ends it (Simon, 2026-10-14), and a store that is still filling can decide it before
+ * the positions land. Pure.
  */
 internal fun latch(
     previous: LatchedSlot?,
@@ -207,11 +209,15 @@ internal fun latch(
     fresh: SlotKind,
     isProvisional: Boolean = false,
 ): LatchedSlot =
-    if (previous == null || previous.point != point || previous.kind == SlotKind.FirstSync || previous.isProvisional) {
+    if (previous == null || previous.point != point || previous.kind.resolvesInPlace || previous.isProvisional) {
         LatchedSlot(point, fresh, isProvisional)
     } else {
         previous
     }
+
+/** The kinds that give way as soon as their data does: the first-sync skeleton and the welcome. */
+private val SlotKind.resolvesInPlace: Boolean
+    get() = this == SlotKind.FirstSync || this == SlotKind.NewListener
 
 /** Continue Listening without the loaded book (F1) and without the book the slot shows (spec §4.1). Pure. */
 internal fun alsoInProgressOf(
