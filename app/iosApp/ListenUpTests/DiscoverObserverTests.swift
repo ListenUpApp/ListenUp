@@ -132,6 +132,21 @@ struct LeaderboardObserverTests {
         #expect(rows[1].displayName == "Simon Hull")
     }
 
+    @Test func tiedLeadersShareTheNumberAndBothWearGold() {
+        let snapshot = LeaderboardSnapshot(
+            time: [
+                entry(rank: 1, userId: "u1", name: "Ana", seconds: 7_200),
+                entry(rank: 1, userId: "u2", name: "Ben", seconds: 7_200),
+                entry(rank: 3, userId: "u3", name: "Cy", seconds: 3_600)
+            ],
+            books: [],
+            streak: []
+        )
+        let rows = LeaderboardObserver.rows(from: snapshot, metric: .time)
+        #expect(rows.map(\.rank) == [1, 1, 3])
+        #expect(rows.prefix(2).allSatisfy { LeaderRankMedal(rank: $0.rank) == .gold })
+    }
+
     @Test func periodOptionMapsEveryKotlinPeriod() {
         #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodWeek.shared) == .week)
         #expect(LeaderboardPeriodOption(kmp: LeaderboardPeriodMonth.shared) == .month)

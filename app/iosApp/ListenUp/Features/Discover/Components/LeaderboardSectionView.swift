@@ -3,12 +3,33 @@ import SwiftUI
 /// The Discover leaderboard, in a grouped card: the title, the period (Week / Month / Year / All Time)
 /// always in view, the metric (Time / Books / Streak), and the top five rows with Show All for the
 /// rest. Two segmented controls, not chips (HIG, Segmented controls) — menus at accessibility text
-/// sizes (`LeaderboardPickerForm`). Renders loading / empty / data /
-/// error from the observer's phase; those treatments are PR 6's to restyle.
+/// sizes (`LeaderboardPickerForm`). The period stays in every state (spec §3.8): loading is a skeleton of
+/// rows, a failure a line and Try Again, an empty period says so; when you are alone the metric goes
+/// (all three would rank you first) and the board closes with "Just you so far".
 struct LeaderboardSectionView: View {
     let observer: LeaderboardObserver
     /// Set by Discover's landing so VoiceOver lands on the heading where a sighted reader lands.
     var headerFocus: AccessibilityFocusState<Bool>.Binding?
+    var community: CommunityPhase = .others
+
+    /// Pure: only you hides the metric control.
+    static func showsCategory(community: CommunityPhase) -> Bool {
+        community != .justYou
+    }
+
+    /// Pure: the line an empty board shows; nil while the roster is unknown (a skeleton, never a claim).
+    static func emptyLine(community: CommunityPhase) -> String? {
+        switch community {
+        case .unknown: nil
+        case .justYou: String(localized: "discover.leaderboard_just_you")
+        case .others: String(localized: "discover.leaderboard_empty_period")
+        }
+    }
+
+    /// Pure: the quiet line under a board of only you.
+    static func footer(community: CommunityPhase) -> String? {
+        community == .justYou ? String(localized: "discover.leaderboard_just_you") : nil
+    }
 
     @State private var expanded = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -25,7 +46,9 @@ struct LeaderboardSectionView: View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             header
             periodPicker
-            metricPicker
+            if Self.showsCategory(community: community) {
+                metricPicker
+            }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -109,11 +132,13 @@ struct LeaderboardSectionView: View {
     private var content: some View {
         switch observer.phase {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.xl)
+            RowsSkeleton(rows: Self.collapsedCount)
         case .empty:
-            sectionMessage(String(localized: "discover.leaderboard_empty"))
+            if let line = Self.emptyLine(community: community) {
+                sectionMessage(line)
+            } else {
+                RowsSkeleton(rows: Self.collapsedCount)
+            }
         case .data(let rows):
             let shown = Array(rows.prefix(Self.visibleCount(total: rows.count, expanded: expanded)))
             VStack(spacing: 0) {
@@ -131,9 +156,11 @@ struct LeaderboardSectionView: View {
                 .buttonStyle(.borderless)
                 .frame(minHeight: 44)
             }
+            if let footer = Self.footer(community: community) {
+                sectionMessage(footer)
+            }
         case .error:
-            // Retry is offered at the screen level via pull-to-refresh.
-            sectionMessage(String(localized: "discover.could_not_load_leaderboard"))
+            InlineRetryLine(line: String(localized: "discover.error_leaderboard")) { observer.refresh() }
         }
     }
 

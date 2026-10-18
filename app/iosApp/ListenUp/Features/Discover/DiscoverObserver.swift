@@ -72,16 +72,16 @@ final class DiscoverObserver {
     // MARK: - State mapping
 
     private func applyBooks(_ state: DiscoverBooksUiState) {
+        newForYou = Self.booksPhase(from: state)
+    }
+
+    /// Pure: Something New's phase for a shared state. `nonisolated` — testable off-actor.
+    nonisolated static func booksPhase(from state: DiscoverBooksUiState) -> DiscoverBooksPhase {
         switch state.sealedType() {
-        case .loading:
-            newForYou = .loading
-        case .ready(let readyType):
-            let ready = readyType.value
-            newForYou = .ready(ready.books.map(DiscoverBook.init(from:)))
-        case .allStarted:
-            newForYou = .allStarted
-        case .error:
-            newForYou = .error
+        case .loading: .loading
+        case .ready(let readyType): .ready(readyType.value.books.map(DiscoverBook.init(from:)))
+        case .allStarted: .allStarted
+        case .error: .error
         }
     }
 

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import Shared
 @testable import ListenUp
 
 /// Spec §3.8 on iOS: each Discover section's state is a pure decision, tested off the view.
@@ -38,5 +39,22 @@ struct DiscoverStatesTests {
         #expect(SomethingNewSection.showsShuffle(.allStarted) == false)
         #expect(SomethingNewSection.showsShuffle(.error) == false)
         #expect(SomethingNewSection.showsShuffle(.ready([])) == true)
+    }
+
+    @Test func onlyYouHidesTheCategoryAndClosesWithJustYou() {
+        #expect(LeaderboardSectionView.showsCategory(community: .justYou) == false)
+        #expect(LeaderboardSectionView.showsCategory(community: .others) == true)
+        #expect(LeaderboardSectionView.footer(community: .justYou) == "Just you so far. The board fills in as people join.")
+        #expect(LeaderboardSectionView.footer(community: .others) == nil)
+    }
+
+    @Test func anEmptyPeriodWithOthersSaysNobodyListened() {
+        #expect(LeaderboardSectionView.emptyLine(community: .others) == "Nobody listened in this period yet.")
+        #expect(LeaderboardSectionView.emptyLine(community: .justYou) == "Just you so far. The board fills in as people join.")
+        #expect(LeaderboardSectionView.emptyLine(community: .unknown) == nil)
+    }
+
+    @Test func allStartedIsItsOwnPhase() {
+        #expect(DiscoverObserver.booksPhase(from: DiscoverBooksUiStateAllStarted.shared) == .allStarted)
     }
 }

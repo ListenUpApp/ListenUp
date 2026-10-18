@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The Discover activity section: "Activity" and the six most recent community events, with
-/// See All Activity for the rest. Renders loading / ready (with empty copy) / error from the
-/// observer's phase.
+/// See All Activity for the rest. Loading is a skeleton of rows and a failure a line with its own Try
+/// Again (spec §3.8); an empty feed says so.
 ///
 /// Until PR 6's See All Activity screen exists, the link expands the list in place to the full feed
 /// and then reads Show Less (plan Q1) — the leaderboard's Show All mechanism, so rows 7–100 are never
@@ -34,9 +34,7 @@ struct ActivitySectionView: View {
     private var content: some View {
         switch observer.phase {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.xl)
+            RowsSkeleton(rows: Self.collapsedCount)
         case .ready(let items):
             if items.isEmpty {
                 sectionMessage(String(localized: "discover.no_activity_yet_start_listening"))
@@ -62,7 +60,7 @@ struct ActivitySectionView: View {
                 }
             }
         case .error:
-            sectionMessage(String(localized: "discover.no_activity_yet_start_listening"))
+            InlineRetryLine(line: String(localized: "discover.error_activity")) { observer.refresh() }
         }
     }
 

@@ -172,7 +172,11 @@ struct DiscoverView: View {
                 onBrowseLibrary: { onSelectTab(.library) }
             )
         case .leaderboard:
-            LeaderboardSectionView(observer: leaderboard, headerFocus: $leaderboardFocused)
+            LeaderboardSectionView(
+                observer: leaderboard,
+                headerFocus: $leaderboardFocused,
+                community: discover.communitySize
+            )
                 .padding(.horizontal, communityInset)
         case .activity:
             ActivitySectionView(observer: activity)
