@@ -25,7 +25,7 @@ struct ListeningNowSection: View {
     var onRetry: () -> Void = {}
 
     /// What Listening Now draws under its heading: one decision, the same table every platform reads.
-    enum Body: Equatable {
+    enum Treatment: Equatable {
         case skeleton
         case retry
         case invitation(canInvite: Bool)
@@ -34,7 +34,11 @@ struct ListeningNowSection: View {
     }
 
     /// Pure: never claim "nobody" or "just you" before the roster has synced (plan C4).
-    static func body(for phase: CurrentlyListeningPhase, community: CommunityPhase, viewer: DiscoverViewerRow?) -> Body {
+    static func treatment(
+        for phase: CurrentlyListeningPhase,
+        community: CommunityPhase,
+        viewer: DiscoverViewerRow?
+    ) -> Treatment {
         switch phase {
         case .loading: .skeleton
         case .error: .retry
@@ -70,7 +74,7 @@ struct ListeningNowSection: View {
 
     @ViewBuilder
     private var content: some View {
-        switch Self.body(for: phase, community: community, viewer: viewer) {
+        switch Self.treatment(for: phase, community: community, viewer: viewer) {
         case .skeleton:
             RailSkeleton(cardWidth: cardWidth, horizontalInset: horizontalInset)
         case .retry:

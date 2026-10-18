@@ -35,7 +35,8 @@ struct DiscoverObserverTests {
 
     @Test func theViewerMapsToANativeValue() {
         let viewer = DiscoverViewer(userId: "me", displayName: "Simon", canInvite: true)
-        #expect(DiscoverViewerRow(from: viewer) == DiscoverViewerRow(userId: "me", displayName: "Simon", canInvite: true))
+        let expected = DiscoverViewerRow(userId: "me", displayName: "Simon", canInvite: true)
+        #expect(DiscoverViewerRow(from: viewer) == expected)
     }
 
     @Test func summaryCarriesCountsStalenessAndObservedTime() {
