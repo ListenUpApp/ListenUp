@@ -116,6 +116,9 @@ internal fun sampleRoutes(): List<Route> =
         add(CreateShelf)
         add(ShelfEdit(shelfId = "test-shelf-id"))
 
+        // Discover
+        add(DiscoverActivity)
+
         // Library setup
         add(LibrarySetup)
 

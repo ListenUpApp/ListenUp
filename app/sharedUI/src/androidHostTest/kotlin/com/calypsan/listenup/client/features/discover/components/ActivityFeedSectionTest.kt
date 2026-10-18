@@ -33,8 +33,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Activity: one wording ("Activity"), six rows then "See all activity" (which expands in place until
- * PR 6's screen, plan Q1), your own rows read "You", every row leads somewhere, book rows carry a cover,
+ * Activity: one wording ("Activity"), six rows then "See all activity" (its own screen, X33), your
+ * own rows read "You", every row leads somewhere, book rows carry a cover,
  * and the avatar is its own profile link.
  */
 @OptIn(ExperimentalTestApi::class)
@@ -83,6 +83,7 @@ class ActivityFeedSectionTest {
         onShelfClick: (String) -> Unit = {},
         onUserClick: (String) -> Unit = {},
         onAddToShelf: (String) -> Unit = {},
+        onSeeAll: (() -> Unit)? = {},
     ) {
         composeRule.setContent {
             WithAvatarDependencies {
@@ -93,6 +94,7 @@ class ActivityFeedSectionTest {
                     onUserClick = onUserClick,
                     onRetry = {},
                     onAddToShelf = onAddToShelf,
+                    onSeeAll = onSeeAll,
                 )
             }
         }
@@ -105,13 +107,20 @@ class ActivityFeedSectionTest {
     }
 
     @Test
-    fun sixRowsThenSeeAllExpandsInPlaceAndShowLessFoldsBack() {
-        show((1..9).map { row("a$it", "finished_book") })
-        composeRule.onAllNodes(hasText("finished", substring = true)).assertCountEquals(6)
-        composeRule.onNodeWithText("See all activity").performClick()
-        composeRule.onAllNodes(hasText("finished", substring = true)).assertCountEquals(9)
-        composeRule.onNodeWithText("Show less").performClick()
-        composeRule.onAllNodes(hasText("finished", substring = true)).assertCountEquals(6)
+    fun sixRowsThenSeeAllActivityOpensTheFullFeedInsteadOfExpanding() {
+        // Rewritten from "See all expands in place": rows 7–100 are still reachable, now on their own screen.
+        var opened = 0
+        show((1..9).map { row("a$it", "finished_book") }, onSeeAll = { opened++ })
+        composeRule.onAllNodesWithTag("activity-row").assertCountEquals(6)
+        composeRule.onNode(hasText("See all activity") and hasClickAction()).performClick()
+        assertEquals(1, opened)
+        composeRule.onAllNodesWithTag("activity-row").assertCountEquals(6)
+    }
+
+    @Test
+    fun aHostWithNoSeeAllScreenShowsNoLink() {
+        show((1..9).map { row("a$it", "finished_book") }, onSeeAll = null)
+        composeRule.onNodeWithText("See all activity").assertDoesNotExist()
     }
 
     @Test

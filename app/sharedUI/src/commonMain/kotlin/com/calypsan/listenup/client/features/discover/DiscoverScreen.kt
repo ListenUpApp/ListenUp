@@ -38,6 +38,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onInvite Opens the create-invite screen from the only-you invitation; shown to an admin only. Null
  *   (desktop) hides the button.
  * @param onBrowseLibrary Opens the Library from "You've started every book here."; null hides the button.
+ * @param onOpenAllActivity Opens See all activity (X33); null (desktop) hides the link.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +50,7 @@ fun DiscoverScreen(
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     onInvite: (() -> Unit)? = null,
     onBrowseLibrary: (() -> Unit)? = null,
+    onOpenAllActivity: (() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
@@ -128,6 +130,7 @@ fun DiscoverScreen(
                             onRetryShelves = viewModel::retryShelvesByOthers,
                             onBrowseLibrary = onBrowseLibrary,
                             onAddToShelf = { id -> selectionState.shelveOne(id, multiSelect) },
+                            onOpenAllActivity = onOpenAllActivity,
                         ),
                     appHeader = appHeader,
                     contentPadding = contentPadding,

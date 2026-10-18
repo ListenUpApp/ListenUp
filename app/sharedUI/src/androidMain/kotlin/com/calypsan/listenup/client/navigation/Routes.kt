@@ -465,6 +465,10 @@ data class ShelfDetail(
     val shelfId: String,
 ) : Route
 
+/** See all activity: the full community feed (spec X33). */
+@Serializable
+data object DiscoverActivity : Route
+
 /**
  * Create shelf screen - create a new personal shelf.
  *

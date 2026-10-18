@@ -220,6 +220,7 @@ private fun ActivityItem(
         onRetry = actions.onRetryActivity,
         modifier = modifier,
         onAddToShelf = actions.onAddToShelf,
+        onSeeAll = actions.onOpenAllActivity,
     )
 }
 
