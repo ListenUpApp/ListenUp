@@ -147,49 +147,17 @@ internal fun DiscoverLayout(
                     horizontalArrangement = Arrangement.spacedBy(if (isExpanded) 20.dp else Spacing.lg),
                     verticalAlignment = Alignment.Top,
                 ) {
-                    DiscoverLeaderboardSection(
-                        state = state.leaderboard,
-                        selection = state.leaderboardSelection,
-                        community = state.community,
-                        onRetry = actions.onRetryLeaderboard,
-                        onSelectPeriod = actions.onSelectPeriod,
-                        onSelectCategory = actions.onSelectCategory,
-                        onUserClick = actions.onUserClick,
-                        modifier = Modifier.weight(1f),
-                    )
+                    LeaderboardItem(state, actions, Modifier.weight(1f))
                     // Board Discover-AndroidTablet: 1fr : 1.25fr.
-                    ActivityFeedSection(
-                        state = state.activity,
-                        onBookClick = actions.onBookClick,
-                        onShelfClick = actions.onShelfClick,
-                        onUserClick = actions.onUserClick,
-                        onRetry = actions.onRetryActivity,
-                        modifier = Modifier.weight(if (isExpanded) ACTIVITY_WEIGHT_EXPANDED else 1f),
-                    )
+                    ActivityItem(state, actions, Modifier.weight(if (isExpanded) ACTIVITY_WEIGHT_EXPANDED else 1f))
                 }
             }
         } else {
             item(key = DiscoverItemKey.LEADERBOARD) {
-                DiscoverLeaderboardSection(
-                    state = state.leaderboard,
-                    selection = state.leaderboardSelection,
-                    community = state.community,
-                    onRetry = actions.onRetryLeaderboard,
-                    onSelectPeriod = actions.onSelectPeriod,
-                    onSelectCategory = actions.onSelectCategory,
-                    onUserClick = actions.onUserClick,
-                    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-                )
+                LeaderboardItem(state, actions, Modifier.padding(horizontal = Spacing.screenMargin))
             }
             item(key = DiscoverItemKey.ACTIVITY) {
-                ActivityFeedSection(
-                    state = state.activity,
-                    onBookClick = actions.onBookClick,
-                    onShelfClick = actions.onShelfClick,
-                    onUserClick = actions.onUserClick,
-                    onRetry = actions.onRetryActivity,
-                    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-                )
+                ActivityItem(state, actions, Modifier.padding(horizontal = Spacing.screenMargin))
             }
         }
 
@@ -216,6 +184,42 @@ internal fun DiscoverLayout(
             )
         }
     }
+}
+
+/** The leaderboard, wherever the layout places it. */
+@Composable
+private fun LeaderboardItem(
+    state: DiscoverState,
+    actions: DiscoverActions,
+    modifier: Modifier,
+) {
+    DiscoverLeaderboardSection(
+        state = state.leaderboard,
+        selection = state.leaderboardSelection,
+        community = state.community,
+        onRetry = actions.onRetryLeaderboard,
+        onSelectPeriod = actions.onSelectPeriod,
+        onSelectCategory = actions.onSelectCategory,
+        onUserClick = actions.onUserClick,
+        modifier = modifier,
+    )
+}
+
+/** The activity feed, wherever the layout places it. */
+@Composable
+private fun ActivityItem(
+    state: DiscoverState,
+    actions: DiscoverActions,
+    modifier: Modifier,
+) {
+    ActivityFeedSection(
+        state = state.activity,
+        onBookClick = actions.onBookClick,
+        onShelfClick = actions.onShelfClick,
+        onUserClick = actions.onUserClick,
+        onRetry = actions.onRetryActivity,
+        modifier = modifier,
+    )
 }
 
 /** The activity column's share beside the leaderboard's 1 on an expanded window. */

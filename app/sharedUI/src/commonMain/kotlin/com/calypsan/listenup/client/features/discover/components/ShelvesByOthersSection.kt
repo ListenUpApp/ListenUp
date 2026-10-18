@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -31,7 +28,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -116,40 +112,56 @@ internal fun ShelvesByOthersSection(
                         modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                     )
                 } else {
-                    if (wide) {
-                        // Owners in pairs, each column's shelves a wrapping grid (board Discover-AndroidTablet).
-                        users.chunked(OWNERS_PER_ROW).forEach { pair ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
-                                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                pair.forEach { userShelves ->
-                                    key(userShelves.user.id) {
-                                        WideUserShelves(
-                                            userShelves = userShelves,
-                                            onShelfClick = onShelfClick,
-                                            onUserClick = onUserClick,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                    }
-                                }
-                                // An odd owner out keeps half the width, so their cards match their neighbours'.
-                                if (pair.size < OWNERS_PER_ROW) Spacer(Modifier.weight(1f))
-                            }
-                        }
-                    } else {
-                        users.forEach { userShelves ->
-                            key(userShelves.user.id) {
-                                UserShelvesSection(
-                                    userShelves = userShelves,
-                                    onShelfClick = onShelfClick,
-                                    onUserClick = onUserClick,
-                                )
-                            }
-                        }
+                    OwnersWithShelves(
+                        users = users,
+                        wide = wide,
+                        onShelfClick = onShelfClick,
+                        onUserClick = onUserClick,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Every owner's block: owners in pairs on a wide window, one under another on a phone. */
+@Composable
+private fun OwnersWithShelves(
+    users: List<DiscoverUserShelves>,
+    wide: Boolean,
+    onShelfClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
+) {
+    if (wide) {
+        // Owners in pairs, each column's shelves a wrapping grid (board Discover-AndroidTablet).
+        users.chunked(OWNERS_PER_ROW).forEach { pair ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                verticalAlignment = Alignment.Top,
+            ) {
+                pair.forEach { userShelves ->
+                    key(userShelves.user.id) {
+                        WideUserShelves(
+                            userShelves = userShelves,
+                            onShelfClick = onShelfClick,
+                            onUserClick = onUserClick,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
+                // An odd owner out keeps half the width, so their cards match their neighbours'.
+                if (pair.size < OWNERS_PER_ROW) Spacer(Modifier.weight(1f))
+            }
+        }
+    } else {
+        users.forEach { userShelves ->
+            key(userShelves.user.id) {
+                UserShelvesSection(
+                    userShelves = userShelves,
+                    onShelfClick = onShelfClick,
+                    onUserClick = onUserClick,
+                )
             }
         }
     }

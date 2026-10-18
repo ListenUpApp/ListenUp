@@ -34,7 +34,7 @@ internal class UserProfileRepositoryImpl(
         combine(
             publicProfileDao.observeAll(),
             syncCursorDao.observeCursor(SyncDomains.PUBLIC_PROFILES.name),
-        ) { rows, cursor -> if (cursor == null) null else rows.map { it.id } }
+        ) { rows, cursor -> cursor?.let { rows.map(PublicProfileEntity::id) } }
 }
 
 /**

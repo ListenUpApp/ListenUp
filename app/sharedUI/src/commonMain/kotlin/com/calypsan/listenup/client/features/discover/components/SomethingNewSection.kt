@@ -80,12 +80,13 @@ internal fun SomethingNewSection(
 ) {
     // Shuffle draws again; with nothing to draw (all started) or a failure (Try again is the action) it steps aside.
     val canShuffle = state is DiscoverBooksUiState.Ready || state is DiscoverBooksUiState.Loading
+    val shuffleSlot: @Composable () -> Unit = { ShuffleButton(onShuffle = onShuffle, labelled = wide) }
     Column(modifier = modifier) {
         SectionTitle(
             title = stringResource(Res.string.discover_something_new),
             subtitle = stringResource(Res.string.discover_something_new_subtitle),
             modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-            trailing = if (canShuffle) ({ ShuffleButton(onShuffle = onShuffle, labelled = wide) }) else null,
+            trailing = shuffleSlot.takeIf { canShuffle },
         )
 
         Spacer(modifier = Modifier.height(Spacing.md))

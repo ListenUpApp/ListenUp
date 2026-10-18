@@ -186,11 +186,12 @@ internal fun SomethingNewSection(
 ) {
     // Shuffle draws again; with nothing to draw (all started) or a failure (Try again is the action) it steps aside.
     val canShuffle = state is DiscoverBooksUiState.Ready || state is DiscoverBooksUiState.Loading
+    val shuffleSlot: @Composable () -> Unit = { ShuffleButton(onShuffle) }
     Section(
         DiscoverWords.SOMETHING_NEW,
         subtitle = DiscoverWords.SOMETHING_NEW_SUBTITLE,
         styleClass = "disc-a-new",
-        actions = if (canShuffle) ({ ShuffleButton(onShuffle) }) else null,
+        actions = shuffleSlot.takeIf { canShuffle },
     ) {
         SomethingNewBody(state, onOpenBook, selection, onRetry, onBrowseLibrary)
     }

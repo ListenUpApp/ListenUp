@@ -37,8 +37,8 @@ import org.jetbrains.compose.resources.stringResource
 
 private val INVITE_AVATAR = 40.dp
 private val GHOST_OFFSET = (-10).dp
-private val DASH_ON = 6f
-private val DASH_OFF = 6f
+private const val DASH_ON = 6f
+private const val DASH_OFF = 6f
 
 /**
  * Listening now when you are the only person on the server (spec §3.8): your avatar beside two dashed
