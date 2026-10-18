@@ -175,7 +175,15 @@
 
 /* Loading (spec §3.8): each section keeps its place with the shape it will take. A rail is a card's
    square art plus its caption lines; rows are the leaderboard's and the activity feed's people. */
-.luw .disc-skel-rail { height: calc(140px + 3.2rem); }
+.luw .disc-skel-card { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
+/* 1/1, like every cover (Home's .home-card-cover-skel): a skeleton that reshapes when the art lands reads as a flinch. */
+.luw .disc-skel-cover { width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; }
+.luw .disc-skel-line { height: 0.75rem; width: 100%; border-radius: var(--r-xs); }
+.luw .disc-skel-line + .disc-skel-line { width: 60%; }
+/* An owner's header (avatar, name, count) and a shelf card, at the real ones' sizes. */
+.luw .disc-skel-owner { height: 44px; width: min(220px, 70%); border-radius: var(--r-xs); }
+.luw .disc-skel-shelf { height: calc(72px + 1.2rem + 2px); border-radius: 14px; }
+@media (max-width: 759px) { .luw .disc-skel-shelf { height: calc(56px + 1.2rem + 2px); } }
 .luw .disc-skel-rows { height: calc(5 * 56px); }
 
 /* A section's quiet line in place of content (§3.8): an empty period, nobody listening, all started. */

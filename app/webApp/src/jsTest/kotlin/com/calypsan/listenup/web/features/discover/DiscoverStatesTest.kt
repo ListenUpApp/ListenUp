@@ -43,10 +43,17 @@ class DiscoverStatesTest :
             retried shouldBe 1
         }
 
-        test("loading sections stand in with the shapes they will take") {
+        test("loading sections stand in with the shapes they will take, inside the grids they fill") {
+            // Spec §3.8: a skeleton the same shape as what replaces it, so nothing jumps when it lands.
             val host = mounts.mount { discoverPage() }
-            host.querySelectorAll(".disc-a-new .disc-skel-rail").length shouldBe 1
+            host.querySelectorAll(".disc-a-listen .disc-listeners > .disc-skel-card").length shouldBe SKELETON_CARDS
+            host.querySelectorAll(".disc-a-new .disc-picks > .disc-skel-card").length shouldBe SKELETON_CARDS
+            host.querySelectorAll(".disc-a-recent .disc-recent > .disc-skel-card").length shouldBe SKELETON_CARDS
+            host.querySelectorAll(".disc-a-new .disc-skel-card > .skel.disc-skel-cover").length shouldBe SKELETON_CARDS
+            host.querySelectorAll(".disc-a-shelves .disc-owner-block > .skel.disc-skel-owner").length shouldBe 1
+            host.querySelectorAll(".disc-a-shelves .disc-shelves > .skel.disc-skel-shelf").length shouldBe 2
             host.querySelectorAll(".disc-aside .disc-skel-rows").length shouldBe 2
+            host.querySelectorAll(".disc-a-new .disc-picks[aria-hidden=true]").length shouldBe 1
         }
 
         test("only you, as an admin: the invitation with Invite someone, which opens the invite page") {
@@ -86,7 +93,7 @@ class DiscoverStatesTest :
                 mounts.mount {
                     discoverPage(currentlyListening = readyListening(emptyList()), communitySize = CommunitySize.Unknown)
                 }
-            host.querySelectorAll(".disc-a-listen .skel").length shouldBe 1
+            host.querySelectorAll(".disc-a-listen .disc-skel-card").length shouldBe SKELETON_CARDS
             host.textContent.orEmpty() shouldNotContain "just you"
             host.textContent.orEmpty() shouldNotContain "Nobody's listening"
         }
@@ -164,3 +171,6 @@ class DiscoverStatesTest :
             host.querySelectorAll(".disc-rank.medal-1").length shouldBe 2
         }
     })
+
+/** How many cards a loading rail or grid stands in with. */
+private const val SKELETON_CARDS = 4

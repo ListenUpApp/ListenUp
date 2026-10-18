@@ -54,26 +54,58 @@ internal fun Section(
 }
 
 /**
- * The pre-first-emission state, said with a shape rather than a word.
+ * The pre-first-emission state, said with a shape rather than a word: [count] cards drawn inside [gridClass],
+ * the same grid the real cards fill, each a square cover and its caption lines (spec §3.8). Nothing moves when
+ * the cards land. Hidden from assistive tech; the section heading already says what is coming.
  *
  * Deliberately silent about why: at this point the section does not know whether it is empty,
  * loading slowly or broken, and guessing out loud is how a page ends up lying.
  */
 @Composable
-internal fun SectionSkeleton(kind: SkeletonKind = SkeletonKind.Rail) {
+internal fun CardSkeletons(
+    gridClass: String,
+    captionLines: Int,
+    cardClass: String = "disc-card",
+    count: Int = SKELETON_CARDS,
+) {
     Div(attrs = {
-        classes("skel", "disc-skel", kind.styleClass)
+        classes(gridClass)
+        attr("aria-hidden", "true")
+    }) {
+        repeat(count) {
+            Div(attrs = { classes(cardClass, "disc-skel-card") }) {
+                Div(attrs = { classes("skel", "disc-skel-cover") })
+                repeat(captionLines) { Div(attrs = { classes("skel", "disc-skel-line") }) }
+            }
+        }
+    }
+}
+
+/** Shelves by others while loading: an owner's header bar over two shelf cards, the shape that replaces it. */
+@Composable
+internal fun ShelvesSkeleton() {
+    Div(attrs = {
+        classes("disc-owner-block")
+        attr("aria-hidden", "true")
+    }) {
+        Div(attrs = { classes("skel", "disc-skel-owner") })
+        Div(attrs = { classes("disc-shelves") }) {
+            repeat(2) { Div(attrs = { classes("skel", "disc-skel-shelf") }) }
+        }
+    }
+}
+
+/** The leaderboard or the activity feed while loading: rows of people, silent like [CardSkeletons]. */
+@Composable
+internal fun RowsSkeleton() {
+    Div(attrs = {
+        classes("skel", "disc-skel", "disc-skel-rows")
         attr("aria-hidden", "true")
     })
 }
 
-/** Which shape a [SectionSkeleton] takes: a row of cards, or rows of people (leaderboard, activity). */
-internal enum class SkeletonKind(
-    val styleClass: String,
-) {
-    Rail("disc-skel-rail"),
-    Rows("disc-skel-rows"),
-}
+/** How many cards a loading rail or grid stands in with. */
+internal const val SKELETON_CARDS = 4
 
 /**
  * A section that failed, in its own words ("Couldn't load activity", spec §3.8), and — when [onRetry] is

@@ -67,7 +67,7 @@ internal fun ListeningNowSection(
     ) {
         when (state) {
             is CurrentlyListeningUiState.Loading -> {
-                SectionSkeleton()
+                ListenersSkeleton()
             }
 
             is CurrentlyListeningUiState.Error -> {
@@ -79,7 +79,7 @@ internal fun ListeningNowSection(
                     when (community) {
                         // Never claim "nobody" or "just you" before the roster has synced (plan C4).
                         CommunitySize.Unknown -> {
-                            SectionSkeleton()
+                            ListenersSkeleton()
                         }
 
                         CommunitySize.JustYou -> {
@@ -112,6 +112,12 @@ internal fun ListeningNowSection(
             }
         }
     }
+}
+
+/** Listening now while loading: listener cards (art, title, then the person row) in the listeners' rail. */
+@Composable
+private fun ListenersSkeleton() {
+    CardSkeletons("disc-listeners", captionLines = 2, cardClass = "disc-listener")
 }
 
 /**
@@ -222,7 +228,7 @@ private fun SomethingNewBody(
 ) {
     when (state) {
         is DiscoverBooksUiState.Loading -> {
-            SectionSkeleton()
+            CardSkeletons("disc-picks", captionLines = 3)
         }
 
         is DiscoverBooksUiState.Error -> {
@@ -316,7 +322,7 @@ internal fun RecentlyAddedSection(
     ) {
         when (state) {
             is RecentlyAddedUiState.Loading -> {
-                SectionSkeleton()
+                CardSkeletons("disc-recent", captionLines = 3)
             }
 
             is RecentlyAddedUiState.Error -> {
@@ -392,7 +398,7 @@ internal fun ShelvesByOthersSection(
     Section(DiscoverWords.SHELVES_BY_OTHERS, styleClass = "disc-a-shelves") {
         when (state) {
             is DiscoverShelvesUiState.Loading -> {
-                SectionSkeleton()
+                ShelvesSkeleton()
             }
 
             is DiscoverShelvesUiState.Error -> {

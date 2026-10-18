@@ -92,13 +92,13 @@ internal fun LeaderboardSection(
 
         when (state) {
             is LeaderboardUiState.Loading -> {
-                SectionSkeleton(SkeletonKind.Rows)
+                RowsSkeleton()
             }
 
             is LeaderboardUiState.Empty -> {
                 when (community) {
                     // Never say "nobody" or "just you" before the roster has synced (plan C4).
-                    CommunitySize.Unknown -> SectionSkeleton(SkeletonKind.Rows)
+                    CommunitySize.Unknown -> RowsSkeleton()
 
                     CommunitySize.JustYou -> QuietLine(DiscoverWords.LEADERBOARD_JUST_YOU)
 
@@ -226,7 +226,7 @@ internal fun ActivityFeedSection(
     Section(DiscoverWords.ACTIVITY) {
         when (state) {
             is ActivityFeedUiState.Loading -> {
-                SectionSkeleton(SkeletonKind.Rows)
+                RowsSkeleton()
             }
 
             is ActivityFeedUiState.Error -> {
