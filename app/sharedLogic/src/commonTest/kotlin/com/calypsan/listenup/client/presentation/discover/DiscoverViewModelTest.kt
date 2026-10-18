@@ -755,6 +755,26 @@ class DiscoverViewModelTest :
             }
         }
 
+        test("an empty draw over a library that has books is AllStarted") {
+            runTest {
+                val fixture = createFixture(randomBooks = emptyList())
+                fixture.recentlyAddedFlow.value = listOf(createDiscoveryBook())
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+                viewModel.discoverBooksState.value shouldBe DiscoverBooksUiState.AllStarted
+            }
+        }
+
+        test("an empty draw over an empty library is an empty Ready, never 'you started everything'") {
+            runTest {
+                val fixture = createFixture(randomBooks = emptyList())
+                fixture.recentlyAddedFlow.value = emptyList()
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+                viewModel.discoverBooksState.value shouldBe DiscoverBooksUiState.Ready(emptyList())
+            }
+        }
+
         test("discoverBooksState carries each pick's series line and length") {
             runTest {
                 val fixture =

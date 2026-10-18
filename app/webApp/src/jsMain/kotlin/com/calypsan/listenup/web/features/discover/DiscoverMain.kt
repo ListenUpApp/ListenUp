@@ -180,6 +180,10 @@ internal fun SomethingNewSection(
                 SectionError(state.error.message, onRetry = onRefresh)
             }
 
+            is DiscoverBooksUiState.AllStarted -> {
+                EmptyState(title = "Nothing left to discover", body = "You have started everything in the library.")
+            }
+
             is DiscoverBooksUiState.Ready -> {
                 if (state.isEmpty) {
                     EmptyState(title = "Nothing left to discover", body = "You have started everything in the library.")

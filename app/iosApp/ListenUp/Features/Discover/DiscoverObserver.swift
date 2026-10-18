@@ -58,6 +58,8 @@ final class DiscoverObserver {
         case .ready(let readyType):
             let ready = readyType.value
             newForYou = .ready(ready.books.map(DiscoverBook.init(from:)))
+        case .allStarted:
+            newForYou = .ready([])
         case .error:
             newForYou = .error
         }

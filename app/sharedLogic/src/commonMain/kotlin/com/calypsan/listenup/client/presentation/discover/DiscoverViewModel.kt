@@ -199,7 +199,16 @@ class DiscoverViewModel(
             .flatMapLatest {
                 flow<DiscoverBooksUiState> {
                     val books = bookRepository.observeRandomUnstartedBooks(limit = 10).first()
-                    emit(DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() }))
+                    // An empty draw means "started everything" only when the library has books at all.
+                    val libraryHasBooks =
+                        books.isNotEmpty() || bookRepository.observeRecentlyAddedBooks(limit = 1).first().isNotEmpty()
+                    emit(
+                        if (books.isEmpty() && libraryHasBooks) {
+                            DiscoverBooksUiState.AllStarted
+                        } else {
+                            DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() })
+                        },
+                    )
                 }.fallbackTo { e ->
                     logger.error(e) { "Error loading discover books" }
                     DiscoverBooksUiState.Error(ErrorMapper.map(e))
@@ -463,6 +472,9 @@ sealed interface DiscoverBooksUiState {
         val isEmpty: Boolean
             get() = books.isEmpty()
     }
+
+    /** Every opener and standalone in the library is started: nothing left to suggest, yet the library is not empty. */
+    data object AllStarted : DiscoverBooksUiState
 
     /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
