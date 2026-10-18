@@ -11071,6 +11071,16 @@
         }
       }
     },
+    "discover.listening_need_connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who's listening needs a connection"
+          }
+        }
+      }
+    },
     "discover.listening_now": {
       "localizations": {
         "en": {

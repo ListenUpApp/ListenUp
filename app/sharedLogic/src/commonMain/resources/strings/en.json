@@ -1098,6 +1098,7 @@
     "leaderboard_just_you": "Just you so far. The board fills in as people join.",
     "leaderboard_empty_period": "Nobody listened in this period yet.",
     "shelves_need_connection": "Shelves by others need a connection",
+    "listening_need_connection": "Who's listening needs a connection",
     "shelves_only_you": "Shelves people make public show up here.",
     "error_listening": "Couldn't load who's listening",
     "error_picks": "Couldn't load new books",

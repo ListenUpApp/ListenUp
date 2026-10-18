@@ -1108,6 +1108,7 @@ One beautiful library.</string>
     <string name="discover_listening_count_both">%1$d listening now · %2$d more in the last two weeks</string>
     <string name="discover_listening_count_live">%1$d listening now</string>
     <string name="discover_listening_count_recent">%1$d in the last two weeks</string>
+    <string name="discover_listening_need_connection">Who's listening needs a connection</string>
     <string name="discover_listening_now">Listening now</string>
     <string name="discover_listening_now_ios">Listening Now</string>
     <string name="discover_live">Live</string>
