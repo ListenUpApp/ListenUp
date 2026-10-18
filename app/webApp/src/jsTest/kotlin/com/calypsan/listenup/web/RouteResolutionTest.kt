@@ -19,6 +19,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.browser.window
 import kotlinx.coroutines.flow.flowOf
 import org.w3c.dom.HTMLElement
+import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 /**
  * The route families nothing else asked the router to find.
@@ -262,6 +263,26 @@ class RouteResolutionTest :
             try {
                 asked shouldBe listOf("s-bedtime")
                 heading(host) shouldBe "Edit shelf"
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/shelves opens the My shelves list") {
+            var opened = 0
+            val (host, router, composition) =
+                mountAt(
+                    "/shelves",
+                    openMyShelves = {
+                        opened++
+                        fixedMyShelves()()
+                    },
+                )
+
+            try {
+                opened shouldBe 1
+                heading(host) shouldBe "My shelves"
             } finally {
                 composition.dispose()
                 router.dispose()

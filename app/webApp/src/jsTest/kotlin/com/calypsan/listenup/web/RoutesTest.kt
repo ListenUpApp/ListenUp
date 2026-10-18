@@ -2,6 +2,7 @@ package com.calypsan.listenup.web
 
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Routes
+import com.calypsan.listenup.web.nav.READERS_SECTION
 import com.calypsan.listenup.web.nav.isServed
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -35,6 +36,7 @@ class RoutesTest :
                 "adminUser" to Routes.Admin.user(id),
                 "adminPending" to Routes.Admin.pending,
                 "book" to Routes.Book.detail(id),
+                "bookReadersInView" to Routes.Book.detail(id, section = READERS_SECTION),
                 "bookChapters" to Routes.Book.chapters(id),
                 "bookEdit" to Routes.Book.edit(id),
                 "bookHardcover" to Routes.Book.hardcover(id),
@@ -48,6 +50,7 @@ class RoutesTest :
                 "discoverLeaderboard" to Routes.discoverLeaderboard,
                 "library" to Routes.library,
                 "libraryNewestFirst" to Routes.libraryNewestFirst,
+                "libraryInProgress" to Routes.libraryInProgress,
                 "libraryContributors" to Routes.libraryContributors,
                 "librarySeries" to Routes.librarySeries,
                 "mood" to Routes.mood(id),
@@ -66,6 +69,7 @@ class RoutesTest :
                 "settingsLicences" to Routes.settingsLicences,
                 "settingsNotifications" to Routes.settingsNotifications,
                 "newShelf" to Routes.newShelf,
+                "shelves" to Routes.shelves,
                 "shelf" to Routes.shelf(id),
                 "shelfEdit" to Routes.shelfEdit(id),
                 "tag" to Routes.tag(id),
@@ -86,5 +90,16 @@ class RoutesTest :
         test("the leaderboard landing and the newest-first library are served URLs") {
             Routes.discoverLeaderboard.toUrl() shouldBe "/discover?section=leaderboard"
             Routes.libraryNewestFirst.toUrl() shouldBe "/library?sort=added-desc"
+        }
+
+        test("Home's three landings are served URLs: My shelves, In progress, and a book's readers") {
+            Routes.shelves.toUrl() shouldBe "/shelves"
+            Routes.libraryInProgress.toUrl() shouldBe "/library?status=in-progress"
+            Routes.Book.detail("wok", section = READERS_SECTION).toUrl() shouldBe "/book/wok?section=readers"
+            Routes.Book.detail("wok").toUrl() shouldBe "/book/wok"
+        }
+
+        test("/shelves takes nothing after it") {
+            Route.parse("/shelves/extra").isServed() shouldBe false
         }
     })

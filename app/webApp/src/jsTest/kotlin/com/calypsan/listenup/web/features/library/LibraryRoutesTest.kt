@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.library
 
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
@@ -25,6 +26,24 @@ class LibraryRoutesTest :
         test("no sort query asks for nothing, so the reader's own sort stands") {
             val sent = mutableListOf<LibraryUiEvent>()
             mounts.mount { LibrarySortLanding(sortQuery = null, onEvent = { sent += it }) }
+            awaitFrame()
+
+            sent.shouldBeEmpty()
+        }
+
+        test("status=in-progress filters the Books to In progress, exactly once") {
+            val sent = mutableListOf<LibraryUiEvent>()
+            mounts.mount { LibraryStatusLanding(statusQuery = "in-progress", onEvent = { sent += it }) }
+            awaitFrame()
+            awaitFrame()
+
+            sent shouldBe listOf(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
+        }
+
+        test("no status query, or an unknown one, asks for nothing") {
+            val sent = mutableListOf<LibraryUiEvent>()
+            mounts.mount { LibraryStatusLanding(statusQuery = null, onEvent = { sent += it }) }
+            mounts.mount { LibraryStatusLanding(statusQuery = "finished-ish", onEvent = { sent += it }) }
             awaitFrame()
 
             sent.shouldBeEmpty()

@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
@@ -27,6 +28,7 @@ import com.calypsan.listenup.web.features.shelf.ShelfRouteContent
 import com.calypsan.listenup.web.nav.CONTRIBUTORS_KEY
 import com.calypsan.listenup.web.nav.LIBRARY_KEY
 import com.calypsan.listenup.web.nav.NARRATOR_ROLE_VALUE
+import com.calypsan.listenup.web.nav.IN_PROGRESS_STATUS
 import com.calypsan.listenup.web.nav.NEWEST_SORT
 import com.calypsan.listenup.web.nav.ROLE_QUERY_KEY
 import com.calypsan.listenup.web.nav.Route
@@ -73,8 +75,10 @@ internal fun LibraryRouteContent(
     onHeroBookIdChange: (String) -> Unit,
     onToast: (String) -> Unit,
     sortQuery: String? = null,
+    statusQuery: String? = null,
 ) {
     LibrarySortLanding(sortQuery, librarySession.onEvent)
+    LibraryStatusLanding(statusQuery, librarySession.onEvent)
     BookSelectionScaffold(openMultiSelect, router, onToast) { selection ->
         LibraryPage(
             state = animatedLibrary(librarySession),
@@ -295,3 +299,17 @@ internal fun routeFor(facet: LibraryFacet): Route =
             )
         }
     }
+
+/**
+ * `/library?status=in-progress` (Home's "In Library →"): the Books filtered to In progress. The filter is the
+ * session's own, so [rememberingStatusFilter] keeps it for the visit. Any other value, or none, asks nothing.
+ */
+@Composable
+internal fun LibraryStatusLanding(
+    statusQuery: String?,
+    onEvent: (LibraryUiEvent) -> Unit,
+) {
+    LaunchedEffect(statusQuery) {
+        if (statusQuery == IN_PROGRESS_STATUS) onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
+    }
+}

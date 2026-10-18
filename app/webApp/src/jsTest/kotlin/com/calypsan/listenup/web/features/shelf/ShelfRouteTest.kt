@@ -13,6 +13,11 @@ class ShelfRouteTest :
             shelfRouteOf(listOf("shelf", "s1", "edit")) shouldBe ShelfRoute.Edit("s1")
         }
 
+        test("/shelves is the reader's own list, and takes nothing after it") {
+            shelfRouteOf(listOf("shelves")) shouldBe ShelfRoute.Mine
+            shelfRouteOf(listOf("shelves", "s1")) shouldBe null
+        }
+
         test("a shelf literally named new still resolves to the create form") {
             // Documented rather than defended: `new` is a reserved segment here. A shelf whose ID
             // were the string "new" would be unreachable — ids are server-minted, so this is a note

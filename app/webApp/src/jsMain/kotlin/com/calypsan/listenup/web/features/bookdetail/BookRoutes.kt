@@ -51,6 +51,8 @@ import com.calypsan.listenup.web.nav.rememberSession
 import com.calypsan.listenup.web.shell.RouteContent
 import com.calypsan.listenup.web.shell.nowMs
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.web.nav.SECTION_QUERY_KEY
+import com.calypsan.listenup.web.nav.READERS_SECTION
 
 /**
  * Opens a Book Detail session for [bookId] and collects it.
@@ -341,6 +343,7 @@ private fun BookDetailRoute(
         onRemoveHardcoverMatch = hardcoverSession.onRemoveMatch,
         onSetHardcoverSynced = hardcoverSession.onSetSynced,
         lastMatchRow = { BookLastMatch(session = detailSession, nowMs = nowMs()) },
+        landOnReaders = route.query[SECTION_QUERY_KEY] == READERS_SECTION,
     )
     // After Match details' Apply: what changed, See what changed and Undo, until dismissed.
     BookMatchReceipt(bookId = bookId, graph = matchDetails)

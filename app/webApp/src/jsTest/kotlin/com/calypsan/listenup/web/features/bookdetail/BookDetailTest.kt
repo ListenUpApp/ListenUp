@@ -96,6 +96,7 @@ import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 import io.kotest.matchers.shouldNotBe
+import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 /**
  * Book Detail through the URL contract: `/book/{id}?tab=…` names the book and the pane, pane
@@ -175,6 +176,7 @@ class BookDetailTest :
                                     ),
                                 openShelfDetail = fixedShelfDetail(),
                                 openShelfEdit = fixedShelfEdit(),
+                                openMyShelves = fixedMyShelves(),
                                 openLibrary = fakeLibrary(),
                                 openSearch = fixedSearch(SearchUiState.Idle()),
                                 openMultiSelect = fixedMultiSelect(),

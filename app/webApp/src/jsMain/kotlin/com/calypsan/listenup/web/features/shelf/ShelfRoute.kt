@@ -22,6 +22,9 @@ internal sealed interface ShelfRoute {
     data class Detail(
         val shelfId: String,
     ) : ShelfRoute
+
+    /** `/shelves` — every shelf the reader owns (spec §3.2 H24). */
+    data object Mine : ShelfRoute
 }
 
 /**
@@ -32,6 +35,7 @@ internal sealed interface ShelfRoute {
  * cannot exist.
  */
 internal fun shelfRouteOf(segments: List<String>): ShelfRoute? {
+    if (segments.firstOrNull() == SHELVES_SEGMENT) return ShelfRoute.Mine.takeIf { segments.size == 1 }
     if (segments.firstOrNull() != SHELF_SEGMENT) return null
     val second = segments.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return null
     return when {
@@ -43,6 +47,8 @@ internal fun shelfRouteOf(segments: List<String>): ShelfRoute? {
 }
 
 internal const val SHELF_SEGMENT = "shelf"
+
+private const val SHELVES_SEGMENT = "shelves"
 
 internal const val NEW_SEGMENT = "new"
 

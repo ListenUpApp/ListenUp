@@ -7,6 +7,7 @@ import com.calypsan.listenup.web.features.library.BookSelectionScaffold
 import com.calypsan.listenup.web.features.library.FeedSelection
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.features.search.SearchRoute
+import com.calypsan.listenup.web.nav.READERS_SECTION
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.rememberSession
@@ -42,13 +43,16 @@ internal fun HomeRoute(
             onPlay = { id -> playback.onPlayBook(BookId(id), null) },
             onOpenLibrary = { router.navigate(Routes.library) },
             onOpenDiscover = { router.navigate(Routes.discover) },
+            onOpenInProgress = { router.navigate(Routes.libraryInProgress) },
+            onOpenLeaderboard = { router.navigate(Routes.discoverLeaderboard) },
+            onSeeAllShelves = { router.navigate(Routes.shelves) },
             onOpenShelf = { id -> router.navigate(Routes.shelf(id)) },
             onCreateShelf = { router.navigate(Routes.newShelf) },
             onRetry = session.onRetry,
             onRetryStats = session.onRetryStats,
             onOpenReaders = { id ->
                 feeds.onHeroBookIdChange(id)
-                router.navigate(Routes.Book.detail(id))
+                router.navigate(Routes.Book.detail(id, section = READERS_SECTION))
             },
             onDismissFinished = session.onDismissFinished,
             onRateFinished = session.onRateFinished,

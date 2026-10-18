@@ -110,6 +110,42 @@ class ReadersTest :
                 )
             }
 
+        test("landing on the readers focuses the panel's heading once it has readers, and says it landed") {
+            var landed = 0
+            mounts.mount {
+                ReadersPanel(
+                    state = readersData(reader(finishes = listOf(READERS_NOW - DAY))),
+                    nowMs = READERS_NOW,
+                    onOpenProfile = {},
+                    onSeeAll = {},
+                    land = true,
+                    onLanded = { landed++ },
+                )
+            }
+            awaitFrame()
+
+            kotlinx.browser.document.activeElement?.textContent shouldBe "Readers"
+            (kotlinx.browser.document.getElementById("readers") as? HTMLElement).shouldNotBeNull()
+            landed shouldBe 1
+        }
+
+        test("a landing waits while the readers load: nothing to land on, so nothing is claimed") {
+            var landed = 0
+            mounts.mount {
+                ReadersPanel(
+                    state = BookReadersUiState.Loading,
+                    nowMs = READERS_NOW,
+                    onOpenProfile = {},
+                    onSeeAll = {},
+                    land = true,
+                    onLanded = { landed++ },
+                )
+            }
+            awaitFrame()
+
+            landed shouldBe 0
+        }
+
         test("the panel names each reader and what they are doing") {
             val host =
                 panel(

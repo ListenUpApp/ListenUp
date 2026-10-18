@@ -58,6 +58,12 @@ internal object Routes {
     /** `/library?sort=added-desc`: the Books grid, newest first, for this visit (spec §6.4, plan Q6). */
     val libraryNewestFirst: Route get() = Route(listOf(LIBRARY_KEY), mapOf(SORT_QUERY_KEY to NEWEST_SORT))
 
+    /** `/library?status=in-progress`: the Books grid filtered to In progress, for this visit (spec §6.4). */
+    val libraryInProgress: Route get() = Route(listOf(LIBRARY_KEY), mapOf(STATUS_QUERY_KEY to IN_PROGRESS_STATUS))
+
+    /** `/shelves`: the reader's own shelves, reached from Home's See all (spec §3.2 H24). */
+    val shelves: Route get() = Route(listOf(SHELVES_KEY))
+
     val search: Route get() = Route(listOf(SEARCH_KEY))
 
     val discover: Route get() = Route(listOf(DISCOVER_KEY))
@@ -105,7 +111,11 @@ internal object Routes {
 
     /** `/book/{id}` and the pages under it. */
     object Book {
-        fun detail(id: String): Route = Route(listOf(BOOK_KEY, id))
+        /** `/book/{id}`, or `/book/{id}?section=readers` with that section in view ([READERS_SECTION], spec §6.4). */
+        fun detail(
+            id: String,
+            section: String? = null,
+        ): Route = Route(listOf(BOOK_KEY, id), section?.let { mapOf(SECTION_QUERY_KEY to it) }.orEmpty())
 
         fun chapters(id: String): Route = Route(listOf(BOOK_KEY, id, CHAPTERS_KEY))
 
@@ -171,6 +181,7 @@ private val ROUTE_SHAPES: Map<String, (List<String>) -> Boolean> =
         MOOD_KEY to { it.size == 2 },
         GENRE_KEY to { it.size == 2 },
         SHELF_KEY to { shelfRouteOf(it) != null },
+        SHELVES_KEY to { shelfRouteOf(it) != null },
         ADMIN_KEY to { it.isAdminShape() },
     )
 
@@ -256,6 +267,9 @@ internal const val DISCOVER_KEY = "discover"
 
 private const val SHELF_KEY = "shelf"
 
+/** `/shelves` — the reader's own shelves. */
+private const val SHELVES_KEY = "shelves"
+
 internal const val NEW_KEY = "new"
 
 internal const val BOOK_KEY = "book"
@@ -303,6 +317,15 @@ internal const val PENDING_SECTION = "pending"
 
 /** [SECTION_QUERY_KEY]'s value for Discover's leaderboard landing. */
 internal const val LEADERBOARD_SECTION = "leaderboard"
+
+/** [SECTION_QUERY_KEY]'s value for Book Detail's Readers landing: Home's finishers line. */
+internal const val READERS_SECTION = "readers"
+
+/** The Library's one-visit reading-state filter: `/library?status=in-progress`. */
+internal const val STATUS_QUERY_KEY = "status"
+
+/** [STATUS_QUERY_KEY]'s value for "In progress". */
+internal const val IN_PROGRESS_STATUS = "in-progress"
 
 internal const val LIBRARY_KEY = "library"
 

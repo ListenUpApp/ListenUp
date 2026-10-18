@@ -17,9 +17,9 @@ data class HomeActions(
     val onOpenBook: (String) -> Unit,
     /** P-R5: the player's play entry, from the saved position (C18). */
     val onPlay: (String) -> Unit,
-    /** Opens the Library. */
+    /** Opens the Library (Browse the Library). */
     val onOpenLibrary: () -> Unit,
-    /** Opens Discover: the quiet slots' Discover button and the stats footer's leaderboard link. */
+    /** Opens Discover: the quiet slots' Discover button. */
     val onOpenDiscover: () -> Unit,
     /** Opens a shelf. */
     val onOpenShelf: (String) -> Unit,
@@ -37,6 +37,12 @@ data class HomeActions(
     val onRateFinished: (String, Int) -> Unit = { _, _ -> },
     /** Asks for the server again (the "Can't reach your server" notice's Retry). */
     val onRetryConnection: () -> Unit = {},
+    /** Opens the Library filtered to In progress: Also in progress's "In Library" (spec §6.4). */
+    val onOpenInProgress: () -> Unit = {},
+    /** Opens Discover's leaderboard on Week: the stats footer (spec §6.4). */
+    val onOpenLeaderboard: () -> Unit = {},
+    /** Opens the My shelves list: My shelves' See all (H24). */
+    val onSeeAllShelves: () -> Unit = {},
 ) {
     /** Holds [None]. */
     companion object {

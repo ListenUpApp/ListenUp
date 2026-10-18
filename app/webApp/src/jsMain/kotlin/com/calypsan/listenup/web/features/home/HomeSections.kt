@@ -13,7 +13,6 @@ import com.calypsan.listenup.client.presentation.home.weekChartColumns
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Cover
-import com.calypsan.listenup.web.design.CoverMosaic
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LinkButton
@@ -25,6 +24,7 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.press
+import com.calypsan.listenup.web.features.shelf.ShelfCard
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
@@ -33,7 +33,6 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import org.jetbrains.compose.web.dom.Button as DomButton
 
 /** The last bar's label (spec §2.6), sharedUI's `home_today` verbatim: the others keep their weekday letter. */
 private const val TODAY_LABEL = "Today"
@@ -47,8 +46,6 @@ private const val CARD_COVER_RUNG = 168
 private const val PERCENT = 100
 
 private const val STREAK_ICON_SIZE = 16
-
-private const val LOCK_ICON_SIZE = 13
 
 private const val SKELETON_SHELVES = 2
 
@@ -74,8 +71,14 @@ internal fun AlsoInProgress(
                 id("home-also-h")
                 classes("home-section-h", "home-also-h")
             }) { Text("Also in progress") }
-            // PR 4 adds Library's In progress filter (X6); until then the link opens the Library.
-            LinkButton(label = "In Library →", onClick = actions.onOpenLibrary)
+            Div(attrs = { classes("home-section-actions") }) {
+                // The way into selection on web (H16): a pointer has no long-press. Hidden while selecting — the bulk
+                // bar's Done ends it.
+                if (selection != null && !selection.isSelecting) {
+                    Button(kind = ButtonKind.Secondary, onClick = selection.onStart) { Text(HomeWords.SELECT) }
+                }
+                LinkButton(label = "In Library →", onClick = actions.onOpenInProgress)
+            }
         }
         Div(attrs = { classes("home-continue") }) {
             items.take(ALSO_IN_PROGRESS_CAP).forEach { item ->
@@ -216,7 +219,7 @@ internal fun LastSevenDays(
                 }
 
                 is HomeStatsUiState.Data -> {
-                    StatsBody(stats, actions.onOpenDiscover)
+                    StatsBody(stats, actions.onOpenLeaderboard)
                 }
             }
         }
@@ -240,7 +243,7 @@ private fun StatsError(
 @Composable
 private fun StatsBody(
     stats: HomeStatsUiState.Data,
-    onOpenDiscover: () -> Unit,
+    onOpenLeaderboard: () -> Unit,
 ) {
     val streak = stats.streak
     Div(attrs = { classes("home-stats-top") }) {
@@ -259,7 +262,7 @@ private fun StatsBody(
             streak.bestDays?.let { Text(if (it == 1) "Best streak 1 day" else "Best streak $it days") }
         }
         // PR 5 adds Discover's Week focus; until then the link opens Discover at the top (spec §11).
-        LinkButton(label = "7-day leaderboard →", onClick = onOpenDiscover)
+        LinkButton(label = "7-day leaderboard →", onClick = onOpenLeaderboard)
     }
 }
 
@@ -328,9 +331,8 @@ private fun TopGenres(stats: HomeStatsUiState.Data) {
 }
 
 /**
- * "My shelves" (spec §2.7): the header always offers New shelf, so the first shelf is one press away; the shelves are a
- * grid of mosaic cards, or, with none yet, a line inviting the first. No See all until the My shelves list exists
- * (open question 1).
+ * "My shelves" (spec §2.7): the header always offers New shelf, so the first shelf is one press away, and See all once
+ * there is a shelf to see (H24); the shelves are a grid of mosaic cards, or, with none yet, a line inviting the first.
  */
 @Composable
 internal fun MyShelves(
@@ -347,7 +349,14 @@ internal fun MyShelves(
                 id("home-shelves-h")
                 classes("home-section-h")
             }) { Text("My shelves") }
-            Button(kind = ButtonKind.Secondary, onClick = { actions.onCreateShelf() }) { Text("New shelf") }
+            Div(attrs = { classes("home-section-actions") }) {
+                if (!isLoading && shelves.isNotEmpty()) {
+                    Button(kind = ButtonKind.Ghost, onClick = actions.onSeeAllShelves, label = HomeWords.SEE_ALL_SHELVES) {
+                        Text(HomeWords.SEE_ALL)
+                    }
+                }
+                Button(kind = ButtonKind.Secondary, onClick = { actions.onCreateShelf() }) { Text("New shelf") }
+            }
         }
         if (isLoading) {
             // The library is still arriving: no shelves yet is not yet the reader's, so no invitation (spec §2.1).
@@ -369,42 +378,5 @@ internal fun MyShelves(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ShelfCard(
-    shelf: Shelf,
-    onOpenShelf: (String) -> Unit,
-) {
-    DomButton(attrs = {
-        classes("home-shelf")
-        attr("type", "button")
-        onClick { onOpenShelf(shelf.idString) }
-    }) {
-        CoverMosaic(shelf.covers)
-        Span(attrs = { classes("home-shelf-text") }) {
-            Span(attrs = { classes("home-shelf-t") }) {
-                Text(shelf.name)
-                if (shelf.isPrivate) {
-                    Span(attrs = {
-                        classes("home-shelf-lock")
-                        attr("role", "img")
-                        attr(ARIA_LABEL, "Private")
-                    }) { Icon(WebIcon.Lock, size = LOCK_ICON_SIZE) }
-                }
-            }
-            Span(attrs = { classes("home-shelf-sub") }) { Text(shelfMeta(shelf)) }
-        }
-    }
-}
-
-/** "6 books · 74h", "1 book", "1 book · 31h" (spec §2.7). */
-internal fun shelfMeta(shelf: Shelf): String {
-    val count = if (shelf.bookCount == 1) "1 book" else "${shelf.bookCount} books"
-    return if (shelf.totalDurationSeconds > 0) {
-        "$count · ${DurationFormatter.hoursMinutesCompact(shelf.totalDurationSeconds.seconds)}"
-    } else {
-        count
     }
 }
