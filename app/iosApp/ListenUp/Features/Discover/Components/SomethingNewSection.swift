@@ -5,7 +5,8 @@ import SwiftUI
 /// regular width.
 ///
 /// Shuffle is a glass button (HIG, Buttons): an icon-only circle on iPhone, labelled on iPad; both are
-/// named for what they do. Loading and error keep today's treatments (PR 6 owns their copy).
+/// named for what they do. Every state keeps the heading (spec §3.8): a skeleton while drawing, a line
+/// and Try Again (a fresh draw) on failure, and "You've started every book here." with Browse the Library.
 struct SomethingNewSection: View {
     /// Cards per row in the regular-width grid: five picks, as the board lays them (spec §3.7).
     static let regularColumnCount = 5
@@ -17,6 +18,16 @@ struct SomethingNewSection: View {
     /// Screen-wide multi-select; `nil` disables selection here.
     var selection: BookSelectionObserver?
     let onShuffle: () -> Void
+    /// Opens the Library from "You've started every book here."; nil hides the button.
+    var onBrowseLibrary: (() -> Void)?
+
+    /// Pure: Shuffle steps aside when there is nothing to draw, or when Try Again is the action.
+    static func showsShuffle(_ phase: DiscoverBooksPhase) -> Bool {
+        switch phase {
+        case .loading, .ready: true
+        case .allStarted, .error: false
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
@@ -25,7 +36,9 @@ struct SomethingNewSection: View {
                     title: String(localized: "discover.something_new_ios"),
                     subtitle: String(localized: "discover.something_new_subtitle")
                 )
-                shuffle
+                if Self.showsShuffle(phase) {
+                    shuffle
+                }
             }
             .padding(.horizontal, horizontalInset)
 
@@ -56,9 +69,19 @@ struct SomethingNewSection: View {
     private var content: some View {
         switch phase {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.xl)
+            RailSkeleton(cardWidth: cardWidth, captionLines: 3, horizontalInset: horizontalInset)
+        case .allStarted:
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(String(localized: "discover.started_everything"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                if let onBrowseLibrary {
+                    Button(String(localized: "discover.browse_the_library_ios"), action: onBrowseLibrary)
+                        .buttonStyle(.bordered)
+                        .frame(minHeight: 44)
+                }
+            }
+            .padding(.horizontal, horizontalInset)
         case .ready(let books):
             if books.isEmpty {
                 message(String(localized: "discover.no_new_books_yet"))
@@ -75,7 +98,8 @@ struct SomethingNewSection: View {
                 }
             }
         case .error:
-            message(String(localized: "discover.no_new_books_yet"))
+            InlineRetryLine(line: String(localized: "discover.error_picks"), action: onShuffle)
+                .padding(.horizontal, horizontalInset)
         }
     }
 
