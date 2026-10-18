@@ -111,6 +111,7 @@ import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsViewM
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel
+import com.calypsan.listenup.client.presentation.shelf.MyShelvesViewModel
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 
@@ -327,6 +328,8 @@ object KoinHelper {
     fun getHomeViewModel(): HomeViewModel = resolve(HomeViewModel::class)
 
     fun getHomeStatsViewModel(): HomeStatsViewModel = resolve(HomeStatsViewModel::class)
+
+    fun getMyShelvesViewModel(): MyShelvesViewModel = resolve(MyShelvesViewModel::class)
 
     fun getSearchViewModel(): SearchViewModel = resolve(SearchViewModel::class)
 

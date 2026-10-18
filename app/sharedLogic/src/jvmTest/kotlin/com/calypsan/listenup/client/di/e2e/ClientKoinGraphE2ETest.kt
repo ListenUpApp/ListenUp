@@ -41,9 +41,10 @@ class ClientKoinGraphE2ETest :
             fixture.koin.koin.get<AuthSession>() shouldNotBe null
         }
 
-        test("Home's ViewModel and slot presenter resolve from the real graph (internal constructors; Koin verify cannot see them)") {
+        test("Home's ViewModel, its slot presenter and the My shelves list resolve from the real graph (internal constructors; Koin verify cannot see them)") {
             val fixture = autoClose(DiWiredClientFixture.start())
             fixture.koin.koin.get<com.calypsan.listenup.client.presentation.home.HomeViewModel>() shouldNotBe null
+            fixture.koin.koin.get<com.calypsan.listenup.client.presentation.shelf.MyShelvesViewModel>() shouldNotBe null
         }
 
         test("registration watch streams resolve from the graph") {
