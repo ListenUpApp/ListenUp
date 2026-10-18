@@ -45,20 +45,26 @@ struct HomeLayout: Equatable {
         return HomeLayout(arrangement: .wide(statsWidth: statsWidth), margin: margin, rail: .row(columns: columns))
     }
 
-    /// Home's sections, top to bottom: the slot when it shows, then Also in Progress → Your Last 7 Days → My Shelves.
-    func blocks(slot: HomeSlotShape, hasAlsoInProgress: Bool) -> [HomeBlock] {
+    /// Home's sections, top to bottom (spec §2.1, §3.4) — Android's `homeBlocks` twin. The offline pill sits under
+    /// the greeting and the first-sync strip above the slot; the slot comes next (or, when Continue Listening failed and
+    /// there is no slot, the one-line failure in its place). Below it: Also in Progress → Your Last 7 Days → My Shelves.
+    /// A wide window puts the slot beside the stats, and the stats beside the shelves when there is no slot.
+    func blocks(slot: HomeSlotShape, notice: HomeNotice, hasAlsoInProgress: Bool, isArriving: Bool) -> [HomeBlock] {
         var blocks: [HomeBlock] = []
-        switch (slot, isWide) {
-        case (.resume, true): blocks.append(.resumeBesideStats)
-        case (.resume, false): blocks.append(.resume)
-        case (.nothingToResume, _): blocks.append(.nothingToResume)
-        case (.empty, _): break
+        if notice == .offline { blocks.append(.offline) }
+        if isArriving, slot == .firstSync { blocks.append(.firstSyncStrip) }
+        if let slotBlock = slot.block {
+            blocks.append(isWide ? .slotBesideStats : slotBlock)
+        } else if notice == .continueListeningFailed {
+            blocks.append(.continueListeningFailed)
         }
         if hasAlsoInProgress { blocks.append(.alsoInProgress) }
-        switch (slot, isWide) {
-        case (.resume, true): blocks.append(.shelves)
-        case (_, true): blocks.append(.statsBesideShelves)
-        case (_, false): blocks.append(contentsOf: [.stats, .shelves])
+        if blocks.contains(.slotBesideStats) {
+            blocks.append(.shelves)
+        } else if isWide {
+            blocks.append(.statsBesideShelves)
+        } else {
+            blocks.append(contentsOf: [.stats, .shelves])
         }
         return blocks
     }
@@ -66,21 +72,50 @@ struct HomeLayout: Equatable {
 
 /// What the slot needs from the layout.
 /// (`empty`, not `none`: `.none` reads as `Optional.none` in every comparison, as PR 1 found with `HomeSlot.None`.)
-enum HomeSlotShape: Equatable { case empty, resume, nothingToResume }
+enum HomeSlotShape: Equatable {
+    case empty, resume, finished, nothingInProgress, welcome, firstSync
+
+    /// The block that draws this slot, or nil when there is none.
+    var block: HomeBlock? {
+        switch self {
+        case .empty: nil
+        case .resume: .resume
+        case .finished: .finished
+        case .nothingInProgress: .nothingInProgress
+        case .welcome: .welcome
+        case .firstSync: .firstSync
+        }
+    }
+}
 
 /// One section of Home.
 enum HomeBlock: Hashable {
-    case resume, resumeBesideStats, nothingToResume, alsoInProgress, stats, shelves, statsBesideShelves
+    case offline, firstSyncStrip, resume, finished, nothingInProgress, welcome, firstSync, continueListeningFailed
+    case slotBesideStats, alsoInProgress, stats, shelves, statsBesideShelves
+}
+
+/// One line Home shows above everything else, or in the slot's place (spec §3.1, §3.3).
+/// (`clear`, not `none`, for the reason `HomeSlotShape.empty` gives.)
+enum HomeNotice: Equatable {
+    case clear, offline, continueListeningFailed
+
+    /// A failed Continue Listening outranks connectivity, which the dimmed cards already show.
+    static func of(_ ready: HomeReady) -> HomeNotice {
+        if ready.continueListeningError != nil { return .continueListeningFailed }
+        if ready.connectivity != .online { return .offline }
+        return .clear
+    }
 }
 
 extension HomeSlotItem {
-    /// Open question 5 (the window between Home PR 3 and PR 4), in one place: until PR 4 draws them, JustFinished
-    /// and FirstSync take no space, and NothingInProgress / NewListener show the interim empty state.
     var shape: HomeSlotShape {
         switch self {
+        case .absent: .empty
         case .resume: .resume
-        case .nothingInProgress, .newListener: .nothingToResume
-        case .absent, .firstSync, .justFinished: .empty
+        case .justFinished: .finished
+        case .nothingInProgress: .nothingInProgress
+        case .newListener: .welcome
+        case .firstSync: .firstSync
         }
     }
 }

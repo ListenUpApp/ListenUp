@@ -7,7 +7,7 @@ import SwiftUI
 /// `sessionExpired` is intentionally NOT rendered here — it has its own `SessionLapsedBanner` driven
 /// by `AuthStateObserver`, shown in the app root's `.sessionLapsed` branch. There is deliberately no
 /// ambient "offline" state either: ListenUp is offline-first, and connectivity is surfaced only at
-/// point of need (book detail, player).
+/// point of need (book detail, player, and Home's offline pill, which explains its dimmed cards).
 struct ConnectionHealthBanner: View {
     let kind: ConnectionHealthKind
     var onDismiss: () -> Void

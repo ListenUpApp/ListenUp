@@ -38,12 +38,12 @@ final class HomeViewModelWrapper {
         viewModel.refresh()
     }
 
-    /// Dismiss a book's just-finished card on every device. Drawn in Home PR 4.
+    /// Dismiss a book's just-finished card on every device.
     func dismissFinished(bookId: String) {
         viewModel.dismissFinished(bookId: bookId)
     }
 
-    /// Rate a book from its just-finished card, in half stars (2...10). Drawn in Home PR 4.
+    /// Rate a book from its just-finished card, in half stars (2...10).
     func rateFinished(bookId: String, halfStars: Int) {
         viewModel.rateFinished(bookId: bookId, halfStars: Int32(halfStars))
     }
@@ -59,7 +59,7 @@ final class HomeViewModelWrapper {
             phase = .ready(ready)
             inlineError = ready.continueListeningError
         case .error(let errorType):
-            phase = .error(errorType.value.error.message)
+            phase = HomePhase(error: errorType.value)
         }
     }
 }
@@ -70,7 +70,12 @@ final class HomeViewModelWrapper {
 enum HomePhase: Equatable {
     case loading
     case ready(HomeReady)
-    case error(String)
+    /// Home could not load; the greeting stays, from the part of the day (spec §3.3).
+    case error(message: String, timeOfDay: HomeTimeOfDay)
+
+    init(error: HomeUiStateError) {
+        self = .error(message: error.error.message, timeOfDay: HomeTimeOfDay(kmp: error.timeOfDay))
+    }
 }
 
 // MARK: - Ready content
@@ -79,6 +84,10 @@ enum HomePhase: Equatable {
 struct HomeReady: Equatable {
     let shelves: [ShelfItem]
     let isSyncing: Bool
+    /// The library's first population or this device's first catch-up is running (spec H5).
+    let isLibraryArriving: Bool
+    /// "412 of 1,280 books", only while a scan knows both numbers (open question 1).
+    let arrivalCount: ArrivalCount?
     let timeOfDay: HomeTimeOfDay
     let firstName: String?
     let slot: HomeSlotItem
@@ -90,13 +99,24 @@ struct HomeReady: Equatable {
     init(from ready: HomeUiStateReady) {
         self.shelves = ready.myShelves.map(ShelfItem.init(from:))
         self.isSyncing = ready.isSyncing
+        self.isLibraryArriving = ready.isLibraryArriving
+        self.arrivalCount = ready.scanProgress.flatMap { scan in
+            scan.booksTotal > 0 ? ArrivalCount(done: Int(scan.books), total: Int(scan.booksTotal)) : nil
+        }
         self.timeOfDay = HomeTimeOfDay(kmp: ready.timeOfDay)
         self.firstName = ready.firstName
         self.slot = HomeSlotItem(from: ready.slot)
-        self.alsoInProgress = ready.alsoInProgress.map(ContinueItem.init(from:))
+        let connectivity = ready.connectivity
+        self.alsoInProgress = ready.alsoInProgress.map { ContinueItem(from: $0, connectivity: connectivity) }
         self.connectivity = HomeConnectivityState(kmp: ready.connectivity)
         self.continueListeningError = ready.continueListeningError?.message
     }
+}
+
+/// How far a scan has got, when it knows both numbers.
+struct ArrivalCount: Equatable {
+    let done: Int
+    let total: Int
 }
 
 // MARK: - Continue Listening item
@@ -122,11 +142,16 @@ struct ContinueItem: Identifiable, Equatable {
     /// Every file is on this device, so it plays with no server.
     let isDownloaded: Bool
     let isLoading: Bool
+    /// Out of reach and not downloaded: the card dims and reads "Needs a connection" (spec §2.5, the shared rule).
+    var needsConnection = false
 
-    init(from item: ContinueListeningItem) {
+    init(from item: ContinueListeningItem, connectivity: HomeConnectivity = HomeConnectivity.Online) {
         switch item.sealedType() {
         case .ready(let readyType):
-            self.init(book: readyType.value.book)
+            let book = readyType.value.book
+            self.init(book: book)
+            let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.home.self
+            self.needsConnection = rules.needsConnection(book, connectivity: connectivity)
         case .loading(let loadingType):
             let loading = loadingType.value
             self.init(

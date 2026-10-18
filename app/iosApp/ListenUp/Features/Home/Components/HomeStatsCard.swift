@@ -2,23 +2,35 @@ import SwiftUI
 
 /// Home's "Your Last 7 Days" card (spec §2.6): the week's total, the gold streak chip when a streak is live, the chart
 /// read aloud as one summary, the top genres with their share, and a footer with the best streak and the Leaderboard
-/// link. The card is pure — it renders whatever `StatsPhase` it's handed. Loading, empty and error keep their quiet
-/// surfaces until Home PR 4 designs them (C16).
+/// link. The card is pure — it renders whatever `StatsPhase` it's handed. Loading is a shimmer the size of the data,
+/// a new listener gets a one-line dashed invitation (never a zero chart), and an error offers Try Again (gap 17).
 struct HomeStatsCard: View {
     let statsPhase: StatsPhase
     /// The footer's Leaderboard link. PR 5 adds Discover's Week focus; until then it opens Discover.
     var onOpenLeaderboard: () -> Void = {}
+    /// Try Again after an error: `HomeStatsViewModel.refresh()`.
+    var onRetry: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            content
-        }
-        .padding(Spacing.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.xl))
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.xl)
-                .strokeBorder(Color.luSeparator, lineWidth: 0.5)
+        if case .empty = statsPhase {
+            emptyNote
+                .padding(Spacing.m)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay {
+                    RoundedRectangle(cornerRadius: Radius.xl)
+                        .strokeBorder(Color.luSeparator, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                }
+        } else {
+            VStack(alignment: .leading, spacing: 16) {
+                content
+            }
+            .padding(Spacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.xl))
+            .overlay {
+                RoundedRectangle(cornerRadius: Radius.xl)
+                    .strokeBorder(Color.luSeparator, lineWidth: 0.5)
+            }
         }
     }
 
@@ -93,23 +105,27 @@ struct HomeStatsCard: View {
     // MARK: - Other phases
 
     private var placeholder: some View {
-        HStack {
-            Spacer()
-            ProgressView()
-                .controlSize(.regular)
-            Spacer()
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            heading
+            RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
+                .fill(Color.gray.opacity(0.2))
+                .frame(height: 160)
+                .shimmer()
+                .accessibilityLabel(String(localized: "common.loading"))
         }
-        .frame(height: 160)
+    }
+
+    private var heading: some View {
+        Text(String(localized: "home.your_last_7_days_ios"))
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private var emptyNote: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(String(localized: "home.your_last_7_days_ios"))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
-
-            Text(String(localized: "home.start_listening_to_see_your"))
+            heading
+            Text(String(localized: "home.stats_invitation_body"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -117,10 +133,18 @@ struct HomeStatsCard: View {
     }
 
     private var errorNote: some View {
-        Label(String(localized: "home.couldnt_load_stats"), systemImage: "exclamationmark.triangle")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            heading
+            Text(String(localized: "home.couldnt_load_stats"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button(action: onRetry) {
+                Label(String(localized: "common.try_again"), systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

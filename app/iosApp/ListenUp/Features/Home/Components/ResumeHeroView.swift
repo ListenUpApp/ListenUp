@@ -16,7 +16,7 @@ struct ResumeHeroView: View {
                 .buttonStyle(.plain)
             progress
             if let next = resume.next {
-                NavigationLink(value: BookDestination(id: next.id)) { nextRow(next) }
+                NavigationLink(value: BookDestination(id: next.id)) { NextBookRow(next: next) }
                     .buttonStyle(.plain)
             }
             Button(action: onResume) {
@@ -103,26 +103,5 @@ struct ResumeHeroView: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
-    }
-
-    private func nextRow(_ next: NextBookItem) -> some View {
-        HStack(spacing: Spacing.s) {
-            BookCoverImage(bookId: next.id, coverPath: next.coverPath, coverHash: next.coverHash)
-                .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
-            VStack(alignment: .leading, spacing: 0) {
-                Text(String(localized: "home.next_in_series_ios"))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Text(next.title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(Spacing.xs)
-        .background(.background.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isLink)
     }
 }

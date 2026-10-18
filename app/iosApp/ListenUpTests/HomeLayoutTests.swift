@@ -32,39 +32,71 @@ struct HomeLayoutTests {
 
     @Test func aLoadedBookOnAPhoneHasNoSlot() {
         let phone = HomeLayout.forWidth(390)
-        #expect(phone.blocks(slot: .empty, hasAlsoInProgress: true) == [.alsoInProgress, .stats, .shelves])
-        #expect(phone.blocks(slot: .empty, hasAlsoInProgress: false) == [.stats, .shelves])
+        #expect(
+            phone.blocks(slot: .empty, notice: .clear, hasAlsoInProgress: true, isArriving: false)
+                == [.alsoInProgress, .stats, .shelves]
+        )
+        #expect(
+            phone.blocks(slot: .empty, notice: .clear, hasAlsoInProgress: false, isArriving: false)
+                == [.stats, .shelves]
+        )
     }
 
     @Test func nothingLoadedLeadsWithResume() {
         #expect(
-            HomeLayout.forWidth(390).blocks(slot: .resume, hasAlsoInProgress: true)
+            HomeLayout.forWidth(390).blocks(slot: .resume, notice: .clear, hasAlsoInProgress: true, isArriving: false)
                 == [.resume, .alsoInProgress, .stats, .shelves]
         )
         #expect(
-            HomeLayout.forWidth(1032).blocks(slot: .resume, hasAlsoInProgress: true)
-                == [.resumeBesideStats, .alsoInProgress, .shelves]
+            HomeLayout.forWidth(1032).blocks(slot: .resume, notice: .clear, hasAlsoInProgress: true, isArriving: false)
+                == [.slotBesideStats, .alsoInProgress, .shelves]
         )
     }
 
     @Test func aLoadedBookOnAnIPadPutsStatsBesideShelves() {
         #expect(
-            HomeLayout.forWidth(1032).blocks(slot: .empty, hasAlsoInProgress: true)
+            HomeLayout.forWidth(1032).blocks(slot: .empty, notice: .clear, hasAlsoInProgress: true, isArriving: false)
                 == [.alsoInProgress, .statsBesideShelves]
         )
     }
 
-    @Test func untilPR4TheQuietKindsShowTheInterimEmptyState() {
+    @Test func everySlotLeadsAndGoesBesideTheStatsWhenWide() {
+        let narrow = HomeLayout.forWidth(390)
+        let wide = HomeLayout.forWidth(1024)
         #expect(
-            HomeLayout.forWidth(390).blocks(slot: .nothingToResume, hasAlsoInProgress: false)
-                == [.nothingToResume, .stats, .shelves]
+            narrow.blocks(slot: .finished, notice: .clear, hasAlsoInProgress: true, isArriving: false)
+                == [.finished, .alsoInProgress, .stats, .shelves]
         )
+        #expect(
+            narrow.blocks(slot: .nothingInProgress, notice: .clear, hasAlsoInProgress: false, isArriving: false)
+                == [.nothingInProgress, .stats, .shelves]
+        )
+        #expect(
+            narrow.blocks(slot: .welcome, notice: .clear, hasAlsoInProgress: false, isArriving: false)
+                == [.welcome, .stats, .shelves]
+        )
+        #expect(
+            narrow.blocks(slot: .firstSync, notice: .clear, hasAlsoInProgress: false, isArriving: true)
+                == [.firstSyncStrip, .firstSync, .stats, .shelves]
+        )
+        #expect(
+            narrow.blocks(slot: .empty, notice: .offline, hasAlsoInProgress: true, isArriving: false)
+                == [.offline, .alsoInProgress, .stats, .shelves]
+        )
+        #expect(
+            narrow.blocks(slot: .empty, notice: .continueListeningFailed, hasAlsoInProgress: false, isArriving: false)
+                == [.continueListeningFailed, .stats, .shelves]
+        )
+        for slot in [HomeSlotShape.finished, .nothingInProgress, .welcome, .firstSync, .resume] {
+            let first = wide.blocks(slot: slot, notice: .clear, hasAlsoInProgress: true, isArriving: false).first
+            #expect(first == .slotBesideStats)
+        }
     }
 
     @Test func theSlotKindsMapToTheirShapes() {
         #expect(HomeSlotItem.absent.shape == .empty)
-        #expect(HomeSlotItem.firstSync.shape == .empty)
-        #expect(HomeSlotItem.nothingInProgress(nil).shape == .nothingToResume)
-        #expect(HomeSlotItem.newListener(covers: []).shape == .nothingToResume)
+        #expect(HomeSlotItem.firstSync.shape == .firstSync)
+        #expect(HomeSlotItem.nothingInProgress(nil).shape == .nothingInProgress)
+        #expect(HomeSlotItem.newListener(covers: []).shape == .welcome)
     }
 }
