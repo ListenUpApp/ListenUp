@@ -18,6 +18,7 @@ import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.string.shouldStartWith
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
@@ -452,24 +453,50 @@ class HomePageTest :
 
         // ── the library-still-arriving strip ────────────────────────────────────
 
-        test("a running scan says what it is doing and how far along it is") {
-            val host = homePage(readyHome(scanProgress = scanning(books = 40, booksTotal = 100)))
+        test("a running scan speaks Home's words, with its grouped count and how far along it is") {
+            val host = homePage(readyHome(scanProgress = scanning(books = 412, booksTotal = 1_280)))
 
-            host.textOf(".lib-status-t") shouldBe "Analyzing"
-            (host.querySelector(".lib-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "40"
+            host.textOf(".lib-status-t") shouldBe "Building your library · 412 of 1,280 books"
+            host.textOf(".lib-status-sub") shouldBe
+                "Your place in each book is already here; covers and titles are arriving."
+            (host.querySelector(".lib-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "32"
         }
 
-        test("a scan outranks the initial seed, because only the scan can say how far along it is") {
+        test("one strip, even with a scan and a first seed at once") {
             val host = homePage(readyHome(isBuildingInitialLibrary = true, scanProgress = scanning()))
 
             host.count(".lib-status") shouldBe 1
-            host.textContent.orEmpty() shouldNotContain "Building your library"
         }
 
-        test("a first seed with no scan still explains the short shelf") {
+        test("a first seed with no scan says Home's title alone, with no count and no ellipsis") {
             val host = homePage(readyHome(isBuildingInitialLibrary = true))
 
-            host.textContent.orEmpty() shouldContain "Building your library"
+            host.textOf(".lib-status-t") shouldBe "Building your library"
+        }
+
+        test("the strip sits under the offline notice and above the slot (H5)") {
+            val host =
+                homePage(
+                    readyHome(
+                        slot = resumeSlot("wok"),
+                        scanProgress = scanning(),
+                        connectivity = HomeConnectivity.ServerUnreachable,
+                    ),
+                )
+            val order =
+                host.querySelectorAll(".home-notice, .lib-status, .home-hero").asList().map {
+                    (it as HTMLElement).className
+                }
+            order.map { it.substringBefore(' ') } shouldBe listOf("home-notice", "lib-status", "home-hero")
+        }
+
+        test("offline and a failed Continue Listening show together") {
+            val host =
+                homePage(
+                    readyHome(connectivity = HomeConnectivity.Offline, continueListeningError = UnexpectedClientError()),
+                )
+            host.count(".home-notice") shouldBe 1
+            host.count(".home-cl-failed") shouldBe 1
         }
 
         test("isSyncing alone says NOTHING, because it is false for the whole initial seed") {

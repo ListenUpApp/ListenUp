@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.home
 
 import com.calypsan.listenup.client.presentation.home.TimeOfDay
+import com.calypsan.listenup.client.presentation.home.groupedCount
 
 /**
  * Every word Home shows on the web, in one place. The web keeps no string catalog; these mirror `en.json`'s `home.*`
@@ -22,6 +23,7 @@ internal object HomeWords {
     const val DISMISS_EVERYWHERE = "Dismiss on all your devices"
     const val PLAY_NEXT_BOOK = "Play next book"
     const val HOW_WAS_IT = "How was it?"
+    const val BUILDING_TITLE = "Building your library"
     const val ARRIVING_BODY = "Your place in each book is already here; covers and titles are arriving."
     const val UP_NEXT_LOADING = "Up next, loading"
     const val LOADING_BOOKS = "Loading books"
@@ -84,6 +86,12 @@ internal object HomeWords {
         sequence: String?,
         length: String,
     ): String = if (sequence == null) "$series · $length" else "$series, Book $sequence · $length"
+
+    /** "Building your library · 412 of 1,280 books": the strip's title while a scan knows both numbers (Q1). */
+    fun arrivingTitle(
+        done: Int,
+        total: Int,
+    ): String = "$BUILDING_TITLE · ${groupedCount(done)} of ${groupedCount(total)} books"
 
     /** "Read by Michael Kramer & Kate Reading". */
     fun readBy(narrators: String): String = "Read by $narrators"

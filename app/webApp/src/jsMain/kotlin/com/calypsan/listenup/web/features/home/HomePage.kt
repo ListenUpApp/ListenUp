@@ -10,6 +10,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.BookSelection
+import com.calypsan.listenup.web.features.library.ArrivingWords
 import com.calypsan.listenup.web.features.library.LibraryStatus
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
@@ -73,14 +74,12 @@ fun HomePage(
                 val blocks =
                     homeBlocks(
                         slot = state.slot,
-                        notice = homeNotice(state),
+                        isOffline = state.isOffline,
+                        continueListeningFailed = state.continueListeningError != null,
+                        showsStrip = state.showsArrivalStrip,
                         hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
-                        isArriving = state.isLibraryArriving,
                         isWide = isWide,
                     )
-                // A scan, or a library still arriving behind another slot, keeps the strip under the greeting, as
-                // before; first sync draws it in its block, above the skeleton slot.
-                if (HomeBlock.FirstSyncStrip !in blocks) HomeLibraryStatus(state)
                 blocks.forEach { block ->
                     HomeBlockContent(block, state, stats, actions, isWide, nowMs, selection)
                 }
@@ -89,10 +88,24 @@ fun HomePage(
     }
 }
 
-/** The library-still-arriving strip in Home's words (spec H5): Library's strip, with where your place is. */
+/**
+ * The library-still-arriving strip in Home's words (spec H5, open question 1): Library's strip, titled "Building your
+ * library" with " · 412 of 1,280 books" while a scan knows both numbers, and Home's line about where your place is.
+ */
 @Composable
 private fun HomeLibraryStatus(state: HomeUiState.Ready) {
-    LibraryStatus(scan = state.scanProgress, isBuilding = state.isLibraryArriving, subtitle = HomeWords.ARRIVING_BODY)
+    val scan = state.scanProgress
+    LibraryStatus(
+        scan = scan,
+        isBuilding = true,
+        words =
+            ArrivingWords(
+                title =
+                    scan?.takeIf { it.booksTotal > 0 }?.let { HomeWords.arrivingTitle(it.books, it.booksTotal) }
+                        ?: HomeWords.BUILDING_TITLE,
+                body = HomeWords.ARRIVING_BODY,
+            ),
+    )
 }
 
 /** One block of [homeBlocks], drawn. */

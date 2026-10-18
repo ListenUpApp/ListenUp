@@ -28,17 +28,22 @@ internal fun LibraryStatus(
     isBuilding: Boolean,
     /** Where it sits, for the spacing only its host knows — Home's column already gaps it. */
     placement: String? = null,
-    /** The line under "Building your library…" — Home says where your place is; the Library says books arrive. */
-    subtitle: String = "Books appear as they arrive.",
+    /** A host's own words in place of the scan's phase and the seed's line — Home's (spec H5). */
+    words: ArrivingWords? = null,
 ) {
     when {
+        words != null && (scan != null || isBuilding) -> {
+            StatusStrip(placement) {
+                Span(attrs = { classes("lib-status-t") }) { Text(words.title) }
+                scan?.progressFraction?.let { fraction ->
+                    ProgressBar(value = fraction, label = words.title, attrs = { classes("lib-status-track") })
+                }
+                Span(attrs = { classes("lib-status-sub") }) { Text(words.body) }
+            }
+        }
+
         scan != null -> {
-            Div(attrs = {
-                classes("lib-status")
-                placement?.let { classes(it) }
-                // A polite live region (spec §8.2): progress is announced without stealing focus.
-                attr("role", "status")
-            }) {
+            StatusStrip(placement) {
                 Span(attrs = { classes("lib-status-t") }) { Text(scan.phaseDisplayName) }
                 scan.progressFraction?.let { fraction ->
                     ProgressBar(
@@ -54,13 +59,9 @@ internal fun LibraryStatus(
         }
 
         isBuilding -> {
-            Div(attrs = {
-                classes("lib-status")
-                placement?.let { classes(it) }
-                attr("role", "status")
-            }) {
+            StatusStrip(placement) {
                 Span(attrs = { classes("lib-status-t") }) { Text("Building your library…") }
-                Span(attrs = { classes("lib-status-sub") }) { Text(subtitle) }
+                Span(attrs = { classes("lib-status-sub") }) { Text("Books appear as they arrive.") }
             }
         }
 
@@ -69,3 +70,22 @@ internal fun LibraryStatus(
         }
     }
 }
+
+/** The strip's box: a polite live region (spec §8.2), so progress is announced without stealing focus. */
+@Composable
+private fun StatusStrip(
+    placement: String?,
+    content: @Composable () -> Unit,
+) {
+    Div(attrs = {
+        classes("lib-status")
+        placement?.let { classes(it) }
+        attr("role", "status")
+    }) { content() }
+}
+
+/** A host's words for the strip: its [title] and the line under it. */
+internal data class ArrivingWords(
+    val title: String,
+    val body: String,
+)

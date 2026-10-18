@@ -6,9 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
-import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import kotlinx.browser.window
 import org.w3c.dom.events.Event
@@ -86,39 +84,30 @@ internal enum class HomeBlock {
     StatsBesideShelves,
 }
 
-/** One line Home shows above everything else, or in the slot's place (spec §3.1, §3.3). */
-internal enum class HomeNotice { None, Offline, ContinueListeningFailed }
-
-/** Which notice applies: a failed Continue Listening outranks connectivity. */
-internal fun homeNotice(state: HomeUiState.Ready): HomeNotice =
-    when {
-        state.continueListeningError != null -> HomeNotice.ContinueListeningFailed
-        state.connectivity != HomeConnectivity.Online -> HomeNotice.Offline
-        else -> HomeNotice.None
-    }
-
 /**
  * Home's sections, top to bottom (spec §2.1, §3.4) — Android's `homeBlocks` twin. The server notice sits under the
- * greeting and the first-sync strip above the slot; the slot comes next (or, when Continue Listening failed and there
- * is no slot, the one-line failure in its place). Below it the order is always Also in progress → Your last 7 days →
- * My shelves. A wide page puts the slot beside the stats, and the stats beside the shelves when there is no slot.
- * Decided here and rendered in this order (C9), so the focus order is the visual order.
+ * greeting ([isOffline]), then the library-arriving strip ([showsStrip], spec H5), then the slot — or, when Continue
+ * Listening failed and there is no slot, the one-line failure in its place. The notice and the failure are separate
+ * signals, so both can show. Below the slot the order is always Also in progress → Your last 7 days → My shelves. A
+ * wide page puts the slot beside the stats, and the stats beside the shelves when there is no slot. Decided here and
+ * rendered in this order (C9), so the focus order is the visual order.
  */
 internal fun homeBlocks(
     slot: HomeSlot,
-    notice: HomeNotice,
+    isOffline: Boolean,
+    continueListeningFailed: Boolean,
+    showsStrip: Boolean,
     hasAlsoInProgress: Boolean,
-    isArriving: Boolean,
     isWide: Boolean,
 ): List<HomeBlock> =
     buildList {
-        if (notice == HomeNotice.Offline) add(HomeBlock.Offline)
-        if (isArriving && slot == HomeSlot.FirstSync) add(HomeBlock.FirstSyncStrip)
+        if (isOffline) add(HomeBlock.Offline)
+        if (showsStrip) add(HomeBlock.FirstSyncStrip)
         val slotBlock = slotBlockFor(slot)
         when {
             slotBlock != null && isWide -> add(HomeBlock.SlotBesideStats)
             slotBlock != null -> add(slotBlock)
-            notice == HomeNotice.ContinueListeningFailed -> add(HomeBlock.ContinueListeningFailed)
+            continueListeningFailed -> add(HomeBlock.ContinueListeningFailed)
         }
         if (hasAlsoInProgress) add(HomeBlock.AlsoInProgress)
         when {
