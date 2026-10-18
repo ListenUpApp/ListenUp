@@ -121,4 +121,23 @@ class HomeFirstSyncTest {
         composeRule.onNodeWithText("Building your library · 40 of 100 books").assertIsDisplayed()
         composeRule.onNodeWithTag(HOME_RESUME_BUTTON_TAG).assertExists()
     }
+
+    @Test
+    fun `while the library arrives, My shelves loads rather than inviting a first shelf`() {
+        composeRule.setContent {
+            MaterialTheme {
+                HomeBody(
+                    state = homeReady(slot = HomeSlot.FirstSync, alsoInProgress = emptyList(), isLibraryArriving = true),
+                    stats = HomeStatsUiState.Loading,
+                    width = HomeWidth.Compact,
+                    actions = HomeActions.None,
+                    selection = HomeSelection.None,
+                    appHeader = testAppHeader,
+                    contentPadding = PaddingValues(),
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("Loading shelves").assertExists()
+        composeRule.onAllNodesWithText("A shelf is your own list", substring = true).assertCountEquals(0)
+    }
 }

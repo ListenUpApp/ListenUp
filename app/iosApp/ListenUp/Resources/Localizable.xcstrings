@@ -13881,6 +13881,16 @@
         }
       }
     },
+    "home.loading_shelves_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading shelves"
+          }
+        }
+      }
+    },
     "home.minutes": {
       "localizations": {
         "en": {

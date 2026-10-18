@@ -149,6 +149,7 @@ private fun HomeBlockContent(
         HomeBlock.Shelves -> {
             MyShelvesSection(
                 shelves = state.myShelves,
+                isLoading = state.showsShelvesLoading,
                 width = width,
                 onOpenShelf = actions.onOpenShelf,
                 onCreateShelf = actions.onCreateShelf,
@@ -160,6 +161,7 @@ private fun HomeBlockContent(
                 WideStats(stats, actions, onRetryStats)
                 MyShelvesSection(
                     shelves = state.myShelves,
+                    isLoading = state.showsShelvesLoading,
                     width = width,
                     onOpenShelf = actions.onOpenShelf,
                     onCreateShelf = actions.onCreateShelf,

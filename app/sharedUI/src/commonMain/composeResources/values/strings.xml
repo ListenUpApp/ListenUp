@@ -1389,6 +1389,7 @@ One beautiful library.</string>
     <string name="home_in_library">In Library</string>
     <string name="home_leaderboard">Leaderboard</string>
     <string name="home_loading_books_a11y">Loading books</string>
+    <string name="home_loading_shelves_a11y">Loading shelves</string>
     <string name="home_minutes">%1$dm</string>
     <string name="home_my_shelves">My shelves</string>
     <string name="home_my_shelves_ios">My Shelves</string>
