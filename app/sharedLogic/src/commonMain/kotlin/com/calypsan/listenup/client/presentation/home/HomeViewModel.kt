@@ -99,6 +99,13 @@ sealed interface HomeUiState {
         val showsArrivalStrip: Boolean
             get() = isLibraryArriving || scanProgress != null
 
+        /**
+         * Whether My shelves shows its loading state: the library is still arriving and no shelf has landed, so an
+         * empty list is not yet the reader's (never the "a shelf is your own list" invitation during first sync).
+         */
+        val showsShelvesLoading: Boolean
+            get() = isLibraryArriving && myShelves.isEmpty()
+
         /** Whether pull-to-refresh shows as running: a sync pass is. */
         val isLoading: Boolean
             get() = isSyncing

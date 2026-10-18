@@ -903,6 +903,20 @@ class HomeViewModelTest :
             }
         }
 
+        test("while the library is arriving, no shelves yet reads as loading, never as the empty invitation") {
+            runTest {
+                val fixture = createFixture()
+                fixture.firstCatchUpFlow.value = true
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>().showsShelvesLoading shouldBe true
+
+                fixture.firstCatchUpFlow.value = false
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>().showsShelvesLoading shouldBe false
+            }
+        }
+
         test("first sync resolves in place into Resume when the book lands and the catch-up ends") {
             runTest {
                 val fixture = createFixture()
