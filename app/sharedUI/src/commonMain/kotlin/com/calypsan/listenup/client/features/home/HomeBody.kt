@@ -49,7 +49,13 @@ internal fun HomeBody(
     ) {
         // The shell header scrolls away with the page; the greeting is its leading content.
         appHeader { HomeHeader(state.timeOfDay, state.firstName, isWide = width != HomeWidth.Compact) }
-        homeBlocks(state.slot, state.alsoInProgress.isNotEmpty(), width).forEach { block ->
+        homeBlocks(
+            slot = state.slot,
+            notice = homeNotice(state),
+            hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
+            isArriving = state.isLibraryArriving,
+            width = width,
+        ).forEach { block ->
             HomeBlockContent(
                 block = block,
                 state = state,
@@ -81,15 +87,19 @@ private fun HomeBlockContent(
             ResumeHero(state, actions, margin)
         }
 
-        HomeBlock.ResumeBesideStats -> {
+        HomeBlock.SlotBesideStats -> {
             Row(margin, horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
-                ResumeHero(state, actions, Modifier.weight(1f))
+                SlotContent(state, actions, Modifier.weight(1f))
                 WideStats(stats, actions, onRetryStats)
             }
         }
 
-        HomeBlock.NothingToResume -> {
-            EmptyContinueListening(onBrowseLibrary = actions.onOpenLibrary)
+        HomeBlock.Finished, HomeBlock.NothingInProgress, HomeBlock.Welcome, HomeBlock.FirstSync -> {
+            SlotContent(state, actions, margin)
+        }
+
+        HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.ContinueListeningFailed -> {
+            Unit
         }
 
         HomeBlock.AlsoInProgress -> {
@@ -134,6 +144,20 @@ private fun HomeBlockContent(
                 )
             }
         }
+    }
+}
+
+/** Whichever slot applies, drawn: every kind takes the same position (spec §2.1). */
+@Composable
+private fun SlotContent(
+    state: HomeUiState.Ready,
+    actions: HomeActions,
+    modifier: Modifier,
+) {
+    when (state.slot) {
+        is HomeSlot.Resume -> ResumeHero(state, actions, modifier)
+        is HomeSlot.NothingInProgress, is HomeSlot.NewListener -> EmptyContinueListening(actions.onOpenLibrary)
+        is HomeSlot.JustFinished, HomeSlot.FirstSync, HomeSlot.Absent -> Unit
     }
 }
 
