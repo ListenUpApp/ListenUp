@@ -60,7 +60,7 @@ interface SyncRepository {
      *
      * Not [syncState]: the socket is `Connected` for the whole seed, so `isSyncing` is false throughout.
      */
-    val isFirstCatchUpRunning: StateFlow<Boolean>
+    val firstCatchUpRunning: StateFlow<Boolean>
 
     /**
      * Trigger a full library sync with the server.

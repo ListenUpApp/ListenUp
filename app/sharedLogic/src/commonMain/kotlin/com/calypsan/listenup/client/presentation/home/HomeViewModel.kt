@@ -143,7 +143,7 @@ class HomeViewModel internal constructor(
 
     /** The library's first population and this device's first catch-up, folded (`combine` is typed to five flows). */
     private val arrivalFlow: Flow<LibraryArrival> =
-        combine(syncRepository.buildingInitialLibrary, syncRepository.isFirstCatchUpRunning, ::LibraryArrival)
+        combine(syncRepository.buildingInitialLibrary, syncRepository.firstCatchUpRunning, ::LibraryArrival)
 
     // Folded into one upstream because `combine` is typed to five flows.
     private val shellFlow: Flow<HomeShell> =

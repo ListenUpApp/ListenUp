@@ -76,9 +76,20 @@ internal class SyncEngineState {
         flow.update { it.copy(realtimeWanted = wanted) }
     }
 
-    /** Marks whether the running catch-up is this device's first. */
-    fun setFirstCatchUp(running: Boolean) {
-        flow.update { it.copy(isFirstCatchUp = running) }
+    /**
+     * Runs [catchUp], marked as this device's first catch-up while it runs when [isFirst]. The mark clears however it
+     * ends — success, a typed failure or a throw — so nothing waits on it forever.
+     */
+    suspend fun <T> markFirstCatchUp(
+        isFirst: Boolean,
+        catchUp: suspend () -> T,
+    ): T {
+        if (isFirst) flow.update { it.copy(isFirstCatchUp = true) }
+        try {
+            return catchUp()
+        } finally {
+            if (isFirst) flow.update { it.copy(isFirstCatchUp = false) }
+        }
     }
 
     /** Update the firehose connection state. */

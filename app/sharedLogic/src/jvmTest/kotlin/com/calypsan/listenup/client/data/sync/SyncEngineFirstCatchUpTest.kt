@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -70,13 +71,14 @@ class SyncEngineFirstCatchUpTest :
 
         test("a first catch-up that fails still clears the mark, so no skeleton waits forever") {
             runBlocking {
-                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                // The throw ends the engine's own job; the handler keeps it from being reported as uncaught.
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, _ -> })
                 val db = createInMemoryTestDatabase()
                 try {
                     val state = SyncEngineState()
                     val engine =
                         buildStartTestEngine(db, state, FirstPullThrowingCatchUp(), FakeIdempotencySyncStreamClient(state), scope)
-                    runCatching { engine.start(currentUserId = "user-a") }
+                    engine.start(currentUserId = "user-a")
                     state.value.isFirstCatchUp shouldBe false
                 } finally {
                     scope.cancel()

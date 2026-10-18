@@ -278,13 +278,7 @@ internal class SyncEngine(
         // Step 2: catch-up across all registered domains, behind the shared catch-up guard so a
         // lifecycle/cursorStale trigger racing startup can't page concurrently. A store that has never
         // advanced means this device is pulling its library for the first time (Home's "first sync").
-        val isFirstCatchUp = store.highestCursor() == null
-        if (isFirstCatchUp) state.setFirstCatchUp(true)
-        try {
-            catchUpMutex.withLock { catchUp.catchUpAll(registry) }
-        } finally {
-            if (isFirstCatchUp) state.setFirstCatchUp(false)
-        }
+        state.markFirstCatchUp(store.highestCursor() == null) { catchUpMutex.withLock { catchUp.catchUpAll(registry) } }
         // Step 3: seed the firehose resume cursor.
         syncStreamClient.seedLastEventId(store.highestCursor())
         // Step 4: collect frames before connecting so immediate frames are not dropped.

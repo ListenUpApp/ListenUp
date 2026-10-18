@@ -91,7 +91,7 @@ class HomeViewModelTest :
                 every { syncRepository.scanProgress } returns scanProgressFlow
                 every { syncRepository.syncState } returns syncStateFlow
                 every { syncRepository.buildingInitialLibrary } returns buildingInitialLibraryFlow
-                every { syncRepository.isFirstCatchUpRunning } returns firstCatchUpFlow
+                every { syncRepository.firstCatchUpRunning } returns firstCatchUpFlow
                 return HomeViewModel(
                     homeRepository = homeRepository,
                     userRepository = userRepository,

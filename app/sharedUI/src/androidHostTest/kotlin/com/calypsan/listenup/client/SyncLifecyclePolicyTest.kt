@@ -95,7 +95,7 @@ private class RecordingSyncRepository : SyncRepository {
     override val serverScanning: StateFlow<Boolean> = MutableStateFlow(false)
     override val scanProgress: StateFlow<ScanProgressState?> = MutableStateFlow(null)
     override val buildingInitialLibrary: StateFlow<Boolean> = MutableStateFlow(false)
-    override val isFirstCatchUpRunning: StateFlow<Boolean> = MutableStateFlow(false)
+    override val firstCatchUpRunning: StateFlow<Boolean> = MutableStateFlow(false)
 
     override suspend fun sync(): AppResult<Unit> = AppResult.Success(Unit)
 

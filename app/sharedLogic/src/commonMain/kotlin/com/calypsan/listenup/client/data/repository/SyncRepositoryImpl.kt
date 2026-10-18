@@ -161,7 +161,7 @@ internal class SyncRepositoryImpl(
             initialValue = false,
         )
 
-    override val isFirstCatchUpRunning: StateFlow<Boolean> =
+    override val firstCatchUpRunning: StateFlow<Boolean> =
         syncEngineState
             .observe()
             .map { it.isFirstCatchUp }
