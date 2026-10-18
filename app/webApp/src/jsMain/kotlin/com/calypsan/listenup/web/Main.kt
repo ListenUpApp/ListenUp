@@ -17,7 +17,6 @@ import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.ServerReachability
-import com.calypsan.listenup.client.domain.usecase.auth.RestoreCurrentUserUseCase
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -34,6 +33,7 @@ import com.calypsan.listenup.web.lifecycle.lapseWhenAnotherTabSignsOut
 import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
+import com.calypsan.listenup.web.features.auth.RestoreCurrentUser
 import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.auth.graphConnectionHealth
 import com.calypsan.listenup.web.features.library.graphLibrary
@@ -342,7 +342,7 @@ private fun restoreCurrentUserWhenMissing(
     val reachability = koin.get<ServerReachability>().state
     scope.launch {
         try {
-            RestoreCurrentUserUseCase(koin.get()).keepRestored(signedIn, reachability)
+            RestoreCurrentUser(koin.get()).keepRestored(signedIn, reachability)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
