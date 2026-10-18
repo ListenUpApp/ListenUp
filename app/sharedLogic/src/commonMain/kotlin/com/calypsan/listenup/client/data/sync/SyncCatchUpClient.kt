@@ -104,7 +104,11 @@ internal class SyncCatchUpClient(
                             "holding cursor at ${outcome.lastSafeRevision} " +
                             "(no digest backstop, cannot advance past a failed item)"
                     }
-                    advanceCursor(handler.domainName, outcome.lastSafeRevision, resetCursor)
+                    // Nothing applied on this page and no cursor yet: record nothing, so a failed first pull
+                    // never reads as "a page applied". An existing cursor still holds, which keeps the hold.
+                    if (outcome.lastSafeRevision > since || store.getCursor(handler.domainName) != null) {
+                        advanceCursor(handler.domainName, outcome.lastSafeRevision, resetCursor)
+                    }
                     break
                 }
                 if (outcome.failures > 0) {

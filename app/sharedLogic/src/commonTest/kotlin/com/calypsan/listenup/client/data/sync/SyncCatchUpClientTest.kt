@@ -499,6 +499,44 @@ class SyncCatchUpClientTest :
             }
         }
 
+        test("OptOut domain: a first pull whose first item fails creates no cursor") {
+            runTest {
+                // Nothing applied, so nothing was pulled: a cursor here would claim the domain had synced.
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> =
+                            AppResult.Success(
+                                syncPageOf(
+                                    domain = "tags",
+                                    serializer = Tag.serializer(),
+                                    items =
+                                        listOf(
+                                            Tag("fail", "alpha", "alpha", 1L, 100L),
+                                            Tag("b", "beta", "beta", 2L, 200L),
+                                        ),
+                                    nextCursor = 2L,
+                                    hasMore = false,
+                                ),
+                            )
+                    }
+                val store = SyncCursorStore(InMemorySyncCursorDao())
+                val catchUp =
+                    SyncCatchUpClient(
+                        channel = RpcChannel.forTest(service),
+                        store = store,
+                        transactionRunner = passThroughTransactionRunner(),
+                    )
+
+                catchUp.catchUp(failingHandler(failIds = setOf("fail"), hasBackstop = false))
+
+                store.getCursor("tags") shouldBe null
+            }
+        }
+
         test("digest-participating domain: a failed item still advances the cursor past it (unchanged)") {
             runTest {
                 val service =
