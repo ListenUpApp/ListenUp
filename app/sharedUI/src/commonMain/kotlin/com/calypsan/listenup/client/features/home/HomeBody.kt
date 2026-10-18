@@ -153,6 +153,7 @@ private fun HomeBlockContent(
                 width = width,
                 onOpenShelf = actions.onOpenShelf,
                 onCreateShelf = actions.onCreateShelf,
+                onSeeAll = actions.onSeeAllShelves,
             )
         }
 
@@ -165,6 +166,7 @@ private fun HomeBlockContent(
                     width = width,
                     onOpenShelf = actions.onOpenShelf,
                     onCreateShelf = actions.onCreateShelf,
+                    onSeeAll = actions.onSeeAllShelves,
                     modifier = Modifier.weight(1f),
                     horizontalMargin = 0.dp,
                 )

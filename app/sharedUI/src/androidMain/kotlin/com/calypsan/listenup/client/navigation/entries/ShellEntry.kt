@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.BulkEdit
 import com.calypsan.listenup.client.navigation.CreateShelf
+import com.calypsan.listenup.client.navigation.MyShelves
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.Notifications
 import com.calypsan.listenup.client.navigation.SeriesDetail
@@ -138,6 +139,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onNavigateToDiscover = onNavigateToDiscover,
                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                         onCreateShelf = { backStack.add(CreateShelf) },
+                        onSeeAllShelves = { backStack.add(MyShelves) },
                         onEditSelected = { bookIds, endSelection ->
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))

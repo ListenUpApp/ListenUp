@@ -36,6 +36,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onNavigateToDiscover Opens Discover: the quiet slots' Discover button and the stats footer's leaderboard link.
  * @param onShelfClick Opens a shelf.
  * @param onCreateShelf Starts a new shelf.
+ * @param onSeeAllShelves Opens the My shelves list (null = this host has none, so See all is not offered).
  * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection,
  *   with a callback that ends the selection once an apply has landed
  *   (null = this host has no route to the editor, so the action is not offered)
@@ -55,6 +56,7 @@ fun HomeScreen(
     onNavigateToDiscover: () -> Unit,
     onShelfClick: (String) -> Unit,
     onCreateShelf: () -> Unit,
+    onSeeAllShelves: (() -> Unit)? = null,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
@@ -77,6 +79,7 @@ fun HomeScreen(
             onRateFinished = viewModel::rateFinished,
             onOpenReaders = onBookClick,
             onRetry = viewModel::refresh,
+            onSeeAllShelves = onSeeAllShelves,
         )
 
     Scaffold(

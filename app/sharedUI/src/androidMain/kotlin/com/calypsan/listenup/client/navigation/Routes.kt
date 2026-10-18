@@ -437,6 +437,12 @@ data object Storage : Route
 // Shelf Routes
 
 /**
+ * The My shelves list (spec §3.2 H24): every shelf the reader owns, reached from Home's See all.
+ */
+@Serializable
+data object MyShelves : Route
+
+/**
  * Shelf detail screen - displays shelf info and its books.
  *
  * Shows the shelf name, description, owner info, and list of books.

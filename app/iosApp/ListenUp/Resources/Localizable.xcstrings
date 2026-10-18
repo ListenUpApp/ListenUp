@@ -13661,6 +13661,16 @@
         }
       }
     },
+    "home.couldnt_load_shelves": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load your shelves."
+          }
+        }
+      }
+    },
     "home.couldnt_load_stats": {
       "localizations": {
         "en": {
@@ -14107,6 +14117,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Can't reach your server. This book isn't downloaded, so it can't play right now."
+          }
+        }
+      }
+    },
+    "home.see_all_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See All"
+          }
+        }
+      }
+    },
+    "home.see_all_shelves_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See all shelves"
           }
         }
       }

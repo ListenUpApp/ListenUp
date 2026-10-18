@@ -106,6 +106,7 @@ internal fun sampleRoutes(): List<Route> =
         add(HardcoverKeptOff)
 
         // Shelf
+        add(MyShelves)
         add(ShelfDetail(shelfId = "test-shelf-id"))
         add(CreateShelf)
         add(ShelfEdit(shelfId = "test-shelf-id"))

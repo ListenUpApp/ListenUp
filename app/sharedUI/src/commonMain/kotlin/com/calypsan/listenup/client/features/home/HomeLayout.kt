@@ -116,6 +116,8 @@ internal data class HomeActions(
     val onOpenReaders: (String) -> Unit = {},
     /** Tries Home again: the page error and the Continue Listening line. */
     val onRetry: () -> Unit = {},
+    /** Opens the My shelves list; null where the host has no list, so See all is not offered. */
+    val onSeeAllShelves: (() -> Unit)? = null,
 ) {
     companion object {
         /** For previews and tests that press nothing. */

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.home
 import listenup.composeapp.generated.resources.home_loading_shelves_a11y
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
@@ -28,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -44,6 +46,8 @@ import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Shelf
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_see_all
+import listenup.composeapp.generated.resources.home_see_all_shelves_a11y
 import listenup.composeapp.generated.resources.home_my_shelves
 import listenup.composeapp.generated.resources.home_new_shelf
 import listenup.composeapp.generated.resources.home_private_shelf
@@ -62,8 +66,8 @@ private val RowMosaicGap = 3.dp
 private val LockSize = 14.dp
 
 /**
- * "My shelves" (spec §2.7): always shown, and New shelf always offered. There is no See all until the My shelves list
- * screen exists (open question 1: Home PR 4 adds it with its destination).
+ * "My shelves" (spec §2.7): always shown, and New shelf always offered. See all opens the My shelves list (H24) once
+ * there is a shelf to see; a host with no list ([onSeeAll] null) offers none.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -75,16 +79,33 @@ internal fun MyShelvesSection(
     modifier: Modifier = Modifier,
     horizontalMargin: Dp = Spacing.screenMargin,
     isLoading: Boolean = false,
+    onSeeAll: (() -> Unit)? = null,
 ) {
     Column(modifier.fillMaxWidth()) {
         SectionTitle(
             title = stringResource(Res.string.home_my_shelves),
             modifier = Modifier.padding(horizontal = horizontalMargin),
             trailing = {
-                FilledTonalButton(onClick = onCreateShelf, shapes = ButtonDefaults.shapes()) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text(stringResource(Res.string.home_new_shelf))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onSeeAll != null && !isLoading && shelves.isNotEmpty()) {
+                        val seeAllLabel = stringResource(Res.string.home_see_all_shelves_a11y)
+                        TextButton(
+                            onClick = onSeeAll,
+                            shapes = ButtonDefaults.shapes(),
+                            modifier = Modifier.semantics { contentDescription = seeAllLabel },
+                        ) {
+                            Text(stringResource(Res.string.common_see_all))
+                        }
+                    }
+                    FilledTonalButton(onClick = onCreateShelf, shapes = ButtonDefaults.shapes()) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(ButtonDefaults.IconSize),
+                        )
+                        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                        Text(stringResource(Res.string.home_new_shelf))
+                    }
                 }
             },
         )
@@ -159,13 +180,18 @@ private fun ShelfRowGrid(
     }
 }
 
+/**
+ * One shelf as a tile: the cover mosaic over its name and length. Home's carousel gives it the rail width; the My
+ * shelves list passes a [modifier] that fills its grid cell instead.
+ */
 @Composable
-private fun ShelfTile(
+internal fun ShelfTile(
     shelf: Shelf,
     onOpen: () -> Unit,
+    modifier: Modifier = Modifier.width(ShelfTileWidth),
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    Box(Modifier.width(ShelfTileWidth).clickable(interactionSource, indication = null, onClick = onOpen)) {
+    Box(modifier.clickable(interactionSource, indication = null, onClick = onOpen)) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Box(
                 Modifier
