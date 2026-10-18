@@ -241,6 +241,31 @@ struct MainShellModelTests {
         }
     }
 
+    @Test func theLeaderboardLandingOpensDiscoverAndCountsTheRequest() {
+        let shell = MainShellModel()
+        shell.isPlayerPresented = true
+        shell.landOnLeaderboard()
+        #expect(shell.selectedTab == .discover)
+        #expect(shell.leaderboardLandingRequest == 1)
+        #expect(shell.isPlayerPresented == false)
+    }
+
+    @Test func newestFirstOpensTheBooksSectionInTheTabBar() {
+        let shell = MainShellModel()
+        shell.librarySection = .series
+        shell.openLibraryNewestFirst()
+        #expect(shell.selectedTab == .library)
+        #expect(shell.librarySection == .books)
+        #expect(shell.libraryNewestRequest == 1)
+    }
+
+    @Test func newestFirstOpensTheBooksEntryInTheSidebar() {
+        let shell = MainShellModel()
+        shell.adaptToLayout(usesSidebar: true)
+        shell.openLibraryNewestFirst()
+        #expect(shell.selectedTab == .librarySection(.books))
+    }
+
     @Test func unreadableSceneStateLeavesTheDefaults() {
         let shell = MainShellModel()
         shell.restore(from: Data("not a snapshot".utf8))

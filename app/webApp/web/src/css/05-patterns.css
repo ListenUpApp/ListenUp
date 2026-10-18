@@ -467,3 +467,32 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .lu-lock.sm { top:3px; left:3px; width:18px; height:18px; border-width:1px; }
 .lu-lock.shifted { left:34px; }
 
+
+/* ---- a single choice as chips or a segmented track (ChipRadioGroup) ----
+   role=radiogroup of role=radio: one tab stop, the arrows move the choice with the focus. */
+.luw .chip-radio { display:flex; flex-wrap:wrap; gap:6px; }
+.luw .chip-radio-opt {
+  display:inline-flex; align-items:center; justify-content:center; min-height:36px; padding:0 14px;
+  border-radius:var(--r-pill); border:1px solid var(--line); background:transparent; cursor:pointer;
+  font:inherit; font-size:var(--fs-small); font-weight:600; color:var(--ink-2); white-space:nowrap;
+}
+@media (hover: hover) { .luw .chip-radio-opt:not(.is-on):hover { color:var(--ink); background:var(--surface-2); } }
+.luw .chip-radio .chip-radio-opt.is-on { color:var(--paper); background:var(--ink); border-color:var(--ink); }
+.luw .seg-radio {
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(0, 1fr)); gap:2px; padding:3px;
+  border-radius:12px; background:var(--surface-2);
+}
+.luw .seg-radio .chip-radio-opt { border:none; border-radius:9px; min-height:32px; padding:0 10px; }
+.luw .seg-radio .chip-radio-opt.is-on { color:var(--ink); background:var(--paper); box-shadow:0 1px 2px rgba(28,23,20,.12); }
+.luw .chip-radio-opt:active { transform:translateY(1px); }
+@media (pointer: coarse) { .luw .chip-radio-opt { min-height:44px; } }
+
+/* ---- a shelf's 2×2 cover mosaic (ShelfMosaic); sized by --mosaic-size ---- */
+.luw .mosaic {
+  display:grid; grid-template-columns:repeat(2, 1fr); gap:4px; padding:4px; box-sizing:border-box;
+  inline-size:var(--mosaic-size, 72px); aspect-ratio:1; flex:none;
+  border-radius:12px; background:var(--surface-3);
+}
+.luw .mosaic-tile { border-radius:6px; overflow:hidden; background:var(--surface-2); aspect-ratio:1; }
+.luw .mosaic-tile img { display:block; inline-size:100%; block-size:100%; object-fit:cover; }
+.luw .mosaic-tile.is-empty { background:var(--paper-2); }

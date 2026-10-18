@@ -1,25 +1,49 @@
 import SwiftUI
 
-/// The "Recently Added" section: a section title and a horizontally scrolling rail of
-/// recently added cover cards, each with a relative "added" time. Card width is width-driven
-/// by the caller so the rail reads larger on iPad. Renders loading / ready / error.
+/// Recently Added, last on Discover (spec §2.8): what the library gained, each book saying when. The
+/// heading is the way into the Library — Books sorted Added, newest first, for this session — drawn as
+/// a title with a chevron (HIG: a header that navigates). A rail at compact width; a grid of
+/// every book at regular width. Renders loading / ready / error.
 struct RecentlyAddedSection: View {
+    /// Cards per row in the regular-width grid: six books, as the board lays them (spec §3.7).
+    static let regularColumnCount = 6
+
     let phase: RecentlyAddedPhase
     let cardWidth: CGFloat
     /// Horizontal inset so the rail's first/last cards align with the screen's content margin.
     let horizontalInset: CGFloat
+    let isRegular: Bool
     /// Screen-wide multi-select; `nil` disables selection for this rail.
     var selection: BookSelectionObserver?
 
+    @Environment(\.openLibraryNewestFirst) private var openLibraryNewestFirst
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "discover.recently_added"))
-                .font(.title2.bold())
-                .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            header
                 .padding(.horizontal, horizontalInset)
 
             content
         }
+    }
+
+    private var header: some View {
+        Button(action: openLibraryNewestFirst) {
+            HStack(spacing: Spacing.xxs) {
+                Text(String(localized: "discover.recently_added_ios"))
+                    .font(.title2.bold())
+                    .foregroundStyle(.primary)
+                Image(systemName: "chevron.forward")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityHint(String(localized: "discover.show_newest_in_library_a11y"))
     }
 
     @ViewBuilder
@@ -33,13 +57,14 @@ struct RecentlyAddedSection: View {
             if books.isEmpty {
                 message(String(localized: "discover.no_recently_added_books"))
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 16) {
-                        ForEach(books) { book in
-                            RecentlyAddedCard(book: book, width: cardWidth, selection: selection)
-                        }
-                    }
-                    .padding(.horizontal, horizontalInset)
+                DiscoverCardGrid(
+                    items: books,
+                    isRegular: isRegular,
+                    cardWidth: cardWidth,
+                    regularColumnCount: Self.regularColumnCount,
+                    horizontalInset: horizontalInset
+                ) { book, width in
+                    RecentlyAddedCard(book: book, width: width, selection: selection)
                 }
             }
         case .error:

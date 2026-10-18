@@ -1,23 +1,25 @@
 import SwiftUI
 
-/// A cover card in the "New for You" rail: a rounded cover with the title below and the
-/// author as a calmer caption. Tapping navigates to the book's detail. Width is width-driven by
-/// the caller (wider on iPad) so the rail reads as a real layout at every size.
+/// A Something New pick: the cover, the title, the author, which book of its series it is, and how
+/// long it runs (spec X6, X7). Tapping opens the book. `width` nil fills the grid cell it is given.
 ///
 /// When `selection` is supplied and selecting, the cover shows a selection circle and a tap toggles
 /// selection instead of navigating; a long-press is the secondary entry. `nil` = navigation only.
-struct DiscoverCoverCard: View {
+struct PickCard: View {
     let book: DiscoverBook
-    let width: CGFloat
+    let width: CGFloat?
     var selection: BookSelectionObserver?
 
     @Environment(\.restrictedBooks) private var restrictedBooks
 
+    private var seriesLine: String { DiscoverCopy.seriesLine(series: book.seriesName, sequence: book.sequenceLabel) }
+    private var length: String { DiscoverCopy.length(ms: book.durationMs) }
+
     var body: some View {
         SelectableBookCard(bookId: book.id, selection: selection) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
-                    .frame(width: width, height: width)
+                    .aspectRatio(1, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.l))
                     .restrictedMarker(bookId: book.id, isSelecting: selection?.isSelecting ?? false)
                     .coverHoverEffect(cornerRadius: Radius.l)
@@ -29,13 +31,11 @@ struct DiscoverCoverCard: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-
                     if let author = book.author, !author.isEmpty {
-                        Text(author)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                        captionLine(author)
                     }
+                    captionLine(seriesLine)
+                    captionLine(length)
                 }
             }
             .frame(width: width, alignment: .leading)
@@ -44,9 +44,16 @@ struct DiscoverCoverCard: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             RestrictedMarker.label(
-                book.author.map { "\(book.title), \($0)" } ?? book.title,
+                [book.title, book.author, seriesLine, length].compactMap { $0 }.joined(separator: ", "),
                 isRestricted: restrictedBooks?.isRestricted(book.id) == true
             )
         )
+    }
+
+    private func captionLine(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
     }
 }

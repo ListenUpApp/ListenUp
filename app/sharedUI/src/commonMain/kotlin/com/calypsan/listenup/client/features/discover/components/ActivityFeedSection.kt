@@ -5,21 +5,31 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -27,123 +37,127 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.client.presentation.error.localized
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AvatarSize
+import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
-import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.ActivityParts
-import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
+import com.calypsan.listenup.client.presentation.discover.activityParts
+import com.calypsan.listenup.client.presentation.error.localized
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.discover_activity_feed
+import listenup.composeapp.generated.resources.discover_activity
+import listenup.composeapp.generated.resources.discover_activity_profile_a11y
+import listenup.composeapp.generated.resources.discover_activity_show_less
+import listenup.composeapp.generated.resources.discover_activity_you
+import listenup.composeapp.generated.resources.discover_activity_your_profile_a11y
 import listenup.composeapp.generated.resources.discover_no_activity_yet_start_listening
+import listenup.composeapp.generated.resources.discover_see_all_activity
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.viewmodel.koinViewModel
 
-/** Cap the section to the most recent few activities. */
-private const val ACTIVITY_LIMIT = 5
+/** Rows shown before "See all activity". */
+private const val ACTIVITY_CAP = 6
 
 /**
- * Activity Feed section for the Discover screen.
+ * Discover's "Activity": what people on the server have been doing, newest first, in the one shared
+ * sentence ([activityParts]). Your own rows read "You". Every row leads somewhere: a book row opens
+ * the book, a shelf row the shelf, and a row with neither (a join, a milestone) the person. The
+ * avatar is its own profile link beside the row's.
  *
- * Displays recent community activities:
- * - Started/finished books
- * - Streak milestones
- * - Listening hour milestones
- * - Created shelves
+ * Six rows show, then "See all activity". Until PR 6's See all screen exists the link expands the
+ * section in place to the full feed and then reads "Show less"; PR 6 swaps this for navigation (plan Q1).
  *
- * Offline-first: All data comes from Room, synced via firehose events.
- *
- * @param onBookClick Callback when a book is clicked
- * @param onShelfClick Callback when a shelf is clicked
- * @param onUserClick Callback when a user's avatar is clicked (navigates to their profile)
- * @param modifier Modifier from parent
- * @param viewModel ActivityFeedViewModel injected via Koin
+ * Loading, Error and an empty feed keep today's rendering (PR 6).
  */
 @Composable
-fun ActivityFeedSection(
+internal fun ActivityFeedSection(
+    state: ActivityFeedUiState,
     onBookClick: (String) -> Unit,
     onShelfClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ActivityFeedViewModel = koinViewModel(),
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    Column(modifier = modifier.fillMaxWidth()) {
+        SectionTitle(title = stringResource(Res.string.discover_activity))
 
-    Card(
-        modifier =
-            modifier.fillMaxWidth(),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            ),
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // Header
-            Text(
-                text = stringResource(Res.string.discover_activity_feed),
-                style = MaterialTheme.typography.titleLargeEmphasized,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-
-            when (val s = state) {
-                is ActivityFeedUiState.Loading -> {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(100.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ListenUpLoadingIndicatorSmall()
-                    }
+        when (val s = state) {
+            is ActivityFeedUiState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ListenUpLoadingIndicatorSmall()
                 }
+            }
 
-                is ActivityFeedUiState.Error -> {
+            is ActivityFeedUiState.Error -> {
+                Text(
+                    text = s.error.localized(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            is ActivityFeedUiState.Ready -> {
+                if (s.isEmpty) {
                     Text(
-                        text = s.error.localized(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        text = stringResource(Res.string.discover_no_activity_yet_start_listening),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-
-                is ActivityFeedUiState.Ready -> {
-                    if (s.isEmpty) {
-                        Text(
-                            text = stringResource(Res.string.discover_no_activity_yet_start_listening),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        s.activities.take(ACTIVITY_LIMIT).forEach { activity ->
-                            ActivityItem(
-                                activity = activity,
-                                onBookClick = onBookClick,
-                                onShelfClick = onShelfClick,
-                                onUserClick = onUserClick,
-                            )
-                        }
-                    }
+                } else {
+                    ActivityRows(
+                        activities = s.activities,
+                        onBookClick = onBookClick,
+                        onShelfClick = onShelfClick,
+                        onUserClick = onUserClick,
+                    )
                 }
             }
         }
     }
 }
 
+@Composable
+private fun ActivityRows(
+    activities: List<ActivityUiModel>,
+    onBookClick: (String) -> Unit,
+    onShelfClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val visible = if (expanded) activities else activities.take(ACTIVITY_CAP)
+    visible.forEachIndexed { index, activity ->
+        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        ActivityItem(
+            activity = activity,
+            onBookClick = onBookClick,
+            onShelfClick = onShelfClick,
+            onUserClick = onUserClick,
+        )
+    }
+    if (activities.size > ACTIVITY_CAP) {
+        TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text =
+                    if (expanded) {
+                        stringResource(Res.string.discover_activity_show_less)
+                    } else {
+                        stringResource(Res.string.discover_see_all_activity)
+                    },
+            )
+        }
+    }
+}
+
 /**
- * Single activity row: avatar + a one-line sentence ("**who** action **book**") with the actor and
- * the book/shelf name emphasized (the latter in the brand colour) + a relative timestamp beneath.
+ * One row: the avatar (its own profile link), then one link holding the sentence, when it happened
+ * and, for a book, its cover.
  */
 @Composable
 private fun ActivityItem(
@@ -151,69 +165,100 @@ private fun ActivityItem(
     onBookClick: (String) -> Unit,
     onShelfClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
     val parts = remember(activity) { activityParts(activity) }
+    val actor = if (activity.isYou) stringResource(Res.string.discover_activity_you) else activity.userDisplayName
+    val profileLabel =
+        if (activity.isYou) {
+            stringResource(Res.string.discover_activity_your_profile_a11y)
+        } else {
+            stringResource(Res.string.discover_activity_profile_a11y, activity.userDisplayName)
+        }
 
-    val actorColor = MaterialTheme.colorScheme.onSurface
     val bodyColor = MaterialTheme.colorScheme.onSurface
     val highlightColor = MaterialTheme.colorScheme.primary
     val line =
-        remember(parts, actorColor, bodyColor, highlightColor) {
-            activityLine(
-                actor = activity.userDisplayName,
-                parts = parts,
-                actorColor = actorColor,
-                bodyColor = bodyColor,
-                highlightColor = highlightColor,
-            )
+        remember(actor, parts, bodyColor, highlightColor) {
+            activityLine(actor = actor, parts = parts, bodyColor = bodyColor, highlightColor = highlightColor)
         }
 
     val bookId = activity.bookId
     val shelfId = activity.shelfId
-    val isClickable = bookId != null || shelfId != null
+    val openTarget: () -> Unit =
+        when {
+            bookId != null -> {
+                { onBookClick(bookId) }
+            }
+
+            shelfId != null -> {
+                { onShelfClick(shelfId) }
+            }
+
+            // X31: a row with neither book nor shelf opens the person it is about.
+            else -> {
+                { onUserClick(activity.userId) }
+            }
+        }
 
     Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.small)
-                .then(
-                    if (isClickable) {
-                        Modifier.clickable {
-                            haptics.press()
-                            when {
-                                bookId != null -> onBookClick(bookId)
-                                shelfId != null -> onShelfClick(shelfId)
-                            }
-                        }
-                    } else {
-                        Modifier
-                    },
-                ).padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        UserAvatar(
-            userId = activity.userId,
-            size = AvatarSize.Medium,
-            onClick = { onUserClick(activity.userId) },
-        )
-
-        Spacer(modifier = Modifier.width(14.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = line,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+        Box(
+            modifier =
+                Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .clickable(role = Role.Button, onClickLabel = profileLabel) {
+                        haptics.press()
+                        onUserClick(activity.userId)
+                    }.semantics { contentDescription = profileLabel },
+            contentAlignment = Alignment.Center,
+        ) {
+            UserAvatar(
+                userId = activity.userId,
+                size = AvatarSize.Medium,
+                fallbackName = activity.userDisplayName,
+                modifier = Modifier.clearAndSetSemantics {},
             )
-            Text(
-                text = relativeTime(activity.occurredAt),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        }
+        Row(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = 52.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .clickable(role = Role.Button) {
+                        haptics.press()
+                        openTarget()
+                    }.semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = relativeTime(activity.occurredAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (bookId != null) {
+                BookCoverImage(
+                    bookId = bookId,
+                    coverPath = activity.bookCoverPath,
+                    contentDescription = null,
+                    coverHash = activity.bookCoverHash,
+                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).testTag("activity-cover"),
+                )
+            }
         }
     }
 }
@@ -222,12 +267,11 @@ private fun ActivityItem(
 private fun activityLine(
     actor: String,
     parts: ActivityParts,
-    actorColor: androidx.compose.ui.graphics.Color,
-    bodyColor: androidx.compose.ui.graphics.Color,
-    highlightColor: androidx.compose.ui.graphics.Color,
+    bodyColor: Color,
+    highlightColor: Color,
 ): AnnotatedString =
     buildAnnotatedString {
-        withStyle(SpanStyle(color = actorColor, fontWeight = FontWeight.Bold)) {
+        withStyle(SpanStyle(color = bodyColor, fontWeight = FontWeight.Bold)) {
             append(actor)
         }
         withStyle(SpanStyle(color = bodyColor)) {

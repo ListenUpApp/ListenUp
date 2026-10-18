@@ -30,6 +30,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldBeEmpty
 import com.calypsan.listenup.web.awaitFrame
 import org.w3c.dom.asList
+import kotlinx.browser.document
 
 /** A day in milliseconds — far enough back that the relative time is stable to read. */
 private const val TWO_DAYS_MS = 172_800_000L
@@ -96,6 +97,7 @@ private fun activity(
     milestoneUnit = null,
     shelfId = null,
     shelfName = null,
+    isYou = false,
 )
 
 @Composable
@@ -116,6 +118,7 @@ private fun page(
     onRefresh: () -> Unit = {},
     onRefreshLeaderboard: () -> Unit = {},
     onRefreshActivity: () -> Unit = {},
+    landOnLeaderboard: Boolean = false,
     selection: BookSelection? = null,
 ) {
     DiscoverPage(
@@ -135,6 +138,9 @@ private fun page(
         onRefresh = onRefresh,
         onRefreshLeaderboard = onRefreshLeaderboard,
         onRefreshActivity = onRefreshActivity,
+        onShuffle = {},
+        onOpenLibraryNewest = {},
+        landOnLeaderboard = landOnLeaderboard,
         selection = selection,
     )
 }
@@ -158,9 +164,9 @@ class DiscoverPageTest :
 
             val headings = host.querySelectorAll(".disc-section-h")
             headings.length shouldBe DISCOVER_SECTIONS
-            host.textContent.orEmpty() shouldContain "What others are listening to"
+            host.textContent.orEmpty() shouldContain "Listening now"
             host.textContent.orEmpty() shouldContain "Leaderboard"
-            host.textContent.orEmpty() shouldContain "Shelves from others"
+            host.textContent.orEmpty() shouldContain "Shelves by others"
         }
 
         test("one section failing costs exactly that section") {
@@ -283,9 +289,9 @@ class DiscoverPageTest :
                     )
                 }
 
-            val on = host.querySelectorAll(".disc-chip.is-on")
-            (on.item(0) as HTMLElement).textContent shouldBe "7 days"
-            (host.querySelectorAll(".disc-chip").item(3) as HTMLElement).click()
+            val on = host.querySelectorAll("[role=radio][aria-checked=true]")
+            (on.item(0) as HTMLElement).textContent shouldBe "Week"
+            (host.querySelectorAll("[role=radio]").item(3) as HTMLElement).click()
             period shouldBe LeaderboardPeriod.AllTime
         }
 
@@ -335,15 +341,15 @@ class DiscoverPageTest :
                     )
                 }
 
-            val on = host.querySelectorAll(".disc-chip.is-on")
+            val on = host.querySelectorAll("[role=radio][aria-checked=true]")
             // Exactly one period and one category, never two of either.
             on.length shouldBe 2
-            (on.item(0) as HTMLElement).textContent shouldBe "30 days"
+            (on.item(0) as HTMLElement).textContent shouldBe "Month"
             (on.item(1) as HTMLElement).textContent shouldBe "Time"
-            (on.item(0) as HTMLElement).getAttribute("aria-pressed") shouldBe "true"
+            host.querySelectorAll("[role=radio][aria-checked=false]").length shouldBe 5
         }
 
-        test("the periods say what they count: four trailing windows, in order, read out in full") {
+        test("the periods are one word each, the same on every platform: Week, Month, Year, All time") {
             val host =
                 mounts.mount {
                     page(
@@ -355,11 +361,9 @@ class DiscoverPageTest :
                     )
                 }
 
-            val chips = host.querySelectorAll(".disc-chip")
+            val chips = host.querySelectorAll("[role=radio]")
             val periods = (0 until 4).map { chips.item(it) as HTMLElement }
-            periods.map { it.textContent } shouldBe listOf("7 days", "30 days", "12 months", "All time")
-            periods.map { it.getAttribute("aria-label") } shouldBe
-                listOf("Last 7 days", "Last 30 days", "Last 12 months", "All time")
+            periods.map { it.textContent } shouldBe listOf("Week", "Month", "Year", "All time")
         }
 
         test("pressing a period and a category reports each once, and not the other") {
@@ -378,8 +382,8 @@ class DiscoverPageTest :
                     )
                 }
 
-            val chips = host.querySelectorAll(".disc-chip")
-            // Periods first (7 days, 30 days, 12 months, All time), then the three categories.
+            val chips = host.querySelectorAll("[role=radio]")
+            // Periods first (Week, Month, Year, All time), then the three categories.
             (chips.item(2) as HTMLElement).click()
             period shouldBe LeaderboardPeriod.Year
             category shouldBe null
@@ -411,8 +415,9 @@ class DiscoverPageTest :
             host.querySelector(".disc-lb-stat")!!.textContent shouldBe "90 days"
         }
 
-        test("an activity about a book opens it; one about nothing is not pressable") {
-            // A control that looks tappable and does nothing is worse than plain text.
+        test("a row's subject opens its book; a row with neither book nor shelf leaves the person as its link") {
+            // A control that looks tappable and does nothing is worse than plain text: a join has
+            // no subject to open, so its only links are the person's.
             var opened: String? = null
             val host =
                 mounts.mount {
@@ -425,14 +430,16 @@ class DiscoverPageTest :
 
             val rows = host.querySelectorAll(".disc-feed-row")
             rows.length shouldBe 2
-            (rows.item(0) as HTMLElement).tagName shouldBe "BUTTON"
-            (rows.item(1) as HTMLElement).tagName shouldBe "DIV"
+            (rows.item(0) as HTMLElement).querySelectorAll(".disc-feed-hi").length shouldBe 1
+            (rows.item(1) as HTMLElement).querySelectorAll("a").asList().all {
+                (it as HTMLElement).getAttribute("href") == "/profile/u1"
+            } shouldBe true
 
-            (rows.item(0) as HTMLElement).click()
+            ((rows.item(0) as HTMLElement).querySelector(".disc-feed-hi") as HTMLElement).click()
             opened shouldBe "b1"
         }
 
-        test("a shared shelf opens, grouped under whoever made it") {
+        test("a shared shelf is a link, grouped under whoever made it") {
             var opened: String? = null
             val host =
                 mounts.mount {
@@ -454,8 +461,8 @@ class DiscoverPageTest :
                     )
                 }
 
-            host.textContent.orEmpty() shouldContain "Ada"
-            host.querySelectorAll(".disc-shelf").length shouldBe 2
+            (host.querySelector(".disc-owner") as HTMLElement).textContent.orEmpty() shouldContain "Ada"
+            host.querySelectorAll("a.disc-shelf").length shouldBe 2
             // The second one, so a mis-wired click handler cannot pass by always reporting the first.
             (host.querySelectorAll(".disc-shelf").item(1) as HTMLElement).click()
             opened shouldBe "s2"
@@ -531,19 +538,20 @@ class DiscoverPageTest :
                 }
 
             host
-                .querySelectorAll(".disc-person")
+                .querySelectorAll("a[href^='/profile/'], button.disc-person")
                 .asList()
                 .filterIsInstance<HTMLElement>()
                 .forEach { it.click() }
             awaitFrame()
 
-            // The listener card, the leaderboard row and the activity line — each its own person.
+            // The listener card, the leaderboard row, and the activity row's avatar — each its own person. The
+            // activity row's body opens its book, so the person is not linked twice in one row.
             opened shouldContainExactly listOf("u1", "u-Grace", "u1")
         }
 
         test("opening a listener's profile does not also open the book they are on") {
-            // ⛔ The name sits inside the card, and the card is itself a button that opens the book.
-            // Without stopping propagation the browser runs both and the reader lands on the book.
+            // ⛔ The name sits under the book link on the card. They are siblings, never one inside
+            // the other, so opening the person cannot also open the book.
             val profiles = mutableListOf<String>()
             val books = mutableListOf<String>()
             val host =
@@ -556,14 +564,14 @@ class DiscoverPageTest :
                     )
                 }
 
-            (host.querySelector(".disc-listener-who") as HTMLElement).click()
+            (host.querySelector(".disc-listener .disc-person") as HTMLElement).click()
             awaitFrame()
 
             profiles shouldContainExactly listOf("u1")
             books.shouldBeEmpty()
         }
 
-        test("a name is a control, not text that happens to respond") {
+        test("a name is a link, not text that happens to respond") {
             val host =
                 mounts.mount {
                     page(
@@ -572,8 +580,8 @@ class DiscoverPageTest :
                     )
                 }
 
-            val name = host.querySelector(".disc-listener-who") as HTMLElement
-            name.tagName.lowercase() shouldBe "button"
+            val name = host.querySelector(".disc-listener .disc-person") as HTMLElement
+            name.tagName.lowercase() shouldBe "a"
         }
 
         // ⛔ The idle state production always renders — the scaffold supplies a BookSelection even
@@ -649,10 +657,35 @@ class DiscoverPageTest :
                     )
                 }
 
-            (host.querySelector(".disc-feed-row.is-open") as HTMLElement).click()
+            (host.querySelector(".disc-feed-hi") as HTMLElement).click()
 
             opened shouldBe FEED_BOOK_ID
             picked shouldBe emptyList()
+        }
+
+        test("landing on the leaderboard selects Week once and focuses its heading") {
+            val periods = mutableListOf<LeaderboardPeriod>()
+            mounts.mount {
+                page(
+                    leaderboard =
+                        LeaderboardUiState.Data(snapshot = LeaderboardSnapshot(listOf(entry("Ada")), emptyList(), emptyList())),
+                    leaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Year, LeaderboardCategory.Time),
+                    onSelectPeriod = { periods += it },
+                    landOnLeaderboard = true,
+                )
+            }
+            awaitFrame()
+
+            periods shouldBe listOf(LeaderboardPeriod.Week)
+            document.activeElement?.textContent shouldBe "Leaderboard"
+        }
+
+        test("without a landing, nothing is selected for the reader and focus stays put") {
+            val periods = mutableListOf<LeaderboardPeriod>()
+            mounts.mount { page(onSelectPeriod = { periods += it }) }
+            awaitFrame()
+
+            periods.shouldBeEmpty()
         }
     })
 

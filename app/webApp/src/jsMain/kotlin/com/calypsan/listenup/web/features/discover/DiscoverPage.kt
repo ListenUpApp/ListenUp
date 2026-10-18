@@ -1,72 +1,27 @@
 package com.calypsan.listenup.web.features.discover
 
-import com.calypsan.listenup.web.design.RestrictedMarker
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
-import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
-import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
-import com.calypsan.listenup.client.presentation.discover.activityParts
-import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
-import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
-import com.calypsan.listenup.client.util.relativeLastActive
-import com.calypsan.listenup.web.design.UnderHeading
-import com.calypsan.listenup.web.design.ButtonKind
-import com.calypsan.listenup.web.design.Button
-import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.PageHeader
-import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.features.books.BookSelection
-import com.calypsan.listenup.web.design.Cover
-import com.calypsan.listenup.web.design.coverUrl
-import com.calypsan.listenup.web.features.shelf.bookCountLabel
-import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.Button
+import com.calypsan.listenup.web.features.match.TwoPaneWatch
+import org.jetbrains.compose.web.dom.Aside
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
-import org.jetbrains.compose.web.dom.P
-import org.jetbrains.compose.web.dom.Span
-import org.jetbrains.compose.web.dom.Text
-
-/** Cover size for a discovery card, in px. Square, like the artwork. */
-private const val CARD_COVER_WIDTH = 140
-
-/**
- * A person's name, as the way to reach them.
- *
- * A `<button>` rather than the `<span>` these all used to be: it is a real control, so it is
- * focusable, announced, and reachable without a mouse. It keeps the span's class so the surrounding
- * layout is unchanged — only the element and its behaviour differ.
- */
-@Composable
-private fun PersonLink(
-    name: String,
-    userId: String,
-    onOpenProfile: (String) -> Unit,
-    styleClass: String,
-) {
-    Button(attrs = {
-        classes(styleClass, "disc-person")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        onClick { event ->
-            // The listener card around this is itself a button that opens the book. Without this
-            // the browser would run both and the reader would land on the book they did not click.
-            event.stopPropagation()
-            onOpenProfile(userId)
-        }
-    }) { Text(name) }
-}
-
-/** Cover width for a listener row's book, in px. */
-private const val LISTENER_COVER_WIDTH = 56
+import org.w3c.dom.HTMLElement
 
 /**
  * Discover — the social half of the app, and the only screen that shows the reader other people.
@@ -119,515 +74,92 @@ fun DiscoverPage(
     onRefreshLeaderboard: () -> Unit,
     /** Re-runs a failed activity feed — its own ViewModel's refresh, not Discover's. */
     onRefreshActivity: () -> Unit,
+    /** Draws ten different picks for Something new. */
+    onShuffle: () -> Unit,
+    /** Opens the Library's Books sorted newest first, for this visit (Recently added's link). */
+    onOpenLibraryNewest: () -> Unit,
+    /**
+     * Arrived at `/discover?section=leaderboard` (the stats card's footer link): select Week, then
+     * bring the leaderboard into view and focus its heading (spec §6.4).
+     */
+    landOnLeaderboard: Boolean = false,
 ) {
+    // Spent on the first landing, as Admin's pending landing is: a later period pick is the reader's own.
+    var landing by remember(landOnLeaderboard) { mutableStateOf(landOnLeaderboard) }
+    LaunchedEffect(landOnLeaderboard) { if (landOnLeaderboard) onSelectPeriod(LeaderboardPeriod.Week) }
+
     Div(attrs = { classes("disc") }) {
-        PageHeader(title = "Discover")
+        PageHeader(title = "Discover", subtitle = DiscoverWords.PAGE_SUBTITLE)
 
-        CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection, onRefresh)
-        DiscoverBooksSection(books, onOpenBook, selection, onRefresh)
-        RecentlyAddedSection(recentlyAdded, onOpenBook, selection, onRefresh)
-        SharedShelvesSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
-        LeaderboardSection(
-            leaderboard,
-            leaderboardSelection,
-            onSelectPeriod,
-            onSelectCategory,
-            onOpenProfile,
-            onRefreshLeaderboard,
-        )
-        ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile, onRefreshActivity)
-    }
-}
-
-/**
- * "What others are listening to" — the section that makes this a shared library rather than a
- * private one, which is why it leads.
- *
- * Two kinds of row in one list: anyone with a live session, marked "Listening now", then everyone
- * else on the book they last played. [CurrentlyListeningUiSession.isLive] says which.
- */
-@Composable
-private fun CurrentlyListeningSection(
-    state: CurrentlyListeningUiState,
-    nowMs: Long,
-    onOpenBook: (String) -> Unit,
-    onOpenProfile: (String) -> Unit,
-    selection: BookSelection?,
-    onRefresh: () -> Unit,
-) {
-    Section("What others are listening to") {
-        when (state) {
-            is CurrentlyListeningUiState.Loading -> {
-                SectionSkeleton()
+        // The DOM is the reading order, and so the Tab order: spec order in one column, and the main
+        // column before the Community aside once the grid sets the aside beside it (plan D3).
+        var body by remember { mutableStateOf<HTMLElement?>(null) }
+        var isWide by remember { mutableStateOf(false) }
+        TwoPaneWatch(body, useTwoPane = { isWide = it }, twoPaneQuery = DISCOVER_WIDE_QUERY)
+        Div(attrs = {
+            classes("disc-body")
+            ref { element ->
+                body = element
+                onDispose { body = null }
             }
-
-            is CurrentlyListeningUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
-            }
-
-            is CurrentlyListeningUiState.Ready -> {
-                if (state.isEmpty) {
-                    EmptyState(title = "Nobody else is listening yet", body = "When they do, you will see them here.")
-                } else {
-                    Div(attrs = { classes("disc-listeners") }) {
-                        state.sessions.forEach { s ->
-                            key(s.sessionId) {
-                                ListenerCard(s, nowMs, onOpenBook, onOpenProfile, selection)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ListenerCard(
-    session: CurrentlyListeningUiSession,
-    nowMs: Long,
-    onOpenBook: (String) -> Unit,
-    onOpenProfile: (String) -> Unit,
-    selection: BookSelection?,
-) {
-    Button(attrs = {
-        classes("disc-listener")
-        if (selection?.isSelected(session.bookId) == true) classes("is-sel")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        attr("aria-label", "${session.displayName} — ${session.bookTitle}")
-        onClick { selection.press(session.bookId) { onOpenBook(session.bookId) } }
-    }) {
-        Cover(
-            title = session.bookTitle,
-            imageUrl = coverUrl(session.bookId, session.coverHash, width = LISTENER_COVER_WIDTH),
-            size = LISTENER_COVER_WIDTH,
-            decorative = true,
-            overlay = { RestrictedMarker(session.bookId, compact = true) },
-        )
-        Div(attrs = { classes("disc-listener-text") }) {
-            // ⛔ The name, not the card: the card opens the book, and a second click target inside
-            // a button is not one — so the name is a sibling of the card, rendered as a link.
-            PersonLink(session.displayName, session.userId, onOpenProfile, "disc-listener-who")
-            Span(attrs = { classes("disc-listener-book") }) { Text(session.bookTitle) }
-            Span(attrs = {
-                // The live marker is the one thing on this page that changes while you watch it.
-                classes(if (session.isLive) "disc-live" else "disc-when")
-            }) {
-                Text(if (session.isLive) "Listening now" else relativeLastActive(session.lastActiveAt, nowMs))
-            }
-        }
-    }
-}
-
-/** "Something new" — books the reader has never started, so the shelf keeps offering a way in. */
-@Composable
-private fun DiscoverBooksSection(
-    state: DiscoverBooksUiState,
-    onOpenBook: (String) -> Unit,
-    selection: BookSelection?,
-    onRefresh: () -> Unit,
-) {
-    Section("Something new") {
-        when (state) {
-            is DiscoverBooksUiState.Loading -> {
-                SectionSkeleton()
-            }
-
-            is DiscoverBooksUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
-            }
-
-            is DiscoverBooksUiState.Ready -> {
-                if (state.isEmpty) {
-                    EmptyState(title = "Nothing left to discover", body = "You have started everything in the library.")
-                } else {
-                    Div(attrs = { classes("disc-grid") }) {
-                        state.books.forEach { book ->
-                            key(book.id) {
-                                BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** "Recently added" — what the library gained while the reader was away. */
-@Composable
-private fun RecentlyAddedSection(
-    state: RecentlyAddedUiState,
-    onOpenBook: (String) -> Unit,
-    selection: BookSelection?,
-    onRefresh: () -> Unit,
-) {
-    Section("Recently added") {
-        when (state) {
-            is RecentlyAddedUiState.Loading -> {
-                SectionSkeleton()
-            }
-
-            is RecentlyAddedUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
-            }
-
-            is RecentlyAddedUiState.Ready -> {
-                if (state.isEmpty) {
-                    EmptyState(title = "Nothing new yet", body = "Books appear here as they are added to the library.")
-                } else {
-                    Div(attrs = { classes("disc-grid") }) {
-                        state.books.forEach { book ->
-                            key(book.id) {
-                                BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BookCard(
-    bookId: String,
-    title: String,
-    authorName: String?,
-    coverHash: String?,
-    onOpenBook: (String) -> Unit,
-    selection: BookSelection?,
-) {
-    Button(attrs = {
-        classes("disc-card")
-        if (selection?.isSelected(bookId) == true) classes("is-sel")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        onClick { selection.press(bookId) { onOpenBook(bookId) } }
-    }) {
-        Cover(
-            title = title,
-            imageUrl = coverUrl(bookId, coverHash, width = CARD_COVER_WIDTH),
-            size = CARD_COVER_WIDTH,
-            decorative = true,
-            overlay = { RestrictedMarker(bookId) },
-        )
-        Span(attrs = { classes("disc-card-t") }) { Text(title) }
-        authorName?.let { Span(attrs = { classes("disc-card-sub") }) { Text(it) } }
-    }
-}
-
-/**
- * The leaderboard: a period, a category, and a ranking.
- *
- * Both controls are cheap — all three categories arrive in one snapshot, so switching a tab is a
- * list pick rather than a query. The period genuinely re-queries, which is why it reads as the
- * outer control.
- *
- * The controls render in every state, from [selection], as on Android and iOS: a period nobody
- * listened in is Empty, and the way out of it is another period.
- */
-@Composable
-private fun LeaderboardSection(
-    state: LeaderboardUiState,
-    selection: LeaderboardSelection,
-    onSelectPeriod: (LeaderboardPeriod) -> Unit,
-    onSelectCategory: (LeaderboardCategory) -> Unit,
-    onOpenProfile: (String) -> Unit,
-    onRefresh: () -> Unit,
-) {
-    Section("Leaderboard") {
-        Div(attrs = { classes("disc-lb-controls") }) {
-            Div(attrs = { classes("disc-chips") }) {
-                PERIODS.forEach { tab ->
-                    Chip(
-                        tab.label,
-                        selected = tab.period == selection.period,
-                        accessibleLabel = tab.accessibleLabel,
-                    ) {
-                        onSelectPeriod(tab.period)
-                    }
-                }
-            }
-            Div(attrs = { classes("disc-chips") }) {
-                LeaderboardCategory.entries.forEach { category ->
-                    Chip(categoryLabel(category), selected = category == selection.category) {
-                        onSelectCategory(category)
-                    }
-                }
-            }
-        }
-
-        when (state) {
-            is LeaderboardUiState.Loading -> {
-                SectionSkeleton()
-            }
-
-            is LeaderboardUiState.Empty -> {
-                EmptyState(title = "No listening recorded yet", body = "The board fills in as people listen.")
-            }
-
-            is LeaderboardUiState.Error -> {
-                // Every section's failure offers the same way back: Try again, which always works.
-                SectionError("The leaderboard could not be loaded.", onRetry = onRefresh)
-            }
-
-            is LeaderboardUiState.Data -> {
-                val entries = leaderboardEntries(state.snapshot, selection.category)
-                if (entries.isEmpty()) {
-                    EmptyState(title = "Nothing in this category yet", body = "Try another period.")
-                } else {
-                    Div(attrs = { classes("disc-lb") }) {
-                        entries.forEach { entry ->
-                            key(entry.userId) {
-                                Div(attrs = { classes("disc-lb-row") }) {
-                                    Span(attrs = { classes("disc-lb-rank") }) { Text("${entry.rank}") }
-                                    PersonLink(entry.displayName, entry.userId, onOpenProfile, "disc-lb-name")
-                                    Span(attrs = { classes("disc-lb-stat", "mono") }) {
-                                        Text(leaderboardLabel(entry, selection.category))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** The feed: who did what, most recent first. */
-@Composable
-private fun ActivityFeedSection(
-    state: ActivityFeedUiState,
-    nowMs: Long,
-    onOpenBook: (String) -> Unit,
-    onOpenProfile: (String) -> Unit,
-    onRefresh: () -> Unit,
-) {
-    Section("Recent activity") {
-        when (state) {
-            is ActivityFeedUiState.Loading -> {
-                SectionSkeleton()
-            }
-
-            is ActivityFeedUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
-            }
-
-            is ActivityFeedUiState.Ready -> {
-                if (state.isEmpty) {
-                    EmptyState(
-                        title = "Nothing has happened yet",
-                        body = "Activity from everyone on this server shows up here.",
-                    )
-                } else {
-                    Div(attrs = { classes("disc-feed") }) {
-                        state.activities.forEach { item ->
-                            key(item.id) {
-                                ActivityRow(item, nowMs, onOpenBook, onOpenProfile)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * One activity, as a sentence.
- *
- * A row with a book is clickable; one without (a streak, a join) is a plain div, because a control
- * that looks pressable and does nothing is worse than plain text.
- */
-@Composable
-private fun ActivityRow(
-    item: ActivityUiModel,
-    nowMs: Long,
-    onOpenBook: (String) -> Unit,
-    onOpenProfile: (String) -> Unit,
-) {
-    val parts = activityParts(item)
-    val bookId = item.bookId
-
-    val body: @Composable () -> Unit = {
-        Span(attrs = { classes("disc-feed-line") }) {
-            PersonLink(item.userDisplayName, item.userId, onOpenProfile, "disc-feed-who")
-            Text(" ${parts.predicate}")
-            parts.highlight?.let { highlight ->
-                Text(" ")
-                Span(attrs = { classes("disc-feed-hi") }) { Text(highlight) }
-            }
-            if (parts.suffix.isNotEmpty()) {
-                Text(parts.suffix)
-            }
-        }
-        Span(attrs = { classes("disc-when") }) { Text(relativeLastActive(item.occurredAt, nowMs)) }
-    }
-
-    if (bookId == null) {
-        Div(attrs = { classes("disc-feed-row") }) { body() }
-    } else {
-        Button(attrs = {
-            classes("disc-feed-row", "is-open")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { onOpenBook(bookId) }
         }) {
-            body()
-        }
-    }
-}
+            discoverReadingOrder(isWide).forEach { block ->
+                key(block) {
+                    when (block) {
+                        DiscoverBlock.ListeningNow -> {
+                            ListeningNowSection(
+                                currentlyListening,
+                                nowMs,
+                                onOpenBook,
+                                onOpenProfile,
+                                selection,
+                                onRefresh,
+                            )
+                        }
 
-// ── Shared section furniture ────────────────────────────────────────────────
+                        DiscoverBlock.SomethingNew -> {
+                            SomethingNewSection(books, onOpenBook, onShuffle, selection, onRefresh)
+                        }
 
-@Composable
-private fun Section(
-    heading: String,
-    content: @Composable () -> Unit,
-) {
-    Div(attrs = { classes("disc-section") }) {
-        H2(attrs = { classes("disc-section-h") }) { Text(heading) }
-        UnderHeading(level = SECTION_HEADING_LEVEL, content = content)
-    }
-}
-
-/**
- * The pre-first-emission state, said with a shape rather than a word.
- *
- * Deliberately silent about why: at this point the section does not know whether it is empty,
- * loading slowly or broken, and guessing out loud is how a page ends up lying.
- */
-@Composable
-private fun SectionSkeleton() {
-    Div(attrs = { classes("skel", "disc-skel") })
-}
-
-/**
- * A section that failed, and — when [onRetry] is given — the one way back without reloading the tab.
- *
- * [onRetry] is passed only where the ViewModel can actually recover that section. A "Try again"
- * over a flow that has already ended would be a control that does nothing, which is worse than none.
- */
-@Composable
-private fun SectionError(
-    message: String,
-    onRetry: (() -> Unit)? = null,
-) {
-    P(attrs = { classes("disc-error") }) { Text(message) }
-    onRetry?.let { retry ->
-        Button(
-            kind = ButtonKind.Secondary,
-            onClick = retry,
-            attrs = { classes("disc-retry") },
-        ) { Text("Try again") }
-    }
-}
-
-@Composable
-private fun Chip(
-    label: String,
-    selected: Boolean,
-    accessibleLabel: String? = null,
-    onSelect: () -> Unit,
-) {
-    Button(attrs = {
-        classes("disc-chip")
-        accessibleLabel?.let { attr("aria-label", it) }
-        if (selected) classes("is-on")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        // Pressed, not selected: these are buttons in a group, not a listbox, and `aria-pressed`
-        // is what a screen reader reads as "on" for a toggle-shaped control.
-        attr("aria-pressed", selected.toString())
-        onClick { onSelect() }
-    }) {
-        Text(label)
-    }
-}
-
-/** A period the board offers: the short word its tab shows, and the full window a screen reader hears. */
-private data class PeriodTab(
-    val period: LeaderboardPeriod,
-    val label: String,
-    val accessibleLabel: String,
-)
-
-/**
- * The periods the board offers. They are trailing windows (today plus the days before it), so the
- * labels name the window, not a calendar unit.
- */
-private val PERIODS: List<PeriodTab> =
-    listOf(
-        PeriodTab(LeaderboardPeriod.Week, "7 days", "Last 7 days"),
-        PeriodTab(LeaderboardPeriod.Month, "30 days", "Last 30 days"),
-        PeriodTab(LeaderboardPeriod.Year, "12 months", "Last 12 months"),
-        PeriodTab(LeaderboardPeriod.AllTime, "All time", "All time"),
-    )
-
-private fun categoryLabel(category: LeaderboardCategory): String =
-    when (category) {
-        LeaderboardCategory.Time -> "Time"
-        LeaderboardCategory.Books -> "Books"
-        LeaderboardCategory.Streak -> "Streak"
-    }
-
-private const val ATTR_TYPE = "type"
-
-private const val VALUE_BUTTON = "button"
-
-/**
- * Other people's shelves, grouped under the person who made them.
- *
- * Only public shelves reach here — the server filters, so this renders whatever it is given without
- * a privacy branch of its own. A client-side filter would be a second opinion about a question the
- * server has already answered, and the wrong place to be wrong.
- */
-@Composable
-private fun SharedShelvesSection(
-    state: DiscoverShelvesUiState,
-    onOpenShelf: (String) -> Unit,
-    onOpenProfile: (String) -> Unit,
-    onRefresh: () -> Unit,
-) {
-    Section("Shelves from others") {
-        when (state) {
-            is DiscoverShelvesUiState.Loading -> {
-                SectionSkeleton()
-            }
-
-            is DiscoverShelvesUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
-            }
-
-            is DiscoverShelvesUiState.Ready -> {
-                if (state.isEmpty) {
-                    EmptyState(title = "No shared shelves yet", body = "Shelves other people make public show up here.")
-                } else {
-                    state.users.forEach { owner ->
-                        key(owner.user.id) {
-                            Div(attrs = { classes("disc-shelf-owner") }) {
-                                PersonLink(
-                                    owner.user.displayName,
-                                    owner.user.id,
+                        DiscoverBlock.Community -> {
+                            Aside(attrs = {
+                                classes("disc-aside")
+                                attr("aria-label", COMMUNITY_LABEL)
+                            }) {
+                                LeaderboardSection(
+                                    leaderboard,
+                                    leaderboardSelection,
+                                    onSelectPeriod,
+                                    onSelectCategory,
                                     onOpenProfile,
-                                    "disc-shelf-who",
+                                    onRefreshLeaderboard,
+                                    land = landing,
+                                    onLanded = { landing = false },
                                 )
-                                Div(attrs = { classes("disc-shelves") }) {
-                                    owner.shelves.forEach { shelf ->
-                                        key(shelf.id) {
-                                            Button(attrs = {
-                                                classes("disc-shelf")
-                                                attr(ATTR_TYPE, VALUE_BUTTON)
-                                                onClick { onOpenShelf(shelf.id) }
-                                            }) {
-                                                Span(attrs = { classes("disc-shelf-t") }) { Text(shelf.name) }
-                                                Span(attrs = { classes("disc-shelf-sub") }) {
-                                                    Text(bookCountLabel(shelf.bookCount))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                ActivityFeedSection(
+                                    activity,
+                                    nowMs,
+                                    onOpenBook,
+                                    onOpenShelf,
+                                    onOpenProfile,
+                                    onRefreshActivity,
+                                )
                             }
+                        }
+
+                        DiscoverBlock.ShelvesByOthers -> {
+                            ShelvesByOthersSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
+                        }
+
+                        DiscoverBlock.RecentlyAdded -> {
+                            RecentlyAddedSection(
+                                recentlyAdded,
+                                nowMs,
+                                onOpenBook,
+                                onOpenLibraryNewest,
+                                selection,
+                                onRefresh,
+                            )
                         }
                     }
                 }
@@ -636,5 +168,35 @@ private fun SharedShelvesSection(
     }
 }
 
-/** A section's own heading is an H2, so anything headed inside it is an H3. */
-private const val SECTION_HEADING_LEVEL = 2
+/** Discover's page-body blocks; the Community aside is the leaderboard and the activity feed together. */
+internal enum class DiscoverBlock { ListeningNow, SomethingNew, Community, ShelvesByOthers, RecentlyAdded }
+
+/**
+ * The blocks in DOM order, which is the focus order. One column follows the spec (§2.8, D3): the
+ * aside straight after Something new. Wide, the grid sets the aside in its own column, so the DOM
+ * runs down the main column first and Tab never jumps across and back.
+ */
+internal fun discoverReadingOrder(isWide: Boolean): List<DiscoverBlock> =
+    if (isWide) {
+        listOf(
+            DiscoverBlock.ListeningNow,
+            DiscoverBlock.SomethingNew,
+            DiscoverBlock.ShelvesByOthers,
+            DiscoverBlock.RecentlyAdded,
+            DiscoverBlock.Community,
+        )
+    } else {
+        listOf(
+            DiscoverBlock.ListeningNow,
+            DiscoverBlock.SomethingNew,
+            DiscoverBlock.Community,
+            DiscoverBlock.ShelvesByOthers,
+            DiscoverBlock.RecentlyAdded,
+        )
+    }
+
+/** Where the aside moves beside the main column. Must match the `.disc-body` media query in 34-discover.css. */
+internal const val DISCOVER_WIDE_QUERY = "(min-width: 1280px)"
+
+/** The aside's landmark name: the leaderboard and the activity feed are the community record. */
+private const val COMMUNITY_LABEL = "Community"

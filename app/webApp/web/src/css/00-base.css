@@ -75,6 +75,14 @@
   --streak-fill: #FFE08A;
   --streak-ink:  #241A00;
 
+  /* Discover's leaderboard: the podium medals (the same in both themes, so their ink is too) and the
+     tint on your own row. ContrastTest holds each to AA. */
+  --medal-gold:   #FFE08A;
+  --medal-silver: #E4DDD2;
+  --medal-bronze: #F3C9A0;
+  --medal-ink:    #3B2A12;
+  --you-tint:     #F6E2D6;
+
   /* status — text-grade in each theme. `-soft` is the wash a message sits on; `on-` is the label
      on the matching fill. */
   --danger:           #C0392B;
@@ -219,6 +227,7 @@
   --coral-text: #FF6A3D;
   --streak-fill: #5C4A00;
   --streak-ink:  #FFE08A;
+  --you-tint:   #3A2620;
   --danger:      #F08D7C;
   --danger-soft: #2B1512;
   --player-err-container: #8C1D18;

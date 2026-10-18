@@ -13,6 +13,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonColors
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -59,6 +61,8 @@ data class ButtonGroupChoice<T>(
  * @param groupLabel What a screen reader calls the whole group.
  * @param modifier Modifier for the group.
  * @param maxWidth The widest the row may grow.
+ * @param colors The buttons' colours. The default suits a group on the page's surface; on a container that
+ *   is itself surfaceContainer (a card), pass a contrasting unselected container so every segment shows.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -69,6 +73,7 @@ fun <T> ConnectedSelectButtonGroup(
     groupLabel: String,
     modifier: Modifier = Modifier,
     maxWidth: Dp = DEFAULT_MAX_WIDTH,
+    colors: ToggleButtonColors = ToggleButtonDefaults.toggleButtonColors(),
 ) {
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelLarge
@@ -120,6 +125,7 @@ fun <T> ConnectedSelectButtonGroup(
                                     indices.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                                 },
+                            colors = colors,
                             contentPadding = PaddingValues(horizontal = BUTTON_SIDE_PADDING),
                             modifier =
                                 Modifier.weight(weight).semantics {

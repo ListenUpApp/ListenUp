@@ -4,98 +4,78 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.ButtonGroupChoice
+import com.calypsan.listenup.client.design.components.ConnectedSelectButtonGroup
+import com.calypsan.listenup.client.design.components.SectionTitle
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
+import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
-import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
-import org.koin.compose.viewmodel.koinViewModel
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_could_not_load_leaderboard
+import listenup.composeapp.generated.resources.discover_leaderboard
+import listenup.composeapp.generated.resources.discover_leaderboard_category_books
+import listenup.composeapp.generated.resources.discover_leaderboard_category_group
+import listenup.composeapp.generated.resources.discover_leaderboard_category_streak
+import listenup.composeapp.generated.resources.discover_leaderboard_category_time
 import listenup.composeapp.generated.resources.discover_loading_leaderboard
 import listenup.composeapp.generated.resources.discover_start_listening_to_join_the
+import org.jetbrains.compose.resources.stringResource
 
 /**
- * Discover screen leaderboard section.
+ * Discover's leaderboard: one `surfaceContainer` card (28dp corners) holding the title, the period
+ * chips ([LeaderboardPeriodChips]), the category as a connected button group, and the ranked list.
+ * One control per choice: switching category is a pure state filter in the ViewModel, with no pager.
  *
- * Renders a sealed [LeaderboardUiState] from [LeaderboardViewModel]:
- * The title and the period selector ([LeaderboardHeader]) sit above the board's card, at the screen
- * margins; the card holds the board for the state:
- * - [LeaderboardUiState.Loading] — a loading placeholder.
- * - [LeaderboardUiState.Empty] — an empty-state message.
- * - [LeaderboardUiState.Data] — the full ranked list with category pager.
- * - [LeaderboardUiState.Error] — an error message.
+ * Loading, Empty and Error keep today's copy (their redesigned states are PR 6).
  *
- * Switching categories is a pure state filter in the ViewModel — no DB re-query.
- *
- * @param onUserClick Callback when a user row is clicked (navigates to profile).
- * @param modifier Modifier from parent.
- * @param viewModel LeaderboardViewModel injected via Koin.
+ * @param onUserClick Opens a person's profile.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun DiscoverLeaderboardSection(
+internal fun DiscoverLeaderboardSection(
+    state: LeaderboardUiState,
+    selection: LeaderboardSelection,
+    onSelectPeriod: (LeaderboardPeriod) -> Unit,
+    onSelectCategory: (LeaderboardCategory) -> Unit,
     onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: LeaderboardViewModel = koinViewModel(),
-) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val selection by viewModel.selection.collectAsStateWithLifecycle()
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        // The title and period selector sit above the card, at the screen margins: inside the card's
-        // padding, "12 months" has no room on a phone.
-        LeaderboardHeader(
-            selectedPeriod = selection.period,
-            onPeriodSelected = viewModel::selectPeriod,
-        )
-        LeaderboardCard(
-            state = state,
-            category = selection.category,
-            onCategorySelected = viewModel::selectCategory,
-            onUserClick = onUserClick,
-        )
-    }
-}
-
-@Composable
-private fun LeaderboardCard(
-    state: LeaderboardUiState,
-    category: LeaderboardCategory,
-    onCategorySelected: (LeaderboardCategory) -> Unit,
-    onUserClick: (String) -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            ),
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = 18.dp, bottom = Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            when (val current = state) {
+            SectionTitle(title = stringResource(Res.string.discover_leaderboard))
+            LeaderboardPeriodChips(selected = selection.period, onSelect = onSelectPeriod)
+            ConnectedSelectButtonGroup(
+                choices = LeaderboardCategory.entries.map { ButtonGroupChoice(it, categoryLabel(it)) },
+                selected = selection.category,
+                onSelect = onSelectCategory,
+                groupLabel = stringResource(Res.string.discover_leaderboard_category_group),
+                // The card is surfaceContainer, the group's default unselected colour: lift the
+                // unselected segments a tone so each one shows (board AndroidPhone).
+                colors =
+                    ToggleButtonDefaults.toggleButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    ),
+            )
+            when (state) {
                 is LeaderboardUiState.Loading -> {
                     Text(
                         text = stringResource(Res.string.discover_loading_leaderboard),
@@ -112,20 +92,19 @@ private fun LeaderboardCard(
                     )
                 }
 
-                is LeaderboardUiState.Data -> {
-                    DataContent(
-                        data = current,
-                        category = category,
-                        onCategorySelected = onCategorySelected,
-                        onUserClick = onUserClick,
-                    )
-                }
-
                 is LeaderboardUiState.Error -> {
                     Text(
                         text = stringResource(Res.string.discover_could_not_load_leaderboard),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                is LeaderboardUiState.Data -> {
+                    LeaderboardList(
+                        entries = leaderboardEntries(state.snapshot, selection.category),
+                        category = selection.category,
+                        onUserClick = onUserClick,
                     )
                 }
             }
@@ -134,56 +113,9 @@ private fun LeaderboardCard(
 }
 
 @Composable
-private fun DataContent(
-    data: LeaderboardUiState.Data,
-    category: LeaderboardCategory,
-    onCategorySelected: (LeaderboardCategory) -> Unit,
-    onUserClick: (String) -> Unit,
-) {
-    val categories = LeaderboardCategory.entries
-    val selectedCategory by rememberUpdatedState(category)
-    val pagerState =
-        rememberPagerState(
-            initialPage = categories.indexOf(category).coerceAtLeast(0),
-            pageCount = { categories.size },
-        )
-
-    // Sync pager page to category state.
-    LaunchedEffect(category) {
-        val targetPage = categories.indexOf(category)
-        if (targetPage >= 0 && pagerState.currentPage != targetPage) {
-            pagerState.animateScrollToPage(targetPage)
-        }
+private fun categoryLabel(category: LeaderboardCategory): String =
+    when (category) {
+        LeaderboardCategory.Time -> stringResource(Res.string.discover_leaderboard_category_time)
+        LeaderboardCategory.Books -> stringResource(Res.string.discover_leaderboard_category_books)
+        LeaderboardCategory.Streak -> stringResource(Res.string.discover_leaderboard_category_streak)
     }
-
-    // Sync category state to pager swipes.
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.settledPage }.collect { page ->
-            val pageCategory = categories.getOrNull(page)
-            if (pageCategory != null && pageCategory != selectedCategory) {
-                onCategorySelected(pageCategory)
-            }
-        }
-    }
-
-    LeaderboardCategoryTabs(
-        selectedCategory = category,
-        onCategorySelected = onCategorySelected,
-    )
-
-    HorizontalPager(
-        state = pagerState,
-        modifier = Modifier.fillMaxWidth(),
-    ) { page ->
-        val pageCategory = categories[page]
-        // `pageCategory` (this page's), NOT `category` (the selected one): the pager renders all
-        // three boards side by side, and reading the selection here would show the same list on
-        // every page while the tabs still moved.
-        val entries = leaderboardEntries(data.snapshot, pageCategory)
-        LeaderboardList(
-            entries = entries,
-            category = pageCategory,
-            onUserClick = onUserClick,
-        )
-    }
-}

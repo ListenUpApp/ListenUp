@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.isPlainPrimaryClick
 import com.calypsan.listenup.web.design.LocalScrollport
 import com.calypsan.listenup.web.design.Scrollport
 import com.calypsan.listenup.web.design.WebIcon
@@ -26,7 +27,6 @@ import org.jetbrains.compose.web.dom.Main
 import org.jetbrains.compose.web.dom.Nav
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import androidx.compose.web.events.SyntheticMouseEvent
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.Node
 import org.w3c.dom.events.Event
@@ -367,12 +367,6 @@ private fun NavBadge(
         attr(ARIA_LABEL, badgeLabel(count, kind))
     }) { Text(badgeText(count)) }
 }
-
-/** A click the app routes itself; anything modified is the reader asking the browser for a new tab. */
-internal fun SyntheticMouseEvent.isPlainPrimaryClick(): Boolean =
-    button == PRIMARY_BUTTON && !ctrlKey && !metaKey && !shiftKey && !altKey
-
-private const val PRIMARY_BUTTON: Short = 0
 
 /**
  * The brand mark, served from `web/public/`.

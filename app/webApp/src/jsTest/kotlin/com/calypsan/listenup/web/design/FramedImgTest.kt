@@ -79,4 +79,11 @@ class FramedImgTest :
             asked shouldBe listOf("u1")
             host.querySelector(".uav .framed img.framed-img").shouldNotBeNull()
         }
+
+        test("a user's photo is decorative, like the monogram: the name beside it already says who") {
+            val host = mounts.mount { UserAvatar(userId = "u1", name = "Maya Lin", size = 96) }
+
+            // The attribute itself, empty: a missing alt has screen readers read out the URL instead.
+            host.querySelector(".uav img.framed-img")?.getAttribute("alt") shouldBe ""
+        }
     })

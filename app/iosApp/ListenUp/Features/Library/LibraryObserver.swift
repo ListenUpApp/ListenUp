@@ -75,6 +75,11 @@ final class LibraryObserver {
         viewModel.onEvent(event: LibraryUiEventStatusFilterChanged(filter: filter))
     }
 
+    /// Discover's "Recently Added" link: Books sorted Added, newest first, not saved (spec §6.3).
+    func showNewestFirst() {
+        viewModel.onEvent(event: LibraryUiEventBooksShownNewestFirst.shared)
+    }
+
     func toggleBooksSortDirection() {
         viewModel.onEvent(event: LibraryUiEventBooksDirectionToggled.shared)
     }

@@ -6,12 +6,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,7 +32,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AvatarSize
@@ -41,17 +49,20 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.discover_leaderboard_rank_a11y
 import listenup.composeapp.generated.resources.discover_leaderboard_show_all
 import listenup.composeapp.generated.resources.discover_leaderboard_show_less
+import listenup.composeapp.generated.resources.discover_leaderboard_you
 
 /** Number of entries to show when collapsed */
-private const val COLLAPSED_COUNT = 4
+private const val COLLAPSED_COUNT = 5
 
 /**
  * Leaderboard list showing ranked users with animated position changes.
  *
- * Shows top 4 entries by default with an expand/collapse option to see more. Each row carries a
- * medal-toned [RankBadge] for the podium positions and a clean transparent row chrome.
+ * Shows the top 5 by default with "Show all N" to see the rest. Each row is one link to the person's
+ * profile, read rank first ("Rank 1, Maya Chen, 14h"), with a medal-toned [RankBadge] for the podium;
+ * your own row reads "You" on `primaryContainer`.
  *
  * @param entries List of leaderboard entries to display.
  * @param category Current leaderboard category — determines which value to show.
@@ -73,8 +84,7 @@ fun LeaderboardList(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        // Use regular Column instead of LazyColumn to avoid nested scrollable crash
-        // when this is inside HorizontalPager inside LazyColumn (DiscoverScreen)
+        // A plain Column: the list sits inside Discover's LazyColumn, where a nested lazy list cannot measure.
         visibleEntries.forEach { entry ->
             LeaderboardEntryRow(
                 entry = entry,
@@ -121,18 +131,22 @@ private fun LeaderboardEntryRow(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
+    val rankLabel = stringResource(Res.string.discover_leaderboard_rank_a11y, entry.rank)
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
+                .heightIn(min = 56.dp)
                 .clip(MaterialTheme.shapes.large)
-                .clickable {
+                .background(if (entry.isYou) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                .clickable(role = Role.Button) {
                     haptics.press()
                     onClick()
-                }.padding(horizontal = 14.dp, vertical = 12.dp),
+                }.semantics(mergeDescendants = true) {}
+                .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Animated rank badge — slides up/down when rank changes
+        // Animated rank badge — slides up/down when rank changes. Read as "Rank N", first in the row.
         AnimatedContent(
             targetState = entry.rank,
             transitionSpec = {
@@ -144,6 +158,7 @@ private fun LeaderboardEntryRow(
                         slideOutVertically { -it } + fadeOut()
                 }
             },
+            modifier = Modifier.clearAndSetSemantics { contentDescription = rankLabel },
             label = "rank",
         ) { rank ->
             RankBadge(rank = rank)
@@ -155,14 +170,17 @@ private fun LeaderboardEntryRow(
             userId = entry.userId,
             size = AvatarSize.Small,
             fallbackName = entry.displayName,
+            modifier = Modifier.clearAndSetSemantics {},
         )
         Spacer(Modifier.width(12.dp))
 
-        // User name
         Text(
-            text = entry.displayName,
+            text = if (entry.isYou) stringResource(Res.string.discover_leaderboard_you) else entry.displayName,
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = if (entry.isYou) FontWeight.Bold else FontWeight.Medium,
+            color = if (entry.isYou) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
 
@@ -179,7 +197,7 @@ private fun LeaderboardEntryRow(
                 text = value,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (entry.isYou) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

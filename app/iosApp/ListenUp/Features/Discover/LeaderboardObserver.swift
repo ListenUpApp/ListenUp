@@ -3,11 +3,11 @@ import Shared
 
 /// Observes `LeaderboardViewModel` — flattens the sealed `LeaderboardUiState` into a
 /// SwiftUI-native `LeaderboardPhase` for the Discover leaderboard. Surfaces the period
-/// control (7 days / 30 days / 12 months / All time) and the metric control (Time / Books / Streak); the
+/// control (Week / Month / Year / All Time) and the metric control (Time / Books / Streak); the
 /// snapshot already carries all three category rankings, so switching metric is a pure
 /// state transformation with no upstream re-fetch.
 ///
-/// The current-user "(You)" highlight comes from `LeaderboardEntry.isYou`, which the shared
+/// The current-user "You" row comes from `LeaderboardEntry.isYou`, which the shared
 /// repository sets from the signed-in reader. The period and metric follow the shared
 /// `LeaderboardViewModel.selection`, which exists in every board state.
 ///
@@ -18,7 +18,7 @@ final class LeaderboardObserver {
     // MARK: - State
 
     private(set) var phase: LeaderboardPhase = .loading
-    private(set) var selectedPeriod: LeaderboardPeriodOption = .sevenDays
+    private(set) var selectedPeriod: LeaderboardPeriodOption = .week
     private(set) var selectedMetric: LeaderboardMetric = .time
 
     // MARK: - Dependencies
@@ -141,52 +141,43 @@ enum LeaderboardMetric: CaseIterable, Identifiable {
 
 // MARK: - Period selection
 
-/// The leaderboard's periods, in the order every platform shows them. They are trailing windows
-/// (today plus the days before it), so the labels name the window — "7 days", not "Week" — and
-/// VoiceOver hears the full "Last 7 days". Maps to the KMP `LeaderboardPeriod`. Named apart from
-/// the shared `LeaderboardSelection` (period + category), which it would otherwise shadow.
+/// The leaderboard's periods, in the order every platform shows them, named with the one wording
+/// every platform uses: Week, Month, Year, All Time (title case, per the HIG). The visible word is the
+/// accessible name, so there is no separate VoiceOver label. Maps to the KMP `LeaderboardPeriod`. Named
+/// apart from the shared `LeaderboardSelection` (period + category), which it would otherwise shadow.
 enum LeaderboardPeriodOption: CaseIterable, Identifiable {
-    case sevenDays
-    case thirtyDays
-    case twelveMonths
+    case week
+    case month
+    case year
     case allTime
 
     var id: Self { self }
 
-    /// The option for a Kotlin period; `.sevenDays` for one this client does not know.
+    /// The option for a Kotlin period; `.week` for one this client does not know.
     init(kmp period: LeaderboardPeriod) {
         switch period {
-        case is LeaderboardPeriodMonth: self = .thirtyDays
-        case is LeaderboardPeriodYear: self = .twelveMonths
+        case is LeaderboardPeriodMonth: self = .month
+        case is LeaderboardPeriodYear: self = .year
         case is LeaderboardPeriodAllTime: self = .allTime
-        default: self = .sevenDays
+        default: self = .week
         }
     }
 
     var kmpPeriod: LeaderboardPeriod {
         switch self {
-        case .sevenDays: LeaderboardPeriodWeek.shared
-        case .thirtyDays: LeaderboardPeriodMonth.shared
-        case .twelveMonths: LeaderboardPeriodYear.shared
+        case .week: LeaderboardPeriodWeek.shared
+        case .month: LeaderboardPeriodMonth.shared
+        case .year: LeaderboardPeriodYear.shared
         case .allTime: LeaderboardPeriodAllTime.shared
         }
     }
 
     var titleKey: String.LocalizationValue {
         switch self {
-        case .sevenDays: "discover.leaderboard_period_7_days"
-        case .thirtyDays: "discover.leaderboard_period_30_days"
-        case .twelveMonths: "discover.leaderboard_period_12_months"
-        case .allTime: "discover.leaderboard_period_all_time"
-        }
-    }
-
-    var accessibilityKey: String.LocalizationValue {
-        switch self {
-        case .sevenDays: "discover.leaderboard_period_7_days_description"
-        case .thirtyDays: "discover.leaderboard_period_30_days_description"
-        case .twelveMonths: "discover.leaderboard_period_12_months_description"
-        case .allTime: "discover.leaderboard_period_all_time"
+        case .week: "discover.leaderboard_period_week"
+        case .month: "discover.leaderboard_period_month"
+        case .year: "discover.leaderboard_period_year"
+        case .allTime: "discover.leaderboard_period_all_time_ios"
         }
     }
 }
@@ -204,8 +195,8 @@ enum LeaderboardPhase: Equatable {
 // MARK: - Row model
 
 /// One ranked row. `value` is the formatted listen-time for the period; `initials` and a
-/// neutral avatar are derived from `displayName`. `isCurrentUser` drives the coral "(You)"
-/// treatment.
+/// neutral avatar are derived from `displayName`. `isCurrentUser` makes the row read "You" on a
+/// tinted fill.
 struct LeaderboardRow: Identifiable, Equatable {
     let id: String
     let rank: Int

@@ -230,20 +230,21 @@ private fun FindAndReview(
 }
 
 /**
- * Reports one pane or two to the ViewModel now and whenever the layout's media query flips. Read
+ * Reports one pane or two now and whenever the layout's media query ([twoPaneQuery]) flips. Read
  * off the element's own window, so a page rendered in a phone-sized frame answers for that frame.
  */
 @Composable
 internal fun TwoPaneWatch(
     root: HTMLElement?,
     useTwoPane: (Boolean) -> Unit,
+    twoPaneQuery: String = TWO_PANE_QUERY,
 ) {
-    DisposableEffect(root) {
+    DisposableEffect(root, twoPaneQuery) {
         val window = root?.ownerDocument?.defaultView
         if (window == null) {
             onDispose { }
         } else {
-            val query: MediaQueryList = window.matchMedia(TWO_PANE_QUERY)
+            val query: MediaQueryList = window.matchMedia(twoPaneQuery)
             useTwoPane(query.matches)
             val listener: (Event) -> Unit = { useTwoPane(query.matches) }
             query.addEventListener("change", listener)

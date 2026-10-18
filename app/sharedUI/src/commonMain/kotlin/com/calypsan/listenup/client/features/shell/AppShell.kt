@@ -22,6 +22,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -328,6 +330,10 @@ fun AppShell(
         )
     }
 
+    // A link on one tab can open another somewhere other than its top (spec §6.4).
+    val currentOnDestinationChange by rememberUpdatedState(onDestinationChange)
+    val landings = remember { ShellLandings { currentOnDestinationChange(it) } }
+
     // Common content configuration
     val shellContent: @Composable (PaddingValues) -> Unit = { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
@@ -379,6 +385,10 @@ fun AppShell(
         }
     }
 
+    val landingContent: @Composable (PaddingValues) -> Unit = { padding ->
+        CompositionLocalProvider(LocalShellLandings provides landings) { shellContent(padding) }
+    }
+
     if (navType == ShellNavType.BottomBar) {
         // Phone layout: bottom navigation, mini-player stacked above it.
         Scaffold(
@@ -397,7 +407,7 @@ fun AppShell(
                     )
                 }
             },
-            content = shellContent,
+            content = landingContent,
         )
     } else {
         // Tablet / desktop layout: wide rail beside the content pane.
@@ -417,7 +427,7 @@ fun AppShell(
                 containerColor = Color.Transparent,
                 contentWindowInsets = railContentInsets(),
                 snackbarHost = { SnackbarHost(snackbarHostState) },
-                content = shellContent,
+                content = landingContent,
             )
         }
     }

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.library
 
+import com.calypsan.listenup.client.features.shell.LandingEffect
+import com.calypsan.listenup.client.features.shell.ShellLanding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -206,6 +208,10 @@ internal fun LibraryLoadedContent(
     }
 
     var selectedSection by rememberSaveable(stateSaver = LibrarySectionSaver) { mutableStateOf(LibrarySection.Books) }
+    LandingEffect(ShellLanding.LibraryNewestFirst) {
+        selectedSection = LibrarySection.Books
+        onEvent(LibraryUiEvent.BooksShownNewestFirst)
+    }
     val isWide =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,

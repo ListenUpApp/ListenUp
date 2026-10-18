@@ -28,6 +28,7 @@ private fun activity(
     milestoneUnit = null,
     shelfId = null,
     shelfName = shelfName,
+    isYou = false,
 )
 
 /**
@@ -77,6 +78,14 @@ class ActivityProjectionsTest :
                 "listened to 1 hour 30 minutes of"
             activityParts(activity("listening_session", durationMs = 7_260_000)).predicate shouldBe
                 "listened to 2 hours 1 minute of"
+        }
+
+        test("a listening session ends with its author, like every other book row") {
+            val parts = activityParts(activity("listening_session", durationMs = 2_880_000))
+
+            parts.predicate shouldBe "listened to 48 minutes of"
+            parts.highlight shouldBe "Dune"
+            parts.suffix shouldBe " by Frank Herbert"
         }
 
         test("milestones and joins carry no highlight, because there is nothing to link to") {

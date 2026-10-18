@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +34,8 @@ import org.jetbrains.compose.resources.stringResource
  *
  * @param title The section heading.
  * @param modifier Optional modifier.
+ * @param subtitle Optional quiet line under the title (e.g. Discover's "2 listening now"); not part of the
+ *   heading, so a screen reader's heading list stays one word per section.
  * @param onSeeAll When non-null, renders a trailing "See all" affordance invoking this.
  * @param trailing Optional trailing slot (e.g. an icon button), aligned to the title baseline. Ignored
  *   when [onSeeAll] is non-null.
@@ -43,22 +46,33 @@ fun SectionTitle(
     modifier: Modifier = Modifier,
     onSeeAll: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    subtitle: String? = null,
 ) {
     val haptics = LocalHaptics.current
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.Bottom,
+        verticalAlignment = if (subtitle == null) Alignment.Bottom else Alignment.CenterVertically,
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).semantics { heading() },
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                // Headings are Medium (M3 Expressive): the one heavier moment is the screen's own title.
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.semantics { heading() },
+            )
+            subtitle?.let { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         when {
             onSeeAll != null -> {
                 Text(
