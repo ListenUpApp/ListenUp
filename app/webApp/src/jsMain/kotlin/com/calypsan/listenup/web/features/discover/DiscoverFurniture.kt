@@ -60,12 +60,24 @@ internal fun Section(
  * loading slowly or broken, and guessing out loud is how a page ends up lying.
  */
 @Composable
-internal fun SectionSkeleton() {
-    Div(attrs = { classes("skel", "disc-skel") })
+internal fun SectionSkeleton(kind: SkeletonKind = SkeletonKind.Rail) {
+    Div(attrs = {
+        classes("skel", "disc-skel", kind.styleClass)
+        attr("aria-hidden", "true")
+    })
+}
+
+/** Which shape a [SectionSkeleton] takes: a row of cards, or rows of people (leaderboard, activity). */
+internal enum class SkeletonKind(
+    val styleClass: String,
+) {
+    Rail("disc-skel-rail"),
+    Rows("disc-skel-rows"),
 }
 
 /**
- * A section that failed, and — when [onRetry] is given — the one way back without reloading the tab.
+ * A section that failed, in its own words ("Couldn't load activity", spec §3.8), and — when [onRetry] is
+ * given — that section's own restart, the one way back without reloading the tab.
  *
  * [onRetry] is passed only where the ViewModel can actually recover that section. A "Try again"
  * over a flow that has already ended would be a control that does nothing, which is worse than none.
@@ -75,7 +87,11 @@ internal fun SectionError(
     message: String,
     onRetry: (() -> Unit)? = null,
 ) {
-    P(attrs = { classes("disc-error") }) { Text(message) }
+    // A status line (spec §8.2): a screen reader hears the failure without losing its place.
+    P(attrs = {
+        classes("disc-error")
+        attr("role", "status")
+    }) { Text(message) }
     onRetry?.let { retry ->
         Button(
             kind = ButtonKind.Secondary,

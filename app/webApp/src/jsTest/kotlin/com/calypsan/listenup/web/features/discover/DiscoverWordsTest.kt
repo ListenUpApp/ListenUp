@@ -25,4 +25,8 @@ class DiscoverWordsTest :
             DiscoverWords.listenerLabel("Mistborn", "Maya Chen", isLive = false, whenText = "2 days ago") shouldBe
                 "Mistborn, Maya Chen listened 2 days ago"
         }
+    
+        test("a stale roster says how old it is") {
+            DiscoverWords.listeningAsOf("2 hours ago") shouldBe "As of 2 hours ago"
+        }
     })

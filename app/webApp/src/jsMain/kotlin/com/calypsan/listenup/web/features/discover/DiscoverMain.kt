@@ -52,7 +52,7 @@ internal fun ListeningNowSection(
     onOpenBook: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
     selection: BookSelection?,
-    onRefresh: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     val ready = state as? CurrentlyListeningUiState.Ready
     Section(
@@ -66,7 +66,7 @@ internal fun ListeningNowSection(
             }
 
             is CurrentlyListeningUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
+                SectionError(DiscoverWords.ERROR_LISTENING, onRetry = onRetry)
             }
 
             is CurrentlyListeningUiState.Ready -> {
@@ -153,7 +153,7 @@ internal fun SomethingNewSection(
     onOpenBook: (String) -> Unit,
     onShuffle: () -> Unit,
     selection: BookSelection?,
-    onRefresh: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     Section(
         DiscoverWords.SOMETHING_NEW,
@@ -177,7 +177,7 @@ internal fun SomethingNewSection(
             }
 
             is DiscoverBooksUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
+                SectionError(DiscoverWords.ERROR_PICKS, onRetry = onRetry)
             }
 
             is DiscoverBooksUiState.AllStarted -> {
@@ -246,7 +246,7 @@ internal fun RecentlyAddedSection(
     onOpenBook: (String) -> Unit,
     onOpenLibraryNewest: () -> Unit,
     selection: BookSelection?,
-    onRefresh: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     Section(
         DiscoverWords.RECENTLY_ADDED,
@@ -267,7 +267,7 @@ internal fun RecentlyAddedSection(
             }
 
             is RecentlyAddedUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
+                SectionError(DiscoverWords.ERROR_RECENT, onRetry = onRetry)
             }
 
             is RecentlyAddedUiState.Ready -> {
@@ -334,7 +334,7 @@ internal fun ShelvesByOthersSection(
     state: DiscoverShelvesUiState,
     onOpenShelf: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
-    onRefresh: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     Section(DiscoverWords.SHELVES_BY_OTHERS, styleClass = "disc-a-shelves") {
         when (state) {
@@ -343,7 +343,10 @@ internal fun ShelvesByOthersSection(
             }
 
             is DiscoverShelvesUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
+                SectionError(
+                    if (state.needsConnection) DiscoverWords.SHELVES_NEED_CONNECTION else DiscoverWords.ERROR_SHELVES,
+                    onRetry = onRetry,
+                )
             }
 
             is DiscoverShelvesUiState.Ready -> {

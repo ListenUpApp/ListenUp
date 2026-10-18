@@ -25,6 +25,26 @@ internal object DiscoverWords {
     const val RECENTLY_ADDED = "Recently added"
     const val NEWEST_IN_LIBRARY = "Newest in Library →"
     const val PAGE_SUBTITLE = "What the people on this server are listening to, and something new for you"
+    const val ONLY_YOU_TITLE = "It's just you here so far"
+    const val ONLY_YOU_BODY =
+        "When other people join, you'll see what they're listening to, the shelves they share and what they finish."
+    const val INVITE_SOMEONE = "Invite someone"
+    const val NOBODY_LISTENING = "Nobody's listening right now. When someone starts, they'll show up here."
+    const val STARTED_EVERYTHING = "You've started every book here."
+    const val BROWSE_THE_LIBRARY = "Browse the Library"
+    const val NO_NEW_BOOKS_YET = "Nothing new just yet."
+    const val NO_RECENTLY_ADDED = "No books added recently."
+    const val NO_ACTIVITY = "No activity yet. Start listening to see what your community is reading!"
+    const val LEADERBOARD_JUST_YOU = "Just you so far. The board fills in as people join."
+    const val LEADERBOARD_EMPTY_PERIOD = "Nobody listened in this period yet."
+    const val SHELVES_NEED_CONNECTION = "Shelves by others need a connection"
+    const val SHELVES_ONLY_YOU = "Shelves people make public show up here."
+    const val ERROR_LISTENING = "Couldn't load who's listening"
+    const val ERROR_PICKS = "Couldn't load new books"
+    const val ERROR_LEADERBOARD = "Couldn't load the leaderboard"
+    const val ERROR_ACTIVITY = "Couldn't load activity"
+    const val ERROR_SHELVES = "Couldn't load shelves by others"
+    const val ERROR_RECENT = "Couldn't load recently added"
 
     /** "2 listening now · 3 more in the last two weeks"; null when nobody is shown. */
     fun listeningCount(
@@ -77,4 +97,7 @@ internal object DiscoverWords {
         name: String,
         isYou: Boolean,
     ): String = if (isYou) "Your profile" else "$name's profile"
+
+    /** "As of 2 hours ago": how old a roster is while the server cannot be reached. */
+    fun listeningAsOf(whenText: String): String = "As of $whenText"
 }

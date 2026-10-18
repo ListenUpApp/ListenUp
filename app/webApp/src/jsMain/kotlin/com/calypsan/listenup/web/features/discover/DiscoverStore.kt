@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSt
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewer
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
@@ -45,18 +46,26 @@ class DiscoverSession(
     /** The leaderboard's period and category, live in every board state. */
     val leaderboardSelection: StateFlow<LeaderboardSelection>,
     val activity: StateFlow<ActivityFeedUiState>,
-    /** Who else is on the server; PR 6's only-you states read it. */
+    /** Who else is on the server; the only-you states read it. */
     val communitySize: StateFlow<CommunitySize>,
+    /** Who is looking: the invitation's avatar, and whether Invite someone is theirs to offer. */
+    val viewer: StateFlow<DiscoverViewer?>,
     val onSelectPeriod: (LeaderboardPeriod) -> Unit,
     val onSelectCategory: (LeaderboardCategory) -> Unit,
     /** Draws ten different books for Something new (PR 5 renders its button). */
     val onShuffle: () -> Unit,
     /**
-     * A fresh load of the four sections [DiscoverViewModel] owns — books, shelves, listeners and
-     * recently added — each restarted only if it failed. The page offers it only on a failed
-     * section, as "Try again"; web has no page-level refresh.
+     * A fresh load of the four sections [DiscoverViewModel] owns, each restarted only if it failed.
+     * Web has no page-level refresh, so the page does not offer it: each section's Try again is its own
+     * restart below. Kept so the session covers the whole ViewModel.
      */
     val onRefresh: () -> Unit,
+    /** Try again on a failed Listening now: restarts that section only. */
+    val onRetryListening: () -> Unit,
+    /** Try again on a failed Recently added: restarts that section only. */
+    val onRetryRecent: () -> Unit,
+    /** Try again on Shelves by others: refetches the shelves and nothing else. */
+    val onRetryShelves: () -> Unit,
     /** Re-runs a failed leaderboard; offered only on the failed section. */
     val onRefreshLeaderboard: () -> Unit,
     /**
@@ -100,10 +109,14 @@ fun graphDiscover(koin: Koin): OpenDiscover =
             leaderboardSelection = leaderboard.selection,
             activity = activity.state,
             communitySize = discover.communitySize,
+            viewer = discover.viewer,
             onSelectPeriod = leaderboard::selectPeriod,
             onSelectCategory = leaderboard::selectCategory,
             onShuffle = discover::shuffle,
             onRefresh = discover::refresh,
+            onRetryListening = discover::retryListeningNow,
+            onRetryRecent = discover::retryRecentlyAdded,
+            onRetryShelves = discover::retryShelvesByOthers,
             onRefreshLeaderboard = leaderboard::refresh,
             onRefreshActivity = activity::refresh,
             close = store::clear,
@@ -120,10 +133,14 @@ fun fixedDiscover(
     leaderboardSelection: LeaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
     activity: ActivityFeedUiState = ActivityFeedUiState.Loading,
     communitySize: CommunitySize = CommunitySize.Unknown,
+    viewer: DiscoverViewer? = DiscoverViewer("me", "Simon", canInvite = true),
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
     onShuffle: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onRetryListening: () -> Unit = {},
+    onRetryRecent: () -> Unit = {},
+    onRetryShelves: () -> Unit = {},
     onRefreshLeaderboard: () -> Unit = {},
     onRefreshActivity: () -> Unit = {},
 ): OpenDiscover =
@@ -137,10 +154,14 @@ fun fixedDiscover(
             leaderboardSelection = MutableStateFlow(leaderboardSelection),
             activity = MutableStateFlow(activity),
             communitySize = MutableStateFlow(communitySize),
+            viewer = MutableStateFlow(viewer),
             onSelectPeriod = onSelectPeriod,
             onSelectCategory = onSelectCategory,
             onShuffle = onShuffle,
             onRefresh = onRefresh,
+            onRetryListening = onRetryListening,
+            onRetryRecent = onRetryRecent,
+            onRetryShelves = onRetryShelves,
             onRefreshLeaderboard = onRefreshLeaderboard,
             onRefreshActivity = onRefreshActivity,
             close = {},

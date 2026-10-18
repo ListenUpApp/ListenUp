@@ -65,11 +65,12 @@ fun DiscoverPage(
     onOpenProfile: (String) -> Unit,
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
-    /**
-     * Asks Discover's ViewModel for a fresh load — offered as "Try again" on the four sections it
-     * owns when one has failed. Not a page-level refresh: web deliberately has none.
-     */
-    onRefresh: () -> Unit,
+    /** Try again on a failed Listening now: that section's own restart (spec §3.8). */
+    onRetryListening: () -> Unit,
+    /** Try again on a failed Recently added: that section's own restart. */
+    onRetryRecent: () -> Unit,
+    /** Try again on a failed Shelves by others: refetches the shelves, nothing else. */
+    onRetryShelves: () -> Unit,
     /** Re-runs a failed leaderboard — its own ViewModel's refresh, not Discover's. */
     onRefreshLeaderboard: () -> Unit,
     /** Re-runs a failed activity feed — its own ViewModel's refresh, not Discover's. */
@@ -113,12 +114,13 @@ fun DiscoverPage(
                                 onOpenBook,
                                 onOpenProfile,
                                 selection,
-                                onRefresh,
+                                onRetryListening,
                             )
                         }
 
                         DiscoverBlock.SomethingNew -> {
-                            SomethingNewSection(books, onOpenBook, onShuffle, selection, onRefresh)
+                            // A fresh draw is the picks' restart.
+                            SomethingNewSection(books, onOpenBook, onShuffle, selection, onRetry = onShuffle)
                         }
 
                         DiscoverBlock.Community -> {
@@ -148,7 +150,7 @@ fun DiscoverPage(
                         }
 
                         DiscoverBlock.ShelvesByOthers -> {
-                            ShelvesByOthersSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
+                            ShelvesByOthersSection(shelves, onOpenShelf, onOpenProfile, onRetryShelves)
                         }
 
                         DiscoverBlock.RecentlyAdded -> {
@@ -158,7 +160,7 @@ fun DiscoverPage(
                                 onOpenBook,
                                 onOpenLibraryNewest,
                                 selection,
-                                onRefresh,
+                                onRetryRecent,
                             )
                         }
                     }

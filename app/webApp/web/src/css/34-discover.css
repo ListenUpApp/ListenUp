@@ -172,3 +172,8 @@
    class stronger than any row's own display, so it always wins. */
 @media (max-width: 1279px) { .luw .disc .disc-aside-extra { display: none; } }
 @media (min-width: 1280px) { .luw .disc .disc-phone-only { display: none; } }
+
+/* Loading (spec §3.8): each section keeps its place with the shape it will take. A rail is a card's
+   square art plus its caption lines; rows are the leaderboard's and the activity feed's people. */
+.luw .disc-skel-rail { height: calc(140px + 3.2rem); }
+.luw .disc-skel-rows { height: calc(5 * 56px); }

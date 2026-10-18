@@ -86,7 +86,7 @@ internal fun LeaderboardSection(
 
         when (state) {
             is LeaderboardUiState.Loading -> {
-                SectionSkeleton()
+                SectionSkeleton(SkeletonKind.Rows)
             }
 
             is LeaderboardUiState.Empty -> {
@@ -95,7 +95,7 @@ internal fun LeaderboardSection(
 
             is LeaderboardUiState.Error -> {
                 // Every section's failure offers the same way back: Try again, which always works.
-                SectionError("The leaderboard could not be loaded.", onRetry = onRefresh)
+                SectionError(DiscoverWords.ERROR_LEADERBOARD, onRetry = onRefresh)
             }
 
             is LeaderboardUiState.Data -> {
@@ -212,11 +212,11 @@ internal fun ActivityFeedSection(
     Section(DiscoverWords.ACTIVITY) {
         when (state) {
             is ActivityFeedUiState.Loading -> {
-                SectionSkeleton()
+                SectionSkeleton(SkeletonKind.Rows)
             }
 
             is ActivityFeedUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
+                SectionError(DiscoverWords.ERROR_ACTIVITY, onRetry = onRefresh)
             }
 
             is ActivityFeedUiState.Ready -> {
