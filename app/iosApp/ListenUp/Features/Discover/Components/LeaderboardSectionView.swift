@@ -132,12 +132,12 @@ struct LeaderboardSectionView: View {
     private var content: some View {
         switch observer.phase {
         case .loading:
-            RowsSkeleton(rows: Self.collapsedCount)
+            loadingRows
         case .empty:
             if let line = Self.emptyLine(community: community) {
                 sectionMessage(line)
             } else {
-                RowsSkeleton(rows: Self.collapsedCount)
+                loadingRows
             }
         case .data(let rows):
             let shown = Array(rows.prefix(Self.visibleCount(total: rows.count, expanded: expanded)))
@@ -162,6 +162,16 @@ struct LeaderboardSectionView: View {
         case .error:
             InlineRetryLine(line: String(localized: "discover.error_leaderboard")) { observer.refresh() }
         }
+    }
+
+    /// The loading rows, in `LeaderRow`'s own geometry so nothing moves when the board lands.
+    private var loadingRows: some View {
+        RowsSkeleton(
+            rows: Self.collapsedCount,
+            avatarSize: LeaderRow.avatarSize,
+            rowHeight: LeaderRow.rowHeight,
+            rankSize: LeaderRow.rankSize
+        )
     }
 
     private func showAll(_ count: Int) -> String {

@@ -61,4 +61,10 @@ struct DiscoverStatesTests {
     @Test func allStartedIsItsOwnPhase() {
         #expect(DiscoverObserver.booksPhase(from: DiscoverBooksUiStateAllStarted.shared) == .allStarted)
     }
+
+    @Test func theLeaderboardsLoadingRowsAreItsRealRows() {
+        #expect(LeaderRow.rowHeight == 54)
+        #expect(LeaderRow.avatarSize == 38)
+        #expect(LeaderRow.rankSize == 26)
+    }
 }

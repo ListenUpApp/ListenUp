@@ -13,6 +13,7 @@ import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.ButtonGroupChoice
 import com.calypsan.listenup.client.design.components.ConnectedSelectButtonGroup
 import com.calypsan.listenup.client.design.components.InlineRetry
@@ -122,7 +123,16 @@ internal fun DiscoverLeaderboardSection(
 
 @Composable
 private fun LeaderboardSkeleton() {
-    RowsSkeleton(rows = 5, leadingSize = 40.dp, modifier = Modifier.testTag("leaderboard-skeleton"))
+    // LeaderboardList's geometry: 56dp rows 2dp apart, a 36dp rank badge, then a 32dp avatar.
+    RowsSkeleton(
+        rows = 5,
+        leadingSize = AvatarSize.Small.dp,
+        rowHeight = 56.dp,
+        rowGap = 2.dp,
+        rankSize = 36.dp,
+        horizontalPadding = 10.dp,
+        modifier = Modifier.testTag("leaderboard-skeleton"),
+    )
 }
 
 @Composable

@@ -36,15 +36,25 @@ struct RailSkeleton: View {
 }
 
 /// Rows of an avatar and two text lines, standing in for the leaderboard or the activity feed while
-/// they load. Hidden from VoiceOver, like `RailSkeleton`.
+/// they load. Pass the real rows' geometry — their height and, for a ranked list, the rank disc that
+/// leads each row — so nothing moves when they land. Hidden from VoiceOver, like `RailSkeleton`.
 struct RowsSkeleton: View {
     let rows: Int
     var avatarSize: CGFloat = 40
+    var rowHeight: CGFloat = 56
+    /// The rank disc's diameter, for a ranked list; nil for none.
+    var rankSize: CGFloat?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(0..<rows, id: \.self) { _ in
                 HStack(spacing: Spacing.s) {
+                    if let rankSize {
+                        Circle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: rankSize, height: rankSize)
+                            .shimmer()
+                    }
                     Circle()
                         .fill(Color.gray.opacity(0.2))
                         .frame(width: avatarSize, height: avatarSize)
@@ -61,7 +71,7 @@ struct RowsSkeleton: View {
                             .shimmer()
                     }
                 }
-                .frame(minHeight: 56)
+                .frame(height: rowHeight)
             }
         }
         .accessibilityHidden(true)

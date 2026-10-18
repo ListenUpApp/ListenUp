@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.discover.components
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.times
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
@@ -75,6 +78,13 @@ class LeaderboardStatesTest {
         show(LeaderboardUiState.Loading)
         composeRule.onAllNodes(hasText("Week") and hasClickAction()).assertCountEquals(1)
         composeRule.onNodeWithTag("leaderboard-skeleton").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the loading rows are the real rows' height and gaps`() {
+        show(LeaderboardUiState.Loading)
+        // LeaderboardList: five 56dp rows 2dp apart, each led by a 36dp rank badge before the avatar.
+        composeRule.onNodeWithTag("leaderboard-skeleton").assertHeightIsEqualTo(5 * 56.dp + 4 * 2.dp)
     }
 
     @Test
