@@ -42,6 +42,7 @@ fun DiscoverScreen(
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
+    onInvite: (() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
@@ -56,6 +57,8 @@ fun DiscoverScreen(
     val leaderboardState by leaderboardViewModel.uiState.collectAsStateWithLifecycle()
     val leaderboardSelection by leaderboardViewModel.selection.collectAsStateWithLifecycle()
     val activityState by activityFeedViewModel.state.collectAsStateWithLifecycle()
+    val community by viewModel.communitySize.collectAsStateWithLifecycle()
+    val viewer by viewModel.viewer.collectAsStateWithLifecycle()
     val haptics = LocalHaptics.current
     val landings = LocalShellLandings.current
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
@@ -95,6 +98,8 @@ fun DiscoverScreen(
                             activity = activityState,
                             shelves = shelvesState,
                             recentlyAdded = recentState,
+                            community = community,
+                            viewer = viewer,
                         ),
                     actions =
                         DiscoverActions(
@@ -108,6 +113,8 @@ fun DiscoverScreen(
                             onSelectCategory = leaderboardViewModel::selectCategory,
                             onOpenLibraryNewest = { landings?.request(ShellLanding.LibraryNewestFirst) },
                             onBookLongPress = multiSelect::enterSelectionMode,
+                            onInvite = onInvite,
+                            onRetryListening = viewModel::retryListeningNow,
                         ),
                     appHeader = appHeader,
                     contentPadding = contentPadding,

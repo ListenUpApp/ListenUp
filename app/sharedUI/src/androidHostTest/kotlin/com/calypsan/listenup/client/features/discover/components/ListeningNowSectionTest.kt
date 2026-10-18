@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.features.discover.NOW_MS
 import com.calypsan.listenup.client.features.discover.WithAvatarDependencies
 import com.calypsan.listenup.client.features.discover.listener
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -39,8 +40,8 @@ import org.robolectric.annotation.Config
  * hence the per-card marker and the Live chip asserted here. Each card names its person and is two
  * links: the book (art and title) and, beside it, the person.
  *
- * The section still hides on a genuinely empty roster — nobody has ever listened — because inventing
- * a row for an empty server would be the opposite failure.
+ * A genuinely empty roster no longer hides the section (that read as broken): it says nobody is
+ * listening, and never invents a row. The other empty treatments live in [ListeningNowStatesTest].
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [34])
@@ -67,6 +68,10 @@ class ListeningNowSectionTest {
             WithAvatarDependencies {
                 ListeningNowSection(
                     state = CurrentlyListeningUiState.Ready(sessions = rows, observedAtMs = null, isStale = false),
+                    community = CommunitySize.Others,
+                    viewer = null,
+                    onInvite = null,
+                    onRetry = {},
                     onBookClick = onBookClick,
                     onUserClick = onUserClick,
                     isInSelectionMode = false,
@@ -79,9 +84,10 @@ class ListeningNowSectionTest {
     }
 
     @Test
-    fun `an empty roster renders nothing`() {
+    fun `an empty roster with others on the server says nobody is listening`() {
         show(emptyList())
-        composeRule.onNodeWithText("Listening now").assertDoesNotExist()
+        composeRule.onNodeWithText("Listening now").assertIsDisplayed()
+        composeRule.onNodeWithText("Nobody's listening right now", substring = true).assertIsDisplayed()
     }
 
     @Test

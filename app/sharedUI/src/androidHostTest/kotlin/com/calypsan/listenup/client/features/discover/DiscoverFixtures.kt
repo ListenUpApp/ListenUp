@@ -14,6 +14,8 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewer
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
@@ -42,6 +44,13 @@ internal const val NOW_MS = 1_000_000_000L
 
 /** A day, in milliseconds. */
 internal const val DAY_MS = 24 * 60 * 60 * 1000L
+
+/** An hour, in milliseconds. */
+internal const val HOUR_MS = 60 * 60 * 1000L
+
+/** A fresh roster: no snapshot time, not stale. */
+internal fun readyListening(rows: List<CurrentlyListeningUiSession>) =
+    CurrentlyListeningUiState.Ready(sessions = rows, observedAtMs = null, isStale = false)
 
 /**
  * Avatars resolve their three collaborators through Koin, so a Discover section cannot compose
@@ -145,7 +154,9 @@ internal fun discoverState(
     activity: ActivityFeedUiState = ActivityFeedUiState.Ready(emptyList()),
     shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Ready(emptyList()),
     recentlyAdded: RecentlyAddedUiState = RecentlyAddedUiState.Ready(listOf(recent("r1", "Orbital", NOW_MS))),
-) = DiscoverState(listening, picks, leaderboard, selection, activity, shelves, recentlyAdded)
+    community: CommunitySize = CommunitySize.Others,
+    viewer: DiscoverViewer? = DiscoverViewer("me", "Simon", canInvite = true),
+) = DiscoverState(listening, picks, leaderboard, selection, activity, shelves, recentlyAdded, community, viewer)
 
 internal fun noActions(
     onBookClick: (String) -> Unit = {},
@@ -153,7 +164,18 @@ internal fun noActions(
     onShelfClick: (String) -> Unit = {},
     onShuffle: () -> Unit = {},
     onOpenLibraryNewest: () -> Unit = {},
-) = DiscoverActions(onBookClick, onShelfClick, onUserClick, onShuffle, {}, {}, onOpenLibraryNewest, null)
+) = DiscoverActions(
+    onBookClick = onBookClick,
+    onShelfClick = onShelfClick,
+    onUserClick = onUserClick,
+    onShuffle = onShuffle,
+    onSelectPeriod = {},
+    onSelectCategory = {},
+    onOpenLibraryNewest = onOpenLibraryNewest,
+    onBookLongPress = null,
+    onInvite = null,
+    onRetryListening = {},
+)
 
 internal fun shelf(
     id: String,

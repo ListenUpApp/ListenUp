@@ -111,6 +111,10 @@ internal fun DiscoverLayout(
         item(key = DiscoverItemKey.LISTENING) {
             ListeningNowSection(
                 state = state.listening,
+                community = state.community,
+                viewer = state.viewer,
+                onInvite = actions.onInvite,
+                onRetry = actions.onRetryListening,
                 onBookClick = actions.onBookClick,
                 onUserClick = actions.onUserClick,
                 isInSelectionMode = isInSelectionMode,

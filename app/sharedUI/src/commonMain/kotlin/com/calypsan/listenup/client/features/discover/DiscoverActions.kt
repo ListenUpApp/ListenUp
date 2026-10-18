@@ -4,9 +4,11 @@ import androidx.compose.runtime.Immutable
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewer
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -26,6 +28,8 @@ data class DiscoverState(
     val activity: ActivityFeedUiState,
     val shelves: DiscoverShelvesUiState,
     val recentlyAdded: RecentlyAddedUiState,
+    val community: CommunitySize,
+    val viewer: DiscoverViewer?,
 )
 
 /** What a tap on Discover can ask for. Navigation callbacks come from the shell; the rest are VM actions. */
@@ -39,4 +43,6 @@ data class DiscoverActions(
     val onSelectCategory: (LeaderboardCategory) -> Unit,
     val onOpenLibraryNewest: () -> Unit,
     val onBookLongPress: ((String) -> Unit)?,
+    val onInvite: (() -> Unit)?,
+    val onRetryListening: () -> Unit,
 )
