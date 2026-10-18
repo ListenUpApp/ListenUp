@@ -108,7 +108,11 @@ private fun HomeBlockContent(
             FirstSyncStrip(state.scanProgress, margin)
         }
 
-        HomeBlock.Offline, HomeBlock.ContinueListeningFailed -> {
+        HomeBlock.Offline -> {
+            OfflinePill(margin)
+        }
+
+        HomeBlock.ContinueListeningFailed -> {
             Unit
         }
 
@@ -119,6 +123,7 @@ private fun HomeBlockContent(
                 selection = selection,
                 onOpenBook = actions.onOpenBook,
                 onOpenLibrary = actions.onOpenLibrary,
+                connectivity = state.connectivity,
             )
         }
 
