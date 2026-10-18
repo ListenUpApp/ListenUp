@@ -1357,6 +1357,7 @@ One beautiful library.</string>
     <string name="home_also_in_progress_ios">Also in Progress</string>
     <string name="home_arriving_body">Your place in each book is already here; covers and titles are arriving.</string>
     <string name="home_arriving_count">%1$d of %2$d books</string>
+    <string name="home_arriving_title">%1$s · %2$s</string>
     <string name="home_best_streak_days">Best streak %1$d days</string>
     <string name="home_best_streak_one_day">Best streak 1 day</string>
     <string name="home_browse_library">Browse the Library</string>

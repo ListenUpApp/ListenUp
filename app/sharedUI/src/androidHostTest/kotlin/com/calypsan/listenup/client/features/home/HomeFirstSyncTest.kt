@@ -1,0 +1,99 @@
+package com.calypsan.listenup.client.features.home
+
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasProgressBarRangeInfo
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import com.calypsan.listenup.client.domain.model.ScanProgressState
+import com.calypsan.listenup.client.presentation.home.HomeSlot
+import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+/** Spec §2.3 FirstSync, H5 and H14 on Android: the strip, and skeletons the size of what they stand for. */
+@RunWith(RobolectricTestRunner::class)
+class HomeFirstSyncTest {
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    private fun scanning(
+        books: Int,
+        booksTotal: Int,
+    ) = ScanProgressState(
+        phase = "analyzing",
+        current = books,
+        total = booksTotal,
+        added = 0,
+        updated = 0,
+        removed = 0,
+        books = books,
+        booksTotal = booksTotal,
+    )
+
+    @Test
+    fun `the strip announces politely and shows a count only when the scan knows both numbers`() {
+        composeRule.setContent { MaterialTheme { FirstSyncStrip(scan = null) } }
+        composeRule.onNodeWithText("Building your library", substring = true).assertIsDisplayed()
+        composeRule
+            .onNodeWithText("Your place in each book is already here; covers and titles are arriving.")
+            .assertIsDisplayed()
+        composeRule.onAllNodesWithText(" books", substring = true).assertCountEquals(0)
+        composeRule.onNode(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite)).assertExists()
+    }
+
+    @Test
+    fun `a scan's counts appear in the strip`() {
+        composeRule.setContent { MaterialTheme { FirstSyncStrip(scan = scanning(books = 412, booksTotal = 1280)) } }
+        composeRule.onNodeWithText("Building your library · 412 of 1280 books").assertIsDisplayed()
+    }
+
+    @Test
+    fun `first sync draws a skeleton slot with a disabled Resume`() {
+        composeRule.setContent { MaterialTheme { HomeSkeletonSlot(withResume = true) } }
+        composeRule.onNodeWithContentDescription("Up next, loading").assertIsDisplayed()
+        composeRule.onNodeWithText("Resume").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `page loading draws the skeletons and no strip, and no spinner`() {
+        composeRule.setContent {
+            MaterialTheme { HomeLoadingBody(width = HomeWidth.Compact, appHeader = testAppHeader, contentPadding = PaddingValues()) }
+        }
+        composeRule.onNodeWithContentDescription("Up next, loading").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Loading books").assertExists()
+        composeRule.onAllNodesWithText("Building your library", substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("Resume").assertCountEquals(0)
+        composeRule.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(0)
+    }
+
+    @Test
+    fun `Home in first sync puts the strip above the skeleton slot`() {
+        composeRule.setContent {
+            MaterialTheme {
+                HomeBody(
+                    state = homeReady(slot = HomeSlot.FirstSync, alsoInProgress = emptyList(), isLibraryArriving = true),
+                    stats = HomeStatsUiState.Loading,
+                    width = HomeWidth.Compact,
+                    actions = HomeActions.None,
+                    selection = HomeSelection.None,
+                    appHeader = testAppHeader,
+                    contentPadding = PaddingValues(),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Building your library", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Up next, loading").assertIsDisplayed()
+    }
+}

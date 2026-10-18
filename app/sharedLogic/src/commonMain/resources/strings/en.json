@@ -1166,6 +1166,7 @@
     "also_finished_one_more": "%1$s and %2$d more finished it too",
     "also_finished_two_more": "%1$s, %2$s and %3$d more finished it too",
     "arriving_count": "%1$d of %2$d books",
+    "arriving_title": "%1$s · %2$s",
     "arriving_body": "Your place in each book is already here; covers and titles are arriving.",
     "up_next_loading_a11y": "Up next, loading",
     "loading_books_a11y": "Loading books",

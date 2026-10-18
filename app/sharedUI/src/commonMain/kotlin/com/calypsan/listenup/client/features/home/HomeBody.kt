@@ -104,7 +104,11 @@ private fun HomeBlockContent(
             SlotContent(state, actions, margin)
         }
 
-        HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.ContinueListeningFailed -> {
+        HomeBlock.FirstSyncStrip -> {
+            FirstSyncStrip(state.scanProgress, margin)
+        }
+
+        HomeBlock.Offline, HomeBlock.ContinueListeningFailed -> {
             Unit
         }
 
@@ -165,7 +169,8 @@ private fun SlotContent(
         is HomeSlot.NothingInProgress -> HomeNothingInProgress(slot, actions, modifier)
         is HomeSlot.NewListener -> HomeWelcome(slot, actions, modifier)
         is HomeSlot.JustFinished -> HomeFinishedCard(slot.card, actions, modifier)
-        HomeSlot.FirstSync, HomeSlot.Absent -> Unit
+        HomeSlot.FirstSync -> HomeSkeletonSlot(withResume = true, modifier = modifier)
+        HomeSlot.Absent -> Unit
     }
 }
 
