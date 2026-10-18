@@ -48,7 +48,7 @@ class HomeStatsViewModelTest :
             runTest {
                 val arriving = MutableStateFlow(true)
                 val stats = nonEmptyStats()
-                val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)), isLibraryArriving = arriving)
+                val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)), libraryArriving = arriving)
                 vm.uiState.test {
                     awaitItem() shouldBe HomeStatsUiState.Loading
                     expectNoEvents()

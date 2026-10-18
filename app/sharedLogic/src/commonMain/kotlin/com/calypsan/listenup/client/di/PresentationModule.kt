@@ -593,7 +593,7 @@ internal val discoverPresentationModule =
             val sync = get<SyncRepository>()
             HomeStatsViewModel(
                 statsRepository = get(),
-                isLibraryArriving = combine(sync.buildingInitialLibrary, sync.firstCatchUpRunning) { a, b -> a || b },
+                libraryArriving = combine(sync.buildingInitialLibrary, sync.firstCatchUpRunning) { a, b -> a || b },
             )
         }
         factory {

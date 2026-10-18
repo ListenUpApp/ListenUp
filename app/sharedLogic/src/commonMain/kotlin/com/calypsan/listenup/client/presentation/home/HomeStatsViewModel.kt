@@ -35,7 +35,7 @@ private const val MINUTES_PER_HOUR = 60L
  * stored in Room. Updates automatically when new listening events are added
  * (local or via sync).
  *
- * While the library is still arriving on this device ([isLibraryArriving]) the section stays Loading: the stats it
+ * While the library is still arriving on this device ([libraryArriving]) the section stays Loading: the stats it
  * would compute are partial ("0m", a short best streak) until the listening history has landed.
  *
  * @property statsRepository Repository for computing local stats
@@ -43,7 +43,7 @@ private const val MINUTES_PER_HOUR = 60L
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeStatsViewModel(
     private val statsRepository: StatsRepository,
-    private val isLibraryArriving: Flow<Boolean> = flowOf(false),
+    libraryArriving: Flow<Boolean> = flowOf(false),
 ) : ViewModel() {
     /**
      * Bumped by [refresh] to re-run a failed observation.
@@ -57,11 +57,10 @@ class HomeStatsViewModel(
     val uiState: StateFlow<HomeStatsUiState> =
         observationRuns
             .flatMapLatest {
-                isLibraryArriving.distinctUntilChanged().flatMapLatest { arriving ->
+                libraryArriving.distinctUntilChanged().flatMapLatest { arriving ->
                     if (arriving) flowOf(HomeStatsUiState.Loading) else observeStats()
                 }
-            }
-            .stateIn(
+            }.stateIn(
                 scope = viewModelScope,
                 started = WhileSubscribedForUi,
                 initialValue = HomeStatsUiState.Loading,
