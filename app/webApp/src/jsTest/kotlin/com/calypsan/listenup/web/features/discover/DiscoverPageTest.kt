@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.discover
 
 import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.web.features.books.BookSelection
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
@@ -145,6 +146,10 @@ private fun page(
         onRefreshActivity = onRefreshActivity,
         onShuffle = onShuffle,
         onOpenLibraryNewest = {},
+        communitySize = CommunitySize.Others,
+        viewer = null,
+        onInvite = null,
+        onBrowseLibrary = null,
         landOnLeaderboard = landOnLeaderboard,
         selection = selection,
     )
@@ -507,7 +512,7 @@ class DiscoverPageTest :
                     )
                 }
 
-            host.textContent.orEmpty() shouldContain "Nothing new yet"
+            host.textContent.orEmpty() shouldContain "No books added recently."
             // The populated section beside it is untouched.
             host.querySelectorAll(".disc-card").length shouldBe 1
         }

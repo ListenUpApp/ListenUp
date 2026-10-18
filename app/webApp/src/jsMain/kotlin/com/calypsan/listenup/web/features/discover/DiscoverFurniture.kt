@@ -101,5 +101,14 @@ internal fun SectionError(
     }
 }
 
+/**
+ * One quiet line in place of a section's content: what an empty section is waiting for ("Nobody's
+ * listening right now…"), said once and plainly (spec §3.8), rather than a titled empty-state card.
+ */
+@Composable
+internal fun QuietLine(text: String) {
+    P(attrs = { classes("disc-quiet") }) { Text(text) }
+}
+
 /** A section's own heading is an H2, so anything headed inside it is an H3. */
 internal const val SECTION_HEADING_LEVEL = 2

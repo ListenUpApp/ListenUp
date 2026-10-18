@@ -177,3 +177,23 @@
    square art plus its caption lines; rows are the leaderboard's and the activity feed's people. */
 .luw .disc-skel-rail { height: calc(140px + 3.2rem); }
 .luw .disc-skel-rows { height: calc(5 * 56px); }
+
+/* A section's quiet line in place of content (§3.8): an empty period, nobody listening, all started. */
+.luw .disc-quiet { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
+.luw .disc-a-new .disc-browse { margin-top: 0.75rem; }
+
+/* "As of 2 hours ago": how old a roster is while the server cannot be reached. */
+.luw .disc-as-of { margin: 0 0 0.6rem; font-size: var(--fs-small); color: var(--ink-2); }
+
+/* Only you: your avatar beside two dashed circles for the people not here yet, then the invitation. */
+.luw .disc-invite {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem;
+  padding: 1.25rem; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2);
+}
+.luw .disc-invite-avatars { display: flex; }
+.luw .disc-invite-avatars > * + * { margin-left: -10px; }
+.luw .disc-invite-ghost {
+  width: 40px; height: 40px; border-radius: 50%; border: 2px dashed var(--ink-3); background: var(--surface-3);
+}
+.luw .disc-invite-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.luw .disc-invite-body { margin: 0; max-width: 40rem; color: var(--ink-2); }

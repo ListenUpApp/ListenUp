@@ -2,11 +2,13 @@ package com.calypsan.listenup.web.features.discover
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewer
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import com.calypsan.listenup.client.util.relativeLastActive
@@ -17,7 +19,6 @@ import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.Cover
-import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.ShelfMosaic
@@ -29,6 +30,7 @@ import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.features.shelf.bookCountLabel
 import com.calypsan.listenup.web.nav.Routes
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
@@ -53,6 +55,9 @@ internal fun ListeningNowSection(
     onOpenProfile: (String) -> Unit,
     selection: BookSelection?,
     onRetry: () -> Unit,
+    community: CommunitySize,
+    viewer: DiscoverViewer?,
+    onInvite: (() -> Unit)?,
 ) {
     val ready = state as? CurrentlyListeningUiState.Ready
     Section(
@@ -71,8 +76,31 @@ internal fun ListeningNowSection(
 
             is CurrentlyListeningUiState.Ready -> {
                 if (state.isEmpty) {
-                    EmptyState(title = "Nobody else is listening yet", body = "When they do, you will see them here.")
+                    when (community) {
+                        // Never claim "nobody" or "just you" before the roster has synced (plan C4).
+                        CommunitySize.Unknown -> {
+                            SectionSkeleton()
+                        }
+
+                        CommunitySize.JustYou -> {
+                            OnlyYouInvitation(
+                                viewer,
+                                onInvite.takeIf { viewer?.canInvite == true },
+                            )
+                        }
+
+                        CommunitySize.Others -> {
+                            QuietLine(DiscoverWords.NOBODY_LISTENING)
+                        }
+                    }
                 } else {
+                    val staleSince = state.observedAtMs?.takeIf { state.isStale }
+                    staleSince?.let { observedAt ->
+                        P(attrs = {
+                            classes("disc-as-of")
+                            attr("role", "status")
+                        }) { Text(DiscoverWords.listeningAsOf(relativeLastActiveInSentence(observedAt, nowMs))) }
+                    }
                     Div(attrs = { classes("disc-listeners") }) {
                         state.sessions.forEach { s ->
                             key(s.sessionId) {
@@ -154,44 +182,68 @@ internal fun SomethingNewSection(
     onShuffle: () -> Unit,
     selection: BookSelection?,
     onRetry: () -> Unit,
+    onBrowseLibrary: (() -> Unit)?,
 ) {
+    // Shuffle draws again; with nothing to draw (all started) or a failure (Try again is the action) it steps aside.
+    val canShuffle = state is DiscoverBooksUiState.Ready || state is DiscoverBooksUiState.Loading
     Section(
         DiscoverWords.SOMETHING_NEW,
         subtitle = DiscoverWords.SOMETHING_NEW_SUBTITLE,
         styleClass = "disc-a-new",
-        actions = {
-            Button(
-                kind = ButtonKind.Secondary,
-                size = ButtonSize.Sm,
-                onClick = onShuffle,
-                label = DiscoverWords.SHUFFLE_A11Y,
-            ) {
-                Icon(WebIcon.Shuffle, size = SHUFFLE_ICON)
-                Text(DiscoverWords.SHUFFLE)
-            }
-        },
+        actions = if (canShuffle) ({ ShuffleButton(onShuffle) }) else null,
     ) {
-        when (state) {
-            is DiscoverBooksUiState.Loading -> {
-                SectionSkeleton()
-            }
+        SomethingNewBody(state, onOpenBook, selection, onRetry, onBrowseLibrary)
+    }
+}
 
-            is DiscoverBooksUiState.Error -> {
-                SectionError(DiscoverWords.ERROR_PICKS, onRetry = onRetry)
-            }
+/** Shuffle: draws ten different picks. */
+@Composable
+private fun ShuffleButton(onShuffle: () -> Unit) {
+    Button(
+        kind = ButtonKind.Secondary,
+        size = ButtonSize.Sm,
+        onClick = onShuffle,
+        label = DiscoverWords.SHUFFLE_A11Y,
+    ) {
+        Icon(WebIcon.Shuffle, size = SHUFFLE_ICON)
+        Text(DiscoverWords.SHUFFLE)
+    }
+}
 
-            is DiscoverBooksUiState.AllStarted -> {
-                EmptyState(title = "Nothing left to discover", body = "You have started everything in the library.")
-            }
+/** Something new under its heading, by state (spec §3.8). */
+@Composable
+private fun SomethingNewBody(
+    state: DiscoverBooksUiState,
+    onOpenBook: (String) -> Unit,
+    selection: BookSelection?,
+    onRetry: () -> Unit,
+    onBrowseLibrary: (() -> Unit)?,
+) {
+    when (state) {
+        is DiscoverBooksUiState.Loading -> {
+            SectionSkeleton()
+        }
 
-            is DiscoverBooksUiState.Ready -> {
-                if (state.isEmpty) {
-                    EmptyState(title = "Nothing left to discover", body = "You have started everything in the library.")
-                } else {
-                    Div(attrs = { classes("disc-picks") }) {
-                        state.books.forEach { book ->
-                            key(book.id) { PickCard(book, onOpenBook, selection) }
-                        }
+        is DiscoverBooksUiState.Error -> {
+            SectionError(DiscoverWords.ERROR_PICKS, onRetry = onRetry)
+        }
+
+        is DiscoverBooksUiState.AllStarted -> {
+            QuietLine(DiscoverWords.STARTED_EVERYTHING)
+            onBrowseLibrary?.let { browse ->
+                Button(kind = ButtonKind.Secondary, onClick = browse, attrs = { classes("disc-browse") }) {
+                    Text(DiscoverWords.BROWSE_THE_LIBRARY)
+                }
+            }
+        }
+
+        is DiscoverBooksUiState.Ready -> {
+            if (state.isEmpty) {
+                QuietLine(DiscoverWords.NO_NEW_BOOKS_YET)
+            } else {
+                Div(attrs = { classes("disc-picks") }) {
+                    state.books.forEach { book ->
+                        key(book.id) { PickCard(book, onOpenBook, selection) }
                     }
                 }
             }
@@ -272,7 +324,7 @@ internal fun RecentlyAddedSection(
 
             is RecentlyAddedUiState.Ready -> {
                 if (state.isEmpty) {
-                    EmptyState(title = "Nothing new yet", body = "Books appear here as they are added to the library.")
+                    QuietLine(DiscoverWords.NO_RECENTLY_ADDED)
                 } else {
                     Div(attrs = { classes("disc-recent") }) {
                         state.books.forEach { book ->
@@ -351,7 +403,7 @@ internal fun ShelvesByOthersSection(
 
             is DiscoverShelvesUiState.Ready -> {
                 if (state.isEmpty) {
-                    EmptyState(title = "No shared shelves yet", body = "Shelves other people make public show up here.")
+                    QuietLine(DiscoverWords.SHELVES_ONLY_YOU)
                 } else {
                     state.users.forEach { owner ->
                         key(owner.user.id) {

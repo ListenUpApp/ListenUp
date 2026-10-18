@@ -10,9 +10,11 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewer
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -79,6 +81,14 @@ fun DiscoverPage(
     onShuffle: () -> Unit,
     /** Opens the Library's Books sorted newest first, for this visit (Recently added's link). */
     onOpenLibraryNewest: () -> Unit,
+    /** Who else is on the server: chooses the only-you and nobody-listening treatments (spec §3.8). */
+    communitySize: CommunitySize,
+    /** Who is looking: the invitation's avatar, and whether Invite someone is theirs to offer. */
+    viewer: DiscoverViewer?,
+    /** Opens the invite page; shown to an admin only. */
+    onInvite: (() -> Unit)?,
+    /** Opens the Library from "You've started every book here." */
+    onBrowseLibrary: (() -> Unit)?,
     /**
      * Arrived at `/discover?section=leaderboard` (the stats card's footer link): select Week, then
      * bring the leaderboard into view and focus its heading (spec §6.4).
@@ -115,12 +125,22 @@ fun DiscoverPage(
                                 onOpenProfile,
                                 selection,
                                 onRetryListening,
+                                communitySize,
+                                viewer,
+                                onInvite,
                             )
                         }
 
                         DiscoverBlock.SomethingNew -> {
                             // A fresh draw is the picks' restart.
-                            SomethingNewSection(books, onOpenBook, onShuffle, selection, onRetry = onShuffle)
+                            SomethingNewSection(
+                                books,
+                                onOpenBook,
+                                onShuffle,
+                                selection,
+                                onRetry = onShuffle,
+                                onBrowseLibrary = onBrowseLibrary,
+                            )
                         }
 
                         DiscoverBlock.Community -> {
@@ -135,6 +155,7 @@ fun DiscoverPage(
                                     onSelectCategory,
                                     onOpenProfile,
                                     onRefreshLeaderboard,
+                                    community = communitySize,
                                     land = landing,
                                     onLanded = { landing = false },
                                 )

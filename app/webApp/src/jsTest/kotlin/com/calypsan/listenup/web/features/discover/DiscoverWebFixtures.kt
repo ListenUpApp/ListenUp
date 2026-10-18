@@ -7,6 +7,8 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardSnapshot
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewer
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
@@ -135,6 +137,14 @@ internal fun recentBook(
 internal fun listening(vararg sessions: CurrentlyListeningUiSession) =
     CurrentlyListeningUiState.Ready(sessions.toList(), observedAtMs = null, isStale = false)
 
+/** A fresh roster over [rows]: no snapshot time, not stale. */
+internal fun readyListening(rows: List<CurrentlyListeningUiSession>) =
+    CurrentlyListeningUiState.Ready(rows, observedAtMs = null, isStale = false)
+
+/** Two people tied at the top on time (both rank 1), then the next distinct value at rank 3. */
+internal fun tiedAtTheTop() =
+    leaders(count = 3).mapIndexed { index, entry -> if (index == 1) entry.copy(rank = 1) else entry }
+
 /** [DiscoverPage] with every section Loading unless a spec says otherwise. */
 @Composable
 internal fun discoverPage(
@@ -157,6 +167,10 @@ internal fun discoverPage(
     onRetryShelves: () -> Unit = {},
     onRefreshLeaderboard: () -> Unit = {},
     onRefreshActivity: () -> Unit = {},
+    communitySize: CommunitySize = CommunitySize.Others,
+    viewer: DiscoverViewer? = DiscoverViewer("me", "Simon", canInvite = true),
+    onInvite: (() -> Unit)? = {},
+    onBrowseLibrary: (() -> Unit)? = {},
     selection: BookSelection? = null,
 ) {
     DiscoverPage(
@@ -180,6 +194,10 @@ internal fun discoverPage(
         onRefreshActivity = onRefreshActivity,
         onShuffle = onShuffle,
         onOpenLibraryNewest = onOpenLibraryNewest,
+        communitySize = communitySize,
+        viewer = viewer,
+        onInvite = onInvite,
+        onBrowseLibrary = onBrowseLibrary,
         selection = selection,
     )
 }
