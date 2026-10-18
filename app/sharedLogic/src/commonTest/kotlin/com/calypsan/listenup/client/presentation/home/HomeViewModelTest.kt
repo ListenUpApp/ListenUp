@@ -824,6 +824,33 @@ class HomeViewModelTest :
             }
         }
 
+        test("a failed Continue Listening never reads as a new listener or nothing in progress: the slot is the failure") {
+            runTest {
+                val fixture = createFixture()
+                every { fixture.homeRepository.observeContinueListening(any()) } returns
+                    flow { throw SimulatedFailure("boom") }
+                fixture.rig.finish("old", hoursAgo = 24 * 30)
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.slot shouldBe HomeSlot.Absent
+                ready.alsoInProgress shouldBe emptyList()
+            }
+        }
+
+        test("with no history at all, a failed Continue Listening is still not the welcome") {
+            runTest {
+                val fixture = createFixture()
+                every { fixture.homeRepository.observeContinueListening(any()) } returns
+                    flow { throw SimulatedFailure("boom") }
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>().slot shouldBe HomeSlot.Absent
+            }
+        }
+
         test("continue listening cancellation is not swallowed into a fallback emission") {
             runTest {
                 // Regression: the continueListening .catch used to omit the cancellation

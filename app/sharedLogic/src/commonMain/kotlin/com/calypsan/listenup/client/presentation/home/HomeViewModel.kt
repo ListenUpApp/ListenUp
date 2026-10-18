@@ -82,7 +82,10 @@ sealed interface HomeUiState {
         val alsoInProgress: List<ContinueListeningItem>,
         /** Whether this device and the server can be reached (spec §3.1). */
         val connectivity: HomeConnectivity,
-        /** Why Continue Listening could not load while the rest of Home did, or null (spec §3.3). */
+        /**
+         * Why Continue Listening could not load while the rest of Home did, or null (spec §3.3). While it is set the
+         * slot is [HomeSlot.Absent], so each platform draws the failure line in the slot's place.
+         */
         val continueListeningError: AppError?,
     ) : HomeUiState {
         /** Whether pull-to-refresh shows as running: a sync pass is. */
@@ -217,8 +220,10 @@ class HomeViewModel internal constructor(
                         scanProgress = shell.scanProgress,
                         timeOfDay = timeOfDay,
                         firstName = firstName,
-                        slot = slotState.slot,
-                        alsoInProgress = slotState.alsoInProgress,
+                        // A failed read leaves Continue Listening empty, which the slot rules would read as a new
+                        // listener or nothing in progress. The slot is the failure instead (spec §3.3).
+                        slot = if (read.error == null) slotState.slot else HomeSlot.Absent,
+                        alsoInProgress = if (read.error == null) slotState.alsoInProgress else emptyList(),
                         connectivity = shell.connectivity,
                         continueListeningError = read.error,
                     )
