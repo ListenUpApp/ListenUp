@@ -183,6 +183,8 @@ struct MainTabView: View {
         }
         // Discover's "Recently Added" link: Books newest first, for this session only (plan Q6).
         .onChange(of: shell.libraryNewestRequest) { _, _ in libraryObserver?.showNewestFirst() }
+        // Home's "Also in Progress" link: Books filtered to In Progress.
+        .onChange(of: shell.libraryInProgressRequest) { _, _ in libraryObserver?.setStatusFilter(.inProgress) }
         .onChange(of: shell.selectedTab) { _, _ in saveNavigation() }
         .onChange(of: shell.paths) { _, _ in saveNavigation() }
         // Every window's shell observes the one router; the claim hands a link to the front window
@@ -301,6 +303,7 @@ struct MainTabView: View {
         .environment(\.navigateToContributor, { shell.open(ContributorDestination(id: $0)) })
         .environment(\.openLibraryNewestFirst, { shell.openLibraryNewestFirst() })
         .environment(\.openDiscoverLeaderboard, { shell.landOnLeaderboard() })
+        .environment(\.openLibraryInProgress, { shell.openLibraryInProgress() })
         .environment(\.heroNamespace, heroNamespace)
         .modifier(TabBarSectionsProbe(isShowingSections: $isTabBarShowingSections))
     }
@@ -388,6 +391,10 @@ extension EnvironmentValues {
     /// Open Discover at its leaderboard, on Week (spec §6.4). Provided by `MainTabView`; the stats
     /// card's leaderboard link (Home) uses it.
     @Entry var openDiscoverLeaderboard: () -> Void = {}
+
+    /// Open the Library's Books filtered to In Progress (spec §6.4). Provided by `MainTabView`; Home's Also in
+    /// Progress heading uses it.
+    @Entry var openLibraryInProgress: () -> Void = {}
 }
 
 // MARK: - Navigation Destinations
@@ -405,7 +412,7 @@ private extension View {
     func contentDestinations() -> some View {
         self
             .navigationDestination(for: BookDestination.self) { destination in
-                BookDetailView(bookId: destination.id)
+                BookDetailView(bookId: destination.id, focus: destination.focus)
                     .heroDestination(bookCoverHeroID(destination.id))
             }
             .navigationDestination(for: SeriesDestination.self) { destination in
@@ -432,6 +439,9 @@ private extension View {
             }
             .navigationDestination(for: ShelfDestination.self) { destination in
                 ShelfDetailView(shelfId: destination.id)
+            }
+            .navigationDestination(for: MyShelvesDestination.self) { _ in
+                MyShelvesView()
             }
             .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()

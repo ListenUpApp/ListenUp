@@ -11,6 +11,13 @@ import Shared
 /// Mark as Finished, the progress resets and, for an admin, Delete Book.
 struct BookDetailView: View {
     let bookId: String
+    /// Where the screen lands, if not at its top: Home's finishers line opens it on Readers (spec §6.4).
+    let focus: BookDetailFocus?
+
+    init(bookId: String, focus: BookDetailFocus? = nil) {
+        self.bookId = bookId
+        self.focus = focus
+    }
 
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
@@ -33,6 +40,19 @@ struct BookDetailView: View {
     @State var showMarkFinished = false
     /// True once the hero title has scrolled under the navigation bar.
     @State var showsInlineTitle = false
+    /// Set once the Readers landing has run, so a return to this screen keeps the reader's own scroll.
+    @State private var landedOnReaders = false
+    /// VoiceOver's focus, moved to the Readers section when the screen lands there.
+    @AccessibilityFocusState private var readersFocused: Bool
+
+    /// The Readers section's scroll anchor.
+    private static let readersAnchor = "readers"
+
+    /// Whether the Readers section has something to show, which is when a landing can scroll to it.
+    private var readersHaveLoaded: Bool {
+        if case .data = readersObserver?.phase { return true }
+        return false
+    }
 
     var body: some View {
         Group {
@@ -182,17 +202,27 @@ struct BookDetailView: View {
     @ViewBuilder
     private func content(_ observer: BookDetailObserver) -> some View {
         DetailColumnsReader { columns in
-            ScrollView {
-                Group {
-                    switch columns {
-                    case .split(let railWidth): regularContent(observer, railWidth: railWidth)
-                    case .stacked: compactContent(observer)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Group {
+                        switch columns {
+                        case .split(let railWidth): regularContent(observer, railWidth: railWidth)
+                        case .stacked: compactContent(observer)
+                        }
                     }
+                    .padding(.bottom, Spacing.xxl)
+                    // One modifier for every book action, above the layout branch, so one tap fires `.success`
+                    // once whichever branch renders.
+                    .haptic(.commit, trigger: bookActionCount)
                 }
-                .padding(.bottom, Spacing.xxl)
-                // One modifier for every book action, above the layout branch, so one tap fires `.success`
-                // once whichever branch renders.
-                .haptic(.commit, trigger: bookActionCount)
+                // Home's finishers line (spec §6.4): once Readers has something to show, bring it to the top and
+                // VoiceOver's focus to it — once per visit.
+                .onChange(of: readersHaveLoaded, initial: true) { _, loaded in
+                    guard loaded, focus == .readers, !landedOnReaders else { return }
+                    landedOnReaders = true
+                    withAnimation { proxy.scrollTo(Self.readersAnchor, anchor: .top) }
+                    readersFocused = true
+                }
             }
         }
     }
@@ -306,6 +336,8 @@ struct BookDetailView: View {
         if case .data(let rows) = readersObserver?.phase {
             Divider()
             BookReadersSection(readers: rows)
+                .id(Self.readersAnchor)
+                .accessibilityFocused($readersFocused)
         }
     }
 
