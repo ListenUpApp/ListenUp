@@ -175,6 +175,8 @@ internal fun noActions(
     onBookLongPress = null,
     onInvite = null,
     onRetryListening = {},
+    onRetryRecent = {},
+    onBrowseLibrary = null,
 )
 
 internal fun shelf(

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -19,6 +20,11 @@ import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.Spacing
+import androidx.compose.ui.platform.testTag
+import com.calypsan.listenup.client.design.components.InlineRetry
+import com.calypsan.listenup.client.design.components.RailSkeleton
+import listenup.composeapp.generated.resources.discover_error_recent
+import listenup.composeapp.generated.resources.discover_no_recently_added_books
 import com.calypsan.listenup.client.features.discover.addedLine
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
@@ -37,7 +43,8 @@ private val RECENT_MIN_CELL = 120.dp
  * "Recently added", Discover's last section: the newest books on the server, each saying when it was
  * added ("Added 2 days ago"), and an "In Library" link that opens the Library sorted newest first.
  *
- * Loading, Error and an empty list render nothing (PR 6).
+ * Every state keeps the heading (spec §3.8): a skeleton while loading, a line and Try again on failure, and a
+ * plain line when nothing was added recently.
  *
  * @param wide A wide window: every book in a wrapping grid (plan Q2). Otherwise a horizontal rail.
  */
@@ -46,6 +53,7 @@ internal fun RecentlyAddedSection(
     state: RecentlyAddedUiState,
     onBookClick: (String) -> Unit,
     onOpenLibraryNewest: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
@@ -53,9 +61,6 @@ internal fun RecentlyAddedSection(
     wide: Boolean = false,
     nowMs: Long = remember { Clock.System.now().toEpochMilliseconds() },
 ) {
-    val ready = state as? RecentlyAddedUiState.Ready ?: return
-    if (ready.isEmpty) return
-
     Column(modifier = modifier) {
         val linkLabel = stringResource(Res.string.discover_show_newest_in_library_a11y)
         SectionTitle(
@@ -72,6 +77,40 @@ internal fun RecentlyAddedSection(
         )
 
         Spacer(modifier = Modifier.height(Spacing.md))
+
+        val ready =
+            when (state) {
+                RecentlyAddedUiState.Loading -> {
+                    RailSkeleton(
+                        cardWidth = if (wide) null else RECENT_CARD_WIDTH,
+                        captionLines = 2,
+                        modifier = Modifier.padding(horizontal = Spacing.screenMargin).testTag("recent-skeleton"),
+                    )
+                    return@Column
+                }
+
+                is RecentlyAddedUiState.Error -> {
+                    InlineRetry(
+                        line = stringResource(Res.string.discover_error_recent),
+                        onRetry = onRetry,
+                        modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+                    )
+                    return@Column
+                }
+
+                is RecentlyAddedUiState.Ready -> {
+                    state
+                }
+            }
+        if (ready.isEmpty) {
+            Text(
+                text = stringResource(Res.string.discover_no_recently_added_books),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+            )
+            return@Column
+        }
 
         val card: @Composable (RecentlyAddedUiBook, Dp) -> Unit = { book, width ->
             BookCard(

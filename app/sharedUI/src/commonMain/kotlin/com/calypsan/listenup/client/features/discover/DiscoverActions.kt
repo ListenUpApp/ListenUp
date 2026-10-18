@@ -45,4 +45,6 @@ data class DiscoverActions(
     val onBookLongPress: ((String) -> Unit)?,
     val onInvite: (() -> Unit)?,
     val onRetryListening: () -> Unit,
+    val onRetryRecent: () -> Unit,
+    val onBrowseLibrary: (() -> Unit)?,
 )

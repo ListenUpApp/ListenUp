@@ -41,6 +41,7 @@ class RecentlyAddedSectionTest {
                     state = RecentlyAddedUiState.Ready(books),
                     onBookClick = {},
                     onOpenLibraryNewest = onOpenLibraryNewest,
+                    onRetry = {},
                     nowMs = NOW_MS,
                 )
             }

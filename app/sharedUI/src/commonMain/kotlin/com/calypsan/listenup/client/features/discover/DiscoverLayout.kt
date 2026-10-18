@@ -128,6 +128,9 @@ internal fun DiscoverLayout(
             SomethingNewSection(
                 state = state.picks,
                 onShuffle = actions.onShuffle,
+                // A fresh draw is the picks' restart.
+                onRetry = actions.onShuffle,
+                onBrowseLibrary = actions.onBrowseLibrary,
                 onBookClick = actions.onBookClick,
                 isInSelectionMode = isInSelectionMode,
                 selectedBookIds = selectedBookIds,
@@ -198,6 +201,7 @@ internal fun DiscoverLayout(
                 state = state.recentlyAdded,
                 onBookClick = actions.onBookClick,
                 onOpenLibraryNewest = actions.onOpenLibraryNewest,
+                onRetry = actions.onRetryRecent,
                 isInSelectionMode = isInSelectionMode,
                 selectedBookIds = selectedBookIds,
                 onBookLongPress = actions.onBookLongPress,
