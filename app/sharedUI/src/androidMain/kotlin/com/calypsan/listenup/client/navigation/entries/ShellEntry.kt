@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.navigation.AdminInbox
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.BulkEdit
+import com.calypsan.listenup.client.navigation.CreateInvite
 import com.calypsan.listenup.client.navigation.CreateShelf
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.Notifications
@@ -173,6 +174,9 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))
                         },
+                        // Shown only to an admin (DiscoverViewer.canInvite); the route is admin-gated too.
+                        onInvite = { backStack.add(CreateInvite) },
+                        onBrowseLibrary = { onDestinationChange(ShellDestination.Library) },
                         contentPadding = padding,
                     )
                 },

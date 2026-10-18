@@ -33,6 +33,10 @@ import org.koin.compose.viewmodel.koinViewModel
  * - Pull to refresh
  * - Users grouped with their shelves
  * - Click shelf to view details
+ *
+ * @param onInvite Opens the create-invite screen from the only-you invitation; shown to an admin only. Null
+ *   (desktop) hides the button.
+ * @param onBrowseLibrary Opens the Library from "You've started every book here."; null hides the button.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
