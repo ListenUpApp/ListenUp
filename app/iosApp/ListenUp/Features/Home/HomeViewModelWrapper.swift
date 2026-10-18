@@ -145,7 +145,12 @@ struct ContinueItem: Identifiable, Equatable {
     /// Out of reach and not downloaded: the card dims and reads "Needs a connection" (spec §2.5, the shared rule).
     var needsConnection = false
 
-    init(from item: ContinueListeningItem, connectivity: HomeConnectivity = HomeConnectivity.Online) {
+    /// A card online, as CarPlay and every other caller without a connectivity reads it.
+    init(from item: ContinueListeningItem) {
+        self.init(from: item, connectivity: HomeConnectivity.Online)
+    }
+
+    init(from item: ContinueListeningItem, connectivity: HomeConnectivity) {
         switch item.sealedType() {
         case .ready(let readyType):
             let book = readyType.value.book
