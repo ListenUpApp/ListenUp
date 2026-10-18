@@ -42,6 +42,23 @@ class HomeStatsViewModelTest :
             }
         }
 
+        // ========== The library still arriving ==========
+
+        test("while the library is still arriving, partial stats stay Loading, then the real numbers show") {
+            runTest {
+                val arriving = MutableStateFlow(true)
+                val stats = nonEmptyStats()
+                val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)), isLibraryArriving = arriving)
+                vm.uiState.test {
+                    awaitItem() shouldBe HomeStatsUiState.Loading
+                    expectNoEvents()
+                    arriving.value = false
+                    awaitUntil { it is HomeStatsUiState.Data }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         // ========== Empty state ==========
 
         test("emitting WeeklyStats.empty() transitions to Empty") {
