@@ -258,6 +258,10 @@ import com.calypsan.listenup.web.features.bookedit.BookEditPage
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.web.features.home.welcomeSlot
+import com.calypsan.listenup.web.features.home.nothingSlot
+import com.calypsan.listenup.web.features.home.finishedSlot
+import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
@@ -1249,6 +1253,25 @@ class ClassContractTest :
                         )
                         HomePage(
                             readyHome(slot = HomeSlot.NothingInProgress(candidate = null)),
+                            weekStats(),
+                            HomeActions.None,
+                        )
+                        // Home PR 4's states: every slot kind, first sync, the notice and the failed row.
+                        HomePage(readyHome(slot = finishedSlot()), weekStats(), HomeActions.None, isWide = true)
+                        HomePage(readyHome(slot = nothingSlot()), weekStats(), HomeActions.None, isWide = true)
+                        HomePage(readyHome(slot = welcomeSlot(2)), HomeStatsUiState.Empty, HomeActions.None)
+                        HomePage(
+                            readyHome(slot = HomeSlot.FirstSync, isLibraryArriving = true),
+                            HomeStatsUiState.Loading,
+                            HomeActions.None,
+                        )
+                        HomePage(
+                            readyHome(connectivity = HomeConnectivity.ServerUnreachable),
+                            weekStats(),
+                            HomeActions.None,
+                        )
+                        HomePage(
+                            readyHome(continueListeningError = UnexpectedClientError()),
                             weekStats(),
                             HomeActions.None,
                         )

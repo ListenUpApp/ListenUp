@@ -28,12 +28,16 @@ internal fun LibraryStatus(
     isBuilding: Boolean,
     /** Where it sits, for the spacing only its host knows — Home's column already gaps it. */
     placement: String? = null,
+    /** The line under "Building your library…" — Home says where your place is; the Library says books arrive. */
+    subtitle: String = "Books appear as they arrive.",
 ) {
     when {
         scan != null -> {
             Div(attrs = {
                 classes("lib-status")
                 placement?.let { classes(it) }
+                // A polite live region (spec §8.2): progress is announced without stealing focus.
+                attr("role", "status")
             }) {
                 Span(attrs = { classes("lib-status-t") }) { Text(scan.phaseDisplayName) }
                 scan.progressFraction?.let { fraction ->
@@ -53,9 +57,10 @@ internal fun LibraryStatus(
             Div(attrs = {
                 classes("lib-status")
                 placement?.let { classes(it) }
+                attr("role", "status")
             }) {
                 Span(attrs = { classes("lib-status-t") }) { Text("Building your library…") }
-                Span(attrs = { classes("lib-status-sub") }) { Text("Books appear as they arrive.") }
+                Span(attrs = { classes("lib-status-sub") }) { Text(subtitle) }
             }
         }
 

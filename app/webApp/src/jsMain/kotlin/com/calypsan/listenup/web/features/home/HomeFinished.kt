@@ -47,7 +47,7 @@ internal fun HomeFinishedCard(
 ) {
     val book = card.book
     Section(attrs = {
-        classes("home-hero", "home-finished")
+        classes("home-hero")
         attr("aria-label", HomeWords.YOU_FINISHED_A_BOOK)
     }) {
         Div(attrs = { classes("home-finished-top") }) {
@@ -94,7 +94,7 @@ internal fun HomeFinishedCard(
                 fill = true,
                 label = HomeWords.playNextBook(next.title),
                 onClick = { actions.onPlay(next.bookId) },
-                attrs = { classes("home-hero-resume", "home-finished-play") },
+                attrs = { classes("home-hero-resume") },
             ) {
                 Icon(WebIcon.Play, size = ICON_SIZE)
                 Text(HomeWords.PLAY_NEXT_BOOK)

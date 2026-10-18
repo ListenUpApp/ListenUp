@@ -44,14 +44,15 @@ fun HomePage(
                 // not know whether the library is empty, syncing or broken, and guessing out loud is
                 // how a healthy first run ends up reading like a failure. The greeting's place is
                 // held by a skeleton, under an H1 that still names the page.
-                PageHeader(title = HOME, documentTitle = null, display = true, pending = true)
+                PageHeader(title = HomeWords.HOME, documentTitle = null, display = true, pending = true)
+                ResumeSkeleton(withResume = false)
+                RailSkeleton()
             }
 
             is HomeUiState.Error -> {
-                PageHeader(title = HOME, documentTitle = null)
-                EmptyState(title = "Home is unavailable", body = state.error.message) {
-                    Button(kind = ButtonKind.Primary, onClick = { actions.onRetry() }) { Text("Try again") }
-                }
+                // The greeting stays (spec §3.3); the error carries no name.
+                PageHeader(title = homeGreeting(state.timeOfDay, firstName = null), documentTitle = null, display = true)
+                HomeErrorSlot(onRetry = actions.onRetry)
             }
 
             is HomeUiState.Ready -> {
@@ -60,14 +61,18 @@ fun HomePage(
                     documentTitle = null,
                     display = true,
                 )
-                LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
-                homeBlocks(
-                    slot = state.slot,
-                    notice = homeNotice(state),
-                    hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
-                    isArriving = state.isLibraryArriving,
-                    isWide = isWide,
-                ).forEach { block ->
+                val blocks =
+                    homeBlocks(
+                        slot = state.slot,
+                        notice = homeNotice(state),
+                        hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
+                        isArriving = state.isLibraryArriving,
+                        isWide = isWide,
+                    )
+                // A scan, or a library still arriving behind another slot, keeps the strip under the greeting, as
+                // before; first sync draws it in its block, above the skeleton slot.
+                if (HomeBlock.FirstSyncStrip !in blocks) HomeLibraryStatus(state)
+                blocks.forEach { block ->
                     HomeBlockContent(block, state, stats, actions, isWide, nowMs, selection)
                 }
             }
@@ -75,7 +80,11 @@ fun HomePage(
     }
 }
 
-private const val HOME = "Home"
+/** The library-still-arriving strip in Home's words (spec H5): Library's strip, with where your place is. */
+@Composable
+private fun HomeLibraryStatus(state: HomeUiState.Ready) {
+    LibraryStatus(scan = state.scanProgress, isBuilding = state.isLibraryArriving, subtitle = HomeWords.ARRIVING_BODY)
+}
 
 /** One block of [homeBlocks], drawn. */
 @Composable
@@ -100,8 +109,16 @@ private fun HomeBlockContent(
             SlotContent(state, actions, nowMs)
         }
 
-        HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.ContinueListeningFailed -> {
-            Unit
+        HomeBlock.Offline -> {
+            ServerNotice(onRetry = actions.onRetryConnection)
+        }
+
+        HomeBlock.FirstSyncStrip -> {
+            HomeLibraryStatus(state)
+        }
+
+        HomeBlock.ContinueListeningFailed -> {
+            ContinueListeningFailedLine(onRetry = actions.onRetry)
         }
 
         HomeBlock.AlsoInProgress -> {
@@ -149,7 +166,11 @@ private fun SlotContent(
             WelcomeSlot(slot, actions)
         }
 
-        HomeSlot.FirstSync, HomeSlot.Absent -> {
+        HomeSlot.FirstSync -> {
+            ResumeSkeleton(withResume = true)
+        }
+
+        HomeSlot.Absent -> {
             Unit
         }
     }

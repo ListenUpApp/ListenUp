@@ -22,4 +22,13 @@ class HomeStoreTest :
             dismissed shouldBe "b1"
             rated shouldBe ("b1" to 8)
         }
+
+        test("a fixed Home hands retryConnection straight through") {
+            var retried = 0
+            val session = fixedHome(state = readyHome(), onRetryConnection = { retried++ })()
+
+            session.onRetryConnection()
+
+            retried shouldBe 1
+        }
     })

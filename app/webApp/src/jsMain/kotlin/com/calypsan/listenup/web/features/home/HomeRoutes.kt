@@ -52,6 +52,7 @@ internal fun HomeRoute(
             },
             onDismissFinished = session.onDismissFinished,
             onRateFinished = session.onRateFinished,
+            onRetryConnection = session.onRetryConnection,
         )
 
     BookSelectionScaffold(feeds.openMultiSelect, router, feeds.onToast) { selection ->

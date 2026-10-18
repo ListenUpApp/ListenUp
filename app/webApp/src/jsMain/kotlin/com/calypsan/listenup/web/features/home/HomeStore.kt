@@ -33,10 +33,12 @@ class HomeSession(
     val onRetry: () -> Unit,
     /** Re-runs failed stats; offered only on the failed stats section. */
     val onRetryStats: () -> Unit,
-    /** Dismisses a book's just-finished card on every device. Drawn in Home PR 4. */
+    /** Dismisses a book's just-finished card on every device. */
     val onDismissFinished: (bookId: String) -> Unit,
-    /** Rates a book from its just-finished card, in half stars (2..10). Drawn in Home PR 4. */
+    /** Rates a book from its just-finished card, in half stars (2..10). */
     val onRateFinished: (bookId: String, halfStars: Int) -> Unit,
+    /** Asks for the server again: the "Can't reach your server" notice's Retry. */
+    val onRetryConnection: () -> Unit,
     override val close: () -> Unit,
 ) : RouteSession
 
@@ -70,6 +72,7 @@ fun graphHome(koin: Koin): OpenHome =
             onRetryStats = stats::refresh,
             onDismissFinished = home::dismissFinished,
             onRateFinished = home::rateFinished,
+            onRetryConnection = home::retryConnection,
             close = store::clear,
         )
     }
@@ -82,6 +85,7 @@ fun fixedHome(
     onRetryStats: () -> Unit = {},
     onDismissFinished: (String) -> Unit = {},
     onRateFinished: (String, Int) -> Unit = { _, _ -> },
+    onRetryConnection: () -> Unit = {},
 ): OpenHome =
     {
         HomeSession(
@@ -91,6 +95,7 @@ fun fixedHome(
             onRetryStats = onRetryStats,
             onDismissFinished = onDismissFinished,
             onRateFinished = onRateFinished,
+            onRetryConnection = onRetryConnection,
             close = {},
         )
     }

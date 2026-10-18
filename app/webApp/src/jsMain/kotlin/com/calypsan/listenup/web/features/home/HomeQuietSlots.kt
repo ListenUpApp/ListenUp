@@ -49,7 +49,7 @@ internal fun NothingInProgressSlot(
                 SecondaryButton(HomeWords.DISCOVER, actions.onOpenDiscover)
             }
         } else {
-            Div(attrs = { classes("home-hero", "home-quiet-card") }) {
+            Div(attrs = { classes("home-hero") }) {
                 CandidateIdentity(candidate, actions.onOpenBook)
                 Div(attrs = { classes("home-quiet-actions") }) {
                     Button(

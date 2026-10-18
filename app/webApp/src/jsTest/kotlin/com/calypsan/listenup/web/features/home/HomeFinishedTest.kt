@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import kotlinx.datetime.TimeZone
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.KeyboardEvent
@@ -35,7 +36,7 @@ class HomeFinishedTest :
         ): HTMLElement = mounts.mount { HomeFinishedCard(slot.card, nowMs = BOARD_NOW, actions = actions, zone = TimeZone.UTC) }
 
         test("the card is a region named for what happened") {
-            card().querySelector("section.home-finished")!!.getAttribute("aria-label") shouldBe "You finished a book"
+            card().querySelector("section[aria-label='You finished a book']") shouldNotBe null
         }
 
         test("it says when it was finished, how long and when it was read") {
@@ -90,7 +91,7 @@ class HomeFinishedTest :
         }
 
         test("no next book: no primary button") {
-            card(finishedSlot(next = null)).count(".home-finished-play") shouldBe 0
+            card(finishedSlot(next = null)).buttonsNamed("Play next book: Words of Radiance").size shouldBe 0
         }
 
         test("cover and title are one control into the book, never nested") {
