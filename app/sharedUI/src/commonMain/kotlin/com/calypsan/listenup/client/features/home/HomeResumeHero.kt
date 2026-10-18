@@ -266,9 +266,9 @@ private fun HeroProgress(
     }
 }
 
-/** "Next in the series" (§2.3): an opaque list row on `surfaceContainerLowest`, no chevron, that opens that book. */
+/** "Next in the series" (§2.3, shared by the Resume and finish cards): an opaque list row on `surfaceContainerLowest`, no chevron, that opens that book. */
 @Composable
-private fun NextInSeriesRow(
+internal fun NextInSeriesRow(
     next: NextInSeries,
     onOpen: () -> Unit,
 ) {

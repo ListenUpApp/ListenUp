@@ -154,10 +154,11 @@ private fun SlotContent(
     actions: HomeActions,
     modifier: Modifier,
 ) {
-    when (state.slot) {
+    when (val slot = state.slot) {
         is HomeSlot.Resume -> ResumeHero(state, actions, modifier)
         is HomeSlot.NothingInProgress, is HomeSlot.NewListener -> EmptyContinueListening(actions.onOpenLibrary)
-        is HomeSlot.JustFinished, HomeSlot.FirstSync, HomeSlot.Absent -> Unit
+        is HomeSlot.JustFinished -> HomeFinishedCard(slot.card, actions, modifier)
+        HomeSlot.FirstSync, HomeSlot.Absent -> Unit
     }
 }
 
