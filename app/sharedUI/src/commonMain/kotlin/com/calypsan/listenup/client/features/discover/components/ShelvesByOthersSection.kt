@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.discover.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +84,10 @@ internal fun ShelvesByOthersSection(
         )
         when (state) {
             DiscoverShelvesUiState.Loading -> {
+                // Stands in for ShelfOwnerHeader (48dp: a small avatar, the name and a count) above the rail.
+                OwnerHeaderSkeleton(
+                    Modifier.padding(horizontal = Spacing.screenMargin).testTag("shelves-owner-skeleton"),
+                )
                 RailSkeleton(
                     cardWidth = if (wide) null else SHELF_CARD_WIDTH,
                     captionLines = 2,
@@ -123,6 +130,30 @@ internal fun ShelvesByOthersSection(
         }
     }
 }
+
+/** An owner header's shape while shelves load: avatar and a name bar, at the header's 48dp height. */
+@Composable
+private fun OwnerHeaderSkeleton(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth().height(48.dp).clearAndSetSemantics {},
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        Box(
+            Modifier
+                .size(AvatarSize.Small.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+        )
+        Box(
+            Modifier
+                .width(OWNER_NAME_SKELETON_WIDTH)
+                .height(12.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
+        )
+    }
+}
+
+private val OWNER_NAME_SKELETON_WIDTH = 140.dp
 
 /** Every owner's block: owners in pairs on a wide window, one under another on a phone. */
 @Composable

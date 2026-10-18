@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.discover.components
 
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -14,6 +17,7 @@ import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,6 +69,14 @@ class ShelvesAndActivityStatesTest {
         showShelves(DiscoverShelvesUiState.Loading)
         composeRule.onNode(hasText("Shelves by others") and isHeading()).assertIsDisplayed()
         composeRule.onNodeWithTag("shelves-skeleton").assertIsDisplayed()
+    }
+
+    @Test
+    fun `shelves loading stands in for an owner's header above the shelf rail`() {
+        showShelves(DiscoverShelvesUiState.Loading)
+        val header = composeRule.onNodeWithTag("shelves-owner-skeleton").assertHeightIsEqualTo(48.dp)
+        val rail = composeRule.onNodeWithTag("shelves-skeleton")
+        assertTrue(header.getUnclippedBoundsInRoot().bottom <= rail.getUnclippedBoundsInRoot().top)
     }
 
     @Test
