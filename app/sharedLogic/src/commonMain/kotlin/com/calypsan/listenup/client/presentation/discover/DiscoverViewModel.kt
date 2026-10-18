@@ -58,7 +58,7 @@ private val logger = KotlinLogging.logger {}
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiscoverViewModel(
-    bookRepository: BookRepository,
+    private val bookRepository: BookRepository,
     activeSessionRepository: ActiveSessionRepository,
     private val authSession: AuthSession,
     private val shelfRepository: ShelfRepository,
@@ -198,17 +198,14 @@ class DiscoverViewModel(
         discoverBooksDraws
             .flatMapLatest {
                 flow<DiscoverBooksUiState> {
-                    val books = bookRepository.observeRandomUnstartedBooks(limit = 10).first()
-                    // An empty draw means "started everything" only when the library has books at all.
-                    val libraryHasBooks =
-                        books.isNotEmpty() || bookRepository.observeRecentlyAddedBooks(limit = 1).first().isNotEmpty()
-                    emit(
-                        if (books.isEmpty() && libraryHasBooks) {
-                            DiscoverBooksUiState.AllStarted
-                        } else {
-                            DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() })
-                        },
-                    )
+                    val drawn = drawPicks()
+                    emit(drawn)
+                    if (drawn == DiscoverBooksUiState.Ready(emptyList())) {
+                        // An empty library may only be one still syncing in: draw again once it has books,
+                        // rather than saying "Nothing new just yet" beside them for the rest of the visit.
+                        bookRepository.observeRecentlyAddedBooks(limit = 1).first { it.isNotEmpty() }
+                        emit(drawPicks())
+                    }
                 }.fallbackTo { e ->
                     logger.error(e) { "Error loading discover books" }
                     DiscoverBooksUiState.Error(ErrorMapper.map(e))
@@ -218,6 +215,21 @@ class DiscoverViewModel(
                 started = WhileSubscribedForUi,
                 initialValue = DiscoverBooksUiState.Loading,
             )
+
+    /**
+     * One draw of ten picks. An empty draw means "started everything" only when the library has books at all;
+     * over an empty library it is an empty Ready.
+     */
+    private suspend fun drawPicks(): DiscoverBooksUiState {
+        val books = bookRepository.observeRandomUnstartedBooks(limit = 10).first()
+        val libraryHasBooks =
+            books.isNotEmpty() || bookRepository.observeRecentlyAddedBooks(limit = 1).first().isNotEmpty()
+        return if (books.isEmpty() && libraryHasBooks) {
+            DiscoverBooksUiState.AllStarted
+        } else {
+            DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() })
+        }
+    }
 
     /**
      * Draw ten different books for "Something new". Only the picks change: shelves, listeners and

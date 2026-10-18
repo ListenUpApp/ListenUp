@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -841,6 +842,30 @@ class DiscoverViewModelTest :
                 val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
                 advanceUntilIdle()
                 viewModel.discoverBooksState.value shouldBe DiscoverBooksUiState.AllStarted
+            }
+        }
+
+        test("a draw taken before the library arrived draws again once it has books") {
+            // ⛔ The draw is a one-shot snapshot (RANDOM() must not reshuffle on every write). Taken while
+            // the library was still syncing in, it found nothing and said "Nothing new just yet." for the
+            // rest of the visit, beside a full Recently added.
+            runTest {
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } sequentiallyReturns
+                    listOf(flowOf(emptyList()), flowOf(listOf(createDiscoveryPick(id = "arrived"))))
+                fixture.recentlyAddedFlow.value = emptyList()
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+                viewModel.discoverBooksState.value shouldBe DiscoverBooksUiState.Ready(emptyList())
+
+                fixture.recentlyAddedFlow.value = listOf(createDiscoveryBook(id = "arrived"))
+                advanceUntilIdle()
+
+                viewModel.discoverBooksState.value
+                    .shouldBeInstanceOf<DiscoverBooksUiState.Ready>()
+                    .books
+                    .single()
+                    .id shouldBe "arrived"
             }
         }
 
