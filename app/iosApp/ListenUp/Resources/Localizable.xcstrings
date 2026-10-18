@@ -10641,6 +10641,36 @@
         }
       }
     },
+    "discover.activity_add_book_to_shelf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add %1$@ to a shelf"
+          }
+        }
+      }
+    },
+    "discover.activity_more_actions_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More actions for %1$@'s activity"
+          }
+        }
+      }
+    },
+    "discover.activity_open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open %1$@"
+          }
+        }
+      }
+    },
     "discover.activity_profile_a11y": {
       "localizations": {
         "en": {
@@ -10671,12 +10701,32 @@
         }
       }
     },
+    "discover.activity_view_person_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View %1$@"
+          }
+        }
+      }
+    },
     "discover.activity_you": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "You"
+          }
+        }
+      }
+    },
+    "discover.activity_your_more_actions_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More actions for your activity"
           }
         }
       }
@@ -10691,12 +10741,92 @@
         }
       }
     },
+    "discover.browse_the_library_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browse the Library"
+          }
+        }
+      }
+    },
     "discover.could_not_load_leaderboard": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Could not load leaderboard."
+          }
+        }
+      }
+    },
+    "discover.error_activity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load activity"
+          }
+        }
+      }
+    },
+    "discover.error_leaderboard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load the leaderboard"
+          }
+        }
+      }
+    },
+    "discover.error_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load who's listening"
+          }
+        }
+      }
+    },
+    "discover.error_picks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load new books"
+          }
+        }
+      }
+    },
+    "discover.error_recent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load recently added"
+          }
+        }
+      }
+    },
+    "discover.error_shelves": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load shelves by others"
+          }
+        }
+      }
+    },
+    "discover.invite_someone_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite Someone"
           }
         }
       }
@@ -10757,6 +10887,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Start listening to climb the rankings."
+          }
+        }
+      }
+    },
+    "discover.leaderboard_empty_period": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nobody listened in this period yet."
+          }
+        }
+      }
+    },
+    "discover.leaderboard_just_you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just you so far. The board fills in as people join."
           }
         }
       }
@@ -10901,6 +11051,16 @@
         }
       }
     },
+    "discover.listening_as_of": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As of %1$@"
+          }
+        }
+      }
+    },
     "discover.listening_count_both": {
       "localizations": {
         "en": {
@@ -11021,6 +11181,46 @@
         }
       }
     },
+    "discover.nobody_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nobody's listening right now. When someone starts, they'll show up here."
+          }
+        }
+      }
+    },
+    "discover.only_you_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When other people join, you'll see what they're listening to, the shelves they share and what they finish."
+          }
+        }
+      }
+    },
+    "discover.only_you_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's just you here so far"
+          }
+        }
+      }
+    },
+    "discover.only_you_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's Just You Here So Far"
+          }
+        }
+      }
+    },
     "discover.pick_series_line": {
       "localizations": {
         "en": {
@@ -11091,6 +11291,16 @@
         }
       }
     },
+    "discover.selecting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selecting"
+          }
+        }
+      }
+    },
     "discover.shelf_count": {
       "localizations": {
         "en": {
@@ -11127,6 +11337,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d shelves"
+          }
+        }
+      }
+    },
+    "discover.shelves_need_connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shelves by others need a connection"
+          }
+        }
+      }
+    },
+    "discover.shelves_only_you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shelves people make public show up here."
           }
         }
       }
@@ -11201,6 +11431,16 @@
         }
       }
     },
+    "discover.started_everything": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You've started every book here."
+          }
+        }
+      }
+    },
     "discover.time_ago_days": {
       "localizations": {
         "en": {
@@ -11237,6 +11477,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Just now"
+          }
+        }
+      }
+    },
+    "discover.try_again_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
           }
         }
       }
@@ -21501,6 +21751,26 @@
         }
       }
     },
+    "selection.add_to_collection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to collection"
+          }
+        }
+      }
+    },
+    "selection.add_to_shelf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to shelf"
+          }
+        }
+      }
+    },
     "selection.added_to_collection_none": {
       "localizations": {
         "en": {
@@ -21561,6 +21831,16 @@
         }
       }
     },
+    "selection.cancel_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel selection"
+          }
+        }
+      }
+    },
     "selection.created_with_books_one": {
       "localizations": {
         "en": {
@@ -21591,6 +21871,16 @@
         }
       }
     },
+    "selection.n_selected_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d Selected"
+          }
+        }
+      }
+    },
     "selection.select": {
       "localizations": {
         "en": {
@@ -21607,6 +21897,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Select %1$@"
+          }
+        }
+      }
+    },
+    "selection.toolbar_a11y_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book selected"
+          }
+        }
+      }
+    },
+    "selection.toolbar_a11y_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books selected"
           }
         }
       }
