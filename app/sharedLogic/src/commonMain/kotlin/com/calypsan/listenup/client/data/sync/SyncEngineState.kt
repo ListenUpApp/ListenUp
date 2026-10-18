@@ -47,6 +47,12 @@ internal data class EngineSnapshot(
      * without it, it fought every deliberate stop by reconnecting every couple of seconds.
      */
     val realtimeWanted: Boolean = false,
+    /**
+     * Whether this device's first catch-up is running: the engine started against a cursor store that had never
+     * advanced. Home shows "first sync" while it does. Cleared when that catch-up ends, success or failure, so
+     * nothing waits on it forever.
+     */
+    val isFirstCatchUp: Boolean = false,
 )
 
 private const val ERROR_COUNT_THRESHOLD = 5
@@ -68,6 +74,11 @@ internal class SyncEngineState {
     /** Records whether the firehose is wanted open (engine started) or deliberately closed (engine stopped). */
     fun setRealtimeWanted(wanted: Boolean) {
         flow.update { it.copy(realtimeWanted = wanted) }
+    }
+
+    /** Marks whether the running catch-up is this device's first. */
+    fun setFirstCatchUp(running: Boolean) {
+        flow.update { it.copy(isFirstCatchUp = running) }
     }
 
     /** Update the firehose connection state. */

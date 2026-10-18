@@ -80,6 +80,7 @@ class HomeViewModelTest :
                 MutableStateFlow<com.calypsan.listenup.client.domain.model.ScanProgressState?>(null)
             val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
             val buildingInitialLibraryFlow = MutableStateFlow(false)
+            val firstCatchUpFlow = MutableStateFlow(false)
             var currentHour: Int = 10 // Default to morning
             val rig = HomeSlotRig(failWrites = failWrites)
             val reachability = FakeServerReachability()
@@ -90,6 +91,7 @@ class HomeViewModelTest :
                 every { syncRepository.scanProgress } returns scanProgressFlow
                 every { syncRepository.syncState } returns syncStateFlow
                 every { syncRepository.buildingInitialLibrary } returns buildingInitialLibraryFlow
+                every { syncRepository.isFirstCatchUpRunning } returns firstCatchUpFlow
                 return HomeViewModel(
                     homeRepository = homeRepository,
                     userRepository = userRepository,
@@ -852,6 +854,7 @@ class HomeViewModelTest :
                 every { fixture.syncRepository.scanProgress } returns fixture.scanProgressFlow
                 every { fixture.syncRepository.syncState } returns fixture.syncStateFlow
                 every { fixture.syncRepository.buildingInitialLibrary } returns fixture.buildingInitialLibraryFlow
+                every { fixture.syncRepository.isFirstCatchUpRunning } returns fixture.firstCatchUpFlow
                 val viewModel =
                     HomeViewModel(
                         homeRepository = fixture.homeRepository,

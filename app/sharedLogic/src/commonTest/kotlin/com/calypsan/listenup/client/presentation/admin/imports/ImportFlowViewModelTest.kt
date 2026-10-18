@@ -1069,6 +1069,7 @@ private class FakeSyncRepository(
     override val serverScanning: StateFlow<Boolean> = MutableStateFlow(false)
 
     override val buildingInitialLibrary: StateFlow<Boolean> = MutableStateFlow(false)
+    override val isFirstCatchUpRunning: StateFlow<Boolean> = MutableStateFlow(false)
     override val scanProgress: StateFlow<ScanProgressState?> = MutableStateFlow(null)
 
     override suspend fun sync(): AppResult<Unit> = AppResult.Success(Unit)

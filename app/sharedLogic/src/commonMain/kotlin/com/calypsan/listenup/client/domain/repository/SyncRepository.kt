@@ -54,6 +54,15 @@ interface SyncRepository {
     val buildingInitialLibrary: StateFlow<Boolean>
 
     /**
+     * Whether this device is pulling its library for the first time. Unlike [buildingInitialLibrary] it is true on a
+     * fresh device joining a library that already exists, and it never gates the shell: Home reads it to show its
+     * first-sync strip and skeletons while positions arrive before their books.
+     *
+     * Not [syncState]: the socket is `Connected` for the whole seed, so `isSyncing` is false throughout.
+     */
+    val isFirstCatchUpRunning: StateFlow<Boolean>
+
+    /**
      * Trigger a full library sync with the server.
      *
      * Performs:
