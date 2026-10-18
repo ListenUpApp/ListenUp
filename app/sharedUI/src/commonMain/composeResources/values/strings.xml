@@ -1076,7 +1076,6 @@ One beautiful library.</string>
     <string name="discover_activity_your_more_actions_a11y">More actions for your activity</string>
     <string name="discover_activity_your_profile_a11y">Your profile</string>
     <string name="discover_browse_the_library_ios">Browse the Library</string>
-    <string name="discover_could_not_load_leaderboard">Could not load leaderboard.</string>
     <string name="discover_error_activity">Couldn't load activity</string>
     <string name="discover_error_leaderboard">Couldn't load the leaderboard</string>
     <string name="discover_error_listening">Couldn't load who's listening</string>
@@ -1089,7 +1088,6 @@ One beautiful library.</string>
     <string name="discover_leaderboard_category_group">Rank by</string>
     <string name="discover_leaderboard_category_streak">Streak</string>
     <string name="discover_leaderboard_category_time">Time</string>
-    <string name="discover_leaderboard_empty">Start listening to climb the rankings.</string>
     <string name="discover_leaderboard_empty_period">Nobody listened in this period yet.</string>
     <string name="discover_leaderboard_just_you">Just you so far. The board fills in as people join.</string>
     <string name="discover_leaderboard_period_all_time">All time</string>
@@ -1113,12 +1111,9 @@ One beautiful library.</string>
     <string name="discover_listening_now">Listening now</string>
     <string name="discover_listening_now_ios">Listening Now</string>
     <string name="discover_live">Live</string>
-    <string name="discover_loading_leaderboard">Loading leaderboard...</string>
     <string name="discover_no_activity_yet_start_listening">No activity yet. Start listening to see what your community is reading!</string>
     <string name="discover_no_new_books_yet">Nothing new just yet.</string>
-    <string name="discover_no_one_listening_right_now">No one's listening right now. Check back soon!</string>
     <string name="discover_no_recently_added_books">No books added recently.</string>
-    <string name="discover_no_shelves_to_discover_yet">No shelves to discover yet</string>
     <string name="discover_nobody_listening">Nobody's listening right now. When someone starts, they'll show up here.</string>
     <string name="discover_only_you_body">When other people join, you'll see what they're listening to, the shelves they share and what they finish.</string>
     <string name="discover_only_you_title">It's just you here so far</string>
@@ -1143,14 +1138,12 @@ One beautiful library.</string>
     <string name="discover_something_new">Something new</string>
     <string name="discover_something_new_ios">Something New</string>
     <string name="discover_something_new_subtitle">Books you haven't started, first in their series</string>
-    <string name="discover_start_listening_to_join_the">Start listening to join the community rankings</string>
     <string name="discover_started_everything">You've started every book here.</string>
     <string name="discover_time_ago_days">%1$dd ago</string>
     <string name="discover_time_ago_hours">%1$dh ago</string>
     <string name="discover_time_ago_minutes">%1$dm ago</string>
     <string name="discover_time_ago_now">Just now</string>
     <string name="discover_try_again_ios">Try Again</string>
-    <string name="discover_when_other_users_create_shelves">When other users create shelves with books you can access, they'll appear here.</string>
     <string name="edit_adjust_photo">Adjust photo</string>
     <string name="edit_adjust_photo_ios">Adjust Photo</string>
     <string name="edit_change_image">Change image</string>

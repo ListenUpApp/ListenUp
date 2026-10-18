@@ -10751,16 +10751,6 @@
         }
       }
     },
-    "discover.could_not_load_leaderboard": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not load leaderboard."
-          }
-        }
-      }
-    },
     "discover.error_activity": {
       "localizations": {
         "en": {
@@ -10877,16 +10867,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Time"
-          }
-        }
-      }
-    },
-    "discover.leaderboard_empty": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start listening to climb the rankings."
           }
         }
       }
@@ -11121,16 +11101,6 @@
         }
       }
     },
-    "discover.loading_leaderboard": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Loading leaderboard..."
-          }
-        }
-      }
-    },
     "discover.no_activity_yet_start_listening": {
       "localizations": {
         "en": {
@@ -11151,32 +11121,12 @@
         }
       }
     },
-    "discover.no_one_listening_right_now": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No one's listening right now. Check back soon!"
-          }
-        }
-      }
-    },
     "discover.no_recently_added_books": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No books added recently."
-          }
-        }
-      }
-    },
-    "discover.no_shelves_to_discover_yet": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No shelves to discover yet"
           }
         }
       }
@@ -11421,16 +11371,6 @@
         }
       }
     },
-    "discover.start_listening_to_join_the": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start listening to join the community rankings"
-          }
-        }
-      }
-    },
     "discover.started_everything": {
       "localizations": {
         "en": {
@@ -11487,16 +11427,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Try Again"
-          }
-        }
-      }
-    },
-    "discover.when_other_users_create_shelves": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When other users create shelves with books you can access, they'll appear here."
           }
         }
       }
