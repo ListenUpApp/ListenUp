@@ -16,6 +16,11 @@ import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.sequentiallyReturns
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.delay
+import dev.mokkery.answering.calls
+import io.kotest.matchers.types.shouldBeInstanceOf
+import com.calypsan.listenup.client.core.TypedAppErrorException
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -342,11 +347,10 @@ class ActiveSessionRepositoryImplTest :
             }
         }
 
-        test("an empty cache with a failing RPC claims nothing: no roster until a fetch lands") {
-            // ⛔ An empty cache that was never filled is not "nobody is listening". Emitting it let
-            // Discover say "Nobody's listening right now" for a minute whenever the first fetch failed
-            // (a slow or unreachable server), until the presence poll came round. It must not crash or
-            // blank either: the flow simply waits, and the section stays on its skeleton.
+        test("an empty cache with a failing first fetch fails the flow with the typed error") {
+            // ⛔ Emitting the never-filled cache said "Nobody's listening" whenever the first fetch failed;
+            // holding it back forever left a skeleton that never ended. Neither is honest: the failure is
+            // the answer, typed, so the section can say it needs a connection and offer Try again.
             runTest {
                 val service =
                     mock<SocialService> {
@@ -357,7 +361,29 @@ class ActiveSessionRepositoryImplTest :
                 repo(RpcChannel.forTest(service), libraryOf(), FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
+                        val failure = awaitError().shouldBeInstanceOf<TypedAppErrorException>()
+                        failure.error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                    }
+            }
+        }
+
+        test("a slow first fetch: nothing is claimed until it answers") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } calls {
+                            delay(5_000)
+                            AppResult.Success(emptyList())
+                        }
+                    }
+
+                repo(RpcChannel.forTest(service), libraryOf(), FakeCachedActiveSessionDao())
+                    .observeActiveSessions("u1")
+                    .test {
+                        advanceTimeBy(4_000)
                         expectNoEvents()
+                        advanceTimeBy(2_000)
+                        awaitItem().shouldBeEmpty()
                         cancelAndIgnoreRemainingEvents()
                     }
             }
@@ -379,25 +405,21 @@ class ActiveSessionRepositoryImplTest :
             }
         }
 
-        test("a roster that failed its first fetch fills in on the next ping") {
+        test("once a fetch has landed, a later failure keeps what it found rather than failing") {
             runTest {
                 val service =
                     mock<SocialService> {
                         everySuspend { currentlyListening() } sequentiallyReturns
-                            listOf(
-                                AppResult.Failure(TransportError.Timeout()),
-                                AppResult.Success(listOf(session(userId = "u2", bookId = "bookA"))),
-                            )
+                            listOf(AppResult.Success(emptyList()), AppResult.Failure(TransportError.Timeout()))
                     }
-                val library = libraryOf(LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null))
                 val presence = PresenceRefreshSignal()
 
-                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao(), presence = presence)
+                repo(RpcChannel.forTest(service), libraryOf(), FakeCachedActiveSessionDao(), presence = presence)
                     .observeActiveSessions("u1")
                     .test {
-                        expectNoEvents()
+                        awaitItem().shouldBeEmpty()
                         presence.ping()
-                        awaitItem().single().userId shouldBe "u2"
+                        expectNoEvents()
                         cancelAndIgnoreRemainingEvents()
                     }
             }

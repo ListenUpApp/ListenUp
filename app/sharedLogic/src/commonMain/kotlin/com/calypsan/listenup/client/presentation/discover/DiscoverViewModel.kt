@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.TypedAppErrorException
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -81,8 +82,9 @@ class DiscoverViewModel(
     init {
         // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
         loadDiscoverShelves()
-        // Shelves are not a Room mirror, so a reconnect heals nothing by itself: when the server becomes
-        // reachable again, a section that failed fetches once more, as every Room-backed section recovers.
+        // Shelves are not a Room mirror, and a Listening now whose first fetch failed has ended its flow, so a
+        // reconnect heals neither by itself: when the server becomes reachable again, each failed one fetches once
+        // more, as every Room-backed section recovers.
         viewModelScope.launch {
             serverReachability.state
                 .map { it is Reachability.Reachable }
@@ -90,6 +92,7 @@ class DiscoverViewModel(
                 .drop(1) // only a change: the first load above already covers how things stand now
                 .collect { reachable ->
                     if (reachable && discoverShelvesState.value is DiscoverShelvesUiState.Error) loadDiscoverShelves()
+                    if (reachable) retryListeningNow()
                 }
         }
     }
@@ -164,7 +167,7 @@ class DiscoverViewModel(
                 }.onStart { emit(CurrentlyListeningUiState.Loading) }
                     .fallbackTo { e ->
                         logger.error(e) { "Error observing currently listening" }
-                        CurrentlyListeningUiState.Error(ErrorMapper.map(e))
+                        CurrentlyListeningUiState.Error((e as? TypedAppErrorException)?.error ?: ErrorMapper.map(e))
                     }
             }.stateIn(
                 scope = viewModelScope,
@@ -500,7 +503,11 @@ sealed interface CurrentlyListeningUiState {
     /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
         val error: AppError,
-    ) : CurrentlyListeningUiState
+    ) : CurrentlyListeningUiState {
+        /** True when the failure is connectivity (offline, timed out): the section says it needs a connection. */
+        val needsConnection: Boolean
+            get() = error.isConnectivityFailure()
+    }
 }
 
 /**

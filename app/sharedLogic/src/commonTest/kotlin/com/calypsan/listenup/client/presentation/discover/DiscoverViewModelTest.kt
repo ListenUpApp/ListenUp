@@ -41,6 +41,8 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
+import com.calypsan.listenup.client.core.TypedAppErrorException
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -539,6 +541,62 @@ class DiscoverViewModelTest :
 
                 val ready = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Ready>()
                 ready.books.first().id shouldBe "new-1"
+            }
+        }
+
+        test("offline with nothing cached, Listening now says it needs a connection, never a lasting skeleton") {
+            runTest {
+                val fixture = createFixture()
+                every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
+                    flow { throw TypedAppErrorException(TransportError.NetworkUnavailable()) }
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+
+                viewModel.currentlyListeningState.value
+                    .shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
+                    .needsConnection shouldBe true
+            }
+        }
+
+        test("a Listening now that failed comes back on its own once the server is reachable") {
+            runTest {
+                val fixture = createFixture()
+                var subscriptions = 0
+                every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
+                    flow {
+                        subscriptions++
+                        if (subscriptions == 1) {
+                            throw TypedAppErrorException(TransportError.NetworkUnavailable())
+                        }
+                        emit(listOf(createActiveSession(sessionId = "back")))
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+                fixture.reachability.value = Reachability.Unreachable
+                advanceUntilIdle()
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
+
+                fixture.reachability.value = Reachability.Reachable
+                advanceUntilIdle()
+
+                viewModel.currentlyListeningState.value
+                    .shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                    .sessions
+                    .single()
+                    .sessionId shouldBe "back"
+            }
+        }
+
+        test("an empty library that stays empty settles on its empty line and never draws again") {
+            runTest {
+                val fixture = createFixture(randomBooks = emptyList())
+                fixture.recentlyAddedFlow.value = emptyList()
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceTimeBy(60_000)
+                advanceUntilIdle()
+
+                viewModel.discoverBooksState.value shouldBe DiscoverBooksUiState.Ready(emptyList())
+                verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeRandomUnstartedBooks(any()) }
             }
         }
 
