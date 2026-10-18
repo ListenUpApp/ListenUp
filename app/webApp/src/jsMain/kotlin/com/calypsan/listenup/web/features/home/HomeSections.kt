@@ -52,6 +52,8 @@ private const val LOCK_ICON_SIZE = 13
 
 private const val SKELETON_SHELVES = 2
 
+private const val ARIA_LABEL = "aria-label"
+
 /** A section's own heading is an H2, so anything headed inside it is an H3. */
 internal const val SECTION_HEADING_LEVEL = 2
 
@@ -130,7 +132,7 @@ private fun ReadyCard(
         tabIndex(0)
         attr("role", if (selecting) "checkbox" else "button")
         if (selecting) attr("aria-checked", isSelected.toString())
-        attr("aria-label", homeCardLabel(book, withNarrator = isWide))
+        attr(ARIA_LABEL, homeCardLabel(book, withNarrator = isWide))
         onKeyDown { event ->
             if (event.key == "Enter" || event.key == " ") {
                 event.preventDefault()
@@ -280,7 +282,7 @@ private fun WeekChart(
     Div(attrs = {
         classes("home-chart")
         attr("role", "img")
-        attr("aria-label", weekChartLabel(columns))
+        attr(ARIA_LABEL, weekChartLabel(columns))
     }) {
         columns.forEach { column ->
             Div(attrs = {
@@ -352,7 +354,7 @@ internal fun MyShelves(
             Div(attrs = {
                 classes("home-shelves")
                 attr("role", "img")
-                attr("aria-label", HomeWords.LOADING_SHELVES)
+                attr(ARIA_LABEL, HomeWords.LOADING_SHELVES)
             }) {
                 repeat(SKELETON_SHELVES) { Div(attrs = { classes("skel", "home-shelf-skel") }) }
             }
@@ -388,7 +390,7 @@ private fun ShelfCard(
                     Span(attrs = {
                         classes("home-shelf-lock")
                         attr("role", "img")
-                        attr("aria-label", "Private")
+                        attr(ARIA_LABEL, "Private")
                     }) { Icon(WebIcon.Lock, size = LOCK_ICON_SIZE) }
                 }
             }

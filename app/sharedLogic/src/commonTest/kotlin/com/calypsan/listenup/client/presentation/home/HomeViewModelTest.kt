@@ -909,11 +909,15 @@ class HomeViewModelTest :
                 fixture.firstCatchUpFlow.value = true
                 val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
-                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>().showsShelvesLoading shouldBe true
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .showsShelvesLoading shouldBe true
 
                 fixture.firstCatchUpFlow.value = false
                 advanceUntilIdle()
-                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>().showsShelvesLoading shouldBe false
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .showsShelvesLoading shouldBe false
             }
         }
 
