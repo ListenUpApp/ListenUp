@@ -33,6 +33,11 @@ struct DiscoverObserverTests {
         #expect(book.durationMs == 58_000_000)
     }
 
+    @Test func theViewerMapsToANativeValue() {
+        let viewer = DiscoverViewer(userId: "me", displayName: "Simon", canInvite: true)
+        #expect(DiscoverViewerRow(from: viewer) == DiscoverViewerRow(userId: "me", displayName: "Simon", canInvite: true))
+    }
+
     @Test func summaryCarriesCountsStalenessAndObservedTime() {
         let summary = ListeningSummary(liveCount: 2, recentCount: 3, isStale: true, observedAtMs: 7_200_000)
         #expect(summary.liveCount == 2)
