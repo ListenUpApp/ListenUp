@@ -15,6 +15,8 @@ import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -151,6 +153,20 @@ class DiscoverViewModelTest :
                 covers = covers,
             )
 
+        fun user(
+            id: String,
+            name: String,
+            isAdmin: Boolean,
+        ): User =
+            User(
+                id = UserId(id),
+                email = "$id@example.com",
+                displayName = name,
+                isAdmin = isAdmin,
+                createdAtMs = 0L,
+                updatedAtMs = 0L,
+            )
+
         // ========== Test Fixture ==========
 
         class TestFixture {
@@ -160,6 +176,8 @@ class DiscoverViewModelTest :
             val shelfRepository: ShelfRepository = mock()
             val userProfileRepository: UserProfileRepository = mock()
             val rosterFlow = MutableStateFlow<List<String>>(emptyList())
+            val userRepository: UserRepository = mock()
+            val currentUser = MutableStateFlow<User?>(null)
 
             val authStateFlow = MutableStateFlow<AuthState>(AuthState.Initializing)
             val activeSessionsFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
@@ -180,6 +198,7 @@ class DiscoverViewModelTest :
                             override suspend fun retry() = Unit
                         },
                     userProfileRepository = userProfileRepository,
+                    userRepository = userRepository,
                     errorBus = errorBus,
                 )
         }
@@ -198,6 +217,7 @@ class DiscoverViewModelTest :
             every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } returns flowOf(randomBooks)
             everySuspend { fixture.shelfRepository.discoverShelves() } returns AppResult.Success(discoveredShelves)
             every { fixture.userProfileRepository.observeRosterUserIds() } returns fixture.rosterFlow
+            every { fixture.userRepository.observeCurrentUser() } returns fixture.currentUser
 
             return fixture
         }
@@ -397,6 +417,23 @@ class DiscoverViewModelTest :
                 fixture.rosterFlow.value = listOf(USER_ID, OTHER_USER_ID)
                 advanceUntilIdle()
                 viewModel.communitySize.value shouldBe CommunitySize.Others
+            }
+        }
+
+        test("the viewer carries your id and name, and only an admin may invite") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build().also { keepStateHot(it.viewer) }
+                advanceUntilIdle()
+                viewModel.viewer.value shouldBe null
+
+                fixture.currentUser.value = user(id = USER_ID, name = "Simon", isAdmin = false)
+                advanceUntilIdle()
+                viewModel.viewer.value shouldBe DiscoverViewer(userId = USER_ID, displayName = "Simon", canInvite = false)
+
+                fixture.currentUser.value = user(id = USER_ID, name = "Simon", isAdmin = true)
+                advanceUntilIdle()
+                viewModel.viewer.value?.canInvite shouldBe true
             }
         }
 

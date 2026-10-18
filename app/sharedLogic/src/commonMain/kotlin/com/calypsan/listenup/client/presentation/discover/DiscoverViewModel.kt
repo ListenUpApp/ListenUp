@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,6 +64,7 @@ class DiscoverViewModel(
     private val shelfRepository: ShelfRepository,
     serverReachability: ServerReachability,
     userProfileRepository: UserProfileRepository,
+    userRepository: UserRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     // === Discover Shelves State (on-demand RPC) ===
@@ -100,6 +102,16 @@ class DiscoverViewModel(
                 started = WhileSubscribedForUi,
                 initialValue = CommunitySize.Unknown,
             )
+
+    /** Who is looking, for the invitation's avatar and its admin-only button; null while signed out. */
+    val viewer: StateFlow<DiscoverViewer?> =
+        userRepository
+            .observeCurrentUser()
+            .map { user -> user?.let { DiscoverViewer(it.id.value, it.displayName, canInvite = it.isAdmin) } }
+            .fallbackTo { e ->
+                logger.warn(e) { "Viewer unavailable" }
+                null
+            }.stateIn(viewModelScope, WhileSubscribedForUi, initialValue = null)
 
     // === Currently Listening State (from SocialService RPC) ===
 
