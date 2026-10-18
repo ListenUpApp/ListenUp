@@ -31,4 +31,11 @@ class HomeCardRulesTest :
                 book(downloaded = true).needsConnection(connectivity) shouldBe false
             }
         }
+
+        test("counts group their thousands, as the strip writes them on every platform") {
+            groupedCount(0) shouldBe "0"
+            groupedCount(412) shouldBe "412"
+            groupedCount(1_280) shouldBe "1,280"
+            groupedCount(1_234_567) shouldBe "1,234,567"
+        }
     })

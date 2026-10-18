@@ -8,3 +8,14 @@ import com.calypsan.listenup.client.domain.model.ContinueListeningBook
  */
 fun ContinueListeningBook.needsConnection(connectivity: HomeConnectivity): Boolean =
     connectivity != HomeConnectivity.Online && !isDownloaded
+
+private const val GROUP_DIGITS = 3
+
+/** "1,280": a whole count with its thousands grouped, as the first-sync strip writes it (open question 1). */
+fun groupedCount(count: Int): String =
+    count
+        .toString()
+        .reversed()
+        .chunked(GROUP_DIGITS)
+        .joinToString(",")
+        .reversed()
