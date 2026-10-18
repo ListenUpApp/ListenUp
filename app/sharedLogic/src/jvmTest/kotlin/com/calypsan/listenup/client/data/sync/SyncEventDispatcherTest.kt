@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.preferencesDomain
 import com.calypsan.listenup.client.data.sync.domains.presenceDomain
 import com.calypsan.listenup.client.data.sync.domains.serverInfoDomain
+import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -791,6 +792,56 @@ class SyncEventDispatcherTest :
                 dispatcher.handle(tagFrameAt(720L))
 
                 cursors["tags"] shouldBe 720L
+            }
+        }
+
+        test("a live frame for a domain with no cursor applies, but writes no cursor row") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val store = SyncCursorStore(db.syncCursorDao())
+                    val registry = ClientSyncDomainRegistry()
+                    val handler = RecordingHandler()
+                    registry.register(handler)
+                    val dispatcher =
+                        SyncEventDispatcher(
+                            registry = registry,
+                            state = SyncEngineState(),
+                            cursorAdvance = liveFrameCursorAdvance(store),
+                        )
+
+                    dispatcher.handle(tagFrameAt(5L))
+
+                    handler.seen shouldHaveSize 1
+                    store.getCursor("tags") shouldBe null
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("a live frame advances a pulled cursor and a late, lower frame never rewinds it") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val store = SyncCursorStore(db.syncCursorDao())
+                    store.setCursor("tags", 3L)
+                    val registry = ClientSyncDomainRegistry()
+                    registry.register(RecordingHandler())
+                    val dispatcher =
+                        SyncEventDispatcher(
+                            registry = registry,
+                            state = SyncEngineState(),
+                            cursorAdvance = liveFrameCursorAdvance(store),
+                        )
+
+                    dispatcher.handle(tagFrameAt(7L))
+                    store.getCursor("tags") shouldBe 7L
+                    dispatcher.handle(tagFrameAt(6L))
+                    store.getCursor("tags") shouldBe 7L
+                } finally {
+                    db.close()
+                }
             }
         }
     })

@@ -1,7 +1,10 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.test.db.passThroughTransactionRunner
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.Flow
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.client.data.auth.invalidatesSession
@@ -109,6 +112,81 @@ class SyncCatchUpClientTest :
                 seenItems.map { it.first.id } shouldContainExactly listOf("a", "b", "c")
                 seenItems.last().second shouldBe true
                 store.getCursor("tags") shouldBe 3L
+            }
+        }
+
+        fun emptyPullService(): FakeSyncStreamService =
+            object : FakeSyncStreamService() {
+                override suspend fun pullDomain(
+                    domain: String,
+                    since: Long,
+                    limit: Int,
+                ): AppResult<SyncPage> =
+                    AppResult.Success(
+                        syncPageOf(
+                            domain = "tags",
+                            serializer = Tag.serializer(),
+                            items = emptyList(),
+                            nextCursor = null,
+                            hasMore = false,
+                        ),
+                    )
+            }
+
+        test("a completed pull of an empty domain creates its cursor at the starting point") {
+            runTest {
+                val store = SyncCursorStore(InMemorySyncCursorDao())
+                val catchUp =
+                    SyncCatchUpClient(
+                        channel = RpcChannel.forTest(emptyPullService()),
+                        store = store,
+                        transactionRunner = passThroughTransactionRunner(),
+                    )
+
+                catchUp.catchUp(tagHandler(mutableListOf())).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                store.getCursor("tags") shouldBe 0L
+            }
+        }
+
+        test("a failed first pull creates no cursor") {
+            runTest {
+                val store = SyncCursorStore(InMemorySyncCursorDao())
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> = AppResult.Failure(TransportError.NetworkUnavailable())
+                    }
+                val catchUp =
+                    SyncCatchUpClient(
+                        channel = RpcChannel.forTest(service),
+                        store = store,
+                        transactionRunner = passThroughTransactionRunner(),
+                    )
+
+                catchUp.catchUp(tagHandler(mutableListOf())).shouldBeInstanceOf<AppResult.Failure>()
+
+                store.getCursor("tags") shouldBe null
+            }
+        }
+
+        test("a live frame then advances the cursor an empty pull created") {
+            runTest {
+                val store = SyncCursorStore(InMemorySyncCursorDao())
+                val catchUp =
+                    SyncCatchUpClient(
+                        channel = RpcChannel.forTest(emptyPullService()),
+                        store = store,
+                        transactionRunner = passThroughTransactionRunner(),
+                    )
+                catchUp.catchUp(tagHandler(mutableListOf()))
+
+                liveFrameCursorAdvance(store)("tags", 7L)
+
+                store.getCursor("tags") shouldBe 7L
             }
         }
 
@@ -582,6 +660,16 @@ private class InMemorySyncCursorDao : SyncCursorDao {
         val current = cursors[domainName]
         if (current == null || revision > current) cursors[domainName] = revision
     }
+
+    override suspend fun advanceExistingCursor(
+        domainName: String,
+        revision: Long,
+    ) {
+        val current = cursors[domainName] ?: return
+        if (revision > current) cursors[domainName] = revision
+    }
+
+    override fun observeCursor(domainName: String): Flow<Long?> = flowOf(cursors[domainName])
 
     override suspend fun all(): List<SyncCursorEntity> =
         cursors.map {
