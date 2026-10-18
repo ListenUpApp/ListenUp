@@ -162,4 +162,29 @@ class HomeNoticesTest {
         composeRule.onNodeWithText("Try again").performClick()
         retried shouldBe true
     }
+
+    @Test
+    fun `offline with a failed Continue Listening shows the pill and the line together`() {
+        composeRule.setContent {
+            MaterialTheme {
+                HomeBody(
+                    state =
+                        homeReady(
+                            slot = HomeSlot.Absent,
+                            alsoInProgress = emptyList(),
+                            connectivity = HomeConnectivity.Offline,
+                            continueListeningError = UnexpectedClientError(),
+                        ),
+                    stats = HomeStatsUiState.Loading,
+                    width = HomeWidth.Compact,
+                    actions = HomeActions.None,
+                    selection = HomeSelection.None,
+                    appHeader = testAppHeader,
+                    contentPadding = PaddingValues(),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Offline · downloaded books play as usual").assertIsDisplayed()
+        composeRule.onNodeWithText("Couldn't load what you're listening to").assertIsDisplayed()
+    }
 }

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasProgressBarRangeInfo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.presentation.home.HomeSlot
@@ -56,7 +57,7 @@ class HomeFirstSyncTest {
     @Test
     fun `a scan's counts appear in the strip`() {
         composeRule.setContent { MaterialTheme { FirstSyncStrip(scan = scanning(books = 412, booksTotal = 1280)) } }
-        composeRule.onNodeWithText("Building your library · 412 of 1280 books").assertIsDisplayed()
+        composeRule.onNodeWithText("Building your library · 412 of 1,280 books").assertIsDisplayed()
     }
 
     @Test
@@ -95,5 +96,29 @@ class HomeFirstSyncTest {
         }
         composeRule.onNodeWithText("Building your library", substring = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Up next, loading").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a scan behind Resume still shows the strip, above the slot`() {
+        composeRule.setContent {
+            MaterialTheme {
+                HomeBody(
+                    state =
+                        homeReady(
+                            slot = resumeSlot("wok"),
+                            alsoInProgress = emptyList(),
+                            scanProgress = scanning(books = 40, booksTotal = 100),
+                        ),
+                    stats = HomeStatsUiState.Loading,
+                    width = HomeWidth.Compact,
+                    actions = HomeActions.None,
+                    selection = HomeSelection.None,
+                    appHeader = testAppHeader,
+                    contentPadding = PaddingValues(),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Building your library · 40 of 100 books").assertIsDisplayed()
+        composeRule.onNodeWithTag(HOME_RESUME_BUTTON_TAG).assertExists()
     }
 }

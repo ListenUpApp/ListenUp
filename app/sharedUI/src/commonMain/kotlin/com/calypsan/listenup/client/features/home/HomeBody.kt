@@ -61,9 +61,10 @@ internal fun HomeBody(
         }
         homeBlocks(
             slot = state.slot,
-            notice = homeNotice(state),
+            isOffline = state.isOffline,
+            continueListeningFailed = state.continueListeningError != null,
+            showsStrip = state.showsArrivalStrip,
             hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
-            isArriving = state.isLibraryArriving,
             width = width,
         ).forEach { block ->
             HomeBlockContent(

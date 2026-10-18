@@ -13556,7 +13556,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$d of %2$d books"
+            "value": "%1$@ of %2$@ books"
           }
         }
       }
@@ -13701,12 +13701,12 @@
         }
       }
     },
-    "home.finished_line": {
+    "home.finished_days_ago_ios": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · %2$@ · %3$@"
+            "value": "Finished %1$d Days Ago"
           }
         }
       }

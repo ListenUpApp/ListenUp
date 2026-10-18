@@ -41,6 +41,7 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
+import com.calypsan.listenup.client.presentation.home.groupedCount
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_resume
 import listenup.composeapp.generated.resources.home_also_in_progress
@@ -77,7 +78,11 @@ internal fun FirstSyncStrip(
                 stringResource(
                     Res.string.home_arriving_title,
                     building,
-                    stringResource(Res.string.home_arriving_count, counted.books, counted.booksTotal),
+                    stringResource(
+                        Res.string.home_arriving_count,
+                        groupedCount(counted.books),
+                        groupedCount(counted.booksTotal),
+                    ),
                 )
             }
             ?: building

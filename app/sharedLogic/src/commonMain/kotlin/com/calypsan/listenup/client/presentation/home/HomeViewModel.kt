@@ -88,6 +88,17 @@ sealed interface HomeUiState {
          */
         val continueListeningError: AppError?,
     ) : HomeUiState {
+        /**
+         * Whether this device cannot stream right now — offline, or the server is out of reach (C15). Independent of
+         * [continueListeningError]: both can show at once.
+         */
+        val isOffline: Boolean
+            get() = connectivity != HomeConnectivity.Online
+
+        /** Whether Home shows the library-arriving strip above the slot (spec H5): arriving, or a scan is running. */
+        val showsArrivalStrip: Boolean
+            get() = isLibraryArriving || scanProgress != null
+
         /** Whether pull-to-refresh shows as running: a sync pass is. */
         val isLoading: Boolean
             get() = isSyncing

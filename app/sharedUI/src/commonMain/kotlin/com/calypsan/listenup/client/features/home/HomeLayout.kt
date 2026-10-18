@@ -3,9 +3,7 @@ package com.calypsan.listenup.client.features.home
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
-import com.calypsan.listenup.client.presentation.home.HomeUiState
 
 /** How much width Home has (C6): phones, medium windows (600–839dp) and tablets (≥ 840dp, spec §3.4). */
 internal enum class HomeWidth { Compact, Medium, Expanded }
@@ -47,39 +45,30 @@ internal enum class HomeBlock {
     StatsBesideShelves,
 }
 
-/** One line Home shows above everything else, or in the slot's place (spec §3.1, §3.3). */
-internal enum class HomeNotice { None, Offline, ContinueListeningFailed }
-
-/** Which notice applies: a failed Continue Listening outranks connectivity, which the cards already show. */
-internal fun homeNotice(state: HomeUiState.Ready): HomeNotice =
-    when {
-        state.continueListeningError != null -> HomeNotice.ContinueListeningFailed
-        state.connectivity != HomeConnectivity.Online -> HomeNotice.Offline
-        else -> HomeNotice.None
-    }
-
 /**
- * Home's sections, top to bottom (spec §2.1, §3.4). The offline pill sits under the greeting and the first-sync strip
- * above the slot; the slot comes next when it shows (or, when Continue Listening failed and there is no slot, the
- * one-line failure in its place). Below it the order is always Also in progress → Your last 7 days → My shelves. A
- * tablet puts the slot beside the stats, and the stats beside the shelves when there is no slot.
+ * Home's sections, top to bottom (spec §2.1, §3.4). The offline pill sits under the greeting ([isOffline]), then the
+ * library-arriving strip ([showsStrip], spec H5), then the slot — or, when Continue Listening failed and there is no
+ * slot, the one-line failure in its place. Offline and the failure are separate signals, so both can show. Below the
+ * slot the order is always Also in progress → Your last 7 days → My shelves. A tablet puts the slot beside the stats,
+ * and the stats beside the shelves when there is no slot.
  */
 internal fun homeBlocks(
     slot: HomeSlot,
-    notice: HomeNotice,
+    isOffline: Boolean,
+    continueListeningFailed: Boolean,
+    showsStrip: Boolean,
     hasAlsoInProgress: Boolean,
-    isArriving: Boolean,
     width: HomeWidth,
 ): List<HomeBlock> =
     buildList {
         val wide = width == HomeWidth.Expanded
-        if (notice == HomeNotice.Offline) add(HomeBlock.Offline)
-        if (isArriving && slot == HomeSlot.FirstSync) add(HomeBlock.FirstSyncStrip)
+        if (isOffline) add(HomeBlock.Offline)
+        if (showsStrip) add(HomeBlock.FirstSyncStrip)
         val slotBlock = slotBlockFor(slot)
         when {
             slotBlock != null && wide -> add(HomeBlock.SlotBesideStats)
             slotBlock != null -> add(slotBlock)
-            notice == HomeNotice.ContinueListeningFailed -> add(HomeBlock.ContinueListeningFailed)
+            continueListeningFailed -> add(HomeBlock.ContinueListeningFailed)
         }
         if (hasAlsoInProgress) add(HomeBlock.AlsoInProgress)
         when {
