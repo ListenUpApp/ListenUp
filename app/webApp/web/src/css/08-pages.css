@@ -550,6 +550,19 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-hero-resume { align-self: stretch; border-radius: var(--r-pill); }
 .luw .home-hero-why { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
 
+/* The just-finished kind (spec §2.3): the hero surface, with ✕ beside the eyebrow and the rating under the play. */
+.luw .home-finished-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); }
+.luw .home-finished-rate { display: flex; flex-direction: column; gap: 4px; }
+.luw .home-finished-rate-k { font-size: var(--fs-ui); font-weight: 700; color: var(--ink); }
+.luw .home-finished-others { align-self: flex-start; }
+
+/* Nothing in progress and the welcome (spec §2.3, H17): a standard group of pills, never connected. */
+.luw .home-row > .home-quiet { flex: 2 1 520px; min-width: 0; }
+.luw .home-quiet-actions { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.luw .home-quiet-actions > .home-hero-resume { align-self: auto; }
+.luw .home-welcome-covers { display: flex; gap: var(--sp-8); }
+.luw .home-welcome-blank { width: 72px; height: 72px; border-radius: var(--r-md); }
+
 .luw .home-stats-card {
   display: flex; flex-direction: column; gap: var(--sp-12);
   padding: 1.25rem; border-radius: var(--r-xl); background: var(--surface); border: 1px solid var(--line);

@@ -55,7 +55,11 @@ fun HomePage(
             }
 
             is HomeUiState.Ready -> {
-                PageHeader(title = homeGreeting(state.timeOfDay, state.firstName), documentTitle = null, display = true)
+                PageHeader(
+                    title = homeGreeting(state.timeOfDay, state.firstName, isWelcome = state.slot is HomeSlot.NewListener),
+                    documentTitle = null,
+                    display = true,
+                )
                 LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
                 homeBlocks(
                     slot = state.slot,
@@ -133,13 +137,19 @@ private fun SlotContent(
             ResumeHero(slot, state.alsoInProgress.isEmpty(), nowMs, actions.onOpenBook, actions.onPlay)
         }
 
-        is HomeSlot.NothingInProgress, is HomeSlot.NewListener -> {
-            EmptyState(title = "Nothing on the go", body = "Start a book and it will wait for you here.") {
-                Button(kind = ButtonKind.Primary, onClick = { actions.onOpenLibrary() }) { Text("Browse the Library") }
-            }
+        is HomeSlot.JustFinished -> {
+            HomeFinishedCard(slot.card, nowMs, actions)
         }
 
-        is HomeSlot.JustFinished, HomeSlot.FirstSync, HomeSlot.Absent -> {
+        is HomeSlot.NothingInProgress -> {
+            NothingInProgressSlot(slot, actions)
+        }
+
+        is HomeSlot.NewListener -> {
+            WelcomeSlot(slot, actions)
+        }
+
+        HomeSlot.FirstSync, HomeSlot.Absent -> {
             Unit
         }
     }

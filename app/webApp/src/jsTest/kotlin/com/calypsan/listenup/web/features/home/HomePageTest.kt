@@ -229,7 +229,7 @@ class HomePageTest :
             played shouldBe "wok"
         }
 
-        test("until PR 4, nothing in progress offers a way into the library") {
+        test("nothing in progress offers a way into the library") {
             var opened = false
             homePage(
                 readyHome(slot = HomeSlot.NothingInProgress(candidate = null), alsoInProgress = emptyList()),
