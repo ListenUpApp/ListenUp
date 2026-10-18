@@ -98,6 +98,21 @@ class DiscoverStatesTest :
             host.textContent.orEmpty() shouldNotContain "Nobody's listening"
         }
 
+        test("offline with nothing cached, Listening now needs a connection and offers its own Try again") {
+            var retried = 0
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        currentlyListening = CurrentlyListeningUiState.Error(TransportError.NetworkUnavailable()),
+                        onRetryListening = { retried++ },
+                    )
+                }
+            host.querySelector(".disc-a-listen .disc-error")!!.textContent shouldBe "Who's listening needs a connection"
+            host.querySelectorAll(".disc-a-listen .disc-skel-card").length shouldBe 0
+            (host.querySelector(".disc-a-listen .disc-retry") as HTMLElement).click()
+            retried shouldBe 1
+        }
+
         test("others on the server but nobody listening says so") {
             val host = mounts.mount { discoverPage(currentlyListening = readyListening(emptyList())) }
             host.querySelector(".disc-a-listen .disc-quiet")!!.textContent shouldBe

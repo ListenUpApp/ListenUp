@@ -71,7 +71,10 @@ internal fun ListeningNowSection(
             }
 
             is CurrentlyListeningUiState.Error -> {
-                SectionError(DiscoverWords.ERROR_LISTENING, onRetry = onRetry)
+                SectionError(
+                    if (state.needsConnection) DiscoverWords.LISTENING_NEED_CONNECTION else DiscoverWords.ERROR_LISTENING,
+                    onRetry = onRetry,
+                )
             }
 
             is CurrentlyListeningUiState.Ready -> {

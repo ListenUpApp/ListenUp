@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import listenup.composeapp.generated.resources.discover_error_listening
 import listenup.composeapp.generated.resources.discover_listening_as_of
+import listenup.composeapp.generated.resources.discover_listening_need_connection
 import listenup.composeapp.generated.resources.discover_nobody_listening
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.client.util.relativeLastActiveInSentence
@@ -132,8 +133,12 @@ internal fun ListeningNowSection(
             }
 
             ListeningNowBody.Retry -> {
+                val offline = (state as? CurrentlyListeningUiState.Error)?.needsConnection == true
                 InlineRetry(
-                    line = stringResource(Res.string.discover_error_listening),
+                    line =
+                        stringResource(
+                            if (offline) Res.string.discover_listening_need_connection else Res.string.discover_error_listening,
+                        ),
                     onRetry = onRetry,
                     modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 )

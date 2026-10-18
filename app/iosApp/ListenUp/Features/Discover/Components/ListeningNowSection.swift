@@ -27,7 +27,7 @@ struct ListeningNowSection: View {
     /// What Listening Now draws under its heading: one decision, the same table every platform reads.
     enum Treatment: Equatable {
         case skeleton
-        case retry
+        case retry(needsConnection: Bool)
         case invitation(canInvite: Bool)
         case nobodyListening
         case rows
@@ -41,7 +41,7 @@ struct ListeningNowSection: View {
     ) -> Treatment {
         switch phase {
         case .loading: .skeleton
-        case .error: .retry
+        case .error(let needsConnection): .retry(needsConnection: needsConnection)
         case .ready(let rows) where !rows.isEmpty: .rows
         case .ready:
             switch community {
@@ -50,6 +50,13 @@ struct ListeningNowSection: View {
             case .others: .nobodyListening
             }
         }
+    }
+
+    /// Pure: blame the connection only when the failure is connectivity.
+    static func retryLine(needsConnection: Bool) -> String {
+        needsConnection
+            ? String(localized: "discover.listening_need_connection")
+            : String(localized: "discover.error_listening")
     }
 
     var body: some View {
@@ -83,8 +90,8 @@ struct ListeningNowSection: View {
                 horizontalInset: horizontalInset,
                 spacing: 18
             )
-        case .retry:
-            InlineRetryLine(line: String(localized: "discover.error_listening"), action: onRetry)
+        case .retry(let needsConnection):
+            InlineRetryLine(line: Self.retryLine(needsConnection: needsConnection), action: onRetry)
                 .padding(.horizontal, horizontalInset)
         case .invitation(let canInvite):
             OnlyYouInvitation(viewer: viewer, onInvite: canInvite ? onInvite : nil)

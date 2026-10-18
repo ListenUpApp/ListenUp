@@ -110,8 +110,8 @@ final class DiscoverObserver {
                 isStale: ready.isStale,
                 observedAtMs: ready.observedAtMs
             )
-        case .error:
-            currentlyListening = .error
+        case .error(let errorType):
+            currentlyListening = .error(needsConnection: errorType.value.needsConnection)
         }
     }
 
@@ -191,7 +191,8 @@ enum RecentlyAddedPhase: Equatable {
 enum CurrentlyListeningPhase: Equatable {
     case loading
     case ready([CurrentlyListeningRow])
-    case error
+    /// `needsConnection` is true for an offline or timed-out failure.
+    case error(needsConnection: Bool)
 }
 
 /// Flattened Shelves by Others state.

@@ -29,7 +29,12 @@ struct DiscoverStatesTests {
     }
 
     @Test func aFailureIsALineAndTryAgain() {
-        #expect(ListeningNowSection.treatment(for: .error, community: .others, viewer: nil) == .retry)
+        let failed = ListeningNowSection.treatment(for: .error(needsConnection: false), community: .others, viewer: nil)
+        #expect(failed == .retry(needsConnection: false))
+        let offline = ListeningNowSection.treatment(for: .error(needsConnection: true), community: .unknown, viewer: nil)
+        #expect(offline == .retry(needsConnection: true))
+        #expect(ListeningNowSection.retryLine(needsConnection: true) == "Who's listening needs a connection")
+        #expect(ListeningNowSection.retryLine(needsConnection: false) == "Couldn't load who's listening")
     }
 
     @Test func shelvesOfflineNeedAConnection() {

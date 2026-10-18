@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.client.features.discover.HOUR_MS
 import com.calypsan.listenup.client.features.discover.NOW_MS
@@ -79,6 +80,16 @@ class ListeningNowStatesTest {
         show(CurrentlyListeningUiState.Error(UnexpectedClientError()), onRetry = { retried++ })
         composeRule.onNode(hasText("Listening now") and isHeading()).assertIsDisplayed()
         composeRule.onNodeWithText("Couldn't load who's listening").assertIsDisplayed()
+        composeRule.onNodeWithText("Try again").performClick()
+        assertEquals(1, retried)
+    }
+
+    @Test
+    fun `offline with nothing cached says it needs a connection, with Try again`() {
+        var retried = 0
+        show(CurrentlyListeningUiState.Error(TransportError.NetworkUnavailable()), onRetry = { retried++ })
+        composeRule.onNodeWithText("Who's listening needs a connection").assertIsDisplayed()
+        composeRule.onNodeWithTag("listening-skeleton").assertDoesNotExist()
         composeRule.onNodeWithText("Try again").performClick()
         assertEquals(1, retried)
     }

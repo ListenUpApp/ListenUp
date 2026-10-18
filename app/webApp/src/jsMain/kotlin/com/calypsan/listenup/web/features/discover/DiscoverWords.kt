@@ -38,6 +38,7 @@ internal object DiscoverWords {
     const val LEADERBOARD_JUST_YOU = "Just you so far. The board fills in as people join."
     const val LEADERBOARD_EMPTY_PERIOD = "Nobody listened in this period yet."
     const val SHELVES_NEED_CONNECTION = "Shelves by others need a connection"
+    const val LISTENING_NEED_CONNECTION = "Who's listening needs a connection"
     const val SHELVES_ONLY_YOU = "Shelves people make public show up here."
     const val ERROR_LISTENING = "Couldn't load who's listening"
     const val ERROR_PICKS = "Couldn't load new books"
