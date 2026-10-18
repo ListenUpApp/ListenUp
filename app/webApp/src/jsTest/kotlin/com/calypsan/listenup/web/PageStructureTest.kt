@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
@@ -181,7 +182,7 @@ private class PageState(
 private val PAGE_STATES =
     listOf(
         PageState("Home, loading") { mountAt("/") },
-        PageState("Home, failed") { mountAt("/", openHome = fixedHome(HomeUiState.Error(UnexpectedClientError()))) },
+        PageState("Home, failed") { mountAt("/", openHome = fixedHome(HomeUiState.Error(UnexpectedClientError(), TimeOfDay.Afternoon))) },
         PageState("Library, loading") { mountAt("/library") },
         PageState("Library, failed") { mountAt("/library", openLibrary = fakeLibrary(LibraryUiState.Error("nope"))) },
         PageState("Contributors, loading") { mountAt("/library/contributors") },

@@ -169,6 +169,7 @@ struct HomeWrapperTests {
             myShelves: [],
             isSyncing: false,
             isBuildingInitialLibrary: false,
+            isLibraryArriving: false,
             scanProgress: nil,
             timeOfDay: TimeOfDay.Evening,
             firstName: "Simon",
@@ -254,7 +255,8 @@ struct HomeWrapperTests {
     @Test func readyCarriesTheContinueListeningErrorMessage() {
         let ready = HomeUiStateReady(
             myShelves: [], isSyncing: false,
-            isBuildingInitialLibrary: false, scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
+            isBuildingInitialLibrary: false, isLibraryArriving: false,
+            scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
             slot: HomeSlotAbsent.shared, alsoInProgress: [ContinueListeningItemReady(bookId: "b", book: clBook("b"))],
             connectivity: HomeConnectivity.ServerUnreachable,
             continueListeningError: UnexpectedClientError(correlationId: nil, debugInfo: nil)

@@ -23,6 +23,8 @@ import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import com.calypsan.listenup.core.ShelfId
 
@@ -33,17 +35,22 @@ internal fun homeReady(
     slot: HomeSlot,
     alsoInProgress: List<ContinueListeningItem>,
     shelves: List<Shelf> = emptyList(),
+    connectivity: HomeConnectivity = HomeConnectivity.Online,
+    isLibraryArriving: Boolean = false,
+    continueListeningError: AppError? = null,
+    scanProgress: ScanProgressState? = null,
 ) = HomeUiState.Ready(
     myShelves = shelves,
     isSyncing = false,
     isBuildingInitialLibrary = false,
-    scanProgress = null,
+    isLibraryArriving = isLibraryArriving,
+    scanProgress = scanProgress,
     timeOfDay = TimeOfDay.Evening,
     firstName = "Simon",
     slot = slot,
     alsoInProgress = alsoInProgress,
-    connectivity = HomeConnectivity.Online,
-    continueListeningError = null,
+    connectivity = connectivity,
+    continueListeningError = continueListeningError,
 )
 
 private fun book(

@@ -115,7 +115,7 @@ internal data class SlotInputs(
     val continueListening: List<ContinueListeningItem>,
     val justFinishedBookId: String?,
     val hasHistory: Boolean,
-    val isBuildingInitialLibrary: Boolean,
+    val isLibraryArriving: Boolean,
 )
 
 /** Spec §2.2, top to bottom; the first that applies wins. Pure. */
@@ -124,7 +124,7 @@ internal fun slotKindFor(inputs: SlotInputs): SlotKind {
     val firstReady = inputs.continueListening.firstOrNull { it is ContinueListeningItem.Ready }
     val stillArriving = first == null || first is ContinueListeningItem.Loading
     return when {
-        inputs.loaded == LoadedKey.NothingLoaded && inputs.isBuildingInitialLibrary && stillArriving -> SlotKind.FirstSync
+        inputs.loaded == LoadedKey.NothingLoaded && inputs.isLibraryArriving && stillArriving -> SlotKind.FirstSync
         inputs.justFinishedBookId != null -> SlotKind.JustFinished(inputs.justFinishedBookId)
         inputs.loaded is LoadedKey.Loaded -> SlotKind.Absent
         firstReady != null -> SlotKind.Resume(firstReady.bookId)

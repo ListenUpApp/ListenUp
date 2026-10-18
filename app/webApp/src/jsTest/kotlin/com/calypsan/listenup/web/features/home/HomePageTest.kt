@@ -436,7 +436,7 @@ class HomePageTest :
 
         test("a failed Home offers Try again, and pressing it asks Home to reload") {
             var retries = 0
-            val host = homePage(HomeUiState.Error(UnexpectedClientError()), actions = HomeActions.None.copy(onRetry = { retries++ }))
+            val host = homePage(HomeUiState.Error(UnexpectedClientError(), TimeOfDay.Afternoon), actions = HomeActions.None.copy(onRetry = { retries++ }))
 
             val retry = host.buttonsLabelled("Try again")
             retry.size shouldBe 1
@@ -493,7 +493,7 @@ class HomePageTest :
         }
 
         test("a failed Home surfaces the error's message") {
-            val host = homePage(HomeUiState.Error(UnexpectedClientError()))
+            val host = homePage(HomeUiState.Error(UnexpectedClientError(), TimeOfDay.Afternoon))
 
             host.textContent.orEmpty() shouldContain "Something went wrong in the app."
         }
