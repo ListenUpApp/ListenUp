@@ -28,8 +28,9 @@ internal class UserProfileRepositoryImpl(
     override fun observeProfile(userId: String): Flow<CachedUserProfile?> =
         publicProfileDao.observeById(userId).map { it?.toDomain() }
 
-    // Only a catch-up pull creates a domain's cursor (SyncCursorDao.advanceExistingCursor), so a cursor here means
-    // the roster has been pulled at least once: a live upsert of your own row before then reads as not synced.
+    // Only a catch-up pull creates a domain's cursor (SyncCursorDao.advanceExistingCursor), so a cursor here means at
+    // least one roster page applied, or an empty pull completed: a live upsert of your own row before then reads as
+    // not synced.
     override fun observeRosterUserIds(): Flow<List<String>?> =
         combine(
             publicProfileDao.observeAll(),

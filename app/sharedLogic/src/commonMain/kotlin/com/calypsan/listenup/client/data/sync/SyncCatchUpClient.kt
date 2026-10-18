@@ -193,10 +193,11 @@ internal class SyncCatchUpClient(
 
     /**
      * A pull of [domainName] from [startSince] ran to its last page. When it left no cursor (the domain was empty, so
-     * the server sent no `nextCursor`), record one at [startSince] — 0 on a first pull — so "has a cursor" means "a
-     * pull has completed" for every domain, empty ones included. Live frames only advance an existing cursor
+     * the server sent no `nextCursor`), record one at [startSince] — 0 on a first pull — so "has a cursor" means "at
+     * least one page applied, or an empty pull completed", for every domain. (A multi-page pull that fails on a later
+     * page keeps the cursor its applied pages advanced: a cursor does not mean the whole pull completed.) Live frames only advance an existing cursor
      * ([SyncCursorStore.advanceFromLiveFrame]), so without this an empty domain could never gain one, and the roster
-     * gate and the reconciler would wait on a pull that already happened. A failed or partial pull never reaches here.
+     * gate and the reconciler would wait on a pull that already happened. A failed pull never reaches here.
      *
      * Recording 0 is safe for the firehose resume: it seeds from [SyncCursorStore.highestCursor], a max over every
      * domain, and only reports a cursor stale below its replay buffer floor (`staleCursorFloor`). A signed-in reader

@@ -44,7 +44,10 @@ internal interface SyncCursorDao {
         revision: Long,
     )
 
-    /** The domain's cursor as it changes; null until a catch-up page for it has applied. */
+    /**
+     * The domain's cursor as it changes; null until at least one catch-up page for it has applied, or an empty pull
+     * of it has completed. Not proof the whole pull completed: a later page can still fail.
+     */
     @Query("SELECT revision FROM sync_cursor WHERE domainName = :domainName")
     fun observeCursor(domainName: String): Flow<Long?>
 
