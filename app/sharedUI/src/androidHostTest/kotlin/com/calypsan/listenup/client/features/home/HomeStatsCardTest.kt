@@ -4,12 +4,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
+import com.calypsan.listenup.client.features.home.components.HOME_STATS_CHART_TAG
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
@@ -37,8 +42,9 @@ class HomeStatsCardTest {
     private fun show(
         stats: HomeStatsUiState,
         onOpenLeaderboard: () -> Unit = {},
+        onRetry: () -> Unit = {},
     ) = composeRule.setContent {
-        MaterialTheme { HomeStatsCard(stats, isWide = false, onOpenLeaderboard = onOpenLeaderboard, onRetry = {}) }
+        MaterialTheme { HomeStatsCard(stats, isWide = false, onOpenLeaderboard = onOpenLeaderboard, onRetry = onRetry) }
     }
 
     @Test
@@ -96,5 +102,30 @@ class HomeStatsCardTest {
         show(week(current = 5, best = 12), onOpenLeaderboard = { opened = true })
         composeRule.onNodeWithText("Leaderboard").performClick()
         opened shouldBe true
+    }
+
+    @Test
+    fun `a new listener sees a one-line invitation, never a zero chart`() {
+        show(HomeStatsUiState.Empty)
+        composeRule.onNodeWithText("Your last 7 days").assertIsDisplayed()
+        composeRule
+            .onNodeWithText("Your listening time, streak and favourite genres fill in here after your first book.")
+            .assertIsDisplayed()
+        composeRule.onAllNodesWithTag(HOME_STATS_CHART_TAG).assertCountEquals(0)
+    }
+
+    @Test
+    fun `an error offers a Try again button that refreshes the stats`() {
+        var retried = false
+        show(HomeStatsUiState.Error(isRetryable = true), onRetry = { retried = true })
+        composeRule.onNodeWithText("Couldn't load your stats.").assertIsDisplayed()
+        composeRule.onNode(hasText("Try again") and hasClickAction()).performClick()
+        retried shouldBe true
+    }
+
+    @Test
+    fun `loading is a skeleton the size of the data card`() {
+        show(HomeStatsUiState.Loading)
+        composeRule.onNodeWithTag(HOME_STATS_SKELETON_TAG).assertIsDisplayed()
     }
 }
