@@ -33,11 +33,21 @@ data object Shell : Route
  * Book detail screen - displays full book info and chapters.
  *
  * @property bookId The unique ID of the book to display.
+ * @property focus Where the screen lands, if not at its top: Home's finishers line opens it on Readers (spec §6.4).
+ *   Defaulted, so a back stack saved before it existed still decodes.
  */
 @Serializable
 data class BookDetail(
     val bookId: String,
+    val focus: BookDetailFocus? = null,
 ) : Route
+
+/** A place inside Book Detail a link can land on (spec §6.4). */
+@Serializable
+enum class BookDetailFocus {
+    /** The Readers section: who is reading it and who finished it. */
+    Readers,
+}
 
 /**
  * Book readers screen - the full "See all" list of everyone reading or who has finished a book.

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
@@ -149,6 +150,8 @@ fun BookDetailScreen(
     /** Opens an admin collection from the Visibility card; null shows the names as plain labels. */
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
+    /** Open with the Readers section in view, once: Home's finishers line (spec §6.4). */
+    landOnReaders: Boolean = false,
     /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
     matchReceipt: @Composable (
         Modifier,
@@ -253,6 +256,7 @@ fun BookDetailScreen(
                         onSeeAllReaders = onSeeAllReaders,
                         onFindHardcoverMatch = onFindHardcoverMatch,
                         onCollectionClick = onCollectionClick,
+                        landOnReaders = landOnReaders,
                     )
                     // The receipt after Match details applied, above the mini player.
                     matchReceipt(
@@ -363,6 +367,7 @@ private fun BookDetailReadyContent(
     onSeeAllReaders: (bookId: String) -> Unit,
     onFindHardcoverMatch: ((bookId: String) -> Unit)?,
     onCollectionClick: ((collectionId: String) -> Unit)?,
+    landOnReaders: Boolean,
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
@@ -477,6 +482,7 @@ private fun BookDetailReadyContent(
         documents = documents,
         isPreparing = isPreparing,
         lastMatchRow = { modifier -> LastMatchHost(viewModel = viewModel, modifier = modifier) },
+        landOnReaders = landOnReaders,
     )
 
     when (dialog) {
@@ -626,6 +632,8 @@ fun BookDetailContent(
     isPreparing: Boolean = false,
     /** Book Detail's last-match row ("Details matched … · See what changed · Undo last match"), under the actions. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
+    /** Scroll the Readers section into view once, on arrival (spec §6.4). */
+    landOnReaders: Boolean = false,
 ) {
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
 
@@ -645,6 +653,7 @@ fun BookDetailContent(
             documents = documents,
             isPreparing = isPreparing,
             lastMatchRow = lastMatchRow,
+            landOnReaders = landOnReaders,
         )
     } else {
         ImmersiveBookDetail(
@@ -654,9 +663,31 @@ fun BookDetailContent(
             documents = documents,
             isPreparing = isPreparing,
             lastMatchRow = lastMatchRow,
+            landOnReaders = landOnReaders,
         )
     }
 }
+
+private const val READERS_ITEM_KEY = "readers"
+
+/**
+ * The phone column's index of the Readers item, or null when a held book shows none. Counts, in order: the offline
+ * banner (when shown), the scan warning, the hero, the action unit (when the book can play), the last-match row, About,
+ * the admins' visibility card (when shown) and the rating.
+ */
+internal fun readersItemIndex(
+    showServerWarning: Boolean,
+    hasActionUnit: Boolean,
+    hasVisibility: Boolean,
+    isHeld: Boolean,
+): Int? {
+    if (isHeld) return null
+    val optionalAbove = listOf(showServerWarning, hasActionUnit, hasVisibility).count { it }
+    return ALWAYS_ABOVE_READERS + optionalAbove
+}
+
+/** The scan warning, the hero, the last-match row, About and the rating: always above Readers. */
+private const val ALWAYS_ABOVE_READERS = 5
 
 // =============================================================================
 // IMMERSIVE SINGLE-PANE LAYOUT (Phone)
@@ -678,6 +709,7 @@ private fun ImmersiveBookDetail(
     documents: List<BookDocument> = emptyList(),
     isPreparing: Boolean = false,
     lastMatchRow: @Composable (Modifier) -> Unit = {},
+    landOnReaders: Boolean = false,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -686,6 +718,22 @@ private fun ImmersiveBookDetail(
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
+    val listState = rememberLazyListState()
+    val readersIndex =
+        readersItemIndex(
+            showServerWarning = state.showServerWarning,
+            hasActionUnit = state.isPlaybackAvailable,
+            hasVisibility = state.visibility != null,
+            isHeld = state.isHeld,
+        )
+    // Once per entry: a return to this screen (or a rotation) keeps wherever the reader scrolled to.
+    var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    LaunchedEffect(landOnReaders, readersIndex) {
+        if (landOnReaders && !landedOnReaders && readersIndex != null) {
+            landedOnReaders = true
+            listState.animateScrollToItem(readersIndex)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
@@ -707,8 +755,10 @@ private fun ImmersiveBookDetail(
         )
 
         val playerInset = LocalNowPlayingInsets.current.asPaddingValues().calculateBottomPadding()
+        // Keep [readersItemIndex] in step with the items above Readers.
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(bottom = 32.dp + playerInset),
         ) {
             // Offline advisory — streaming unavailable, downloads still play.
@@ -846,7 +896,7 @@ private fun ImmersiveBookDetail(
                 }
 
                 // Readers — social reading activity.
-                item {
+                item(key = READERS_ITEM_KEY) {
                     BookReadersSection(
                         bookId = bookId,
                         onUserClick = actions.onUserProfileClick,

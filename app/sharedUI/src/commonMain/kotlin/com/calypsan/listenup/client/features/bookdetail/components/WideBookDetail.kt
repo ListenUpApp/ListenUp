@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.features.bookdetail.components
 
 import com.calypsan.listenup.client.features.bookdetail.BookDetailActions
 import androidx.compose.foundation.background
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,6 +23,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,7 +74,20 @@ fun WideBookDetail(
     isPreparing: Boolean = false,
     /** Book Detail's last-match row, under the actions in the left column. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
+    /** Scroll the Readers card into view once, on arrival (spec §6.4). */
+    landOnReaders: Boolean = false,
 ) {
+    val readersRequester = remember { BringIntoViewRequester() }
+    // Once per entry: a return to this screen (or a rotation) keeps wherever the reader scrolled to.
+    var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    LaunchedEffect(landOnReaders) {
+        if (landOnReaders && !landedOnReaders && !state.isHeld) {
+            landedOnReaders = true
+            // After the first layout, so the card has a place in the scroll to be brought to.
+            withFrameNanos { }
+            readersRequester.bringIntoView()
+        }
+    }
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
     // Full-cast overlay target — set by a folded hero author/narrator line, cleared on dismiss.
@@ -146,6 +163,7 @@ fun WideBookDetail(
                     onExpandChapters = { isChaptersExpanded = true },
                     lastMatchRow = lastMatchRow,
                     chapterPaneMaxHeight = viewportHeight,
+                    readersModifier = Modifier.bringIntoViewRequester(readersRequester),
                     modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
                 )
             }
@@ -245,6 +263,7 @@ private fun WideBodyColumns(
     lastMatchRow: @Composable (Modifier) -> Unit,
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
+    readersModifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier,
@@ -272,6 +291,7 @@ private fun WideBodyColumns(
             onFindHardcoverMatch = actions.onFindHardcoverMatch,
             chapterPaneMaxHeight = chapterPaneMaxHeight,
             modifier = Modifier.widthIn(max = RIGHT_COLUMN_MAX_WIDTH),
+            readersModifier = readersModifier,
         )
     }
 }
@@ -373,6 +393,7 @@ private fun WideRightColumn(
     onFindHardcoverMatch: ((bookId: String) -> Unit)?,
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
+    readersModifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier,
@@ -394,7 +415,7 @@ private fun WideRightColumn(
                 onUserClick = onUserProfileClick,
                 isCard = true,
                 onSeeAllClick = onSeeAllReaders,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = readersModifier.fillMaxWidth(),
             )
 
             // Hardcover card — only for a connected user whose book is matched or needs a match.

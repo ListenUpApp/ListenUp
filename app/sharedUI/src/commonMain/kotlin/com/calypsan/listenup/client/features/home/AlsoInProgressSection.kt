@@ -55,8 +55,8 @@ private const val ROW_CARD_CAP = 6
 
 /**
  * "Also in progress" (spec §2.5): the books in progress that are neither loaded nor in the slot. Absent entirely when
- * there are none (the caller drops the block). The header ends with In Library, which opens the Library (PR 4 adds the
- * In progress filter).
+ * there are none (the caller drops the block). The header ends with In Library, which opens the Library filtered to In
+ * progress (spec §6.4).
  */
 @Composable
 internal fun AlsoInProgressSection(
@@ -64,7 +64,7 @@ internal fun AlsoInProgressSection(
     width: HomeWidth,
     selection: HomeSelection,
     onOpenBook: (String) -> Unit,
-    onOpenLibrary: () -> Unit,
+    onOpenInProgress: () -> Unit,
     modifier: Modifier = Modifier,
     connectivity: HomeConnectivity = HomeConnectivity.Online,
 ) {
@@ -73,7 +73,7 @@ internal fun AlsoInProgressSection(
             title = stringResource(Res.string.home_also_in_progress),
             modifier = Modifier.padding(horizontal = Spacing.screenMargin),
             trailing = {
-                TextButton(onClick = onOpenLibrary) { Text(stringResource(Res.string.home_in_library)) }
+                TextButton(onClick = onOpenInProgress) { Text(stringResource(Res.string.home_in_library)) }
             },
         )
         Spacer(Modifier.height(Spacing.titleGap))

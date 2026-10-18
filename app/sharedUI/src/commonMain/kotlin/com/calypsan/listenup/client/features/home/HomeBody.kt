@@ -131,7 +131,7 @@ private fun HomeBlockContent(
                 width = width,
                 selection = selection,
                 onOpenBook = actions.onOpenBook,
-                onOpenLibrary = actions.onOpenLibrary,
+                onOpenInProgress = actions.onOpenInProgress,
                 connectivity = state.connectivity,
             )
         }

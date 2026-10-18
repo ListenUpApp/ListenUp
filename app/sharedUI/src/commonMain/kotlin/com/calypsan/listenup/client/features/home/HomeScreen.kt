@@ -16,6 +16,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
+import com.calypsan.listenup.client.features.shell.LocalShellLandings
+import com.calypsan.listenup.client.features.shell.ShellLanding
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
@@ -32,10 +34,12 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param appHeader The shell header slot; the greeting is its leading content.
  * @param onBookClick Opens a book.
  * @param onPlayBook The player's play entry, from the saved position (P-R5, C18).
- * @param onNavigateToLibrary Opens the Library.
- * @param onNavigateToDiscover Opens Discover: the quiet slots' Discover button and the stats footer's leaderboard link.
+ * @param onNavigateToLibrary Opens the Library: Browse the Library, and In Library where the shell has no landings.
+ * @param onNavigateToDiscover Opens Discover: the quiet slots' Discover button, and the stats footer's leaderboard link
+ *   where the shell has no landings. Inside the shell, In Library and the footer land through [LocalShellLandings].
  * @param onShelfClick Opens a shelf.
  * @param onCreateShelf Starts a new shelf.
+ * @param onOpenReaders Opens a book with its readers in view (the finishers line); the plain book where there is none.
  * @param onSeeAllShelves Opens the My shelves list (null = this host has none, so See all is not offered).
  * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection,
  *   with a callback that ends the selection once an apply has landed
@@ -56,6 +60,7 @@ fun HomeScreen(
     onNavigateToDiscover: () -> Unit,
     onShelfClick: (String) -> Unit,
     onCreateShelf: () -> Unit,
+    onOpenReaders: (String) -> Unit = onBookClick,
     onSeeAllShelves: (() -> Unit)? = null,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
@@ -66,18 +71,24 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val stats by statsViewModel.uiState.collectAsStateWithLifecycle()
+    val landings = LocalShellLandings.current
     val actions =
         HomeActions(
             onOpenBook = onBookClick,
             onPlay = onPlayBook,
             onOpenLibrary = onNavigateToLibrary,
-            onOpenLeaderboard = onNavigateToDiscover,
+            onOpenLeaderboard = {
+                landings?.request(ShellLanding.DiscoverLeaderboard) ?: onNavigateToDiscover()
+            },
+            onOpenInProgress = {
+                landings?.request(ShellLanding.LibraryInProgress) ?: onNavigateToLibrary()
+            },
             onOpenShelf = onShelfClick,
             onCreateShelf = onCreateShelf,
             onOpenDiscover = onNavigateToDiscover,
             onDismissFinished = viewModel::dismissFinished,
             onRateFinished = viewModel::rateFinished,
-            onOpenReaders = onBookClick,
+            onOpenReaders = onOpenReaders,
             onRetry = viewModel::refresh,
             onSeeAllShelves = onSeeAllShelves,
         )

@@ -212,6 +212,10 @@ internal fun LibraryLoadedContent(
         selectedSection = LibrarySection.Books
         onEvent(LibraryUiEvent.BooksShownNewestFirst)
     }
+    LandingEffect(ShellLanding.LibraryInProgress) {
+        selectedSection = LibrarySection.Books
+        onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
+    }
     val isWide =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,

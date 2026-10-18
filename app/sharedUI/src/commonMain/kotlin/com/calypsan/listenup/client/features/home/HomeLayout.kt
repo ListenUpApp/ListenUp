@@ -106,6 +106,8 @@ internal data class HomeActions(
     val onOpenLeaderboard: () -> Unit,
     val onOpenShelf: (String) -> Unit,
     val onCreateShelf: () -> Unit,
+    /** Opens Library filtered to In progress (Also in progress's "In Library", spec §6.4). */
+    val onOpenInProgress: () -> Unit = {},
     /** Opens Discover (the quiet slots' second button). */
     val onOpenDiscover: () -> Unit = {},
     /** Dismisses the finished card for a book on every device. */
