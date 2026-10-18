@@ -75,14 +75,22 @@ class HomeBodyTest {
     }
 
     @Test
-    fun `until PR 4, nothing in progress shows the interim empty state with Browse the Library`() {
+    fun `nothing in progress takes the slot with Browse the Library, and the interim empty state is gone`() {
         var opened = false
         render(
             homeReady(slot = HomeSlot.NothingInProgress(candidate = null), alsoInProgress = emptyList()),
             actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
         )
-        composeRule.onNodeWithText("Nothing playing yet").assertIsDisplayed()
+        composeRule.onNodeWithText("Nothing in progress").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Nothing playing yet").assertCountEquals(0)
         composeRule.onNodeWithText("Browse the Library").performClick()
         opened shouldBe true
+    }
+
+    @Test
+    fun `a new listener is welcomed in the greeting and the slot`() {
+        render(homeReady(slot = welcomeSlot(), alsoInProgress = emptyList()))
+        composeRule.onNodeWithText("Welcome,").assertIsDisplayed()
+        composeRule.onNodeWithText("Pick something new").assertIsDisplayed()
     }
 }

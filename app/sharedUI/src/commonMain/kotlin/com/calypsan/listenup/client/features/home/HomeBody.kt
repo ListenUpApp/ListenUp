@@ -15,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.home.components.EmptyContinueListening
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.home.HomeSlot
@@ -48,7 +47,14 @@ internal fun HomeBody(
         verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
         // The shell header scrolls away with the page; the greeting is its leading content.
-        appHeader { HomeHeader(state.timeOfDay, state.firstName, isWide = width != HomeWidth.Compact) }
+        appHeader {
+            HomeHeader(
+                timeOfDay = state.timeOfDay,
+                firstName = state.firstName,
+                isWide = width != HomeWidth.Compact,
+                isWelcome = state.slot is HomeSlot.NewListener,
+            )
+        }
         homeBlocks(
             slot = state.slot,
             notice = homeNotice(state),
@@ -156,7 +162,8 @@ private fun SlotContent(
 ) {
     when (val slot = state.slot) {
         is HomeSlot.Resume -> ResumeHero(state, actions, modifier)
-        is HomeSlot.NothingInProgress, is HomeSlot.NewListener -> EmptyContinueListening(actions.onOpenLibrary)
+        is HomeSlot.NothingInProgress -> HomeNothingInProgress(slot, actions, modifier)
+        is HomeSlot.NewListener -> HomeWelcome(slot, actions, modifier)
         is HomeSlot.JustFinished -> HomeFinishedCard(slot.card, actions, modifier)
         HomeSlot.FirstSync, HomeSlot.Absent -> Unit
     }

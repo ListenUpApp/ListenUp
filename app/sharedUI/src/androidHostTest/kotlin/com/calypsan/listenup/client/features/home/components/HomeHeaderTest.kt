@@ -28,4 +28,19 @@ class HomeHeaderTest {
         composeRule.setContent { MaterialTheme { HomeHeader(TimeOfDay.Morning, firstName = null, isWide = true) } }
         composeRule.onNodeWithText("Good morning").assertIsDisplayed()
     }
+
+    @Test
+    fun `a new listener is welcomed by name`() {
+        composeRule.setContent {
+            MaterialTheme { HomeHeader(TimeOfDay.Evening, firstName = "Simon", isWide = false, isWelcome = true) }
+        }
+        composeRule.onNodeWithText("Welcome,").assertIsDisplayed()
+        composeRule.onNodeWithText("Simon").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a new listener without a name is simply welcomed`() {
+        composeRule.setContent { MaterialTheme { HomeHeader(TimeOfDay.Night, firstName = null, isWide = false, isWelcome = true) } }
+        composeRule.onNodeWithText("Welcome").assertIsDisplayed()
+    }
 }

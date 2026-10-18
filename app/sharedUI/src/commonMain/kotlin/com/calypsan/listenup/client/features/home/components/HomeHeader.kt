@@ -15,6 +15,7 @@ import listenup.composeapp.generated.resources.home_greeting_evening
 import listenup.composeapp.generated.resources.home_greeting_lead
 import listenup.composeapp.generated.resources.home_greeting_morning
 import listenup.composeapp.generated.resources.home_greeting_night
+import listenup.composeapp.generated.resources.home_welcome
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -26,6 +27,7 @@ import org.jetbrains.compose.resources.stringResource
  * @param firstName the reader's first name, or null.
  * @param isWide true at medium widths and wider, where the name grows to `displayLarge`.
  * @param modifier Optional modifier.
+ * @param isWelcome a new listener: "Welcome," in place of the part of the day (spec §2.3 NewListener).
  */
 @Composable
 fun HomeHeader(
@@ -33,8 +35,9 @@ fun HomeHeader(
     firstName: String?,
     isWide: Boolean,
     modifier: Modifier = Modifier,
+    isWelcome: Boolean = false,
 ) {
-    val greeting = stringResource(timeOfDay.greetingRes())
+    val greeting = stringResource(if (isWelcome) Res.string.home_welcome else timeOfDay.greetingRes())
     Column(modifier = modifier.semantics(mergeDescendants = true) { heading() }) {
         if (firstName.isNullOrBlank()) {
             Text(
