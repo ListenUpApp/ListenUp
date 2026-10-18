@@ -324,4 +324,15 @@ struct HomeWrapperTests {
         let mapped = HomeReady(from: ready(alsoInProgress: [item], connectivity: HomeConnectivity.Offline))
         #expect(mapped.alsoInProgress.first?.needsConnection == true)
     }
+
+    @Test func readyCarriesTheSharedOfflineAndStripSignals() {
+        let quiet = HomeReady(from: ready())
+        #expect(!quiet.isOffline)
+        #expect(!quiet.showsArrivalStrip)
+        let scanning = HomeReady(
+            from: ready(scanProgress: scan(books: 1, total: 2), connectivity: HomeConnectivity.Offline)
+        )
+        #expect(scanning.isOffline)
+        #expect(scanning.showsArrivalStrip)
+    }
 }

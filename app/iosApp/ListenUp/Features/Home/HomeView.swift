@@ -137,9 +137,10 @@ struct HomeView: View {
         ForEach(
             layout.blocks(
                 slot: ready.slot.shape,
-                notice: HomeNotice.of(ready),
-                hasAlsoInProgress: !ready.alsoInProgress.isEmpty,
-                isArriving: ready.isLibraryArriving
+                isOffline: ready.isOffline,
+                continueListeningFailed: ready.continueListeningError != nil,
+                showsStrip: ready.showsArrivalStrip,
+                hasAlsoInProgress: !ready.alsoInProgress.isEmpty
             ),
             id: \.self
         ) { block in

@@ -46,16 +46,23 @@ struct HomeLayout: Equatable {
     }
 
     /// Home's sections, top to bottom (spec §2.1, §3.4) — Android's `homeBlocks` twin. The offline pill sits under
-    /// the greeting and the first-sync strip above the slot; the slot comes next (or, when Continue Listening failed and
-    /// there is no slot, the one-line failure in its place). Below it: Also in Progress → Your Last 7 Days → My Shelves.
+    /// the greeting, then the library-arriving strip (H5), then the slot (or, when Continue Listening failed and there
+    /// is no slot, the one-line failure in its place). Offline and the failure are separate signals, so both can show.
+    /// Below it: Also in Progress → Your Last 7 Days → My Shelves.
     /// A wide window puts the slot beside the stats, and the stats beside the shelves when there is no slot.
-    func blocks(slot: HomeSlotShape, notice: HomeNotice, hasAlsoInProgress: Bool, isArriving: Bool) -> [HomeBlock] {
+    func blocks(
+        slot: HomeSlotShape,
+        isOffline: Bool,
+        continueListeningFailed: Bool,
+        showsStrip: Bool,
+        hasAlsoInProgress: Bool
+    ) -> [HomeBlock] {
         var blocks: [HomeBlock] = []
-        if notice == .offline { blocks.append(.offline) }
-        if isArriving, slot == .firstSync { blocks.append(.firstSyncStrip) }
+        if isOffline { blocks.append(.offline) }
+        if showsStrip { blocks.append(.firstSyncStrip) }
         if let slotBlock = slot.block {
             blocks.append(isWide ? .slotBesideStats : slotBlock)
-        } else if notice == .continueListeningFailed {
+        } else if continueListeningFailed {
             blocks.append(.continueListeningFailed)
         }
         if hasAlsoInProgress { blocks.append(.alsoInProgress) }
@@ -92,19 +99,6 @@ enum HomeSlotShape: Equatable {
 enum HomeBlock: Hashable {
     case offline, firstSyncStrip, resume, finished, nothingInProgress, welcome, firstSync, continueListeningFailed
     case slotBesideStats, alsoInProgress, stats, shelves, statsBesideShelves
-}
-
-/// One line Home shows above everything else, or in the slot's place (spec §3.1, §3.3).
-/// (`clear`, not `none`, for the reason `HomeSlotShape.empty` gives.)
-enum HomeNotice: Equatable {
-    case clear, offline, continueListeningFailed
-
-    /// A failed Continue Listening outranks connectivity, which the dimmed cards already show.
-    static func of(_ ready: HomeReady) -> HomeNotice {
-        if ready.continueListeningError != nil { return .continueListeningFailed }
-        if ready.connectivity != .online { return .offline }
-        return .clear
-    }
 }
 
 extension HomeSlotItem {

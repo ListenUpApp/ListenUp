@@ -82,7 +82,7 @@ struct HomeTextTests {
         }
         #expect(eyebrow(hoursAgo: 1) == "Finished Today")
         #expect(eyebrow(hoursAgo: 24) == "Finished Yesterday")
-        #expect(eyebrow(hoursAgo: 48) == "Finished 2 days ago")
+        #expect(eyebrow(hoursAgo: 48) == "Finished 2 Days Ago")
     }
 
     @Test func theMetaLineHasLengthAndRange() {

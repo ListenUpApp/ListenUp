@@ -34,7 +34,8 @@ enum HomeCardText {
 
 /// What the just-finished card says (spec §2.3, C9, C10).
 enum FinishedCardText {
-    /// "Finished Today", "Finished Yesterday", "Finished 3 days ago" — by calendar day in [calendar]'s time zone.
+    /// "Finished Today", "Finished Yesterday", "Finished 3 Days Ago" — title case throughout, as Home's "Up Next"
+    /// eyebrow is — by calendar day in [calendar]'s time zone.
     static func eyebrow(finishedAt: Date, now: Date, calendar: Calendar = .current) -> String {
         let days = calendar.dateComponents(
             [.day],
@@ -44,7 +45,7 @@ enum FinishedCardText {
         switch max(0, days) {
         case 0: return String(localized: "home.finished_today_ios")
         case 1: return String(localized: "home.finished_yesterday_ios")
-        default: return String(format: String(localized: "home.finished_days_ago"), days)
+        default: return String(format: String(localized: "home.finished_days_ago_ios"), days)
         }
     }
 
@@ -99,7 +100,11 @@ enum FirstSyncText {
     static func title(count: ArrivalCount?) -> String {
         let building = String(localized: "library_setup.building_title")
         guard let count else { return building }
-        let books = String.localizedStringWithFormat(String(localized: "home.arriving_count"), count.done, count.total)
+        let books = String(
+            format: String(localized: "home.arriving_count"),
+            count.done.formatted(),
+            count.total.formatted()
+        )
         return String(format: String(localized: "home.arriving_title"), building, books)
     }
 }

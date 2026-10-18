@@ -88,6 +88,10 @@ struct HomeReady: Equatable {
     let isLibraryArriving: Bool
     /// "412 of 1,280 books", only while a scan knows both numbers (open question 1).
     let arrivalCount: ArrivalCount?
+    /// The device or the server is out of reach (the shared rule, C15); independent of a failed row.
+    let isOffline: Bool
+    /// The library-arriving strip shows above the slot (the shared rule, spec H5).
+    let showsArrivalStrip: Bool
     let timeOfDay: HomeTimeOfDay
     let firstName: String?
     let slot: HomeSlotItem
@@ -103,6 +107,8 @@ struct HomeReady: Equatable {
         self.arrivalCount = ready.scanProgress.flatMap { scan in
             scan.booksTotal > 0 ? ArrivalCount(done: Int(scan.books), total: Int(scan.booksTotal)) : nil
         }
+        self.isOffline = ready.isOffline
+        self.showsArrivalStrip = ready.showsArrivalStrip
         self.timeOfDay = HomeTimeOfDay(kmp: ready.timeOfDay)
         self.firstName = ready.firstName
         self.slot = HomeSlotItem(from: ready.slot)
