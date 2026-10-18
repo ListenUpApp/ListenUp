@@ -131,5 +131,4 @@ class HomeBlocksTest :
         }
     })
 
-private fun scan() =
-    ScanProgressState(phase = "analyzing", current = 1, total = 2, added = 0, updated = 0, removed = 0)
+private fun scan() = ScanProgressState(phase = "analyzing", current = 1, total = 2, added = 0, updated = 0, removed = 0)

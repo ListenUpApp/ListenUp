@@ -847,7 +847,9 @@ class HomeViewModelTest :
                 val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
 
-                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>().slot shouldBe HomeSlot.Absent
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot shouldBe HomeSlot.Absent
             }
         }
 
