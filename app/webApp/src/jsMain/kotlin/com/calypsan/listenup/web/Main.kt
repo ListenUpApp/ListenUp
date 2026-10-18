@@ -16,6 +16,8 @@ import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.repository.ServerReachability
+import com.calypsan.listenup.client.domain.usecase.auth.RestoreCurrentUserUseCase
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -140,6 +142,7 @@ private fun bootInto(mount: Element) {
         // wrong theme and then correct it in front of the reader.
         koin.get<LocalPreferences>().initializeLocalPreferences()
         connectSyncWhenAuthenticated(koin, this)
+        restoreCurrentUserWhenMissing(koin, this)
         startLifecycleHooks(koin, this)
 
         // Read and strip BEFORE the router is built, so it never sees the code: the router
@@ -323,6 +326,28 @@ private fun connectSyncWhenAuthenticated(
                     console.warn("Failed to connect realtime sync: ${e.message}")
                 }
             }
+    }
+}
+
+/**
+ * Keeps the signed-in reader's own profile in the browser's store — Android's shell does the same on entry. A browser
+ * whose database is rebuilt on a visit restores the session but not the user row, and Home then had no name, no
+ * shelves and no admin entry, and stayed that way after the server came back.
+ */
+private fun restoreCurrentUserWhenMissing(
+    koin: Koin,
+    scope: CoroutineScope,
+) {
+    val signedIn = koin.get<AuthSession>().authState.map { it is AuthState.Authenticated }
+    val reachability = koin.get<ServerReachability>().state
+    scope.launch {
+        try {
+            RestoreCurrentUserUseCase(koin.get()).keepRestored(signedIn, reachability)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            console.warn("Failed to restore the signed-in user: ${e.message}")
+        }
     }
 }
 

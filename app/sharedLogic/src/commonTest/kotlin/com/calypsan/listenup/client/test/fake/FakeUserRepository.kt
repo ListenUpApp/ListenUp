@@ -28,5 +28,16 @@ class FakeUserRepository(
 
     override suspend fun clearUsers() = Unit
 
-    override suspend fun refreshCurrentUser(): User? = null
+    /** What [refreshCurrentUser] fetches from "the server"; null answers as a failed fetch. Stored when non-null. */
+    var serverUser: User? = null
+
+    /** How many times [refreshCurrentUser] asked the server. */
+    var refreshCalls = 0
+        private set
+
+    override suspend fun refreshCurrentUser(): User? {
+        refreshCalls++
+        serverUser?.let { currentUser.value = it }
+        return serverUser
+    }
 }
