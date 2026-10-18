@@ -20,9 +20,11 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
@@ -56,11 +58,20 @@ internal class ActiveSessionRepositoryImpl(
     private val cachedSessionDao: CachedActiveSessionDao,
     private val clock: Clock = Clock.System,
 ) : ActiveSessionRepository {
+    /**
+     * The roster, from the Room mirror. An empty mirror is held back until a fetch has answered: until then it
+     * means "not fetched yet", not "nobody is listening", and a caller must not be told the latter while the
+     * server is slow or unreachable. A non-empty mirror (the last-known roster) flows immediately.
+     */
     override fun observeActiveSessions(currentUserId: String): Flow<List<ActiveSession>> =
-        merge(
-            refreshOnPing(),
-            cachedSessions(),
-        )
+        channelFlow {
+            val fetched = MutableStateFlow(false)
+            launch {
+                presence.refreshTriggers().collect { if (refresh()) fetched.value = true }
+            }
+            combine(cachedSessions(), fetched) { rows, hasFetched -> rows.takeIf { it.isNotEmpty() || hasFetched } }
+                .collect { rows -> rows?.let { send(it) } }
+        }
 
     override fun observeActiveCount(currentUserId: String): Flow<Int> =
         observeActiveSessions(currentUserId).map { it.size }
@@ -68,22 +79,19 @@ internal class ActiveSessionRepositoryImpl(
     private fun cachedSessions(): Flow<List<ActiveSession>> =
         cachedSessionDao.observeWithBooks().map { rows -> rows.map { it.toDomain() } }
 
-    private fun refreshOnPing(): Flow<List<ActiveSession>> =
-        presence
-            .refreshTriggers()
-            .transform { refresh() } // never emits — the Room read carries the data
-
-    /** Re-fetch the presence roster and replace the cache; leave it intact on failure. */
-    private suspend fun refresh() {
+    /** Re-fetch the presence roster and replace the cache; leave it intact on failure. True when it landed. */
+    private suspend fun refresh(): Boolean =
         try {
             when (val result = channel.call(idempotent = true) { it.currentlyListening() }) {
                 is AppResult.Success -> {
                     val observedAt = clock.now().toEpochMilliseconds()
                     cachedSessionDao.replaceAll(result.data.map { it.toEntity(observedAt) })
+                    true
                 }
 
                 is AppResult.Failure -> {
                     logger.warn { "currently-listening refresh failed (${result.error.code}); keeping cache" }
+                    false
                 }
             }
         } catch (e: CancellationException) {
@@ -91,8 +99,8 @@ internal class ActiveSessionRepositoryImpl(
         } catch (e: Throwable) {
             // Never-Stranded: a storage fault during the cache write must not clear the cache or kill the flow.
             logger.warn(e) { "currently-listening refresh failed; keeping cache" }
+            false
         }
-    }
 
     private fun CachedActiveSessionWithBook.toDomain(): ActiveSession {
         val bookId = session.bookId
