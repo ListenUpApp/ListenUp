@@ -95,10 +95,13 @@ internal class ActiveSessionRepositoryImpl(
 
     /** Where the first fetch of a subscription stands. */
     private sealed interface FetchOutcome {
+        /** The fetch has not answered yet, so an empty mirror means "not fetched", not "nobody". */
         data object InFlight : FetchOutcome
 
+        /** The fetch replaced the mirror, so an empty mirror now really means nobody is listening. */
         data object Landed : FetchOutcome
 
+        /** The fetch failed with [error]; with an empty mirror the section shows the failure, not "nobody". */
         data class Failed(
             val error: AppError,
         ) : FetchOutcome
