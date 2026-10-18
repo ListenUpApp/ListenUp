@@ -571,6 +571,12 @@ class HomePageTest :
             }
         }
 
+        test("while the library arrives, My shelves loads rather than inviting a first shelf") {
+            val page = homePage(readyHome(slot = HomeSlot.FirstSync, isLibraryArriving = true))
+            page.querySelector("[aria-label='Loading shelves']") shouldNotBe null
+            page.textContent.orEmpty() shouldNotContain "A shelf is your own list"
+        }
+
         test("online, there is no notice") {
             homePage(readyHome()).count(".home-notice") shouldBe 0
         }

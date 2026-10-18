@@ -27,6 +27,7 @@ internal object HomeWords {
     const val ARRIVING_BODY = "Your place in each book is already here; covers and titles are arriving."
     const val UP_NEXT_LOADING = "Up next, loading"
     const val LOADING_BOOKS = "Loading books"
+    const val LOADING_SHELVES = "Loading shelves"
     const val OFFLINE_NOTICE = "Can't reach your server."
     const val OFFLINE_NOTICE_BODY = "Your library is here; playing needs the connection."
     const val RETRY = "Retry"

@@ -152,13 +152,13 @@ private fun HomeBlockContent(
         }
 
         HomeBlock.Shelves -> {
-            MyShelves(state.myShelves, actions)
+            MyShelves(state.myShelves, actions, isLoading = state.showsShelvesLoading)
         }
 
         HomeBlock.StatsBesideShelves -> {
             Div(attrs = { classes("home-row") }) {
                 LastSevenDays(stats, actions)
-                MyShelves(state.myShelves, actions)
+                MyShelves(state.myShelves, actions, isLoading = state.showsShelvesLoading)
             }
         }
     }

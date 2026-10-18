@@ -50,6 +50,8 @@ private const val STREAK_ICON_SIZE = 16
 
 private const val LOCK_ICON_SIZE = 13
 
+private const val SKELETON_SHELVES = 2
+
 /** A section's own heading is an H2, so anything headed inside it is an H3. */
 internal const val SECTION_HEADING_LEVEL = 2
 
@@ -332,6 +334,7 @@ private fun TopGenres(stats: HomeStatsUiState.Data) {
 internal fun MyShelves(
     shelves: List<Shelf>,
     actions: HomeActions,
+    isLoading: Boolean = false,
 ) {
     Section(attrs = {
         classes("home-section", "home-shelves-section")
@@ -344,7 +347,16 @@ internal fun MyShelves(
             }) { Text("My shelves") }
             Button(kind = ButtonKind.Secondary, onClick = { actions.onCreateShelf() }) { Text("New shelf") }
         }
-        if (shelves.isEmpty()) {
+        if (isLoading) {
+            // The library is still arriving: no shelves yet is not yet the reader's, so no invitation (spec §2.1).
+            Div(attrs = {
+                classes("home-shelves")
+                attr("role", "img")
+                attr("aria-label", HomeWords.LOADING_SHELVES)
+            }) {
+                repeat(SKELETON_SHELVES) { Div(attrs = { classes("skel", "home-shelf-skel") }) }
+            }
+        } else if (shelves.isEmpty()) {
             P(attrs = { classes("home-shelves-invite") }) {
                 Text("A shelf is your own list of audiobooks — a series, a mood, a plan for the winter.")
             }

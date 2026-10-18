@@ -581,6 +581,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-skel-id { display: flex; align-items: center; gap: 14px; }
 .luw .home-skel-cover { width: 112px; height: 112px; border-radius: var(--r-md); flex: none; }
 .luw .home-skel-lines { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.luw .home-shelf-skel { height: 88px; border-radius: var(--r-lg); }
 .luw .home-skel-rail { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.1rem; }
 
 /* The stats invitation (spec §2.6): one line in a dashed outline, never a zeroed chart. */
