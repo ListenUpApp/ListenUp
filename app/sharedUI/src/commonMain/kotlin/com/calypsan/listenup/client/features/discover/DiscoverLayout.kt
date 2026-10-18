@@ -150,6 +150,8 @@ internal fun DiscoverLayout(
                     DiscoverLeaderboardSection(
                         state = state.leaderboard,
                         selection = state.leaderboardSelection,
+                        community = state.community,
+                        onRetry = actions.onRetryLeaderboard,
                         onSelectPeriod = actions.onSelectPeriod,
                         onSelectCategory = actions.onSelectCategory,
                         onUserClick = actions.onUserClick,
@@ -170,6 +172,8 @@ internal fun DiscoverLayout(
                 DiscoverLeaderboardSection(
                     state = state.leaderboard,
                     selection = state.leaderboardSelection,
+                    community = state.community,
+                    onRetry = actions.onRetryLeaderboard,
                     onSelectPeriod = actions.onSelectPeriod,
                     onSelectCategory = actions.onSelectCategory,
                     onUserClick = actions.onUserClick,

@@ -117,6 +117,7 @@ fun DiscoverScreen(
                             onInvite = onInvite,
                             onRetryListening = viewModel::retryListeningNow,
                             onRetryRecent = viewModel::retryRecentlyAdded,
+                            onRetryLeaderboard = leaderboardViewModel::refresh,
                             onBrowseLibrary = onBrowseLibrary,
                         ),
                     appHeader = appHeader,

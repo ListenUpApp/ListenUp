@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.RankBadge
+import com.calypsan.listenup.client.design.components.rankTier
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
@@ -158,7 +160,12 @@ private fun LeaderboardEntryRow(
                         slideOutVertically { -it } + fadeOut()
                 }
             },
-            modifier = Modifier.clearAndSetSemantics { contentDescription = rankLabel },
+            modifier =
+                Modifier.clearAndSetSemantics {
+                    contentDescription = rankLabel
+                    // The medal tone follows the rank number, so tied people wear the same one (spec §3.8).
+                    testTag = "rank-tier-${rankTier(entry.rank).name.lowercase()}"
+                },
             label = "rank",
         ) { rank ->
             RankBadge(rank = rank)

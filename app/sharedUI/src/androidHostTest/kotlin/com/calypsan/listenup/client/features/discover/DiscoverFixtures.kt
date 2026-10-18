@@ -176,6 +176,7 @@ internal fun noActions(
     onInvite = null,
     onRetryListening = {},
     onRetryRecent = {},
+    onRetryLeaderboard = {},
     onBrowseLibrary = null,
 )
 
