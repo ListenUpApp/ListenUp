@@ -2,9 +2,12 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
+import com.calypsan.listenup.client.data.local.db.SyncCursorDao
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /**
@@ -17,6 +20,7 @@ import kotlinx.coroutines.flow.map
  */
 internal class UserProfileRepositoryImpl(
     private val publicProfileDao: PublicProfileDao,
+    private val syncCursorDao: SyncCursorDao,
 ) : UserProfileRepository {
     override suspend fun getById(userId: String): CachedUserProfile? =
         publicProfileDao.findById(userId)?.takeIf { it.deletedAt == null }?.toDomain()
@@ -24,8 +28,13 @@ internal class UserProfileRepositoryImpl(
     override fun observeProfile(userId: String): Flow<CachedUserProfile?> =
         publicProfileDao.observeById(userId).map { it?.toDomain() }
 
-    override fun observeRosterUserIds(): Flow<List<String>> =
-        publicProfileDao.observeAll().map { rows -> rows.map { it.id } }
+    // Only a catch-up pull creates a domain's cursor (SyncCursorDao.advanceExistingCursor), so a cursor here means
+    // the roster has been pulled at least once: a live upsert of your own row before then reads as not synced.
+    override fun observeRosterUserIds(): Flow<List<String>?> =
+        combine(
+            publicProfileDao.observeAll(),
+            syncCursorDao.observeCursor(SyncDomains.PUBLIC_PROFILES.name),
+        ) { rows, cursor -> if (cursor == null) null else rows.map { it.id } }
 }
 
 /**

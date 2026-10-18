@@ -352,7 +352,7 @@ private class FakeProfiles : UserProfileRepository {
 
     override fun observeProfile(userId: String): Flow<CachedUserProfile?> = flowOf(userId).map { profile(it) }
 
-    override fun observeRosterUserIds(): Flow<List<String>> = flowOf(names.keys.toList())
+    override fun observeRosterUserIds(): Flow<List<String>?> = flowOf(names.keys.toList())
 
     private fun profile(userId: String): CachedUserProfile? =
         names[userId]?.let { CachedUserProfile(id = userId, displayName = it, avatarType = "auto", updatedAt = 0L) }

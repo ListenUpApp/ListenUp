@@ -116,7 +116,7 @@ class DiscoverPresentationModuleVerifyTest :
             app.koin.get<ActivityFeedViewModel>() shouldNotBe null
             app.close()
         }
-    
+
         test("DiscoverViewModel resolves with the user it shows in the invitation") {
             val app =
                 koinApplication {

@@ -175,7 +175,7 @@ class DiscoverViewModelTest :
             val authSession: AuthSession = mock()
             val shelfRepository: ShelfRepository = mock()
             val userProfileRepository: UserProfileRepository = mock()
-            val rosterFlow = MutableStateFlow<List<String>>(emptyList())
+            val rosterFlow = MutableStateFlow<List<String>?>(null)
             val userRepository: UserRepository = mock()
             val currentUser = MutableStateFlow<User?>(null)
 
@@ -417,6 +417,20 @@ class DiscoverViewModelTest :
                 fixture.rosterFlow.value = listOf(USER_ID, OTHER_USER_ID)
                 advanceUntilIdle()
                 viewModel.communitySize.value shouldBe CommunitySize.Others
+            }
+        }
+
+        test("your own row alone, before the roster has been pulled, is not 'just you'") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build().also { keepStateHot(it.communitySize) }
+                fixture.rosterFlow.value = null
+                advanceUntilIdle()
+                viewModel.communitySize.value shouldBe CommunitySize.Unknown
+
+                fixture.rosterFlow.value = listOf(USER_ID)
+                advanceUntilIdle()
+                viewModel.communitySize.value shouldBe CommunitySize.JustYou
             }
         }
 
