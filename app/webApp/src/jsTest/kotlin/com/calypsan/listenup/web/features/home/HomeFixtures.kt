@@ -9,6 +9,9 @@ import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfCover
+import com.calypsan.listenup.client.presentation.home.AlsoFinished
+import com.calypsan.listenup.client.presentation.home.FinishedBook
+import com.calypsan.listenup.client.presentation.home.FinishedCard
 import com.calypsan.listenup.client.presentation.home.HeroChapter
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
@@ -172,3 +175,59 @@ internal fun scanning(
         books = books,
         booksTotal = booksTotal,
     )
+
+/** The board's "now": 2025-10-10 12:00 UTC. */
+internal const val BOARD_NOW = 1_760_097_600_000L
+
+/** One day, in milliseconds. */
+internal const val DAY_MS = 24 * HOUR_MS
+
+/** The next book in a series: "Words of Radiance", Stormlight Archive Book 2, 48h 15m. */
+internal fun nextBook(
+    id: String = "wor",
+    sequenceLabel: String? = "2",
+): NextInSeries =
+    NextInSeries(
+        bookId = id,
+        title = "Words of Radiance",
+        coverPath = null,
+        coverHash = null,
+        narratorNames = "Michael Kramer & Kate Reading",
+        seriesName = "Stormlight Archive",
+        sequenceLabel = sequenceLabel,
+        durationMs = 173_700_000L,
+    )
+
+/** The just-finished kind: "The Way of Kings", 45h 30m, finished an hour before [BOARD_NOW]. */
+internal fun finishedSlot(
+    next: NextInSeries? = nextBook(),
+    names: List<String> = listOf("Maya", "Tom"),
+    more: Int = 0,
+    startedAtMs: Long? = BOARD_NOW - 34 * DAY_MS,
+): HomeSlot.JustFinished =
+    HomeSlot.JustFinished(
+        FinishedCard(
+            book =
+                FinishedBook(
+                    bookId = "wok",
+                    title = "The Way of Kings",
+                    authorNames = "Brandon Sanderson",
+                    coverPath = null,
+                    coverHash = null,
+                    durationMs = 163_800_000L,
+                ),
+            startedAtMs = startedAtMs,
+            finishedAtMs = BOARD_NOW - HOUR_MS,
+            yourHalfStars = null,
+            next = next,
+            alsoFinished = AlsoFinished(names = names, othersCount = more),
+        ),
+    )
+
+/** Nothing in progress, with or without a series candidate. */
+internal fun nothingSlot(candidate: NextInSeries? = nextBook()): HomeSlot.NothingInProgress =
+    HomeSlot.NothingInProgress(candidate)
+
+/** A new listener, with [covers] of the newest books. */
+internal fun welcomeSlot(covers: Int = 4): HomeSlot.NewListener =
+    HomeSlot.NewListener(covers = (1..covers).map { ShelfCover("new$it", coverPath = null, coverHash = null) })

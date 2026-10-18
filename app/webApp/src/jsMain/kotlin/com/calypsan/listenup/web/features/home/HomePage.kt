@@ -57,7 +57,13 @@ fun HomePage(
             is HomeUiState.Ready -> {
                 PageHeader(title = homeGreeting(state.timeOfDay, state.firstName), documentTitle = null, display = true)
                 LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
-                homeBlocks(state.slot, state.alsoInProgress.isNotEmpty(), isWide).forEach { block ->
+                homeBlocks(
+                    slot = state.slot,
+                    notice = homeNotice(state),
+                    hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
+                    isArriving = state.isLibraryArriving,
+                    isWide = isWide,
+                ).forEach { block ->
                     HomeBlockContent(block, state, stats, actions, isWide, nowMs, selection)
                 }
             }
@@ -78,25 +84,20 @@ private fun HomeBlockContent(
     nowMs: Long,
     selection: BookSelection?,
 ) {
-    val isOnlyBook = state.slot is HomeSlot.Resume && state.alsoInProgress.isEmpty()
-    val resume = state.slot as? HomeSlot.Resume
     when (block) {
-        HomeBlock.Resume -> {
-            resume?.let { ResumeHero(it, isOnlyBook, nowMs, actions.onOpenBook, actions.onPlay) }
-        }
-
-        HomeBlock.ResumeBesideStats -> {
+        HomeBlock.SlotBesideStats -> {
             Div(attrs = { classes("home-row") }) {
-                resume?.let { ResumeHero(it, isOnlyBook, nowMs, actions.onOpenBook, actions.onPlay) }
+                SlotContent(state, actions, nowMs)
                 LastSevenDays(stats, actions)
             }
         }
 
-        HomeBlock.NothingToResume -> {
-            // Interim for NothingInProgress and NewListener until Home PR 4 draws them (open question 5).
-            EmptyState(title = "Nothing on the go", body = "Start a book and it will wait for you here.") {
-                Button(kind = ButtonKind.Primary, onClick = { actions.onOpenLibrary() }) { Text("Browse the Library") }
-            }
+        HomeBlock.Resume, HomeBlock.Finished, HomeBlock.NothingInProgress, HomeBlock.Welcome, HomeBlock.FirstSync -> {
+            SlotContent(state, actions, nowMs)
+        }
+
+        HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.ContinueListeningFailed -> {
+            Unit
         }
 
         HomeBlock.AlsoInProgress -> {
@@ -116,6 +117,30 @@ private fun HomeBlockContent(
                 LastSevenDays(stats, actions)
                 MyShelves(state.myShelves, actions)
             }
+        }
+    }
+}
+
+/** Whichever slot applies, drawn: every kind takes the same position (spec §2.1). */
+@Composable
+private fun SlotContent(
+    state: HomeUiState.Ready,
+    actions: HomeActions,
+    nowMs: Long,
+) {
+    when (val slot = state.slot) {
+        is HomeSlot.Resume -> {
+            ResumeHero(slot, state.alsoInProgress.isEmpty(), nowMs, actions.onOpenBook, actions.onPlay)
+        }
+
+        is HomeSlot.NothingInProgress, is HomeSlot.NewListener -> {
+            EmptyState(title = "Nothing on the go", body = "Start a book and it will wait for you here.") {
+                Button(kind = ButtonKind.Primary, onClick = { actions.onOpenLibrary() }) { Text("Browse the Library") }
+            }
+        }
+
+        is HomeSlot.JustFinished, HomeSlot.FirstSync, HomeSlot.Absent -> {
+            Unit
         }
     }
 }
