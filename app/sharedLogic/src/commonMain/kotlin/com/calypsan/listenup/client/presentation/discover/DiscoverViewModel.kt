@@ -329,7 +329,7 @@ class DiscoverViewModel(
                     // Offline is an expected state on this background load, not a snackbar-worthy fault —
                     // the section degrades to its local empty/error state. Only genuine (non-connectivity)
                     // errors reach the global bus and the error log; connectivity misses are logged quietly.
-                    if (result.error.isConnectivityError()) {
+                    if (result.error.isConnectivityFailure()) {
                         logger.debug { "Discover shelves unavailable offline: ${result.error.message}" }
                     } else {
                         errorBus.emit(result.error)
@@ -350,8 +350,24 @@ class DiscoverViewModel(
      */
     fun refresh() {
         discoverBooksDraws.update { it + 1 }
+        retryListeningNow()
+        retryRecentlyAdded()
+        loadDiscoverShelves()
+    }
+
+    /** Try again on a failed Listening now: restarts that section only. */
+    fun retryListeningNow() {
         if (currentlyListeningState.value is CurrentlyListeningUiState.Error) currentlyListeningRuns.update { it + 1 }
+    }
+
+    /** Try again on a failed Recently added: restarts that section only. */
+    fun retryRecentlyAdded() {
         if (recentlyAddedState.value is RecentlyAddedUiState.Error) recentlyAddedRuns.update { it + 1 }
+    }
+
+    /** Try again on Shelves by others: shows its skeleton and refetches; nothing else moves. Picks retry is [shuffle]. */
+    fun retryShelvesByOthers() {
+        discoverShelvesState.value = DiscoverShelvesUiState.Loading
         loadDiscoverShelves()
     }
 }
@@ -377,7 +393,11 @@ sealed interface DiscoverShelvesUiState {
     /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
         val error: AppError,
-    ) : DiscoverShelvesUiState
+    ) : DiscoverShelvesUiState {
+        /** True when the failure is connectivity (offline, timed out): the section says it needs a connection. */
+        val needsConnection: Boolean
+            get() = error.isConnectivityFailure()
+    }
 }
 
 /**
@@ -575,5 +595,5 @@ data class RecentlyAddedUiBook(
  * Connectivity faults (offline / timed-out) are expected states on a background load, not
  * snackbar-worthy errors. Matched by typed subtype — never by `message` string.
  */
-private fun AppError.isConnectivityError(): Boolean =
+internal fun AppError.isConnectivityFailure(): Boolean =
     this is TransportError.NetworkUnavailable || this is TransportError.Timeout

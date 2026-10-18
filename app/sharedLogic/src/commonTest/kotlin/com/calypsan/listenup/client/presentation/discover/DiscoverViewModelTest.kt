@@ -23,6 +23,8 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -537,6 +539,83 @@ class DiscoverViewModelTest :
                 val ready = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Ready>()
                 ready.books.first().id shouldBe "new-1"
             }
+        }
+
+        test("retrying Listening now restarts only Listening now") {
+            runTest {
+                val fixture = createFixture()
+                var subscriptions = 0
+                every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
+                    flow {
+                        subscriptions++
+                        if (subscriptions == 1) throw SimulatedFailure("transient") else emit(emptyList())
+                    }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel.currentlyListeningState)
+                keepStateHot(viewModel.discoverBooksState)
+                advanceUntilIdle()
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
+
+                viewModel.retryListeningNow()
+                advanceUntilIdle()
+
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeRandomUnstartedBooks(any()) }
+                verifySuspend(VerifyMode.exactly(1)) { fixture.shelfRepository.discoverShelves() }
+            }
+        }
+
+        test("retrying Recently added restarts only a failed subscription") {
+            runTest {
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryPick()))
+                var collections = 0
+                every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns
+                    flow {
+                        collections++
+                        if (collections == 1) throw SimulatedFailure("transient")
+                        emit(listOf(createDiscoveryBook(id = "new-1")))
+                    }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel.recentlyAddedState)
+                keepStateHot(viewModel.discoverBooksState)
+                advanceUntilIdle()
+                viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Error>()
+
+                viewModel.retryRecentlyAdded()
+                advanceUntilIdle()
+
+                viewModel.recentlyAddedState.value
+                    .shouldBeInstanceOf<RecentlyAddedUiState.Ready>()
+                    .books
+                    .first()
+                    .id shouldBe "new-1"
+                verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeRandomUnstartedBooks(any()) }
+            }
+        }
+
+        test("retrying Shelves by others refetches shelves and leaves the picks alone") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+                val failed = viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
+                failed.needsConnection shouldBe true
+
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns AppResult.Success(emptyList())
+                viewModel.retryShelvesByOthers()
+                advanceUntilIdle()
+
+                viewModel.discoverShelvesState.value shouldBe DiscoverShelvesUiState.Ready(emptyList())
+                verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeRandomUnstartedBooks(any()) }
+            }
+        }
+
+        test("a non-connectivity failure does not claim to need a connection") {
+            DiscoverShelvesUiState.Error(UnexpectedClientError()).needsConnection shouldBe false
+            DiscoverShelvesUiState.Error(TransportError.Timeout()).needsConnection shouldBe true
+            DiscoverShelvesUiState.Error(TransportError.NetworkUnavailable()).needsConnection shouldBe true
         }
 
         test("refresh leaves a healthy recently-added subscription alone") {
