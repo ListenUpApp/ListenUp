@@ -613,6 +613,42 @@ class DiscoverViewModelTest :
             }
         }
 
+        test("Shelves by others that failed offline come back on their own once the server is reachable") {
+            // ⛔ Shelves are an on-demand read, not a Room mirror, so nothing re-fetched them on reconnect:
+            // every other section recovered by itself and Shelves waited for a Try again.
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                fixture.reachability.value = Reachability.Unreachable
+                advanceUntilIdle()
+                viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
+
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Success(listOf(createShelf()))
+                fixture.reachability.value = Reachability.Reachable
+                advanceUntilIdle()
+
+                viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Ready>()
+            }
+        }
+
+        test("a reconnect leaves healthy shelves alone") {
+            runTest {
+                val fixture = createFixture(discoveredShelves = listOf(createShelf()))
+                fixture.build()
+                advanceUntilIdle()
+                fixture.reachability.value = Reachability.Unreachable
+                advanceUntilIdle()
+                fixture.reachability.value = Reachability.Reachable
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.shelfRepository.discoverShelves() }
+            }
+        }
+
         test("a non-connectivity failure does not claim to need a connection") {
             DiscoverShelvesUiState.Error(UnexpectedClientError()).needsConnection shouldBe false
             DiscoverShelvesUiState.Error(TransportError.Timeout()).needsConnection shouldBe true

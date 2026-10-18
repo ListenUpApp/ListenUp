@@ -27,6 +27,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -79,6 +81,17 @@ class DiscoverViewModel(
     init {
         // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
         loadDiscoverShelves()
+        // Shelves are not a Room mirror, so a reconnect heals nothing by itself: when the server becomes
+        // reachable again, a section that failed fetches once more, as every Room-backed section recovers.
+        viewModelScope.launch {
+            serverReachability.state
+                .map { it is Reachability.Reachable }
+                .distinctUntilChanged()
+                .drop(1) // only a change: the first load above already covers how things stand now
+                .collect { reachable ->
+                    if (reachable && discoverShelvesState.value is DiscoverShelvesUiState.Error) loadDiscoverShelves()
+                }
+        }
     }
 
     /**
