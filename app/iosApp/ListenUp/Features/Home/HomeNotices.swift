@@ -8,7 +8,7 @@ struct OfflinePill: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
             .padding(.horizontal, Spacing.s)
-            .padding(.vertical, 6)
+            .padding(.vertical, Spacing.xxs)
             .background(Color.secondary.opacity(0.12), in: Capsule())
             .accessibilityAddTraits(.updatesFrequently)
             .onAppear { VoiceOverAnnouncement.post(String(localized: "home.offline_pill")) }
