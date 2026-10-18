@@ -69,7 +69,14 @@ struct SomethingNewSection: View {
     private var content: some View {
         switch phase {
         case .loading:
-            RailSkeleton(cardWidth: cardWidth, captionLines: 3, horizontalInset: horizontalInset)
+            DiscoverCardGridSkeleton(
+                isRegular: isRegular,
+                cardWidth: cardWidth,
+                regularColumnCount: Self.regularColumnCount,
+                horizontalInset: horizontalInset,
+                captionLines: 3,
+                spacing: 18
+            )
         case .allStarted:
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(String(localized: "discover.started_everything"))

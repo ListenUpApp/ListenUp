@@ -67,4 +67,10 @@ struct DiscoverStatesTests {
         #expect(LeaderRow.avatarSize == 38)
         #expect(LeaderRow.rankSize == 26)
     }
+
+    @Test func loadingCardsTakeTheShapeTheyArriveIn() {
+        // iPad: a full row of the section's grid; iPhone: the rail's four.
+        #expect(DiscoverCardGridSkeleton.slotCount(isRegular: true, regularColumnCount: 6) == 6)
+        #expect(DiscoverCardGridSkeleton.slotCount(isRegular: false, regularColumnCount: 6) == 4)
+    }
 }

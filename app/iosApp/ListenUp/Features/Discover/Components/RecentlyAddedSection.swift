@@ -52,7 +52,13 @@ struct RecentlyAddedSection: View {
     private var content: some View {
         switch phase {
         case .loading:
-            RailSkeleton(cardWidth: cardWidth, horizontalInset: horizontalInset)
+            DiscoverCardGridSkeleton(
+                isRegular: isRegular,
+                cardWidth: cardWidth,
+                regularColumnCount: Self.regularColumnCount,
+                horizontalInset: horizontalInset,
+                captionLines: 3
+            )
         case .ready(let books):
             if books.isEmpty {
                 message(String(localized: "discover.no_recently_added_books"))

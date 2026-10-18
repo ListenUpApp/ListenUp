@@ -76,7 +76,13 @@ struct ListeningNowSection: View {
     private var content: some View {
         switch Self.treatment(for: phase, community: community, viewer: viewer) {
         case .skeleton:
-            RailSkeleton(cardWidth: cardWidth, horizontalInset: horizontalInset)
+            DiscoverCardGridSkeleton(
+                isRegular: isRegular,
+                cardWidth: cardWidth,
+                regularColumnCount: Self.regularColumnCount,
+                horizontalInset: horizontalInset,
+                spacing: 18
+            )
         case .retry:
             InlineRetryLine(line: String(localized: "discover.error_listening"), action: onRetry)
                 .padding(.horizontal, horizontalInset)
