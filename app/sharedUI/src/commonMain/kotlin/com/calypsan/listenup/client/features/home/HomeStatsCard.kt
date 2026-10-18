@@ -98,9 +98,7 @@ internal fun HomeStatsCard(
         Column(Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             when (stats) {
                 // Drawn above as the invitation, never inside the card.
-                HomeStatsUiState.Empty -> {
-                    Unit
-                }
+                HomeStatsUiState.Empty -> {}
 
                 HomeStatsUiState.Loading -> {
                     StatsHeading()

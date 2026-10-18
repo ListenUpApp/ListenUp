@@ -188,7 +188,13 @@ private fun FinishedIdentity(
                 Text(book.authorNames, style = MaterialTheme.typography.bodyMedium)
             }
             Text(
-                text = finishedMeta(book.durationMs, card.startedAtMs, card.finishedAtMs, zone),
+                text =
+                    finishedMeta(
+                        durationMs = book.durationMs,
+                        startedAtMs = card.startedAtMs,
+                        finishedAtMs = card.finishedAtMs,
+                        zone = zone,
+                    ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

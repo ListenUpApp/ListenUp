@@ -73,11 +73,11 @@ internal fun FirstSyncStrip(
     val title =
         scan
             ?.takeIf { it.booksTotal > 0 }
-            ?.let {
+            ?.let { counted ->
                 stringResource(
                     Res.string.home_arriving_title,
                     building,
-                    stringResource(Res.string.home_arriving_count, it.books, it.booksTotal),
+                    stringResource(Res.string.home_arriving_count, counted.books, counted.booksTotal),
                 )
             }
             ?: building

@@ -58,7 +58,7 @@ internal fun OfflinePill(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Outlined.CloudOff,
+                imageVector = Icons.Outlined.CloudOff,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(PillIcon),
