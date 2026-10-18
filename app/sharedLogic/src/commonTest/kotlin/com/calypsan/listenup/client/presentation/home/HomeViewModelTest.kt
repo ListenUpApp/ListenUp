@@ -856,7 +856,7 @@ class HomeViewModelTest :
             }
         }
 
-        // ========== Home PR 4: arriving, error greeting, retry, offline rating, remote dismissal ==========
+        // ========== Arriving, the error greeting, retry, an offline rating, a remote dismissal ==========
 
         test("a fresh device's first catch-up shows first sync while positions arrive before their books") {
             runTest {

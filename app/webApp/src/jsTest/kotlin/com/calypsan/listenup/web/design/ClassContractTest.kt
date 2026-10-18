@@ -1256,7 +1256,7 @@ class ClassContractTest :
                             weekStats(),
                             HomeActions.None,
                         )
-                        // Home PR 4's states: every slot kind, first sync, the notice and the failed row.
+                        // Every slot kind, first sync, the notice and the failed row.
                         HomePage(readyHome(slot = finishedSlot()), weekStats(), HomeActions.None, isWide = true)
                         HomePage(readyHome(slot = nothingSlot()), weekStats(), HomeActions.None, isWide = true)
                         HomePage(readyHome(slot = welcomeSlot(2)), HomeStatsUiState.Empty, HomeActions.None)

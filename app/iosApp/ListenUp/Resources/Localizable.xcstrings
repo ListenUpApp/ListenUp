@@ -14011,16 +14011,6 @@
         }
       }
     },
-    "home.nothing_playing_yet": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nothing playing yet"
-          }
-        }
-      }
-    },
     "home.offline_pill": {
       "localizations": {
         "en": {
@@ -14177,26 +14167,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "A shelf is your own list of audiobooks — a series, a mood, a plan for the winter."
-          }
-        }
-      }
-    },
-    "home.start_listening_to_an_audiobook": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start listening to an audiobook and it will appear here"
-          }
-        }
-      }
-    },
-    "home.start_listening_to_see_your": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start listening to see your stats here"
           }
         }
       }

@@ -500,7 +500,7 @@ class HomePageTest :
             host.textContent.orEmpty() shouldContain "We couldn't load Home."
         }
 
-        // ── Home PR 4: first sync, loading, the server notice, the failures and the stats states ─────────
+        // ── first sync, loading, the server notice, the failures and the stats states ─────────
 
         test("first sync: a status strip in Home's words over a skeleton slot with a disabled Resume") {
             val page = homePage(readyHome(slot = HomeSlot.FirstSync, isLibraryArriving = true))
