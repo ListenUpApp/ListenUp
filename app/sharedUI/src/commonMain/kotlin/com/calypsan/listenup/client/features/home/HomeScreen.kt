@@ -192,6 +192,10 @@ private fun HomeReady(
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected)
+        BookSelectionScaffold(
+            multiSelect = multiSelect,
+            onEditSelected = onEditSelected,
+            contentPadding = contentPadding,
+        )
     }
 }

@@ -4,6 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.InlineRetry
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.components.RowsSkeleton
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -79,7 +84,11 @@ fun ActivityFeedScreen(
             onUserClick = onUserClick,
             onAddToShelf = { id -> selectionState.shelveOne(id, multiSelect) },
         )
-        BookSelectionScaffold(multiSelect = multiSelect, state = selectionState)
+        BookSelectionScaffold(
+            multiSelect = multiSelect,
+            state = selectionState,
+            contentPadding = WindowInsets.systemBars.union(LocalNowPlayingInsets.current).asPaddingValues(),
+        )
     }
 }
 

@@ -141,7 +141,12 @@ fun DiscoverScreen(
             }
         }
 
-        // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected, state = selectionState)
+        // Multi-select overlay: header, floating toolbar, picker sheets, and success feedback.
+        BookSelectionScaffold(
+            multiSelect = multiSelect,
+            onEditSelected = onEditSelected,
+            state = selectionState,
+            contentPadding = contentPadding,
+        )
     }
 }

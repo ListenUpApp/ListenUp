@@ -1,10 +1,6 @@
 package com.calypsan.listenup.client.features.library.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,7 +11,6 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
@@ -30,13 +25,14 @@ import kotlinx.coroutines.launch
  * Reusable multi-select overlay for any books-bearing screen (Library, Home, Discover).
  *
  * Drives the entire selection affordance from a single [BookMultiSelectViewModel]:
- * - a top-anchored [SelectionToolbar] that animates in while selection is active;
+ * - the [SelectionToolbar]: a header sliding in at the top and a vibrant floating toolbar rising at the
+ *   bottom while selection is active;
  * - the shelf / collection picker sheets (collection picker admin-gated as defense-in-depth);
  * - one-shot success feedback (snackbar + auto-dismiss of the matching picker).
  *
  * Failures are surfaced on the global ErrorBus by the VM, so this scaffold only reacts to the
  * success events ([BookMultiSelectEvent]). Place it as the last child of a fill-size container so
- * its top-anchored toolbar overlays the screen content; the picker sheets render as modals.
+ * its bar overlays the screen content; the picker sheets render as modals.
  *
  * Bulk metadata editing is offered only when both conditions hold: the user is an admin (library
  * metadata is admin-owned, the same ownership that gates collections) **and** the host passed a
@@ -51,6 +47,8 @@ import kotlinx.coroutines.launch
  *   than called here — a user who backs out of the editor without applying still has their
  *   selection.
  * @param modifier Modifier applied to the overlay container.
+ * @param contentPadding The host's insets (navigation bar, mini player) the floating toolbar must clear;
+ *   a host already padded by its parent passes none.
  * @param state Which picker is up, hoisted so a host can shelve one book ([BookSelectionScaffoldState.shelveOne]).
  */
 @Composable
@@ -59,6 +57,7 @@ fun BookSelectionScaffold(
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
     state: BookSelectionScaffoldState = rememberBookSelectionScaffoldState(),
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isAdmin by multiSelect.adminAccess.collectAsStateWithLifecycle()
@@ -80,33 +79,27 @@ fun BookSelectionScaffold(
         onCollectionActionHandled = { showCollectionPicker = false },
     )
 
-    // Selection toolbar (overlays at top of the host container).
-    Box(modifier = modifier.fillMaxSize()) {
-        AnimatedVisibility(
-            visible = isInSelectionMode,
-            enter = slideInVertically { -it },
-            exit = slideOutVertically { -it },
-            modifier = Modifier.align(Alignment.TopCenter),
-        ) {
-            SelectionToolbar(
-                selectedCount = selectedCount,
-                onAddToShelf = { state.showShelfPicker = true },
-                onAddToCollection =
-                    if (isAdmin) {
-                        { showCollectionPicker = true }
-                    } else {
-                        null
-                    },
-                onEdit =
-                    if (isAdmin && onEditSelected != null) {
-                        { onEditSelected(selectedIds.toList(), multiSelect::exitSelectionMode) }
-                    } else {
-                        null
-                    },
-                onClose = multiSelect::exitSelectionMode,
-            )
-        }
-    }
+    // Selection bar: a header over the top of the host container, a floating toolbar over its bottom.
+    SelectionToolbar(
+        visible = isInSelectionMode,
+        selectedCount = selectedCount,
+        onAddToShelf = { state.showShelfPicker = true },
+        onAddToCollection =
+            if (isAdmin) {
+                { showCollectionPicker = true }
+            } else {
+                null
+            },
+        onEdit =
+            if (isAdmin && onEditSelected != null) {
+                { onEditSelected(selectedIds.toList(), multiSelect::exitSelectionMode) }
+            } else {
+                null
+            },
+        onClose = multiSelect::exitSelectionMode,
+        bottomClearance = contentPadding.calculateBottomPadding(),
+        modifier = modifier,
+    )
 
     // Collection picker sheet. Collections are admin-managed — gate the picker
     // presentation (and the inline-create affordance) on isAdmin as defense-in-depth.

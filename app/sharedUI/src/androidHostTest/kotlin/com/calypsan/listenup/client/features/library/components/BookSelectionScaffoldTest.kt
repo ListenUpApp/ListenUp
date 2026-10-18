@@ -118,10 +118,10 @@ class BookSelectionScaffoldTest {
     fun `a non-admin is not offered bulk editing`() {
         render(isAdmin = false)
 
-        // "Shelf" is the every-user action: its presence proves the toolbar is up, so what follows
+        // "Add to shelf" is the every-user action: its presence proves the toolbar is up, so what follows
         // is the admin gate and not an unrendered overlay.
-        awaitLabel("Shelf")
-        composeRule.onNodeWithText("Collection").assertDoesNotExist()
+        awaitLabel("Add to shelf")
+        composeRule.onNodeWithText("Add to collection").assertDoesNotExist()
         composeRule.onNodeWithText("Edit").assertDoesNotExist()
     }
 
@@ -137,9 +137,9 @@ class BookSelectionScaffoldTest {
     fun `a host with no route to the editor offers no edit action, admin or not`() {
         render(isAdmin = true, onEditSelected = null)
 
-        // "Collection" is admin-only, so its arrival proves the admin stream has settled — the
+        // "Add to collection" is admin-only, so its arrival proves the admin stream has settled — the
         // absence below is therefore the missing route, not a race.
-        awaitLabel("Collection")
+        awaitLabel("Add to collection")
         composeRule.onNodeWithText("Edit").assertDoesNotExist()
     }
 
