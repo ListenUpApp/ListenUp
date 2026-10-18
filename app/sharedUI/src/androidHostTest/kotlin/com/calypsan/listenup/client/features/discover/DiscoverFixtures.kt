@@ -177,6 +177,8 @@ internal fun noActions(
     onRetryListening = {},
     onRetryRecent = {},
     onRetryLeaderboard = {},
+    onRetryActivity = {},
+    onRetryShelves = {},
     onBrowseLibrary = null,
 )
 

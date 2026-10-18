@@ -98,7 +98,9 @@ internal fun DiscoverLeaderboardSection(
                     when (community) {
                         // Never say "nobody" or "just you" before the roster has synced (plan C4).
                         CommunitySize.Unknown -> LeaderboardSkeleton()
+
                         CommunitySize.JustYou -> QuietLine(stringResource(Res.string.discover_leaderboard_just_you))
+
                         CommunitySize.Others -> QuietLine(stringResource(Res.string.discover_leaderboard_empty_period))
                     }
                 }

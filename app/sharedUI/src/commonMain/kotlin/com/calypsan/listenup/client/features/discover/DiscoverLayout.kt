@@ -163,6 +163,7 @@ internal fun DiscoverLayout(
                         onBookClick = actions.onBookClick,
                         onShelfClick = actions.onShelfClick,
                         onUserClick = actions.onUserClick,
+                        onRetry = actions.onRetryActivity,
                         modifier = Modifier.weight(if (isExpanded) ACTIVITY_WEIGHT_EXPANDED else 1f),
                     )
                 }
@@ -186,6 +187,7 @@ internal fun DiscoverLayout(
                     onBookClick = actions.onBookClick,
                     onShelfClick = actions.onShelfClick,
                     onUserClick = actions.onUserClick,
+                    onRetry = actions.onRetryActivity,
                     modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 )
             }
@@ -196,6 +198,7 @@ internal fun DiscoverLayout(
                 state = state.shelves,
                 onShelfClick = actions.onShelfClick,
                 onUserClick = actions.onUserClick,
+                onRetry = actions.onRetryShelves,
                 wide = isExpanded,
             )
         }

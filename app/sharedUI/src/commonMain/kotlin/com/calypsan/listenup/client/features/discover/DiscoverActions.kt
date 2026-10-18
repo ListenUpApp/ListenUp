@@ -47,5 +47,7 @@ data class DiscoverActions(
     val onRetryListening: () -> Unit,
     val onRetryRecent: () -> Unit,
     val onRetryLeaderboard: () -> Unit,
+    val onRetryActivity: () -> Unit,
+    val onRetryShelves: () -> Unit,
     val onBrowseLibrary: (() -> Unit)?,
 )

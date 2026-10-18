@@ -118,6 +118,8 @@ fun DiscoverScreen(
                             onRetryListening = viewModel::retryListeningNow,
                             onRetryRecent = viewModel::retryRecentlyAdded,
                             onRetryLeaderboard = leaderboardViewModel::refresh,
+                            onRetryActivity = activityFeedViewModel::refresh,
+                            onRetryShelves = viewModel::retryShelvesByOthers,
                             onBrowseLibrary = onBrowseLibrary,
                         ),
                     appHeader = appHeader,

@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
@@ -37,7 +38,8 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AdaptiveCardGrid
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BrowseCarousel
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.InlineRetry
+import com.calypsan.listenup.client.design.components.RailSkeleton
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.ShelfCoverMosaic
 import com.calypsan.listenup.client.design.components.UserAvatar
@@ -48,11 +50,12 @@ import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_book_count
 import listenup.composeapp.generated.resources.common_books_count
-import listenup.composeapp.generated.resources.discover_no_shelves_to_discover_yet
+import listenup.composeapp.generated.resources.discover_error_shelves
 import listenup.composeapp.generated.resources.discover_shelf_count
 import listenup.composeapp.generated.resources.discover_shelves_by_others
 import listenup.composeapp.generated.resources.discover_shelves_count
-import listenup.composeapp.generated.resources.discover_when_other_users_create_shelves
+import listenup.composeapp.generated.resources.discover_shelves_need_connection
+import listenup.composeapp.generated.resources.discover_shelves_only_you
 import org.jetbrains.compose.resources.stringResource
 
 private val SHELF_CARD_WIDTH = 156.dp
@@ -60,112 +63,95 @@ private val SHELF_MIN_CELL = 120.dp
 private const val OWNERS_PER_ROW = 2
 
 /**
- * "Shelves by others": other people's public shelves, grouped under whoever made them. A spinner before
- * the first load and an empty state when nobody has shared a shelf (both PR 6's to redesign); otherwise
- * the heading, then one block per owner: a header naming them and their shelves as cover-mosaic cards.
+ * "Shelves by others": other people's public shelves, grouped under whoever made them: the heading, then
+ * one block per owner, a header naming them and their shelves as cover-mosaic cards. The heading stays in
+ * every state (spec §3.8): a skeleton while loading, "need a connection" (offline) or "Couldn't load" with
+ * Try again on failure, and one line when nobody has made a shelf public.
  */
 @Composable
 internal fun ShelvesByOthersSection(
     state: DiscoverShelvesUiState,
     onShelfClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     wide: Boolean = false,
 ) {
-    val ready = state as? DiscoverShelvesUiState.Ready
-    val users = ready?.users.orEmpty()
-    when {
-        state is DiscoverShelvesUiState.Loading && users.isEmpty() -> {
-            Box(
-                modifier =
-                    modifier
-                        .fillMaxWidth()
-                        .padding(48.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                ListenUpLoadingIndicator()
+    val users = (state as? DiscoverShelvesUiState.Ready)?.users.orEmpty()
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+        SectionTitle(
+            title = stringResource(Res.string.discover_shelves_by_others),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+        )
+        when (state) {
+            DiscoverShelvesUiState.Loading -> {
+                RailSkeleton(
+                    cardWidth = if (wide) null else SHELF_CARD_WIDTH,
+                    captionLines = 2,
+                    modifier = Modifier.padding(horizontal = Spacing.screenMargin).testTag("shelves-skeleton"),
+                )
             }
-        }
 
-        ready?.isEmpty == true -> {
-            EmptyShelvesState(modifier)
-        }
-
-        else -> {
-            Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-                SectionTitle(
-                    title = stringResource(Res.string.discover_shelves_by_others),
+            is DiscoverShelvesUiState.Error -> {
+                InlineRetry(
+                    line =
+                        stringResource(
+                            if (state.needsConnection) {
+                                Res.string.discover_shelves_need_connection
+                            } else {
+                                Res.string.discover_error_shelves
+                            },
+                        ),
+                    onRetry = onRetry,
                     modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 )
-                if (wide) {
-                    // Owners in pairs, each column's shelves a wrapping grid (board Discover-AndroidTablet).
-                    users.chunked(OWNERS_PER_ROW).forEach { pair ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
-                            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
-                            verticalAlignment = Alignment.Top,
-                        ) {
-                            pair.forEach { userShelves ->
-                                key(userShelves.user.id) {
-                                    WideUserShelves(
-                                        userShelves = userShelves,
-                                        onShelfClick = onShelfClick,
-                                        onUserClick = onUserClick,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                            }
-                            // An odd owner out keeps half the width, so their cards match their neighbours'.
-                            if (pair.size < OWNERS_PER_ROW) Spacer(Modifier.weight(1f))
-                        }
-                    }
+            }
+
+            is DiscoverShelvesUiState.Ready -> {
+                if (state.isEmpty) {
+                    Text(
+                        text = stringResource(Res.string.discover_shelves_only_you),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+                    )
                 } else {
-                    users.forEach { userShelves ->
-                        key(userShelves.user.id) {
-                            UserShelvesSection(
-                                userShelves = userShelves,
-                                onShelfClick = onShelfClick,
-                                onUserClick = onUserClick,
-                            )
+                    if (wide) {
+                        // Owners in pairs, each column's shelves a wrapping grid (board Discover-AndroidTablet).
+                        users.chunked(OWNERS_PER_ROW).forEach { pair ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                pair.forEach { userShelves ->
+                                    key(userShelves.user.id) {
+                                        WideUserShelves(
+                                            userShelves = userShelves,
+                                            onShelfClick = onShelfClick,
+                                            onUserClick = onUserClick,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                }
+                                // An odd owner out keeps half the width, so their cards match their neighbours'.
+                                if (pair.size < OWNERS_PER_ROW) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    } else {
+                        users.forEach { userShelves ->
+                            key(userShelves.user.id) {
+                                UserShelvesSection(
+                                    userShelves = userShelves,
+                                    onShelfClick = onShelfClick,
+                                    onUserClick = onUserClick,
+                                )
+                            }
                         }
                     }
                 }
             }
         }
-    }
-}
-
-/**
- * Empty state when no shelves are discoverable from other users.
- *
- * This is shown below the leaderboard when there are no shared shelves.
- */
-@Composable
-private fun EmptyShelvesState(modifier: Modifier = Modifier) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Explore,
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.outline,
-        )
-        Text(
-            text = stringResource(Res.string.discover_no_shelves_to_discover_yet),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = stringResource(Res.string.discover_when_other_users_create_shelves),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
     }
 }
 
