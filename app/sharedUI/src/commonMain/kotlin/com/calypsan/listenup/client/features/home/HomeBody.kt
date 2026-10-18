@@ -14,12 +14,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.InlineRetry
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.home_couldnt_load_listening
+import org.jetbrains.compose.resources.stringResource
 
 /** The stats card's width beside shelves or Resume on a tablet (spec §3.4). */
 private val WideStatsWidth = 400.dp
@@ -113,7 +117,11 @@ private fun HomeBlockContent(
         }
 
         HomeBlock.ContinueListeningFailed -> {
-            Unit
+            InlineRetry(
+                line = stringResource(Res.string.home_couldnt_load_listening),
+                onRetry = actions.onRetry,
+                modifier = margin,
+            )
         }
 
         HomeBlock.AlsoInProgress -> {

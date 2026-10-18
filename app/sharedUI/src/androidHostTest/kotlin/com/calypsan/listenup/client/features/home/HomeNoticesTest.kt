@@ -14,11 +14,14 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
+import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -113,5 +116,50 @@ class HomeNoticesTest {
         composeRule
             .onNodeWithContentDescription("Babel, by R. F. Kuang, 11 percent listened, not downloaded, needs a connection")
             .assertExists()
+    }
+
+    @Test
+    fun `a failed Continue Listening is one line with Try again in the slot position, and no snackbar`() {
+        var retried = false
+        composeRule.setContent {
+            MaterialTheme {
+                HomeBody(
+                    state =
+                        homeReady(
+                            slot = HomeSlot.Absent,
+                            alsoInProgress = emptyList(),
+                            continueListeningError = UnexpectedClientError(),
+                        ),
+                    stats = HomeStatsUiState.Loading,
+                    width = HomeWidth.Compact,
+                    actions = HomeActions.None.copy(onRetry = { retried = true }),
+                    selection = HomeSelection.None,
+                    appHeader = testAppHeader,
+                    contentPadding = PaddingValues(),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Couldn't load what you're listening to").assertIsDisplayed()
+        composeRule.onNodeWithText("Try again").performClick()
+        retried shouldBe true
+    }
+
+    @Test
+    fun `a page error keeps the greeting and puts the error where the slot goes`() {
+        var retried = false
+        composeRule.setContent {
+            MaterialTheme {
+                HomeErrorBody(
+                    state = HomeUiState.Error(UnexpectedClientError(), TimeOfDay.Evening),
+                    onRetry = { retried = true },
+                    appHeader = testAppHeader,
+                    contentPadding = PaddingValues(),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Good evening").assertIsDisplayed()
+        composeRule.onNodeWithText("We couldn't load Home.").assertIsDisplayed()
+        composeRule.onNodeWithText("Try again").performClick()
+        retried shouldBe true
     }
 }
