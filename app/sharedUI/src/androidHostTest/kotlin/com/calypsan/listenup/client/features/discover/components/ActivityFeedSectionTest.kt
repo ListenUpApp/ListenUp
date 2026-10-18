@@ -1,7 +1,16 @@
 package com.calypsan.listenup.client.features.discover.components
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
@@ -28,6 +37,7 @@ import org.robolectric.annotation.Config
  * PR 6's screen, plan Q1), your own rows read "You", every row leads somewhere, book rows carry a cover,
  * and the avatar is its own profile link.
  */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [34], qualifiers = "w412dp-h3000dp")
 class ActivityFeedSectionTest {
@@ -72,6 +82,7 @@ class ActivityFeedSectionTest {
         onBookClick: (String) -> Unit = {},
         onShelfClick: (String) -> Unit = {},
         onUserClick: (String) -> Unit = {},
+        onAddToShelf: (String) -> Unit = {},
     ) {
         composeRule.setContent {
             WithAvatarDependencies {
@@ -81,6 +92,7 @@ class ActivityFeedSectionTest {
                     onShelfClick = onShelfClick,
                     onUserClick = onUserClick,
                     onRetry = {},
+                    onAddToShelf = onAddToShelf,
                 )
             }
         }
@@ -143,5 +155,56 @@ class ActivityFeedSectionTest {
     fun aBookRowCarriesItsCover() {
         show(listOf(row("a", "finished_book"), row("j", "user_joined", bookId = null)))
         composeRule.onAllNodesWithTag("activity-cover", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun longPressingABookRowOpensTheMenuWithTheBoardsWords() {
+        show(listOf(row("a1", "finished_book")))
+        composeRule.onNode(hasText("Piranesi", substring = true) and hasClickAction()).performTouchInput { longClick() }
+        composeRule.onNodeWithText("Open Piranesi").assertIsDisplayed()
+        composeRule.onNodeWithText("Maya Chen's profile").assertIsDisplayed()
+        composeRule.onNodeWithText("Add Piranesi to a shelf").assertIsDisplayed()
+    }
+
+    @Test
+    fun talkBackReachesEveryActionWithoutALongPress() {
+        show(listOf(row("a1", "finished_book")))
+        val labels =
+            composeRule
+                .onNode(hasClickAction() and hasText("Piranesi", substring = true))
+                .fetchSemanticsNode()
+                .config[SemanticsActions.CustomActions]
+                .map { it.label }
+        assertEquals(listOf("Open Piranesi", "Maya Chen's profile", "Add Piranesi to a shelf"), labels)
+    }
+
+    @Test
+    fun addToAShelfAsksToShelveThatOneBook() {
+        var shelved: String? = null
+        show(listOf(row("a1", "finished_book", bookId = "b-a1")), onAddToShelf = { shelved = it })
+        composeRule.onNode(hasText("Piranesi", substring = true) and hasClickAction()).performTouchInput { longClick() }
+        composeRule.onNodeWithText("Add Piranesi to a shelf").performClick()
+        assertEquals("b-a1", shelved)
+    }
+
+    @Test
+    fun theMenuKeyOnAFocusedRowOpensTheMenu() {
+        show(listOf(row("a1", "finished_book")))
+        composeRule.onNode(hasClickAction() and hasText("Piranesi", substring = true)).apply {
+            requestFocus()
+            performKeyInput { pressKey(Key.Menu) }
+        }
+        composeRule.onNodeWithText("Open Piranesi").assertIsDisplayed()
+    }
+
+    @Test
+    fun aJoinRowOffersNoActionsBecauseItsTapIsAlreadyThePerson() {
+        show(listOf(row("j", "user_joined", bookId = null)))
+        val config =
+            composeRule
+                .onNode(hasClickAction() and hasText("joined", substring = true))
+                .fetchSemanticsNode()
+                .config
+        assertEquals(false, SemanticsActions.CustomActions in config)
     }
 }

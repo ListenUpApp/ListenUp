@@ -219,6 +219,7 @@ private fun ActivityItem(
         onUserClick = actions.onUserClick,
         onRetry = actions.onRetryActivity,
         modifier = modifier,
+        onAddToShelf = actions.onAddToShelf,
     )
 }
 

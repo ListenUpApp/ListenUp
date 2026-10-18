@@ -9,7 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,12 +51,14 @@ import kotlinx.coroutines.launch
  *   than called here — a user who backs out of the editor without applying still has their
  *   selection.
  * @param modifier Modifier applied to the overlay container.
+ * @param state Which picker is up, hoisted so a host can shelve one book ([BookSelectionScaffoldState.shelveOne]).
  */
 @Composable
 fun BookSelectionScaffold(
     multiSelect: BookMultiSelectViewModel,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    state: BookSelectionScaffoldState = rememberBookSelectionScaffoldState(),
 ) {
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isAdmin by multiSelect.adminAccess.collectAsStateWithLifecycle()
@@ -66,13 +71,12 @@ fun BookSelectionScaffold(
     val selectedIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
     val selectedCount = selectedIds.size
 
-    var showShelfPicker by rememberSaveable { mutableStateOf(false) }
     var showCollectionPicker by rememberSaveable { mutableStateOf(false) }
 
     // Success feedback: dismiss the matching picker and show a confirmation snackbar.
     BookSelectionFeedback(
         multiSelect = multiSelect,
-        onShelfActionHandled = { showShelfPicker = false },
+        onShelfActionHandled = { state.closeShelfPicker(multiSelect) },
         onCollectionActionHandled = { showCollectionPicker = false },
     )
 
@@ -86,7 +90,7 @@ fun BookSelectionScaffold(
         ) {
             SelectionToolbar(
                 selectedCount = selectedCount,
-                onAddToShelf = { showShelfPicker = true },
+                onAddToShelf = { state.showShelfPicker = true },
                 onAddToCollection =
                     if (isAdmin) {
                         { showCollectionPicker = true }
@@ -123,7 +127,7 @@ fun BookSelectionScaffold(
     }
 
     // Shelf picker sheet.
-    if (showShelfPicker) {
+    if (state.showShelfPicker) {
         ShelfPickerSheet(
             shelves = myShelves,
             selectedBookCount = selectedCount,
@@ -133,11 +137,66 @@ fun BookSelectionScaffold(
             onCreateAndAddToShelf = { name ->
                 multiSelect.createShelfAndAddBooks(name)
             },
-            onDismiss = { showShelfPicker = false },
+            onDismiss = { state.closeShelfPicker(multiSelect) },
             isLoading = isAddingToShelf,
         )
     }
 }
+
+/**
+ * Which shelf picker is up over a [BookSelectionScaffold], and whether it was opened for one book.
+ *
+ * "Add {book} to a shelf" from a row's menu (plan C5) shelves one book through the same picker and
+ * the same feedback as a multi-book selection: it selects that book, opens the picker, and ends the
+ * selection when the picker closes, by dismissal or success, so no selection is left behind. iOS's
+ * `addOneBookToShelf` follows the same rule.
+ */
+@Stable
+class BookSelectionScaffoldState internal constructor(
+    showShelfPicker: Boolean,
+    shelvingOneBook: Boolean,
+) {
+    /** Whether the shelf picker is showing. */
+    var showShelfPicker by mutableStateOf(showShelfPicker)
+
+    /** Whether the picker was opened for one book, so closing it ends the selection. */
+    var shelvingOneBook by mutableStateOf(shelvingOneBook)
+        private set
+
+    /** Select [bookId] alone and open the shelf picker for it. */
+    fun shelveOne(
+        bookId: String,
+        multiSelect: BookMultiSelectViewModel,
+    ) {
+        multiSelect.enterSelectionMode(bookId)
+        shelvingOneBook = true
+        showShelfPicker = true
+    }
+
+    /** Close the shelf picker; a one-book shelving also ends its selection. */
+    fun closeShelfPicker(multiSelect: BookMultiSelectViewModel) {
+        showShelfPicker = false
+        if (shelvingOneBook) {
+            shelvingOneBook = false
+            multiSelect.exitSelectionMode()
+        }
+    }
+
+    internal companion object {
+        val Saver: Saver<BookSelectionScaffoldState, Any> =
+            listSaver(
+                save = { listOf(it.showShelfPicker, it.shelvingOneBook) },
+                restore = { BookSelectionScaffoldState(showShelfPicker = it[0], shelvingOneBook = it[1]) },
+            )
+    }
+}
+
+/** A [BookSelectionScaffoldState] that survives configuration changes. */
+@Composable
+fun rememberBookSelectionScaffoldState(): BookSelectionScaffoldState =
+    rememberSaveable(saver = BookSelectionScaffoldState.Saver) {
+        BookSelectionScaffoldState(showShelfPicker = false, shelvingOneBook = false)
+    }
 
 /**
  * Collects [BookMultiSelectViewModel.events] and surfaces snackbar feedback for collection/shelf

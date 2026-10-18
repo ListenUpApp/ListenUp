@@ -176,4 +176,47 @@ class BookSelectionScaffoldTest {
 
         viewModel.selectionMode.value shouldBe SelectionMode.None
     }
+
+    @Test
+    fun `shelving one book opens the picker for that book and leaves no selection behind`() {
+        val viewModel = multiSelect(isAdmin = false)
+        lateinit var state: BookSelectionScaffoldState
+        composeRule.setContent {
+            MaterialTheme {
+                CompositionLocalProvider(LocalSnackbarHostState provides SnackbarHostState()) {
+                    state = rememberBookSelectionScaffoldState()
+                    BookSelectionScaffold(multiSelect = viewModel, state = state)
+                }
+            }
+        }
+
+        composeRule.runOnIdle { state.shelveOne("book-9", viewModel) }
+
+        awaitLabel("1 book selected")
+        viewModel.selectionMode.value shouldBe SelectionMode.Active(setOf("book-9"))
+
+        composeRule.runOnIdle { state.closeShelfPicker(viewModel) }
+
+        composeRule.runOnIdle { viewModel.selectionMode.value shouldBe SelectionMode.None }
+    }
+
+    @Test
+    fun `closing the picker over a real selection keeps that selection`() {
+        lateinit var state: BookSelectionScaffoldState
+        val viewModel = multiSelect(isAdmin = false)
+        viewModel.enterSelectionMode("book-1")
+        composeRule.setContent {
+            MaterialTheme {
+                CompositionLocalProvider(LocalSnackbarHostState provides SnackbarHostState()) {
+                    state = rememberBookSelectionScaffoldState()
+                    BookSelectionScaffold(multiSelect = viewModel, state = state)
+                }
+            }
+        }
+        composeRule.runOnIdle {
+            state.showShelfPicker = true
+            state.closeShelfPicker(viewModel)
+        }
+        composeRule.runOnIdle { viewModel.selectionMode.value shouldBe SelectionMode.Active(setOf("book-1")) }
+    }
 }

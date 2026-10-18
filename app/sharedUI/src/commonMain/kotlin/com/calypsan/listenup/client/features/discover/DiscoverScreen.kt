@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
+import com.calypsan.listenup.client.features.library.components.rememberBookSelectionScaffoldState
 import com.calypsan.listenup.client.features.shell.LocalShellLandings
 import com.calypsan.listenup.client.features.shell.ShellLanding
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
@@ -69,6 +70,7 @@ fun DiscoverScreen(
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isInSelectionMode = selectionMode is SelectionMode.Active
     val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
+    val selectionState = rememberBookSelectionScaffoldState()
 
     // Handle back press to exit selection mode.
     PlatformBackHandler(enabled = isInSelectionMode) {
@@ -125,6 +127,7 @@ fun DiscoverScreen(
                             onRetryActivity = activityFeedViewModel::refresh,
                             onRetryShelves = viewModel::retryShelvesByOthers,
                             onBrowseLibrary = onBrowseLibrary,
+                            onAddToShelf = { id -> selectionState.shelveOne(id, multiSelect) },
                         ),
                     appHeader = appHeader,
                     contentPadding = contentPadding,
@@ -136,6 +139,6 @@ fun DiscoverScreen(
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected)
+        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected, state = selectionState)
     }
 }
