@@ -335,4 +335,9 @@ struct HomeWrapperTests {
         #expect(scanning.isOffline)
         #expect(scanning.showsArrivalStrip)
     }
+
+    @Test func shelvesLoadWhileTheLibraryArrives() {
+        #expect(HomeReady(from: ready(isLibraryArriving: true)).showsShelvesLoading)
+        #expect(!HomeReady(from: ready()).showsShelvesLoading)
+    }
 }

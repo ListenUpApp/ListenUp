@@ -92,6 +92,8 @@ struct HomeReady: Equatable {
     let isOffline: Bool
     /// The library-arriving strip shows above the slot (the shared rule, spec H5).
     let showsArrivalStrip: Bool
+    /// My Shelves shows its loading state, not the invitation, while the library arrives (the shared rule).
+    let showsShelvesLoading: Bool
     let timeOfDay: HomeTimeOfDay
     let firstName: String?
     let slot: HomeSlotItem
@@ -109,6 +111,7 @@ struct HomeReady: Equatable {
         }
         self.isOffline = ready.isOffline
         self.showsArrivalStrip = ready.showsArrivalStrip
+        self.showsShelvesLoading = ready.showsShelvesLoading
         self.timeOfDay = HomeTimeOfDay(kmp: ready.timeOfDay)
         self.firstName = ready.firstName
         self.slot = HomeSlotItem(from: ready.slot)

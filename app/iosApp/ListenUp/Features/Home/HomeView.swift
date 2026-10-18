@@ -169,11 +169,16 @@ struct HomeView: View {
                 statsCard(stats)
                     .padding(.horizontal, layout.margin)
             case .shelves:
-                MyShelvesSection(shelves: ready.shelves, layout: layout)
+                MyShelvesSection(shelves: ready.shelves, layout: layout, isLoading: ready.showsShelvesLoading)
             case .statsBesideShelves:
                 HStack(alignment: .top, spacing: 24) {
                     statsCard(stats).frame(width: HomeLayout.statsWidth)
-                    MyShelvesSection(shelves: ready.shelves, layout: layout, inset: false)
+                    MyShelvesSection(
+                        shelves: ready.shelves,
+                        layout: layout,
+                        inset: false,
+                        isLoading: ready.showsShelvesLoading
+                    )
                         .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal, layout.margin)
