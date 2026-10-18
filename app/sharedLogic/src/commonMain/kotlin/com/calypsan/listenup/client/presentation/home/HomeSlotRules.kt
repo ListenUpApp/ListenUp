@@ -155,7 +155,12 @@ internal fun justFinishedBookId(
                 nowMs - finishedAt <= JUST_FINISHED_WINDOW_MS &&
                 (position.finishedCardDismissedAtMs ?: Long.MIN_VALUE) < finishedAt &&
                 dismissedHere[position.bookId] != finishedAt &&
-                !movedOn(bookId = position.bookId, finishedAtMs = finishedAt, positions = positions, freshLoad = freshLoad)
+                !movedOn(
+                    bookId = position.bookId,
+                    finishedAtMs = finishedAt,
+                    positions = positions,
+                    freshLoad = freshLoad,
+                )
         }.map { (position, finishedAt) -> position.bookId to finishedAt }
         .maxByOrNull { (_, finishedAt) -> finishedAt }
         ?.first
@@ -278,5 +283,9 @@ internal fun connectivityOf(
 /** The first word of [displayName], or null when there is none. Pure. */
 internal fun firstNameOf(displayName: String?): String? {
     if (displayName.isNullOrBlank()) return null
-    return displayName.trim().split(" ").firstOrNull()?.takeIf { it.isNotBlank() }
+    return displayName
+        .trim()
+        .split(" ")
+        .firstOrNull()
+        ?.takeIf { it.isNotBlank() }
 }

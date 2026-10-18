@@ -881,7 +881,9 @@ class HomeViewModelTest :
                 fixture.continueListeningFlow.value = listOf(ContinueListeningItem.Loading(bookId = "wok"))
                 val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
-                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>().slot shouldBe HomeSlot.FirstSync
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot shouldBe HomeSlot.FirstSync
 
                 fixture.rig.play("wok", hoursAgo = 1)
                 fixture.continueListeningFlow.value = listOf(readyItem("wok"))
@@ -889,7 +891,9 @@ class HomeViewModelTest :
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                ready.slot.shouldBeInstanceOf<HomeSlot.Resume>().book.bookId shouldBe "wok"
+                ready.slot
+                    .shouldBeInstanceOf<HomeSlot.Resume>()
+                    .book.bookId shouldBe "wok"
                 ready.isLibraryArriving shouldBe false
             }
         }
@@ -902,7 +906,9 @@ class HomeViewModelTest :
                 val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
 
-                viewModel.state.value.shouldBeInstanceOf<HomeUiState.Error>().timeOfDay shouldBe TimeOfDay.Evening
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Error>()
+                    .timeOfDay shouldBe TimeOfDay.Evening
             }
         }
 
@@ -951,7 +957,11 @@ class HomeViewModelTest :
                     .shouldBeInstanceOf<HomeSlot.JustFinished>()
 
                 // The other device's dismissal lands through sync, as a position row carrying it.
-                val finished = fixture.rig.positions.observe(BookId("wok")).first().shouldNotBeNull()
+                val finished =
+                    fixture.rig.positions
+                        .observe(BookId("wok"))
+                        .first()
+                        .shouldNotBeNull()
                 fixture.rig.positions.setPosition(finished.copy(finishedCardDismissedAtMs = RIG_NOW))
                 viewModel.refresh()
                 advanceUntilIdle()

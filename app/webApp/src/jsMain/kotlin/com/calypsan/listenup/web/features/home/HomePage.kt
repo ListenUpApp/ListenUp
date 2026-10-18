@@ -51,13 +51,22 @@ fun HomePage(
 
             is HomeUiState.Error -> {
                 // The greeting stays (spec §3.3); the error carries no name.
-                PageHeader(title = homeGreeting(state.timeOfDay, firstName = null), documentTitle = null, display = true)
+                PageHeader(
+                    title = homeGreeting(state.timeOfDay, firstName = null),
+                    documentTitle = null,
+                    display = true,
+                )
                 HomeErrorSlot(onRetry = actions.onRetry)
             }
 
             is HomeUiState.Ready -> {
                 PageHeader(
-                    title = homeGreeting(state.timeOfDay, state.firstName, isWelcome = state.slot is HomeSlot.NewListener),
+                    title =
+                        homeGreeting(
+                            state.timeOfDay,
+                            state.firstName,
+                            isWelcome = state.slot is HomeSlot.NewListener,
+                        ),
                     documentTitle = null,
                     display = true,
                 )

@@ -73,7 +73,13 @@ internal fun FirstSyncStrip(
     val title =
         scan
             ?.takeIf { it.booksTotal > 0 }
-            ?.let { stringResource(Res.string.home_arriving_title, building, stringResource(Res.string.home_arriving_count, it.books, it.booksTotal)) }
+            ?.let {
+                stringResource(
+                    Res.string.home_arriving_title,
+                    building,
+                    stringResource(Res.string.home_arriving_count, it.books, it.booksTotal),
+                )
+            }
             ?: building
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -119,7 +125,9 @@ internal fun HomeSkeletonSlot(
             ) {
                 SkeletonBox(Modifier.size(SkeletonCover))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    SkeletonLineWidths.forEach { fraction -> SkeletonBox(Modifier.fillMaxWidth(fraction).height(Spacing.md)) }
+                    SkeletonLineWidths.forEach { fraction ->
+                        SkeletonBox(Modifier.fillMaxWidth(fraction).height(Spacing.md))
+                    }
                 }
             }
             if (withResume) {
@@ -172,7 +180,17 @@ internal fun HomeLoadingBody(
     ) {
         appHeader { SkeletonBox(Modifier.size(GreetingBarWidth, GreetingBarHeight)) }
         val margin = Modifier.padding(horizontal = Spacing.screenMargin)
-        HomeSkeletonSlot(withResume = false, modifier = if (width == HomeWidth.Expanded) margin.width(SlotSkeletonWide) else margin)
+        HomeSkeletonSlot(
+            withResume = false,
+            modifier =
+                if (width ==
+                    HomeWidth.Expanded
+                ) {
+                    margin.width(SlotSkeletonWide)
+                } else {
+                    margin
+                },
+        )
         HomeSkeletonRail()
     }
 }

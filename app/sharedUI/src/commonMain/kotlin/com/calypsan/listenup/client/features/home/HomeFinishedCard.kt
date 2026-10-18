@@ -111,7 +111,10 @@ internal fun HomeFinishedCard(
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = { actions.onDismissFinished(card.book.bookId) }) {
-                    Icon(Icons.Filled.Close, contentDescription = stringResource(Res.string.home_dismiss_everywhere_a11y))
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = stringResource(Res.string.home_dismiss_everywhere_a11y),
+                    )
                 }
             }
             FinishedIdentity(card, zone, onOpen = { actions.onOpenBook(card.book.bookId) })

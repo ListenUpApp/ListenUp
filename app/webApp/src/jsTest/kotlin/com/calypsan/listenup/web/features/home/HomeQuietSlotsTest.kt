@@ -44,7 +44,13 @@ class HomeQuietSlotsTest :
 
         test("without a candidate it offers the Library and Discover") {
             var discovered = false
-            val host = mounts.mount { NothingInProgressSlot(nothingSlot(null), HomeActions.None.copy(onOpenDiscover = { discovered = true })) }
+            val host =
+                mounts.mount {
+                    NothingInProgressSlot(
+                        nothingSlot(null),
+                        HomeActions.None.copy(onOpenDiscover = { discovered = true }),
+                    )
+                }
             host.buttonsLabelled("Play").size shouldBe 0
             host.buttonsLabelled("Browse the Library").size shouldBe 1
             host.buttonsLabelled("Discover").single().click()
