@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.serieslist
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
@@ -101,12 +102,27 @@ private fun LoadedSeries(
     // Windowed, like the library grid: a big library has hundreds of series. Every card is the same
     // height — the name is clamped to two lines and the meta block holds its size whether or not
     // there is progress to show — which is what lets rows be counted rather than measured.
+    // Letter headings from the shared sections (a name sort only, article-aware so "The Wandering
+    // Inn" files under W) — the same letters Android's and iOS's series indexes use.
+    val letterById =
+        remember(state.series, state.seriesLetters) {
+            buildMap {
+                state.seriesLetters.forEach { section ->
+                    for (index in section.firstIndex until minOf(section.firstIndex + section.count, state.series.size)) {
+                        put(state.series[index].series.id.value, section.letter.first())
+                    }
+                }
+            }
+        }
     VirtualList(
         items = state.series,
         key = { it.series.id.value },
         containerClass = "srs-grid",
         itemSelector = ".srs-card",
         label = "Series",
+        sectionOf = { letterById[it.series.id.value] },
+        headerSelector = ".lib-section",
+        header = { letter -> Div(attrs = { classes("lib-section") }) { Text(letter.toString()) } },
     ) { entry ->
         SeriesCard(
             entry = entry,

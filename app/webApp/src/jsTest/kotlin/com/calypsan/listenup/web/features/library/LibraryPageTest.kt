@@ -227,7 +227,7 @@ class LibraryPageTest :
                 )
 
             root.querySelectorAll(".lib-section").length shouldBe 3
-            root.querySelector(".lib-section")!!.textContent shouldBe "A"
+            root.querySelector(".lib-section > span")!!.textContent shouldBe "A"
         }
 
         test("consecutive books under one letter share a single header") {
@@ -417,6 +417,8 @@ private fun loadedWith(
         statusCounts = statusCounts,
         bookStatus = books.associate { it.id to BookCardStatus.NotStarted(durationMs = it.duration) },
         totalDurationMs = books.sumOf { it.duration },
+        // What the shared ViewModel files a title sort under; any other sort has no letters.
+        bookLetters = if (sort == SortCategory.TITLE) lettersOf(books.map { it.title }) else emptyList(),
     )
 
 /** A minimal book — only `id`, `title` and `authors` reach this page. */

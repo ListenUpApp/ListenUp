@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
+import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
@@ -49,6 +50,8 @@ fun contractLibrary(
     // Every listed book is part-read unless a spec says otherwise, so `isEmpty` reads the books.
     statusCounts: BookStatusCounts =
         BookStatusCounts(all = books.size, inProgress = books.size, notStarted = 0, finished = 0),
+    bookLetters: List<LetterSection> = emptyList(),
+    seriesLetters: List<LetterSection> = emptyList(),
 ): LibraryUiState.Loaded =
     LibraryUiState.Loaded(
         booksSortState = SortState(SortCategory.TITLE, SortDirection.ASCENDING),
@@ -74,7 +77,28 @@ fun contractLibrary(
                 it.id to BookCardStatus.InProgress(fraction = PARTIAL_PROGRESS, timeLeftMs = it.duration / 2)
             },
         totalDurationMs = books.sumOf { it.duration },
+        bookLetters = bookLetters,
+        seriesLetters = seriesLetters,
     )
+
+/**
+ * Letter sections over [keys] the way the shared ViewModel cuts them for a name or untouched-title
+ * sort: runs of one first letter, `#` for anything that does not start with one. A fixture, so a
+ * spec can hand a page the letters `LibraryUiState.Loaded` would carry.
+ */
+fun lettersOf(keys: List<String>): List<LetterSection> {
+    val sections = mutableListOf<LetterSection>()
+    keys.forEachIndexed { index, key ->
+        val letter = (key.firstOrNull()?.uppercaseChar()?.takeIf { it.isLetter() } ?: '#').toString()
+        val last = sections.lastOrNull()
+        if (last != null && last.letter == letter) {
+            sections[sections.lastIndex] = last.copy(count = last.count + 1)
+        } else {
+            sections += LetterSection(letter, index, 1)
+        }
+    }
+    return sections
+}
 
 /**
  * Part-read, so the progress bar actually renders.

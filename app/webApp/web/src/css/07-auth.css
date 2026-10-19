@@ -149,11 +149,35 @@
 .lib-section {
   grid-column: 1 / -1;
   position: sticky; top: -24px; z-index: 2;
+  display: flex; align-items: baseline; gap: 10px;
   padding: 14px 2px 6px;
   background: var(--paper);
   font-size: var(--fs-title); font-weight: 700; color: var(--ink);
   animation: none;
 }
+/* The section's size beside its letter ("96 books", board `Library-WebDesktop`). */
+.lib-section-c { font-size: var(--fs-caption); font-weight: 400; color: var(--ink-2); }
+/* A jump lands a section's first card under its sticky header, not behind it. */
+.lib-card { scroll-margin-top: 56px; }
+
+/* The Books grid and its A–Z jump rail (spec §5.2). The rail is a column beside the grid that sticks
+   to the top of the scrollport while the books scroll past, so it is always within reach. */
+.lib-books { display: grid; grid-template-columns: minmax(0, 1fr); }
+.lib-books.has-rail { grid-template-columns: minmax(0, 1fr) 24px; column-gap: 6px; }
+.lib-rail {
+  position: sticky; top: var(--sp-16); align-self: start;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  height: min(calc(100dvh - 160px), 640px);
+}
+.lib-rail button {
+  appearance: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; cursor: pointer;
+  position: relative; min-width: 24px; min-height: 16px; flex: 0 1 24px;
+  font-size: var(--fs-caption); font-weight: 700; line-height: 1; color: var(--ink-2);
+}
+/* 44px across, the touch minimum; vertically the letters share the rail's height. */
+.lib-rail button::after { content: ""; position: absolute; inset: 0 -10px; }
+@media (hover: hover) { .lib-rail button:hover { color: var(--coral-text); } }
+.lib-rail button:focus-visible { color: var(--coral-text); outline: 2px solid var(--coral); outline-offset: 1px; border-radius: 4px; }
 
 /* Motion here is decoration, and a 1200-card cascade is exactly the kind of thing that makes a
    reader who asked for less of it feel worse. */

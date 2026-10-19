@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.serieslist
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -134,6 +135,27 @@ class SeriesListPageTest :
             val line = root.querySelector(".srs-progress") as HTMLElement
             line.textContent shouldBe "Not started"
             line.classList.contains("srs-progress-idle") shouldBe true
+        }
+
+        test("series by name carry the shared letter headings, and no other sort does") {
+            val series = listOf(seriesWith("s1", "Dune", 2), seriesWith("s2", "The Wandering Inn", 9))
+            val byName =
+                seriesPage(
+                    contractLibrary(
+                        series = series,
+                        seriesLetters = listOf(LetterSection("D", 0, 1), LetterSection("W", 1, 1)),
+                    ),
+                )
+            byName.querySelectorAll(".lib-section").asList().map { it.textContent } shouldBe listOf("D", "W")
+
+            val byCount =
+                seriesPage(
+                    contractLibrary(
+                        series = series,
+                        seriesSortState = SortState(SortCategory.BOOK_COUNT, SortDirection.DESCENDING),
+                    ),
+                )
+            byCount.querySelectorAll(".lib-section").length shouldBe 0
         }
 
         // The same fallback as iOS's `progressFor`: no aggregate for a series means nothing finished.

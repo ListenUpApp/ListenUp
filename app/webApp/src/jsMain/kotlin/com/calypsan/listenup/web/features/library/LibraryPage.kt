@@ -16,8 +16,6 @@ import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
-import com.calypsan.listenup.client.util.nameLetter
-import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.FacetRow
@@ -188,9 +186,10 @@ private fun LoadedLibrary(
         return
     }
 
-    VirtualBookGrid(
+    BooksWithRail(
         books = state.books,
-        letterOf = { it.sectionLetter(state.booksSortState.category, state.ignoreTitleArticles) },
+        // The shared letter sections: every platform files a book under the same letter.
+        letters = state.bookLetters,
         statusOf = { state.bookStatus[it.id] },
         // ⛔ While selecting, a press picks the book instead of opening it. One gesture, two jobs,
         // decided by the mode — not a second target on every tile in a 1200-book grid.
@@ -200,31 +199,6 @@ private fun LoadedLibrary(
         isSelected = { it in selectedIds },
     )
 }
-
-/**
- * The letter this book files under for the given sort, or null when the sort is not alphabetical.
- *
- * Delegates to the shared [sortLetter] / [nameLetter] rules rather than taking a first character
- * here: those are what Android groups by and what the Swift mirror follows, and a fourth private
- * copy of "which letter is this?" is exactly how three platforms end up disagreeing about where
- * *The Hobbit* belongs. Added and Duration return null — a letter rail over a date sort would label
- * runs of books with letters that mean nothing.
- */
-private fun BookListItem.sectionLetter(
-    category: SortCategory,
-    ignoreTitleArticles: Boolean,
-): Char? =
-    when (category) {
-        SortCategory.TITLE -> title.sortLetter(ignoreTitleArticles)
-
-        SortCategory.AUTHOR -> authors.firstOrNull()?.name.nameLetter()
-
-        // Grouped by series name via the same shared rule Android uses, so a standalone book files
-        // under '#' here exactly as it does there — `nameLetter(null)` is '#', not absent.
-        SortCategory.SERIES -> seriesName.nameLetter()
-
-        else -> null
-    }
 
 /**
  * Opens [bookId], first recording where its cover is so the detail page's hero can fly in from it.

@@ -37,6 +37,19 @@ class Scrollport {
 val LocalScrollport = staticCompositionLocalOf<Scrollport?> { null }
 
 /**
+ * Lets a jump rail move a [VirtualList] to a section, whether or not the list is virtualised: the
+ * section's header comes to the top of the scrollport and its first item takes focus.
+ */
+class VirtualJump {
+    internal var handler: ((Char) -> Unit)? = null
+
+    /** Brings section [letter] into view and focuses its first item. Nothing happens before the list is composed. */
+    fun toSection(letter: Char) {
+        handler?.invoke(letter)
+    }
+}
+
+/**
  * A list or grid that renders only the rows near the viewport.
  *
  * ⛔ **Why this exists.** The unvirtualised library grid put all 1,204 books in the DOM. Measured
@@ -82,6 +95,7 @@ internal fun <T> VirtualList(
     sectionOf: (T) -> Char? = { null },
     headerSelector: String? = null,
     header: @Composable (Char) -> Unit = {},
+    jump: VirtualJump? = null,
     item: @Composable (T) -> Unit,
 ) {
     val scrollport = LocalScrollport.current
@@ -92,12 +106,30 @@ internal fun <T> VirtualList(
     val offsets = remember(rows, metrics) { offsetsOf(rows, metrics) }
     SideEffect { tracker.offsets = offsets }
     val selectors = rememberUpdatedState(itemSelector to headerSelector)
+    SideEffect {
+        jump?.handler = { letter ->
+            val list = tracker.listElement
+            val port = scrollport?.element
+            val row = rows.indexOfFirst { it is ListRow.Header && it.section == letter }
+            if (list != null && port != null && metrics.known && row >= 0) {
+                // Virtualised: the header may not exist yet, so its place is arithmetic, like every row's.
+                val listTop = list.getBoundingClientRect().top - port.getBoundingClientRect().top + port.scrollTop
+                port.scrollTop = listTop + offsets[row]
+            }
+            focusSectionStart(list, letter, selectors.value.first, scroll = row < 0 || port == null || !metrics.known)
+        }
+    }
     val positions = remember(items, key) { items.withIndex().associate { (index, entry) -> key(entry) to index + 1 } }
 
     Div(attrs = {
         classes(containerClass)
         attr("role", "list")
         attr("aria-label", label)
+        // Held whether or not the list virtualises: a jump needs the list in both cases.
+        ref { element ->
+            tracker.listElement = element
+            onDispose { tracker.listElement = null }
+        }
         if (scrollport != null) {
             ref { element ->
                 val port = scrollport.element ?: element.closest(SCROLLPORT_SELECTOR) as? HTMLElement
@@ -183,7 +215,39 @@ private fun Header(
     Div(attrs = {
         classes("vl-head")
         attr("aria-hidden", "true")
+        // What a [VirtualJump] finds the section by.
+        attr("data-section", section.toString())
     }) { header(section) }
+}
+
+/**
+ * Focuses the first item of section [letter] in [list] — scrolling it into view when [scroll], the
+ * whole-list case, where the item already exists. A virtualised list has just been scrolled and
+ * renders the section a frame or two later, so the focus waits for it rather than for a fixed time.
+ */
+private fun focusSectionStart(
+    list: Element?,
+    letter: Char,
+    itemSelector: String,
+    scroll: Boolean,
+    framesLeft: Int = JUMP_FOCUS_FRAMES,
+) {
+    val first =
+        list
+            ?.querySelector("[data-section=\"$letter\"]")
+            ?.nextElementSibling
+            ?.querySelector(itemSelector) as? HTMLElement
+    when {
+        first != null -> {
+            // `scroll-margin-top` on the item leaves room for the sticky header above it.
+            if (scroll) first.asDynamic().scrollIntoView(js("({ block: 'start' })"))
+            first.asDynamic().focus(js("({ preventScroll: true })"))
+        }
+
+        framesLeft > 0 -> {
+            window.requestAnimationFrame { focusSectionStart(list, letter, itemSelector, scroll, framesLeft - 1) }
+        }
+    }
 }
 
 /** One item, as a list item that knows where it sits in the whole list rather than the window. */
@@ -296,6 +360,9 @@ private class WindowTracker {
 
     /** The list's own element, for the sweep that follows its first measurement. */
     var container: Element? = null
+
+    /** The list's element whether or not it virtualises, for a [VirtualJump]. */
+    var listElement: Element? = null
 }
 
 /** Rows within [OVERSCAN_PX] of the viewport, clamped to what exists. */
@@ -467,3 +534,6 @@ private const val OVERSCAN_PX = 600
 
 /** Items rendered before anything has been measured — enough to fill a screen and be measured. */
 private const val FIRST_PAINT_ITEMS = 24
+
+/** How many frames a jump waits for a virtualised section to render before giving up on focus. */
+private const val JUMP_FOCUS_FRAMES = 4
