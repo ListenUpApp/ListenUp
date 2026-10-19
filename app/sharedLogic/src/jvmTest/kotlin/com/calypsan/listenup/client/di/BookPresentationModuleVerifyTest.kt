@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.HardcoverRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
@@ -118,6 +119,8 @@ class BookPresentationModuleVerifyTest :
                         GenreRepository::class,
                         MoodRepository::class,
                         UserProfileRepository::class,
+                        // The player's loaded book: Book Detail's current chapter says Now playing only for it.
+                        LoadedBookRepository::class,
                     ),
             )
         }
