@@ -29,4 +29,13 @@ class DiscoverWordsTest :
         test("a stale roster says how old it is") {
             DiscoverWords.listeningAsOf("2 hours ago") shouldBe "As of 2 hours ago"
         }
+
+        test("row menus and Select say what every platform says") {
+            DiscoverWords.openLabel("Piranesi") shouldBe "Open Piranesi"
+            DiscoverWords.addToShelfLabel("Piranesi") shouldBe "Add Piranesi to a shelf"
+            DiscoverWords.moreActionsLabel("Maya Chen", isYou = false) shouldBe "More actions for Maya Chen's activity"
+            DiscoverWords.moreActionsLabel("Maya Chen", isYou = true) shouldBe "More actions for your activity"
+            DiscoverWords.SELECT shouldBe "Select"
+            DiscoverWords.SELECTING shouldBe "Selecting"
+        }
     })

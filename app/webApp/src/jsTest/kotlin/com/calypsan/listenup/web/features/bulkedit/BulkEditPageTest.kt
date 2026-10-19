@@ -153,6 +153,11 @@ class BulkEditPageTest :
             page(editing(bookCount = 1)).querySelector(".page-t")?.textContent shouldBe "Edit 1 book"
         }
 
+        test("the eyebrow counts the selection and names no source, since it may come from Home or Discover") {
+            page(editing(bookCount = 37, requestedCount = 40)).querySelector(".page-eyebrow")?.textContent shouldBe
+                "40 selected"
+        }
+
         // ⛔ A book deleted from another device drops out of the selection silently. Editing
         // thirty-nine after choosing forty without saying so is what nobody forgives.
         test("books that could not be loaded are named on screen") {

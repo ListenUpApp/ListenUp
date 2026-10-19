@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.library.components
 
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,7 +42,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -54,10 +55,9 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
+import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
-import com.calypsan.listenup.client.util.nameLetter
-import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.launch
 import listenup.composeapp.generated.resources.Res
@@ -77,93 +77,12 @@ private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
 private const val INBOX_ENTRY_KEY = "library-inbox-entry"
 
 /**
- * Represents an item in the book grid - either a section header or a book.
- */
-internal sealed interface BookGridItem {
-    /** Section divider showing the [letter] heading above the books that follow it. */
-    data class Header(
-        val letter: Char,
-    ) : BookGridItem
-
-    /** A single book row in the grid. */
-    data class BookItem(
-        val book: BookListItem,
-    ) : BookGridItem
-}
-
-/**
- * Groups books with section headers based on the current sort category.
- * Only adds headers for text-based sorts (Title, Author, Series).
- *
- * @param ignoreArticles When true and sorting by title, uses article-aware
- *                       sorting (A, An, The ignored), affecting which letter
- *                       each book groups under.
- */
-internal fun groupBooksWithHeaders(
-    books: List<BookListItem>,
-    sortState: SortState,
-    ignoreArticles: Boolean,
-): List<BookGridItem> {
-    // For numeric/date sorts, no headers
-    val isTextSort =
-        sortState.category in
-            listOf(
-                SortCategory.TITLE,
-                SortCategory.AUTHOR,
-                SortCategory.SERIES,
-            )
-    if (!isTextSort) {
-        return books.map { BookGridItem.BookItem(it) }
-    }
-
-    var currentLetter: Char? = null
-
-    return buildList {
-        for (book in books) {
-            val letter =
-                when (sortState.category) {
-                    // Title sort uses article-aware letter extraction
-                    SortCategory.TITLE -> {
-                        book.title.sortLetter(ignoreArticles)
-                    }
-
-                    // Other text sorts use the shared name rule — the same one the web library and
-                    // the iOS Swift mirror group by, so a name files under one letter everywhere.
-                    SortCategory.AUTHOR -> {
-                        book.authorNames.nameLetter()
-                    }
-
-                    SortCategory.SERIES -> {
-                        book.seriesName.nameLetter()
-                    }
-
-                    SortCategory.NAME,
-                    SortCategory.DURATION,
-                    SortCategory.YEAR,
-                    SortCategory.BOOK_COUNT,
-                    SortCategory.ADDED,
-                    SortCategory.RATING,
-                    SortCategory.LISTENER_RATING,
-                    -> {
-                        '#'
-                    }
-                }
-
-            if (letter != currentLetter) {
-                add(BookGridItem.Header(letter))
-                currentLetter = letter
-            }
-            add(BookGridItem.BookItem(book))
-        }
-    }
-}
-
-/**
  * Section header: an Expressive coral "cookie" badge carrying the section [letter], trailed by a
- * rounded divider line (matches the design's scalloped section letters).
+ * rounded divider line (matches the design's scalloped section letters). Shared by the Books grid
+ * and the Authors and Narrators lists. A heading, so TalkBack can move from letter to letter.
  */
 @Composable
-private fun SectionHeader(
+internal fun SectionHeader(
     letter: Char,
     modifier: Modifier = Modifier,
 ) {
@@ -171,6 +90,7 @@ private fun SectionHeader(
         modifier =
             modifier
                 .fillMaxWidth()
+                .semantics(mergeDescendants = true) { heading() }
                 .padding(top = 10.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -210,6 +130,7 @@ private fun SectionHeader(
  * @param isServerScanning Whether the server is currently scanning the library
  * @param sortState Current sort state (category + direction)
  * @param ignoreTitleArticles Whether to ignore articles (A, An, The) when sorting by title
+ * @param bookLetters The shared letter sections over [books]; empty for a sort with no letters
  * @param bookStatus What each book's card says about where the reader is with it (spec §2.6)
  * @param progressUnderTitle Compact grid: the progress mark sits under the title, not on the art
  * @param isInSelectionMode Whether multi-select mode is active
@@ -237,6 +158,7 @@ fun BooksContent(
     scanProgress: ScanProgressState? = null,
     sortState: SortState,
     ignoreTitleArticles: Boolean,
+    bookLetters: List<LetterSection> = emptyList(),
     bookStatus: Map<BookId, BookCardStatus> = emptyMap(),
     progressUnderTitle: Boolean = false,
     isInSelectionMode: Boolean = false,
@@ -313,9 +235,9 @@ fun BooksContent(
                     LibrarySortCard(
                         state = sortState,
                         categories = SortCategory.booksCategories,
-                        count = books.size,
-                        // A status filter can leave one book: "1 title", never "1 titles".
-                        unit = if (books.size == 1) "title" else "titles",
+                        // The status chips above already carry the counts (board `Main`).
+                        count = null,
+                        unit = "",
                         ignoreArticles = ignoreTitleArticles,
                         showArticleToggle = sortState.category == SortCategory.TITLE,
                         onCategorySelected = onCategorySelected,
@@ -326,8 +248,7 @@ fun BooksContent(
                     )
                     BookGrid(
                         books = books,
-                        sortState = sortState,
-                        ignoreTitleArticles = ignoreTitleArticles,
+                        bookLetters = bookLetters,
                         bookStatus = bookStatus,
                         progressUnderTitle = progressUnderTitle,
                         statusFilter = statusFilter,
@@ -351,8 +272,7 @@ fun BooksContent(
 @Composable
 private fun BookGrid(
     books: List<BookListItem>,
-    sortState: SortState,
-    ignoreTitleArticles: Boolean,
+    bookLetters: List<LetterSection>,
     bookStatus: Map<BookId, BookCardStatus>,
     progressUnderTitle: Boolean,
     statusFilter: BookStatusFilter,
@@ -377,16 +297,13 @@ private fun BookGrid(
         }
     }
 
-    // Group books with section headers for text-based sorts
-    val gridItems =
-        remember(books, sortState, ignoreTitleArticles) {
-            groupBooksWithHeaders(books, sortState, ignoreTitleArticles)
-        }
+    // Headers and the scrollbar read the shared letter sections (empty for a sort with no letters).
+    val gridItems = remember(books, bookLetters) { bookGridItems(books, bookLetters) }
 
     val hasHeader = header != null
     val alphabetIndex =
-        remember(gridItems, sortState, hasHeader) {
-            bookGridAlphabetIndex(gridItems, sortState.category, hasHeader)
+        remember(bookLetters, hasHeader) {
+            libraryAlphabetIndex(bookLetters, withHeaders = true, leadingItems = if (hasHeader) 1 else 0)
         }
 
     val isScrolling by remember {
@@ -403,7 +320,8 @@ private fun BookGrid(
                     end = Spacing.gridMargin,
                     top = 12.dp,
                     bottom = 16.dp,
-                ),
+                    // While selecting, the grid's end scrolls clear of the floating selection toolbar.
+                ).plusSelectionToolbar(isInSelectionMode),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
@@ -415,12 +333,7 @@ private fun BookGrid(
             }
             items(
                 items = gridItems,
-                key = { gridItem ->
-                    when (gridItem) {
-                        is BookGridItem.Header -> "header-${gridItem.letter}"
-                        is BookGridItem.BookItem -> gridItem.book.id.value
-                    }
-                },
+                key = { gridItem -> gridItem.key },
                 // Distinct content types so Compose reuses the right slot on scroll instead of
                 // re-creating layouts when a header and a book swap positions.
                 contentType = { gridItem ->
@@ -481,32 +394,6 @@ private fun BookGrid(
             )
         }
     }
-}
-
-/**
- * The alphabet scrollbar's letters and the grid position each one jumps to, or null for a sort with
- * no letters (numeric and date sorts) or nothing to index.
- *
- * [hasHeader]: the grid's item 0 is then the header slot (the Library's inbox entry), so every
- * letter's section sits one item further on than its place in [gridItems].
- */
-internal fun bookGridAlphabetIndex(
-    gridItems: List<BookGridItem>,
-    sortCategory: SortCategory,
-    hasHeader: Boolean,
-): AlphabetIndex? {
-    if (sortCategory !in setOf(SortCategory.TITLE, SortCategory.AUTHOR, SortCategory.SERIES)) return null
-    val headerOffset = if (hasHeader) 1 else 0
-    val letterPositions = mutableMapOf<Char, Int>()
-    gridItems.forEachIndexed { index, item ->
-        if (item is BookGridItem.Header) {
-            letterPositions[item.letter] = index + headerOffset
-        }
-    }
-    if (letterPositions.isEmpty()) return null
-    // Non-letters (#) first, then alphabetically.
-    val letters = letterPositions.keys.sortedWith(compareBy({ it.isLetter() }, { it }))
-    return AlphabetIndex(letters, letterPositions)
 }
 
 @Composable

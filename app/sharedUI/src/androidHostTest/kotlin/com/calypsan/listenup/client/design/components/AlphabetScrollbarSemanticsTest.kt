@@ -4,13 +4,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -99,6 +105,29 @@ class AlphabetScrollbarSemanticsTest {
         composeRule
             .onNodeWithTag(TEST_TAG)
             .performTouchInput { up() }
+    }
+
+    @Test
+    fun `each letter is a button named Jump to the letter, and activating it jumps`() {
+        var jumpedTo: Int? = null
+        composeRule.setContent {
+            MaterialTheme {
+                Box(Modifier.fillMaxSize()) {
+                    AlphabetScrollbar(
+                        alphabetIndex = AlphabetIndex(letters = listOf('A', 'M'), letterToIndex = mapOf('A' to 0, 'M' to 7)),
+                        onLetterSelected = { jumpedTo = it },
+                        isScrolling = true,
+                    )
+                }
+            }
+        }
+
+        composeRule
+            .onNodeWithContentDescription("Jump to M", useUnmergedTree = true)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .performSemanticsAction(SemanticsActions.OnClick)
+
+        assertEquals(7, jumpedTo)
     }
 
     private companion object {

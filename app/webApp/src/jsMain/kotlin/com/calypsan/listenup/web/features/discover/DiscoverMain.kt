@@ -26,6 +26,7 @@ import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.books.BookSelection
+import com.calypsan.listenup.web.features.books.SelectableTile
 import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.features.shelf.bookCountLabel
 import com.calypsan.listenup.web.nav.Routes
@@ -136,20 +137,15 @@ internal fun ListenerCard(
     selection: BookSelection?,
 ) {
     val whenText = relativeLastActive(session.lastActiveAt, nowMs)
-    Div(attrs = {
-        classes("disc-listener")
-        if (selection?.isSelected(session.bookId) == true) classes("is-sel")
-    }) {
-        AppLink(
+    // A pick is marked on the tile (its check); an outline on this card was clipped by the rail.
+    Div(attrs = { classes("disc-listener") }) {
+        SelectableTile(
+            bookId = session.bookId,
+            selection = selection,
+            label = DiscoverWords.listenerLabel(session.bookTitle, session.displayName, session.isLive, whenText),
             href = Routes.Book.detail(session.bookId).toUrl(),
             onOpen = { selection.press(session.bookId) { onOpenBook(session.bookId) } },
-            attrs = {
-                classes("disc-listener-book")
-                attr(
-                    "aria-label",
-                    DiscoverWords.listenerLabel(session.bookTitle, session.displayName, session.isLive, whenText),
-                )
-            },
+            classes = listOf("disc-listener-book"),
         ) {
             Cover(
                 title = session.bookTitle,
@@ -195,14 +191,35 @@ internal fun SomethingNewSection(
 ) {
     // Shuffle draws again; with nothing to draw (all started) or a failure (Try again is the action) it steps aside.
     val canShuffle = state is DiscoverBooksUiState.Ready || state is DiscoverBooksUiState.Loading
-    val shuffleSlot: @Composable () -> Unit = { ShuffleButton(onShuffle) }
+    // Select starts a selection once there is something to select; while selecting the header says so,
+    // and the selection bar's Cancel ends it (spec §3.5, X35).
+    val canSelect = selection != null && state is DiscoverBooksUiState.Ready && !state.isEmpty
+    val actions: @Composable () -> Unit = {
+        if (canSelect) SelectControl(selection)
+        if (canShuffle) ShuffleButton(onShuffle)
+    }
     Section(
         DiscoverWords.SOMETHING_NEW,
         subtitle = DiscoverWords.SOMETHING_NEW_SUBTITLE,
         styleClass = "disc-a-new",
-        actions = shuffleSlot.takeIf { canShuffle },
+        actions = actions.takeIf { canShuffle || canSelect },
     ) {
         SomethingNewBody(state, onOpenBook, selection, onRetry, onBrowseLibrary)
+    }
+}
+
+/** Select, or the word "Selecting" while a selection is under way. */
+@Composable
+private fun SelectControl(selection: BookSelection) {
+    if (selection.isSelecting) {
+        Span(attrs = { classes("disc-selecting") }) { Text(DiscoverWords.SELECTING) }
+    } else {
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = selection.onStart,
+            attrs = { classes("disc-select") },
+        ) { Text(DiscoverWords.SELECT) }
     }
 }
 
@@ -268,13 +285,13 @@ internal fun PickCard(
     onOpenBook: (String) -> Unit,
     selection: BookSelection?,
 ) {
-    AppLink(
+    SelectableTile(
+        bookId = book.id,
+        selection = selection,
+        label = null,
         href = Routes.Book.detail(book.id).toUrl(),
         onOpen = { selection.press(book.id) { onOpenBook(book.id) } },
-        attrs = {
-            classes("disc-card")
-            if (selection?.isSelected(book.id) == true) classes("is-sel")
-        },
+        classes = listOf("disc-card"),
     ) {
         Cover(
             title = book.title,
@@ -362,13 +379,13 @@ private fun RecentCard(
     onOpenBook: (String) -> Unit,
     selection: BookSelection?,
 ) {
-    AppLink(
+    SelectableTile(
+        bookId = book.id,
+        selection = selection,
+        label = null,
         href = Routes.Book.detail(book.id).toUrl(),
         onOpen = { selection.press(book.id) { onOpenBook(book.id) } },
-        attrs = {
-            classes("disc-card")
-            if (selection?.isSelected(book.id) == true) classes("is-sel")
-        },
+        classes = listOf("disc-card"),
     ) {
         Cover(
             title = book.title,

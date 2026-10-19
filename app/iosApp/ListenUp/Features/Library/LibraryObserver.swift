@@ -10,19 +10,28 @@ final class LibraryObserver {
     // MARK: - Flattened state
 
     private(set) var books: [BookRow] = []
+    /// `books` cut into index-letter runs (Title, Author or Series sorts); empty for any other sort.
+    private(set) var bookLetters: [LetterRun] = []
     private(set) var booksSortState: SortState?
     private(set) var series: [SeriesRow] = []
     private(set) var seriesProgress: [String: SeriesProgressState] = [:]
     private(set) var seriesSortState: SortState?
-    /// The Series scrubber's letters, rebuilt only when the series content changes.
-    private(set) var seriesLetterIndex: [(letter: String, firstId: String)] = []
+    /// `series` cut into index-letter runs on a name sort (article-aware); empty otherwise.
+    private(set) var seriesLetters: [LetterRun] = []
+    /// `series` sliced by `seriesLetters` for the tab, once per content revision, as `authorSections` is.
+    private(set) var seriesSections: [LetterRun.Section<SeriesRow>] = []
     private(set) var authors: [ContributorRow] = []
-    /// `authors` grouped for the list — regrouped only when the rows or the sort change.
-    private(set) var authorSections: [ContributorLetterGrouping.Group] = []
+    /// `authors` cut into index-letter runs on a name sort; empty otherwise.
+    private(set) var authorLetters: [LetterRun] = []
+    /// `authors` sliced by `authorLetters` for the list, sliced once per content revision rather than
+    /// in a view body (2026-09-29 iOS audit, performance).
+    private(set) var authorSections: [LetterRun.Section<ContributorRow>] = []
     private(set) var authorsSortState: SortState?
     private(set) var narrators: [ContributorRow] = []
-    /// `narrators` grouped for the list — regrouped only when the rows or the sort change.
-    private(set) var narratorSections: [ContributorLetterGrouping.Group] = []
+    /// `narrators` cut into index-letter runs on a name sort; empty otherwise.
+    private(set) var narratorLetters: [LetterRun] = []
+    /// `narrators` sliced by `narratorLetters`, as `authorSections` is.
+    private(set) var narratorSections: [LetterRun.Section<ContributorRow>] = []
     private(set) var narratorsSortState: SortState?
     /// When true, leading articles (A, An, The) are ignored when sorting/grouping by Title/Name —
     /// drives the "Title sort" toggle and the article-aware section letters. Shared, persisted state.
@@ -45,8 +54,6 @@ final class LibraryObserver {
     private(set) var errorMessage: String?
 
     @ObservationIgnored private var contentRevision = ContentRevisionGate()
-    @ObservationIgnored private var authorSectionCache = ContributorSectionCache()
-    @ObservationIgnored private var narratorSectionCache = ContributorSectionCache()
 
     // view-model-owner: nobody — Dependencies.libraryViewModel is shared for the process.
     private let viewModel: LibraryViewModel
@@ -143,29 +150,30 @@ final class LibraryObserver {
         }
     }
 
-    /// Everything the content revision covers: the four sorted lists and the intent that ordered them.
+    /// Everything the content revision covers: the four sorted lists, their shared letter runs, and
+    /// the intent that ordered them.
     private func applyContent(_ loaded: LibraryUiStateLoaded) {
         books = loaded.books.map { BookRow($0) }
+        assignIfChanged(\.bookLetters, loaded.bookLetters.map { LetterRun($0) })
         booksSortState = loaded.booksSortState
         series = loaded.series.map { SeriesRow($0) }
+        assignIfChanged(\.seriesLetters, loaded.seriesLetters.map { LetterRun($0) })
+        seriesSections = LetterRun.sections(of: series, runs: seriesLetters)
         seriesSortState = loaded.seriesSortState
-        seriesLetterIndex = loaded.seriesSortState.category == .name
-            ? seriesAlphabetIndex(from: series, ignoreArticles: loaded.ignoreTitleArticles)
-            : []
         authorsSortState = loaded.authorsSortState
         narratorsSortState = loaded.narratorsSortState
         applyContributors(
             loaded.authors.map { ContributorRow($0) },
-            isNameSort: loaded.authorsSortState.category == .name,
-            cache: &authorSectionCache,
+            letters: loaded.authorLetters.map { LetterRun($0) },
             rows: \.authors,
+            runs: \.authorLetters,
             sections: \.authorSections
         )
         applyContributors(
             loaded.narrators.map { ContributorRow($0) },
-            isNameSort: loaded.narratorsSortState.category == .name,
-            cache: &narratorSectionCache,
+            letters: loaded.narratorLetters.map { LetterRun($0) },
             rows: \.narrators,
+            runs: \.narratorLetters,
             sections: \.narratorSections
         )
         ignoreTitleArticles = loaded.ignoreTitleArticles
@@ -186,18 +194,20 @@ final class LibraryObserver {
         if self[keyPath: keyPath] != value { self[keyPath: keyPath] = value }
     }
 
-    /// Publishes a contributor list only when it changed, so a new revision that changed only the
-    /// books doesn't invalidate the Authors and Narrators lists.
+    /// Publishes a contributor list only when it or its letters changed, so a new revision that
+    /// changed only the books doesn't invalidate the Authors and Narrators lists.
     private func applyContributors(
         _ newRows: [ContributorRow],
-        isNameSort: Bool,
-        cache: inout ContributorSectionCache,
+        letters newLetters: [LetterRun],
         rows: ReferenceWritableKeyPath<LibraryObserver, [ContributorRow]>,
-        sections: ReferenceWritableKeyPath<LibraryObserver, [ContributorLetterGrouping.Group]>
+        runs: ReferenceWritableKeyPath<LibraryObserver, [LetterRun]>,
+        sections: ReferenceWritableKeyPath<LibraryObserver, [LetterRun.Section<ContributorRow>]>
     ) {
-        guard cache.update(rows: newRows, isNameSort: isNameSort) else { return }
-        self[keyPath: rows] = cache.rows
-        self[keyPath: sections] = cache.sections
+        guard newRows != self[keyPath: rows] || newLetters != self[keyPath: runs]
+            || (self[keyPath: sections].isEmpty && !newRows.isEmpty) else { return }
+        self[keyPath: rows] = newRows
+        self[keyPath: runs] = newLetters
+        self[keyPath: sections] = LetterRun.sections(of: newRows, runs: newLetters)
     }
 
     /// Bridge `Map<BookId, BookCardStatus>` → `[String: LibraryCardState]`. The `BookId` value-class

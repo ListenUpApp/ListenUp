@@ -6,12 +6,13 @@ import Shared
 /// The shell's value-typed navigation destinations, beside `MainTabView` so the view's own file stays within its length
 /// budget.
 extension View {
-    /// All value-typed navigation destinations for the app shell, split into book, content, shelf and admin groups so
-    /// no builder trips the function-length lint.
+    /// All value-typed navigation destinations for the app shell, split into book, content, shelf, social and admin
+    /// groups so no builder trips the function-length lint.
     func navigationDestinations() -> some View {
         bookDestinations()
             .contentDestinations()
             .shelfDestinations()
+            .socialDestinations()
             .adminDestinations()
     }
 
@@ -27,8 +28,7 @@ extension View {
             }
     }
 
-    /// Library/content-facing destinations: series, contributors, facets, shelves, profiles, settings, and
-    /// storage.
+    /// Library/content-facing destinations: series, contributors, facets, settings, and storage.
     func contentDestinations() -> some View {
         self
             .navigationDestination(for: SeriesDestination.self) { destination in
@@ -53,12 +53,6 @@ extension View {
             .navigationDestination(for: GenreDestination.self) { destination in
                 GenrePageView(genreId: destination.genreId, genreName: destination.genreName)
             }
-            .navigationDestination(for: UserProfileDestination.self) { _ in
-                UserProfileView()
-            }
-            .navigationDestination(for: ProfileDestination.self) { destination in
-                ProfileDestinationView(userId: destination.userId)
-            }
             .navigationDestination(for: SettingsDestination.self) { _ in
                 SettingsView()
             }
@@ -82,6 +76,20 @@ extension View {
             }
             .navigationDestination(for: LicenseDetailDestination.self) { destination in
                 LicenseDetailView(packageName: destination.packageName)
+            }
+    }
+
+    /// The people-facing destinations: profiles and See All Activity.
+    func socialDestinations() -> some View {
+        self
+            .navigationDestination(for: ActivityFeedDestination.self) { _ in
+                ActivityFeedView()
+            }
+            .navigationDestination(for: UserProfileDestination.self) { _ in
+                UserProfileView()
+            }
+            .navigationDestination(for: ProfileDestination.self) { destination in
+                ProfileDestinationView(userId: destination.userId)
             }
     }
 

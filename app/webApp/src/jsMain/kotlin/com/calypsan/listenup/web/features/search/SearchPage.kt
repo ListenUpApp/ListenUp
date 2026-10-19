@@ -192,8 +192,7 @@ internal fun ResultsList(
     highlighted: SearchHit? = null,
 ) {
     Div(attrs = { classes("search-results") }) {
-        // `hits` is re-grouped on every recomposition otherwise; keyed on the result itself, the
-        // same precedent `ContributorsPage.groupByLetter` sets for its own list.
+        // `hits` is re-grouped on every recomposition otherwise; keyed on the result itself.
         val grouped = remember(result) { groupHitsByType(result.hits) }
         SearchHitType.entries.forEach { type ->
             val hits = grouped[type].orEmpty()

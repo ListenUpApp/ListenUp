@@ -58,7 +58,6 @@ private fun SettingsRoute(
         onSkipForward = session.onSkipForward,
         onSkipBackward = session.onSkipBackward,
         onAutoRewind = session.onAutoRewind,
-        onIgnoreTitleArticles = session.onIgnoreTitleArticles,
         onHideSingleBookSeries = session.onHideSingleBookSeries,
         onOpenDevices = { router.navigate(Routes.settingsDevices) },
         onOpenNotifications = { router.navigate(Routes.settingsNotifications) },

@@ -1046,8 +1046,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    One rule rather than three: a reader should not have to learn what "selected" looks like
    twice because they started from Home instead of the Library. */
 .luw .home-card.is-sel,
-.luw .disc-card.is-sel,
-.luw .disc-listener.is-sel { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .disc-card.is-sel { outline: 2px solid var(--coral); outline-offset: 2px; }
 /* `z-index` because the tick precedes the cover in the card and both are positioned: without it the
    cover, later in tree order, paints over the tick. The lock sits clear of it (`.lu-lock.shifted`). */
 .lib-tick { position: absolute; z-index: 1; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: var(--shadow-card); }
@@ -1185,6 +1184,16 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
      above and below a 28px pill: room for the shared 44px touch extender (03-press.css) to stay whole. */
   .lib-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-top: 8px; padding-bottom: 14px; }
   .lib-filters .pill { flex-shrink: 0; }
+}
+/* The chips, then Select and Sort at the row's end (board Library-WebDesktop). The row, not the
+   chips, carries the rule beneath. At phone widths Select and Sort ride above the scrolling chips. */
+.lib-controls { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.lib-controls .lib-filters { flex: 1 1 auto; min-width: 0; padding-bottom: 0; margin-bottom: 0; border-bottom: 0; }
+.lib-controls-end { display: flex; flex: none; align-items: center; gap: 10px; margin-left: auto; }
+@media (max-width: 759px) {
+  .lib-controls .lib-filters { flex-basis: 100%; padding-bottom: 8px; }
+  .lib-controls-end { order: -1; }
 }
 /* Home's section headers that carry two controls (Select + In Library, See all + New shelf) */
 .luw .home-section-actions { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; justify-content: flex-end; }

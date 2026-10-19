@@ -1,7 +1,24 @@
 package com.calypsan.listenup.client.features.library.components
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -35,16 +52,19 @@ class SelectionToolbarTest {
         selectedCount: Int = 3,
         onAddToCollection: (() -> Unit)? = {},
         onEdit: (() -> Unit)? = null,
+        onClose: () -> Unit = {},
     ) {
         composeRule.setContent {
             MaterialTheme {
-                SelectionToolbar(
-                    selectedCount = selectedCount,
-                    onAddToShelf = {},
-                    onAddToCollection = onAddToCollection,
-                    onEdit = onEdit,
-                    onClose = {},
-                )
+                Box(Modifier.fillMaxSize()) {
+                    SelectionToolbar(
+                        selectedCount = selectedCount,
+                        onAddToShelf = {},
+                        onAddToCollection = onAddToCollection,
+                        onEdit = onEdit,
+                        onClose = onClose,
+                    )
+                }
             }
         }
     }
@@ -54,7 +74,7 @@ class SelectionToolbarTest {
         render(onEdit = null)
 
         // The toolbar itself is up — so the absence below is the rule, not an unrendered screen.
-        composeRule.onNodeWithText("Shelf").assertIsDisplayed()
+        composeRule.onNodeWithText("Add to shelf").assertIsDisplayed()
         composeRule.onNodeWithText("Edit").assertDoesNotExist()
     }
 
@@ -82,5 +102,104 @@ class SelectionToolbarTest {
         render(selectedCount = 0, onEdit = {})
 
         composeRule.onNodeWithText("Edit").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the top bar names the count and Cancel selection, and the actions float at the bottom with full labels`() {
+        render(selectedCount = 2, onEdit = {})
+
+        composeRule.onNodeWithContentDescription("Cancel selection").assertIsDisplayed()
+        composeRule.onNodeWithText("2 selected").assertIsDisplayed()
+        val actions = composeRule.onNodeWithTag("selection-actions").fetchSemanticsNode().boundsInRoot
+        val header = composeRule.onNodeWithTag("selection-header").fetchSemanticsNode().boundsInRoot
+        (actions.top > header.bottom + 200f) shouldBe true
+        listOf("Add to shelf", "Add to collection", "Edit").forEach {
+            composeRule.onNodeWithText(it).assertHasClickAction()
+        }
+    }
+
+    @Test
+    fun `a member sees Add to shelf alone, and one book reads 1 selected`() {
+        render(selectedCount = 1, onAddToCollection = null, onEdit = null)
+
+        composeRule.onNodeWithText("Add to shelf").assertIsDisplayed()
+        composeRule.onNodeWithText("Add to collection").assertDoesNotExist()
+        composeRule.onNodeWithText("1 selected").assertIsDisplayed()
+    }
+
+    @Test
+    fun `Cancel selection ends the selection`() {
+        var closed = 0
+        render(onClose = { closed++ })
+
+        composeRule.onNodeWithContentDescription("Cancel selection").performClick()
+
+        closed shouldBe 1
+    }
+
+    @Test
+    fun `every action is at least the 48dp touch target`() {
+        render(onEdit = {})
+
+        listOf("Add to shelf", "Add to collection", "Edit").forEach {
+            composeRule.onNode(hasText(it) and hasClickAction()).assertHeightIsAtLeast(48.dp)
+        }
+    }
+
+    @Test
+    fun `a host that adds the toolbar's clearance keeps its last item above the floating toolbar`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Box(Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        contentPadding = PaddingValues(bottom = 16.dp).plusSelectionToolbar(isSelecting = true),
+                        modifier = Modifier.fillMaxSize().testTag("host-list"),
+                    ) {
+                        items(60) { index ->
+                            Text("Row $index", Modifier.fillMaxWidth().height(60.dp).testTag("row-$index"))
+                        }
+                    }
+                    SelectionToolbar(
+                        selectedCount = 2,
+                        onAddToShelf = {},
+                        onAddToCollection = {},
+                        onEdit = {},
+                        onClose = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("host-list").performScrollToIndex(59)
+        composeRule.waitForIdle()
+
+        val last = composeRule.onNodeWithTag("row-59").fetchSemanticsNode().boundsInRoot
+        val toolbar = composeRule.onNodeWithTag("selection-actions").fetchSemanticsNode().boundsInRoot
+        (last.bottom <= toolbar.top) shouldBe true
+    }
+
+    @Test
+    fun `no clearance is added when nothing is being selected`() {
+        val padding = PaddingValues(bottom = 16.dp).plusSelectionToolbar(isSelecting = false)
+        padding.calculateBottomPadding() shouldBe 16.dp
+    }
+
+    @Test
+    fun `the header starts below the host's top inset, as Library's does, instead of under the status bar`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Box(Modifier.fillMaxSize()) {
+                    SelectionToolbar(
+                        selectedCount = 2,
+                        onAddToShelf = {},
+                        onAddToCollection = null,
+                        onEdit = null,
+                        onClose = {},
+                        topClearance = 24.dp,
+                    )
+                }
+            }
+        }
+        val header = composeRule.onNodeWithTag("selection-header").fetchSemanticsNode().boundsInRoot
+        header.top shouldBe with(composeRule.density) { 24.dp.toPx() }
     }
 }

@@ -68,6 +68,9 @@ internal object Routes {
 
     val discover: Route get() = Route(listOf(DISCOVER_KEY))
 
+    /** See all activity: the full community feed (X33). */
+    val discoverActivity: Route get() = Route(listOf(DISCOVER_KEY, ACTIVITY_KEY))
+
     val settings: Route get() = Route(listOf(SETTINGS_KEY))
     val settingsCategories: Route get() = Route(listOf(SETTINGS_KEY, CATEGORIES_KEY))
     val settingsDevices: Route get() = Route(listOf(SETTINGS_KEY, DEVICES_KEY))
@@ -173,7 +176,7 @@ internal object Routes {
 private val ROUTE_SHAPES: Map<String, (List<String>) -> Boolean> =
     mapOf(
         HOME_KEY to { it.size == 1 },
-        DISCOVER_KEY to { it.size == 1 },
+        DISCOVER_KEY to { it.size == 1 || (it.size == 2 && it[1] == ACTIVITY_KEY) },
         NOTIFICATIONS_KEY to { it.size == 1 },
         LIBRARY_KEY to { it.isSection(CONTRIBUTORS_KEY, SERIES_KEY) },
         SEARCH_KEY to { it.size <= 2 },
@@ -271,6 +274,9 @@ internal fun Route.seeAllType(): SearchHitType? {
 internal const val HOME_KEY = "home"
 
 internal const val DISCOVER_KEY = "discover"
+
+/** `/discover/activity` — See all activity. */
+internal const val ACTIVITY_KEY = "activity"
 
 private const val SHELF_KEY = "shelf"
 

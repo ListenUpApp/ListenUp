@@ -67,10 +67,9 @@
    under the title at phone widths rather than pushing past the page's edge. The margin is the
    space before the facet row, which these pages have no flex gap to supply. */
 .lib-header { margin-bottom: var(--sp-16); }
-.lib-sort { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.lib-sort-option { cursor: pointer; opacity: 0.6; }
-.lib-sort-option.is-active { opacity: 1; font-weight: 600; }
-.lib-sort-direction { cursor: pointer; user-select: none; }
+/* The Sort dropdown's trigger (board `Library-WebDesktop-Sort`): "Sort: Title, A–Z", its chevron
+   after the words. PopupMenu draws the glyph first, so the row reverses. */
+.lib-sort-trigger { flex-direction: row-reverse; }
 .lib-grid {
   /* Never fewer than two abreast (half the row, less half the gap, when that is under 150px): at
      phone widths a single column made every cover the full width of the screen. */
@@ -150,11 +149,38 @@
 .lib-section {
   grid-column: 1 / -1;
   position: sticky; top: -24px; z-index: 2;
+  display: flex; align-items: baseline; gap: 10px;
   padding: 14px 2px 6px;
   background: var(--paper);
   font-size: var(--fs-title); font-weight: 700; color: var(--ink);
   animation: none;
 }
+/* The section's size beside its letter ("96 books", board `Library-WebDesktop`). */
+.lib-section-c { font-size: var(--fs-caption); font-weight: 400; color: var(--ink-2); }
+/* A jump lands a section's first card under its sticky header, not behind it. */
+.lib-card { scroll-margin-top: 56px; }
+
+/* The Books grid and its A–Z jump rail (spec §5.2). The rail is a column beside the grid that sticks
+   to the top of the scrollport while the books scroll past, so it is always within reach. */
+.lib-books { display: grid; grid-template-columns: minmax(0, 1fr); }
+.lib-books.has-rail { grid-template-columns: minmax(0, 1fr) 24px; column-gap: 6px; }
+.lib-rail {
+  position: sticky; top: var(--sp-16); align-self: start;
+  display: flex; flex-direction: column; align-items: center;
+}
+/* A compact A–Z (board Library-WebDesktop): every letter drawn, a letter with no section disabled,
+   the section on show in coral. 44px across, the touch minimum; 20px down, so the full alphabet
+   stands at 540px and fits a phone's height. */
+.lib-rail button {
+  appearance: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; cursor: pointer;
+  position: relative; min-width: 24px; height: 20px; flex: none;
+  font-size: var(--fs-caption); font-weight: 700; line-height: 1; color: var(--ink-2);
+}
+.lib-rail button::after { content: ""; position: absolute; inset: 0 -10px; }
+.lib-rail button[disabled] { cursor: default; color: var(--ink-3); opacity: .5; }
+.lib-rail button.is-current { color: var(--coral-text); }
+@media (hover: hover) { .lib-rail button:not([disabled]):hover { color: var(--coral-text); } }
+.lib-rail button:focus-visible { color: var(--coral-text); outline: 2px solid var(--coral); outline-offset: 1px; border-radius: 4px; }
 
 /* Motion here is decoration, and a 1200-card cascade is exactly the kind of thing that makes a
    reader who asked for less of it feel worse. */

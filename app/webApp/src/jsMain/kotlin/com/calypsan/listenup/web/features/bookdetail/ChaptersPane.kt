@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.BulkBar
+import com.calypsan.listenup.web.design.chaptersSelectedLabel
 import com.calypsan.listenup.web.design.ColumnAlign
 import com.calypsan.listenup.web.design.DataTable
 import com.calypsan.listenup.web.design.MetaEntry
@@ -63,7 +64,11 @@ internal fun ChaptersPane(
             }
 
             if (selection.isNotEmpty()) {
-                BulkBar(count = selection.size, onClear = { onSelectionChange(emptySet()) })
+                BulkBar(
+                    count = selection.size,
+                    label = chaptersSelectedLabel(selection.size),
+                    onClear = { onSelectionChange(emptySet()) },
+                )
             }
 
             Panel(flush = true) {

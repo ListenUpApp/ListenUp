@@ -125,16 +125,32 @@ class CommunityAsideTest :
             (host.querySelector(".disc-feed-avatar") as HTMLElement).getAttribute("aria-label") shouldBe "Your profile"
         }
 
-        test("eight rows render, the last two desktop-only; See all activity shows the rest") {
+        test("eight rows render, the last two desktop-only; See all activity is a link to the full feed") {
+            // Rewritten from "See all shows the rest in place": rows 9–100 are still reachable, on /discover/activity.
+            var opened = 0
             val rows = (1..12).map { act("a$it", "finished_book") }.toTypedArray()
-            val host = mounts.mount { discoverPage(activity = feed(*rows)) }
+            val host = mounts.mount { discoverPage(activity = feed(*rows), onOpenAllActivity = { opened++ }) }
             host.querySelectorAll(".disc-feed-row").length shouldBe 8
             host.querySelectorAll(".disc-feed-row.disc-aside-extra").length shouldBe 2
-            val more = host.querySelector(".disc-see-all") as HTMLElement
-            more.textContent shouldBe "See all activity →"
-            more.click()
+            val link = host.querySelector("a.disc-see-all") as HTMLElement
+            link.textContent shouldBe "See all activity →"
+            link.getAttribute("href") shouldBe "/discover/activity"
+            link.click()
             awaitFrame()
-            host.querySelectorAll(".disc-feed-row").length shouldBe 12
-            (host.querySelector(".disc-see-all") as HTMLElement).textContent shouldBe "Show less"
+            opened shouldBe 1
+            host.querySelectorAll(".disc-feed-row").length shouldBe 8
+        }
+
+        test("seven or eight rows all fit beside the main column, so See all is for phones only") {
+            val rows = (1..7).map { act("a$it", "finished_book") }.toTypedArray()
+            val host = mounts.mount { discoverPage(activity = feed(*rows)) }
+            (host.querySelector("a.disc-see-all") as HTMLElement).className shouldContain "disc-phone-only"
+        }
+
+        test("a book row's thumbnail is the shared Cover, so a missing cover falls back to a tile, never a broken image") {
+            val host = mounts.mount { discoverPage(activity = feed(act("a1", "finished_book"))) }
+            val thumb = host.querySelector(".disc-feed-row .disc-feed-cover") as HTMLElement
+            thumb.classList.contains("cover") shouldBe true
+            thumb.getAttribute("aria-hidden") shouldBe "true"
         }
     })

@@ -62,6 +62,10 @@ class ActivityFeedViewModel internal constructor(
      */
     private val observationRuns = MutableStateFlow(0)
 
+    /** Whether a [refresh] is under way: a pull-to-refresh's spinner, held until the reconcile lands. */
+    val refreshing: StateFlow<Boolean>
+        field = MutableStateFlow(false)
+
     /**
      * Observe recent activities from Room — the single read source.
      * Room repaints whenever the mirror advances (catch-up or live firehose tail).
@@ -106,7 +110,14 @@ class ActivityFeedViewModel internal constructor(
      */
     fun refresh() {
         if (state.value is ActivityFeedUiState.Error) observationRuns.update { it + 1 }
-        viewModelScope.launch { syncRepository.refresh() }
+        viewModelScope.launch {
+            refreshing.value = true
+            try {
+                syncRepository.refresh()
+            } finally {
+                refreshing.value = false
+            }
+        }
     }
 }
 

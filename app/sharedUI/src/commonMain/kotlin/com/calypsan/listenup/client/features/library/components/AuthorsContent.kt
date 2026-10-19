@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -35,16 +36,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
-import com.calypsan.listenup.client.design.components.SortSplitButton
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.graphics.Color
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
 import kotlinx.coroutines.launch
@@ -63,6 +63,7 @@ import listenup.composeapp.generated.resources.genre_books_count
  *
  * @param authors List of authors with book counts
  * @param sortState Current sort state (category + direction)
+ * @param letters The shared letter sections over the list; empty for a non-name sort
  * @param onCategorySelected Called when user selects a new category
  * @param onDirectionToggle Called when user toggles sort direction
  * @param onAuthorClick Callback when an author is clicked
@@ -72,6 +73,7 @@ import listenup.composeapp.generated.resources.genre_books_count
 fun AuthorsContent(
     authors: List<ContributorWithBookCount>,
     sortState: SortState,
+    letters: List<LetterSection>,
     onCategorySelected: (SortCategory) -> Unit,
     onDirectionToggle: () -> Unit,
     onAuthorClick: (String) -> Unit,
@@ -84,72 +86,90 @@ fun AuthorsContent(
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
-            // Build alphabet index for name-based sort
+            // The shared letter sections: empty on a non-name sort, so no scrollbar.
             val alphabetIndex =
-                remember(authors, sortState) {
-                    if (sortState.category == SortCategory.NAME) {
-                        AlphabetIndex.build(authors) { it.contributor.name }
-                    } else {
-                        null
-                    }
-                }
+                remember(letters) { libraryAlphabetIndex(letters, withHeaders = true, leadingItems = 0) }
+            val rows = remember(authors, letters) { letteredRows(authors, letters) { it.contributor.id.value } }
 
             val isScrolling by remember {
                 derivedStateOf { listState.isScrollInProgress }
             }
 
-            // Track scroll direction for button visibility
-            val showSortButton by rememberSortButtonVisibility(listState)
+            Column(modifier = Modifier.fillMaxSize()) {
+                // The same sort control as Books and Series, at the top of the list (spec §5.1 c5).
+                LibrarySortCard(
+                    state = sortState,
+                    categories = SortCategory.contributorCategories,
+                    count = authors.size,
+                    unit = if (authors.size == 1) "author" else "authors",
+                    ignoreArticles = false,
+                    showArticleToggle = false,
+                    onCategorySelected = onCategorySelected,
+                    onDirectionToggle = onDirectionToggle,
+                    onToggleArticles = {},
+                    visible = true,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                )
 
-            LazyColumn(
-                state = listState,
-                contentPadding =
-                    PaddingValues(
-                        start = Spacing.gridMargin,
-                        end = Spacing.gridMargin,
-                        top = 48.dp,
-                        bottom = 16.dp,
-                    ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(
-                    items = authors,
-                    key = { it.contributor.id.value },
-                ) { authorWithCount ->
-                    ContributorCard(
-                        contributorWithCount = authorWithCount,
-                        onClick = { onAuthorClick(authorWithCount.contributor.id.value) },
-                    )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        state = listState,
+                        contentPadding =
+                            PaddingValues(
+                                start = Spacing.gridMargin,
+                                end = Spacing.gridMargin,
+                                top = 12.dp,
+                                bottom = 16.dp,
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        contributorRows(rows, onAuthorClick)
+                    }
+
+                    // Alphabet scrollbar (only for name sort)
+                    // Anchored to TopEnd so it stays fixed relative to content start
+                    if (alphabetIndex != null) {
+                        AlphabetScrollbar(
+                            alphabetIndex = alphabetIndex,
+                            onLetterSelected = { index ->
+                                scope.launch { listState.scrollToItem(index) }
+                            },
+                            isScrolling = isScrolling,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 12.dp, end = 4.dp, bottom = 0.dp),
+                        )
+                    }
                 }
             }
+        }
+    }
+}
 
-            // Sort split button
-            SortSplitButton(
-                state = sortState,
-                categories = SortCategory.contributorCategories,
-                onCategorySelected = onCategorySelected,
-                onDirectionToggle = onDirectionToggle,
-                visible = showSortButton,
-                modifier =
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 16.dp, top = 8.dp),
-            )
+/**
+ * An Authors or Narrators list's rows: a header before each letter on a name sort (spec L25), from
+ * the shared sections, and a card per person.
+ */
+internal fun LazyListScope.contributorRows(
+    rows: List<LetteredRow<ContributorWithBookCount>>,
+    onClick: (String) -> Unit,
+) {
+    items(
+        items = rows,
+        key = { it.key },
+        contentType = { if (it is LetteredRow.Header) "header" else "person" },
+    ) { row ->
+        when (row) {
+            is LetteredRow.Header -> {
+                SectionHeader(letter = row.letter)
+            }
 
-            // Alphabet scrollbar (only for name sort)
-            // Anchored to TopEnd so it stays fixed relative to content start
-            if (alphabetIndex != null) {
-                AlphabetScrollbar(
-                    alphabetIndex = alphabetIndex,
-                    onLetterSelected = { index ->
-                        scope.launch { listState.scrollToItem(index) }
-                    },
-                    isScrolling = isScrolling,
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 56.dp, end = 4.dp, bottom = 0.dp),
+            is LetteredRow.Entry -> {
+                ContributorCard(
+                    contributorWithCount = row.value,
+                    onClick = { onClick(row.value.contributor.id.value) },
                 )
             }
         }

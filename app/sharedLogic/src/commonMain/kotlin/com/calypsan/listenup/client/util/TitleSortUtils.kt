@@ -105,8 +105,8 @@ object TitleSortUtils {
      * never article-stripped — "The Rolling Stones" files under T, while the book *The Hobbit* files
      * under H — so the two rules are deliberately separate rather than one function with a flag.
      *
-     * Every client groups by this: Android's books/authors/narrators grids, the web library, and the
-     * Swift mirror in `app/iosApp/ListenUp/Core/TitleSorting.swift`. Keep those in step with this.
+     * Every client's letter headers and index read it through the shared Library letter sections
+     * (`presentation/library/LibraryLetters.kt`), so no platform keeps a copy of the rule.
      *
      * @return an uppercase A–Z letter, or '#' for a blank, numeric or symbolic name.
      */

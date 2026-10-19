@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.design
 
+import kotlin.math.abs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -35,6 +36,36 @@ class Scrollport {
 
 /** The enclosing [Scrollport], or null when this composition is not inside the shell. */
 val LocalScrollport = staticCompositionLocalOf<Scrollport?> { null }
+
+/**
+ * Lets a jump rail move a [VirtualList] to a section, whether or not the list is virtualised: the
+ * section's header comes to the top of the scrollport and its first item takes focus.
+ */
+class VirtualJump {
+    internal var handler: ((Char) -> Unit)? = null
+
+    /**
+     * The section at the top of the list's scrollport, for a rail to mark; null until the list has
+     * been measured inside the shell (a list that does not virtualise reports none).
+     */
+    var current: Char? by mutableStateOf(null)
+        internal set
+
+    /**
+     * Where the list came to rest after a jump, once known. A section near the end can't scroll to
+     * the top, so the header passed there is an earlier one; the letter pressed stays current until
+     * the reader scrolls away from here. [Double.NaN] while the jump's scroll is still to be read.
+     */
+    internal var jumpRestingTop: Double? = null
+
+    /** Brings section [letter] into view and focuses its first item. Nothing happens before the list is composed. */
+    fun toSection(letter: Char) {
+        val jumps = handler ?: return
+        current = letter
+        jumpRestingTop = Double.NaN
+        jumps(letter)
+    }
+}
 
 /**
  * A list or grid that renders only the rows near the viewport.
@@ -82,6 +113,7 @@ internal fun <T> VirtualList(
     sectionOf: (T) -> Char? = { null },
     headerSelector: String? = null,
     header: @Composable (Char) -> Unit = {},
+    jump: VirtualJump? = null,
     item: @Composable (T) -> Unit,
 ) {
     val scrollport = LocalScrollport.current
@@ -90,16 +122,41 @@ internal fun <T> VirtualList(
     val tracker = remember { WindowTracker() }
     val rows = remember(items, metrics.columns, sectionOf) { layOut(items, metrics.columns, sectionOf) }
     val offsets = remember(rows, metrics) { offsetsOf(rows, metrics) }
-    SideEffect { tracker.offsets = offsets }
+    SideEffect {
+        tracker.offsets = offsets
+        tracker.sections = rows.map { (it as? ListRow.Header)?.section }
+    }
     val selectors = rememberUpdatedState(itemSelector to headerSelector)
+    SideEffect {
+        jump?.handler = { letter ->
+            jumpToSection(
+                letter = letter,
+                list = tracker.listElement,
+                port = scrollport?.element.takeIf { metrics.known },
+                row = rows.indexOfFirst { it is ListRow.Header && it.section == letter },
+                offsets = offsets,
+                itemSelector = selectors.value.first,
+            )
+        }
+    }
     val positions = remember(items, key) { items.withIndex().associate { (index, entry) -> key(entry) to index + 1 } }
 
     Div(attrs = {
         classes(containerClass)
         attr("role", "list")
         attr("aria-label", label)
-        if (scrollport != null) {
+        // Held whether or not the list virtualises: a jump needs the list in both cases. ⛔ Set in
+        // whichever ONE ref runs: a second `ref` in this builder replaces the first, and a ref of its
+        // own here was silently replaced by the scrollport's — so inside the shell, the one place the
+        // grid virtualises, every jump did nothing.
+        if (scrollport == null) {
             ref { element ->
+                tracker.listElement = element
+                onDispose { tracker.listElement = null }
+            }
+        } else {
+            ref { element ->
+                tracker.listElement = element
                 val port = scrollport.element ?: element.closest(SCROLLPORT_SELECTOR) as? HTMLElement
                 val detach =
                     port?.let {
@@ -118,6 +175,7 @@ internal fun <T> VirtualList(
                                 // every frame, recomposing the whole list sixty times a second to
                                 // produce the same DOM.
                                 if (next != rowWindow) rowWindow = next
+                                jump?.reportTop(tracker, view)
                             },
                         )
                     }
@@ -127,6 +185,7 @@ internal fun <T> VirtualList(
                 onDispose {
                     detach?.invoke()
                     tracker.container = null
+                    tracker.listElement = null
                 }
             }
         }
@@ -183,7 +242,61 @@ private fun Header(
     Div(attrs = {
         classes("vl-head")
         attr("aria-hidden", "true")
+        // What a [VirtualJump] finds the section by.
+        attr("data-section", section.toString())
     }) { header(section) }
+}
+
+/**
+ * Brings section [letter] to the top. With a measured scrollport ([port]) the list is virtualised and
+ * the header may not exist yet, so its place is arithmetic, like every row's ([offsets] at [row]);
+ * otherwise the whole list is rendered and the section's first item scrolls itself into view.
+ */
+@Suppress("LongParameterList")
+private fun jumpToSection(
+    letter: Char,
+    list: Element?,
+    port: HTMLElement?,
+    row: Int,
+    offsets: List<Double>,
+    itemSelector: String,
+) {
+    val virtualised = list != null && port != null && row >= 0
+    if (virtualised) {
+        val listTop = list.getBoundingClientRect().top - port.getBoundingClientRect().top + port.scrollTop
+        port.scrollTop = listTop + offsets[row]
+    }
+    focusSectionStart(list, letter, itemSelector, scroll = !virtualised)
+}
+
+/**
+ * Focuses the first item of section [letter] in [list] — scrolling it into view when [scroll], the
+ * whole-list case, where the item already exists. A virtualised list has just been scrolled and
+ * renders the section a frame or two later, so the focus waits for it rather than for a fixed time.
+ */
+private fun focusSectionStart(
+    list: Element?,
+    letter: Char,
+    itemSelector: String,
+    scroll: Boolean,
+    framesLeft: Int = JUMP_FOCUS_FRAMES,
+) {
+    val first =
+        list
+            ?.querySelector("[data-section=\"$letter\"]")
+            ?.nextElementSibling
+            ?.querySelector(itemSelector) as? HTMLElement
+    when {
+        first != null -> {
+            // `scroll-margin-top` on the item leaves room for the sticky header above it.
+            if (scroll) first.asDynamic().scrollIntoView(js("({ block: 'start' })"))
+            first.asDynamic().focus(js("({ preventScroll: true })"))
+        }
+
+        framesLeft > 0 -> {
+            window.requestAnimationFrame { focusSectionStart(list, letter, itemSelector, scroll, framesLeft - 1) }
+        }
+    }
 }
 
 /** One item, as a list item that knows where it sits in the whole list rather than the window. */
@@ -296,6 +409,54 @@ private class WindowTracker {
 
     /** The list's own element, for the sweep that follows its first measurement. */
     var container: Element? = null
+
+    /** The list's element whether or not it virtualises, for a [VirtualJump]. */
+    var listElement: Element? = null
+
+    /** Each row's section letter when the row is a header, else null; parallel to [offsets]. */
+    var sections: List<Char?> = emptyList()
+}
+
+/** The rail's current letter: the section on show at the top of [view], written only when it changes. */
+private fun VirtualJump.reportTop(
+    tracker: WindowTracker,
+    view: ListView,
+) {
+    val resting = jumpRestingTop
+    when {
+        resting == null -> {}
+
+        resting.isNaN() -> {
+            jumpRestingTop = view.top
+            return
+        }
+
+        abs(view.top - resting) < JUMP_REST_SLACK_PX -> {
+            return
+        }
+
+        else -> {
+            jumpRestingTop = null
+        }
+    }
+    val top = sectionAt(tracker.sections, tracker.offsets, view)
+    if (top != current) current = top
+}
+
+/**
+ * The section whose header was last passed at the top of [view]: the last header row starting at or
+ * above it, or the first header when none has been passed yet. Null in a list without headers.
+ */
+private fun sectionAt(
+    sections: List<Char?>,
+    offsets: List<Double>,
+    view: ListView,
+): Char? {
+    val passed =
+        sections.indices.lastOrNull { row ->
+            sections[row] != null && (offsets.getOrNull(row) ?: Double.MAX_VALUE) <= view.top + SECTION_TOP_SLACK_PX
+        }
+    return passed?.let { sections[it] } ?: sections.firstNotNullOfOrNull { it }
 }
 
 /** Rows within [OVERSCAN_PX] of the viewport, clamped to what exists. */
@@ -467,3 +628,12 @@ private const val OVERSCAN_PX = 600
 
 /** Items rendered before anything has been measured — enough to fill a screen and be measured. */
 private const val FIRST_PAINT_ITEMS = 24
+
+/** How many frames a jump waits for a virtualised section to render before giving up on focus. */
+private const val JUMP_FOCUS_FRAMES = 4
+
+/** How far below the scrollport's top a header may sit and still count as the one on show. */
+private const val SECTION_TOP_SLACK_PX = 64.0
+
+/** How far the reader may drift from where a jump came to rest before the rail follows the scroll. */
+private const val JUMP_REST_SLACK_PX = 2.0

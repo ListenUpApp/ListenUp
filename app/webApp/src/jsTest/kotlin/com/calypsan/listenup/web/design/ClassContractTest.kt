@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.client.presentation.library.SortState
+import com.calypsan.listenup.client.presentation.library.SortDirection
+import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
@@ -1338,7 +1341,12 @@ class ClassContractTest :
                             {},
                             hardcoverRow = HardcoverRowState.Connected("simon"),
                         )
-                        BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
+                        BulkBar(
+                            count = 2,
+                            label = "2 rows selected",
+                            actions = listOf(BulkAction("Merge", WebIcon.Merge) {}),
+                            onClear = {},
+                        )
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
                         }
@@ -1346,13 +1354,14 @@ class ClassContractTest :
                         Tabs(listOf(TabItem("a", "A", count = "3")), active = "a", idBase = "cc")
                         TabPanel(idBase = "cc", key = "a") { Text("A") }
                         SegmentedControl(listOf(SegmentItem("s", "S")), active = "s", label = "Show")
-                        SortControl(
-                            options = listOf("a", "b"),
-                            active = "a",
-                            labelOf = { it },
-                            ascending = true,
-                            onSelect = {},
+                        SortDropdown(
+                            noun = "books",
+                            categories = listOf(SortCategory.TITLE, SortCategory.AUTHOR),
+                            state = SortState(SortCategory.TITLE, SortDirection.ASCENDING),
+                            onCategory = {},
                             onToggleDirection = {},
+                            ignoreArticles = true,
+                            onToggleIgnoreArticles = {},
                         )
                         LinkButton("Back to sign in", onClick = {})
                         Pill("Horror", selected = true, onRemove = {})

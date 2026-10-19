@@ -172,6 +172,7 @@ internal fun discoverPage(
     onInvite: (() -> Unit)? = {},
     onBrowseLibrary: (() -> Unit)? = {},
     selection: BookSelection? = null,
+    onOpenAllActivity: (() -> Unit)? = {},
 ) {
     DiscoverPage(
         books = books,
@@ -199,5 +200,27 @@ internal fun discoverPage(
         onInvite = onInvite,
         onBrowseLibrary = onBrowseLibrary,
         selection = selection,
+        onOpenAllActivity = onOpenAllActivity,
     )
 }
+
+/** A [BookSelection] for a spec: idle unless [isSelecting], picking [selected]. */
+internal fun selection(
+    isSelecting: Boolean,
+    selected: Set<String> = emptySet(),
+    onStart: () -> Unit = {},
+    onToggle: (String) -> Unit = {},
+    onShelveOne: (String) -> Unit = {},
+) = BookSelection(
+    isSelecting = isSelecting,
+    selectedIds = selected,
+    onToggle = onToggle,
+    onStart = onStart,
+    onShelveOne = onShelveOne,
+)
+
+/** [count] picks, "p0".."p(count-1)", standalone. */
+internal fun picks(count: Int) = DiscoverBooksUiState.Ready((0 until count).map { pickBook("p$it", null, null) })
+
+/** A Ready recently-added state of [count] books, "r0".."r(count-1)". */
+internal fun recent(count: Int) = RecentlyAddedUiState.Ready((0 until count).map { recentBook("r$it") })

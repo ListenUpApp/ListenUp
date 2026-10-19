@@ -179,7 +179,7 @@ struct DiscoverView: View {
             )
                 .padding(.horizontal, communityInset)
         case .activity:
-            ActivitySectionView(observer: activity)
+            ActivitySectionView(observer: activity, selection: selection)
                 .padding(.horizontal, communityInset)
         case .shelvesByOthers:
             ShelvesByOthersSection(

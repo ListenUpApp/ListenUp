@@ -23,7 +23,8 @@ import org.jetbrains.compose.web.dom.Text
 /**
  * Settings — the preferences a browser can actually keep.
  *
- * Eight controls, not twelve. Dynamic colours are Android's wallpaper palette, Wi-Fi-only downloads
+ * Seven controls, not twelve. Ignore “A”, “An”, “The” lives in the Library's own Sort menu, beside
+ * the sort it changes (spec L5/L6), rather than here. Dynamic colours are Android's wallpaper palette, Wi-Fi-only downloads
  * need machinery web does not have, haptics need hardware, and the sleep-timer default is a stored
  * preference that no client reads yet — web has the sleep timer itself (see
  * [com.calypsan.listenup.web.features.nowplaying.SleepTimerPicker]), but nothing anywhere starts
@@ -47,7 +48,6 @@ fun SettingsPage(
     onSkipForward: (Int) -> Unit,
     onSkipBackward: (Int) -> Unit,
     onAutoRewind: (Boolean) -> Unit,
-    onIgnoreTitleArticles: (Boolean) -> Unit,
     onHideSingleBookSeries: (Boolean) -> Unit,
     onOpenDevices: () -> Unit,
     onOpenNotifications: () -> Unit,
@@ -120,11 +120,6 @@ fun SettingsPage(
                 null
             }
         Section("Library", "Kept on this browser.", lead = categories) {
-            CheckboxField(
-                label = "Sort titles ignoring “A”, “An” and “The”",
-                checked = state.ignoreTitleArticles,
-                onChange = onIgnoreTitleArticles,
-            )
             CheckboxField(
                 label = "Hide series that contain only one book",
                 checked = state.hideSingleBookSeries,

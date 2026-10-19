@@ -74,7 +74,7 @@
    missing. `inset:auto; margin:0` undo the UA popover sheet, which centres a popover in the window.
    `max-content` lets it size to its items while min-width keeps a small menu from looking mean, and
    the max-width keeps even the widest menu inside a 320px screen. */
-.menu { position:fixed; inset:auto; margin:0; z-index:30; width:max-content; min-width:min(216px, calc(100vw - 16px)); max-width:calc(100vw - 16px); overflow-y:auto; padding:6px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--shadow-pop); }
+.menu { position:fixed; inset:auto; margin:0; z-index:45; width:max-content; min-width:min(216px, calc(100vw - 16px)); max-width:calc(100vw - 16px); overflow-y:auto; padding:6px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--shadow-pop); }
 /* Every menu item is a real <button role="menuitem">, so the reset a button needs lives on the base
    rule. It used to sit in a later sheet as `.luw .menu-i { background: transparent }`, whose extra
    class outranked `.menu-i:hover` and `.menu-i.hi` below — so no menu item ever showed a hover. */
@@ -83,6 +83,20 @@
 @media (hover: hover) { .menu-i:hover { background:var(--surface-2); } }
 .menu-i.hi { background:var(--surface-2); }
 .menu-i .k { margin-left:auto; font-family:var(--mono); font-size:var(--fs-caption); color:var(--ink-3); }
+/* A grouped menu (the Library's Sort dropdown, board `Library-WebDesktop-Sort`): each group under a
+   small caps heading, its choices in body weight with the one in force tinted; Direction as a
+   two-up segmented pair under a rule; a checkbox item drawing its own box. */
+.menu [role=group] { display:flex; flex-direction:column; gap:2px; }
+.menu-h { font-size:var(--fs-caption); font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-2); padding:6px 9px 4px; }
+.menu [role=group] .menu-i { font-weight:400; }
+.menu [role=group] .menu-i[aria-checked=true] { background:var(--coral-soft); font-weight:600; }
+.menu [role=group][aria-label="Direction"] { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px; padding-top:6px; border-top:1px solid var(--line); }
+.menu [role=group][aria-label="Direction"] .menu-h { display:none; }
+.menu [role=group][aria-label="Direction"] .menu-i { justify-content:center; height:32px; border:1px solid var(--line); }
+.menu [role=group][aria-label="Direction"] .menu-i[aria-checked=true] { background:var(--coral-fill); color:var(--on-coral); border-color:transparent; }
+.menu-i[role=menuitemcheckbox] { font-weight:400; }
+.menu-i[role=menuitemcheckbox]::before { content:""; flex:none; width:14px; height:14px; border:1.5px solid var(--ink-2); border-radius:4px; }
+.menu-i[role=menuitemcheckbox][aria-checked=true]::before { background:var(--coral-fill); border-color:var(--coral-fill); box-shadow:inset 0 0 0 2px var(--surface); }
 
 /* ---- dialog ---- */
 .dlg { width:472px; max-width:88%; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-xl); box-shadow:var(--shadow-modal); overflow:hidden; }
@@ -416,13 +430,32 @@ dialog.dlg .dlg-close { align-self: flex-start; }
    Sticky rather than fixed so it stays in flow and cannot cover the transport bar, which is
    itself a flex sticky-footer rather than a fixed element. A modal `<dialog>` sits in the top
    layer, above it. */
-.bulk { position:sticky; bottom:16px; z-index:35; width:max-content; max-width:calc(100% - 32px); margin:var(--sp-16) auto 0; display:flex; align-items:center; gap:10px; height:54px; padding:0 10px 0 18px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:var(--shadow-float); white-space:nowrap; }
+.bulk { position:sticky; bottom:16px; z-index:35; width:max-content; max-width:calc(100% - 32px); margin:var(--sp-16) auto 0; display:flex; align-items:center; gap:10px; height:54px; padding:0 18px 0 10px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:var(--shadow-float); white-space:nowrap; }
 [data-theme="dark"] .bulk { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
 .bulk-b { height:36px; padding:0 13px; border-radius:var(--r-sm); border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.09); color:inherit; font-family:inherit; font-size:var(--fs-small); font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
 [data-theme="dark"] .bulk-b { border-color:var(--line); background:var(--surface-2); }
 @media (hover: hover) { .bulk-b:hover { background:rgba(255,255,255,.18); } }
 @media (hover: hover) { [data-theme="dark"] .bulk-b:hover { background:var(--surface); } }
-.bulk-x { width:36px; height:36px; border-radius:var(--r-sm); border:none; background:transparent; color:inherit; opacity:.65; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.bulk-n { font-weight:700; }
+.bulk-bl { white-space:nowrap; }
+.bulk-gap { flex:1; }
+/* < 760: the dark toolbar docks at the top of the viewport as a header (spec §3.5), and scrolls
+   sideways rather than spilling past the screen's edge when its labels outgrow a phone. */
+@media (max-width: 759px) {
+  :root { --bulk-top:calc(env(safe-area-inset-top) + 8px); }
+  .bulk { position:fixed; top:var(--bulk-top); bottom:auto; left:16px; right:16px; width:auto; max-width:none; margin:0; overflow-x:auto; gap:6px; padding:0 8px 0 6px; }
+  /* Every action fits 320px: an action with an icon shows the icon alone (its label is its name). */
+  .bulk-b:has(svg) { width:44px; height:44px; padding:0; justify-content:center; flex:none; }
+  .bulk-b:has(svg) .bulk-bl { display:none; }
+  /* While the bar is up, the page reserves its height at the top, so nothing at scroll top (a
+     header's Select, a page title) sits under it, and focus scrolls clear of it. Repeated with
+     the docked-player selector, whose padding rule has that specificity. */
+  .shell-main:has(.bulk), .shell-main:has(> .tport):has(.bulk) {
+    padding-top:calc(var(--bulk-top) + 54px + 14px);
+    scroll-padding-top:calc(var(--bulk-top) + 54px + 8px);
+  }
+}
+.bulk-x { width:44px; height:44px; border-radius:var(--r-sm); border:none; background:transparent; color:inherit; opacity:.65; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .bulk-x:hover { opacity:1; background:rgba(255,255,255,.12); } }
 @media (hover: hover) { [data-theme="dark"] .bulk-x:hover { background:var(--surface-2); } }
 

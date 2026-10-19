@@ -6,16 +6,27 @@ import SwiftUI
 /// - Vertical stack of letters for quick scrolling
 /// - Large letter popup when dragging
 /// - Haptic feedback on letter change
-/// - Fade in/out based on scroll state
+/// - Fade in/out based on scroll state — but always shown while VoiceOver is on, so VoiceOver never
+///   lands on an invisible control (spec §5.2)
+/// - Adjustable under VoiceOver: the value is "Jump to M", and it keeps the letter last jumped to
 struct SectionIndexBar: View {
     let letters: [String]
     let onLetterSelected: (String) -> Void
     let isVisible: Bool
 
+    /// The letter last jumped to: the adjustable value, kept after a scrub ends.
     @State private var selectedLetter: String?
+    /// The letter under the finger during a scrub, for the popup and the highlight; cleared after.
+    @State private var popupLetter: String?
     @State private var isDragging = false
     @State private var endDragTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+
+    /// The adjustable value: the last jump while it is still one of the letters, else the first.
+    private var currentLetter: String? {
+        selectedLetter.flatMap { letters.contains($0) ? $0 : nil } ?? letters.first
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -24,7 +35,7 @@ struct SectionIndexBar: View {
 
             HStack(spacing: 8) {
                 // Large letter popup when dragging
-                if isDragging, let letter = selectedLetter {
+                if isDragging, let letter = popupLetter {
                     Text(letter)
                         // The popup letter fills its fixed 56pt square.
                         .font(.system(size: 44, weight: .bold, design: .rounded)) // decorative fixed size
@@ -41,7 +52,7 @@ struct SectionIndexBar: View {
                         Text(letter)
                             // Each letter fits a row height divided from the bar's own height.
                             .font(.system(size: 10, weight: .semibold)) // decorative fixed size
-                            .foregroundStyle(letter == selectedLetter ? Color.listenUpOrange : .primary)
+                            .foregroundStyle(letter == popupLetter ? Color.listenUpOrange : .primary)
                             .frame(height: letterHeight)
                             .frame(maxWidth: .infinity)
                     }
@@ -64,10 +75,12 @@ struct SectionIndexBar: View {
                 )
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(String(localized: "library.section_index"))
-                .accessibilityValue(selectedLetter ?? letters.first ?? "")
+                .accessibilityValue(
+                    currentLetter.map { String(format: String(localized: "library.index_jump"), $0) } ?? ""
+                )
                 .accessibilityAdjustableAction { direction in
                     guard !letters.isEmpty else { return }
-                    let current = selectedLetter.flatMap { letters.firstIndex(of: $0) } ?? 0
+                    let current = currentLetter.flatMap { letters.firstIndex(of: $0) } ?? 0
                     let next: Int
                     switch direction {
                     case .increment: next = min(current + 1, letters.count - 1)
@@ -82,7 +95,7 @@ struct SectionIndexBar: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             .padding(.trailing, Spacing.xxs)
         }
-        .opacity(isVisible || isDragging ? 1 : 0)
+        .opacity(isVisible || isDragging || voiceOver ? 1 : 0)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isVisible)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.1), value: isDragging)
         .haptic(.selectionTick, trigger: selectedLetter)
@@ -99,7 +112,8 @@ struct SectionIndexBar: View {
         let clampedIndex = max(0, min(index, letters.count - 1))
         let letter = letters[clampedIndex]
 
-        if letter != selectedLetter {
+        if letter != popupLetter {
+            popupLetter = letter
             selectedLetter = letter
             onLetterSelected(letter)
         }
@@ -110,7 +124,8 @@ struct SectionIndexBar: View {
         endDragTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
-            selectedLetter = nil
+            // Only the popup goes: the adjustable value keeps the letter the reader jumped to.
+            popupLetter = nil
             try? await Task.sleep(for: .milliseconds(200))   // 0.3s + 0.2s = the original 0.5s point
             guard !Task.isCancelled else { return }
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {

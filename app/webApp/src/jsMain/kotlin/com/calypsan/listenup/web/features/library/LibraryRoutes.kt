@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
+import com.calypsan.listenup.web.design.booksSelectedLabel
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.admin.InboxBadgeState
@@ -20,6 +21,7 @@ import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.OpenMultiSelect
 import com.calypsan.listenup.web.features.books.PickerTarget
 import com.calypsan.listenup.web.features.books.SelectionPicker
+import com.calypsan.listenup.web.features.books.LocalSelectionHandOff
 import com.calypsan.listenup.web.features.books.bookCountLabel
 import com.calypsan.listenup.web.features.books.isActive
 import com.calypsan.listenup.web.features.books.selectedIds
@@ -167,17 +169,36 @@ internal fun BookSelectionScaffold(
     content: @Composable (BookSelection) -> Unit,
 ) {
     val session = rememberSession { openMultiSelect() }
+    val handOff = LocalSelectionHandOff.current
+    // Back from the bulk editor: this page's new session picks up where the last one left off.
+    LaunchedEffect(session) {
+        handOff.takeFor(router.current)?.let { ids ->
+            session.onEnter()
+            ids.forEach(session.onToggle)
+        }
+    }
 
     val mode = session.selectionMode.collectAsState().value
     val selected = mode.selectedIds()
     val isAdmin = session.adminAccess.collectAsState().value
     var picking by remember { mutableStateOf<SelectionDestination?>(null) }
+    // A row menu's "Add {book} to a shelf" selects that one book and opens the picker; when the picker
+    // closes, by dismissal or success, the selection it made ends with it (plan C5, iOS's rule).
+    var shelvingOne by remember { mutableStateOf(false) }
+
+    fun closePicker() {
+        picking = null
+        if (shelvingOne) {
+            shelvingOne = false
+            session.onExit()
+        }
+    }
 
     LaunchedEffect(session) {
         session.events.collect { event ->
             // The picker closes on success, never on failure: a failed add keeps the selection so
             // the reader can try a different destination rather than rebuild it.
-            picking = null
+            closePicker()
             onToast(confirmationFor(event))
         }
     }
@@ -188,12 +209,19 @@ internal fun BookSelectionScaffold(
             selectedIds = selected,
             onToggle = session.onToggle,
             onStart = session.onEnter,
+            onShelveOne = { bookId ->
+                session.onEnter()
+                session.onToggle(bookId)
+                shelvingOne = true
+                picking = SelectionDestination.Shelf
+            },
         ),
     )
 
     if (mode.isActive()) {
         BulkBar(
             count = selected.size,
+            label = booksSelectedLabel(selected.size),
             actions = bulkActions(selected.isNotEmpty(), isAdmin) { picking = it },
             onClear = session.onExit,
         )
@@ -209,6 +237,8 @@ internal fun BookSelectionScaffold(
         SelectionDestination.Edit -> {
             LaunchedEffect(selected) {
                 picking = null
+                // Held so backing out of the editor returns to these picks, as on Android.
+                handOff.hold(router.current, selected)
                 router.navigate(
                     Routes.bulkEdit(selected),
                 )
@@ -229,7 +259,7 @@ internal fun BookSelectionScaffold(
                 isBusy = session.addingToShelf.collectAsState().value,
                 onPick = session.onAddToShelf,
                 onCreate = session.onCreateShelfAndAdd,
-                onDismiss = { picking = null },
+                onDismiss = ::closePicker,
             )
         }
 
@@ -291,25 +321,41 @@ private fun bulkActions(
     }
 }
 
-/** What a completed bulk action says. The number is the point — it is what the reader cannot see. */
-private fun confirmationFor(event: BookMultiSelectEvent): String =
+/**
+ * What a completed bulk action says: the `selection.added_to_*` and `selection.created_with_books_*`
+ * words, the same sentence Android and iOS show. The number is what the shelf or collection gained.
+ */
+internal fun confirmationFor(event: BookMultiSelectEvent): String =
     when (event) {
         is BookMultiSelectEvent.BooksAddedToShelf -> {
-            "Added ${bookCountLabel(event.count)} to the shelf."
+            when (event.count) {
+                0 -> "Already on that shelf"
+                1 -> "1 book added to shelf"
+                else -> "${event.count} books added to shelf"
+            }
         }
 
         is BookMultiSelectEvent.BooksAddedToCollection -> {
-            "Added ${bookCountLabel(event.count)} to the collection."
+            when (event.count) {
+                0 -> "Already in that collection"
+                1 -> "1 book added to collection"
+                else -> "${event.count} books added to collection"
+            }
         }
 
         is BookMultiSelectEvent.ShelfCreatedAndBooksAdded -> {
-            "Created ${event.shelfName} with ${bookCountLabel(event.bookCount)}."
+            createdWithBooks(event.shelfName, event.bookCount)
         }
 
         is BookMultiSelectEvent.CollectionCreatedAndBooksAdded -> {
-            "Created ${event.collectionName} with ${bookCountLabel(event.bookCount)}."
+            createdWithBooks(event.collectionName, event.bookCount)
         }
     }
+
+private fun createdWithBooks(
+    name: String,
+    count: Int,
+): String = if (count == 1) "Created \"$name\" with 1 book" else "Created \"$name\" with $count books"
 
 /** Where selecting [facet] in the shared facet row navigates to. */
 internal fun routeFor(facet: LibraryFacet): Route =

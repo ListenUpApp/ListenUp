@@ -415,9 +415,7 @@ struct BulkEditConsequenceTests {
             BulkEditFormatting.heroMore(bookCount: 40, shown: 4)
                 == String(format: String(localized: "bulk_edit.hero_more"), 36)
         )
-        #expect(
-            BulkEditFormatting.heroEyebrow(selectedCount: 40)
-                == String(format: String(localized: "bulk_edit.hero_eyebrow"), 40)
-        )
+        // No source word: a selection from Home or Discover is not "Library".
+        #expect(BulkEditFormatting.heroEyebrow(selectedCount: 40) == "40 selected")
     }
 }

@@ -50,4 +50,8 @@ data class DiscoverActions(
     val onRetryActivity: () -> Unit,
     val onRetryShelves: () -> Unit,
     val onBrowseLibrary: (() -> Unit)?,
+    /** Shelve one activity row's book (its menu's "Add {book} to a shelf"); null hides the action. */
+    val onAddToShelf: ((String) -> Unit)? = null,
+    /** Open See all activity (X33); null (desktop) hides the link. */
+    val onOpenAllActivity: (() -> Unit)? = null,
 )

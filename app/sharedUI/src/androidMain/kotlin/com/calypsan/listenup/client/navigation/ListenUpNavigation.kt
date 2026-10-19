@@ -112,6 +112,7 @@ import com.calypsan.listenup.client.navigation.entries.profileEntries
 import com.calypsan.listenup.client.navigation.entries.seriesEntries
 import com.calypsan.listenup.client.navigation.entries.settingsEntries
 import com.calypsan.listenup.client.navigation.entries.shelfEntries
+import com.calypsan.listenup.client.navigation.entries.discoverEntries
 import com.calypsan.listenup.client.navigation.entries.shellEntry
 
 private val logger = KotlinLogging.logger {}
@@ -1118,6 +1119,7 @@ internal fun EntryProviderScope<NavKey>.destinationEntries(
         onProfileRefreshed = onProfileRefreshed,
     )
     shelfEntries(backStack)
+    discoverEntries(backStack)
     notificationEntries(backStack = backStack, onAction = onNotificationAction)
     settingsEntries(
         backStack = backStack,

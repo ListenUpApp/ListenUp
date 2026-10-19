@@ -103,6 +103,10 @@ private data class SortedContent(
     val narrators: List<ContributorWithBookCount>,
     val statusCounts: BookStatusCounts,
     val totalDurationMs: Long,
+    val bookLetters: List<LetterSection>,
+    val seriesLetters: List<LetterSection>,
+    val authorLetters: List<LetterSection>,
+    val narratorLetters: List<LetterSection>,
 )
 
 /**
@@ -275,21 +279,43 @@ class LibraryViewModel(
                     listenerAverages = content.listenerAverages,
                     combinedScores = scores,
                 )
+            val filteredBooks =
+                if (intentValue.statusFilter == BookStatusFilter.ALL) {
+                    sortedBooks
+                } else {
+                    sortedBooks.filter { book ->
+                        intentValue.statusFilter.admits(states[book.id] ?: ReadingState.NOT_STARTED)
+                    }
+                }
+            val sortedSeries = sortSeries(visibleSeries, intentValue.seriesSortState, intentValue.ignoreTitleArticles)
+            val sortedAuthors = sortContributors(content.authors, intentValue.authorsSortState)
+            val sortedNarrators = sortContributors(content.narrators, intentValue.narratorsSortState)
             SortedContent(
                 intent = intentValue,
-                books =
-                    if (intentValue.statusFilter == BookStatusFilter.ALL) {
-                        sortedBooks
-                    } else {
-                        sortedBooks.filter { book ->
-                            intentValue.statusFilter.admits(states[book.id] ?: ReadingState.NOT_STARTED)
-                        }
-                    },
-                series = sortSeries(visibleSeries, intentValue.seriesSortState, intentValue.ignoreTitleArticles),
-                authors = sortContributors(content.authors, intentValue.authorsSortState),
-                narrators = sortContributors(content.narrators, intentValue.narratorsSortState),
+                books = filteredBooks,
+                series = sortedSeries,
+                authors = sortedAuthors,
+                narrators = sortedNarrators,
                 statusCounts = countsOf(states.values),
                 totalDurationMs = content.books.sumOf { it.duration },
+                // Letters are derived here, once per sorted snapshot, so they move with the revision
+                // and never on a position tick.
+                bookLetters =
+                    bookLetterOf(intentValue.booksSortState.category, intentValue.ignoreTitleArticles)
+                        ?.let { letterOf -> letterSections(filteredBooks, letterOf) }
+                        .orEmpty(),
+                seriesLetters =
+                    seriesLetterOf(intentValue.seriesSortState.category, intentValue.ignoreTitleArticles)
+                        ?.let { letterOf -> letterSections(sortedSeries) { letterOf(it.series.name) } }
+                        .orEmpty(),
+                authorLetters =
+                    contributorLetterOf(intentValue.authorsSortState.category)
+                        ?.let { letterOf -> letterSections(sortedAuthors) { letterOf(it.contributor.name) } }
+                        .orEmpty(),
+                narratorLetters =
+                    contributorLetterOf(intentValue.narratorsSortState.category)
+                        ?.let { letterOf -> letterSections(sortedNarrators) { letterOf(it.contributor.name) } }
+                        .orEmpty(),
             )
         }.distinctUntilChanged()
 
@@ -569,6 +595,10 @@ class LibraryViewModel(
             statusCounts = sorted.statusCounts,
             bookStatus = progress.cardStatus,
             totalDurationMs = sorted.totalDurationMs,
+            bookLetters = sorted.bookLetters,
+            seriesLetters = sorted.seriesLetters,
+            authorLetters = sorted.authorLetters,
+            narratorLetters = sorted.narratorLetters,
         )
     }
 

@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
+import com.calypsan.listenup.client.features.library.components.plusSelectionToolbar
 import com.calypsan.listenup.client.features.shell.LocalShellLandings
 import com.calypsan.listenup.client.features.shell.ShellLanding
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
@@ -186,12 +187,17 @@ private fun HomeReady(
                 actions = actions,
                 selection = selection,
                 appHeader = appHeader,
-                contentPadding = contentPadding,
+                // While selecting, the end of Home scrolls clear of the floating selection toolbar.
+                contentPadding = contentPadding.plusSelectionToolbar(selection.isActive),
                 onRetryStats = onRetryStats,
             )
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected)
+        BookSelectionScaffold(
+            multiSelect = multiSelect,
+            onEditSelected = onEditSelected,
+            contentPadding = contentPadding,
+        )
     }
 }

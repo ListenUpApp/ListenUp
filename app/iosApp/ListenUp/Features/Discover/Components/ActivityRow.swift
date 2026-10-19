@@ -5,11 +5,28 @@ import SwiftUI
 /// to the row's subject: its book, its shelf, or for a row about neither, the actor (spec X27–X32).
 /// A book row shows the book's cover trailing — or, at accessibility text sizes, under the sentence, so
 /// the sentence keeps the row's width (spec §2.8 item 4).
+///
+/// Its further actions (`ActivityRowActions`) open from a touch-and-hold context menu with the row as
+/// its preview, and are VoiceOver custom actions, so none needs a touch-and-hold (HIG, Context menus).
+/// "Add to Shelf" shelves that one book through the screen's `selection`.
 struct ActivityRow: View {
     let item: ActivityRowItem
     var now = Date()
+    /// The screen's selection, for Add to Shelf; nil leaves that action out.
+    var selection: BookSelectionObserver?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.openActivitySubject) private var openSubject
+
+    private var actions: [ActivityRowActions.Action] {
+        ActivityRowActions.actions(
+            for: item,
+            canShelve: ActivityRowActions.canShelve(
+                hasSelection: selection != nil,
+                isSelecting: selection?.isSelecting == true
+            )
+        )
+    }
 
     /// Pure: the cover moves under the sentence once text reaches the accessibility sizes.
     static func placesCoverBelow(at size: DynamicTypeSize) -> Bool { size.isAccessibilitySize }
@@ -46,8 +63,21 @@ struct ActivityRow: View {
             .accessibilityAddTraits(.isLink)
 
             detail
+                .modifier(RowActionsMenu(actions: actions, item: item, perform: perform) {
+                    // HIG: the preview shows what the menu acts on — the row itself.
+                    detailContent.padding(Spacing.m).frame(width: 320)
+                })
         }
         .padding(.vertical, Spacing.xxs)
+    }
+
+    private func perform(_ action: ActivityRowActions.Action) {
+        switch action {
+        case .openBook(let id): openSubject(.book(id))
+        case .openShelf(let id): openSubject(.shelf(id))
+        case .viewPerson(let userId): openSubject(.profile(userId))
+        case .addToShelf(let id): selection?.addOneBookToShelf(id)
+        }
     }
 
     /// The sentence → the row's subject. `NavigationLink(value:)` needs one concrete type per branch.
@@ -116,4 +146,37 @@ struct ActivityRow: View {
     }
 
     private var accessibilityText: String { "\(sentence), \(timeLabel)" }
+}
+
+/// The row's actions as a touch-and-hold context menu over a preview of the row, and as named
+/// VoiceOver actions, so the Actions rotor and Full Keyboard Access reach each one without a
+/// touch-and-hold. A row with no actions gets neither: an empty menu is worse than none.
+private struct RowActionsMenu<Preview: View>: ViewModifier {
+    let actions: [ActivityRowActions.Action]
+    let item: ActivityRowItem
+    let perform: (ActivityRowActions.Action) -> Void
+    @ViewBuilder let preview: () -> Preview
+
+    func body(content: Content) -> some View {
+        if actions.isEmpty {
+            content
+        } else {
+            content
+                .contextMenu {
+                    ForEach(actions, id: \.self) { action in
+                        Button(
+                            ActivityRowActions.title(action, item: item),
+                            systemImage: ActivityRowActions.systemImage(action)
+                        ) { perform(action) }
+                    }
+                } preview: {
+                    preview()
+                }
+                .accessibilityActions {
+                    ForEach(actions, id: \.self) { action in
+                        Button(ActivityRowActions.title(action, item: item)) { perform(action) }
+                    }
+                }
+        }
+    }
 }
