@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToIndexAction
@@ -172,6 +173,26 @@ class BookDetailSectionOrderTest {
         composeRule.onNodeWithContentDescription("Maya is listening").performClick()
         composeRule.waitForIdle()
         composeRule.onNode(isHeading() and hasText("Readers")).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the social line moves focus to the Readers heading on a phone`() {
+        setScreen(ready(ReadingStage.InProgress, inProgressOrder), readers = listOf(other("Maya", 40)))
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription("Maya is listening"))
+        composeRule.onNodeWithContentDescription("Maya is listening").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(isHeading() and hasText("Readers", substring = true)).assertIsFocused()
+    }
+
+    // On a tablet the card is often on screen already: the tap still has somewhere to go, the heading.
+    @Test
+    @Config(qualifiers = TALL_TABLET)
+    fun `the social line moves focus to the Readers heading on a tablet, even with the card already in view`() {
+        setScreen(ready(ReadingStage.InProgress, inProgressOrder), readers = listOf(other("Maya", 40)))
+        composeRule.onNode(isHeading() and hasText("Readers", substring = true)).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Maya is listening").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(isHeading() and hasText("Readers", substring = true)).assertIsFocused()
     }
 
     @Test

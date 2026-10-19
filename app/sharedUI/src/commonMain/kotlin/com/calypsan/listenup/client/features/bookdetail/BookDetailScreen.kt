@@ -841,7 +841,8 @@ private fun ImmersiveBookDetail(
     // Home's finishers line lands here (spec §6.4), once per entry: a return to this screen (or a rotation) keeps
     // wherever the reader scrolled to. The index is read off the same list the column draws.
     var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
-    var focusedReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    // Focus goes to the Readers heading on a landing, and on every social-line tap: TalkBack follows the jump.
+    var focusReadersHeading by rememberSaveable(bookId) { mutableStateOf(landOnReaders) }
     // Once the readers have arrived: until then the section has no height, and the social line above it is not yet
     // in the list, so the index would move after the scroll.
     LaunchedEffect(landOnReaders, readersIndex, readers.hasArrived) {
@@ -951,6 +952,7 @@ private fun ImmersiveBookDetail(
                                         readersIndex?.let { index ->
                                             scope.launch { listState.animateScrollToItem(index) }
                                         }
+                                        focusReadersHeading = true
                                     },
                                     modifier = screenPadding.padding(top = 12.dp),
                                 )
@@ -988,8 +990,8 @@ private fun ImmersiveBookDetail(
                                 modifier = screenPadding.padding(top = 16.dp),
                                 readersLanding =
                                     ReadersLanding(
-                                        focusHeading = landOnReaders && !focusedReaders,
-                                        onHeadingFocused = { focusedReaders = true },
+                                        focusHeading = focusReadersHeading,
+                                        onHeadingFocused = { focusReadersHeading = false },
                                     ),
                             )
                         }

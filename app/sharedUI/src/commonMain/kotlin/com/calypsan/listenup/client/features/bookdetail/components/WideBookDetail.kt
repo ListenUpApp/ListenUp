@@ -67,7 +67,8 @@ fun WideBookDetail(
     val readersRequester = remember { BringIntoViewRequester() }
     // Once per entry: a return to this screen (or a rotation) keeps wherever the reader scrolled to.
     var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
-    var focusedReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    // Focus goes to the Readers heading on a landing, and on every social-line tap: TalkBack follows the jump.
+    var focusReadersHeading by rememberSaveable(bookId) { mutableStateOf(landOnReaders) }
     // A held book is triage-only: no social line and no Readers, so its readers are never asked for.
     val readers = if (state.isHeld) PageReaders(hasArrived = false, summary = null) else rememberPageReaders(bookId)
     // Once the readers have arrived: until then the hero has no social line and the card no rows, so both grow after
@@ -137,7 +138,10 @@ fun WideBookDetail(
                 isPreparing = isPreparing,
                 onShowCast = { castRole = it },
                 summary = readers.summary,
-                onOpenReaders = { scope.launch { readersRequester.bringIntoView() } },
+                onOpenReaders = {
+                    scope.launch { readersRequester.bringIntoView() }
+                    focusReadersHeading = true
+                },
             )
 
             WideBodyColumns(
@@ -151,8 +155,8 @@ fun WideBookDetail(
                 readersModifier = Modifier.bringIntoViewRequester(readersRequester),
                 readersLanding =
                     ReadersLanding(
-                        focusHeading = landOnReaders && !focusedReaders,
-                        onHeadingFocused = { focusedReaders = true },
+                        focusHeading = focusReadersHeading,
+                        onHeadingFocused = { focusReadersHeading = false },
                     ),
                 modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
             )
