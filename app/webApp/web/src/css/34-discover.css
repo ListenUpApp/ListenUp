@@ -131,7 +131,7 @@
 .luw .disc-feed-hi { font-weight: 700; color: var(--coral-text); }
 @media (hover: hover) { .luw a.disc-feed-link:hover .disc-feed-hi { text-decoration: underline; } }
 .luw a.disc-feed-link:active { opacity: 0.75; }
-.luw .disc-feed-cover { flex: none; width: 36px; height: 36px; border-radius: 8px; object-fit: cover; background: var(--surface-2); }
+.luw .disc-feed-cover { flex: none; }
 .luw .disc-see-all { align-self: center; display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.75rem; color: var(--coral-text); font-weight: 650; text-decoration: none; border-radius: var(--r-xs); }
 .luw .disc-see-all:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
 @media (hover: hover) { .luw .disc-see-all:hover { text-decoration: underline; } }

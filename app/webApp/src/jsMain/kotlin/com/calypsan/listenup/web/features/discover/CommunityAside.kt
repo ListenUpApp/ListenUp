@@ -33,10 +33,11 @@ import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.client.util.relativeLastActiveInSentence
+import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.B
-import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -353,12 +354,21 @@ internal fun ActivityRow(
                 }
                 Span(attrs = { classes("disc-when") }) { Text(relativeLastActive(item.occurredAt, nowMs)) }
             }
+            // The shared Cover: the same image every web cover loads, and a generated tile rather than a
+            // broken image when a book has no artwork (or the request fails).
             bookId?.let {
-                Img(src = coverUrl(it, item.bookCoverHash, width = FEED_COVER), alt = "", attrs = {
-                    classes("disc-feed-cover")
-                    attr("aria-hidden", "true")
-                    attr("loading", "lazy")
-                })
+                Cover(
+                    title = item.bookTitle.orEmpty(),
+                    imageUrl = coverUrl(it, item.bookCoverHash, width = FEED_COVER),
+                    size = FEED_COVER,
+                    radius = FEED_COVER_RADIUS,
+                    decorative = true,
+                    attrs = {
+                        classes("disc-feed-cover")
+                        attr("aria-hidden", "true")
+                    },
+                    overlay = { RestrictedMarker(it) },
+                )
             }
         }
         // The third sibling, never inside either link: a button nested in a link is invalid.
@@ -390,6 +400,9 @@ private const val FEED_AVATAR = 32
 
 /** An activity row's cover, in px. */
 private const val FEED_COVER = 36
+
+/** An activity row's cover corner, in px. */
+private const val FEED_COVER_RADIUS = 8
 
 /** Leaders shown on a phone before "Show all". */
 private const val PHONE_LEADERS = 5

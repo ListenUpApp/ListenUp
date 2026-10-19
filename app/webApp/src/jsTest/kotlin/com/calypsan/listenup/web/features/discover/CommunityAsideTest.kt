@@ -146,4 +146,11 @@ class CommunityAsideTest :
             val host = mounts.mount { discoverPage(activity = feed(*rows)) }
             (host.querySelector("a.disc-see-all") as HTMLElement).className shouldContain "disc-phone-only"
         }
+
+        test("a book row's thumbnail is the shared Cover, so a missing cover falls back to a tile, never a broken image") {
+            val host = mounts.mount { discoverPage(activity = feed(act("a1", "finished_book"))) }
+            val thumb = host.querySelector(".disc-feed-row .disc-feed-cover") as HTMLElement
+            thumb.classList.contains("cover") shouldBe true
+            thumb.getAttribute("aria-hidden") shouldBe "true"
+        }
     })
