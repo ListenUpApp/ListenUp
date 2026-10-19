@@ -268,7 +268,7 @@ internal const val DISCOVER_KEY = "discover"
 private const val SHELF_KEY = "shelf"
 
 /** `/shelves` — the reader's own shelves. */
-private const val SHELVES_KEY = "shelves"
+internal const val SHELVES_KEY = "shelves"
 
 internal const val NEW_KEY = "new"
 
@@ -353,6 +353,9 @@ internal const val SERIES_KEY = "series"
  * navigated out of the app.
  */
 internal val LIBRARY_DEEP_LINKS = setOf(BOOK_KEY, CONTRIBUTOR_KEY, SERIES_KEY)
+
+/** The routes reached FROM Home that still belong to it: `/shelves`, its My shelves See all. Each keeps Home lit. */
+internal val HOME_DEEP_LINKS = setOf(SHELVES_KEY)
 
 internal const val ROLE_QUERY_KEY = "role"
 

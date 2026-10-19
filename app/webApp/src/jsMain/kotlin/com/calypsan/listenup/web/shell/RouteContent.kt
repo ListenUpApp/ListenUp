@@ -174,9 +174,8 @@ internal fun RouteContent(
         )
     } else if (page == SEARCH_KEY) {
         SearchRouteContent(router = router, route = route, openSearch = graph.openSearch, openSeeAll = graph.openSeeAll)
-    } else if (active == HOME_KEY) {
-        HomeRoute(router, graph.openHome, feeds, playback)
     } else if (shelfRoute != null) {
+        // ⛔ Before Home: `/shelves` keeps Home lit, so it is also an `active == HOME_KEY`.
         ShelfRouteContent(
             shelfRoute = shelfRoute,
             router = router,
@@ -185,6 +184,8 @@ internal fun RouteContent(
             openMyShelves = graph.openMyShelves,
             onHeroBookIdChange = onHeroBookIdChange,
         )
+    } else if (active == HOME_KEY) {
+        HomeRoute(router, graph.openHome, feeds, playback)
     } else if (isAccountRoute(route.segments, active)) {
         AccountRouteContent(
             route = route,

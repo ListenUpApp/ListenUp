@@ -42,38 +42,41 @@ internal fun MyShelvesPage(
     onCreateShelf: () -> Unit,
     onRetry: () -> Unit,
 ) {
-    PageHeader(
-        title = MY_SHELVES,
-        actions = { Button(kind = ButtonKind.Secondary, onClick = onCreateShelf) { Text(NEW_SHELF) } },
-    )
-    when (state) {
-        is MyShelvesUiState.Loading -> {
-            Div(attrs = {
-                classes("shelves-page")
-                attr("role", "status")
-            }) {
-                Span(attrs = { classes("sr-only") }) { Text(LOADING_SHELVES) }
-                repeat(SKELETON_SHELVES) {
-                    Div(attrs = {
-                        classes("skel", "home-shelf-skel")
-                        attr("aria-hidden", "true")
-                    })
+    // One column with the page's own gap, so the header and the grid never touch (the Readers page's shape).
+    Div(attrs = { classes("shelves-list") }) {
+        PageHeader(
+            title = MY_SHELVES,
+            actions = { Button(kind = ButtonKind.Secondary, onClick = onCreateShelf) { Text(NEW_SHELF) } },
+        )
+        when (state) {
+            is MyShelvesUiState.Loading -> {
+                Div(attrs = {
+                    classes("shelves-page")
+                    attr("role", "status")
+                }) {
+                    Span(attrs = { classes("sr-only") }) { Text(LOADING_SHELVES) }
+                    repeat(SKELETON_SHELVES) {
+                        Div(attrs = {
+                            classes("skel", "home-shelf-skel")
+                            attr("aria-hidden", "true")
+                        })
+                    }
                 }
             }
-        }
 
-        is MyShelvesUiState.Error -> {
-            EmptyState(title = COULDNT_LOAD_SHELVES) {
-                Button(kind = ButtonKind.Secondary, onClick = onRetry) { Text(TRY_AGAIN) }
+            is MyShelvesUiState.Error -> {
+                EmptyState(title = COULDNT_LOAD_SHELVES) {
+                    Button(kind = ButtonKind.Secondary, onClick = onRetry) { Text(TRY_AGAIN) }
+                }
             }
-        }
 
-        is MyShelvesUiState.Ready -> {
-            if (state.shelves.isEmpty()) {
-                EmptyState(title = SHELVES_INVITATION, look = EmptyLook.Inline)
-            } else {
-                Div(attrs = { classes("shelves-page") }) {
-                    state.shelves.forEach { shelf -> key(shelf.idString) { ShelfCard(shelf, onOpenShelf) } }
+            is MyShelvesUiState.Ready -> {
+                if (state.shelves.isEmpty()) {
+                    EmptyState(title = SHELVES_INVITATION, look = EmptyLook.Inline)
+                } else {
+                    Div(attrs = { classes("shelves-page") }) {
+                        state.shelves.forEach { shelf -> key(shelf.idString) { ShelfCard(shelf, onOpenShelf) } }
+                    }
                 }
             }
         }
