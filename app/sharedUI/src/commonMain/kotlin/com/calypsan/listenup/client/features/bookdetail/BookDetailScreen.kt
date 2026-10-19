@@ -890,7 +890,12 @@ private fun ImmersiveBookDetail(
 
                         // The Resume unit directly over the action group (spec §2.9): where you are, then what to do.
                         PhoneDetailItem.Listen -> {
-                            PhoneListenUnit(state, actions, isPreparing, screenPadding)
+                            PhoneListenUnit(
+                                state = state,
+                                actions = actions,
+                                isPreparing = isPreparing,
+                                screenPadding = screenPadding,
+                            )
                         }
 
                         // The last match, with See what changed and Undo — under the actions (A-04).

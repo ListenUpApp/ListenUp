@@ -51,7 +51,10 @@ class BookDetailReadersLandingTest :
         }
 
         test("every leading item has its own key, so the column's keys and its order are one list") {
-            PhoneDetailItem.entries.map { it.key }.toSet().size shouldBe PhoneDetailItem.entries.size
+            PhoneDetailItem.entries
+                .map { it.key }
+                .toSet()
+                .size shouldBe PhoneDetailItem.entries.size
             PhoneDetailItem.Readers.key shouldBe "readers"
         }
     })
