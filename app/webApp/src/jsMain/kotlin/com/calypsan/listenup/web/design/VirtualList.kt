@@ -108,15 +108,14 @@ internal fun <T> VirtualList(
     val selectors = rememberUpdatedState(itemSelector to headerSelector)
     SideEffect {
         jump?.handler = { letter ->
-            val list = tracker.listElement
-            val port = scrollport?.element
-            val row = rows.indexOfFirst { it is ListRow.Header && it.section == letter }
-            if (list != null && port != null && metrics.known && row >= 0) {
-                // Virtualised: the header may not exist yet, so its place is arithmetic, like every row's.
-                val listTop = list.getBoundingClientRect().top - port.getBoundingClientRect().top + port.scrollTop
-                port.scrollTop = listTop + offsets[row]
-            }
-            focusSectionStart(list, letter, selectors.value.first, scroll = row < 0 || port == null || !metrics.known)
+            jumpToSection(
+                letter = letter,
+                list = tracker.listElement,
+                port = scrollport?.element.takeIf { metrics.known },
+                row = rows.indexOfFirst { it is ListRow.Header && it.section == letter },
+                offsets = offsets,
+                itemSelector = selectors.value.first,
+            )
         }
     }
     val positions = remember(items, key) { items.withIndex().associate { (index, entry) -> key(entry) to index + 1 } }
@@ -218,6 +217,28 @@ private fun Header(
         // What a [VirtualJump] finds the section by.
         attr("data-section", section.toString())
     }) { header(section) }
+}
+
+/**
+ * Brings section [letter] to the top. With a measured scrollport ([port]) the list is virtualised and
+ * the header may not exist yet, so its place is arithmetic, like every row's ([offsets] at [row]);
+ * otherwise the whole list is rendered and the section's first item scrolls itself into view.
+ */
+@Suppress("LongParameterList")
+private fun jumpToSection(
+    letter: Char,
+    list: Element?,
+    port: HTMLElement?,
+    row: Int,
+    offsets: List<Double>,
+    itemSelector: String,
+) {
+    val virtualised = list != null && port != null && row >= 0
+    if (virtualised) {
+        val listTop = list.getBoundingClientRect().top - port.getBoundingClientRect().top + port.scrollTop
+        port.scrollTop = listTop + offsets[row]
+    }
+    focusSectionStart(list, letter, itemSelector, scroll = !virtualised)
 }
 
 /**

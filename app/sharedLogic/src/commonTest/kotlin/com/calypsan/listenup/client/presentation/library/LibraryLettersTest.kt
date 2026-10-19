@@ -27,7 +27,7 @@ class LibraryLettersTest :
             coverPath = null,
             addedAt = Timestamp(0L),
             updatedAt = Timestamp(0L),
-            series = series?.let { listOf(BookSeries(seriesId = "s-$it", seriesName = it, sequence = 1.0)) } ?: emptyList(),
+            series = series?.let { listOf(BookSeries(seriesId = "s-$it", seriesName = it, sequence = 1.0)) }.orEmpty(),
         )
 
         test("runs of one letter become sections with their first index and size") {

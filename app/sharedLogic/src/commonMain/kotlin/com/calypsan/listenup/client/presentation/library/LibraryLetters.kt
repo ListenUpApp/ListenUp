@@ -37,9 +37,19 @@ internal fun bookLetterOf(
 ): ((BookListItem) -> Char)? =
     when (category) {
         SortCategory.TITLE -> { book -> book.title.sortLetter(ignoreArticles) }
+
         SortCategory.AUTHOR -> { book -> book.authorNames.nameLetter() }
+
         SortCategory.SERIES -> { book -> book.seriesName.nameLetter() }
-        else -> null
+
+        SortCategory.NAME,
+        SortCategory.DURATION,
+        SortCategory.YEAR,
+        SortCategory.BOOK_COUNT,
+        SortCategory.ADDED,
+        SortCategory.RATING,
+        SortCategory.LISTENER_RATING,
+        -> null
     }
 
 /** Series by name are sorted article-aware, so they file the same way; other series sorts have no index. */
