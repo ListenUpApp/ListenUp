@@ -67,10 +67,9 @@
    under the title at phone widths rather than pushing past the page's edge. The margin is the
    space before the facet row, which these pages have no flex gap to supply. */
 .lib-header { margin-bottom: var(--sp-16); }
-.lib-sort { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.lib-sort-option { cursor: pointer; opacity: 0.6; }
-.lib-sort-option.is-active { opacity: 1; font-weight: 600; }
-.lib-sort-direction { cursor: pointer; user-select: none; }
+/* The Sort dropdown's trigger (board `Library-WebDesktop-Sort`): "Sort: Title, A–Z", its chevron
+   after the words. PopupMenu draws the glyph first, so the row reverses. */
+.lib-sort-trigger { flex-direction: row-reverse; }
 .lib-grid {
   /* Never fewer than two abreast (half the row, less half the gap, when that is under 150px): at
      phone widths a single column made every cover the full width of the screen. */

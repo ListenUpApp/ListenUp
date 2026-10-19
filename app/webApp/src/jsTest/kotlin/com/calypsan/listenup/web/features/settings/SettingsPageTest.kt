@@ -45,7 +45,6 @@ private fun page(
     onSkipForward: (Int) -> Unit = {},
     onSkipBackward: (Int) -> Unit = {},
     onAutoRewind: (Boolean) -> Unit = {},
-    onIgnoreTitleArticles: (Boolean) -> Unit = {},
     onHideSingleBookSeries: (Boolean) -> Unit = {},
     onOpenDevices: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
@@ -63,7 +62,6 @@ private fun page(
         onSkipForward = onSkipForward,
         onSkipBackward = onSkipBackward,
         onAutoRewind = onAutoRewind,
-        onIgnoreTitleArticles = onIgnoreTitleArticles,
         onHideSingleBookSeries = onHideSingleBookSeries,
         onOpenDevices = onOpenDevices,
         onOpenNotifications = onOpenNotifications,
@@ -131,6 +129,14 @@ class SettingsPageTest :
             text shouldNotContain "Wi-Fi"
             text shouldNotContain "Haptic"
             text shouldNotContain "Sleep"
+        }
+
+        test("Ignore articles lives in the Library's sort menu now, not in Settings") {
+            val host = mounts.mount { page() }
+
+            val text = host.textContent.orEmpty()
+            text shouldNotContain "ignoring “A”"
+            text shouldContain "Hide series that contain only one book"
         }
 
         test("each section says whether a setting travels or stays") {

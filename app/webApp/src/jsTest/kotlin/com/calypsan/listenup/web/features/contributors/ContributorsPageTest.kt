@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.LibraryFacet
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -18,6 +19,12 @@ import org.w3c.dom.asList
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
+
+/** Opens the page's Sort dropdown and waits for the menu to render. */
+private suspend fun openSort(root: HTMLElement) {
+    (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
+    awaitFrame()
+}
 
 private fun EventTarget.press(key: String) {
     dispatchEvent(
@@ -286,18 +293,21 @@ class ContributorsPageTest :
 
             (root.querySelector(".contrib-avatar") as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
         }
-        test("the sort row offers the two categories a person list can be ordered by") {
+        test("the sort menu offers the two categories a person list can be ordered by, and no Ignore articles") {
             val root = contributorsPage(listOf(contributor("c1", "Andy Weir", 3)))
+            openSort(root)
 
-            root.querySelectorAll(".lib-sort-option").asList().map { it.textContent } shouldBe
-                listOf(SortCategory.NAME.label, SortCategory.BOOK_COUNT.label)
+            root.querySelectorAll("[role=group][aria-label=\"Sort by\"] [role=menuitemradio]").asList().map { it.textContent } shouldBe
+                listOf("Name", "Number of books")
+            root.querySelector("[role=menuitemcheckbox]") shouldBe null
         }
 
         test("choosing a category reports the Authors event when Authors is showing") {
             val events = mutableListOf<LibraryUiEvent>()
             val root = contributorsPage(listOf(contributor("c1", "Andy Weir", 3)), onEvent = { events += it })
+            openSort(root)
 
-            (root.querySelectorAll(".lib-sort-option").item(1) as HTMLElement).click()
+            (root.querySelectorAll("[role=menuitemradio]").item(1) as HTMLElement).click()
 
             events shouldBe listOf(LibraryUiEvent.AuthorsCategoryChanged(SortCategory.BOOK_COUNT))
         }
@@ -312,13 +322,14 @@ class ContributorsPageTest :
                     role = ContributorRole.NARRATOR,
                     onEvent = { events += it },
                 )
+            openSort(root)
 
-            (root.querySelectorAll(".lib-sort-option").item(1) as HTMLElement).click()
+            (root.querySelectorAll("[role=menuitemradio]").item(1) as HTMLElement).click()
 
             events shouldBe listOf(LibraryUiEvent.NarratorsCategoryChanged(SortCategory.BOOK_COUNT))
         }
 
-        test("the direction toggle reports the role's own toggle") {
+        test("choosing the other direction reports the role's own toggle") {
             val events = mutableListOf<LibraryUiEvent>()
             val root =
                 contributorsPage(
@@ -327,7 +338,9 @@ class ContributorsPageTest :
                     onEvent = { events += it },
                 )
 
-            (root.querySelector(".lib-sort-direction") as HTMLElement).click()
+            openSort(root)
+            // Z → A: the direction not in force.
+            (root.querySelectorAll("[role=group][aria-label=\"Direction\"] [role=menuitemradio]").item(1) as HTMLElement).click()
 
             events shouldBe listOf(LibraryUiEvent.NarratorsDirectionToggled)
         }
@@ -387,9 +400,9 @@ class ContributorsPageTest :
         // Offering to reorder nothing is an affordance whose only outcome is nothing — the same
         // rule the Library's own header follows.
         test("sorting is offered only once the list has actually answered") {
-            contributorsPage(null).querySelectorAll(".lib-sort").length shouldBe 0
+            contributorsPage(null).querySelectorAll(".lib-sort-trigger").length shouldBe 0
             contributorsPage(listOf(contributor("c1", "Andy Weir", 3)))
-                .querySelectorAll(".lib-sort")
+                .querySelectorAll(".lib-sort-trigger")
                 .length shouldBe 1
         }
     })

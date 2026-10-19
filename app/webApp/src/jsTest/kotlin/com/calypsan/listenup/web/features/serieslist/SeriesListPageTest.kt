@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
@@ -148,7 +149,7 @@ class SeriesListPageTest :
             (root.querySelector(".srs-progress") as HTMLElement).textContent shouldBe "Not started"
         }
 
-        test("the sort row marks the active category and reports a change through the shared event") {
+        test("the sort menu marks the active category and reports a change through the shared event") {
             val events = mutableListOf<LibraryUiEvent>()
             val root =
                 seriesPage(
@@ -159,14 +160,16 @@ class SeriesListPageTest :
                     onEvent = { events += it },
                 )
 
-            (root.querySelector(".lib-sort-option.is-active") as HTMLElement).textContent shouldBe
-                SortCategory.BOOK_COUNT.label
-            (root.querySelectorAll(".lib-sort-option").item(0) as HTMLElement).click()
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
+            awaitFrame()
+            (root.querySelector("[role=menuitemradio][aria-checked=true]") as HTMLElement).textContent shouldBe
+                "Number of books"
+            (root.querySelectorAll("[role=menuitemradio]").item(0) as HTMLElement).click()
 
             events shouldContainExactly listOf(LibraryUiEvent.SeriesCategoryChanged(SortCategory.NAME))
         }
 
-        test("the direction toggle reports the series toggle, not the books one") {
+        test("choosing the other direction reports the series toggle, not the books one") {
             val events = mutableListOf<LibraryUiEvent>()
             val root =
                 seriesPage(
@@ -174,7 +177,9 @@ class SeriesListPageTest :
                     onEvent = { events += it },
                 )
 
-            (root.querySelector(".lib-sort-direction") as HTMLElement).click()
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
+            awaitFrame()
+            (root.querySelectorAll("[role=group][aria-label=\"Direction\"] [role=menuitemradio]").item(1) as HTMLElement).click()
 
             events shouldContainExactly listOf(LibraryUiEvent.SeriesDirectionToggled)
         }
@@ -202,7 +207,7 @@ class SeriesListPageTest :
             root.querySelector(".facet-row") shouldNotBe null
             (root.querySelector(".facet-chip.is-active") as HTMLElement).textContent shouldBe "Series"
             // Sorting stays with the loaded branch: offering to reorder nothing does nothing.
-            root.querySelector(".lib-sort") shouldBe null
+            root.querySelector(".lib-sort-trigger") shouldBe null
         }
     })
 

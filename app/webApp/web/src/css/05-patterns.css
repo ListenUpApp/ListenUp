@@ -83,6 +83,20 @@
 @media (hover: hover) { .menu-i:hover { background:var(--surface-2); } }
 .menu-i.hi { background:var(--surface-2); }
 .menu-i .k { margin-left:auto; font-family:var(--mono); font-size:var(--fs-caption); color:var(--ink-3); }
+/* A grouped menu (the Library's Sort dropdown, board `Library-WebDesktop-Sort`): each group under a
+   small caps heading, its choices in body weight with the one in force tinted; Direction as a
+   two-up segmented pair under a rule; a checkbox item drawing its own box. */
+.menu [role=group] { display:flex; flex-direction:column; gap:2px; }
+.menu-h { font-size:var(--fs-caption); font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-2); padding:6px 9px 4px; }
+.menu [role=group] .menu-i { font-weight:400; }
+.menu [role=group] .menu-i[aria-checked=true] { background:var(--coral-soft); font-weight:600; }
+.menu [role=group][aria-label="Direction"] { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px; padding-top:6px; border-top:1px solid var(--line); }
+.menu [role=group][aria-label="Direction"] .menu-h { display:none; }
+.menu [role=group][aria-label="Direction"] .menu-i { justify-content:center; height:32px; border:1px solid var(--line); }
+.menu [role=group][aria-label="Direction"] .menu-i[aria-checked=true] { background:var(--coral-fill); color:var(--on-coral); border-color:transparent; }
+.menu-i[role=menuitemcheckbox] { font-weight:400; }
+.menu-i[role=menuitemcheckbox]::before { content:""; flex:none; width:14px; height:14px; border:1.5px solid var(--ink-2); border-radius:4px; }
+.menu-i[role=menuitemcheckbox][aria-checked=true]::before { background:var(--coral-fill); border-color:var(--coral-fill); box-shadow:inset 0 0 0 2px var(--surface); }
 
 /* ---- dialog ---- */
 .dlg { width:472px; max-width:88%; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-xl); box-shadow:var(--shadow-modal); overflow:hidden; }

@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.features.home.scanning
@@ -57,7 +58,37 @@ class LibraryPageTest :
         test("sorting is offered only once there is something to sort") {
             val root = render(LibraryUiState.Loading)
 
-            (root.querySelector(".lib-sort") == null) shouldBe true
+            (root.querySelector(".lib-sort-trigger") == null) shouldBe true
+        }
+
+        test("the Books Sort menu offers Ignore articles on a title sort, and reports the toggle") {
+            val events = mutableListOf<LibraryUiEvent>()
+            val root =
+                mounts.mount {
+                    LibraryPage(
+                        state = loadedWith(listOf(bookItem("b1", "Dune"))),
+                        onEvent = { events += it },
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                    )
+                }
+
+            val trigger = root.querySelector(".lib-sort-trigger") as HTMLElement
+            trigger.textContent shouldBe "Sort: Title, A–Z"
+            trigger.click()
+            awaitFrame()
+            (root.querySelector("[role=menuitemcheckbox]") as HTMLElement).click()
+
+            events shouldBe listOf(LibraryUiEvent.ToggleIgnoreTitleArticles)
+        }
+
+        test("a length sort offers no Ignore articles") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune")), sort = SortCategory.DURATION))
+
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
+            awaitFrame()
+
+            root.querySelector("[role=menuitemcheckbox]") shouldBe null
         }
 
         test("a loaded library renders one card per book") {

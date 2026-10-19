@@ -108,6 +108,59 @@ class ActionsMenuTest :
             document.activeElement shouldBe items[0]
         }
 
+        test("ArrowDown from the last item of one group lands on the first item of the next") {
+            val root =
+                mounts.mount {
+                    PopupMenu(
+                        items =
+                            listOf(
+                                MenuAction("Title", icon = null, onSelect = {}, checked = true, group = "Sort by"),
+                                MenuAction("Author", icon = null, onSelect = {}, checked = false, group = "Sort by"),
+                                MenuAction("A → Z", icon = null, onSelect = {}, checked = true, group = "Direction"),
+                                MenuAction("Z → A", icon = null, onSelect = {}, checked = false, group = "Direction"),
+                            ),
+                        label = "Sort",
+                        icon = WebIcon.ChevronDown,
+                        triggerClasses = arrayOf("t"),
+                    )
+                }
+
+            (root.querySelector(".menu-anchor button") as HTMLElement).click()
+            awaitFrame()
+            val items = root.querySelectorAll("[role^=menuitem]").asList().map { it as HTMLElement }
+
+            items.map { it.textContent } shouldContainExactly listOf("Title", "Author", "A → Z", "Z → A")
+            root.querySelectorAll(".menu [role=group]").length shouldBe 2
+            items[1].press("ArrowDown")
+            document.activeElement shouldBe items[2]
+            items[3].press("ArrowDown")
+            document.activeElement shouldBe items[0]
+            items[0].press("End")
+            document.activeElement shouldBe items[3]
+        }
+
+        test("a keeps-open item runs without closing the menu") {
+            var runs = 0
+            val root =
+                mounts.mount {
+                    PopupMenu(
+                        items = listOf(MenuAction("Ignore", icon = null, onSelect = { runs++ }, checked = true, checkbox = true, keepsOpen = true)),
+                        label = "Sort",
+                        icon = WebIcon.ChevronDown,
+                        triggerClasses = arrayOf("t"),
+                    )
+                }
+
+            (root.querySelector(".menu-anchor button") as HTMLElement).click()
+            awaitFrame()
+            val item = root.querySelector("[role=menuitemcheckbox]") as HTMLElement
+            item.click()
+            awaitFrame()
+
+            runs shouldBe 1
+            root.querySelectorAll(".menu").length shouldBe 1
+        }
+
         test("Escape closes the menu and hands focus back to the trigger") {
             val root = menu(listOf(action("Edit"), action("Delete")))
             val trigger = root.querySelector(".menu-anchor button") as HTMLElement

@@ -8,7 +8,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Button
+import com.calypsan.listenup.web.motion.Keyframe
+import com.calypsan.listenup.web.motion.MotionToken
+import com.calypsan.listenup.web.motion.animateComposited
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.Node
@@ -17,13 +21,23 @@ import org.w3c.dom.events.Event
 /** One entry in an [ActionsMenu] or any other [PopupMenu]. */
 data class MenuAction(
     val label: String,
-    val icon: WebIcon,
+    /** The item's leading glyph; null for a text-only item, such as a sort menu's choices. */
+    val icon: WebIcon?,
     val onSelect: () -> Unit,
     /**
      * Non-null makes the item one of a set of choices — `menuitemradio`, saying whether it is the one
      * in force — rather than a command. A store picker's current store is `true`.
      */
     val checked: Boolean? = null,
+    /**
+     * Consecutive items sharing a group render inside one `role="group"` named by it, under a visible
+     * heading ("Sort by", "Direction"). The arrows still walk every item, across groups.
+     */
+    val group: String? = null,
+    /** With [checked] non-null, an on/off `menuitemcheckbox` rather than one of a set of radios. */
+    val checkbox: Boolean = false,
+    /** Choosing it leaves the menu open, for a toggle whose effect the reader should watch. */
+    val keepsOpen: Boolean = false,
 )
 
 /**
@@ -176,6 +190,7 @@ private fun MenuItems(
     trigger: NodeHolder,
     onChosen: () -> Unit,
 ) {
+    val menuNode = remember { NodeHolder() }
     Div(attrs = {
         classes("menu")
         attr("role", "menu")
@@ -183,7 +198,14 @@ private fun MenuItems(
         // Manual: the menu keeps its own outside-press and Escape handling (PopupMenu).
         attr("popover", "manual")
         ref { menu ->
+            menuNode.element = menu
             menu.showInTopLayer()
+            // A short drop as it opens; the resting state is the menu's own style (see Motion.kt).
+            animateComposited(
+                menu,
+                listOf(Keyframe.transform("translateY(-4px)"), Keyframe.transform("none")),
+                MotionToken.ENTER,
+            )
 
             fun placeAgainstTrigger() {
                 trigger.element?.let { placeMenu(menu, it) }
@@ -198,36 +220,85 @@ private fun MenuItems(
             view?.addEventListener("scroll", place, true)
             view?.addEventListener("resize", place)
             onDispose {
+                menuNode.element = null
                 view?.removeEventListener("scroll", place, true)
                 view?.removeEventListener("resize", place)
             }
         }
     }) {
-        items.forEachIndexed { index, item ->
-            // ⛔ A real <button role="menuitem">: a clickable <div> is unreachable by keyboard and
-            // announces nothing.
-            Button(attrs = {
-                classes("menu-i")
-                attr("type", "button")
-                attr("role", if (item.checked == null) "menuitem" else "menuitemradio")
-                item.checked?.let { attr("aria-checked", it.toString()) }
-                // Only the first item is a Tab stop; the arrows are how a menu is walked.
-                attr("tabindex", if (index == 0) "0" else "-1")
-                onKeyDown { event ->
-                    rovingTarget(event.key, index, items.size, RovingAxis.Vertical)?.let { next ->
-                        event.preventDefault()
-                        event.currentTarget.focusSibling(":scope > [role^=menuitem]", next)
-                    }
+        // One flat index across every item, so the first takes focus and the arrows walk them all,
+        // whichever group each sits in.
+        val indexed = items.withIndex().toList()
+        runsByGroup(indexed).forEach { run ->
+            val group = run.first().value.group
+            if (group == null) {
+                run.forEach { (index, item) -> MenuItem(item, index, items.size, menuNode, onChosen) }
+            } else {
+                Div(attrs = {
+                    attr("role", "group")
+                    attr("aria-label", group)
+                }) {
+                    // The group's name is already its label; the heading is for the eye.
+                    Span(attrs = {
+                        classes("menu-h")
+                        attr("aria-hidden", "true")
+                    }) { Text(group) }
+                    run.forEach { (index, item) -> MenuItem(item, index, items.size, menuNode, onChosen) }
                 }
-                onClick {
-                    onChosen()
-                    item.onSelect()
-                }
-            }) {
-                Icon(item.icon, size = MENU_ICON_SIZE)
-                Text(item.label)
             }
         }
+    }
+}
+
+/** [items] cut into runs of consecutive items sharing a [MenuAction.group] (null is a run too). */
+private fun runsByGroup(items: List<IndexedValue<MenuAction>>): List<List<IndexedValue<MenuAction>>> {
+    val runs = mutableListOf<MutableList<IndexedValue<MenuAction>>>()
+    items.forEach { entry ->
+        val last = runs.lastOrNull()
+        if (last != null && last.first().value.group == entry.value.group) last += entry else runs += mutableListOf(entry)
+    }
+    return runs
+}
+
+/** One menu item at [index] of [count]: a command, a radio of a set, or a checkbox. */
+@Composable
+private fun MenuItem(
+    item: MenuAction,
+    index: Int,
+    count: Int,
+    menu: NodeHolder,
+    onChosen: () -> Unit,
+) {
+    // ⛔ A real <button role="menuitem">: a clickable <div> is unreachable by keyboard and
+    // announces nothing.
+    Button(attrs = {
+        classes("menu-i")
+        attr("type", "button")
+        attr(
+            "role",
+            when {
+                item.checked == null -> "menuitem"
+                item.checkbox -> "menuitemcheckbox"
+                else -> "menuitemradio"
+            },
+        )
+        item.checked?.let { attr("aria-checked", it.toString()) }
+        // Only the first item is a Tab stop; the arrows are how a menu is walked.
+        attr("tabindex", if (index == 0) "0" else "-1")
+        onKeyDown { event ->
+            rovingTarget(event.key, index, count, RovingAxis.Vertical)?.let { next ->
+                event.preventDefault()
+                // From the menu, not the item's siblings: a group puts the next item in another parent.
+                (menu.element?.querySelectorAll("[role^=menuitem]")?.item(next) as? HTMLElement)?.focus()
+            }
+        }
+        onClick {
+            if (!item.keepsOpen) onChosen()
+            item.onSelect()
+        }
+    }) {
+        item.icon?.let { Icon(it, size = MENU_ICON_SIZE) }
+        Text(item.label)
     }
 }
 

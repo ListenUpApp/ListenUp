@@ -15,7 +15,7 @@ import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.PageHeader
-import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
@@ -128,12 +128,14 @@ private fun ContributorSortControl(
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
     val isNarrator = role == ContributorRole.NARRATOR
-    SortControl(
-        options = CONTRIBUTOR_SORT_CATEGORIES,
-        active = sortState.category,
-        labelOf = { it.label },
-        ascending = sortState.direction == SortDirection.ASCENDING,
-        onSelect = { category ->
+    SortDropdown(
+        noun = if (isNarrator) "narrators" else "authors",
+        categories = CONTRIBUTOR_SORT_CATEGORIES,
+        state = sortState,
+        // A person's name never loses its article, so there is nothing to ignore.
+        ignoreArticles = null,
+        onToggleIgnoreArticles = {},
+        onCategory = { category ->
             onEvent(
                 if (isNarrator) {
                     LibraryUiEvent.NarratorsCategoryChanged(category)

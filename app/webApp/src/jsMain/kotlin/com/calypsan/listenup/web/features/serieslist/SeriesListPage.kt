@@ -6,12 +6,11 @@ import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
-import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.PageHeader
-import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
@@ -189,13 +188,15 @@ private fun SeriesSortControl(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
-    SortControl(
-        options = SERIES_SORT_CATEGORIES,
-        active = state.seriesSortState.category,
-        labelOf = { it.label },
-        ascending = state.seriesSortState.direction == SortDirection.ASCENDING,
-        onSelect = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
+    SortDropdown(
+        noun = "series",
+        categories = SERIES_SORT_CATEGORIES,
+        state = state.seriesSortState,
+        onCategory = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
         onToggleDirection = { onEvent(LibraryUiEvent.SeriesDirectionToggled) },
+        // Series by name sort article-aware ("The Wandering Inn" under W), so the toggle belongs here too.
+        ignoreArticles = state.ignoreTitleArticles.takeIf { state.seriesSortState.category == SortCategory.NAME },
+        onToggleIgnoreArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
     )
 }
 

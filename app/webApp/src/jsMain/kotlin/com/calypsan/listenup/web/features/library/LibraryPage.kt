@@ -16,7 +16,6 @@ import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
-import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.web.design.EmptyState
@@ -24,7 +23,7 @@ import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
-import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.coverUrl
@@ -42,18 +41,19 @@ import org.jetbrains.compose.web.dom.Text
  *
  * `SortCategory.entries` also carries categories that only make sense for the Series, Authors and
  * Narrators tabs, so the row is an explicit list rather than the whole enum — a filter by name would
- * silently pick up whatever a future entry happens to be called.
+ * silently pick up whatever a future entry happens to be called. In the order board
+ * `Library-WebDesktop-Sort` lists them.
  */
 internal val BOOK_SORT_CATEGORIES =
     listOf(
         SortCategory.TITLE,
         SortCategory.AUTHOR,
+        SortCategory.SERIES,
+        SortCategory.ADDED,
         SortCategory.DURATION,
         SortCategory.YEAR,
-        SortCategory.ADDED,
         SortCategory.RATING,
         SortCategory.LISTENER_RATING,
-        SortCategory.SERIES,
     )
 
 /**
@@ -395,23 +395,25 @@ private fun CardCover(
 }
 
 /**
- * Sort category and direction for the Books tab.
+ * Sort category, direction and Ignore articles for the Books tab.
  *
- * Both ride [LibraryUiEvent], so the shared ViewModel owns persistence — the browser never stores a
+ * All ride [LibraryUiEvent], so the shared ViewModel owns persistence — the browser never stores a
  * sort preference of its own, which is what keeps a reader's ordering the same on every device.
+ * Ignore articles is offered only on a title sort, the one it changes.
  */
 @Composable
 private fun BookSortControl(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
-    SortControl(
-        options = BOOK_SORT_CATEGORIES,
-        active = state.booksSortState.category,
-        labelOf = { it.label },
-        ascending = state.booksSortState.direction == SortDirection.ASCENDING,
-        onSelect = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
+    SortDropdown(
+        noun = "books",
+        categories = BOOK_SORT_CATEGORIES,
+        state = state.booksSortState,
+        onCategory = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
         onToggleDirection = { onEvent(LibraryUiEvent.BooksDirectionToggled) },
+        ignoreArticles = state.ignoreTitleArticles.takeIf { state.booksSortState.category == SortCategory.TITLE },
+        onToggleIgnoreArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
     )
 }
 
