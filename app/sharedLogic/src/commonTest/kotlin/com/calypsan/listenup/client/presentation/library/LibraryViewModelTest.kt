@@ -1825,6 +1825,147 @@ class LibraryViewModelTest :
             }
         }
 
+        context("letters") {
+            test("a title sort gives letter sections over the filtered books, honouring Ignore articles") {
+                runTest {
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns
+                        flowOf(
+                            listOf(
+                                createTestBook(id = "1", title = "The Way of Kings"),
+                                createTestBook(id = "2", title = "Dune"),
+                                createTestBook(id = "3", title = "Warbreaker"),
+                            ),
+                        )
+                    val viewModel = fixture.build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    advanceUntilIdle()
+
+                    val loaded = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                    loaded.books.map { it.title } shouldBe listOf("Dune", "Warbreaker", "The Way of Kings")
+                    loaded.bookLetters shouldBe listOf(LetterSection("D", 0, 1), LetterSection("W", 1, 2))
+                }
+            }
+
+            test("a duration sort yields no book letters") {
+                runTest {
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns
+                        flowOf(listOf(createTestBook(id = "1", title = "Dune")))
+                    everySuspend { fixture.libraryPreferences.getBooksSortState() } returns "duration:descending"
+                    val viewModel = fixture.build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    advanceUntilIdle()
+
+                    viewModel.uiState.value
+                        .shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        .bookLetters shouldBe emptyList()
+                }
+            }
+
+            test("toggling Ignore articles re-files and advances the revision") {
+                runTest {
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns
+                        flowOf(listOf(createTestBook(id = "1", title = "The Way of Kings")))
+                    everySuspend { fixture.libraryPreferences.setIgnoreTitleArticles(any()) } returns Unit
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        before.bookLetters shouldBe listOf(LetterSection("W", 0, 1))
+
+                        viewModel.onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles)
+                        advanceUntilIdle()
+
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.bookLetters shouldBe listOf(LetterSection("T", 0, 1))
+                        (after.contentRevision > before.contentRevision) shouldBe true
+                        states.cancel()
+                    }
+                }
+            }
+
+            test("series, authors and narrators by name carry their own letters") {
+                runTest {
+                    val fixture = createFixture()
+                    every { fixture.contributorRepository.observeContributorsByRole(ContributorRole.AUTHOR.apiValue) } returns
+                        flowOf(
+                            listOf(
+                                createTestContributor(id = "a1", name = "Brandon Sanderson"),
+                                createTestContributor(id = "a2", name = "Becky Chambers"),
+                            ),
+                        )
+                    every { fixture.contributorRepository.observeContributorsByRole(ContributorRole.NARRATOR.apiValue) } returns
+                        flowOf(listOf(createTestContributor(id = "n1", name = "Kate Reading")))
+                    every { fixture.seriesRepository.observeRootSeriesWithBooks() } returns
+                        flowOf(
+                            listOf(
+                                SeriesWithBooks(
+                                    series = createTestSeries(id = "s1", name = "The Wandering Inn"),
+                                    books = listOf(createTestBook(id = "x1"), createTestBook(id = "x2")),
+                                    bookSequences = emptyMap(),
+                                ),
+                                SeriesWithBooks(
+                                    series = createTestSeries(id = "s2", name = "Dune"),
+                                    books = listOf(createTestBook(id = "x3"), createTestBook(id = "x4")),
+                                    bookSequences = emptyMap(),
+                                ),
+                            ),
+                        )
+                    val viewModel = fixture.build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    advanceUntilIdle()
+
+                    val loaded = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                    loaded.authorLetters shouldBe listOf(LetterSection("B", 0, 2))
+                    loaded.narratorLetters shouldBe listOf(LetterSection("K", 0, 1))
+                    loaded.seriesLetters shouldBe listOf(LetterSection("D", 0, 1), LetterSection("W", 1, 1))
+                }
+            }
+
+            test("a position tick does not touch the letters or the revision") {
+                fun at(positionMs: Long) =
+                    mapOf(
+                        BookId("1") to
+                            PlaybackPosition(
+                                bookId = "1",
+                                positionMs = positionMs,
+                                playbackSpeed = 1.0f,
+                                hasCustomSpeed = false,
+                                volumeBoostDb = 0f,
+                                hasCustomBoost = false,
+                                measuredGainDb = null,
+                                updatedAtMs = 0L,
+                                syncedAtMs = null,
+                                lastPlayedAtMs = null,
+                            ),
+                    )
+                runTest {
+                    // Already in progress, so the tick crosses no reading-state boundary.
+                    val positions = MutableStateFlow(at(1_000L))
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns
+                        flowOf(listOf(createTestBook(id = "1", title = "Dune", duration = 10_000L)))
+                    every { fixture.playbackPositionRepository.observeAll() } returns positions
+                    val viewModel = fixture.build()
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        positions.value = at(2_000L)
+                        advanceUntilIdle()
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.bookLetters shouldBeSameInstanceAs before.bookLetters
+                        after.contentRevision shouldBe before.contentRevision
+                        states.cancel()
+                    }
+                }
+            }
+        }
+
         context("lifecycle") {
             // iOS has no ViewModelStore, so the CarPlay wrapper closes the VM from its
             // `isolated deinit` (#1192) — the same contract every other iOS-consumed VM carries.

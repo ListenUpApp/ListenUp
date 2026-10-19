@@ -80,6 +80,17 @@ sealed interface LibraryUiState {
         val bookStatus: Map<BookId, BookCardStatus> = emptyMap(),
         /** The whole library's length in ms ("41 days of listening"), whatever the filter. */
         val totalDurationMs: Long = 0L,
+        /**
+         * [books] cut into index-letter runs for a Title, Author or Series sort; empty for any other
+         * sort. Every platform's letter headers and jump index read this, so they cannot disagree.
+         */
+        val bookLetters: List<LetterSection> = emptyList(),
+        /** [series] cut into index-letter runs for a Name sort, honouring Ignore articles; empty otherwise. */
+        val seriesLetters: List<LetterSection> = emptyList(),
+        /** [authors] cut into index-letter runs for a Name sort; empty otherwise. */
+        val authorLetters: List<LetterSection> = emptyList(),
+        /** [narrators] cut into index-letter runs for a Name sort; empty otherwise. */
+        val narratorLetters: List<LetterSection> = emptyList(),
     ) : LibraryUiState {
         /** Whether the library itself has no books. A filter that matches nothing is [isFilteredEmpty], not this. */
         val isEmpty: Boolean
