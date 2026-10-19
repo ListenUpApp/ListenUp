@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -123,26 +124,7 @@ fun AuthorsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        // A header before each letter on a name sort (spec L25), from the shared sections.
-                        items(
-                            items = rows,
-                            key = { it.key },
-                            contentType = { if (it is LetteredRow.Header) "header" else "person" },
-                        ) { row ->
-                            when (row) {
-                                is LetteredRow.Header -> {
-                                    SectionHeader(letter = row.letter)
-                                }
-
-                                is LetteredRow.Entry -> {
-                                    val authorWithCount = row.value
-                                    ContributorCard(
-                                        contributorWithCount = authorWithCount,
-                                        onClick = { onAuthorClick(authorWithCount.contributor.id.value) },
-                                    )
-                                }
-                            }
-                        }
+                        contributorRows(rows, onAuthorClick)
                     }
 
                     // Alphabet scrollbar (only for name sort)
@@ -161,6 +143,34 @@ fun AuthorsContent(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * An Authors or Narrators list's rows: a header before each letter on a name sort (spec L25), from
+ * the shared sections, and a card per person.
+ */
+internal fun LazyListScope.contributorRows(
+    rows: List<LetteredRow<ContributorWithBookCount>>,
+    onClick: (String) -> Unit,
+) {
+    items(
+        items = rows,
+        key = { it.key },
+        contentType = { if (it is LetteredRow.Header) "header" else "person" },
+    ) { row ->
+        when (row) {
+            is LetteredRow.Header -> {
+                SectionHeader(letter = row.letter)
+            }
+
+            is LetteredRow.Entry -> {
+                ContributorCard(
+                    contributorWithCount = row.value,
+                    onClick = { onClick(row.value.contributor.id.value) },
+                )
             }
         }
     }

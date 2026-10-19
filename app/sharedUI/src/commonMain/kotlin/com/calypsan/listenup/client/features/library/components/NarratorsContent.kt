@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.RecordVoiceOver
@@ -105,27 +104,7 @@ fun NarratorsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        // A header before each letter on a name sort (spec L25), from the shared sections.
-                        items(
-                            items = rows,
-                            key = { it.key },
-                            contentType = { if (it is LetteredRow.Header) "header" else "person" },
-                        ) { row ->
-                            when (row) {
-                                is LetteredRow.Header -> {
-                                    SectionHeader(letter = row.letter)
-                                }
-
-                                is LetteredRow.Entry -> {
-                                    val narratorWithCount = row.value
-                                    // Reuse ContributorCard from AuthorsContent
-                                    ContributorCard(
-                                        contributorWithCount = narratorWithCount,
-                                        onClick = { onNarratorClick(narratorWithCount.contributor.id.value) },
-                                    )
-                                }
-                            }
-                        }
+                        contributorRows(rows, onNarratorClick)
                     }
 
                     // Alphabet scrollbar (only for name sort)

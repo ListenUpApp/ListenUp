@@ -164,9 +164,7 @@ internal fun <T> VirtualList(
                                 // every frame, recomposing the whole list sixty times a second to
                                 // produce the same DOM.
                                 if (next != rowWindow) rowWindow = next
-                                // The rail's current letter, written only when it changes.
-                                val top = sectionAt(tracker.sections, tracker.offsets, view)
-                                if (jump != null && top != jump.current) jump.current = top
+                                jump?.reportTop(tracker, view)
                             },
                         )
                     }
@@ -406,6 +404,15 @@ private class WindowTracker {
 
     /** Each row's section letter when the row is a header, else null; parallel to [offsets]. */
     var sections: List<Char?> = emptyList()
+}
+
+/** The rail's current letter: the section on show at the top of [view], written only when it changes. */
+private fun VirtualJump.reportTop(
+    tracker: WindowTracker,
+    view: ListView,
+) {
+    val top = sectionAt(tracker.sections, tracker.offsets, view)
+    if (top != current) current = top
 }
 
 /**
