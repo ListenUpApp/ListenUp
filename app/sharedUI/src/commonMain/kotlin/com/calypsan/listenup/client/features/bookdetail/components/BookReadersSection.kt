@@ -473,28 +473,20 @@ internal fun ReaderRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        if (reader.isLive) {
+        // The trailing mark: listening (live only), rated or finished. Partway through but not live has none — the
+        // bar says how far, and nothing claims they are listening.
+        val mark =
+            when {
+                reader.isLive -> Icons.Default.GraphicEq
+                reader.isReading -> null
+                reader.isRatedOnly -> Icons.Rounded.Star
+                else -> Icons.Default.CheckCircle
+            }
+        if (mark != null) {
             Icon(
-                imageVector = Icons.Default.GraphicEq,
+                imageVector = mark,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp),
-            )
-        } else if (reader.isReading) {
-            // Partway through but not live: the bar says it; no listening mark.
-            Unit
-        } else if (reader.isRatedOnly) {
-            Icon(
-                imageVector = Icons.Rounded.Star,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(22.dp),
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
+                tint = if (reader.isLive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.size(22.dp),
             )
         }
