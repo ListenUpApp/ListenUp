@@ -368,7 +368,7 @@ private struct MiniPlayerAccessory<Accessory: View>: ViewModifier {
 /// and to the lean read-only `ForeignProfileView` for anyone else. Tapping your own avatar in a
 /// social surface (leaderboard, activity feed, book readers) all emit `ProfileDestination`, so the
 /// self-check lives here — one place — rather than at each tap site.
-private struct ProfileDestinationView: View {
+struct ProfileDestinationView: View {
     let userId: String
     @Environment(CurrentUserObserver.self) private var currentUser
 
