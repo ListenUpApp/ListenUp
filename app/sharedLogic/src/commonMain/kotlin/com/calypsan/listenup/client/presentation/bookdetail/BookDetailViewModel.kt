@@ -230,8 +230,9 @@ class BookDetailViewModel(
 
     /**
      * Room's word on [bookId], all of it live: the row and its first series, the chapters, the saved position, its
-     * availability, the held set and its visibility. A position saved by playback (about every 10 s) re-emits the
-     * page; the overlay and the section-order latch sit outside the load, so neither notices.
+     * availability, the held set and its visibility. For the player's loaded book the position is the live playhead,
+     * re-emitting only when the chapter or a shown minute moves; the overlay and the section-order latch sit outside
+     * the load, so neither notices.
      */
     private fun observeBook(bookId: String): Flow<BookLoad> {
         val id = BookId(bookId)
@@ -257,7 +258,8 @@ class BookDetailViewModel(
                 playbackPositionRepository.observe(id),
                 livePositionMs,
             ) { chapters, saved, live ->
-                chapters to (if (live != null) saved?.copy(positionMs = live) else saved)
+                val position = if (live != null) saved?.copy(positionMs = live) else saved
+                chapters to position
             }.distinctUntilChangedBy { (chapters, position) ->
                 Triple(
                     chapters,
