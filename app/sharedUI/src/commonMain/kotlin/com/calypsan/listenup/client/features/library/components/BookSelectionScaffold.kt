@@ -1,18 +1,16 @@
 package com.calypsan.listenup.client.features.library.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
@@ -22,18 +20,29 @@ import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
 import kotlinx.coroutines.launch
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.selection_added_to_collection_none
+import listenup.composeapp.generated.resources.selection_added_to_collection_one
+import listenup.composeapp.generated.resources.selection_added_to_collection_plural
+import listenup.composeapp.generated.resources.selection_added_to_shelf_none
+import listenup.composeapp.generated.resources.selection_added_to_shelf_one
+import listenup.composeapp.generated.resources.selection_added_to_shelf_plural
+import listenup.composeapp.generated.resources.selection_created_with_books_one
+import listenup.composeapp.generated.resources.selection_created_with_books_plural
+import org.jetbrains.compose.resources.getString
 
 /**
  * Reusable multi-select overlay for any books-bearing screen (Library, Home, Discover).
  *
  * Drives the entire selection affordance from a single [BookMultiSelectViewModel]:
- * - a top-anchored [SelectionToolbar] that animates in while selection is active;
+ * - the [SelectionToolbar]: a header sliding in at the top and a vibrant floating toolbar rising at the
+ *   bottom while selection is active;
  * - the shelf / collection picker sheets (collection picker admin-gated as defense-in-depth);
  * - one-shot success feedback (snackbar + auto-dismiss of the matching picker).
  *
  * Failures are surfaced on the global ErrorBus by the VM, so this scaffold only reacts to the
  * success events ([BookMultiSelectEvent]). Place it as the last child of a fill-size container so
- * its top-anchored toolbar overlays the screen content; the picker sheets render as modals.
+ * its bar overlays the screen content; the picker sheets render as modals.
  *
  * Bulk metadata editing is offered only when both conditions hold: the user is an admin (library
  * metadata is admin-owned, the same ownership that gates collections) **and** the host passed a
@@ -48,12 +57,17 @@ import kotlinx.coroutines.launch
  *   than called here — a user who backs out of the editor without applying still has their
  *   selection.
  * @param modifier Modifier applied to the overlay container.
+ * @param contentPadding The host's insets (navigation bar, mini player) the floating toolbar must clear;
+ *   a host already padded by its parent passes none.
+ * @param state Which picker is up, hoisted so a host can shelve one book ([BookSelectionScaffoldState.shelveOne]).
  */
 @Composable
 fun BookSelectionScaffold(
     multiSelect: BookMultiSelectViewModel,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    state: BookSelectionScaffoldState = rememberBookSelectionScaffoldState(),
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isAdmin by multiSelect.adminAccess.collectAsStateWithLifecycle()
@@ -66,43 +80,37 @@ fun BookSelectionScaffold(
     val selectedIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
     val selectedCount = selectedIds.size
 
-    var showShelfPicker by rememberSaveable { mutableStateOf(false) }
     var showCollectionPicker by rememberSaveable { mutableStateOf(false) }
 
     // Success feedback: dismiss the matching picker and show a confirmation snackbar.
     BookSelectionFeedback(
         multiSelect = multiSelect,
-        onShelfActionHandled = { showShelfPicker = false },
+        onShelfActionHandled = { state.closeShelfPicker(multiSelect) },
         onCollectionActionHandled = { showCollectionPicker = false },
     )
 
-    // Selection toolbar (overlays at top of the host container).
-    Box(modifier = modifier.fillMaxSize()) {
-        AnimatedVisibility(
-            visible = isInSelectionMode,
-            enter = slideInVertically { -it },
-            exit = slideOutVertically { -it },
-            modifier = Modifier.align(Alignment.TopCenter),
-        ) {
-            SelectionToolbar(
-                selectedCount = selectedCount,
-                onAddToShelf = { showShelfPicker = true },
-                onAddToCollection =
-                    if (isAdmin) {
-                        { showCollectionPicker = true }
-                    } else {
-                        null
-                    },
-                onEdit =
-                    if (isAdmin && onEditSelected != null) {
-                        { onEditSelected(selectedIds.toList(), multiSelect::exitSelectionMode) }
-                    } else {
-                        null
-                    },
-                onClose = multiSelect::exitSelectionMode,
-            )
-        }
-    }
+    // Selection bar: a header over the top of the host container, a floating toolbar over its bottom.
+    SelectionToolbar(
+        visible = isInSelectionMode,
+        selectedCount = selectedCount,
+        onAddToShelf = { state.showShelfPicker = true },
+        onAddToCollection =
+            if (isAdmin) {
+                { showCollectionPicker = true }
+            } else {
+                null
+            },
+        onEdit =
+            if (isAdmin && onEditSelected != null) {
+                { onEditSelected(selectedIds.toList(), multiSelect::exitSelectionMode) }
+            } else {
+                null
+            },
+        onClose = multiSelect::exitSelectionMode,
+        bottomClearance = contentPadding.calculateBottomPadding(),
+        topClearance = contentPadding.calculateTopPadding(),
+        modifier = modifier,
+    )
 
     // Collection picker sheet. Collections are admin-managed — gate the picker
     // presentation (and the inline-create affordance) on isAdmin as defense-in-depth.
@@ -123,7 +131,7 @@ fun BookSelectionScaffold(
     }
 
     // Shelf picker sheet.
-    if (showShelfPicker) {
+    if (state.showShelfPicker) {
         ShelfPickerSheet(
             shelves = myShelves,
             selectedBookCount = selectedCount,
@@ -133,11 +141,78 @@ fun BookSelectionScaffold(
             onCreateAndAddToShelf = { name ->
                 multiSelect.createShelfAndAddBooks(name)
             },
-            onDismiss = { showShelfPicker = false },
+            onDismiss = { state.closeShelfPicker(multiSelect) },
             isLoading = isAddingToShelf,
         )
     }
 }
+
+/**
+ * Which shelf picker is up over a [BookSelectionScaffold], and whether it was opened for one book.
+ *
+ * "Add {book} to a shelf" from a row's menu (plan C5) shelves one book through the same picker and
+ * the same feedback as a multi-book selection: it selects that book, opens the picker, and ends the
+ * selection when the picker closes, by dismissal or success, so no selection is left behind. iOS's
+ * `addOneBookToShelf` follows the same rule.
+ */
+@Stable
+class BookSelectionScaffoldState internal constructor(
+    showShelfPicker: Boolean,
+    shelvingOneBook: Boolean,
+) {
+    /** Whether the shelf picker is showing. */
+    var showShelfPicker by mutableStateOf(showShelfPicker)
+
+    /** Whether the picker was opened for one book, so closing it ends the selection. */
+    var shelvingOneBook by mutableStateOf(shelvingOneBook)
+        private set
+
+    /** Select [bookId] alone and open the shelf picker for it. */
+    fun shelveOne(
+        bookId: String,
+        multiSelect: BookMultiSelectViewModel,
+    ) {
+        multiSelect.enterSelectionMode(bookId)
+        shelvingOneBook = true
+        showShelfPicker = true
+    }
+
+    /**
+     * [shelveOne] for a row menu, or null while a selection is already under way: shelving one book
+     * replaces the selection and ends it when the picker closes, which would wipe the reader's picks.
+     * Their selection bar already offers Add to shelf for everything picked.
+     */
+    fun shelveOneOrNull(multiSelect: BookMultiSelectViewModel): ((String) -> Unit)? =
+        if (multiSelect.selectionMode.value is SelectionMode.Active) {
+            null
+        } else {
+            { bookId -> shelveOne(bookId, multiSelect) }
+        }
+
+    /** Close the shelf picker; a one-book shelving also ends its selection. */
+    fun closeShelfPicker(multiSelect: BookMultiSelectViewModel) {
+        showShelfPicker = false
+        if (shelvingOneBook) {
+            shelvingOneBook = false
+            multiSelect.exitSelectionMode()
+        }
+    }
+
+    internal companion object {
+        val Saver: Saver<BookSelectionScaffoldState, Any> =
+            listSaver(
+                save = { listOf(it.showShelfPicker, it.shelvingOneBook) },
+                restore = { BookSelectionScaffoldState(showShelfPicker = it[0], shelvingOneBook = it[1]) },
+            )
+    }
+}
+
+/** A [BookSelectionScaffoldState] that survives configuration changes. */
+@Composable
+fun rememberBookSelectionScaffoldState(): BookSelectionScaffoldState =
+    rememberSaveable(saver = BookSelectionScaffoldState.Saver) {
+        BookSelectionScaffoldState(showShelfPicker = false, shelvingOneBook = false)
+    }
 
 /**
  * Collects [BookMultiSelectViewModel.events] and surfaces snackbar feedback for collection/shelf
@@ -159,9 +234,7 @@ private fun BookSelectionFeedback(
             when (event) {
                 is BookMultiSelectEvent.BooksAddedToCollection -> {
                     onCollectionActionHandled()
-                    scope.launch {
-                        snackbarHostState.showSnackbar(booksAddedToCollectionMessage(event.count))
-                    }
+                    scope.launch { snackbarHostState.showSnackbar(booksAddedToCollectionMessage(event.count)) }
                 }
 
                 is BookMultiSelectEvent.BooksAddedToShelf -> {
@@ -171,17 +244,15 @@ private fun BookSelectionFeedback(
 
                 is BookMultiSelectEvent.ShelfCreatedAndBooksAdded -> {
                     onShelfActionHandled()
-                    val bookText = if (event.bookCount == 1) "1 book" else "${event.bookCount} books"
-                    scope.launch { snackbarHostState.showSnackbar("Created \"${event.shelfName}\" with $bookText") }
+                    scope.launch {
+                        snackbarHostState.showSnackbar(createdWithBooksMessage(event.shelfName, event.bookCount))
+                    }
                 }
 
                 is BookMultiSelectEvent.CollectionCreatedAndBooksAdded -> {
                     onCollectionActionHandled()
-                    val bookText = if (event.bookCount == 1) "1 book" else "${event.bookCount} books"
                     scope.launch {
-                        snackbarHostState.showSnackbar(
-                            "Created \"${event.collectionName}\" with $bookText",
-                        )
+                        snackbarHostState.showSnackbar(createdWithBooksMessage(event.collectionName, event.bookCount))
                     }
                 }
             }
@@ -190,23 +261,34 @@ private fun BookSelectionFeedback(
 }
 
 /**
- * How an add to a collection is announced.
+ * How an add to a collection is announced (`selection.added_to_collection_*`, every platform's words).
  *
  * The count is what the collection actually gained, so zero is a real outcome and gets its own
  * sentence: books already in the collection are not added again, and "2 books added to collection"
  * when nothing moved is precisely the lie this wording exists to avoid.
  */
-internal fun booksAddedToCollectionMessage(count: Int): String =
+internal suspend fun booksAddedToCollectionMessage(count: Int): String =
     when (count) {
-        0 -> "Already in that collection"
-        1 -> "1 book added to collection"
-        else -> "$count books added to collection"
+        0 -> getString(Res.string.selection_added_to_collection_none)
+        1 -> getString(Res.string.selection_added_to_collection_one)
+        else -> getString(Res.string.selection_added_to_collection_plural, count)
     }
 
 /** How an add to a shelf is announced. Zero means every selected book was already on it. */
-internal fun booksAddedToShelfMessage(count: Int): String =
+internal suspend fun booksAddedToShelfMessage(count: Int): String =
     when (count) {
-        0 -> "Already on that shelf"
-        1 -> "1 book added to shelf"
-        else -> "$count books added to shelf"
+        0 -> getString(Res.string.selection_added_to_shelf_none)
+        1 -> getString(Res.string.selection_added_to_shelf_one)
+        else -> getString(Res.string.selection_added_to_shelf_plural, count)
+    }
+
+/** How a shelf or collection made with the selection in it is announced. */
+internal suspend fun createdWithBooksMessage(
+    name: String,
+    bookCount: Int,
+): String =
+    if (bookCount == 1) {
+        getString(Res.string.selection_created_with_books_one, name)
+    } else {
+        getString(Res.string.selection_created_with_books_plural, name, bookCount)
     }

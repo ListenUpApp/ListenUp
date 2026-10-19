@@ -131,8 +131,34 @@
 .luw .disc-feed-hi { font-weight: 700; color: var(--coral-text); }
 @media (hover: hover) { .luw a.disc-feed-link:hover .disc-feed-hi { text-decoration: underline; } }
 .luw a.disc-feed-link:active { opacity: 0.75; }
-.luw .disc-feed-cover { flex: none; width: 36px; height: 36px; border-radius: 8px; object-fit: cover; background: var(--surface-2); }
-.luw .disc-see-all { align-self: center; }
+.luw .disc-feed-cover { flex: none; }
+.luw .disc-see-all { align-self: center; display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.75rem; color: var(--coral-text); font-weight: 650; text-decoration: none; border-radius: var(--r-xs); }
+.luw .disc-see-all:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+@media (hover: hover) { .luw .disc-see-all:hover { text-decoration: underline; } }
+.luw .disc-see-all:active { opacity: 0.75; }
+/* A row's ⋯ sits after both links, never inside either: the row's trailing column. */
+.luw .disc-feed-row > .menu-anchor { flex: none; }
+
+/* Select / Selecting in Something new's header (X35). */
+.luw .disc-select { flex: none; }
+.luw .disc-selecting { font-size: var(--fs-small); font-weight: 700; color: var(--coral-text); padding: 0 0.25rem; }
+
+/* While selecting, a tile is a checkbox: focusable, its pick shown by the coral ring and a check. */
+.luw .sel-tile { position: relative; cursor: pointer; }
+.luw .sel-tile:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.luw .sel-tile[aria-checked="true"]::after {
+  content: "✓"; position: absolute; z-index: 1; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--coral-fill); color: #fff; font-size: 0.8rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-card);
+}
+
+/* See all activity (/discover/activity): the whole feed, one readable column. */
+.luw .disc-feed-page { display: flex; flex-direction: column; gap: var(--sp-16); }
+/* Rows flow into as many 360px columns as the width holds, as on Android and iOS. */
+.luw .disc-feed-page .disc-feed {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); column-gap: var(--sp-24);
+}
+.luw .disc-feed-page .disc-feed-row:last-child { border-bottom: 1px solid var(--line-2); }
 
 /* Shelves by others: an owner's link (face, name, how many) over their shelves as mosaic cards. */
 .luw .disc-owner-block { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; }

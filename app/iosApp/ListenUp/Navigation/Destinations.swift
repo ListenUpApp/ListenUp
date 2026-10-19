@@ -73,6 +73,9 @@ struct GenreDestination: Hashable, Codable {
     let genreName: String
 }
 
+/// See All Activity: the full community feed (spec X33).
+struct ActivityFeedDestination: Hashable, Codable {}
+
 /// Shelf detail screen — the books a user has curated onto one shelf.
 struct ShelfDestination: Hashable, Codable {
     let id: String

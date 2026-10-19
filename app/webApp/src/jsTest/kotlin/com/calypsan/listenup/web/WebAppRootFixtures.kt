@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web
 
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
+import com.calypsan.listenup.web.features.discover.fixedActivityFeed
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import com.calypsan.listenup.web.features.admin.OpenInboxBadge
 import com.calypsan.listenup.web.features.admin.OpenRestrictedBooks
@@ -284,6 +285,7 @@ internal fun mountAt(
                             openEditProfile = openEditProfile,
                             openHome = openHome,
                             openDiscover = openDiscover,
+                            openActivityFeed = fixedActivityFeed(),
                             openSettings = openSettings,
                             openLicences = openLicences,
                             openDevices = openDevices,

@@ -82,6 +82,15 @@ final class MainShellModel {
         paths[tab ?? selectedTab, default: NavigationPath()].append(destination)
     }
 
+    /// Opens an activity row's book, shelf or person on the selected tab.
+    func open(subject: ActivityDestination) {
+        switch subject {
+        case .book(let id): open(BookDestination(id: id))
+        case .shelf(let id): open(ShelfDestination(id: id))
+        case .profile(let userId): open(ProfileDestination(userId: userId))
+        }
+    }
+
     /// Where a notification tap lands: the outcome's destination on `tab`. `.none` stays put.
     func route(_ outcome: NotificationTapOutcome, on tab: ShellTab? = nil) {
         switch outcome {

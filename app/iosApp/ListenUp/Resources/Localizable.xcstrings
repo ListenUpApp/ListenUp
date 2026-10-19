@@ -7346,7 +7346,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Library · %1$d selected"
+            "value": "%1$d selected"
           }
         }
       }
@@ -10677,26 +10677,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@'s profile"
-          }
-        }
-      }
-    },
-    "discover.activity_show_less": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show less"
-          }
-        }
-      }
-    },
-    "discover.activity_show_less_ios": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show Less"
           }
         }
       }
@@ -16021,16 +16001,6 @@
         }
       }
     },
-    "library.exit_selection_mode": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exit selection mode"
-          }
-        }
-      }
-    },
     "library.failed_to_load_library": {
       "localizations": {
         "en": {
@@ -16197,16 +16167,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d series"
-          }
-        }
-      }
-    },
-    "library.shelf": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shelf"
           }
         }
       }
@@ -22087,6 +22047,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel selection"
+          }
+        }
+      }
+    },
+    "selection.chapters_a11y_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 chapter selected"
+          }
+        }
+      }
+    },
+    "selection.chapters_a11y_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d chapters selected"
           }
         }
       }

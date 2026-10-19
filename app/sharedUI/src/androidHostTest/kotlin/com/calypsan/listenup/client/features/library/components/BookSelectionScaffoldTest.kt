@@ -118,10 +118,10 @@ class BookSelectionScaffoldTest {
     fun `a non-admin is not offered bulk editing`() {
         render(isAdmin = false)
 
-        // "Shelf" is the every-user action: its presence proves the toolbar is up, so what follows
+        // "Add to shelf" is the every-user action: its presence proves the toolbar is up, so what follows
         // is the admin gate and not an unrendered overlay.
-        awaitLabel("Shelf")
-        composeRule.onNodeWithText("Collection").assertDoesNotExist()
+        awaitLabel("Add to shelf")
+        composeRule.onNodeWithText("Add to collection").assertDoesNotExist()
         composeRule.onNodeWithText("Edit").assertDoesNotExist()
     }
 
@@ -137,9 +137,9 @@ class BookSelectionScaffoldTest {
     fun `a host with no route to the editor offers no edit action, admin or not`() {
         render(isAdmin = true, onEditSelected = null)
 
-        // "Collection" is admin-only, so its arrival proves the admin stream has settled — the
+        // "Add to collection" is admin-only, so its arrival proves the admin stream has settled — the
         // absence below is therefore the missing route, not a race.
-        awaitLabel("Collection")
+        awaitLabel("Add to collection")
         composeRule.onNodeWithText("Edit").assertDoesNotExist()
     }
 
@@ -175,5 +175,60 @@ class BookSelectionScaffoldTest {
         endSelection!!.invoke()
 
         viewModel.selectionMode.value shouldBe SelectionMode.None
+    }
+
+    @Test
+    fun `shelving one book opens the picker for that book and leaves no selection behind`() {
+        val viewModel = multiSelect(isAdmin = false)
+        lateinit var state: BookSelectionScaffoldState
+        composeRule.setContent {
+            MaterialTheme {
+                CompositionLocalProvider(LocalSnackbarHostState provides SnackbarHostState()) {
+                    state = rememberBookSelectionScaffoldState()
+                    BookSelectionScaffold(multiSelect = viewModel, state = state)
+                }
+            }
+        }
+
+        composeRule.runOnIdle { state.shelveOne("book-9", viewModel) }
+
+        awaitLabel("1 book selected")
+        viewModel.selectionMode.value shouldBe SelectionMode.Active(setOf("book-9"))
+
+        composeRule.runOnIdle { state.closeShelfPicker(viewModel) }
+
+        composeRule.runOnIdle { viewModel.selectionMode.value shouldBe SelectionMode.None }
+    }
+
+    @Test
+    fun `closing the picker over a real selection keeps that selection`() {
+        lateinit var state: BookSelectionScaffoldState
+        val viewModel = multiSelect(isAdmin = false)
+        viewModel.enterSelectionMode("book-1")
+        composeRule.setContent {
+            MaterialTheme {
+                CompositionLocalProvider(LocalSnackbarHostState provides SnackbarHostState()) {
+                    state = rememberBookSelectionScaffoldState()
+                    BookSelectionScaffold(multiSelect = viewModel, state = state)
+                }
+            }
+        }
+        composeRule.runOnIdle {
+            state.showShelfPicker = true
+            state.closeShelfPicker(viewModel)
+        }
+        composeRule.runOnIdle { viewModel.selectionMode.value shouldBe SelectionMode.Active(setOf("book-1")) }
+    }
+
+    @Test
+    fun `no one-book shelving is offered while a selection is under way, so it cannot wipe that selection`() {
+        val viewModel = multiSelect(isAdmin = false)
+        val state = BookSelectionScaffoldState(showShelfPicker = false, shelvingOneBook = false)
+
+        (state.shelveOneOrNull(viewModel) != null) shouldBe true
+
+        viewModel.enterSelectionMode("book-1")
+
+        state.shelveOneOrNull(viewModel) shouldBe null
     }
 }

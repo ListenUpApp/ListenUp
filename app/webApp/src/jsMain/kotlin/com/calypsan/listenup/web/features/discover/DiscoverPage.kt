@@ -94,6 +94,8 @@ fun DiscoverPage(
      * bring the leaderboard into view and focus its heading (spec §6.4).
      */
     landOnLeaderboard: Boolean = false,
+    /** Opens See all activity (`/discover/activity`, X33); null leaves the link out. */
+    onOpenAllActivity: (() -> Unit)? = null,
 ) {
     // Spent on the first landing, as Admin's pending landing is: a later period pick is the reader's own.
     var landing by remember(landOnLeaderboard) { mutableStateOf(landOnLeaderboard) }
@@ -166,6 +168,8 @@ fun DiscoverPage(
                                     onOpenShelf,
                                     onOpenProfile,
                                     onRefreshActivity,
+                                    onOpenAllActivity = onOpenAllActivity,
+                                    onShelveOne = selection?.shelveOne,
                                 )
                             }
                         }

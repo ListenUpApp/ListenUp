@@ -117,7 +117,9 @@ private fun EditingContent(
 ) {
     PageHeader(
         title = if (state.bookCount == 1) "Edit 1 book" else "Edit ${state.bookCount} books",
-        eyebrow = "Library · ${state.bookCount} selected",
+        // `bulk_edit.hero_eyebrow`: the selection's size, with no source word — it may come from Home
+        // or Discover as well as the Library.
+        eyebrow = "${state.requestedCount} selected",
         documentTitle = "Edit books",
         actions = {
             Button(kind = ButtonKind.Secondary, onClick = { onCancel() }) { Text("Cancel") }

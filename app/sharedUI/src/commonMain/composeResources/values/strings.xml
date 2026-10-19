@@ -735,7 +735,7 @@ One beautiful library.</string>
     <string name="bulk_edit_failed_after_one">Stopped after 1 book. The rest were not changed.</string>
     <string name="bulk_edit_failed_after_plural">Stopped after %1$d books. The rest were not changed.</string>
     <string name="bulk_edit_genres">Add genres</string>
-    <string name="bulk_edit_hero_eyebrow">Library · %1$d selected</string>
+    <string name="bulk_edit_hero_eyebrow">%1$d selected</string>
     <string name="bulk_edit_hero_more">+%1$d</string>
     <string name="bulk_edit_language">Language</string>
     <string name="bulk_edit_moods">Add moods</string>
@@ -1069,8 +1069,6 @@ One beautiful library.</string>
     <string name="discover_activity_more_actions_a11y">More actions for %1$s's activity</string>
     <string name="discover_activity_open">Open %1$s</string>
     <string name="discover_activity_profile_a11y">%1$s's profile</string>
-    <string name="discover_activity_show_less">Show less</string>
-    <string name="discover_activity_show_less_ios">Show Less</string>
     <string name="discover_activity_view_person_ios">View %1$s</string>
     <string name="discover_activity_you">You</string>
     <string name="discover_activity_your_more_actions_a11y">More actions for your activity</string>
@@ -1603,7 +1601,6 @@ One beautiful library.</string>
     <string name="library_empty_description">Books you add to your server will appear here</string>
     <string name="library_empty_tab_description">%1$s will appear here when you have audiobooks in your library</string>
     <string name="library_empty_title">Your library is empty</string>
-    <string name="library_exit_selection_mode">Exit selection mode</string>
     <string name="library_failed_to_load_library">Failed to load library</string>
     <string name="library_filter_and_sort">Filter and sort</string>
     <string name="library_filtered_empty_finished">No finished books yet.</string>
@@ -1621,7 +1618,6 @@ One beautiful library.</string>
     <string name="library_sections_label">Library sections</string>
     <string name="library_series">Series</string>
     <string name="library_series_count">%1$d series</string>
-    <string name="library_shelf">Shelf</string>
     <string name="library_shelf_name">Shelf name</string>
     <string name="library_show_all_books">Show all books</string>
     <string name="library_sort">Sort</string>
@@ -2210,6 +2206,8 @@ One beautiful library.</string>
     <string name="selection_added_to_shelf_one">1 book added to shelf</string>
     <string name="selection_added_to_shelf_plural">%1$d books added to shelf</string>
     <string name="selection_cancel_a11y">Cancel selection</string>
+    <string name="selection_chapters_a11y_one">1 chapter selected</string>
+    <string name="selection_chapters_a11y_plural">%1$d chapters selected</string>
     <string name="selection_created_with_books_one">Created "%1$s" with 1 book</string>
     <string name="selection_created_with_books_plural">Created "%1$s" with %2$d books</string>
     <string name="selection_n_selected">%1$d selected</string>

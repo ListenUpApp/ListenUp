@@ -309,6 +309,7 @@ struct MainTabView: View {
         .environment(\.openLibraryNewestFirst, { shell.openLibraryNewestFirst() })
         .environment(\.openDiscoverLeaderboard, { shell.landOnLeaderboard() })
         .environment(\.openLibraryInProgress, { shell.openLibraryInProgress() })
+        .environment(\.openActivitySubject, { shell.open(subject: $0) })
         .environment(\.heroNamespace, heroNamespace)
         .modifier(TabBarSectionsProbe(isShowingSections: $isTabBarShowingSections))
     }
@@ -400,20 +401,40 @@ extension EnvironmentValues {
     /// Open the Library's Books filtered to In Progress (spec §6.4). Provided by `MainTabView`; Home's Also in
     /// Progress heading uses it.
     @Entry var openLibraryInProgress: () -> Void = {}
+
+    /// Push an activity row's book, shelf or person onto this tab's stack: its context menu and
+    /// VoiceOver actions (spec §3.5). Provided by `MainTabView`.
+    @Entry var openActivitySubject: (ActivityDestination) -> Void = { _ in }
 }
 
 // MARK: - Navigation Destinations
 
 private extension View {
-    /// All value-typed navigation destinations for the app shell, split into a content group and an
-    /// admin group so neither builder trips the function-length lint.
+    /// All value-typed navigation destinations for the app shell, split into content, shelf,
+    /// social and admin groups so no builder trips the function-length lint.
     func navigationDestinations() -> some View {
         contentDestinations()
             .shelfDestinations()
+            .socialDestinations()
             .adminDestinations()
     }
 
-    /// Library/content-facing destinations: books, series, contributors, facets, profiles, settings, and storage.
+    /// The people-facing destinations: profiles and See All Activity.
+    func socialDestinations() -> some View {
+        self
+            .navigationDestination(for: ActivityFeedDestination.self) { _ in
+                ActivityFeedView()
+            }
+            .navigationDestination(for: UserProfileDestination.self) { _ in
+                UserProfileView()
+            }
+            .navigationDestination(for: ProfileDestination.self) { destination in
+                ProfileDestinationView(userId: destination.userId)
+            }
+    }
+
+    /// Library/content-facing destinations: books, series, contributors, facets, settings, and
+    /// storage.
     func contentDestinations() -> some View {
         self
             .navigationDestination(for: BookDestination.self) { destination in
@@ -441,12 +462,6 @@ private extension View {
             }
             .navigationDestination(for: GenreDestination.self) { destination in
                 GenrePageView(genreId: destination.genreId, genreName: destination.genreName)
-            }
-            .navigationDestination(for: UserProfileDestination.self) { _ in
-                UserProfileView()
-            }
-            .navigationDestination(for: ProfileDestination.self) { destination in
-                ProfileDestinationView(userId: destination.userId)
             }
             .navigationDestination(for: SettingsDestination.self) { _ in
                 SettingsView()

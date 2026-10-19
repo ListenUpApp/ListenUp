@@ -14,6 +14,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
+import com.calypsan.listenup.client.features.library.components.plusSelectionToolbar
+import com.calypsan.listenup.client.features.library.components.rememberBookSelectionScaffoldState
 import com.calypsan.listenup.client.features.shell.LocalShellLandings
 import com.calypsan.listenup.client.features.shell.ShellLanding
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
@@ -37,6 +39,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onInvite Opens the create-invite screen from the only-you invitation; shown to an admin only. Null
  *   (desktop) hides the button.
  * @param onBrowseLibrary Opens the Library from "You've started every book here."; null hides the button.
+ * @param onOpenAllActivity Opens See all activity (X33); null (desktop) hides the link.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +51,7 @@ fun DiscoverScreen(
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     onInvite: (() -> Unit)? = null,
     onBrowseLibrary: (() -> Unit)? = null,
+    onOpenAllActivity: (() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
@@ -69,6 +73,7 @@ fun DiscoverScreen(
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isInSelectionMode = selectionMode is SelectionMode.Active
     val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
+    val selectionState = rememberBookSelectionScaffoldState()
 
     // Handle back press to exit selection mode.
     PlatformBackHandler(enabled = isInSelectionMode) {
@@ -125,9 +130,12 @@ fun DiscoverScreen(
                             onRetryActivity = activityFeedViewModel::refresh,
                             onRetryShelves = viewModel::retryShelvesByOthers,
                             onBrowseLibrary = onBrowseLibrary,
+                            onAddToShelf = selectionState.shelveOneOrNull(multiSelect),
+                            onOpenAllActivity = onOpenAllActivity,
                         ),
                     appHeader = appHeader,
-                    contentPadding = contentPadding,
+                    // While selecting, the end of Discover scrolls clear of the floating selection toolbar.
+                    contentPadding = contentPadding.plusSelectionToolbar(isInSelectionMode),
                     isInSelectionMode = isInSelectionMode,
                     selectedBookIds = selectedBookIds,
                     listState = listState,
@@ -135,7 +143,12 @@ fun DiscoverScreen(
             }
         }
 
-        // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected)
+        // Multi-select overlay: header, floating toolbar, picker sheets, and success feedback.
+        BookSelectionScaffold(
+            multiSelect = multiSelect,
+            onEditSelected = onEditSelected,
+            state = selectionState,
+            contentPadding = contentPadding,
+        )
     }
 }
