@@ -205,10 +205,12 @@ internal class PlayerReadout(
 
 /** One report from the engine, in the order it made them. */
 private sealed interface EngineReport {
+    /** The engine now holds [bookId] (null: nothing). */
     data class Book(
         val bookId: BookId?,
     ) : EngineReport
 
+    /** The engine's playhead moved to [positionMs]. */
     data class Position(
         val positionMs: Long,
     ) : EngineReport
