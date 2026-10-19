@@ -177,6 +177,23 @@ class ActionsMenuTest :
             document.activeElement shouldBe trigger
         }
 
+        // WAI-ARIA menu button: activating an item that closes the menu returns focus to the
+        // button. Left alone, a keyboard reader who picks a sort lands on <body>, at the page's top.
+        test("choosing an item that closes the menu hands focus back to the trigger") {
+            var runs = 0
+            val root = menu(listOf(action("Edit") { runs++ }, action("Delete")))
+            val trigger = root.querySelector(".menu-anchor button") as HTMLElement
+
+            trigger.click()
+            awaitFrame()
+            (root.querySelector(".menu-i") as HTMLElement).click()
+            awaitFrame()
+
+            runs shouldBe 1
+            root.querySelectorAll(".menu").length shouldBe 0
+            document.activeElement shouldBe trigger
+        }
+
         test("a press anywhere else closes the menu") {
             val root = menu(listOf(action("Edit")))
 

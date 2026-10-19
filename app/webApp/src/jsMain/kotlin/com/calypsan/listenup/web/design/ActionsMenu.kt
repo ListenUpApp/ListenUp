@@ -77,7 +77,8 @@ fun ActionsMenu(
  * - Opening puts focus on the first item, because opening a menu from the keyboard should put the
  *   reader inside it, not leave them on the button they pressed.
  * - The arrows walk the items and wrap; Home and End jump to the ends.
- * - Escape closes and hands focus back to the trigger. Tab closes and lets focus move on.
+ * - Escape closes and hands focus back to the trigger, as choosing an item does. Tab closes and
+ *   lets focus move on.
  * - A press anywhere outside closes. Pointer-down rather than click, so the menu is gone before
  *   the press lands on whatever was underneath it.
  *
@@ -146,7 +147,10 @@ fun PopupMenu(
         }
 
         if (open) {
-            MenuItems(items = items, label = label, trigger = trigger, onChosen = { close(returnFocus = false) })
+            // Choosing an item hands focus back to the trigger, as the WAI-ARIA menu button does:
+            // left alone, a keyboard reader who picked a sort was dropped on <body>. An item that
+            // opens a dialog still wins, since the dialog takes focus after this.
+            MenuItems(items = items, label = label, trigger = trigger, onChosen = { close(returnFocus = true) })
         }
     }
 }
