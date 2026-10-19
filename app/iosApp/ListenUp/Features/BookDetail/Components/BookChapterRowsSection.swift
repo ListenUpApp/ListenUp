@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Chapters that play from the chapter they name (spec §2.5). Collapsed to the 5-row window around the current
-/// chapter (`preview`); "All N Chapters" expands in place. Each row is a button named "Play from chapter N: title";
+/// chapter (`preview`); "All N Chapters" expands in place and "Fewer Chapters" collapses it. Each row is a button named "Play from chapter N: title";
 /// the current row is selected and tinted. Rows are disabled whenever the book can't play.
 ///
 /// Pure/presentational: it takes the projected rows and reports a tap with the chapter's start.
@@ -11,7 +11,16 @@ struct BookChapterRowsSection: View {
     let canPlay: Bool
     let onPlayFromChapter: (Int64) -> Void
 
-    @State private var expanded = false
+    @State private var expanded: Bool
+
+    init(chapters: [BookChapterRow], preview: [BookChapterRow], canPlay: Bool, initiallyExpanded: Bool = false,
+         onPlayFromChapter: @escaping (Int64) -> Void) {
+        self.chapters = chapters
+        self.preview = preview
+        self.canPlay = canPlay
+        self.onPlayFromChapter = onPlayFromChapter
+        _expanded = State(initialValue: initiallyExpanded)
+    }
 
     private var shown: [BookChapterRow] { expanded ? chapters : preview }
 
@@ -42,12 +51,15 @@ struct BookChapterRowsSection: View {
                         Divider().padding(.leading, 52)
                     }
                 }
-                if !expanded && chapters.count > preview.count {
+                // Expands in place, and collapses again.
+                if chapters.count > preview.count {
                     Divider()
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) { expanded = true }
+                        withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() }
                     } label: {
-                        Text(String(format: String(localized: "book.detail_all_chapters_ios"), chapters.count))
+                        Text(expanded
+                             ? String(localized: "book.detail_fewer_chapters_ios")
+                             : String(format: String(localized: "book.detail_all_chapters_ios"), chapters.count))
                             .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
                             .contentShape(Rectangle())
                     }

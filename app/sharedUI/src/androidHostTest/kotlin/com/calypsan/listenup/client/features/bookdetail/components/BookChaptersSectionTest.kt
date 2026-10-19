@@ -10,6 +10,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
 import io.kotest.matchers.shouldBe
@@ -42,6 +44,7 @@ class BookChaptersSectionTest {
     private fun set(
         canPlay: Boolean = true,
         onPlay: (Long) -> Unit = {},
+        current: CurrentChapter = this.current,
     ) = composeRule.setContent {
         MaterialTheme {
             BookChaptersSection(
@@ -88,12 +91,23 @@ class BookChaptersSectionTest {
     }
 
     @Test
-    fun `All 12 chapters expands the list in place`() {
+    fun `All 12 chapters expands the list in place, and Fewer chapters collapses it again`() {
         set()
         composeRule.onNodeWithText("All 12 chapters").performClick()
         composeRule.onNodeWithContentDescription("Play from chapter 1: Chapter title 1").assertExists()
         composeRule.onNodeWithContentDescription("Play from chapter 12: Chapter title 12").assertExists()
         composeRule.onNodeWithText("All 12 chapters").assertDoesNotExist()
+        // All twelve rows run past the test window, so the press goes through semantics rather than a touch.
+        composeRule.onNodeWithText("Fewer chapters").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithContentDescription("Play from chapter 1: Chapter title 1").assertDoesNotExist()
+        composeRule.onNodeWithText("All 12 chapters").assertExists()
+    }
+
+    @Test
+    fun `under a minute in, the current row just says Now playing`() {
+        set(current = current.copy(elapsedInChapterMs = 6_000L))
+        composeRule.onNodeWithText("Now playing", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Now playing · 0m in", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

@@ -490,6 +490,8 @@ One beautiful library.</string>
     <string name="book_detail_facet_categories">Categories</string>
     <string name="book_detail_facet_moods">Moods</string>
     <string name="book_detail_facet_tags">Tags</string>
+    <string name="book_detail_fewer_chapters">Fewer chapters</string>
+    <string name="book_detail_fewer_chapters_ios">Fewer Chapters</string>
     <string name="book_detail_finish_dates_before_start">The finish date can’t be before the start date.</string>
     <string name="book_detail_finish_dates_in_future">These dates can’t be in the future.</string>
     <string name="book_detail_finished">Finished</string>
@@ -513,6 +515,7 @@ One beautiful library.</string>
     <string name="book_detail_new_collection">New collection</string>
     <string name="book_detail_new_shelf">New shelf</string>
     <string name="book_detail_no_collections">No collections yet</string>
+    <string name="book_detail_now_playing">Now playing</string>
     <string name="book_detail_now_playing_in">Now playing · %1$s in</string>
     <string name="book_detail_offline_body">Streaming is unavailable. Downloaded books still play.</string>
     <string name="book_detail_offline_title">Server offline</string>

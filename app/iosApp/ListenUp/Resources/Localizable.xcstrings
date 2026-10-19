@@ -4891,6 +4891,26 @@
         }
       }
     },
+    "book.detail_fewer_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fewer chapters"
+          }
+        }
+      }
+    },
+    "book.detail_fewer_chapters_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fewer Chapters"
+          }
+        }
+      }
+    },
     "book.detail_finish_dates_before_start": {
       "localizations": {
         "en": {
@@ -5117,6 +5137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No collections yet"
+          }
+        }
+      }
+    },
+    "book.detail_now_playing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now playing"
           }
         }
       }

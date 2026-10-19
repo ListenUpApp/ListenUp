@@ -45,6 +45,8 @@ import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_all_chapters
+import listenup.composeapp.generated.resources.book_detail_fewer_chapters
+import listenup.composeapp.generated.resources.book_detail_now_playing
 import listenup.composeapp.generated.resources.book_detail_now_playing_in
 import listenup.composeapp.generated.resources.book_detail_play_from_chapter_a11y
 import org.jetbrains.compose.resources.stringResource
@@ -55,7 +57,7 @@ private val ChapterRowMinHeight = 56.dp
 
 /**
  * Chapters that play from the chapter they name (spec §2.5). Collapsed, [preview] (the 5-row window around the current
- * chapter, or the first five); "All N chapters" expands in place to [chapters]. Every row is a button; the current row
+ * chapter, or the first five); "All N chapters" expands in place to [chapters], "Fewer chapters" collapses it. Every row is a button; the current row
  * sits on the primary container and says how far in it is. Rows are disabled with the primary when the book can't play.
  *
  * Not lazy, on purpose (plan Decision 13): the section is one item of the page, so the social line's scroll target has
@@ -98,12 +100,21 @@ internal fun BookChaptersSection(
                     onPlayFromChapter = onPlayFromChapter,
                 )
             }
-            if (!expanded && chapters.size > preview.size) {
+            // Expands in place, and collapses again.
+            if (chapters.size > preview.size) {
                 FilledTonalButton(
-                    onClick = { expanded = true },
+                    onClick = { expanded = !expanded },
                     shapes = ButtonDefaults.shapes(),
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = ChapterRowMinHeight),
-                ) { Text(stringResource(Res.string.book_detail_all_chapters, chapters.size)) }
+                ) {
+                    Text(
+                        if (expanded) {
+                            stringResource(Res.string.book_detail_fewer_chapters)
+                        } else {
+                            stringResource(Res.string.book_detail_all_chapters, chapters.size)
+                        },
+                    )
+                }
             }
         }
     }
@@ -172,14 +183,7 @@ private fun ChapterRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 current?.let { here ->
-                    Text(
-                        text =
-                            stringResource(
-                                Res.string.book_detail_now_playing_in,
-                                DurationFormatter.hoursMinutes(here.elapsedInChapterMs.milliseconds),
-                            ),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
+                    Text(text = nowPlayingLabel(here.elapsedInChapterMs), style = MaterialTheme.typography.labelMedium)
                 }
             }
             Text(text = chapter.duration, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"))
@@ -192,3 +196,14 @@ private fun ChapterRow(
         }
     }
 }
+
+/** "Now playing · 12m in"; under a minute in there is nothing to count yet, so just "Now playing". */
+@Composable
+private fun nowPlayingLabel(elapsedInChapterMs: Long): String =
+    if (elapsedInChapterMs < MILLIS_PER_MINUTE) {
+        stringResource(Res.string.book_detail_now_playing)
+    } else {
+        stringResource(Res.string.book_detail_now_playing_in, DurationFormatter.hoursMinutes(elapsedInChapterMs.milliseconds))
+    }
+
+private const val MILLIS_PER_MINUTE = 60_000L

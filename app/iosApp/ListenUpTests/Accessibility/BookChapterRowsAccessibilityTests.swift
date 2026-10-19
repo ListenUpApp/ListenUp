@@ -12,11 +12,12 @@ struct BookChapterRowsAccessibilityTests {
                        startMs: Int64(index) * 600_000)
     }
 
-    private func host(canPlay: Bool = true, onPlay: @escaping (Int64) -> Void = { _ in }) async -> HostedView {
+    private func host(canPlay: Bool = true, expanded: Bool = false,
+                      onPlay: @escaping (Int64) -> Void = { _ in }) async -> HostedView {
         await HostedView(NavigationStack {
             ScrollView {
                 BookChapterRowsSection(chapters: all, preview: Array(all[3..<8]), canPlay: canPlay,
-                                       onPlayFromChapter: onPlay)
+                                       initiallyExpanded: expanded, onPlayFromChapter: onPlay)
                     .padding()
             }
         })
@@ -44,6 +45,15 @@ struct BookChapterRowsAccessibilityTests {
         #expect(hosted.stop(labelled: "Play from chapter 3: Chapter 3") == nil, "\(hosted.tree)")
         #expect(hosted.stop(labelled: "Play from chapter 8: Chapter 8") != nil, "\(hosted.tree)")
         #expect(hosted.stop(labelled: "All 12 Chapters") != nil, "\(hosted.tree)")
+    }
+
+    @Test func expandedShowsEveryRowAndOffersFewerChapters() async {
+        let hosted = await host(expanded: true)
+        defer { hosted.close() }
+        #expect(hosted.stop(labelled: "Play from chapter 1: Chapter 1") != nil, "\(hosted.tree)")
+        #expect(hosted.stop(labelled: "Play from chapter 12: Chapter 12") != nil, "\(hosted.tree)")
+        #expect(hosted.stop(labelled: "Fewer Chapters") != nil, "\(hosted.tree)")
+        #expect(hosted.stop(labelled: "All 12 Chapters") == nil, "\(hosted.tree)")
     }
 
     @Test func theChaptersTitleIsAHeading() async throws {
