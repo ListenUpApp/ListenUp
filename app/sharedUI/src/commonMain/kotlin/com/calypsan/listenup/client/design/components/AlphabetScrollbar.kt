@@ -39,7 +39,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -52,41 +55,19 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_index_jump
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
 
 /**
- * Data class representing the alphabet index for a list of items.
+ * The scrollbar's letters, in the order shown, and the list position each one jumps to. Built from the
+ * shared Library letter sections (`libraryAlphabetIndex`).
  */
 data class AlphabetIndex(
     val letters: List<Char>,
     val letterToIndex: Map<Char, Int>,
-) {
-    companion object {
-        fun <T> build(
-            items: List<T>,
-            keySelector: (T) -> String,
-        ): AlphabetIndex {
-            val letterToIndex = mutableMapOf<Char, Int>()
-
-            items.forEachIndexed { index, item ->
-                val key = keySelector(item)
-                if (key.isNotEmpty()) {
-                    val firstChar = key.first().uppercaseChar()
-                    if (firstChar !in letterToIndex) {
-                        letterToIndex[firstChar] = index
-                    }
-                }
-            }
-
-            // Sort: non-letters (#) first, then alphabetically
-            val letters =
-                letterToIndex.keys
-                    .sortedWith(compareBy({ it.isLetter() }, { it }))
-
-            return AlphabetIndex(letters, letterToIndex)
-        }
-    }
-}
+)
 
 // =============================================================================
 // Adaptive Sizing Configuration
@@ -397,6 +378,7 @@ fun AlphabetScrollbar(
 
                 AdaptiveLetterItem(
                     letter = letter,
+                    onActivate = { alphabetIndex.letterToIndex[letter]?.let(onLetterSelected) },
                     index = index,
                     selectedIndex = selectedLetterIndex,
                     height = letterHeightDp,
@@ -418,6 +400,7 @@ fun AlphabetScrollbar(
 @Composable
 private fun AdaptiveLetterItem(
     letter: Char,
+    onActivate: () -> Unit,
     index: Int,
     selectedIndex: Int?,
     height: Dp,
@@ -506,11 +489,21 @@ private fun AdaptiveLetterItem(
             MaterialTheme.colorScheme.onSurface
         }
 
+    // Each letter is a button a screen reader can reach and activate ("Jump to M"); the drag-scrub on
+    // the column stays the pointer path (spec §5.2).
+    val jumpLabel = stringResource(Res.string.library_index_jump, letter.toString())
     Box(
         modifier =
             Modifier
                 .height(animatedHeight)
-                .onGloballyPositioned { coordinates ->
+                .semantics {
+                    role = Role.Button
+                    contentDescription = jumpLabel
+                    onClick {
+                        onActivate()
+                        true
+                    }
+                }.onGloballyPositioned { coordinates ->
                     // Report center Y position relative to parent Column for hit detection
                     val posInParent = coordinates.positionInParent()
                     val centerY = posInParent.y + coordinates.size.height / 2f

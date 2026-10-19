@@ -16,15 +16,12 @@ import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
-import com.calypsan.listenup.client.presentation.library.SortDirection
-import com.calypsan.listenup.client.util.nameLetter
-import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
-import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.coverUrl
@@ -42,18 +39,19 @@ import org.jetbrains.compose.web.dom.Text
  *
  * `SortCategory.entries` also carries categories that only make sense for the Series, Authors and
  * Narrators tabs, so the row is an explicit list rather than the whole enum — a filter by name would
- * silently pick up whatever a future entry happens to be called.
+ * silently pick up whatever a future entry happens to be called. In the order board
+ * `Library-WebDesktop-Sort` lists them.
  */
 internal val BOOK_SORT_CATEGORIES =
     listOf(
         SortCategory.TITLE,
         SortCategory.AUTHOR,
+        SortCategory.SERIES,
+        SortCategory.ADDED,
         SortCategory.DURATION,
         SortCategory.YEAR,
-        SortCategory.ADDED,
         SortCategory.RATING,
         SortCategory.LISTENER_RATING,
-        SortCategory.SERIES,
     )
 
 /**
@@ -98,19 +96,10 @@ fun LibraryPage(
                     ?.takeIf { it.statusCounts.all > 0 }
                     ?.let { libraryCountLine(it.statusCounts.all, it.totalDurationMs) },
         ) {
-            // Offered only once there is something to select. Arming selection over an empty grid
-            // is an affordance whose only outcome is nothing — the same reason Sort stays with the
-            // loaded branch.
-            if (state is LibraryUiState.Loaded && state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
-                Button(
-                    kind = ButtonKind.Secondary,
-                    onClick = { onStartSelecting() },
-                    attrs = {
-                        classes("lib-select")
-                    },
-                ) { Text("Select") }
-            }
-            if (state is LibraryUiState.Loaded) BookSortControl(state, onEvent)
+            // A library with books carries Select and Sort at the end of its status-chip row (board
+            // `Library-WebDesktop`, see [LibraryControls]); one with no books has no chips, so its
+            // Sort keeps the header.
+            if (state is LibraryUiState.Loaded && state.isEmpty) BookSortControl(state, onEvent)
         }
     }
     FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
@@ -139,6 +128,7 @@ fun LibraryPage(
                 selecting = selecting,
                 selectedIds = selectedIds,
                 onToggleSelect = onToggleSelect,
+                onStartSelecting = onStartSelecting,
                 inbox = inbox,
                 onOpenInbox = onOpenInbox,
             )
@@ -156,6 +146,7 @@ private fun LoadedLibrary(
     selecting: Boolean,
     selectedIds: Set<String>,
     onToggleSelect: (String) -> Unit,
+    onStartSelecting: (() -> Unit)?,
     inbox: InboxBadgeState,
     onOpenInbox: () -> Unit,
 ) {
@@ -169,13 +160,8 @@ private fun LoadedLibrary(
     // Above the grid and above an empty library alike: an admin whose every new book is held has
     // an empty grid, and the strip is the way in. Selecting turns the grid into a picking surface.
     if (!selecting) LibraryInboxStrip(inbox = inbox, onOpenInbox = onOpenInbox)
-    // Filters only over a library that has books: offering to narrow nothing is no offer at all.
-    if (!state.isEmpty && !selecting) {
-        StatusFilterRow(
-            selected = state.statusFilter,
-            counts = state.statusCounts,
-            onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
-        )
+    if (!state.isEmpty) {
+        LibraryControls(state, onEvent, selecting, onStartSelecting)
     }
     // ⛔ `isEmpty` is the LIBRARY having no books; a filter that matches nothing is `isFilteredEmpty`,
     // and telling that reader "No books yet" would say their library had gone.
@@ -188,9 +174,10 @@ private fun LoadedLibrary(
         return
     }
 
-    VirtualBookGrid(
+    BooksWithRail(
         books = state.books,
-        letterOf = { it.sectionLetter(state.booksSortState.category, state.ignoreTitleArticles) },
+        // The shared letter sections: every platform files a book under the same letter.
+        letters = state.bookLetters,
         statusOf = { state.bookStatus[it.id] },
         // ⛔ While selecting, a press picks the book instead of opening it. One gesture, two jobs,
         // decided by the mode — not a second target on every tile in a 1200-book grid.
@@ -200,31 +187,6 @@ private fun LoadedLibrary(
         isSelected = { it in selectedIds },
     )
 }
-
-/**
- * The letter this book files under for the given sort, or null when the sort is not alphabetical.
- *
- * Delegates to the shared [sortLetter] / [nameLetter] rules rather than taking a first character
- * here: those are what Android groups by and what the Swift mirror follows, and a fourth private
- * copy of "which letter is this?" is exactly how three platforms end up disagreeing about where
- * *The Hobbit* belongs. Added and Duration return null — a letter rail over a date sort would label
- * runs of books with letters that mean nothing.
- */
-private fun BookListItem.sectionLetter(
-    category: SortCategory,
-    ignoreTitleArticles: Boolean,
-): Char? =
-    when (category) {
-        SortCategory.TITLE -> title.sortLetter(ignoreTitleArticles)
-
-        SortCategory.AUTHOR -> authors.firstOrNull()?.name.nameLetter()
-
-        // Grouped by series name via the same shared rule Android uses, so a standalone book files
-        // under '#' here exactly as it does there — `nameLetter(null)` is '#', not absent.
-        SortCategory.SERIES -> seriesName.nameLetter()
-
-        else -> null
-    }
 
 /**
  * Opens [bookId], first recording where its cover is so the detail page's hero can fly in from it.
@@ -395,23 +357,60 @@ private fun CardCover(
 }
 
 /**
- * Sort category and direction for the Books tab.
+ * The status chips, then Select and Sort at the row's end (board `Library-WebDesktop`). Only over a
+ * library that has books: offering to narrow or reorder nothing is no offer at all. While selecting,
+ * the chips and Select step aside; Sort stays.
+ */
+@Composable
+private fun LibraryControls(
+    state: LibraryUiState.Loaded,
+    onEvent: (LibraryUiEvent) -> Unit,
+    selecting: Boolean,
+    onStartSelecting: (() -> Unit)?,
+) {
+    Div(attrs = { classes("lib-controls") }) {
+        if (!selecting) {
+            StatusFilterRow(
+                selected = state.statusFilter,
+                counts = state.statusCounts,
+                onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
+            )
+        }
+        Div(attrs = { classes("lib-controls-end") }) {
+            // Offered only once there is something to select: arming selection over an empty grid
+            // is an affordance whose only outcome is nothing.
+            if (state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onStartSelecting() },
+                    attrs = { classes("lib-select") },
+                ) { Text("Select") }
+            }
+            BookSortControl(state, onEvent)
+        }
+    }
+}
+
+/**
+ * Sort category, direction and Ignore articles for the Books tab.
  *
- * Both ride [LibraryUiEvent], so the shared ViewModel owns persistence — the browser never stores a
+ * All ride [LibraryUiEvent], so the shared ViewModel owns persistence — the browser never stores a
  * sort preference of its own, which is what keeps a reader's ordering the same on every device.
+ * Ignore articles is offered only on a title sort, the one it changes.
  */
 @Composable
 private fun BookSortControl(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
-    SortControl(
-        options = BOOK_SORT_CATEGORIES,
-        active = state.booksSortState.category,
-        labelOf = { it.label },
-        ascending = state.booksSortState.direction == SortDirection.ASCENDING,
-        onSelect = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
+    SortDropdown(
+        noun = "books",
+        categories = BOOK_SORT_CATEGORIES,
+        state = state.booksSortState,
+        onCategory = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
         onToggleDirection = { onEvent(LibraryUiEvent.BooksDirectionToggled) },
+        ignoreArticles = state.ignoreTitleArticles.takeIf { state.booksSortState.category == SortCategory.TITLE },
+        onToggleIgnoreArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
     )
 }
 

@@ -2,12 +2,15 @@ package com.calypsan.listenup.web.features.contributors
 
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.library.lettersOf
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
@@ -18,6 +21,12 @@ import org.w3c.dom.asList
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
+
+/** Opens the page's Sort dropdown and waits for the menu to render. */
+private suspend fun openSort(root: HTMLElement) {
+    (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
+    awaitFrame()
+}
 
 private fun EventTarget.press(key: String) {
     dispatchEvent(
@@ -46,11 +55,15 @@ class ContributorsPageTest :
             onOpenContributor: (String) -> Unit = {},
             sortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
             onEvent: (LibraryUiEvent) -> Unit = {},
+            // What the shared state carries: letters on a name sort, none on any other.
+            letters: List<LetterSection> =
+                if (sortState.category == SortCategory.NAME) lettersOf(state.orEmpty().map { it.contributor.name }) else emptyList(),
         ): HTMLElement =
             mounts.mount {
                 ContributorsPage(
                     sortState = sortState,
                     onEvent = onEvent,
+                    letters = letters,
                     state = state,
                     role = role,
                     onSelectFacet = onSelectFacet,
@@ -149,25 +162,14 @@ class ContributorsPageTest :
             root.textContent!! shouldNotContain "Loading…"
         }
 
-        // ⛔ Ordering is no longer this function's job — the caller's sort decides it, and
-        // re-deciding here is what made a descending name sort leave its letters in ascending
-        // order. What it still owns is which letter a name files under, `#` included.
-        test("groupByLetter files non-letter names under '#' and keeps the order it was given") {
-            val groups =
-                groupByLetter(
-                    listOf(
-                        contributor("c1", "Zoe Quinn"),
-                        contributor("c2", "Andy Weir"),
-                        contributor("c3", "3 Doors Down"),
-                    ),
+        test("headings come from the shared letter sections, keyed to the people they cover") {
+            val root =
+                contributorsPage(
+                    state = listOf(contributor("c1", "Zoe Quinn"), contributor("c2", "Andy Weir"), contributor("c3", "3 Doors Down")),
+                    letters = listOf(LetterSection("Z", 0, 1), LetterSection("A", 1, 1), LetterSection("#", 2, 1)),
                 )
 
-            groups.map { it.letter } shouldBe listOf('Z', 'A', '#')
-        }
-
-        test("groupByLetter never article-strips a person's name, matching the shared nameLetter rule") {
-            groupByLetter(listOf(contributor("c1", "The Kingkiller Trio"))).single().letter shouldBe 'T'
-            groupByLetter(listOf(contributor("c2", "A Perfect Circle"))).single().letter shouldBe 'A'
+            root.querySelectorAll(".contrib-letter").asList().map { it.textContent } shouldBe listOf("Z", "A", "#")
         }
 
         test("the active facet chip carries aria-pressed=true and the others false") {
@@ -286,18 +288,21 @@ class ContributorsPageTest :
 
             (root.querySelector(".contrib-avatar") as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
         }
-        test("the sort row offers the two categories a person list can be ordered by") {
+        test("the sort menu offers the two categories a person list can be ordered by, and no Ignore articles") {
             val root = contributorsPage(listOf(contributor("c1", "Andy Weir", 3)))
+            openSort(root)
 
-            root.querySelectorAll(".lib-sort-option").asList().map { it.textContent } shouldBe
-                listOf(SortCategory.NAME.label, SortCategory.BOOK_COUNT.label)
+            root.querySelectorAll("[role=group][aria-label=\"Sort by\"] [role=menuitemradio]").asList().map { it.textContent } shouldBe
+                listOf("Name", "Number of books")
+            root.querySelector("[role=menuitemcheckbox]") shouldBe null
         }
 
         test("choosing a category reports the Authors event when Authors is showing") {
             val events = mutableListOf<LibraryUiEvent>()
             val root = contributorsPage(listOf(contributor("c1", "Andy Weir", 3)), onEvent = { events += it })
+            openSort(root)
 
-            (root.querySelectorAll(".lib-sort-option").item(1) as HTMLElement).click()
+            (root.querySelectorAll("[role=menuitemradio]").item(1) as HTMLElement).click()
 
             events shouldBe listOf(LibraryUiEvent.AuthorsCategoryChanged(SortCategory.BOOK_COUNT))
         }
@@ -312,13 +317,14 @@ class ContributorsPageTest :
                     role = ContributorRole.NARRATOR,
                     onEvent = { events += it },
                 )
+            openSort(root)
 
-            (root.querySelectorAll(".lib-sort-option").item(1) as HTMLElement).click()
+            (root.querySelectorAll("[role=menuitemradio]").item(1) as HTMLElement).click()
 
             events shouldBe listOf(LibraryUiEvent.NarratorsCategoryChanged(SortCategory.BOOK_COUNT))
         }
 
-        test("the direction toggle reports the role's own toggle") {
+        test("choosing the other direction reports the role's own toggle") {
             val events = mutableListOf<LibraryUiEvent>()
             val root =
                 contributorsPage(
@@ -327,7 +333,9 @@ class ContributorsPageTest :
                     onEvent = { events += it },
                 )
 
-            (root.querySelector(".lib-sort-direction") as HTMLElement).click()
+            openSort(root)
+            // Z → A: the direction not in force.
+            (root.querySelectorAll("[role=group][aria-label=\"Direction\"] [role=menuitemradio]").item(1) as HTMLElement).click()
 
             events shouldBe listOf(LibraryUiEvent.NarratorsDirectionToggled)
         }
@@ -384,12 +392,31 @@ class ContributorsPageTest :
             root.querySelectorAll(".contrib-letter").asList().map { it.textContent } shouldBe listOf("A", "Z")
         }
 
+        // Spec L25/L26: Authors and Narrators by name get the same A–Z jump rail as Books.
+        test("a name-sorted list gets the jump rail, which jumps to the letter's first person") {
+            val people =
+                listOf(contributor("c1", "Andy Weir", 3), contributor("c2", "Ann Leckie", 4), contributor("c3", "Zoe Quinn", 47))
+            val root = contributorsPage(people)
+
+            val jumpZ = root.querySelector(".lib-rail button[aria-label=\"Jump to Z\"]") as HTMLElement
+            jumpZ.click()
+            awaitFrame()
+
+            (kotlinx.browser.document.activeElement as HTMLElement).textContent!! shouldContain "Zoe Quinn"
+        }
+
+        test("no rail under a book-count sort") {
+            val people = listOf(contributor("c1", "Andy Weir", 3), contributor("c2", "Zoe Quinn", 47))
+            contributorsPage(people, sortState = SortState(SortCategory.BOOK_COUNT, SortDirection.DESCENDING))
+                .querySelector(".lib-rail") shouldBe null
+        }
+
         // Offering to reorder nothing is an affordance whose only outcome is nothing — the same
         // rule the Library's own header follows.
         test("sorting is offered only once the list has actually answered") {
-            contributorsPage(null).querySelectorAll(".lib-sort").length shouldBe 0
+            contributorsPage(null).querySelectorAll(".lib-sort-trigger").length shouldBe 0
             contributorsPage(listOf(contributor("c1", "Andy Weir", 3)))
-                .querySelectorAll(".lib-sort")
+                .querySelectorAll(".lib-sort-trigger")
                 .length shouldBe 1
         }
     })

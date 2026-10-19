@@ -229,7 +229,7 @@ private val EXCUSED =
         // (ThemeMode), so there is no equivalent knob to wire.
         "SettingsViewModel.setDynamicColorsEnabled",
         // ⛔ The Settings four. `SettingsPage`/`SettingsSession` already carry the reasoning in
-        // prose — "eight controls, not twelve" — and this rule strips comments, so a carefully
+        // prose — "seven controls, not twelve" — and this rule strips comments, so a carefully
         // made decision read exactly like an oversight. Recorded here so it reads as a decision:
         //  - wifi-only downloads: web cannot download at all (`supportsDownloads` is false), so the
         //    toggle would govern a capability this device does not have.
@@ -245,6 +245,10 @@ private val EXCUSED =
         "SettingsViewModel.setHapticFeedbackEnabled",
         "SettingsViewModel.setDefaultSleepTimerMin",
         "SettingsViewModel.sendTestNotification",
+        // Ignore "A", "An", "The" lives in web's Library Sort dropdown, beside the sort it changes
+        // (spec L5/L6), through `LibraryViewModel`'s ToggleIgnoreTitleArticles; Settings no longer
+        // offers it. The two write the same preference, so re-wiring it here would be a second switch.
+        "SettingsViewModel.setIgnoreTitleArticles",
         // Organize's error is an inline `role="alert"` line under the form (OrganizePage), and every
         // action the ViewModel takes clears it before it runs. A dismiss control would be a second,
         // redundant way to make the same message go away.

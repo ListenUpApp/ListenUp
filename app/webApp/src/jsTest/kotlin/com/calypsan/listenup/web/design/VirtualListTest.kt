@@ -30,6 +30,7 @@ import com.calypsan.listenup.web.motion.markPageArrival
 import com.calypsan.listenup.web.recordedAnimations
 import com.calypsan.listenup.web.startRecordingAnimations
 import com.calypsan.listenup.web.stopRecordingAnimations
+import com.calypsan.listenup.web.features.library.lettersOf
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThan
@@ -134,7 +135,7 @@ class VirtualListTest :
             frames.mount(DESKTOP_WIDTH, DESKTOP_HEIGHT) {
                 CompositionLocalProvider(LocalCompositionProbe provides probe) {
                     InShell {
-                        VirtualBookGrid(books = books(count), letterOf = { null }, statusOf = { null }, onOpenBook = {})
+                        VirtualBookGrid(books = books(count), statusOf = { null }, onOpenBook = {})
                     }
                 }
             }
@@ -213,7 +214,7 @@ class VirtualListTest :
             val frame =
                 frames.mount(WIDE_WIDTH, WIDE_HEIGHT) {
                     InShell {
-                        VirtualBookGrid(books = books(LARGE), letterOf = { null }, statusOf = { null }, onOpenBook = {})
+                        VirtualBookGrid(books = books(LARGE), statusOf = { null }, onOpenBook = {})
                     }
                 }
             // Before the mount's microtask runs: the list mounts as part of a page arrival.
@@ -347,6 +348,7 @@ class VirtualListTest :
                         role = ContributorRole.AUTHOR,
                         onSelectFacet = {},
                         onOpenContributor = {},
+                        letters = lettersOf(people.map { it.contributor.name }),
                     )
                 }
             awaitUntil("the list to window") { frame.isWindowed() }

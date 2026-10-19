@@ -17,6 +17,7 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.core.ImageLoaderFactory
 import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
@@ -207,9 +208,11 @@ val playbackModule =
         // Platform capability flag: Android supports download and playback.
         single(qualifier = named("playbackAvailable")) { true }
 
-        // Application-scoped coroutine for progress tracking
+        // Application-scoped coroutine for progress tracking. It keeps its own IO dispatcher (playback
+        // and progress run their work on it directly), but carries the shared scopes' handler: an
+        // uncaught failure in a fire-and-forget launch is logged, not left to crash the process.
         single(createdAtStart = false) {
-            CoroutineScope(SupervisorJob() + IODispatcher)
+            CoroutineScope(SupervisorJob() + IODispatcher + appCoroutineExceptionHandler)
         }
 
         // Audio token provider — the shared core (bound in androidPlaybackModule) wrapped by the

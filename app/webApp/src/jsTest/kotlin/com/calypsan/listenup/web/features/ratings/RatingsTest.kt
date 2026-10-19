@@ -1000,7 +1000,8 @@ class RatingsTest :
         test("the library sorts books by the outside world's rating and by your listeners'") {
             BOOK_SORT_CATEGORIES shouldContain SortCategory.RATING
             BOOK_SORT_CATEGORIES shouldContain SortCategory.LISTENER_RATING
+            // Side by side, as board `Library-WebDesktop-Sort` lists them.
             BOOK_SORT_CATEGORIES.indexOf(SortCategory.LISTENER_RATING) shouldBe
-                BOOK_SORT_CATEGORIES.indexOf(SortCategory.ADDED) + 2
+                BOOK_SORT_CATEGORIES.indexOf(SortCategory.RATING) + 1
         }
     })

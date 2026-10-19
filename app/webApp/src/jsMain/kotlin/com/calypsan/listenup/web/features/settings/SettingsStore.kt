@@ -13,7 +13,7 @@ import com.calypsan.listenup.web.logging.downloadRecentLogs
 import org.koin.core.Koin
 
 /**
- * An open Settings session: the state, the eight things web can actually change, and the teardown.
+ * An open Settings session: the state, the seven things web can actually change, and the teardown.
  *
  * [canCurateLibrary] offers Categories in the Library section, to those who may curate the library.
  *
@@ -23,8 +23,8 @@ import org.koin.core.Koin
  * [downloadLogs] saves the browser's recent log (see
  * [com.calypsan.listenup.web.logging.RecentLogBuffer]) — null when this page has none to offer.
  *
- * Eight of the twelve `SettingsViewModel` offers. The other four — dynamic colours, Wi-Fi-only
- * downloads, haptics, the sleep-timer default — are omitted deliberately rather than disabled,
+ * Seven of the twelve `SettingsViewModel` offers; Ignore articles is the Library Sort menu's. The
+ * other four — dynamic colours, Wi-Fi-only downloads, haptics, the sleep-timer default — are omitted deliberately rather than disabled,
  * because a control that silently does nothing is worse than one that was never offered. Three a
  * browser cannot honour at all; the fourth no client honours yet. Each omission is named at its
  * section in [SettingsPage].
@@ -43,7 +43,6 @@ class SettingsSession(
     val onSkipForward: (Int) -> Unit,
     val onSkipBackward: (Int) -> Unit,
     val onAutoRewind: (Boolean) -> Unit,
-    val onIgnoreTitleArticles: (Boolean) -> Unit,
     val onHideSingleBookSeries: (Boolean) -> Unit,
     override val close: () -> Unit,
     val downloadLogs: (() -> Unit)? = null,
@@ -67,7 +66,6 @@ fun graphSettings(koin: Koin): OpenSettings =
             onSkipForward = viewModel::setDefaultSkipForwardSec,
             onSkipBackward = viewModel::setDefaultSkipBackwardSec,
             onAutoRewind = viewModel::setAutoRewindEnabled,
-            onIgnoreTitleArticles = viewModel::setIgnoreTitleArticles,
             onHideSingleBookSeries = viewModel::setHideSingleBookSeries,
             close = store::clear,
             downloadLogs = koin.getOrNull<RecentLogBuffer>()?.let { buffer -> { downloadRecentLogs(buffer) } },
@@ -83,7 +81,6 @@ fun fixedSettings(
     onSkipForward: (Int) -> Unit = {},
     onSkipBackward: (Int) -> Unit = {},
     onAutoRewind: (Boolean) -> Unit = {},
-    onIgnoreTitleArticles: (Boolean) -> Unit = {},
     onHideSingleBookSeries: (Boolean) -> Unit = {},
     hardcoverRow: HardcoverRowState? = null,
     canCurateLibrary: Boolean = false,
@@ -99,7 +96,6 @@ fun fixedSettings(
             onSkipForward = onSkipForward,
             onSkipBackward = onSkipBackward,
             onAutoRewind = onAutoRewind,
-            onIgnoreTitleArticles = onIgnoreTitleArticles,
             onHideSingleBookSeries = onHideSingleBookSeries,
             close = {},
         )

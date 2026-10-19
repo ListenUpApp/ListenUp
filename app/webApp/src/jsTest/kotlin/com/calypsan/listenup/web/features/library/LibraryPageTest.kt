@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.features.home.scanning
@@ -57,7 +58,57 @@ class LibraryPageTest :
         test("sorting is offered only once there is something to sort") {
             val root = render(LibraryUiState.Loading)
 
-            (root.querySelector(".lib-sort") == null) shouldBe true
+            (root.querySelector(".lib-sort-trigger") == null) shouldBe true
+        }
+
+        test("the Books Sort menu offers Ignore articles on a title sort, and reports the toggle") {
+            val events = mutableListOf<LibraryUiEvent>()
+            val root =
+                mounts.mount {
+                    LibraryPage(
+                        state = loadedWith(listOf(bookItem("b1", "Dune"))),
+                        onEvent = { events += it },
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                    )
+                }
+
+            val trigger = root.querySelector(".lib-sort-trigger") as HTMLElement
+            trigger.textContent shouldBe "Sort: Title, A–Z"
+            trigger.click()
+            awaitFrame()
+            (root.querySelector("[role=menuitemcheckbox]") as HTMLElement).click()
+
+            events shouldBe listOf(LibraryUiEvent.ToggleIgnoreTitleArticles)
+        }
+
+        // Board `Library-WebDesktop`: Select and Sort sit at the right end of the status-chip row,
+        // not in the page header.
+        test("Select and Sort sit at the end of the status-chip row") {
+            val root =
+                mounts.mount {
+                    LibraryPage(
+                        state = loadedWith(listOf(bookItem("b1", "Dune"), bookItem("b2", "Ubik"))),
+                        onEvent = {},
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                        onStartSelecting = {},
+                    )
+                }
+            val row = root.querySelector(".lib-controls") as HTMLElement
+            (row.querySelector(".lib-filters") != null) shouldBe true
+            (row.querySelector(".lib-select") != null) shouldBe true
+            (row.querySelector(".lib-sort-trigger") != null) shouldBe true
+            root.querySelector(".page-h .lib-sort-trigger") shouldBe null
+        }
+
+        test("a length sort offers no Ignore articles") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune")), sort = SortCategory.DURATION))
+
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
+            awaitFrame()
+
+            root.querySelector("[role=menuitemcheckbox]") shouldBe null
         }
 
         test("a loaded library renders one card per book") {
@@ -196,7 +247,7 @@ class LibraryPageTest :
                 )
 
             root.querySelectorAll(".lib-section").length shouldBe 3
-            root.querySelector(".lib-section")!!.textContent shouldBe "A"
+            root.querySelector(".lib-section > span")!!.textContent shouldBe "A"
         }
 
         test("consecutive books under one letter share a single header") {
@@ -386,6 +437,8 @@ private fun loadedWith(
         statusCounts = statusCounts,
         bookStatus = books.associate { it.id to BookCardStatus.NotStarted(durationMs = it.duration) },
         totalDurationMs = books.sumOf { it.duration },
+        // What the shared ViewModel files a title sort under; any other sort has no letters.
+        bookLetters = if (sort == SortCategory.TITLE) lettersOf(books.map { it.title }) else emptyList(),
     )
 
 /** A minimal book — only `id`, `title` and `authors` reach this page. */

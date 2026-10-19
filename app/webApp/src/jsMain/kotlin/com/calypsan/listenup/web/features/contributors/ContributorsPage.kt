@@ -4,21 +4,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
-import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.PageHeader
-import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
+import com.calypsan.listenup.web.features.library.WithJumpRail
 import com.calypsan.listenup.web.design.ContributorPhoto
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -45,6 +46,9 @@ import org.w3c.dom.Element
  * state with zero books. The header and facet row still render while `null`: they are
  * navigation, not data, so there is nothing about them to wait for.
  *
+ * [letters] are the shared Library letter sections over [state] (`authorLetters` or `narratorLetters`),
+ * so a person files under the same letter here as on Android and iOS; empty draws no headings.
+ *
  * ⛔ No hours in the "N books" line. The artboard's row reads "6 books · 58h", but
  * [ContributorWithBookCount] carries no duration — inventing one here would be a number this page
  * made up. It stays books-only until a summed projection exists.
@@ -57,6 +61,7 @@ fun ContributorsPage(
     onOpenContributor: (String) -> Unit,
     sortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
     onEvent: (LibraryUiEvent) -> Unit = {},
+    letters: List<LetterSection> = emptyList(),
 ) {
     Div(attrs = { classes("lib-header") }) {
         PageHeader(title = "Contributors") {
@@ -86,30 +91,41 @@ fun ContributorsPage(
         return
     }
 
-    // ⛔ The letter rail belongs to a NAME sort and nothing else. Under "Most books" the list runs
-    // 47, 31, 12 — letter squares over that would label runs of people with letters that mean
-    // nothing, which is the same call the Books tab makes for its Added and Duration sorts.
-    val byName = sortState.category == SortCategory.NAME
-    // Under a name sort the people are laid out in [groupByLetter]'s sections, so the rail and the
-    // grouping can never disagree about who files where.
-    val people = remember(state, byName) { if (byName) groupByLetter(state).flatMap { it.contributors } else state }
+    // The letter headings are the shared [letters] — the sections every platform files a person
+    // under. ⛔ They belong to a NAME sort and nothing else, and the shared state leaves them empty
+    // otherwise: under "Most books" the list runs 47, 31, 12, and letter squares over that would
+    // label runs of people with letters that mean nothing. The people stay in the ViewModel's order.
+    val letterById =
+        remember(state, letters) {
+            buildMap {
+                letters.forEach { section ->
+                    for (index in section.firstIndex until minOf(section.firstIndex + section.count, state.size)) {
+                        put(state[index].contributor.idString, section.letter.first())
+                    }
+                }
+            }
+        }
     // Windowed: a real library has thousands of narrators. Rows are one line each (the name is
     // clamped), so every row and every letter heading is one height and the list can be counted.
-    VirtualList(
-        items = people,
-        key = { it.contributor.idString },
-        containerClass = "contrib-list",
-        itemSelector = ".contrib-row",
-        label = if (role == ContributorRole.NARRATOR) "Narrators" else "Authors",
-        sectionOf = { if (byName) it.contributor.name.nameLetter() else null },
-        headerSelector = ".contrib-letter-row",
-        header = { letter -> LetterHeading(letter) },
-    ) { entry ->
-        ContributorRow(
-            entry = entry,
-            role = role,
-            onOpen = { onOpenContributor(entry.contributor.idString) },
-        )
+    // The same A–Z jump rail as Books (spec L25/L26), over the same shared letters.
+    WithJumpRail(letters) { jump ->
+        VirtualList(
+            items = state,
+            key = { it.contributor.idString },
+            containerClass = "contrib-list",
+            itemSelector = ".contrib-row",
+            label = if (role == ContributorRole.NARRATOR) "Narrators" else "Authors",
+            sectionOf = { letterById[it.contributor.idString] },
+            headerSelector = ".contrib-letter-row",
+            header = { letter -> LetterHeading(letter) },
+            jump = jump,
+        ) { entry ->
+            ContributorRow(
+                entry = entry,
+                role = role,
+                onOpen = { onOpenContributor(entry.contributor.idString) },
+            )
+        }
     }
 }
 
@@ -128,12 +144,14 @@ private fun ContributorSortControl(
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
     val isNarrator = role == ContributorRole.NARRATOR
-    SortControl(
-        options = CONTRIBUTOR_SORT_CATEGORIES,
-        active = sortState.category,
-        labelOf = { it.label },
-        ascending = sortState.direction == SortDirection.ASCENDING,
-        onSelect = { category ->
+    SortDropdown(
+        noun = if (isNarrator) "narrators" else "authors",
+        categories = CONTRIBUTOR_SORT_CATEGORIES,
+        state = sortState,
+        // A person's name never loses its article, so there is nothing to ignore.
+        ignoreArticles = null,
+        onToggleIgnoreArticles = {},
+        onCategory = { category ->
             onEvent(
                 if (isNarrator) {
                     LibraryUiEvent.NarratorsCategoryChanged(category)
@@ -249,36 +267,3 @@ private fun roleLabel(role: ContributorRole): String = if (role == ContributorRo
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
 
 private const val CHEVRON_SIZE = 20
-
-/** One alphabetical section of the Contributors list: its letter square, and who files under it. */
-data class LetterGroup(
-    val letter: Char,
-    val contributors: List<ContributorWithBookCount>,
-)
-
-/**
- * Splits [contributors] into A→Z sections for the letter-square rail this list renders under.
- *
- * The letter itself is delegated to the shared [nameLetter] — the same rule Android, iOS and
- * Library's own author/narrator rail use for a *person's* name — rather than reinterpreted here.
- * A person's name is never article-stripped ("The Rolling Stones" files under T), so every
- * platform files a given contributor under the same letter. Names with no leading letter (blank,
- * numeric, symbolic) group under `#`, sorted first — [nameLetter]'s own contract.
- *
- * ⛔ Groups and nothing else — it neither sorts the people nor orders the sections.
- *
- * Both used to happen here: a `sortedBy { name.lowercase() }` because the raw repository result came
- * back in SQLite's case-sensitive BINARY collation ("Zoe" before "andy"), and a `sortedBy` on the
- * letters to run the rail A→Z. The list now arrives already ordered by
- * `LibraryViewModel.sortContributors`, and **ordering the sections here contradicted it**: under a
- * descending name sort the ViewModel hands back Z→A and this re-ran the rail A→Z, so pressing ↓
- * reversed the people inside each letter and left the letters themselves untouched.
- *
- * `groupBy` preserves encounter order, so the sections now come out in whatever order the caller's
- * sort put them — which is the reader's answer, not a second opinion. `#` lands where the sort puts
- * it rather than being pinned first.
- */
-fun groupByLetter(contributors: List<ContributorWithBookCount>): List<LetterGroup> =
-    contributors
-        .groupBy { it.contributor.name.nameLetter() }
-        .map { (letter, group) -> LetterGroup(letter, group) }

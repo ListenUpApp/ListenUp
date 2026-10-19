@@ -523,6 +523,7 @@ LeaderboardSnapshot
 LeaderboardUiState
 LeaderboardUiState_SealedType
 LeaderboardViewModel
+LetterSection
 Library
 LibraryCoverUi
 LibraryCredit

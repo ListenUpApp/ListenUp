@@ -1,21 +1,23 @@
 package com.calypsan.listenup.web.features.serieslist
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
-import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.PageHeader
-import com.calypsan.listenup.web.design.SortControl
+import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.library.WithJumpRail
+import com.calypsan.listenup.web.features.library.groupedCount
 import com.calypsan.listenup.web.features.seriesdetail.seriesAndBookCount
 import com.calypsan.listenup.web.features.seriesdetail.seriesBookCount
 import org.jetbrains.compose.web.dom.Button
@@ -102,21 +104,62 @@ private fun LoadedSeries(
     // Windowed, like the library grid: a big library has hundreds of series. Every card is the same
     // height — the name is clamped to two lines and the meta block holds its size whether or not
     // there is progress to show — which is what lets rows be counted rather than measured.
-    VirtualList(
-        items = state.series,
-        key = { it.series.id.value },
-        containerClass = "srs-grid",
-        itemSelector = ".srs-card",
-        label = "Series",
-    ) { entry ->
-        SeriesCard(
-            entry = entry,
-            // iOS's `progressFor` fallback: no aggregate for a series means nothing finished yet.
-            progress =
-                state.seriesProgress[entry.series.id]
-                    ?: SeriesProgress(finishedCount = 0, totalCount = entry.books.size),
-            onOpen = { onOpenSeries(entry.series.id.value) },
-        )
+    // Letter headings from the shared sections (a name sort only, article-aware so "The Wandering
+    // Inn" files under W) — the same letters Android's and iOS's series indexes use.
+    val letterById =
+        remember(state.series, state.seriesLetters) {
+            buildMap {
+                state.seriesLetters.forEach { section ->
+                    for (
+                    index in section.firstIndex until
+                        minOf(
+                            section.firstIndex + section.count,
+                            state.series.size,
+                        )
+                    ) {
+                        put(
+                            state.series[index]
+                                .series.id.value,
+                            section.letter.first(),
+                        )
+                    }
+                }
+            }
+        }
+    // A letter that recurs is captioned with its first run's size, as the Books grid's are.
+    val captionByLetter =
+        remember(state.seriesLetters) {
+            state.seriesLetters.groupBy { it.letter.first() }.mapValues { (_, runs) -> runs.first().count }
+        }
+    // The same A–Z jump rail as Books (spec L25/L26), over the same shared letters.
+    WithJumpRail(state.seriesLetters) { jump ->
+        VirtualList(
+            items = state.series,
+            key = { it.series.id.value },
+            containerClass = "srs-grid",
+            itemSelector = ".srs-card",
+            label = "Series",
+            sectionOf = { letterById[it.series.id.value] },
+            headerSelector = ".lib-section",
+            header = { letter ->
+                Div(attrs = { classes("lib-section") }) {
+                    Span { Text(letter.toString()) }
+                    Span(attrs = { classes("lib-section-c") }) {
+                        Text(captionByLetter[letter]?.let { "${groupedCount(it)} series" }.orEmpty())
+                    }
+                }
+            },
+            jump = jump,
+        ) { entry ->
+            SeriesCard(
+                entry = entry,
+                // iOS's `progressFor` fallback: no aggregate for a series means nothing finished yet.
+                progress =
+                    state.seriesProgress[entry.series.id]
+                        ?: SeriesProgress(finishedCount = 0, totalCount = entry.books.size),
+                onOpen = { onOpenSeries(entry.series.id.value) },
+            )
+        }
     }
 }
 
@@ -189,13 +232,15 @@ private fun SeriesSortControl(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
-    SortControl(
-        options = SERIES_SORT_CATEGORIES,
-        active = state.seriesSortState.category,
-        labelOf = { it.label },
-        ascending = state.seriesSortState.direction == SortDirection.ASCENDING,
-        onSelect = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
+    SortDropdown(
+        noun = "series",
+        categories = SERIES_SORT_CATEGORIES,
+        state = state.seriesSortState,
+        onCategory = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
         onToggleDirection = { onEvent(LibraryUiEvent.SeriesDirectionToggled) },
+        // Series by name sort article-aware ("The Wandering Inn" under W), so the toggle belongs here too.
+        ignoreArticles = state.ignoreTitleArticles.takeIf { state.seriesSortState.category == SortCategory.NAME },
+        onToggleIgnoreArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
     )
 }
 

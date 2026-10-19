@@ -5,14 +5,13 @@ import Shared
 ///
 /// Features:
 /// - Adaptive grid: 2 columns on iPhone, 3-4 on iPad
-/// - Section headers (A, B, C...) with alphabet scrubber
+/// - Section headers and a section index from the shared letter runs (Title, Author or Series sorts)
 /// - Pull-to-refresh (sorting lives in the Library toolbar's Sort menu)
 /// - Loading, empty, and error states
 struct BooksContent: View {
     let books: [BookRow]
     /// What each book's card says about where the reader is with it (spec §2.6).
     var bookStatus: [String: LibraryCardState] = [:]
-    let sortState: SortState?
     let isLoading: Bool
     /// The library itself has no books.
     let isEmpty: Bool
@@ -22,9 +21,9 @@ struct BooksContent: View {
     /// Clears the status filter from the filtered-empty state.
     var onShowAll: () -> Void = {}
     let errorMessage: String?
-    /// Title-sort article handling. When sorting by Title, "The Hobbit" groups under H (ignoring the
-    /// article); the section letters honor it too.
-    let ignoreTitleArticles: Bool
+    /// `books` cut into index-letter runs by the shared ViewModel: Title (honouring Ignore articles),
+    /// Author or Series sorts; empty for any other sort, which then shows no headers and no index.
+    let bookLetters: [LetterRun]
     let onRefresh: () -> Void
     /// Drives multi-select on the grid. When `isSelecting`, taps toggle selection instead of
     /// navigating; a long-press is the secondary entry into selection mode.
@@ -40,7 +39,7 @@ struct BooksContent: View {
 
     @State private var isScrolling = false
     @State private var scrollTarget: String?
-    @State private var sections: [(letter: Character, books: [BookRow])] = []
+    @State private var sections: [LetterRun.Section<BookRow>] = []
 
     private var layout: BooksLayout {
         BooksLayout.forRegularWidth(horizontalSizeClass == .regular)
@@ -50,18 +49,6 @@ struct BooksContent: View {
         // Top-aligned: a card with a "Read by" line is taller than one without, and a centred row would
         // stagger the covers.
         [GridItem(.adaptive(minimum: 150), spacing: layout.gridSpacing, alignment: .top)]
-    }
-
-    /// A letter group wrapped as `Identifiable` — the grid's outer `ForEach` needs stable per-section
-    /// identity, and the underlying `sections` labeled-tuple can't provide a key path.
-    private struct LetterSection: Identifiable {
-        let letter: Character
-        let books: [BookRow]
-        var id: Character { letter }
-    }
-
-    private var letterSections: [LetterSection] {
-        sections.map { LetterSection(letter: $0.letter, books: $0.books) }
     }
 
     var body: some View {
@@ -83,7 +70,7 @@ struct BooksContent: View {
     // MARK: - Books Grid
 
     private var booksGrid: some View {
-        let letters = sections.map { String($0.letter) }
+        let letters = LetterRun.railLetters(bookLetters)
 
         // ONE `LazyVGrid` (a single lazy container) with a `Section` per letter — NOT the ~26 nested
         // per-section grids that made the scrubber's `scrollTo` hang the main thread on a large
@@ -100,14 +87,16 @@ struct BooksContent: View {
                         .padding(.bottom, Spacing.s)
                 }
                 LazyVGrid(columns: columns, alignment: .leading, spacing: layout.gridSpacing) {
-                    ForEach(letterSections) { section in
+                    ForEach(sections) { section in
                         Section {
-                            ForEach(section.books) { book in
+                            ForEach(section.items) { book in
                                 bookCell(book)
                                     .transition(bookTransition)
                             }
                         } header: {
-                            sectionHeader(section.letter)
+                            if !section.letter.isEmpty {
+                                sectionHeader(section)
+                            }
                         }
                     }
                 }
@@ -133,11 +122,11 @@ struct BooksContent: View {
             }
             // Alphabet scrubber overlay
             .overlay(alignment: .trailing) {
-                if layout.showsScrubber, shouldShowAlphabetIndex {
+                if layout.showsScrubber, !letters.isEmpty {
                     SectionIndexBar(
                         letters: letters,
                         onLetterSelected: { letter in
-                            scrollTarget = "section-\(letter)"
+                            scrollTarget = LetterRun.sectionId(forLetter: letter, in: bookLetters)
                         },
                         isVisible: isScrolling
                     )
@@ -150,25 +139,25 @@ struct BooksContent: View {
                 // load (all books arriving at once) or when Reduce Motion is on.
                 let animate = !reduceMotion && !sections.isEmpty && !newBooks.isEmpty
                 withAnimation(animate ? .snappy : nil) {
-                    sections = bookSections(from: newBooks, ignoreArticles: ignoreTitleArticles)
+                    sections = LetterRun.sections(of: newBooks, runs: bookLetters)
                 }
             }
-            .onChange(of: ignoreTitleArticles) { _, _ in
-                // A re-sort (article handling), not an add/remove — apply instantly, no animation.
-                sections = bookSections(from: books, ignoreArticles: ignoreTitleArticles)
+            .onChange(of: bookLetters) { _, newLetters in
+                // A re-filing (a sort or Ignore articles), not an add/remove — apply instantly.
+                sections = LetterRun.sections(of: books, runs: newLetters)
             }
         }
     }
 
-    /// Full-width letter header for a grid `Section`, carrying the `section-<letter>` anchor the
-    /// alphabet scrubber's `scrollTo` targets.
-    private func sectionHeader(_ letter: Character) -> some View {
-        Text(String(letter))
+    /// Full-width letter header for a grid `Section`, carrying the section's id — the anchor the
+    /// section index's `scrollTo` targets.
+    private func sectionHeader(_ section: LetterRun.Section<BookRow>) -> some View {
+        Text(section.letter)
             .font(.title2.bold())
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, Spacing.xs)
-            .id("section-\(letter)")
+            .id(section.id)
     }
 
     /// Per-book insert/remove transition. Honors Reduce Motion (a plain cross-fade, no scale) per HIG.
@@ -203,11 +192,6 @@ struct BooksContent: View {
                 .draggableBookCover(book)
                 .bookContextMenu(bookId: book.id, selection: selection) { card }
         }
-    }
-
-    /// Only show alphabet index when sorted by title
-    private var shouldShowAlphabetIndex: Bool {
-        sortState?.category == .title
     }
 
     // MARK: - Loading State

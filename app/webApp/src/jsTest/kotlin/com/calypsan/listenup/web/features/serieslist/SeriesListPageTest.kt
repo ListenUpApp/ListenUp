@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.serieslist
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -10,6 +11,7 @@ import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
@@ -135,6 +137,57 @@ class SeriesListPageTest :
             line.classList.contains("srs-progress-idle") shouldBe true
         }
 
+        test("series by name carry the shared letter headings, and no other sort does") {
+            val series = listOf(seriesWith("s1", "Dune", 2), seriesWith("s2", "The Wandering Inn", 9))
+            val byName =
+                seriesPage(
+                    contractLibrary(
+                        series = series,
+                        seriesLetters = listOf(LetterSection("D", 0, 1), LetterSection("W", 1, 1)),
+                    ),
+                )
+            // Each letter is captioned with its size, as the Books grid's are ("96 books").
+            byName.querySelectorAll(".lib-section").asList().map { it.textContent } shouldBe listOf("D1 series", "W1 series")
+
+            val byCount =
+                seriesPage(
+                    contractLibrary(
+                        series = series,
+                        seriesSortState = SortState(SortCategory.BOOK_COUNT, SortDirection.DESCENDING),
+                    ),
+                )
+            byCount.querySelectorAll(".lib-section").length shouldBe 0
+        }
+
+        // Spec L25/L26: a name-sorted Series page gets the same A–Z jump rail as Books.
+        test("series by name get the jump rail, which jumps to a letter's first series") {
+            val series = (1..3).map { seriesWith("d$it", "Dune $it", 1) } + (1..3).map { seriesWith("w$it", "Wool $it", 1) }
+            val root =
+                seriesPage(
+                    contractLibrary(
+                        series = series,
+                        seriesLetters = listOf(LetterSection("D", 0, 3), LetterSection("W", 3, 3)),
+                    ),
+                )
+            val jumpW = root.querySelector(".lib-rail button[aria-label=\"Jump to W\"]") as HTMLElement
+            jumpW.hasAttribute("disabled") shouldBe false
+            jumpW.click()
+            awaitFrame()
+
+            (kotlinx.browser.document.activeElement as HTMLElement).textContent!!.contains("Wool 1") shouldBe true
+        }
+
+        test("no rail under a sort with no letters") {
+            val root =
+                seriesPage(
+                    contractLibrary(
+                        series = listOf(seriesWith("s1", "Dune", 2), seriesWith("s2", "Wool", 3)),
+                        seriesSortState = SortState(SortCategory.BOOK_COUNT, SortDirection.DESCENDING),
+                    ),
+                )
+            root.querySelector(".lib-rail") shouldBe null
+        }
+
         // The same fallback as iOS's `progressFor`: no aggregate for a series means nothing finished.
         test("a series the aggregate has no entry for reads as not started") {
             val root =
@@ -148,7 +201,7 @@ class SeriesListPageTest :
             (root.querySelector(".srs-progress") as HTMLElement).textContent shouldBe "Not started"
         }
 
-        test("the sort row marks the active category and reports a change through the shared event") {
+        test("the sort menu marks the active category and reports a change through the shared event") {
             val events = mutableListOf<LibraryUiEvent>()
             val root =
                 seriesPage(
@@ -159,14 +212,16 @@ class SeriesListPageTest :
                     onEvent = { events += it },
                 )
 
-            (root.querySelector(".lib-sort-option.is-active") as HTMLElement).textContent shouldBe
-                SortCategory.BOOK_COUNT.label
-            (root.querySelectorAll(".lib-sort-option").item(0) as HTMLElement).click()
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
+            awaitFrame()
+            (root.querySelector("[role=menuitemradio][aria-checked=true]") as HTMLElement).textContent shouldBe
+                "Number of books"
+            (root.querySelectorAll("[role=menuitemradio]").item(0) as HTMLElement).click()
 
             events shouldContainExactly listOf(LibraryUiEvent.SeriesCategoryChanged(SortCategory.NAME))
         }
 
-        test("the direction toggle reports the series toggle, not the books one") {
+        test("choosing the other direction reports the series toggle, not the books one") {
             val events = mutableListOf<LibraryUiEvent>()
             val root =
                 seriesPage(
@@ -174,7 +229,9 @@ class SeriesListPageTest :
                     onEvent = { events += it },
                 )
 
-            (root.querySelector(".lib-sort-direction") as HTMLElement).click()
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
+            awaitFrame()
+            (root.querySelectorAll("[role=group][aria-label=\"Direction\"] [role=menuitemradio]").item(1) as HTMLElement).click()
 
             events shouldContainExactly listOf(LibraryUiEvent.SeriesDirectionToggled)
         }
@@ -202,7 +259,7 @@ class SeriesListPageTest :
             root.querySelector(".facet-row") shouldNotBe null
             (root.querySelector(".facet-chip.is-active") as HTMLElement).textContent shouldBe "Series"
             // Sorting stays with the loaded branch: offering to reorder nothing does nothing.
-            root.querySelector(".lib-sort") shouldBe null
+            root.querySelector(".lib-sort-trigger") shouldBe null
         }
     })
 
