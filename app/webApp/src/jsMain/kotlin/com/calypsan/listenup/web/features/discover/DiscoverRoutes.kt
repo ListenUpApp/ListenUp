@@ -34,6 +34,8 @@ internal fun DiscoverRoute(
     val session = rememberSession { openDiscover() }
     val nowMs = remember { currentEpochMilliseconds() }
 
+    val viewer = session.viewer.collectAsState().value
+
     BookSelectionScaffold(feeds.openMultiSelect, router, feeds.onToast) { selection ->
         DiscoverPage(
             books = session.books.collectAsState().value,
@@ -52,11 +54,18 @@ internal fun DiscoverRoute(
             onOpenProfile = { id -> router.navigate(Routes.profile(id)) },
             onSelectPeriod = session.onSelectPeriod,
             onSelectCategory = session.onSelectCategory,
-            onRefresh = session.onRefresh,
+            onRetryListening = session.onRetryListening,
+            onRetryRecent = session.onRetryRecent,
+            onRetryShelves = session.onRetryShelves,
             onRefreshLeaderboard = session.onRefreshLeaderboard,
             onRefreshActivity = session.onRefreshActivity,
             onShuffle = session.onShuffle,
             onOpenLibraryNewest = { router.navigate(Routes.libraryNewestFirst) },
+            communitySize = session.communitySize.collectAsState().value,
+            viewer = viewer,
+            // Only admins invite: no button, and no gap where it was, for a member.
+            onInvite = { router.navigate(Routes.Admin.invite) }.takeIf { viewer?.canInvite == true },
+            onBrowseLibrary = { router.navigate(Routes.library) },
             landOnLeaderboard = landOnLeaderboard,
             selection = selection,
         )

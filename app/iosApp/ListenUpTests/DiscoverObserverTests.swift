@@ -33,6 +33,12 @@ struct DiscoverObserverTests {
         #expect(book.durationMs == 58_000_000)
     }
 
+    @Test func theViewerMapsToANativeValue() {
+        let viewer = DiscoverViewer(userId: "me", displayName: "Simon", canInvite: true)
+        let expected = DiscoverViewerRow(userId: "me", displayName: "Simon", canInvite: true)
+        #expect(DiscoverViewerRow(from: viewer) == expected)
+    }
+
     @Test func summaryCarriesCountsStalenessAndObservedTime() {
         let summary = ListeningSummary(liveCount: 2, recentCount: 3, isStale: true, observedAtMs: 7_200_000)
         #expect(summary.liveCount == 2)
@@ -125,6 +131,21 @@ struct LeaderboardObserverTests {
 
         #expect(rows.map(\.isCurrentUser) == [false, true])
         #expect(rows[1].displayName == "Simon Hull")
+    }
+
+    @Test func tiedLeadersShareTheNumberAndBothWearGold() {
+        let snapshot = LeaderboardSnapshot(
+            time: [
+                entry(rank: 1, userId: "u1", name: "Ana", seconds: 7_200),
+                entry(rank: 1, userId: "u2", name: "Ben", seconds: 7_200),
+                entry(rank: 3, userId: "u3", name: "Cy", seconds: 3_600)
+            ],
+            books: [],
+            streak: []
+        )
+        let rows = LeaderboardObserver.rows(from: snapshot, metric: .time)
+        #expect(rows.map(\.rank) == [1, 1, 3])
+        #expect(rows.prefix(2).allSatisfy { LeaderRankMedal(rank: $0.rank) == .gold })
     }
 
     @Test func periodOptionMapsEveryKotlinPeriod() {

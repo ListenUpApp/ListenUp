@@ -4,8 +4,9 @@ import Shared
 /// Observes `DiscoverViewModel` — flattens its sealed states into SwiftUI-native phases:
 /// `newForYou` (Something New), `recentlyAdded` (Recently Added), `currentlyListening` (Listening
 /// Now, from `SocialService.currentlyListening`) with its `listeningSummary`, `shelves` (Shelves by
-/// Others, drawn by `ShelvesByOthersSection`) and `communitySize` (who else is on the server, for
-/// the only-you treatments).
+/// Others, drawn by `ShelvesByOthersSection`), `communitySize` (who else is on the server, for
+/// the only-you treatments) and `viewer` (who is looking: the invitation's avatar and whether Invite
+/// Someone is theirs to offer). Each section's Try Again restarts that section only.
 ///
 /// Thin over `FlowBridge`; all mapping logic lives in pure, testable initializers/helpers.
 @Observable
@@ -18,6 +19,8 @@ final class DiscoverObserver {
     private(set) var currentlyListening: CurrentlyListeningPhase = .loading
     private(set) var shelves: DiscoverShelvesPhase = .loading
     private(set) var communitySize: CommunityPhase = .unknown
+    /// Who is looking; nil while signed out.
+    private(set) var viewer: DiscoverViewerRow?
     /// Live/recent split, staleness and snapshot time of Listening now; `.empty` until it is Ready.
     private(set) var listeningSummary: ListeningSummary = .empty
 
@@ -36,6 +39,7 @@ final class DiscoverObserver {
         bridge.bind(viewModel.currentlyListeningState) { [weak self] in self?.applyCurrentlyListening($0) }
         bridge.bind(viewModel.discoverShelvesState) { [weak self] in self?.applyShelves($0) }
         bridge.bind(viewModel.communitySize) { [weak self] in self?.applyCommunity($0) }
+        bridge.bind(viewModel.viewer) { [weak self] in self?.viewer = $0.map(DiscoverViewerRow.init(from:)) }
     }
 
     // MARK: - Actions
@@ -44,22 +48,40 @@ final class DiscoverObserver {
         viewModel.refresh()
     }
 
-    /// Draws ten different books for Something New; leaves every other section alone.
+    /// Draws ten different books for Something New; leaves every other section alone. Also Something
+    /// New's Try Again: a fresh draw is its restart.
     func shuffle() {
         viewModel.shuffle()
+    }
+
+    /// Try Again on a failed Listening Now: restarts that section only.
+    func retryListeningNow() {
+        viewModel.retryListeningNow()
+    }
+
+    /// Try Again on a failed Recently Added: restarts that section only.
+    func retryRecentlyAdded() {
+        viewModel.retryRecentlyAdded()
+    }
+
+    /// Try Again on Shelves by Others: refetches the shelves, nothing else.
+    func retryShelvesByOthers() {
+        viewModel.retryShelvesByOthers()
     }
 
     // MARK: - State mapping
 
     private func applyBooks(_ state: DiscoverBooksUiState) {
+        newForYou = Self.booksPhase(from: state)
+    }
+
+    /// Pure: Something New's phase for a shared state. `nonisolated` — testable off-actor.
+    nonisolated static func booksPhase(from state: DiscoverBooksUiState) -> DiscoverBooksPhase {
         switch state.sealedType() {
-        case .loading:
-            newForYou = .loading
-        case .ready(let readyType):
-            let ready = readyType.value
-            newForYou = .ready(ready.books.map(DiscoverBook.init(from:)))
-        case .error:
-            newForYou = .error
+        case .loading: .loading
+        case .ready(let readyType): .ready(readyType.value.books.map(DiscoverBook.init(from:)))
+        case .allStarted: .allStarted
+        case .error: .error
         }
     }
 
@@ -88,8 +110,8 @@ final class DiscoverObserver {
                 isStale: ready.isStale,
                 observedAtMs: ready.observedAtMs
             )
-        case .error:
-            currentlyListening = .error
+        case .error(let errorType):
+            currentlyListening = .error(needsConnection: errorType.value.needsConnection)
         }
     }
 
@@ -99,8 +121,9 @@ final class DiscoverObserver {
             shelves = .loading
         case .ready(let readyType):
             shelves = .ready(readyType.value.users.map(DiscoverShelfOwnerRow.init(from:)))
-        case .error:
-            shelves = .error
+        case .error(let errorType):
+            // "Need a connection" only when the failure is connectivity, decided once in shared code.
+            shelves = .error(needsConnection: errorType.value.needsConnection)
         }
     }
 
@@ -152,6 +175,8 @@ final class DiscoverObserver {
 enum DiscoverBooksPhase: Equatable {
     case loading
     case ready([DiscoverBook])
+    /// Every opener and standalone is started, in a library that has books.
+    case allStarted
     case error
 }
 
@@ -166,14 +191,36 @@ enum RecentlyAddedPhase: Equatable {
 enum CurrentlyListeningPhase: Equatable {
     case loading
     case ready([CurrentlyListeningRow])
-    case error
+    /// `needsConnection` is true for an offline or timed-out failure.
+    case error(needsConnection: Bool)
 }
 
 /// Flattened Shelves by Others state.
 enum DiscoverShelvesPhase: Equatable {
     case loading
     case ready([DiscoverShelfOwnerRow])
-    case error
+    /// `needsConnection` is true for an offline or timed-out failure (plan Q3).
+    case error(needsConnection: Bool)
+}
+
+/// The reader looking at Discover, as a native value: the invitation's avatar and whether Invite
+/// Someone is theirs to offer (only admins invite).
+struct DiscoverViewerRow: Equatable {
+    let userId: String
+    let displayName: String
+    let canInvite: Bool
+
+    init(from viewer: DiscoverViewer) {
+        self.userId = viewer.userId
+        self.displayName = viewer.displayName
+        self.canInvite = viewer.canInvite
+    }
+
+    init(userId: String, displayName: String, canInvite: Bool) {
+        self.userId = userId
+        self.displayName = displayName
+        self.canInvite = canInvite
+    }
 }
 
 /// Who else is on the server, for the only-you treatments.

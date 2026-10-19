@@ -8,6 +8,8 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
@@ -77,5 +79,19 @@ class LeaderboardListTest {
         )
         first.performClick()
         assertEquals("u1", opened)
+    }
+
+    @Test
+    fun `tied people share the number and both wear gold`() {
+        show(
+            listOf(
+                entry(rank = 1, userId = "a", name = "Ana", seconds = 7_200),
+                entry(rank = 1, userId = "b", name = "Ben", seconds = 7_200),
+                entry(rank = 3, userId = "c", name = "Cy", seconds = 3_600),
+            ),
+        )
+        composeRule.onAllNodesWithContentDescription("Rank 1", useUnmergedTree = true).assertCountEquals(2)
+        composeRule.onAllNodesWithTag("rank-tier-gold", useUnmergedTree = true).assertCountEquals(2)
+        composeRule.onAllNodesWithTag("rank-tier-bronze", useUnmergedTree = true).assertCountEquals(1)
     }
 }

@@ -295,6 +295,7 @@ DiscoverShelvesUiState_SealedType
 DiscoverUiBook
 DiscoverUserShelves
 DiscoverViewModel
+DiscoverViewer
 DiscoveredServer
 DiscoveryBook
 DiscoveryPick

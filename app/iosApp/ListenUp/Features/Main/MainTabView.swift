@@ -87,7 +87,12 @@ struct MainTabView: View {
             libraryTabs
 
             SwiftUI.Tab(ShellTab.discover.title, systemImage: "sparkles", value: ShellTab.discover) {
-                tabStack(.discover) { DiscoverView(leaderboardLandingRequest: shell.leaderboardLandingRequest) }
+                tabStack(.discover) {
+                    DiscoverView(
+                        leaderboardLandingRequest: shell.leaderboardLandingRequest,
+                        onSelectTab: { shell.select($0) }
+                    )
+                }
             }
             .customizationID("listenup.discover")
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.admin
 
+import com.calypsan.listenup.client.data.sync.liveFrameCursorAdvance
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -348,7 +349,7 @@ private suspend fun buildRosterSyncEngine(
         SyncEventDispatcher(
             registry = registry,
             state = state,
-            cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+            cursorAdvance = liveFrameCursorAdvance(store),
             onCursorStale = {
                 checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleCursorStale()
             },

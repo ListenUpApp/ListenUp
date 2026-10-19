@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -77,24 +78,43 @@ fun RailSkeleton(
  * Rows of an avatar and two text lines, standing in for an activity feed or a leaderboard while it loads.
  *
  * Spec §3.8: a section keeps its place while loading and says plainly when it failed; Home's sections use the
- * same pieces. Silent to TalkBack, like [RailSkeleton].
+ * same pieces. Silent to TalkBack, like [RailSkeleton]. Pass the real rows' geometry so nothing moves when they
+ * land: their height, the gap between them, and — for a ranked list — the rank badge that leads each row.
  *
  * @param rows How many rows to stand in for.
  * @param leadingSize The real rows' avatar size.
+ * @param rowHeight The real rows' height.
+ * @param rowGap The space between the real rows.
+ * @param rankSize The rank badge's size, for a ranked list; null for none.
+ * @param horizontalPadding The real rows' inner horizontal padding.
  */
 @Composable
 fun RowsSkeleton(
     rows: Int,
     modifier: Modifier = Modifier,
     leadingSize: Dp = 48.dp,
+    rowHeight: Dp = SKELETON_ROW_HEIGHT,
+    rowGap: Dp = 0.dp,
+    rankSize: Dp? = null,
+    horizontalPadding: Dp = 0.dp,
 ) {
-    Column(modifier = modifier.fillMaxWidth().clearAndSetSemantics {}) {
+    Column(
+        modifier = modifier.fillMaxWidth().clearAndSetSemantics {},
+        verticalArrangement = Arrangement.spacedBy(rowGap),
+    ) {
         repeat(rows) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(SKELETON_ROW_HEIGHT),
+                modifier = Modifier.fillMaxWidth().height(rowHeight).padding(horizontal = horizontalPadding),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
+                if (rankSize != null) {
+                    Box(
+                        Modifier
+                            .size(rankSize)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                    )
+                }
                 Box(
                     Modifier
                         .size(leadingSize)

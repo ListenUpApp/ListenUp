@@ -84,7 +84,7 @@ class SyncEngineLifecycleTest :
                     SyncEventDispatcher(
                         registry = registry,
                         state = state,
-                        cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+                        cursorAdvance = liveFrameCursorAdvance(store),
                     )
 
                 val engine =
@@ -138,7 +138,7 @@ class SyncEngineLifecycleTest :
                             SyncEventDispatcher(
                                 registry = registry,
                                 state = state,
-                                cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+                                cursorAdvance = liveFrameCursorAdvance(store),
                             ),
                         presenceRefreshSignal = PresenceRefreshSignal(),
                         scope = backgroundScope,
@@ -199,7 +199,7 @@ class SyncEngineLifecycleTest :
                             SyncEventDispatcher(
                                 registry = registry,
                                 state = state,
-                                cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+                                cursorAdvance = liveFrameCursorAdvance(store),
                             ),
                         presenceRefreshSignal = PresenceRefreshSignal(),
                         scope = backgroundScope,
@@ -338,6 +338,8 @@ private class FakeCatchUp(
             tagHandler.onCatchUpItem(item, isTombstone = item.deletedAt != null)
             store.setCursor(handler.domainName, item.revision)
         }
+        // As SyncCatchUpClient: a completed pull that left no cursor records one at its start (0).
+        if (store.getCursor(handler.domainName) == null) store.setCursor(handler.domainName, 0L)
         return AppResult.Success(Unit)
     }
 

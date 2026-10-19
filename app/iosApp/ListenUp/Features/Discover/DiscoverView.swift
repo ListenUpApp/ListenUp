@@ -18,6 +18,8 @@ import Shared
 struct DiscoverView: View {
     /// The shell's leaderboard-landing counter; Discover answers each new value once.
     var leaderboardLandingRequest = 0
+    /// Switches the shell's tab: Browse the Library, from "You've started every book here."
+    var onSelectTab: (ShellTab) -> Void = { _ in }
 
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -32,6 +34,8 @@ struct DiscoverView: View {
     /// The last landing request answered, so a re-render never lands twice.
     @State private var handledLanding = 0
     @AccessibilityFocusState private var leaderboardFocused: Bool
+    /// The create-invite sheet, presented from the only-you invitation (an admin's), as Admin presents it.
+    @State private var isInviting = false
 
     private var user: User? { userObserver.user }
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
@@ -63,6 +67,9 @@ struct DiscoverView: View {
             }
         }
         .bookSelectionChrome(selection)
+        .sheet(isPresented: $isInviting) {
+            CreateInviteView()
+        }
         .onAppear {
             if discover == nil { discover = DiscoverObserver() }
             if leaderboard == nil { leaderboard = LeaderboardObserver() }
@@ -148,7 +155,11 @@ struct DiscoverView: View {
                 cardWidth: railCardWidth,
                 horizontalInset: horizontalInset,
                 isRegular: isRegularWidth,
-                selection: selection
+                selection: selection,
+                community: discover.communitySize,
+                viewer: discover.viewer,
+                onInvite: discover.viewer?.canInvite == true ? { isInviting = true } : nil,
+                onRetry: { discover.retryListeningNow() }
             )
         case .somethingNew:
             SomethingNewSection(
@@ -157,10 +168,15 @@ struct DiscoverView: View {
                 horizontalInset: horizontalInset,
                 isRegular: isRegularWidth,
                 selection: selection,
-                onShuffle: { discover.shuffle() }
+                onShuffle: { discover.shuffle() },
+                onBrowseLibrary: { onSelectTab(.library) }
             )
         case .leaderboard:
-            LeaderboardSectionView(observer: leaderboard, headerFocus: $leaderboardFocused)
+            LeaderboardSectionView(
+                observer: leaderboard,
+                headerFocus: $leaderboardFocused,
+                community: discover.communitySize
+            )
                 .padding(.horizontal, communityInset)
         case .activity:
             ActivitySectionView(observer: activity)
@@ -169,7 +185,8 @@ struct DiscoverView: View {
             ShelvesByOthersSection(
                 phase: discover.shelves,
                 horizontalInset: horizontalInset,
-                isRegular: isRegularWidth
+                isRegular: isRegularWidth,
+                onRetry: { discover.retryShelvesByOthers() }
             )
         case .recentlyAdded:
             RecentlyAddedSection(
@@ -177,7 +194,8 @@ struct DiscoverView: View {
                 cardWidth: 132,
                 horizontalInset: horizontalInset,
                 isRegular: isRegularWidth,
-                selection: selection
+                selection: selection,
+                onRetry: { discover.retryRecentlyAdded() }
             )
         }
     }

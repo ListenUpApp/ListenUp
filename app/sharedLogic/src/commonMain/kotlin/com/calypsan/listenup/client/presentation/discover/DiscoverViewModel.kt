@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.TypedAppErrorException
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -21,11 +22,14 @@ import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -57,12 +61,13 @@ private val logger = KotlinLogging.logger {}
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiscoverViewModel(
-    bookRepository: BookRepository,
+    private val bookRepository: BookRepository,
     activeSessionRepository: ActiveSessionRepository,
     private val authSession: AuthSession,
     private val shelfRepository: ShelfRepository,
     serverReachability: ServerReachability,
     userProfileRepository: UserProfileRepository,
+    userRepository: UserRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     // === Discover Shelves State (on-demand RPC) ===
@@ -77,6 +82,19 @@ class DiscoverViewModel(
     init {
         // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
         loadDiscoverShelves()
+        // Shelves are not a Room mirror, and a Listening now whose first fetch failed has ended its flow, so a
+        // reconnect heals neither by itself: when the server becomes reachable again, each failed one fetches once
+        // more, as every Room-backed section recovers.
+        viewModelScope.launch {
+            serverReachability.state
+                .map { it is Reachability.Reachable }
+                .distinctUntilChanged()
+                .drop(1) // only a change: the first load above already covers how things stand now
+                .collect { reachable ->
+                    if (reachable && discoverShelvesState.value is DiscoverShelvesUiState.Error) loadDiscoverShelves()
+                    if (reachable) retryListeningNow()
+                }
+        }
     }
 
     /**
@@ -100,6 +118,16 @@ class DiscoverViewModel(
                 started = WhileSubscribedForUi,
                 initialValue = CommunitySize.Unknown,
             )
+
+    /** Who is looking, for the invitation's avatar and its admin-only button; null while signed out. */
+    val viewer: StateFlow<DiscoverViewer?> =
+        userRepository
+            .observeCurrentUser()
+            .map { user -> user?.let { DiscoverViewer(it.id.value, it.displayName, canInvite = it.isAdmin) } }
+            .fallbackTo { e ->
+                logger.warn(e) { "Viewer unavailable" }
+                null
+            }.stateIn(viewModelScope, WhileSubscribedForUi, initialValue = null)
 
     // === Currently Listening State (from SocialService RPC) ===
 
@@ -139,7 +167,7 @@ class DiscoverViewModel(
                 }.onStart { emit(CurrentlyListeningUiState.Loading) }
                     .fallbackTo { e ->
                         logger.error(e) { "Error observing currently listening" }
-                        CurrentlyListeningUiState.Error(ErrorMapper.map(e))
+                        CurrentlyListeningUiState.Error((e as? TypedAppErrorException)?.error ?: ErrorMapper.map(e))
                     }
             }.stateIn(
                 scope = viewModelScope,
@@ -186,8 +214,14 @@ class DiscoverViewModel(
         discoverBooksDraws
             .flatMapLatest {
                 flow<DiscoverBooksUiState> {
-                    val books = bookRepository.observeRandomUnstartedBooks(limit = 10).first()
-                    emit(DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() }))
+                    val drawn = drawPicks()
+                    emit(drawn)
+                    if (drawn == DiscoverBooksUiState.Ready(emptyList())) {
+                        // An empty library may only be one still syncing in: draw again once it has books,
+                        // rather than saying "Nothing new just yet" beside them for the rest of the visit.
+                        bookRepository.observeRecentlyAddedBooks(limit = 1).first { it.isNotEmpty() }
+                        emit(drawPicks())
+                    }
                 }.fallbackTo { e ->
                     logger.error(e) { "Error loading discover books" }
                     DiscoverBooksUiState.Error(ErrorMapper.map(e))
@@ -197,6 +231,21 @@ class DiscoverViewModel(
                 started = WhileSubscribedForUi,
                 initialValue = DiscoverBooksUiState.Loading,
             )
+
+    /**
+     * One draw of ten picks. An empty draw means "started everything" only when the library has books at all;
+     * over an empty library it is an empty Ready.
+     */
+    private suspend fun drawPicks(): DiscoverBooksUiState {
+        val books = bookRepository.observeRandomUnstartedBooks(limit = 10).first()
+        val libraryHasBooks =
+            books.isNotEmpty() || bookRepository.observeRecentlyAddedBooks(limit = 1).first().isNotEmpty()
+        return if (books.isEmpty() && libraryHasBooks) {
+            DiscoverBooksUiState.AllStarted
+        } else {
+            DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() })
+        }
+    }
 
     /**
      * Draw ten different books for "Something new". Only the picks change: shelves, listeners and
@@ -308,7 +357,7 @@ class DiscoverViewModel(
                     // Offline is an expected state on this background load, not a snackbar-worthy fault —
                     // the section degrades to its local empty/error state. Only genuine (non-connectivity)
                     // errors reach the global bus and the error log; connectivity misses are logged quietly.
-                    if (result.error.isConnectivityError()) {
+                    if (result.error.isConnectivityFailure()) {
                         logger.debug { "Discover shelves unavailable offline: ${result.error.message}" }
                     } else {
                         errorBus.emit(result.error)
@@ -329,8 +378,24 @@ class DiscoverViewModel(
      */
     fun refresh() {
         discoverBooksDraws.update { it + 1 }
+        retryListeningNow()
+        retryRecentlyAdded()
+        loadDiscoverShelves()
+    }
+
+    /** Try again on a failed Listening now: restarts that section only. */
+    fun retryListeningNow() {
         if (currentlyListeningState.value is CurrentlyListeningUiState.Error) currentlyListeningRuns.update { it + 1 }
+    }
+
+    /** Try again on a failed Recently added: restarts that section only. */
+    fun retryRecentlyAdded() {
         if (recentlyAddedState.value is RecentlyAddedUiState.Error) recentlyAddedRuns.update { it + 1 }
+    }
+
+    /** Try again on Shelves by others: shows its skeleton and refetches; nothing else moves. Picks retry is [shuffle]. */
+    fun retryShelvesByOthers() {
+        discoverShelvesState.value = DiscoverShelvesUiState.Loading
         loadDiscoverShelves()
     }
 }
@@ -356,7 +421,11 @@ sealed interface DiscoverShelvesUiState {
     /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
         val error: AppError,
-    ) : DiscoverShelvesUiState
+    ) : DiscoverShelvesUiState {
+        /** True when the failure is connectivity (offline, timed out): the section says it needs a connection. */
+        val needsConnection: Boolean
+            get() = error.isConnectivityFailure()
+    }
 }
 
 /**
@@ -434,7 +503,11 @@ sealed interface CurrentlyListeningUiState {
     /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
         val error: AppError,
-    ) : CurrentlyListeningUiState
+    ) : CurrentlyListeningUiState {
+        /** True when the failure is connectivity (offline, timed out): the section says it needs a connection. */
+        val needsConnection: Boolean
+            get() = error.isConnectivityFailure()
+    }
 }
 
 /**
@@ -451,6 +524,9 @@ sealed interface DiscoverBooksUiState {
         val isEmpty: Boolean
             get() = books.isEmpty()
     }
+
+    /** Every opener and standalone in the library is started: nothing left to suggest, yet the library is not empty. */
+    data object AllStarted : DiscoverBooksUiState
 
     /** The section failed; [error] says how, and a refresh retries it. */
     data class Error(
@@ -551,5 +627,5 @@ data class RecentlyAddedUiBook(
  * Connectivity faults (offline / timed-out) are expected states on a background load, not
  * snackbar-worthy errors. Matched by typed subtype — never by `message` string.
  */
-private fun AppError.isConnectivityError(): Boolean =
+internal fun AppError.isConnectivityFailure(): Boolean =
     this is TransportError.NetworkUnavailable || this is TransportError.Timeout

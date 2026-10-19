@@ -51,6 +51,7 @@ class ShelvesByOthersSectionTest {
                     state = DiscoverShelvesUiState.Ready(users),
                     onShelfClick = onShelfClick,
                     onUserClick = onUserClick,
+                    onRetry = {},
                 )
             }
         }

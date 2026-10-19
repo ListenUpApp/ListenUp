@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.data.local.db.SyncCursorDao
 import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.dto.image.ImageFraming
@@ -111,7 +112,7 @@ class AvatarSingleSourceTest :
 
                 repo.uploadAvatar(byteArrayOf(1, 2, 3), "image/png", frame = null).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                UserProfileRepositoryImpl(dao).observeProfile(selfId).test {
+                UserProfileRepositoryImpl(dao, mock<SyncCursorDao>()).observeProfile(selfId).test {
                     val profile = awaitItem()
                     profile!!.avatarType shouldBe "image"
                     profile.updatedAt shouldBe serverTs
@@ -136,7 +137,7 @@ class AvatarSingleSourceTest :
 
                 repo.revertToAutoAvatar().shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                UserProfileRepositoryImpl(dao).observeProfile(selfId).test {
+                UserProfileRepositoryImpl(dao, mock<SyncCursorDao>()).observeProfile(selfId).test {
                     val profile = awaitItem()
                     profile!!.avatarType shouldBe "auto"
                     profile.updatedAt shouldBe serverTs
@@ -161,7 +162,7 @@ class AvatarSingleSourceTest :
                 // stats, SAME avatar version the client already wrote).
                 dao.upsert(publicRow(avatarType = "image", avatarUpdatedAt = serverTs, revision = 7, booksFinished = 3))
 
-                UserProfileRepositoryImpl(dao).observeProfile(selfId).test {
+                UserProfileRepositoryImpl(dao, mock<SyncCursorDao>()).observeProfile(selfId).test {
                     val profile = awaitItem()!!
                     profile.avatarType shouldBe "image"
                     // Converged to server truth, never regressed to the pre-upload version (0).
@@ -179,7 +180,7 @@ class AvatarSingleSourceTest :
 
                 repo.uploadAvatar(byteArrayOf(1, 2, 3), "image/png", framing.frame).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                UserProfileRepositoryImpl(dao).observeProfile(selfId).test {
+                UserProfileRepositoryImpl(dao, mock<SyncCursorDao>()).observeProfile(selfId).test {
                     awaitItem()!!.avatarFrame shouldBe framing.frame
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -201,7 +202,7 @@ class AvatarSingleSourceTest :
                 repo.revertToAutoAvatar().shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 dao.findById(selfId)!!.avatarFrame shouldBe null
-                UserProfileRepositoryImpl(dao).observeProfile(selfId).test {
+                UserProfileRepositoryImpl(dao, mock<SyncCursorDao>()).observeProfile(selfId).test {
                     awaitItem()!!.avatarFrame shouldBe null
                     cancelAndIgnoreRemainingEvents()
                 }

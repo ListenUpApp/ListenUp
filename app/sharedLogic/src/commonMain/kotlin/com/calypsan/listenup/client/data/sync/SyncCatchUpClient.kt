@@ -104,7 +104,11 @@ internal class SyncCatchUpClient(
                             "holding cursor at ${outcome.lastSafeRevision} " +
                             "(no digest backstop, cannot advance past a failed item)"
                     }
-                    advanceCursor(handler.domainName, outcome.lastSafeRevision, resetCursor)
+                    // Nothing applied on this page and no cursor yet: record nothing, so a failed first pull
+                    // never reads as "a page applied". An existing cursor still holds, which keeps the hold.
+                    if (outcome.lastSafeRevision > since || store.getCursor(handler.domainName) != null) {
+                        advanceCursor(handler.domainName, outcome.lastSafeRevision, resetCursor)
+                    }
                     break
                 }
                 if (outcome.failures > 0) {
@@ -119,7 +123,10 @@ internal class SyncCatchUpClient(
                     advanceCursor(handler.domainName, nextCursor, resetCursor)
                     since = nextCursor
                 }
-                if (!page.hasMore) break
+                if (!page.hasMore) {
+                    recordCompletedPull(handler.domainName, startSince)
+                    break
+                }
                 // hasMore == true but no cursor to advance to: `since` did not move, so a naive
                 // while(true) would re-fetch this exact `?since=` page forever — holding catchUpMutex
                 // and wedging every other catch-up/reconcile. Break on the contract violation and
@@ -183,6 +190,25 @@ internal class SyncCatchUpClient(
             }
             PageApplyOutcome(failures, lastSafeRevision)
         }
+
+    /**
+     * A pull of [domainName] from [startSince] ran to its last page. When it left no cursor (the domain was empty, so
+     * the server sent no `nextCursor`), record one at [startSince] — 0 on a first pull — so "has a cursor" means "at
+     * least one page applied, or an empty pull completed", for every domain. (A multi-page pull that fails on a later
+     * page keeps the cursor its applied pages advanced: a cursor does not mean the whole pull completed.) Live frames only advance an existing cursor
+     * ([SyncCursorStore.advanceFromLiveFrame]), so without this an empty domain could never gain one, and the roster
+     * gate and the reconciler would wait on a pull that already happened. A failed pull never reaches here.
+     *
+     * Recording 0 is safe for the firehose resume: it seeds from [SyncCursorStore.highestCursor], a max over every
+     * domain, and only reports a cursor stale below its replay buffer floor (`staleCursorFloor`). A signed-in reader
+     * always has their own `public_profiles` row, so a 0 from an empty domain is never the seed on its own.
+     */
+    private suspend fun recordCompletedPull(
+        domainName: String,
+        startSince: Long,
+    ) {
+        if (store.getCursor(domainName) == null) store.setCursor(domainName, startSince)
+    }
 
     /**
      * Advance the persisted cursor for [domainName] to [revision]. [resetCursor] forces the advance

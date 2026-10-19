@@ -183,7 +183,7 @@ private fun buildLifecycleEngine(
         SyncEventDispatcher(
             registry = registry,
             state = state,
-            cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+            cursorAdvance = liveFrameCursorAdvance(store),
         )
     val engine =
         SyncEngine(

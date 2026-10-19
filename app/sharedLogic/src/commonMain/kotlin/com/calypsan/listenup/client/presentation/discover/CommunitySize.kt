@@ -19,15 +19,16 @@ sealed interface CommunitySize {
 }
 
 /**
- * The [CommunitySize] of a synced roster of user ids, from [currentUserId]'s side. An empty roster has
- * not synced (a signed-in reader always has their own row), so it is [CommunitySize.Unknown].
+ * The [CommunitySize] of a roster of user ids, from [currentUserId]'s side. A roster that has not been pulled
+ * ([rosterUserIds] null) is [CommunitySize.Unknown], and so is an empty one: a signed-in reader always has their own
+ * row. This is the one place "Unknown" is decided; the screens only read the result.
  */
 internal fun communitySizeOf(
-    rosterUserIds: List<String>,
+    rosterUserIds: List<String>?,
     currentUserId: String,
 ): CommunitySize =
     when {
-        rosterUserIds.isEmpty() -> CommunitySize.Unknown
+        rosterUserIds.isNullOrEmpty() -> CommunitySize.Unknown
         rosterUserIds.any { it != currentUserId } -> CommunitySize.Others
         else -> CommunitySize.JustYou
     }

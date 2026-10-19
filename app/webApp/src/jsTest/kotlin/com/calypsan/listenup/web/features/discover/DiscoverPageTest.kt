@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.discover
 
 import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.web.features.books.BookSelection
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
@@ -115,7 +116,10 @@ private fun page(
     onOpenProfile: (String) -> Unit = {},
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
-    onRefresh: () -> Unit = {},
+    onShuffle: () -> Unit = {},
+    onRetryListening: () -> Unit = {},
+    onRetryRecent: () -> Unit = {},
+    onRetryShelves: () -> Unit = {},
     onRefreshLeaderboard: () -> Unit = {},
     onRefreshActivity: () -> Unit = {},
     landOnLeaderboard: Boolean = false,
@@ -135,11 +139,17 @@ private fun page(
         onOpenProfile = onOpenProfile,
         onSelectPeriod = onSelectPeriod,
         onSelectCategory = onSelectCategory,
-        onRefresh = onRefresh,
+        onRetryListening = onRetryListening,
+        onRetryRecent = onRetryRecent,
+        onRetryShelves = onRetryShelves,
         onRefreshLeaderboard = onRefreshLeaderboard,
         onRefreshActivity = onRefreshActivity,
-        onShuffle = {},
+        onShuffle = onShuffle,
         onOpenLibraryNewest = {},
+        communitySize = CommunitySize.Others,
+        viewer = null,
+        onInvite = null,
+        onBrowseLibrary = null,
         landOnLeaderboard = landOnLeaderboard,
         selection = selection,
     )
@@ -188,12 +198,13 @@ class DiscoverPageTest :
             host.querySelectorAll(".disc-listener").length shouldBe 1
         }
 
-        test("a failed book row offers Try again, and pressing it asks for a fresh load") {
-            // Before this the row was a dead end: the only way back was reloading the tab.
+        test("a failed book row offers Try again, and pressing it draws again") {
+            // Before this the row was a dead end: the only way back was reloading the tab. A fresh
+            // draw is the picks' own restart, so Try again is Shuffle and nothing else moves.
             var refreshes = 0
             val root =
                 mounts.mount {
-                    page(books = DiscoverBooksUiState.Error(UnexpectedClientError()), onRefresh = { refreshes++ })
+                    page(books = DiscoverBooksUiState.Error(UnexpectedClientError()), onShuffle = { refreshes++ })
                 }
 
             val retry = root.querySelector(".disc-retry") as HTMLElement
@@ -203,11 +214,11 @@ class DiscoverPageTest :
             refreshes shouldBe 1
         }
 
-        test("failed shared shelves offer Try again too, since the same refresh re-fetches them") {
+        test("failed shared shelves offer Try again too, through the shelves' own restart") {
             var refreshes = 0
             val root =
                 mounts.mount {
-                    page(shelves = DiscoverShelvesUiState.Error(UnexpectedClientError()), onRefresh = { refreshes++ })
+                    page(shelves = DiscoverShelvesUiState.Error(UnexpectedClientError()), onRetryShelves = { refreshes++ })
                 }
 
             (root.querySelector(".disc-retry") as HTMLElement).click()
@@ -215,16 +226,18 @@ class DiscoverPageTest :
             refreshes shouldBe 1
         }
 
-        test("failed listeners and recently added offer Try again, through Discover's refresh") {
-            // Both used to end their flow on error, so they had no button; their ViewModel now
-            // restarts a failed section on refresh, so the way back is the same one the books use.
-            var refreshes = 0
+        test("failed listeners and recently added offer Try again, each through its own restart") {
+            // Both used to end their flow on error, so they had no button; each now restarts only
+            // itself, so trying one again never redraws the picks or refetches the shelves.
+            var listening = 0
+            var recent = 0
             val root =
                 mounts.mount {
                     page(
                         currentlyListening = CurrentlyListeningUiState.Error(UnexpectedClientError()),
                         recentlyAdded = RecentlyAddedUiState.Error(UnexpectedClientError()),
-                        onRefresh = { refreshes++ },
+                        onRetryListening = { listening++ },
+                        onRetryRecent = { recent++ },
                     )
                 }
 
@@ -233,7 +246,8 @@ class DiscoverPageTest :
             (retries.item(0) as HTMLElement).click()
             (retries.item(1) as HTMLElement).click()
 
-            refreshes shouldBe 2
+            listening shouldBe 1
+            recent shouldBe 1
         }
 
         test("a failed leaderboard offers Try again, through the leaderboard's own refresh") {
@@ -243,7 +257,7 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         leaderboard = LeaderboardUiState.Error(UnexpectedClientError()),
-                        onRefresh = { discoverRefreshes++ },
+                        onShuffle = { discoverRefreshes++ },
                         onRefreshLeaderboard = { leaderboardRefreshes++ },
                     )
                 }
@@ -261,7 +275,7 @@ class DiscoverPageTest :
                 mounts.mount {
                     page(
                         activityState = ActivityFeedUiState.Error(UnexpectedClientError()),
-                        onRefresh = { discoverRefreshes++ },
+                        onShuffle = { discoverRefreshes++ },
                         onRefreshActivity = { activityRefreshes++ },
                     )
                 }
@@ -498,7 +512,7 @@ class DiscoverPageTest :
                     )
                 }
 
-            host.textContent.orEmpty() shouldContain "Nothing new yet"
+            host.textContent.orEmpty() shouldContain "No books added recently."
             // The populated section beside it is untouched.
             host.querySelectorAll(".disc-card").length shouldBe 1
         }

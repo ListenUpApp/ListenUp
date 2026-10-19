@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
+import com.calypsan.listenup.client.data.local.db.SyncCursorDao
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -25,6 +26,7 @@ import org.koin.test.verify.verify
  *  - [ActivityDao] — owned by `persistenceModule`.
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [PublicProfileDao] — owned by `persistenceModule`.
+ *  - [SyncCursorDao] — owned by `clientSyncModule` (the roster's has-been-pulled gate).
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [PresenceRefreshSignal] — owned by `clientSyncModule`.
  *  - [OfflineEditor] — owned by `clientSyncModule`.
@@ -43,6 +45,7 @@ class SocialModuleVerifyTest :
                         ActivityDao::class,
                         BookDao::class,
                         PublicProfileDao::class,
+                        SyncCursorDao::class,
                         ImageStorage::class,
                         PresenceRefreshSignal::class,
                         OfflineEditor::class,
