@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
+import com.calypsan.listenup.client.playback.BookPlayhead
 import com.calypsan.listenup.client.playback.LoadedBookPlayhead
 import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
@@ -254,7 +255,7 @@ class BookDetailReleaseConfirmationTest {
                 mock<LoadedBookRepository> { every { observeLoadedBookId() } returns flowOf(null) },
             playhead =
                 object : LoadedBookPlayhead {
-                    override val positionMs = MutableStateFlow(0L)
+                    override val playhead = MutableStateFlow<BookPlayhead?>(null)
                 },
         )
     }

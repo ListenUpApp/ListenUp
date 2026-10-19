@@ -90,7 +90,7 @@ class BookDetailViewModel(
     private val seriesRepository: SeriesRepository,
     undoMatch: UndoMatch,
     userProfileRepository: UserProfileRepository,
-    private val loadedBookRepository: LoadedBookRepository,
+    loadedBookRepository: LoadedBookRepository,
     private val playhead: LoadedBookPlayhead,
 ) : ViewModel() {
     /**
@@ -248,10 +248,8 @@ class BookDetailViewModel(
         // The player's book reads the player's live playhead rather than the row it saves on a timer (Android: every
         // 30 s), so the current chapter, its minutes and the time left keep up with the mini player. Only what the page
         // shows counts: a tick inside the same chapter and minute changes nothing, so Ready is not rebuilt per tick.
-        val livePositionMs: Flow<Long?> =
-            combine(loadedBookRepository.observeLoadedBookId(), playhead.positionMs) { loaded, positionMs ->
-                positionMs.takeIf { loaded == id }
-            }
+        // The playhead names its book, so another book's position can never land here, even mid-switch.
+        val livePositionMs: Flow<Long?> = playhead.playhead.map { live -> live?.takeIf { it.bookId == id }?.positionMs }
         val listening: Flow<Pair<List<Chapter>, PlaybackPosition?>> =
             combine(
                 bookRepository.observeChapters(bookId),

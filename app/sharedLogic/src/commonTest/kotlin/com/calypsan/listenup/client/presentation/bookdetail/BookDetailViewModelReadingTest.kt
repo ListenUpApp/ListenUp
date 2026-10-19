@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.client.playback.BookPlayhead
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.SeriesId
 import io.kotest.core.spec.style.FunSpec
@@ -56,7 +57,7 @@ class BookDetailViewModelReadingTest :
                 val f = BookDetailFixture().withChapters()
                 f.position.value = positionOf(1_000_000L)
                 f.loadedBookId.value = BookId("other-book")
-                f.playhead.value = 1_000_000L // once loaded, the player starts from the saved place
+                f.playhead.value = BookPlayhead(BookId("book-1"), 1_000_000L) // once loaded, the player starts from the saved place
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -74,13 +75,13 @@ class BookDetailViewModelReadingTest :
                 val f = BookDetailFixture().withChapters()
                 f.position.value = positionOf(1_000_000L) // saved: chapter 2
                 f.loadedBookId.value = BookId("book-1")
-                f.playhead.value = 1_000_000L
+                f.playhead.value = BookPlayhead(BookId("book-1"), 1_000_000L)
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
                 vm.ready().currentChapter?.number shouldBe 2
 
-                f.playhead.value = 1_805_000L // the player crossed into chapter 3; the saved row has not caught up
+                f.playhead.value = BookPlayhead(BookId("book-1"), 1_805_000L) // the player crossed into chapter 3; the saved row has not caught up
                 advanceUntilIdle()
 
                 vm.ready().currentChapter?.number shouldBe 3
@@ -94,7 +95,7 @@ class BookDetailViewModelReadingTest :
                 val f = BookDetailFixture().withChapters()
                 f.position.value = positionOf(1_000_000L)
                 f.loadedBookId.value = BookId("other-book")
-                f.playhead.value = 2_800_000L
+                f.playhead.value = BookPlayhead(BookId("other-book"), 2_800_000L)
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -104,12 +105,31 @@ class BookDetailViewModelReadingTest :
             }
         }
 
+        test("a playhead still holding the last book's position never lands on the newly loaded book's page") {
+            runTest {
+                val f = BookDetailFixture().withChapters()
+                f.position.value = positionOf(1_000_000L) // this book's saved place: chapter 2
+                f.loadedBookId.value = BookId("book-1") // the player has just switched to this book…
+                f.playhead.value = BookPlayhead(BookId("other-book"), 2_800_000L) // …its playhead is still the last one's
+                val vm = watch(f.build())
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                vm.ready().currentChapter?.number shouldBe 2
+                vm.ready().timeRemainingMs shouldBe 5_400_000L - 1_000_000L
+
+                f.playhead.value = BookPlayhead(BookId("book-1"), 1_805_000L) // its own position arrives
+                advanceUntilIdle()
+                vm.ready().currentChapter?.number shouldBe 3
+            }
+        }
+
         test("playhead ticks inside the same minute and chapter do not re-emit the page, and keep a picker open") {
             runTest {
                 val f = BookDetailFixture().withChapters()
                 f.position.value = positionOf(1_000_000L)
                 f.loadedBookId.value = BookId("book-1")
-                f.playhead.value = 1_000_000L
+                f.playhead.value = BookPlayhead(BookId("book-1"), 1_000_000L)
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -117,13 +137,13 @@ class BookDetailViewModelReadingTest :
                 advanceUntilIdle()
                 val before = vm.state.value
 
-                f.playhead.value = 1_000_250L
+                f.playhead.value = BookPlayhead(BookId("book-1"), 1_000_250L)
                 advanceUntilIdle()
-                f.playhead.value = 1_010_000L
+                f.playhead.value = BookPlayhead(BookId("book-1"), 1_010_000L)
                 advanceUntilIdle()
                 (vm.state.value === before) shouldBe true
 
-                f.playhead.value = 1_080_000L // a minute on: what the page shows changes
+                f.playhead.value = BookPlayhead(BookId("book-1"), 1_080_000L) // a minute on: what the page shows changes
                 advanceUntilIdle()
                 (vm.state.value === before) shouldBe false
                 vm.ready().showShelfPicker shouldBe true

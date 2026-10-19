@@ -107,7 +107,9 @@ class PlayerSession(
     val pendingStartMs: StateFlow<Long?> get() = readout.pendingStartMs
 
     /** Book-relative playhead: the engine's while it holds the book, else the pending start or the saved position. Ticks. */
-    override val positionMs: StateFlow<Long> get() = readout.positionMs
+    val positionMs: StateFlow<Long> get() = readout.positionMs
+
+    override val playhead: StateFlow<BookPlayhead?> get() = readout.playhead
 
     /** The loaded book's chapters: the engine's prepared list, or Room's before a prepare. */
     val chapters: StateFlow<List<Chapter>> get() = readout.chapters
