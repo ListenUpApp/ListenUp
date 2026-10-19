@@ -55,6 +55,8 @@ internal val BARE_COVER_EXEMPTIONS: Map<String, BareCoverExemption> =
         "features/admin/AdminInboxPage.kt" to BareCoverExemption(1, "the inbox lists held books only, which never wear the lock"),
         "features/library/LibraryInboxStrip.kt" to BareCoverExemption(1, "an aria-hidden fan of held books in the inbox strip"),
         "features/bookdetail/BookDetailPage.kt" to BareCoverExemption(1, "the hero cover; the page's Visibility panel says it in words"),
+        "features/bookdetail/SeriesShelfSection.kt" to
+            BareCoverExemption(1, "Book Detail's series shelf of 64 px thumbnails; the series page's rows carry the lock"),
         "features/bookedit/CoverField.kt" to BareCoverExemption(1, "the editor's cover picker, not a card"),
         "features/hardcover/HardcoverPage.kt" to BareCoverExemption(1, "a Hardcover matching-task row, not a browse card"),
         "features/hardcover/KeptOffBooksPage.kt" to BareCoverExemption(1, "a kept-off-Hardcover row, not a browse card"),
