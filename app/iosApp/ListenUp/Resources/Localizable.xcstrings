@@ -4311,6 +4311,26 @@
         }
       }
     },
+    "book.detail_all_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All %1$d chapters"
+          }
+        }
+      }
+    },
+    "book.detail_all_chapters_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All %1$d Chapters"
+          }
+        }
+      }
+    },
     "book.detail_all_count": {
       "localizations": {
         "en": {
@@ -5111,6 +5131,16 @@
         }
       }
     },
+    "book.detail_now_playing_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now playing · %1$@ in"
+          }
+        }
+      }
+    },
     "book.detail_offline_body": {
       "localizations": {
         "en": {
@@ -5157,6 +5187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Play"
+          }
+        }
+      }
+    },
+    "book.detail_play_from_chapter_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play from chapter %1$d: %2$@"
           }
         }
       }
@@ -5581,6 +5621,16 @@
         }
       }
     },
+    "book.detail_reader_listening_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening now"
+          }
+        }
+      }
+    },
     "book.detail_reader_view_profile": {
       "localizations": {
         "en": {
@@ -5891,6 +5941,66 @@
         }
       }
     },
+    "book.detail_see_all_readers": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See all %1$d readers"
+          }
+        }
+      }
+    },
+    "book.detail_see_all_readers_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See All %1$d Readers"
+          }
+        }
+      }
+    },
+    "book.detail_series_cover_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@"
+          }
+        }
+      }
+    },
+    "book.detail_series_cover_this_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@, this book"
+          }
+        }
+      }
+    },
+    "book.detail_series_heading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series · %1$@"
+          }
+        }
+      }
+    },
+    "book.detail_series_next": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next: book %1$@"
+          }
+        }
+      }
+    },
     "book.detail_series_pill_a11y": {
       "localizations": {
         "en": {
@@ -5901,12 +6011,132 @@
         }
       }
     },
+    "book.detail_series_position": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@ of %2$d"
+          }
+        }
+      }
+    },
+    "book.detail_series_start_here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@ of %2$d · start here"
+          }
+        }
+      }
+    },
     "book.detail_show_less": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Show less"
+          }
+        }
+      }
+    },
+    "book.detail_social_finished_many": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and %3$d others finished it"
+          }
+        }
+      }
+    },
+    "book.detail_social_finished_many_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and 1 other finished it"
+          }
+        }
+      }
+    },
+    "book.detail_social_finished_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ finished it"
+          }
+        }
+      }
+    },
+    "book.detail_social_finished_two": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@ finished it"
+          }
+        }
+      }
+    },
+    "book.detail_social_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows who's reading"
+          }
+        }
+      }
+    },
+    "book.detail_social_join": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "book.detail_social_listening_many": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and %3$d others are listening"
+          }
+        }
+      }
+    },
+    "book.detail_social_listening_many_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and 1 other are listening"
+          }
+        }
+      }
+    },
+    "book.detail_social_listening_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is listening"
+          }
+        }
+      }
+    },
+    "book.detail_social_listening_two": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@ are listening"
           }
         }
       }
