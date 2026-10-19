@@ -410,15 +410,31 @@ extension EnvironmentValues {
 // MARK: - Navigation Destinations
 
 private extension View {
-    /// All value-typed navigation destinations for the app shell, split into a content group and an
-    /// admin group so neither builder trips the function-length lint.
+    /// All value-typed navigation destinations for the app shell, split into content, shelf,
+    /// social and admin groups so no builder trips the function-length lint.
     func navigationDestinations() -> some View {
         contentDestinations()
             .shelfDestinations()
+            .socialDestinations()
             .adminDestinations()
     }
 
-    /// Library/content-facing destinations: books, series, contributors, facets, profiles, settings, and storage.
+    /// The people-facing destinations: profiles and See All Activity.
+    func socialDestinations() -> some View {
+        self
+            .navigationDestination(for: ActivityFeedDestination.self) { _ in
+                ActivityFeedView()
+            }
+            .navigationDestination(for: UserProfileDestination.self) { _ in
+                UserProfileView()
+            }
+            .navigationDestination(for: ProfileDestination.self) { destination in
+                ProfileDestinationView(userId: destination.userId)
+            }
+    }
+
+    /// Library/content-facing destinations: books, series, contributors, facets, settings, and
+    /// storage.
     func contentDestinations() -> some View {
         self
             .navigationDestination(for: BookDestination.self) { destination in
@@ -446,15 +462,6 @@ private extension View {
             }
             .navigationDestination(for: GenreDestination.self) { destination in
                 GenrePageView(genreId: destination.genreId, genreName: destination.genreName)
-            }
-            .navigationDestination(for: ActivityFeedDestination.self) { _ in
-                ActivityFeedView()
-            }
-            .navigationDestination(for: UserProfileDestination.self) { _ in
-                UserProfileView()
-            }
-            .navigationDestination(for: ProfileDestination.self) { destination in
-                ProfileDestinationView(userId: destination.userId)
             }
             .navigationDestination(for: SettingsDestination.self) { _ in
                 SettingsView()
