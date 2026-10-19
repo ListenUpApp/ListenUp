@@ -10681,26 +10681,6 @@
         }
       }
     },
-    "discover.activity_show_less": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show less"
-          }
-        }
-      }
-    },
-    "discover.activity_show_less_ios": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show Less"
-          }
-        }
-      }
-    },
     "discover.activity_view_person_ios": {
       "localizations": {
         "en": {
@@ -15881,16 +15861,6 @@
         }
       }
     },
-    "library.exit_selection_mode": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exit selection mode"
-          }
-        }
-      }
-    },
     "library.failed_to_load_library": {
       "localizations": {
         "en": {
@@ -16047,16 +16017,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d series"
-          }
-        }
-      }
-    },
-    "library.shelf": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shelf"
           }
         }
       }

@@ -1069,8 +1069,6 @@ One beautiful library.</string>
     <string name="discover_activity_more_actions_a11y">More actions for %1$s's activity</string>
     <string name="discover_activity_open">Open %1$s</string>
     <string name="discover_activity_profile_a11y">%1$s's profile</string>
-    <string name="discover_activity_show_less">Show less</string>
-    <string name="discover_activity_show_less_ios">Show Less</string>
     <string name="discover_activity_view_person_ios">View %1$s</string>
     <string name="discover_activity_you">You</string>
     <string name="discover_activity_your_more_actions_a11y">More actions for your activity</string>
@@ -1589,7 +1587,6 @@ One beautiful library.</string>
     <string name="library_empty_description">Books you add to your server will appear here</string>
     <string name="library_empty_tab_description">%1$s will appear here when you have audiobooks in your library</string>
     <string name="library_empty_title">Your library is empty</string>
-    <string name="library_exit_selection_mode">Exit selection mode</string>
     <string name="library_failed_to_load_library">Failed to load library</string>
     <string name="library_filter_and_sort">Filter and sort</string>
     <string name="library_filtered_empty_finished">No finished books yet.</string>
@@ -1606,7 +1603,6 @@ One beautiful library.</string>
     <string name="library_sections_label">Library sections</string>
     <string name="library_series">Series</string>
     <string name="library_series_count">%1$d series</string>
-    <string name="library_shelf">Shelf</string>
     <string name="library_shelf_name">Shelf name</string>
     <string name="library_show_all_books">Show all books</string>
     <string name="library_sort">Sort</string>
