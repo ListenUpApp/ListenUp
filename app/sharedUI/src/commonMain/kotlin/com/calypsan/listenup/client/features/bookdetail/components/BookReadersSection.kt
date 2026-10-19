@@ -47,7 +47,7 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.domain.readers.ReaderLineKind
-import com.calypsan.listenup.client.domain.readers.flattenToLines
+import com.calypsan.listenup.client.domain.readers.ReaderLine
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.ReadersSummary
@@ -55,10 +55,11 @@ import com.calypsan.listenup.client.util.relativeOrMonthYear
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_readers
 import listenup.composeapp.generated.resources.book_detail_readers_finished
+import listenup.composeapp.generated.resources.book_detail_reader_listening
 import listenup.composeapp.generated.resources.book_detail_reader_listening_now
 import listenup.composeapp.generated.resources.book_detail_readers_a11y_reading
 import listenup.composeapp.generated.resources.book_detail_see_all_readers
-import listenup.composeapp.generated.resources.book_detail_readers_listening_now
+import listenup.composeapp.generated.resources.book_detail_readers_reading
 import listenup.composeapp.generated.resources.book_detail_readers_note
 import listenup.composeapp.generated.resources.book_detail_readers_hardcover
 import listenup.composeapp.generated.resources.book_detail_readers_also_on_hardcover
@@ -114,6 +115,8 @@ private const val MAX_COLLAPSED_READERS = 3
  *   since [finishedWhen] reads the same for two finishes in one month; `null` for other rows.
  * @property isAlsoOnHardcover `true` for a ListenUp finish the reader logged on Hardcover too: the one
  *   row reads "Finished {date}" beside an "Also on Hardcover" label, instead of a second Hardcover row.
+ * @property isLive `true` only for your own reading row while the player is playing this book: "Listening now", the
+ *   ring and the listening mark. Any other reading row says "Listening" over its bar: progress is not presence.
  */
 data class ReaderRowUi(
     val userId: String,
@@ -127,6 +130,7 @@ data class ReaderRowUi(
     val isOnHardcover: Boolean = false,
     val finishedAtMs: Long? = null,
     val isAlsoOnHardcover: Boolean = false,
+    val isLive: Boolean = false,
 )
 
 /**
@@ -144,8 +148,8 @@ internal val ReaderRowUi.listKey: String
  *
  * @param nowMs Current epoch-ms reference, passed to [relativeOrMonthYear] for finished dates.
  */
-internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
-    flattenToLines(this).map { line ->
+internal fun List<ReaderLine>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
+    map { line ->
         val name = if (line.isYou) "You" else line.name
         when (val k = line.kind) {
             is ReaderLineKind.Reading -> {
@@ -153,6 +157,7 @@ internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
                     userId = line.userId,
                     name = name,
                     isReading = true,
+                    isLive = k.isLive,
                     progressPct = k.progressPct,
                     finishedWhen = null,
                     halfStars = line.rating?.halfStars,
@@ -242,12 +247,12 @@ fun BookReadersSection(
     val data = state as? BookReadersUiState.Data ?: return
 
     val nowMs = Clock.System.now().toEpochMilliseconds()
-    val allRows = data.readers.readers.toReaderRows(nowMs)
+    val allRows = data.lines.toReaderRows(nowMs)
     val rows = allRows.take(MAX_COLLAPSED_READERS)
 
     BookReadersContent(
         readers = rows,
-        listeningNowCount = allRows.count { it.isReading },
+        readingCount = allRows.count { it.isReading },
         totalCount = allRows.size,
         isCard = isCard,
         onUserClick = onUserClick,
@@ -269,8 +274,7 @@ fun BookReadersSection(
  * On compact layouts ([isCard] = false) it renders frameless, mirroring [ChaptersSection].
  *
  * @param readers The reader rows to render; an empty list renders nothing.
- * @param listeningNowCount Count shown in the "N listening now" sub-line (readers currently
- *   reading).
+ * @param readingCount Count shown in the "N reading" sub-line: readers partway through.
  * @param totalCount Total reader count shown in the [CountBadge]; gates the "See all" affordance.
  * @param isCard When true, wraps the content in a `surfaceContainerLow` card.
  * @param onUserClick Callback when a reader row is clicked.
@@ -284,7 +288,7 @@ fun BookReadersSection(
 @Composable
 fun BookReadersContent(
     readers: List<ReaderRowUi>,
-    listeningNowCount: Int,
+    readingCount: Int,
     totalCount: Int,
     isCard: Boolean,
     onUserClick: (String) -> Unit,
@@ -337,10 +341,10 @@ fun BookReadersContent(
                 }
             }
 
-            // Sub-line: "N listening now" — only when someone is actively listening
-            if (listeningNowCount > 0) {
+            // Sub-line: "N reading" — people partway through. Not "listening now": progress is not presence.
+            if (readingCount > 0) {
                 Text(
-                    text = stringResource(Res.string.book_detail_readers_listening_now, listeningNowCount),
+                    text = stringResource(Res.string.book_detail_readers_reading, readingCount),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 6.dp),
@@ -414,9 +418,9 @@ internal fun ReaderRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
     ) {
-        // Active ring: a 2.5dp primary border offset 2dp from the avatar when reading.
+        // Live ring: a 2.5dp primary border offset 2dp from the avatar, only while you are listening right now.
         val avatarModifier =
-            if (reader.isReading) {
+            if (reader.isLive) {
                 Modifier
                     .padding(2.5.dp)
                     .border(
@@ -469,13 +473,16 @@ internal fun ReaderRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        if (reader.isReading) {
+        if (reader.isLive) {
             Icon(
                 imageVector = Icons.Default.GraphicEq,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(22.dp),
             )
+        } else if (reader.isReading) {
+            // Partway through but not live: the bar says it; no listening mark.
+            Unit
         } else if (reader.isRatedOnly) {
             Icon(
                 imageVector = Icons.Rounded.Star,
@@ -503,7 +510,10 @@ internal fun ReaderRow(
 private fun ReaderStateLine(reader: ReaderRowUi) {
     if (reader.isReading) {
         Text(
-            text = stringResource(Res.string.book_detail_reader_listening_now),
+            text =
+                stringResource(
+                    if (reader.isLive) Res.string.book_detail_reader_listening_now else Res.string.book_detail_reader_listening,
+                ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 1.dp),

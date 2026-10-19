@@ -78,7 +78,7 @@ class BookDetailA11yTest {
             WithAvatarDependencies {
                 BookReadersContent(
                     readers = listOf(reader),
-                    listeningNowCount = 0,
+                    readingCount = 0,
                     totalCount = 1,
                     isCard = false,
                     onUserClick = {},

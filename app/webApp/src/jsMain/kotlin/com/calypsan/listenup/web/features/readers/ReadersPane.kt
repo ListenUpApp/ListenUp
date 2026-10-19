@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.readers.ReaderLine
-import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.domain.readers.flattenToLines
+import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.util.relativeOrMonthYear
 import com.calypsan.listenup.web.design.EmptyLook
@@ -49,7 +49,7 @@ fun ReadersPanel(
     onLanded: () -> Unit = {},
 ) {
     val data = state as? BookReadersUiState.Data ?: return
-    val lines = flattenToLines(data.readers.readers)
+    val lines = data.lines
     if (lines.isEmpty()) return
 
     // Home's finishers line (spec §6.4): once there are readers to show, bring the panel into view and its heading into
@@ -65,7 +65,7 @@ fun ReadersPanel(
 
     val shown = lines.take(COLLAPSED_READERS)
     Panel(title = READERS, elementId = READERS_PANEL_ID) {
-        ListeningNow(lines)
+        ReadingCount(lines)
         ReaderRows(shown, nowMs, onOpenProfile)
         // Below the rows, full width, as the boards draw it: the way to everyone past the first three.
         if (lines.size > shown.size) {
@@ -111,24 +111,24 @@ fun ReadersPage(
             }
 
             is BookReadersUiState.Data -> {
-                val lines = flattenToLines(state.readers.readers)
+                val lines = state.lines
                 if (lines.isEmpty()) {
                     EmptyState(title = "Nobody has started this book yet.", look = EmptyLook.Inline)
                     return@Div
                 }
-                ListeningNow(lines)
+                ReadingCount(lines)
                 ReaderRows(lines, nowMs, onOpenProfile)
             }
         }
     }
 }
 
-/** "3 listening now" — only when somebody actually is. */
+/** "3 reading": people partway through — only when somebody is. Never "listening now": progress is not presence. */
 @Composable
-private fun ListeningNow(lines: List<ReaderLine>) {
-    val listening = lines.count { it.kind is ReaderLineKind.Reading }
-    if (listening == 0) return
-    Div(attrs = { classes("rdr-now") }) { Text("$listening listening now") }
+private fun ReadingCount(lines: List<ReaderLine>) {
+    val reading = lines.count { it.kind is ReaderLineKind.Reading }
+    if (reading == 0) return
+    Div(attrs = { classes("rdr-now") }) { Text("$reading reading") }
 }
 
 @Composable
@@ -181,7 +181,8 @@ private fun ReaderRow(
     val kind = line.kind
     Button(attrs = {
         classes("rdr-row")
-        if (kind is ReaderLineKind.Reading) classes("is-live")
+        // Live only for you, while the player plays this book: the one listener we know is listening now.
+        if (kind is ReaderLineKind.Reading && kind.isLive) classes("is-live")
         attr("type", "button")
         attr("aria-describedby", OPENS_PROFILE_ID)
         onClick { onOpenProfile(line.userId) }
@@ -235,23 +236,23 @@ private fun ReaderRow(
                 Span(attrs = { classes("rdr-note") }) { Text("\u201C$note\u201D") }
             }
         }
-        Icon(
+        // A reading row that is not live carries no mark: its bar says how far, and nothing claims they are listening.
+        val mark =
             when (kind) {
-                is ReaderLineKind.Reading -> WebIcon.Volume
+                is ReaderLineKind.Reading -> if (kind.isLive) WebIcon.Volume else null
                 is ReaderLineKind.Finished -> WebIcon.Check
                 is ReaderLineKind.FinishedOnHardcover -> WebIcon.Check
                 ReaderLineKind.Rated -> WebIcon.Star
-            },
-            size = MARK_SIZE,
-        )
+            }
+        mark?.let { Icon(it, size = MARK_SIZE) }
     }
 }
 
 /**
  * What one reader line says about itself.
  *
- * A Reading line says "Listening now", with or without a percentage: the progress is the bar under it, never a
- * number (spec §5.2). Presence tells us they are on the book even when no position has synced.
+ * A Reading line says "Listening" — or "Listening now" when it is live (yours, while the player plays this book) —
+ * with or without a percentage: the progress is the bar under it, never a number (spec §5.2).
  *
  * A read logged on Hardcover says "Read …", never "Finished …": it wasn't listened to here.
  */
@@ -260,7 +261,7 @@ internal fun stateLine(
     nowMs: Long,
 ): String =
     when (kind) {
-        is ReaderLineKind.Reading -> "Listening now"
+        is ReaderLineKind.Reading -> if (kind.isLive) "Listening now" else "Listening"
 
         is ReaderLineKind.Finished -> "Finished ${relativeOrMonthYear(kind.finishedAtMs, nowMs)}"
 

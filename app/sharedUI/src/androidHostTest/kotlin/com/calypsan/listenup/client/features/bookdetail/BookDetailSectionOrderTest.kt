@@ -228,7 +228,7 @@ class BookDetailSectionOrderTest {
         val heading = composeRule.onNode(isHeading() and hasText("Readers")).getUnclippedBoundsInRoot()
         val root = composeRule.onRoot().getUnclippedBoundsInRoot()
         (heading.top >= root.top && heading.bottom <= root.bottom) shouldBe true
-        composeRule.onNodeWithText("Listening now").assertIsDisplayed()
+        composeRule.onNodeWithText("Listening").assertIsDisplayed()
     }
 
     // The mini player floats over the page: at the end of the scroll the last section must clear it, not sit under it.
@@ -347,7 +347,7 @@ class BookDetailSectionOrderTest {
                                 single { profiles }
                                 single { storage }
                                 single { images }
-                                viewModel { (bookId: String) -> BookReadersViewModel(readersRepo, bookId) }
+                                viewModel { (bookId: String) -> BookReadersViewModel(readersRepo, bookId, FakeLoadedBooks()) }
                                 viewModel { (bookId: String) ->
                                     BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus(), users)
                                 }

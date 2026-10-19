@@ -102,7 +102,7 @@ class BookDetailRemoveDownloadTest {
                     koinConfiguration {
                         modules(
                             module {
-                                viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId) }
+                                viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId, FakeLoadedBooks()) }
                                 viewModel { (bookId: String) ->
                                     BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus(), users)
                                 }

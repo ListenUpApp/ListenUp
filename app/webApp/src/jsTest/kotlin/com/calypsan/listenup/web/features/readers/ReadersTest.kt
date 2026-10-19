@@ -49,6 +49,9 @@ internal fun readerRating(
 
 internal fun readersData(vararg readers: Reader) = BookReadersUiState.Data(BookReaders(readers.toList()))
 
+/** The same readers while the player is playing this book: your own reading row is live. */
+internal fun readersDataLive(vararg readers: Reader) = BookReadersUiState.Data(BookReaders(readers.toList()), youAreLive = true)
+
 private fun rows(host: HTMLElement): List<HTMLElement> = host.querySelectorAll(".rdr-row").asList().filterIsInstance<HTMLElement>()
 
 private fun text(
@@ -156,8 +159,9 @@ class ReadersTest :
                     ),
                 )
 
+            // Progress is not presence: someone partway through is Listening, never Listening now.
             rows(host).map { it.textContent?.trim() } shouldContainExactly
-                listOf("Ada LovelaceListening now", "Grace HopperFinished yesterday")
+                listOf("Ada LovelaceListening", "Grace HopperFinished yesterday")
         }
 
         test("a reading row draws its progress as a bar named with the percent, and prints no number") {
@@ -187,8 +191,9 @@ class ReadersTest :
             // line from a non-null percentage today, so no fixture can drive this through the DOM.
             // The arm is still live — the type says `Int?` — and a spec that could not fail here
             // would be no spec at all.
-            stateLine(ReaderLineKind.Reading(null), READERS_NOW) shouldBe "Listening now"
-            stateLine(ReaderLineKind.Reading(42), READERS_NOW) shouldBe "Listening now"
+            stateLine(ReaderLineKind.Reading(null), READERS_NOW) shouldBe "Listening"
+            stateLine(ReaderLineKind.Reading(42), READERS_NOW) shouldBe "Listening"
+            stateLine(ReaderLineKind.Reading(42, isLive = true), READERS_NOW) shouldBe "Listening now"
             stateLine(ReaderLineKind.Finished(READERS_NOW - DAY), READERS_NOW) shouldBe "Finished yesterday"
             stateLine(ReaderLineKind.FinishedOnHardcover(READERS_NOW - DAY), READERS_NOW) shouldBe "Read yesterday"
         }
@@ -258,13 +263,31 @@ class ReadersTest :
                 )
 
             rows(host).map { it.textContent?.trim() } shouldContainExactly
-                listOf("Grace HopperListening now", "YouListening now")
+                listOf("Grace HopperListening", "YouListening")
         }
 
-        test("someone reading now is counted, and nobody reading says nothing at all") {
+        test("only your own row is Listening now, live and marked, while the player is playing this book") {
+            val host =
+                panel(
+                    readersDataLive(
+                        reader(userId = "u2", displayName = "Grace Hopper", progressPct = 10),
+                        reader(userId = "u1", displayName = "Ada Lovelace", isYou = true, progressPct = 80),
+                    ),
+                )
+
+            val (grace, you) = rows(host)
+            grace.textContent?.trim() shouldBe "Grace HopperListening"
+            grace.classList.contains("is-live") shouldBe false
+            grace.querySelector("svg") shouldBe null
+            you.textContent?.trim() shouldBe "YouListening now"
+            you.classList.contains("is-live") shouldBe true
+            (you.querySelector("svg") != null) shouldBe true
+        }
+
+        test("people partway through are counted as reading, and nobody reading says nothing at all") {
             val reading =
                 panel(readersData(reader(userId = "u1", progressPct = 10), reader(userId = "u2", progressPct = 90)))
-            text(reading, ".rdr-now") shouldBe "2 listening now"
+            text(reading, ".rdr-now") shouldBe "2 reading"
 
             val finished = panel(readersData(reader(finishes = listOf(READERS_NOW - DAY))))
             finished.querySelector(".rdr-now").shouldBeNull()

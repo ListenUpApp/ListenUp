@@ -525,7 +525,7 @@ private fun ReadersSection() {
     GalleryLabel("Readers — mixed (reading %, reading unknown, finished)")
     BookReadersContent(
         readers = mockReaders,
-        listeningNowCount = mockReaders.count { it.isReading },
+        readingCount = mockReaders.count { it.isReading },
         totalCount = mockReaders.size + 3,
         isCard = false,
         onUserClick = {},

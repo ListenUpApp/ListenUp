@@ -56,7 +56,8 @@ struct BookReadersSection: View {
         }
     }
 
-    private var listeningCount: Int {
+    /// People partway through: "N reading". Never "listening now" — progress is not presence.
+    private var readingCount: Int {
         readers.lazy.filter(\.isReading).count
     }
 
@@ -108,8 +109,8 @@ struct BookReadersSection: View {
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
 
-            if listeningCount > 0 {
-                Text(String(format: String(localized: "book.detail_readers_listening_now"), listeningCount))
+            if readingCount > 0 {
+                Text(String(format: String(localized: "book.detail_readers_reading"), readingCount))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -228,8 +229,8 @@ struct BookReadersSection: View {
     private func avatar(_ reader: BookReaderRow) -> some View {
         UserAvatarView(userId: reader.id, fallbackName: reader.displayName, size: 44)
             .overlay {
-                // A coral ring marks the readers listening right now.
-                if reader.isReading {
+                // A coral ring marks the one reader known to be listening right now: you, while it plays.
+                if reader.isLive {
                     Circle()
                         .strokeBorder(Color.listenUpOrange, lineWidth: 2.5)
                 }
@@ -238,7 +239,9 @@ struct BookReadersSection: View {
 
     @ViewBuilder
     private func progress(_ reader: BookReaderRow) -> some View {
-        Text(String(localized: "book.detail_reader_listening_now"))
+        Text(reader.isLive
+             ? String(localized: "book.detail_reader_listening_now")
+             : String(localized: "book.detail_reader_listening"))
             .font(.footnote)
             .foregroundStyle(.secondary)
         // The bar replaces the number (spec §5.2); the percent is in the row's VoiceOver label.
@@ -267,10 +270,13 @@ struct BookReadersSection: View {
 
     @ViewBuilder
     private func trailingSymbol(_ reader: BookReaderRow) -> some View {
-        if reader.isReading {
+        if reader.isLive {
             Image(systemName: "sparkles")
                 .font(.body)
                 .foregroundStyle(Color.listenUpOrange)
+        } else if reader.isReading {
+            // Partway through but not live: the bar says how far; no mark claims they are listening.
+            EmptyView()
         } else if reader.isRatedOnly {
             Image(systemName: "star")
                 .font(.body.weight(.semibold))

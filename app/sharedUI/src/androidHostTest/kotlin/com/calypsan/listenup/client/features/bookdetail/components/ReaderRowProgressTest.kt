@@ -34,12 +34,20 @@ class ReaderRowProgressTest {
     private fun row(
         name: String,
         pct: Int,
-    ) = ReaderRowUi(userId = name.lowercase(), name = name, isReading = true, progressPct = pct, finishedWhen = null)
+        isLive: Boolean = false,
+    ) = ReaderRowUi(
+        userId = name.lowercase(),
+        name = name,
+        isReading = true,
+        progressPct = pct,
+        finishedWhen = null,
+        isLive = isLive,
+    )
 
     @Test
-    fun `a reading row draws a bar and says Listening now, and speaks the percent`() {
+    fun `your live row draws a bar and says Listening now, and speaks the percent`() {
         composeRule.setContent {
-            WithAvatarDependencies { ReaderRow(reader = row("Maya", 64), onUserClick = {}) }
+            WithAvatarDependencies { ReaderRow(reader = row("Maya", 64, isLive = true), onUserClick = {}) }
         }
         composeRule.onAllNodesWithText("64%", substring = true, useUnmergedTree = true).assertCountEquals(0)
         composeRule.onNodeWithText("Listening now", useUnmergedTree = true).assertExists()
@@ -50,6 +58,37 @@ class ReaderRowProgressTest {
         composeRule.onNode(hasContentDescription("Maya, 64 percent")).assertExists()
     }
 
+    // Progress alone says someone is partway through, not that they are listening right now.
+    @Test
+    fun `a reading row that is not live says Listening, with the bar, never Listening now`() {
+        composeRule.setContent {
+            WithAvatarDependencies { ReaderRow(reader = row("Priya", 20), onUserClick = {}) }
+        }
+        composeRule.onNodeWithText("Listening", useUnmergedTree = true).assertExists()
+        composeRule.onAllNodesWithText("Listening now", useUnmergedTree = true).assertCountEquals(0)
+        composeRule
+            .onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo), useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .size shouldBe 1
+    }
+
+    @Test
+    fun `the header counts readers partway through as N reading`() {
+        composeRule.setContent {
+            WithAvatarDependencies {
+                BookReadersContent(
+                    readers = listOf(row("Maya", 10), row("Priya", 20)),
+                    readingCount = 2,
+                    totalCount = 2,
+                    isCard = true,
+                    onUserClick = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("2 reading").assertExists()
+        composeRule.onAllNodesWithText("listening now", substring = true).assertCountEquals(0)
+    }
+
     @Test
     fun `six readers show three rows and See all 6 readers`() {
         var seeAll = false
@@ -57,7 +96,7 @@ class ReaderRowProgressTest {
             WithAvatarDependencies {
                 BookReadersContent(
                     readers = List(6) { row("R$it", 10) }.take(3),
-                    listeningNowCount = 6,
+                    readingCount = 6,
                     totalCount = 6,
                     isCard = true,
                     onUserClick = {},

@@ -564,6 +564,7 @@ One beautiful library.</string>
     <string name="book_detail_rating_updated_yesterday">Updated yesterday</string>
     <string name="book_detail_rating_yours">Your rating</string>
     <string name="book_detail_read_by">Read by</string>
+    <string name="book_detail_reader_listening">Listening</string>
     <string name="book_detail_reader_listening_now">Listening now</string>
     <string name="book_detail_reader_view_profile">View profile</string>
     <string name="book_detail_readers">Readers</string>
@@ -578,11 +579,11 @@ One beautiful library.</string>
     <string name="book_detail_readers_finished">Finished %1$s</string>
     <string name="book_detail_readers_finished_also_on_hardcover">Finished %1$s, also on Hardcover</string>
     <string name="book_detail_readers_hardcover">Hardcover</string>
-    <string name="book_detail_readers_listening_now">%1$d listening now</string>
     <string name="book_detail_readers_note">“%1$s”</string>
     <string name="book_detail_readers_rated">Rated</string>
     <string name="book_detail_readers_read">Read %1$s</string>
     <string name="book_detail_readers_read_on_hardcover">Read %1$s on Hardcover</string>
+    <string name="book_detail_readers_reading">%1$d reading</string>
     <string name="book_detail_readers_you">%1$s (You)</string>
     <string name="book_detail_released">Released</string>
     <string name="book_detail_remove_download_short">Remove</string>

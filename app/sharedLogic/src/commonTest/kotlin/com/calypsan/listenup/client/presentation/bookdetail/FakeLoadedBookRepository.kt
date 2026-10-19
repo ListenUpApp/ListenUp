@@ -5,13 +5,16 @@ import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emptyFlow
 
-/** The player's loaded book for Book Detail specs: [loadedBookId] is the whole of it; nothing is loaded by default. */
+/**
+ * The player's loaded book for Book Detail specs: [loadedBookId] for Book Detail, [loaded] (whether it is playing) for
+ * Readers. Nothing is loaded by default.
+ */
 internal class FakeLoadedBookRepository(
     val loadedBookId: MutableStateFlow<BookId?> = MutableStateFlow(null),
+    val loaded: MutableStateFlow<LoadedBook> = MutableStateFlow(LoadedBook.NothingLoaded),
 ) : LoadedBookRepository {
-    override fun observe(): Flow<LoadedBook> = emptyFlow()
+    override fun observe(): Flow<LoadedBook> = loaded
 
     override fun observeLoadedBookId(): Flow<BookId?> = loadedBookId
 

@@ -387,6 +387,7 @@ internal val bookPresentationModule =
             com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel(
                 repo = get(),
                 bookId = params.get(),
+                loadedBooks = get(),
             )
         }
         factory { params ->

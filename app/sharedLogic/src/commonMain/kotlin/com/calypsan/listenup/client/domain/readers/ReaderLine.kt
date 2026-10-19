@@ -13,9 +13,14 @@ data class ReaderLine(
 
 /** What a [ReaderLine] is reporting about its person: mid-book, or done with it. */
 sealed interface ReaderLineKind {
-    /** The person is currently reading; [progressPct] is known when non-null. */
+    /**
+     * The person is partway through; [progressPct] is known when non-null. [isLive] only for you, while the player
+     * is playing this book: the one reader we know is listening right now ("Listening now"). Everyone else's
+     * progress says they are reading ("Listening"), never that they are live.
+     */
     data class Reading(
         val progressPct: Int?,
+        val isLive: Boolean = false,
     ) : ReaderLineKind
 
     /**
@@ -46,9 +51,13 @@ sealed interface ReaderLineKind {
  * are currently reading, plus one line per finish — [ReaderLineKind.Finished] for ListenUp's,
  * [ReaderLineKind.FinishedOnHardcover] for a read pulled from Hardcover — then lines for people who
  * only rated. Ordering: all reading lines first, then all finished lines newest-first across readers
- * and both kinds, then rated-only lines. A person's rating rides on their first line.
+ * and both kinds, then rated-only lines. A person's rating rides on their first line. Your reading line is live when
+ * [youAreLive] (the player is playing this book); no one else's ever is.
  */
-fun flattenToLines(readers: List<Reader>): List<ReaderLine> {
+fun flattenToLines(
+    readers: List<Reader>,
+    youAreLive: Boolean = false,
+): List<ReaderLine> {
     val reading =
         readers
             .filter { it.currentProgressPct != null }
@@ -57,7 +66,7 @@ fun flattenToLines(readers: List<Reader>): List<ReaderLine> {
                     userId = reader.userId,
                     name = reader.displayName,
                     isYou = reader.isYou,
-                    kind = ReaderLineKind.Reading(reader.currentProgressPct),
+                    kind = ReaderLineKind.Reading(reader.currentProgressPct, isLive = youAreLive && reader.isYou),
                 )
             }
     val finished =
