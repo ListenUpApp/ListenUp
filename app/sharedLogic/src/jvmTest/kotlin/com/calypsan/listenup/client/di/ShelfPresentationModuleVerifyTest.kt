@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
+import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
@@ -24,6 +26,8 @@ import org.koin.test.verify.verify
  *  - [UpdateShelfUseCase] — owned by `shelfModule`.
  *  - [DeleteShelfUseCase] — owned by `shelfModule`.
  *  - [ShelfRepository] — owned by `shelfModule`.
+ *  - [UserRepository] — owned by the data repository module.
+ *  - [SyncRepository] — owned by the sync module.
  *  - [ErrorBus] — owned by `appCoreModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
@@ -41,6 +45,8 @@ class ShelfPresentationModuleVerifyTest :
                         UpdateShelfUseCase::class,
                         DeleteShelfUseCase::class,
                         ShelfRepository::class,
+                        UserRepository::class,
+                        SyncRepository::class,
                         ErrorBus::class,
                     ),
             )
